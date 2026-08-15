@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+
+  
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Financeiro do Caixa</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/vendor/phosphor/src/regular/style.css">
+  <link rel="stylesheet" href="/vendor/phosphor/src/bold/style.css">
+  <link rel="stylesheet" href="/vendor/phosphor/src/fill/style.css">
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100vh !important;
+      height: 100dvh !important;
+      overflow: hidden !important;
+      background: #f8fafc;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    }
+    .app-container {
+      display: flex;
+      flex-direction: row;
+      width: 100vw;
+      height: 100vh;
+      height: 100dvh;
+      overflow: hidden;
+      background: #f8fafc;
+    }
+    aside.sidebar {
+      width: 250px;
+      background: #ffffff;
+      border-right: 1px solid #e2e8f0;
+      display: flex;
+      flex-direction: column;
+      padding: 20px 16px;
+      transition: all 0.3s ease;
+      flex-shrink: 0;
+      overflow-y: auto;
+    }
+    aside.sidebar.collapsed {
+      width: 70px;
+    }
+    aside.sidebar.collapsed .sidebar-nav .nav-item span,
+    aside.sidebar.collapsed .sidebar-header h2 {
+      display: none;
+    }
+    aside.sidebar.collapsed .nav-item {
+      justify-content: center;
+      padding: 12px;
+    }
+    aside.sidebar.collapsed .nav-item i {
+      margin-right: 0;
+    }
+    .sidebar-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 30px;
+    }
+    .sidebar-header h2 {
+      font-size: 18px;
+      font-weight: 800;
+      color: #0f172a;
+      margin: 0;
+    }
+    .menu-icon {
+      font-size: 24px;
+      color: #fc4b15;
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 6px;
+    }
+    .menu-icon:hover {
+      background: #f1f5f9;
+    }
+    .sidebar-nav {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .nav-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 18px;
+      border-radius: 12px;
+      color: #64748b;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 14px;
+      transition: all 0.2s;
+    }
+    .nav-item:hover {
+      background: #f1f5f9;
+      color: #0f172a;
+    }
+    .nav-item.active {
+      background: #fff7ed;
+      color: #fc4b15;
+      font-weight: 700;
+    }
+    .nav-item i {
+      font-size: 18px;
+    }
+    main.main-content {
+      flex: 1;
+      width: 100%;
+      overflow-y: auto;
+      padding: 32px 40px;
+      position: relative;
+    }
+    main.main-content > div {
+      width: 100%;
+    }
+
+    @media print {
+      body * {
+        visibility: hidden;
+      }
+      #fechamento-print-area.print-active, #fechamento-print-area.print-active *,
+      #relatorio-print-area.print-active, #relatorio-print-area.print-active * {
+        visibility: visible;
+      }
+      #fechamento-print-area.print-active, #relatorio-print-area.print-active {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        display: block !important;
+      }
+      .modal-actions {
+        display: none !important;
+      }
+    }
+
+    /* REFORMULAÇÃO RESPONSIVA PARA DISPOSITIVOS MÓVEIS (FINANCEIRO & RELATÓRIOS) */
+    @media (max-width: 768px) {
+      .app-container {
+        flex-direction: column !important;
+        height: 100vh !important;
+        height: 100dvh !important;
+        overflow: hidden !important;
+      }
+
+      aside.sidebar {
+        width: 100% !important;
+        height: auto !important;
+        flex-direction: row !important;
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+        padding: 8px 10px !important;
+        gap: 6px !important;
+        flex-shrink: 0 !important;
+        background: #ffffff !important;
+        border-right: none !important;
+        border-bottom: 1px solid #e2e8f0 !important;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .sidebar-header {
+        display: none !important;
+      }
+
+      .sidebar-nav {
+        flex-direction: row !important;
+        gap: 6px !important;
+        white-space: nowrap !important;
+        width: 100% !important;
+      }
+
+      .nav-item {
+        padding: 6px 14px !important;
+        font-size: 12.5px !important;
+        border-radius: 20px !important;
+        background: #f1f5f9 !important;
+        white-space: nowrap !important;
+      }
+
+      .nav-item.active {
+        background: #fc4b15 !important;
+        color: #ffffff !important;
+        font-weight: 700 !important;
+      }
+
+      main.main-content {
+        padding: 14px !important;
+        width: 100% !important;
+        flex: 1 !important;
+        height: calc(100vh - 60px) !important;
+        overflow-y: auto !important;
+        box-sizing: border-box !important;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      /* Título e Botões de Ação do Topo */
+      main.main-content > div > div:first-child,
+      #section-resumo-caixa > div:first-child,
+      #section-relatorio-avancado > div:first-child {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 12px !important;
+        margin-bottom: 16px !important;
+      }
+
+      h1 {
+        font-size: 18px !important;
+        line-height: 1.25 !important;
+        word-break: break-word !important;
+      }
+
+      #btn-fechar-caixa-oficial,
+      #btn-exportar-relatorio {
+        width: 100% !important;
+        justify-content: center !important;
+        padding: 10px 14px !important;
+        font-size: 13px !important;
+      }
+
+      /* Grids do Resumo de Caixa e KPIs do Relatório */
+      #section-resumo-caixa > div:nth-child(2),
+      #section-relatorio-avancado > div:nth-child(3) {
+        grid-template-columns: 1fr !important;
+        gap: 12px !important;
+      }
+
+      /* Botões de Sangria e Suprimento */
+      #section-resumo-caixa > div:nth-child(3) {
+        flex-direction: column !important;
+        gap: 10px !important;
+      }
+
+      #btn-sangria, #btn-suprimento {
+        width: 100% !important;
+        justify-content: center !important;
+      }
+
+      /* Filtros de Busca do Relatório Avançado */
+      #section-relatorio-avancado > div:nth-child(2) {
+        padding: 14px !important;
+      }
+
+      #section-relatorio-avancado > div:nth-child(2) > div {
+        grid-template-columns: 1fr !important;
+        gap: 12px !important;
+      }
+
+      #section-relatorio-avancado input,
+      #section-relatorio-avancado select,
+      #section-relatorio-avancado button {
+        width: 100% !important;
+        box-sizing: border-box !important;
+        font-size: 14px !important;
+      }
+
+      /* Tabelas de Movimentação e Relatórios com Rolagem Tátil */
+      .tab-table-scroll,
+      #section-resumo-caixa > div:last-child,
+      #section-relatorio-avancado > div:last-child {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+        width: 100% !important;
+        max-width: 100% !important;
+      }
+
+      .tab-table-scroll table,
+      #section-resumo-caixa > div:last-child table,
+      #section-relatorio-avancado > div:last-child table {
+        min-width: 600px !important;
+      }
+
+      /* Enviar ao Contador — Mobile */
+      #section-contador > div:last-child {
+        grid-template-columns: 1fr !important;
+      }
+
+      #section-contador .modal-actions,
+      #section-contador > div:first-child > div:last-child {
+        flex-direction: column !important;
+        width: 100% !important;
+      }
+
+      #section-contador > div:first-child > div:last-child button {
+        width: 100% !important;
+        justify-content: center !important;
+      }
+
+      #tab-btn-contador {
+        font-size: 12px !important;
+        padding: 6px 10px !important;
+      }
+    }
+  </style>
+  <script src="/locales.js"></script>
+  <script src="/broadcast.js"></script>
+  <script src="/i18n.js"></script>
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#fc4b15">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Chef Cozinha">
+  <link rel="apple-touch-icon" href="/icons/icon-192.svg">
+  <script src="/socket.io.min.js"></script>
+  <script src="financeiro.js"></script>
+</head>
+<body>
+  <div class="app-container">
+    <aside class="sidebar">
+      <div class="sidebar-header" style="padding: 16px; margin-bottom: 20px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+          <i class="ph ph-list menu-icon" style="font-size: 24px; color: #fc4b15; cursor: pointer;"></i>
+        </div>
+        <h2>Chef Cozinha</h2>
+      </div>
+      <nav class="sidebar-nav" style="display: flex; flex-direction: column; flex: 1; gap: 4px;">
+        <a href="index.html" class="nav-item"><i class="ph ph-house"></i> <span>Início / PDV</span></a>
+        <a href="financeiro.html" class="nav-item active"><i class="ph ph-currency-dollar"></i> <span>Financeiro</span></a>
+        <a href="dashboard.html" class="nav-item"><i class="ph ph-chart-pie-slice"></i> <span>Dashboard</span></a>
+        <a href="fila-pedidos.html" class="nav-item"><i class="ph ph-fire"></i> <span>Cozinha</span></a>
+        <a href="garcom.html" class="nav-item"><i class="ph ph-device-mobile"></i> <span>Garçom</span></a>
+        <a href="cadastro.html" class="nav-item"><i class="ph ph-package"></i> <span>Cadastros</span></a>
+        <a href="cardapio.html" class="nav-item"><i class="ph ph-book-open"></i> <span>Cardápio</span></a>
+        <a href="configuracoes.html" class="nav-item"><i class="ph ph-gear"></i> <span>Configurações</span></a>
+        
+        <a href="painel-funcionario.html" class="nav-item" style="margin-top: auto; color: #ef4444;"><i class="ph ph-sign-out"></i> <span>Sair</span></a>
+      </nav>
+    </aside>
+
+    <main class="main-content">
+      <!-- Tab Header Navigation -->
+      <div style="display: flex; gap: 8px; margin-bottom: 24px; border-bottom: 1px solid #eee; padding-bottom: 12px; overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch;">
+        <button id="tab-btn-resumo" style="background: transparent; border: none; font-size: 15px; font-weight: 600; padding: 8px 14px; cursor: pointer; color: #fc4b15; border-bottom: 3px solid #fc4b15; outline: none; transition: all 0.2s; white-space: nowrap; flex-shrink: 0;">
+          <i class="ph ph-receipt" style="margin-right: 4px;"></i> Resumo do Turno
+        </button>
+        <button id="tab-btn-relatorio" style="background: transparent; border: none; font-size: 15px; font-weight: 600; padding: 8px 14px; cursor: pointer; color: #777; border-bottom: 3px solid transparent; outline: none; transition: all 0.2s; white-space: nowrap; flex-shrink: 0;">
+          <i class="ph ph-chart-bar" style="margin-right: 4px;"></i> Relatório Avançado
+        </button>
+        <button id="tab-btn-contador" style="background: transparent; border: none; font-size: 15px; font-weight: 600; padding: 8px 14px; cursor: pointer; color: #777; border-bottom: 3px solid transparent; outline: none; transition: all 0.2s; white-space: nowrap; flex-shrink: 0;">
+          <i class="ph ph-paper-plane-tilt" style="margin-right: 4px;"></i> Enviar ao Contador
+        </button>
+      </div>
+
+      <!-- Section 1: Cashier Shift Dashboard (Resumo do Turno) -->
+      <div id="section-resumo-caixa" style="display: block;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+          <h1>Dashboard Financeiro</h1>
+          <button id="btn-fechar-caixa-oficial" style="background: #eb5757; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+            <i class="ph ph-lock-key"></i> FECHAR TURNO E IMPRIMIR
+          </button>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; margin-bottom: 24px;">
+          <div style="background: white; padding: 18px; border-radius: 12px; border: 1px solid #eee; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+            <div style="color: gray; font-size: 13px;">Fundo de Troco</div>
+            <div id="card-troco" style="font-size: 22px; font-weight: bold; color: #333; margin-top: 4px;">R$ 0,00</div>
+          </div>
+          <div style="background: white; padding: 18px; border-radius: 12px; border: 1px solid #eee; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+            <div style="color: gray; font-size: 13px;">Dinheiro em Gaveta</div>
+            <div id="card-gaveta" style="font-size: 22px; font-weight: bold; color: #3ab55b; margin-top: 4px;">R$ 0,00</div>
+          </div>
+          <div style="background: white; padding: 18px; border-radius: 12px; border: 1px solid #eee; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+            <div style="color: gray; font-size: 13px;">Total Faturado</div>
+            <div id="card-faturado" style="font-size: 22px; font-weight: bold; color: #fc4b15; margin-top: 4px;">R$ 0,00</div>
+          </div>
+          <div style="background: #f0fdf4; padding: 18px; border-radius: 12px; border: 1px solid #bbf7d0; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+            <div style="color: #166534; font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 4px;"><i class="ph ph-qr-code"></i> PIX</div>
+            <div id="card-pix" style="font-size: 22px; font-weight: bold; color: #15803d; margin-top: 4px;">R$ 0,00</div>
+          </div>
+          <div style="background: #eff6ff; padding: 18px; border-radius: 12px; border: 1px solid #bfdbfe; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+            <div style="color: #1e40af; font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 4px;"><i class="ph ph-credit-card"></i> Cartão Débito</div>
+            <div id="card-debito" style="font-size: 22px; font-weight: bold; color: #1d4ed8; margin-top: 4px;">R$ 0,00</div>
+          </div>
+          <div style="background: #f5f3ff; padding: 18px; border-radius: 12px; border: 1px solid #ddd6fe; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+            <div style="color: #5b21b6; font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 4px;"><i class="ph ph-credit-card"></i> Cartão Crédito</div>
+            <div id="card-credito" style="font-size: 22px; font-weight: bold; color: #6d28d9; margin-top: 4px;">R$ 0,00</div>
+          </div>
+          <div style="background: #fffbe6; padding: 18px; border-radius: 12px; border: 1px solid #ffe58f; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+            <div style="color: #873800; font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 4px;"><i class="ph ph-receipt"></i> Fiado / Na Conta</div>
+            <div id="card-fiado" style="font-size: 22px; font-weight: bold; color: #d46b08; margin-top: 4px;">R$ 0,00</div>
+          </div>
+          <div style="background: #fef2f2; padding: 18px; border-radius: 12px; border: 1px solid #fecaca; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+            <div style="color: #991b1b; font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 4px;"><i class="ph ph-percent"></i> Descontos</div>
+            <div id="card-descontos" style="font-size: 22px; font-weight: bold; color: #dc2626; margin-top: 4px;">R$ 0,00</div>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 16px; margin-bottom: 24px;">
+          <button id="btn-sangria" style="background: #fff; border: 1px solid #eb5757; color: #eb5757; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s;">
+            <i class="ph ph-arrow-down"></i> Registrar Sangria (Retirada)
+          </button>
+          <button id="btn-suprimento" style="background: #fff; border: 1px solid #3ab55b; color: #3ab55b; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s;">
+            <i class="ph ph-arrow-up"></i> Registrar Suprimento (Entrada)
+          </button>
+        </div>
+
+        <!-- DRE — DEMONSTRAÇÃO DO RESULTADO DO EXERCÍCIO & LUCRO REAL -->
+        <div style="background: white; border-radius: 14px; padding: 22px; border: 1px solid #e2e8f0; margin-bottom: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.03);">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid #f1f5f9; padding-bottom: 12px;">
+            <h3 style="margin: 0; color: #0f172a; font-size: 17px; display: flex; align-items: center; gap: 8px;">
+              <i class="ph ph-chart-pie-slice" style="color: #2563eb; font-size: 22px;"></i> DRE — Demonstração do Lucro Real do Turno
+            </h3>
+            <span id="dre-margem-badge" style="background: #f1f5f9; color: #475569; padding: 6px 14px; border-radius: 99px; font-weight: 800; font-size: 13px; border: 1px solid #cbd5e1;">Margem: 0.0%</span>
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
+            <!-- DRE Waterfall Breakdown -->
+            <div style="background: #f8fafc; border-radius: 10px; padding: 16px; border: 1px solid #e2e8f0;">
+              <table style="width: 100%; border-collapse: collapse; font-size: 13px; color: #334155;">
+                <tr style="border-bottom: 1px solid #e2e8f0; height: 32px;">
+                  <td style="font-weight: 600;">(+) Receita Bruta de Vendas</td>
+                  <td id="dre-faturamento-bruto" style="text-align: right; font-weight: 700; color: #0f172a;">R$ 0,00</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #e2e8f0; height: 32px;">
+                  <td style="color: #dc2626;">(-) Descontos Concedidos</td>
+                  <td id="dre-descontos" style="text-align: right; font-weight: 600; color: #dc2626;">R$ 0,00</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #cbd5e1; height: 34px; background: #f1f5f9;">
+                  <td style="font-weight: 700; color: #1e293b;">(=) Receita Operacional Líquida</td>
+                  <td id="dre-receita-liquida" style="text-align: right; font-weight: 800; color: #0284c7;">R$ 0,00</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #e2e8f0; height: 32px;">
+                  <td style="color: #d97706;">(-) CMV (Custo dos Insumos)</td>
+                  <td id="dre-cmv" style="text-align: right; font-weight: 600; color: #d97706;">R$ 0,00</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #e2e8f0; height: 32px;">
+                  <td style="color: #7c3aed;">(-) Taxas Estimadas de Cartão</td>
+                  <td id="dre-taxas" style="text-align: right; font-weight: 600; color: #7c3aed;">R$ 0,00</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #e2e8f0; height: 32px;">
+                  <td style="color: #b91c1c;">(-) Sangrias / Despesas de Caixa</td>
+                  <td id="dre-sangrias" style="text-align: right; font-weight: 600; color: #b91c1c;">R$ 0,00</td>
+                </tr>
+                <tr style="height: 38px; background: #ecfdf5;">
+                  <td style="font-weight: 800; color: #065f46; font-size: 14px;">(=) LUCRO LÍQUIDO REAL</td>
+                  <td id="dre-lucro-liquido" style="text-align: right; font-weight: 900; color: #047857; font-size: 16px;">R$ 0,00</td>
+                </tr>
+              </table>
+            </div>
+
+            <!-- Key Metrics Cards -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+              <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 14px; display: flex; flex-direction: column; justify-content: center;">
+                <div style="color: #166534; font-size: 12px; font-weight: 700;"><i class="ph ph-trend-up"></i> Lucro Líquido Real</div>
+                <div id="dre-card-lucro" style="font-size: 22px; font-weight: 900; color: #15803d; margin-top: 4px;">R$ 0,00</div>
+                <div style="font-size: 11px; color: #166534; margin-top: 2px;">Após CMV, taxas e despesas</div>
+              </div>
+              <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 14px; display: flex; flex-direction: column; justify-content: center;">
+                <div style="color: #1e40af; font-size: 12px; font-weight: 700;"><i class="ph ph-percent"></i> Margem Líquida</div>
+                <div id="dre-card-margem" style="font-size: 22px; font-weight: 900; color: #1d4ed8; margin-top: 4px;">0.0%</div>
+                <div style="font-size: 11px; color: #1e40af; margin-top: 2px;">Eficiência financeira do turno</div>
+              </div>
+              <div style="background: #fffbe6; border: 1px solid #ffe58f; border-radius: 10px; padding: 14px; display: flex; flex-direction: column; justify-content: center;">
+                <div style="color: #873800; font-size: 12px; font-weight: 700;"><i class="ph ph-package"></i> Custo de Mercadorias (CMV)</div>
+                <div id="dre-card-cmv" style="font-size: 20px; font-weight: 800; color: #d46b08; margin-top: 4px;">R$ 0,00</div>
+              </div>
+              <div style="background: #f5f3ff; border: 1px solid #ddd6fe; border-radius: 10px; padding: 14px; display: flex; flex-direction: column; justify-content: center;">
+                <div style="color: #5b21b6; font-size: 12px; font-weight: 700;"><i class="ph ph-credit-card"></i> Taxas de Maquininha</div>
+                <div id="dre-card-taxas" style="font-size: 20px; font-weight: 800; color: #6d28d9; margin-top: 4px;">R$ 0,00</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="background: white; padding: 24px; border-radius: 12px; border: 1px solid #eee; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+          <h3 style="margin-bottom: 16px; margin-top: 0; padding-bottom: 16px; border-bottom: 1px solid #eee;">Histórico de Movimentações</h3>
+          <table style="width: 100%; border-collapse: collapse; text-align: left;">
+            <thead>
+              <tr style="border-bottom: 2px solid #eee; color: gray;">
+                <th style="padding: 12px;">ID</th>
+                <th style="padding: 12px;">Tipo</th>
+                <th style="padding: 12px;">Descrição</th>
+                <th style="padding: 12px;">Forma Pagt.</th>
+                <th style="padding: 12px;">Data / Hora</th>
+                <th style="padding: 12px;">Valor</th>
+              </tr>
+            </thead>
+            <tbody id="tabela-movimentacoes">
+               <!-- JS Populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Section 2: Relatório Avançado -->
+      <div id="section-relatorio-avancado" style="display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+          <h1>Relatório de Vendas e Pagamentos</h1>
+          <button id="btn-exportar-relatorio" style="background: #fc4b15; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+            <i class="ph ph-export"></i> EXPORTAR DADOS
+          </button>
+        </div>
+
+        <!-- Filters Section -->
+        <div style="background: white; padding: 24px; border-radius: 16px; border: 1px solid #eef2f6; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05), 0 4px 6px -2px rgba(0,0,0,0.02); margin-bottom: 24px;">
+          <h3 style="margin-top: 0; margin-bottom: 16px; color: #1a202c; font-weight: 600;">Filtros de Busca</h3>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; align-items: flex-end;">
+            <div>
+              <label style="display: block; font-size: 13px; color: #718096; margin-bottom: 6px; font-weight: 500;">Data Inicial</label>
+              <input type="date" id="relatorio-data-inicial" style="width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 14px; font-family: inherit; outline: none; box-sizing: border-box; transition: border-color 0.2s;" onfocus="this.style.borderColor='#fc4b15'" onblur="this.style.borderColor='#e2e8f0'">
+            </div>
+            <div>
+              <label style="display: block; font-size: 13px; color: #718096; margin-bottom: 6px; font-weight: 500;">Data Final</label>
+              <input type="date" id="relatorio-data-final" style="width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 14px; font-family: inherit; outline: none; box-sizing: border-box; transition: border-color 0.2s;" onfocus="this.style.borderColor='#fc4b15'" onblur="this.style.borderColor='#e2e8f0'">
+            </div>
+            <div>
+              <label style="display: block; font-size: 13px; color: #718096; margin-bottom: 6px; font-weight: 500;">Agrupamento</label>
+              <select id="relatorio-agrupamento" style="width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 14px; font-family: inherit; outline: none; box-sizing: border-box; background: white; transition: border-color 0.2s;" onfocus="this.style.borderColor='#fc4b15'" onblur="this.style.borderColor='#e2e8f0'">
+                <option value="hour">Por Hora</option>
+                <option value="day" selected>Por Dia</option>
+                <option value="week">Por Semana</option>
+                <option value="month">Por Mês</option>
+                <option value="year">Por Ano</option>
+              </select>
+            </div>
+            <div>
+              <label style="display: block; font-size: 13px; color: #718096; margin-bottom: 6px; font-weight: 500;">Cliente</label>
+              <select id="relatorio-cliente" style="width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 14px; font-family: inherit; outline: none; box-sizing: border-box; background: white; transition: border-color 0.2s;" onfocus="this.style.borderColor='#fc4b15'" onblur="this.style.borderColor='#e2e8f0'">
+                <option value="">Todos os Clientes</option>
+              </select>
+            </div>
+            <div>
+              <label style="display: block; font-size: 13px; color: #718096; margin-bottom: 6px; font-weight: 500;">Garçom</label>
+              <select id="relatorio-garcom" style="width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 14px; font-family: inherit; outline: none; box-sizing: border-box; background: white; transition: border-color 0.2s;" onfocus="this.style.borderColor='#fc4b15'" onblur="this.style.borderColor='#e2e8f0'">
+                <option value="">Todos os Garçons</option>
+              </select>
+            </div>
+            <div>
+              <label style="display: block; font-size: 13px; color: #718096; margin-bottom: 6px; font-weight: 500;">Mesa / Comanda</label>
+              <input type="text" id="relatorio-mesa-comanda" list="relatorio-mesa-comanda-list" placeholder="Ex: Mesa 3, Comanda 10" style="width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 14px; font-family: inherit; outline: none; box-sizing: border-box; transition: border-color 0.2s;" onfocus="this.style.borderColor='#fc4b15'" onblur="this.style.borderColor='#e2e8f0'">
+              <datalist id="relatorio-mesa-comanda-list"></datalist>
+            </div>
+            <div>
+              <button id="btn-atualizar-relatorio" style="width: 100%; background: #fc4b15; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s; box-shadow: 0 4px 6px -1px rgba(252, 75, 21, 0.2);" onmouseover="this.style.background='#e03e0d'; this.style.boxShadow='0 10px 15px -3px rgba(252, 75, 21, 0.3)';" onmouseout="this.style.background='#fc4b15'; this.style.boxShadow='0 4px 6px -1px rgba(252, 75, 21, 0.2)';">
+                <i class="ph ph-funnel"></i> Filtrar Relatório
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- KPIs Row -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px;">
+          <!-- Card 1: Faturamento -->
+          <div style="background: white; padding: 20px; border-radius: 16px; border: 1px solid #eef2f6; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05), 0 4px 6px -2px rgba(0,0,0,0.02); display: flex; justify-content: space-between; align-items: flex-start; transition: transform 0.2s, box-shadow 0.2s; cursor: default;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 20px 25px -5px rgba(0,0,0,0.08), 0 10px 10px -5px rgba(0,0,0,0.04)';" onmouseout="this.style.transform='none'; this.style.boxShadow='0 10px 15px -3px rgba(0,0,0,0.05), 0 4px 6px -2px rgba(0,0,0,0.02)';">
+            <div>
+              <div style="color: #718096; font-size: 14px; font-weight: 500;">Total Vendas</div>
+              <div id="rep-kpi-faturamento" style="font-size: 28px; font-weight: 700; color: #1a202c; margin-top: 8px;">R$ 0,00</div>
+            </div>
+            <div style="background: #e6fffa; color: #319795; padding: 12px; border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+              <i class="ph ph-trend-up" style="font-size: 24px;"></i>
+            </div>
+          </div>
+          <!-- Card 2: Itens Vendidos -->
+          <div style="background: white; padding: 20px; border-radius: 16px; border: 1px solid #eef2f6; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05), 0 4px 6px -2px rgba(0,0,0,0.02); display: flex; justify-content: space-between; align-items: flex-start; transition: transform 0.2s, box-shadow 0.2s; cursor: default;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 20px 25px -5px rgba(0,0,0,0.08), 0 10px 10px -5px rgba(0,0,0,0.04)';" onmouseout="this.style.transform='none'; this.style.boxShadow='0 10px 15px -3px rgba(0,0,0,0.05), 0 4px 6px -2px rgba(0,0,0,0.02)';">
+            <div>
+              <div style="color: #718096; font-size: 14px; font-weight: 500;">Itens Vendidos</div>
+              <div id="rep-kpi-itens" style="font-size: 28px; font-weight: 700; color: #1a202c; margin-top: 8px;">0</div>
+            </div>
+            <div style="background: #ebf8ff; color: #3182ce; padding: 12px; border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+              <i class="ph ph-package" style="font-size: 24px;"></i>
+            </div>
+          </div>
+          <!-- Card 3: Pedidos -->
+          <div style="background: white; padding: 20px; border-radius: 16px; border: 1px solid #eef2f6; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05), 0 4px 6px -2px rgba(0,0,0,0.02); display: flex; justify-content: space-between; align-items: flex-start; transition: transform 0.2s, box-shadow 0.2s; cursor: default;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 20px 25px -5px rgba(0,0,0,0.08), 0 10px 10px -5px rgba(0,0,0,0.04)';" onmouseout="this.style.transform='none'; this.style.boxShadow='0 10px 15px -3px rgba(0,0,0,0.05), 0 4px 6px -2px rgba(0,0,0,0.02)';">
+            <div>
+              <div style="color: #718096; font-size: 14px; font-weight: 500;">Pedidos Realizados</div>
+              <div id="rep-kpi-pedidos" style="font-size: 28px; font-weight: 700; color: #1a202c; margin-top: 8px;">0</div>
+            </div>
+            <div style="background: #fffaf0; color: #dd6b20; padding: 12px; border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+              <i class="ph ph-receipt" style="font-size: 24px;"></i>
+            </div>
+          </div>
+          <!-- Card 4: Ticket Médio -->
+          <div style="background: white; padding: 20px; border-radius: 16px; border: 1px solid #eef2f6; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05), 0 4px 6px -2px rgba(0,0,0,0.02); display: flex; justify-content: space-between; align-items: flex-start; transition: transform 0.2s, box-shadow 0.2s; cursor: default;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 20px 25px -5px rgba(0,0,0,0.08), 0 10px 10px -5px rgba(0,0,0,0.04)';" onmouseout="this.style.transform='none'; this.style.boxShadow='0 10px 15px -3px rgba(0,0,0,0.05), 0 4px 6px -2px rgba(0,0,0,0.02)';">
+            <div>
+              <div style="color: #718096; font-size: 14px; font-weight: 500;">Ticket Médio</div>
+              <div id="rep-kpi-ticket" style="font-size: 28px; font-weight: 700; color: #1a202c; margin-top: 8px;">R$ 0,00</div>
+            </div>
+            <div style="background: #faf5ff; color: #805ad5; padding: 12px; border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+              <i class="ph ph-ticket" style="font-size: 24px;"></i>
+            </div>
+          </div>
+        </div>
+
+        <!-- Charts Row -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;">
+          <!-- Payment Breakdown -->
+          <div style="background: white; padding: 24px; border-radius: 16px; border: 1px solid #eef2f6; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05), 0 4px 6px -2px rgba(0,0,0,0.02); display: flex; flex-direction: column;">
+            <h3 style="margin-top: 0; margin-bottom: 16px; color: #1a202c; font-weight: 600;">Meios de Pagamento (Filtros Aplicados)</h3>
+            <div id="rep-pagamentos-container" style="display: flex; flex-direction: column; gap: 14px; flex-grow: 1; justify-content: center;">
+              <!-- JS Populated Progress Bars -->
+            </div>
+          </div>
+
+          <!-- Sales Trend Chart -->
+          <div style="background: white; padding: 24px; border-radius: 16px; border: 1px solid #eef2f6; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05), 0 4px 6px -2px rgba(0,0,0,0.02);">
+            <h3 style="margin-top: 0; margin-bottom: 16px; color: #1a202c; font-weight: 600;">Desempenho de Vendas</h3>
+            <div id="rep-grafico-container" style="height: 200px; display: flex; align-items: flex-end; gap: 12px; padding: 10px 0; border-left: 2px solid #e2e8f0; border-bottom: 2px solid #e2e8f0; overflow-x: auto;">
+              <!-- JS Populated CSS Bar Chart -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Row 3: Advanced Business Metrics -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; margin-bottom: 24px;">
+          <!-- Card 1: Categorias e Setores -->
+          <div style="background: white; padding: 24px; border-radius: 16px; border: 1px solid #eef2f6; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05), 0 4px 6px -2px rgba(0,0,0,0.02); display: flex; flex-direction: column;">
+            <h3 style="margin-top: 0; margin-bottom: 16px; color: #1a202c; font-weight: 600; font-size: 15px; display: flex; align-items: center; gap: 6px;"><i class="ph ph-chart-pie" style="color: #fc4b15;"></i> Vendas por Categoria e Setor</h3>
+            <div style="margin-bottom: 15px;">
+              <strong style="font-size:11px; color:#718096; display:block; margin-bottom:8px; text-transform: uppercase; letter-spacing: 0.5px;">POR CATEGORIA</strong>
+              <div id="rep-categorias-container" style="display:flex; flex-direction:column; gap:10px;">
+                <div style="color:gray; font-size:12px; font-style:italic;">Nenhuma venda registrada.</div>
+              </div>
+            </div>
+            <div style="margin-top: auto; border-top: 1px dashed #e2e8f0; padding-top: 15px;">
+              <strong style="font-size:11px; color:#718096; display:block; margin-bottom:8px; text-transform: uppercase; letter-spacing: 0.5px;">POR SETOR DE PREPARO</strong>
+              <div id="rep-setores-container" style="display:flex; flex-direction:column; gap:10px;">
+                <div style="color:gray; font-size:12px; font-style:italic;">Nenhuma venda registrada.</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 2: Ranking de Garçons -->
+          <div style="background: white; padding: 24px; border-radius: 16px; border: 1px solid #eef2f6; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05), 0 4px 6px -2px rgba(0,0,0,0.02); display: flex; flex-direction: column;">
+            <h3 style="margin-top: 0; margin-bottom: 16px; color: #1a202c; font-weight: 600; font-size: 15px; display: flex; align-items: center; gap: 6px;"><i class="ph ph-users" style="color: #8e44ad;"></i> Desempenho da Equipe (Garçons)</h3>
+            <div id="rep-garcons-container" style="display:flex; flex-direction:column; gap:10px; flex-grow:1;">
+              <div style="color:gray; font-size:12px; font-style:italic;">Nenhum dado de garçom disponível.</div>
+            </div>
+          </div>
+
+          <!-- Card 3: Clientes VIP e Perdas -->
+          <div style="background: white; padding: 24px; border-radius: 16px; border: 1px solid #eef2f6; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05), 0 4px 6px -2px rgba(0,0,0,0.02); display: flex; flex-direction: column;">
+            <h3 style="margin-top: 0; margin-bottom: 16px; color: #1a202c; font-weight: 600; font-size: 15px; display: flex; align-items: center; gap: 6px;"><i class="ph ph-crown" style="color: #f2994a;"></i> Clientes VIP &amp; Cancelamentos</h3>
+            <div style="margin-bottom: 15px; flex-grow:1;">
+              <strong style="font-size:11px; color:#718096; display:block; margin-bottom:8px; text-transform: uppercase; letter-spacing: 0.5px;">TOP 5 CLIENTES</strong>
+              <div id="rep-clientes-vip-container" style="display:flex; flex-direction:column; gap:10px;">
+                <div style="color:gray; font-size:12px; font-style:italic;">Nenhum cliente registrado.</div>
+              </div>
+            </div>
+            <div style="background: #fdf2f2; border: 1px dashed #f8b4b4; padding: 12px; border-radius: 8px; margin-top: auto;">
+              <strong style="font-size:11px; color:#9b1c1c; display:block; margin-bottom:6px; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 4px;"><i class="ph ph-warning-octagon"></i> Perdas (Cancelados)</strong>
+              <div style="display:flex; justify-content:space-between; font-size:13px; color:#7f1d1d;">
+                <span>Pedidos Cancelados:</span>
+                <span id="rep-perdas-pedidos" style="font-weight:700;">0</span>
+              </div>
+              <div style="display:flex; justify-content:space-between; font-size:13px; color:#7f1d1d; margin-top:4px;">
+                <span>Total de Prejuízo:</span>
+                <span id="rep-perdas-valor" style="font-weight:700;">R$ 0,00</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tables Section -->
+        <div style="background: white; padding: 24px; border-radius: 16px; border: 1px solid #eef2f6; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05), 0 4px 6px -2px rgba(0,0,0,0.02);">
+          <div style="display: flex; gap: 16px; margin-bottom: 20px; border-bottom: 1px solid #e2e8f0; padding-bottom: 12px;">
+            <button id="rep-subtab-btn-produtos" style="background: transparent; border: none; font-size: 15px; font-weight: 600; cursor: pointer; color: #fc4b15; border-bottom: 2px solid #fc4b15; outline: none; padding: 8px 16px; transition: all 0.2s;">Itens Vendidos</button>
+            <button id="rep-subtab-btn-pedidos" style="background: transparent; border: none; font-size: 15px; font-weight: 600; cursor: pointer; color: #777; border-bottom: 2px solid transparent; outline: none; padding: 8px 16px; transition: all 0.2s;">Lista de Pedidos</button>
+          </div>
+
+          <!-- Table 1: Products -->
+          <div id="rep-container-produtos" style="display: block; max-height: 400px; overflow-y: auto;">
+            <table style="width: 100%; border-collapse: collapse; text-align: left;">
+              <thead>
+                <tr style="border-bottom: 2px solid #e2e8f0; color: #718096; font-size: 13px;">
+                  <th style="padding: 12px; font-weight: 600;">Produto</th>
+                  <th style="padding: 12px; text-align: center; font-weight: 600;">Quantidade</th>
+                  <th style="padding: 12px; text-align: right; font-weight: 600;">Total Recebido</th>
+                </tr>
+              </thead>
+              <tbody id="rep-tabela-produtos">
+                <!-- JS populated -->
+              </tbody>
+            </table>
+            <div style="text-align:center; color: #718096; font-size: 12px; margin-top: 10px; padding-bottom: 10px;">Exibindo os 150 itens mais vendidos do período (Limitado para performance). Totais do painel consideram 100% dos dados.</div>
+          </div>
+
+          <!-- Table 2: Detailed Orders -->
+          <div id="rep-container-pedidos" style="display: none; max-height: 400px; overflow-y: auto;">
+            <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
+              <thead>
+                <tr style="border-bottom: 2px solid #e2e8f0; color: #718096; font-size: 13px;">
+                  <th style="padding: 12px; font-weight: 600;">ID</th>
+                  <th style="padding: 12px; font-weight: 600;">Produto</th>
+                  <th style="padding: 12px; text-align: center; font-weight: 600;">Qtd</th>
+                  <th style="padding: 12px; font-weight: 600;">Mesa/Local</th>
+                  <th style="padding: 12px; font-weight: 600;">Cliente</th>
+                  <th style="padding: 12px; font-weight: 600;">Garçom</th>
+                  <th style="padding: 12px; font-weight: 600;">Data / Hora</th>
+                  <th style="padding: 12px; font-weight: 600;">Forma Pagt.</th>
+                  <th style="padding: 12px; text-align: right; font-weight: 600;">Valor</th>
+                  <th style="padding: 12px; font-weight: 600;">Status</th>
+                </tr>
+              </thead>
+              <tbody id="rep-tabela-pedidos">
+                <!-- JS populated -->
+              </tbody>
+            </table>
+            <div style="text-align:center; color: #718096; font-size: 12px; margin-top: 10px; padding-bottom: 10px;">Exibindo os 150 pedidos mais recentes do período (Limitado para performance). Totais do painel consideram 100% dos dados.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 3: Enviar ao Contador -->
+      <div id="section-contador" style="display: none;">
+        <!-- Config + Actions -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 12px;">
+          <h1 style="margin: 0;">Enviar Dados ao Contador</h1>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button id="btn-contador-whatsapp" style="background: #25d366; color: white; border: none; padding: 10px 18px; border-radius: 8px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 13px;">
+              <i class="ph ph-whatsapp-logo"></i> Enviar via WhatsApp
+            </button>
+            <button id="btn-contador-email" style="background: #3b82f6; color: white; border: none; padding: 10px 18px; border-radius: 8px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 13px;">
+              <i class="ph ph-envelope"></i> Enviar por E-mail
+            </button>
+            <button id="btn-contador-copiar" style="background: #8b5cf6; color: white; border: none; padding: 10px 18px; border-radius: 8px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 13px;">
+              <i class="ph ph-copy"></i> Copiar Texto
+            </button>
+            <button id="btn-contador-download" style="background: #4f46e5; color: white; border: none; padding: 10px 18px; border-radius: 8px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 13px;">
+              <i class="ph ph-download-simple"></i> Baixar .TXT
+            </button>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 380px 1fr; gap: 24px; align-items: start;">
+          <!-- Left: Config Panel -->
+          <div style="display: flex; flex-direction: column; gap: 16px;">
+            <!-- Contact Info -->
+            <div style="background: white; padding: 20px; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px rgba(0,0,0,0.03);">
+              <h3 style="margin: 0 0 14px 0; font-size: 15px; color: #1a202c; display: flex; align-items: center; gap: 8px;">
+                <i class="ph ph-user-circle" style="color: #3b82f6;"></i> Dados do Contador
+              </h3>
+              <div style="display: flex; flex-direction: column; gap: 10px;">
+                <div>
+                  <label style="display: block; font-size: 13px; color: #64748b; margin-bottom: 4px; font-weight: 600;">Nome do Contador</label>
+                  <input type="text" id="cnt-nome" placeholder="Ex: João da Silva Contabilidade" style="width: 100%; padding: 9px 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 13px; font-family: inherit; outline: none; box-sizing: border-box;">
+                </div>
+                <div>
+                  <label style="display: block; font-size: 13px; color: #64748b; margin-bottom: 4px; font-weight: 600;">WhatsApp do Contador</label>
+                  <input type="tel" id="cnt-whatsapp" placeholder="Ex: 11999998888" style="width: 100%; padding: 9px 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 13px; font-family: inherit; outline: none; box-sizing: border-box;">
+                </div>
+                <div>
+                  <label style="display: block; font-size: 13px; color: #64748b; margin-bottom: 4px; font-weight: 600;">E-mail do Contador</label>
+                  <input type="email" id="cnt-email" placeholder="Ex: contador@exemplo.com.br" style="width: 100%; padding: 9px 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 13px; font-family: inherit; outline: none; box-sizing: border-box;">
+                </div>
+              </div>
+            </div>
+
+            <!-- Date Range -->
+            <div style="background: white; padding: 20px; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px rgba(0,0,0,0.03);">
+              <h3 style="margin: 0 0 14px 0; font-size: 15px; color: #1a202c; display: flex; align-items: center; gap: 8px;">
+                <i class="ph ph-calendar-blank" style="color: #fc4b15;"></i> Período dos Dados
+              </h3>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <div>
+                  <label style="display: block; font-size: 12px; color: #64748b; margin-bottom: 4px; font-weight: 600;">Data Inicial</label>
+                  <input type="date" id="cnt-data-inicio" style="width: 100%; padding: 9px 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 13px; font-family: inherit; outline: none; box-sizing: border-box;">
+                </div>
+                <div>
+                  <label style="display: block; font-size: 12px; color: #64748b; margin-bottom: 4px; font-weight: 600;">Data Final</label>
+                  <input type="date" id="cnt-data-fim" style="width: 100%; padding: 9px 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 13px; font-family: inherit; outline: none; box-sizing: border-box;">
+                </div>
+              </div>
+              <button id="cnt-btn-carregar" style="width: 100%; margin-top: 12px; background: #fc4b15; color: white; border: none; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                <i class="ph ph-magnifying-glass"></i> Carregar Dados do Período
+              </button>
+            </div>
+
+            <!-- Data Checkboxes -->
+            <div style="background: white; padding: 20px; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px rgba(0,0,0,0.03);">
+              <h3 style="margin: 0 0 14px 0; font-size: 15px; color: #1a202c; display: flex; align-items: center; gap: 8px;">
+                <i class="ph ph-checkbox-square" style="color: #8b5cf6;"></i> O que Enviar
+              </h3>
+              <div style="display: flex; flex-direction: column; gap: 8px;" id="cnt-checklist">
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #334155; cursor: pointer; padding: 6px 8px; border-radius: 6px; transition: background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
+                  <input type="checkbox" id="cnt-ck-resumo" checked style="accent-color: #fc4b15; width: 16px; height: 16px;"> Resumo do Turno (Faturamento, Gaveta, Sangrias)
+                </label>
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #334155; cursor: pointer; padding: 6px 8px; border-radius: 6px; transition: background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
+                  <input type="checkbox" id="cnt-ck-kpis" checked style="accent-color: #fc4b15; width: 16px; height: 16px;"> KPIs (Total Vendas, Ticket Médio, Itens)
+                </label>
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #334155; cursor: pointer; padding: 6px 8px; border-radius: 6px; transition: background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
+                  <input type="checkbox" id="cnt-ck-pagamentos" checked style="accent-color: #fc4b15; width: 16px; height: 16px;"> Meios de Pagamento (Detalhado)
+                </label>
+                <div id="cnt-pagamentos-filtros" style="display: none; margin-left: 28px; padding: 6px 0; flex-direction: column; gap: 4px;"></div>
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #334155; cursor: pointer; padding: 6px 8px; border-radius: 6px; transition: background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
+                  <input type="checkbox" id="cnt-ck-produtos" checked style="accent-color: #fc4b15; width: 16px; height: 16px;"> Produtos Mais Vendidos
+                </label>
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #334155; cursor: pointer; padding: 6px 8px; border-radius: 6px; transition: background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
+                  <input type="checkbox" id="cnt-ck-pedidos" checked style="accent-color: #fc4b15; width: 16px; height: 16px;"> Lista Completa de Pedidos
+                </label>
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #334155; cursor: pointer; padding: 6px 8px; border-radius: 6px; transition: background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
+                  <input type="checkbox" id="cnt-ck-categorias" style="accent-color: #fc4b15; width: 16px; height: 16px;"> Vendas por Categoria e Setor
+                </label>
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #334155; cursor: pointer; padding: 6px 8px; border-radius: 6px; transition: background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
+                  <input type="checkbox" id="cnt-ck-garcons" style="accent-color: #fc4b15; width: 16px; height: 16px;"> Desempenho da Equipe (Garçons)
+                </label>
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #334155; cursor: pointer; padding: 6px 8px; border-radius: 6px; transition: background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
+                  <input type="checkbox" id="cnt-ck-movimentacoes" style="accent-color: #fc4b15; width: 16px; height: 16px;"> Movimentações do Caixa (Sangria/Suprimento)
+                </label>
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #334155; cursor: pointer; padding: 6px 8px; border-radius: 6px; transition: background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
+                  <input type="checkbox" id="cnt-ck-cancelamentos" style="accent-color: #fc4b15; width: 16px; height: 16px;"> Cancelamentos e Perdas
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: Preview Panel -->
+          <div style="background: white; padding: 24px; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px rgba(0,0,0,0.03); min-height: 500px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #e2e8f0;">
+              <h3 style="margin: 0; font-size: 15px; color: #1a202c; display: flex; align-items: center; gap: 8px;">
+                <i class="ph ph-eye" style="color: #10b981;"></i> Pré-visualização
+              </h3>
+              <span id="cnt-status" style="font-size: 12px; color: #64748b; font-style: italic;">Configure e clique em "Carregar Dados"</span>
+            </div>
+            <pre id="cnt-preview" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; font-family: 'Courier New', Courier, monospace; font-size: 12px; line-height: 1.5; color: #1e293b; white-space: pre-wrap; word-wrap: break-word; max-height: 600px; overflow-y: auto; margin: 0;">Nenhum dado carregado ainda.</pre>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Modal Fechamento -->
+  <div id="fechamento-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; z-index: 1000; padding: 16px;">
+    <div style="background: white; border-radius: 16px; padding: 24px; max-width: 850px; width: 100%; box-shadow: 0 10px 30px rgba(0,0,0,0.2); display: flex; flex-direction: column; max-height: 90vh; box-sizing: border-box;">
+      
+      <!-- Cabeçalho do Modal -->
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px; border-bottom: 1px solid #eee; padding-bottom: 12px;">
+        <div>
+          <h2 style="margin: 0; color: #1a202c; display: flex; align-items: center; gap: 8px; font-size: 20px;">
+            <i class="ph ph-receipt" style="color: #fc4b15;"></i> Relatório de Fechamento de Turno
+          </h2>
+          <span id="fechamento-turno-info" style="font-size: 12px; color: #718096; margin-top: 4px; display: block;">Turno em andamento</span>
+        </div>
+        <div class="modal-actions" style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button id="btn-fechamento-salvar-txt" style="padding: 8px 14px; background: #4f46e5; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 6px;">
+            <i class="ph ph-file-text"></i> Salvar Local (TXT)
+          </button>
+          <button id="btn-fechamento-sheets" style="padding: 8px 14px; background: #10b981; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 6px;">
+            <i class="ph ph-microsoft-excel"></i> Enviar Sheets
+          </button>
+          <button id="btn-fechamento-wa" style="padding: 8px 14px; background: #25d366; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 6px;">
+            <i class="ph ph-whatsapp-logo"></i> Enviar WhatsApp
+          </button>
+          <button id="btn-print" style="padding: 8px 14px; background: #3ab55b; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 6px;">
+            <i class="ph ph-printer"></i> Imprimir e Encerrar
+          </button>
+          <button onclick="document.getElementById('fechamento-modal').style.display='none'" style="padding: 6px; background: transparent; border: none; font-size: 24px; cursor: pointer; color: #718096;"><i class="ph ph-x"></i></button>
+        </div>
+      </div>
+      
+      <div style="overflow-y: auto; padding-right: 8px; margin-bottom: 16px;" id="fechamento-print-area">
+        
+        <!-- Métricas de Itens e Pedidos -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px; background: #f8fafc; padding: 14px; border-radius: 12px; border: 1px solid #e2e8f0;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="background: #e0f2fe; color: #0284c7; padding: 10px; border-radius: 10px;"><i class="ph ph-receipt" style="font-size: 20px;"></i></div>
+            <div>
+              <div style="font-size: 11px; color: #64748b; font-weight: bold; text-transform: uppercase;">Total de Pedidos</div>
+              <div id="fechamento-total-pedidos" style="font-size: 20px; font-weight: 800; color: #0f172a;">0</div>
+            </div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="background: #fef3c7; color: #d97706; padding: 10px; border-radius: 10px;"><i class="ph ph-package" style="font-size: 20px;"></i></div>
+            <div>
+              <div style="font-size: 11px; color: #64748b; font-weight: bold; text-transform: uppercase;">Itens Vendidos</div>
+              <div id="fechamento-total-itens" style="font-size: 20px; font-weight: 800; color: #0f172a;">0x</div>
+            </div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="background: #dcfce7; color: #16a34a; padding: 10px; border-radius: 10px;"><i class="ph ph-currency-dollar" style="font-size: 20px;"></i></div>
+            <div>
+              <div style="font-size: 11px; color: #64748b; font-weight: bold; text-transform: uppercase;">Total Faturado</div>
+              <div id="fechamento-total-faturado" style="font-size: 20px; font-weight: 800; color: #16a34a;">R$ 0,00</div>
+            </div>
+          </div>
+        </div>
+
+        <h3 style="margin-top: 0; margin-bottom: 12px; color: #1e293b; font-size: 15px;">Arrecadação Financeira Detalhada</h3>
+        <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 24px;">
+          <div class="stat-card" style="padding: 12px; border-radius: 10px; background: #f8fafc; border: 1px solid #e2e8f0;">
+            <h3 style="font-size: 12px; color: #64748b;">Fundo Troco</h3>
+            <p id="fechamento-fundo" style="color: #334155; font-size: 16px; font-weight: bold; margin: 4px 0 0 0;">R$ 0,00</p>
+          </div>
+          <div class="stat-card" style="padding: 12px; border-radius: 10px; background: #f8fafc; border: 1px solid #e2e8f0;">
+            <h3 style="font-size: 12px; color: #64748b;">Dinheiro</h3>
+            <p id="fechamento-dinheiro" style="color: #16a34a; font-size: 16px; font-weight: bold; margin: 4px 0 0 0;">R$ 0,00</p>
+          </div>
+          <div class="stat-card" style="padding: 12px; border-radius: 10px; background: #f8fafc; border: 1px solid #e2e8f0;">
+            <h3 style="font-size: 12px; color: #64748b;">Pix</h3>
+            <p id="fechamento-pix" style="color: #ea580c; font-size: 16px; font-weight: bold; margin: 4px 0 0 0;">R$ 0,00</p>
+          </div>
+          <div class="stat-card" style="padding: 12px; border-radius: 10px; background: #f8fafc; border: 1px solid #e2e8f0;">
+            <h3 style="font-size: 12px; color: #64748b;">Crédito</h3>
+            <p id="fechamento-credito" style="color: #2563eb; font-size: 16px; font-weight: bold; margin: 4px 0 0 0;">R$ 0,00</p>
+          </div>
+          <div class="stat-card" style="padding: 12px; border-radius: 10px; background: #f8fafc; border: 1px solid #e2e8f0;">
+            <h3 style="font-size: 12px; color: #64748b;">Débito</h3>
+            <p id="fechamento-debito" style="color: #0284c7; font-size: 16px; font-weight: bold; margin: 4px 0 0 0;">R$ 0,00</p>
+          </div>
+          <div class="stat-card" style="padding: 12px; border-radius: 10px; background: #f8fafc; border: 1px solid #e2e8f0;">
+            <h3 style="font-size: 12px; color: #64748b;">Fiado</h3>
+            <p id="fechamento-fiado" style="color: #9333ea; font-size: 16px; font-weight: bold; margin: 4px 0 0 0;">R$ 0,00</p>
+          </div>
+        </div>
+
+        <h3 style="margin: 20px 0 12px; border-bottom: 2px solid #f1f5f9; padding-bottom: 6px; color: #1e293b; font-size: 15px;">Produtos mais Vendidos no Turno</h3>
+        <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
+          <thead>
+            <tr style="border-bottom: 1px solid #cbd5e1; background: #f8fafc;">
+              <th style="padding: 8px;">Produto</th>
+              <th style="padding: 8px; text-align: center;">Qtd Vendida</th>
+              <th style="padding: 8px; text-align: right;">Total Arrecadado</th>
+            </tr>
+          </thead>
+          <tbody id="fechamento-produtos">
+            <!-- JS Populates -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Exportação -->
+  <div id="export-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; z-index: 1001; padding: 24px;">
+    <div style="background: white; border-radius: 12px; padding: 28px; max-width: 500px; width: 100%; box-shadow: 0 4px 20px rgba(0,0,0,0.15); display: flex; flex-direction: column;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h2 style="margin: 0; font-size: 20px;"><i class="ph ph-export" style="color: #fc4b15;"></i> Exportar Relatório</h2>
+        <button onclick="document.getElementById('export-modal').style.display='none'" style="background: transparent; border: none; font-size: 24px; cursor: pointer; color: #999;"><i class="ph ph-x"></i></button>
+      </div>
+      <p style="margin-top: 0; margin-bottom: 24px; color: gray; font-size: 14px;">Selecione o formato de exportação desejado para os dados filtrados:</p>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+        <button id="btn-export-txt" style="background: #f7f9fb; border: 1px solid #e1e8ed; border-radius: 10px; padding: 20px 16px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; transition: 0.2s; font-family: inherit;">
+          <i class="ph ph-file-text" style="font-size: 32px; color: #4f46e5;"></i>
+          <span style="font-weight: 600; font-size: 14px; color: #333;">Arquivo .TXT</span>
+        </button>
+        <button id="btn-export-pdf" style="background: #f7f9fb; border: 1px solid #e1e8ed; border-radius: 10px; padding: 20px 16px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; transition: 0.2s; font-family: inherit;">
+          <i class="ph ph-file-pdf" style="font-size: 32px; color: #ef4444;"></i>
+          <span style="font-weight: 600; font-size: 14px; color: #333;">Documento .PDF</span>
+        </button>
+        <button id="btn-export-wa" style="background: #f7f9fb; border: 1px solid #e1e8ed; border-radius: 10px; padding: 20px 16px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; transition: 0.2s; font-family: inherit;">
+          <i class="ph ph-whatsapp-logo" style="font-size: 32px; color: #22c55e;"></i>
+          <span style="font-weight: 600; font-size: 14px; color: #333;">Enviar WhatsApp</span>
+        </button>
+        <button id="btn-export-sheets" style="background: #f7f9fb; border: 1px solid #e1e8ed; border-radius: 10px; padding: 20px 16px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; transition: 0.2s; font-family: inherit;">
+          <i class="ph ph-microsoft-excel" style="font-size: 32px; color: #10b981;"></i>
+          <span style="font-weight: 600; font-size: 14px; color: #333;">Google Sheets</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Printable Relatório Area (for PDF generation) -->
+  <div id="relatorio-print-area" style="display: none; font-family: 'Courier New', Courier, monospace; color: black; padding: 20px; line-height: 1.4;">
+     <!-- JS populated printable template -->
+  </div>
+
+<script src="/fullscreen.js"></script>
+<script src="tracking.js"></script>
+</body>
+</html>

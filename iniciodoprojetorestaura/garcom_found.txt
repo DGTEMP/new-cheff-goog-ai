@@ -1,0 +1,78 @@
+Created At: 2026-06-13T00:11:23Z
+Completed At: 2026-06-13T00:11:23Z
+File Path: `file:///C:/Users/computer/Desktop/chef%20cozinha/garcom.html`
+Total Lines: 363
+Total Bytes: 17501
+Showing lines 1 to 363
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+1: <!DOCTYPE html>
+2: <html lang="pt-BR">
+3: <head>
+4:   <meta charset="UTF-8" />
+5:   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+6:   <title>App do Garçom</title>
+7:   <link rel="preconnect" href="https://fonts.googleapis.com">
+8:   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+9:   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+10:   <script src="https://unpkg.com/@phosphor-icons/web"></script>
+11:   <style>
+12:     * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+13:     body { 
+14:       font-family: 'Inter', sans-serif; 
+15:       background-color: #f0f2f5; 
+16:       color: #333;
+17:       display: flex; justify-content: center;
+18:     }
+19:     #app {
+20:       width: 100%;
+21:       max-width: 500px;
+22:       height: 100vh;
+23:       background: #fff;
+24:       display: flex;
+25:       flex-direction: column;
+26:       position: relative;
+27:       overflow: hidden;
+28:       box-shadow: 0 0 20px rgba(0,0,0,0.1);
+29:     }
+30:     /* Top Bar */
+31:     header {
+32:       background: #fff;
+33:       height: 60px;
+34:       display: flex;
+35:       align-items: center;
+36:       justify-content: space-between;
+37:       padding: 0 16px;
+38:       box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+39:       z-index: 10;
+40:     }
+41:     header h1 { font-size: 18px; font-weight: 600; flex: 1; margin: 0 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+42:     hea
+<truncated 15638 bytes>
+></i> Adicionar Pedido
+338:           </button>
+339:           <button id="btn-table-view" style="padding: 16px; border-radius: 12px; border: 1px solid #eee; background: #fff; font-size: 14px; font-weight: 600; display: flex; flex-direction: column; align-items: center; gap: 8px;">
+340:             <i class="ph ph-list" style="font-size: 28px; color: #333;"></i> Ver Itens
+341:           </button>
+342:           <button id="btn-table-reserve" style="padding: 16px; border-radius: 12px; border: 1px solid #eee; background: #fff; font-size: 14px; font-weight: 600; display: flex; flex-direction: column; align-items: center; gap: 8px;">
+343:             <i class="ph ph-calendar" style="font-size: 28px; color: #f2c94c;"></i> Reservar/Liberar
+344:           </button>
+345:           <button id="btn-table-obs" style="padding: 16px; border-radius: 12px; border: 1px solid #eee; background: #fff; font-size: 14px; font-weight: 600; display: flex; flex-direction: column; align-items: center; gap: 8px;">
+346:             <i class="ph ph-note-pencil" style="font-size: 28px; color: #888;"></i> Observações
+347:           </button>
+348:           <button id="btn-table-bill" style="grid-column: span 2; padding: 16px; border-radius: 12px; border: none; background: #2d9cdb; color: white; font-size: 16px; font-weight: bold; display: flex; justify-content: center; align-items: center; gap: 8px; margin-top: 4px;">
+349:             <i class="ph ph-receipt" style="font-size: 24px;"></i> Pedir Conta
+350:           </button>
+351:         </div>
+352:       </div>
+353:     </div>
+354:     <style>@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }</style>
+355: 
+356:     <div class="success-toast" id="toast">Pedido Enviado com Sucesso!</div>
+357:   </div>
+358: 
+359:   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+360:   <script type="module" src="./garcom.js"></script>
+361: </body>
+362: </html>
+363: 
+The above content shows the entire, complete file contents of the requested file.

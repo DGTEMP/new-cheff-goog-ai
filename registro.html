@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chef Cozinha - SaaS Onboarding</title>
+  <style>
+    :root {
+      --primary: #F97316; /* Orange 500 */
+      --primary-hover: #EA580C; /* Orange 600 */
+      --bg: #0F172A; /* Slate 900 */
+      --card-bg: #1E293B; /* Slate 800 */
+      --text: #F8FAFC; /* Slate 50 */
+      --text-muted: #94A3B8; /* Slate 400 */
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px 0;
+      box-sizing: border-box;
+    }
+
+    .container {
+      background-color: var(--card-bg);
+      padding: 40px;
+      border-radius: 12px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+      width: 100%;
+      max-width: 400px;
+      text-align: center;
+      box-sizing: border-box;
+    }
+
+    .container.left {
+      text-align: left;
+    }
+
+    .container.wide {
+      max-width: 480px;
+    }
+
+    h1 {
+      color: var(--primary);
+      margin-bottom: 5px;
+    }
+
+    p.subtitle {
+      color: var(--text-muted);
+      margin-bottom: 24px;
+      font-size: 0.9em;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+      text-align: left;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 500;
+      font-size: 0.9em;
+      color: var(--text-muted);
+    }
+
+    input, select {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #334155;
+      background-color: #0F172A;
+      color: var(--text);
+      border-radius: 8px;
+      box-sizing: border-box;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input:focus, select:focus {
+      border-color: var(--primary);
+    }
+
+    button {
+      width: 100%;
+      padding: 14px;
+      background-color: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background-color 0.2s;
+      margin-top: 10px;
+    }
+
+    button:hover {
+      background-color: var(--primary-hover);
+    }
+
+    button.btn-sec {
+      background-color: #334155;
+    }
+
+    button.btn-sec:hover {
+      background-color: #475569;
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .error-msg {
+      color: #ef4444;
+      margin-top: 15px;
+      font-size: 0.9em;
+      display: none;
+    }
+
+    .link {
+      margin-top: 20px;
+      display: block;
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.9em;
+      cursor: pointer;
+      text-align: center;
+    }
+    .link:hover {
+      color: var(--primary);
+    }
+
+    .equipe-card {
+      background-color: #0F172A;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 18px;
+      margin-bottom: 16px;
+    }
+
+    .equipe-card-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .equipe-card-header strong {
+      font-size: 1em;
+    }
+
+    .badge {
+      padding: 3px 9px;
+      border-radius: 4px;
+      font-size: 0.68em;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
+
+    .badge-dono {
+      background: var(--primary);
+      color: white;
+    }
+
+    .badge-gerente {
+      background: #3B82F6;
+      color: white;
+    }
+
+    .badge-extra {
+      background: #10B981;
+      color: white;
+    }
+
+    .extra-colab .equipe-card-header {
+      margin-bottom: 4px;
+    }
+
+    .passo-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+
+    .passo-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: var(--primary);
+      color: white;
+      font-weight: 700;
+      font-size: 0.85em;
+      flex-shrink: 0;
+    }
+
+    .sucesso-banner {
+      display: none;
+      background: rgba(16,185,129,0.12);
+      border: 1px solid #10B981;
+      color: #6EE7B7;
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 0.9em;
+      margin-bottom: 20px;
+      text-align: left;
+    }
+
+    .sucesso-banner.visible {
+      display: block;
+    }
+  </style>
+  <script src="/locales.js"></script>
+  <script src="/i18n.js"></script>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#fc4b15">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Chef Cozinha">
+<link rel="apple-touch-icon" href="/icons/icon-192.svg">
+</head>
+<body>
+
+  <div class="container" id="passo1">
+    <h1>Chef Cozinha SaaS</h1>
+    <p class="subtitle">Crie sua conta e ganhe 7 dias grátis!</p>
+
+    <form id="registroForm">
+      <div class="form-group">
+        <label for="restauranteNome">Nome do Restaurante</label>
+        <input type="text" id="restauranteNome" placeholder="Ex: Pizzaria do João" required>
+      </div>
+
+      <div class="form-group">
+        <label for="nome">Seu Nome</label>
+        <input type="text" id="nome" placeholder="João da Silva" required>
+      </div>
+
+      <div class="form-group">
+        <label for="email">E-mail (Login)</label>
+        <input type="email" id="email" placeholder="contato@pizzaria.com" required>
+      </div>
+
+      <div class="form-group">
+        <label for="senha">Senha</label>
+        <input type="password" id="senha" placeholder="••••••••" required>
+      </div>
+
+      <button type="submit">Começar Trial Gratuito</button>
+      <div class="error-msg" id="errorMsg"></div>
+    </form>
+
+    <a href="/login.html" class="link">Já tem uma conta? Faça login</a>
+  </div>
+
+  <div class="container left wide" id="passoEquipe" style="display:none;">
+    <div class="passo-header">
+      <span class="passo-num">2</span>
+      <h1 style="margin:0;">Cadastre sua equipe</h1>
+    </div>
+    <p class="subtitle">Adicione os colaboradores principais para começar. O Dono e o Gerente são obrigatórios.</p>
+
+    <div class="sucesso-banner" id="contaCriadaBanner">Conta criada com sucesso! Agora cadastre sua equipe para começar a usar o sistema.</div>
+
+    <div class="equipe-card">
+      <div class="equipe-card-header">
+        <span class="badge badge-dono">DONO</span>
+        <strong>Administrador / Dono</strong>
+      </div>
+      <div class="form-group">
+        <label for="eqDonoNome">Nome completo</label>
+        <input type="text" id="eqDonoNome" placeholder="Nome do dono" required>
+      </div>
+      <div class="form-group">
+        <label for="eqDonoUser">Usuário (login)</label>
+        <input type="text" id="eqDonoUser" placeholder="usuario" required>
+      </div>
+      <div class="form-group">
+        <label for="eqDonoPass">Senha</label>
+        <input type="password" id="eqDonoPass" placeholder="••••••••" required>
+      </div>
+    </div>
+
+    <div class="equipe-card">
+      <div class="equipe-card-header">
+        <span class="badge badge-gerente">GERENTE</span>
+        <strong>Gerente / Admin</strong>
+      </div>
+      <div class="form-group">
+        <label for="eqGerenNome">Nome completo</label>
+        <input type="text" id="eqGerenNome" placeholder="Nome do gerente" required>
+      </div>
+      <div class="form-group">
+        <label for="eqGerenUser">Usuário (login)</label>
+        <input type="text" id="eqGerenUser" placeholder="usuario" required>
+      </div>
+      <div class="form-group">
+        <label for="eqGerenPass">Senha</label>
+        <input type="password" id="eqGerenPass" placeholder="••••••••" required>
+      </div>
+    </div>
+
+    <button type="button" class="btn-sec" id="btnAddColab">+ Adicionar outro colaborador</button>
+    <div id="eqExtras"></div>
+
+    <button type="button" id="btnSalvarEquipe">Salvar equipe e começar</button>
+    <div class="error-msg" id="equipeError"></div>
+    <a class="link" id="linkPular">Pular por enquanto</a>
+  </div>
+
+  <script src="/socket.io.min.js"></script>
+  
+<script src="/fullscreen.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,57 @@
+// auth.js
+(function() {
+  const credsStr = localStorage.getItem('chef_session') || localStorage.getItem('chef_credentials') || localStorage.getItem('chef_app_creds');
+  if (!credsStr) {
+    if (!window.location.pathname.endsWith('login.html') &&
+        !window.location.pathname.includes('pdv-mobile.html') &&
+        !window.location.pathname.includes('painel-funcionario.html') &&
+        !window.location.pathname.includes('garcom.html')) {
+      window.location.href = '/login.html';
+    }
+    return;
+  }
+  
+  try {
+    const creds = JSON.parse(credsStr);
+    const cargo = (creds.cargo || creds.funcao || creds.role || '').toLowerCase();
+    const path = window.location.pathname;
+    
+    // Auth logic based on role
+    const isGarcom = cargo === 'garçom' || cargo === 'garcom';
+    const isCozinha = ['cozinha', 'copa', 'bar'].includes(cargo);
+    const isAdmin = ['admin', 'administrador', 'gerente', 'caixa'].includes(cargo);
+    const isStrictAdmin = ['admin', 'administrador', 'gerente'].includes(cargo);
+    
+    // If accessing config or dashboard, needs strict admin
+    if ((path.includes('configuracoes.html') || path.includes('dashboard.html')) && !isStrictAdmin) {
+      if(isGarcom) window.location.href = '/garcom.html';
+      else if(isCozinha) window.location.href = '/fila-pedidos.html';
+      else window.location.href = '/index.html';
+      return;
+    }
+    
+    // If accessing index.html (Caixa), needs Admin or Caixa
+    if (path.includes('index.html') && !isAdmin) {
+      if(isGarcom) window.location.href = '/garcom.html';
+      else if(isCozinha) window.location.href = '/fila-pedidos.html';
+      else window.location.href = '/login.html';
+      return;
+    }
+    
+    // If garçom tries to access fila-pedidos
+    if (path.includes('fila-pedidos.html') && isGarcom) {
+      window.location.href = '/garcom.html';
+      return;
+    }
+    
+  } catch (e) {
+    window.location.href = '/login.html';
+  }
+})();
+
+// Registrar auditoria de navegação de páginas automaticamente
+if (typeof socket !== 'undefined' && socket.emit) {
+  const currentPath = window.location.pathname || 'index.html';
+  const pageTitle = document.title || 'Módulo do Sistema';
+  socket.emit('registrar_acesso_pagina', { pagina: currentPath, titulo: pageTitle, autorizado: true });
+}

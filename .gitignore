@@ -1,0 +1,58 @@
+# Dependências
+node_modules/
+
+# Builds e Distribuição
+dist/
+build/
+*.tar.gz
+*.zip
+ChefCozinha-Nativo/
+versao-win/
+installer/
+ubuntu-server/
+offline/
+pendrive/
+
+# Bancos de dados locais
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.db
+banco_de_dados.sqlite
+database.sqlite
+master.sqlite
+chef.db
+restaurante.db
+
+# Logs
+*.log
+*.err.log
+
+# Certificados e Chaves de Segurança
+certs/
+*.pem
+*.key
+*.crt
+*.pfx
+*.pfx.disabled
+*.p12
+
+# Arquivos de ambiente e variáveis secretas
+.env
+.env.*
+!.env.example
+
+# Uploads e Backups
+uploads/
+backups/
+scratch/
+
+# Backups temporários e cópias
+*.bak*
+* - Copia.*
+
+# Sistema Operacional / IDEs
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cadastro - Garçom</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/vendor/phosphor/src/regular/style.css">
+  <link rel="stylesheet" href="/vendor/phosphor/src/bold/style.css">
+  <link rel="stylesheet" href="/vendor/phosphor/src/fill/style.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    
+    body { 
+      font-family: 'Inter', sans-serif; 
+      background-color: #0b0f19;
+      color: #ffffff;
+      min-height: 100dvh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* Animated Background Orbs */
+    .bg-orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(80px);
+      z-index: 0;
+      animation: float 10s infinite ease-in-out alternate;
+    }
+    .orb-1 {
+      width: 300px; height: 300px;
+      background: rgba(252, 75, 21, 0.25);
+      top: -50px; left: -50px;
+    }
+    .orb-2 {
+      width: 400px; height: 400px;
+      background: rgba(21, 101, 252, 0.15);
+      bottom: -100px; right: -100px;
+      animation-delay: -5s;
+    }
+
+    @keyframes float {
+      0% { transform: translate(0, 0) scale(1); }
+      100% { transform: translate(30px, 30px) scale(1.1); }
+    }
+
+    #app {
+      width: 100%;
+      max-width: 420px;
+      position: relative;
+      z-index: 10;
+      padding: 16px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    
+    .glass-panel {
+      background: rgba(255, 255, 255, 0.03);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 20px;
+      padding: 28px 20px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .logo-container {
+      width: 60px;
+      height: 60px;
+      background: linear-gradient(135deg, #ff6b3d 0%, #fc4b15 100%);
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 16px;
+      box-shadow: 0 10px 25px rgba(252, 75, 21, 0.4);
+      transform: rotate(-5deg);
+      transition: transform 0.3s;
+    }
+    .glass-panel:hover .logo-container {
+      transform: rotate(0deg) scale(1.05);
+    }
+    .logo-container i {
+      font-size: 36px;
+      color: white;
+    }
+
+    h2 { 
+      font-size: 36px; 
+      font-weight: 700; 
+      margin-bottom: 8px; 
+      text-align: center;
+      background: linear-gradient(to right, #ffffff, #a0aec0);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    p.subtitle {
+      color: #94a3b8;
+      font-size: 18px;
+      margin-bottom: 28px;
+      text-align: center;
+    }
+    
+    .input-group {
+      width: 100%;
+      margin-bottom: 16px;
+      position: relative;
+    }
+    
+    .input-icon {
+      position: absolute;
+      left: 18px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #64748b;
+      font-size: 28px;
+      transition: color 0.3s;
+    }
+
+    .login-input {
+      width: 100%;
+      padding: 20px 16px 20px 56px;
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      color: #ffffff;
+      font-size: 20px;
+      font-family: 'Inter', sans-serif;
+      outline: none;
+      transition: all 0.3s ease;
+    }
+    .login-input::placeholder { color: #64748b; }
+    .login-input:focus { 
+      border-color: #fc4b15;
+      background: rgba(0, 0, 0, 0.4);
+      box-shadow: 0 0 0 4px rgba(252, 75, 21, 0.1);
+    }
+    .login-input:focus + .input-icon, 
+    .login-input:not(:placeholder-shown) + .input-icon {
+      color: #fc4b15;
+    }
+    
+    .btn-primary {
+      width: 100%;
+      padding: 20px;
+      background: linear-gradient(135deg, #ff6b3d 0%, #fc4b15 100%);
+      color: white;
+      border: none;
+      border-radius: 16px;
+      font-size: 22px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 10px;
+      box-shadow: 0 10px 20px rgba(252, 75, 21, 0.3);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      overflow: hidden;
+    }
+    .btn-primary::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: linear-gradient(to bottom, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 100%);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 15px 25px rgba(252, 75, 21, 0.4);
+    }
+    .btn-primary:hover::after { opacity: 1; }
+    .btn-primary:active { transform: translateY(1px); }
+
+    .login-link {
+      margin-top: 24px;
+      color: #94a3b8;
+      font-size: 17px;
+    }
+    .login-link a {
+      color: #fc4b15;
+      text-decoration: none;
+      font-weight: 600;
+      transition: color 0.2s;
+    }
+    .login-link a:hover { color: #ff8560; text-decoration: underline; }
+
+    /* Success View Animations */
+    #success-view { display: none; }
+    
+    .success-icon-container {
+      position: relative;
+      width: 100px; height: 100px;
+      margin-bottom: 24px;
+    }
+    .success-circle {
+      width: 100%; height: 100%;
+      border-radius: 50%;
+      background: rgba(58, 181, 91, 0.1);
+      display: flex; align-items: center; justify-content: center;
+      animation: pulse-green 2s infinite;
+    }
+    .success-circle i {
+      font-size: 50px;
+      color: #3ab55b;
+      animation: pop-in 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+      opacity: 0;
+      transform: scale(0.5);
+    }
+
+    @keyframes pulse-green {
+      0% { box-shadow: 0 0 0 0 rgba(58, 181, 91, 0.4); }
+      70% { box-shadow: 0 0 0 20px rgba(58, 181, 91, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(58, 181, 91, 0); }
+    }
+    @keyframes pop-in {
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    .btn-secondary {
+      padding: 16px 32px;
+      background: rgba(255, 255, 255, 0.1);
+      color: #ffffff;
+      text-decoration: none;
+      border-radius: 16px;
+      font-weight: 600;
+      transition: all 0.3s;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.15);
+      transform: translateY(-2px);
+    }
+
+  </style>
+  <script src="/locales.js"></script>
+  <script src="/i18n.js"></script>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#fc4b15">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Chef Cozinha">
+<link rel="apple-touch-icon" href="/icons/icon-192.svg">
+  <script src="/socket.io.min.js"></script>
+  </head>
+<body>
+  
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+
+  <div id="app">
+    
+    <!-- REGISTER VIEW -->
+    <div id="register-view" class="glass-panel">
+      <div class="logo-container">
+        <i class="ph-bold ph-chef-hat"></i>
+      </div>
+      <h2>Criar Conta</h2>
+      <p class="subtitle">Junte-se à equipe de atendimento</p>
+      
+      <div class="input-group">
+        <input type="text" id="reg-nome" class="login-input" placeholder="Seu Nome Completo">
+        <i class="ph ph-user input-icon"></i>
+      </div>
+      
+      <div class="input-group">
+        <input type="text" id="reg-user" class="login-input" placeholder="Usuário para Login">
+        <i class="ph ph-identification-badge input-icon"></i>
+      </div>
+      
+      <div class="input-group">
+        <input type="password" id="reg-pass" class="login-input" placeholder="Crie uma Senha">
+        <i class="ph ph-lock-key input-icon"></i>
+      </div>
+      
+      <button class="btn-primary" id="btn-register">Enviar Cadastro</button>
+      
+      <div class="login-link">
+        Já faz parte da equipe? <a href="/painel-funcionario.html">Faça Login</a>
+      </div>
+    </div>
+
+    <!-- SUCCESS VIEW -->
+    <div id="success-view" class="glass-panel">
+      <div class="success-icon-container">
+        <div class="success-circle">
+          <i class="ph-bold ph-check"></i>
+        </div>
+      </div>
+      <h2>Tudo Certo!</h2>
+      <p class="subtitle" style="margin-bottom: 40px; line-height: 1.6;">
+        Seu cadastro foi enviado com sucesso.<br>
+        Aguarde o gerente aprovar o seu acesso no painel do caixa.
+      </p>
+      <a href="/painel-funcionario.html" class="btn-secondary">Voltar para o Login</a>
+    </div>
+  </div>
+
+<script src="/fullscreen.js"></script>
+
+<script src="tracking.js"></script>
+<script src="cadastro.js"></script>
+</body>
+</html>

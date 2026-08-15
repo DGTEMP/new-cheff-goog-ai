@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Autoatendimento | Chef Cozinha</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/vendor/phosphor/src/regular/style.css">
+  <link rel="stylesheet" href="/vendor/phosphor/src/bold/style.css">
+  <link rel="stylesheet" href="/vendor/phosphor/src/fill/style.css">
+  <style>
+    :root {
+      --primary: #fc4b15;
+      --primary-hover: #e03e09;
+      --bg: #f4f5f7;
+      --surface: #ffffff;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --green: #3ab55b;
+      --radius-lg: 22px;
+      --radius-md: 14px;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
+    html, body { height: 100%; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .app-header {
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      color: #fff;
+      padding: 18px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .app-header h1 { font-size: 24px; font-weight: 800; letter-spacing: -0.02em; }
+    .app-header h1 small { display: block; font-size: 13px; font-weight: 500; color: #94a3b8; }
+    .app-header .header-badge {
+      display: flex; align-items: center; gap: 10px;
+      background: rgba(255,255,255,0.08); padding: 10px 16px; border-radius: 999px;
+      font-size: 14px; font-weight: 600; color: #e2e8f0;
+    }
+    .home-btn {
+      background: rgba(255,255,255,0.1); border: none; color: #e2e8f0;
+      width: 46px; height: 46px; border-radius: 12px; cursor: pointer; font-size: 22px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .home-btn:hover { background: rgba(255,255,255,0.2); }
+    .category-bar {
+      display: flex; gap: 10px; padding: 16px 28px;
+      overflow-x: auto; flex-shrink: 0; scrollbar-width: none;
+    }
+    .category-bar::-webkit-scrollbar { display: none; }
+    .cat-chip {
+      flex-shrink: 0; padding: 14px 24px; border-radius: 999px;
+      background: var(--surface); border: 2px solid var(--border);
+      font-size: 16px; font-weight: 700; color: var(--text-muted); cursor: pointer;
+      transition: all 0.15s;
+    }
+    .cat-chip.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+    .cat-chip:hover { transform: translateY(-1px); }
+    .products-area { flex: 1; overflow-y: auto; padding: 8px 28px 140px; }
+    .products-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 16px;
+    }
+    .prod-card {
+      background: var(--surface); border-radius: var(--radius-lg);
+      padding: 20px; cursor: pointer; border: 2px solid transparent;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+      transition: all 0.15s;
+      display: flex; flex-direction: column; gap: 8px; min-height: 170px;
+    }
+    .prod-card:active { border-color: var(--primary); transform: scale(0.98); }
+    .prod-emoji { font-size: 52px; line-height: 1; }
+    .prod-name { font-size: 17px; font-weight: 700; }
+    .prod-price { font-size: 19px; font-weight: 800; color: var(--primary); margin-top: auto; }
+    .empty-msg {
+      grid-column: 1/-1; text-align: center; color: #94a3b8; padding: 60px 0;
+      font-size: 18px;
+    }
+    .cart-bar {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
+      background: rgba(255,255,255,0.92); backdrop-filter: blur(10px);
+      border-top: 1px solid var(--border);
+      padding: 16px 28px; display: none;
+      align-items: center; justify-content: space-between; gap: 16px;
+    }
+    .cart-bar-info { display: flex; align-items: center; gap: 14px; }
+    .cart-bar-icon {
+      width: 52px; height: 52px; border-radius: 14px; background: #0f172a; color: #fff;
+      display: flex; align-items: center; justify-content: center; font-size: 24px; position: relative;
+    }
+    .cart-bar-count {
+      position: absolute; top: -6px; right: -6px; background: var(--primary); color: #fff;
+      min-width: 24px; height: 24px; border-radius: 999px; font-size: 13px; font-weight: 800;
+      display: flex; align-items: center; justify-content: center; padding: 0 6px;
+    }
+    .cart-bar-total { font-size: 20px; font-weight: 800; }
+    .btn-checkout {
+      background: var(--primary); color: #fff; border: none; border-radius: var(--radius-md);
+      padding: 18px 44px; font-size: 19px; font-weight: 800; cursor: pointer;
+      display: flex; align-items: center; gap: 10px;
+      box-shadow: 0 8px 24px rgba(252,75,21,0.35);
+      transition: all 0.15s;
+    }
+    .btn-checkout:hover { background: var(--primary-hover); transform: translateY(-1px); }
+    .overlay {
+      position: fixed; inset: 0; background: rgba(15,23,42,0.55);
+      display: none; align-items: flex-end; justify-content: center; z-index: 200;
+    }
+    .overlay.center { align-items: center; }
+    .sheet {
+      background: var(--surface); border-radius: 28px 28px 0 0;
+      width: 100%; max-width: 640px; max-height: 85vh; overflow-y: auto;
+      padding: 26px 26px 34px; animation: slideUp 0.25s ease;
+    }
+    @keyframes slideUp { from { transform: translateY(40px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    .modal-box {
+      background: var(--surface); border-radius: 28px; width: 100%; max-width: 480px;
+      padding: 34px 28px; text-align: center; animation: slideUp 0.25s ease;
+    }
+    .sheet-title { font-size: 22px; font-weight: 800; margin-bottom: 18px; }
+    .sheet-close {
+      float: right; background: #f1f5f9; border: none; width: 40px; height: 40px;
+      border-radius: 12px; cursor: pointer; font-size: 18px; color: var(--text-muted);
+    }
+    .cart-item {
+      display: flex; align-items: center; gap: 14px;
+      background: #f8fafc; border: 1px solid var(--border); border-radius: var(--radius-md);
+      padding: 12px 14px; margin-bottom: 10px;
+    }
+    .cart-item-info { flex: 1; }
+    .cart-item-name { font-weight: 700; font-size: 15px; }
+    .cart-item-sub { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+    .qty-btn {
+      width: 38px; height: 38px; border-radius: 10px; border: 2px solid var(--border);
+      background: #fff; font-size: 20px; font-weight: 800; cursor: pointer; color: var(--text);
+    }
+    .qty-btn:active { background: #f1f5f9; }
+    .cart-item-qty { font-weight: 800; font-size: 17px; min-width: 26px; text-align: center; }
+    .cart-total-row {
+      display: flex; justify-content: space-between; align-items: center;
+      border-top: 2px dashed var(--border); margin-top: 16px; padding-top: 16px;
+      font-size: 20px; font-weight: 800;
+    }
+    .btn-primary {
+      width: 100%; margin-top: 18px; background: var(--primary); color: #fff; border: none;
+      border-radius: var(--radius-md); padding: 18px; font-size: 18px; font-weight: 800; cursor: pointer;
+    }
+    .btn-secondary {
+      width: 100%; margin-top: 10px; background: #f1f5f9; color: var(--text);
+      border: none; border-radius: var(--radius-md); padding: 14px; font-size: 16px; font-weight: 700; cursor: pointer;
+    }
+    .status-icon { font-size: 74px; margin-bottom: 14px; }
+    .status-title { font-size: 26px; font-weight: 800; margin-bottom: 8px; }
+    .status-desc { color: var(--text-muted); font-size: 15px; line-height: 1.5; margin-bottom: 22px; }
+    .spinner {
+      width: 64px; height: 64px; border: 6px solid #e2e8f0; border-top-color: var(--primary);
+      border-radius: 50%; margin: 0 auto 20px; animation: spin 0.9s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .pix-box {
+      background: #f0fdf4; border: 2px solid #86efac; border-radius: var(--radius-md);
+      padding: 18px; margin: 16px 0;
+    }
+    .pix-box img { width: 180px; height: 180px; border-radius: 12px; background: #fff; }
+    .pix-key {
+      margin-top: 10px; font-size: 12px; color: #166534; word-break: break-all;
+      background: #fff; border-radius: 8px; padding: 8px; border: 1px solid #bbf7d0;
+    }
+    .order-number {
+      display: inline-block; background: #fff7ed; color: #c2410c;
+      padding: 8px 18px; border-radius: 999px; font-weight: 800; font-size: 16px; margin-top: 6px;
+    }
+    .disabled-screen {
+      flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      color: var(--text-muted); text-align: center; padding: 40px; gap: 14px;
+    }
+    .disabled-screen i { font-size: 90px; color: #cbd5e1; }
+    .disabled-screen h2 { color: var(--text); font-size: 28px; }
+    .idle-progress {
+      position: fixed; bottom: 0; left: 0; height: 4px; background: var(--primary); z-index: 300;
+      transition: width 0.1s linear; opacity: 0.6;
+    }
+  </style>
+</head>
+<body>
+
+  <header class="app-header">
+    <div>
+      <h1 id="restaurant-name">Autoatendimento <small>Chef Cozinha</small></h1>
+    </div>
+    <div style="display:flex; align-items:center; gap:12px;">
+      <span class="header-badge"><i class="ph ph-storefront"></i> <span id="totem-mesa-label">Totem 1</span></span>
+      <button class="home-btn" onclick="window.totemReset()" title="Voltar ao início"><i class="ph ph-house"></i></button>
+    </div>
+  </header>
+
+  <div id="category-bar" class="category-bar"></div>
+
+  <main id="products-area" class="products-area">
+    <div id="products-grid" class="products-grid">
+      <div class="empty-msg">Carregando cardápio...</div>
+    </div>
+  </main>
+
+  <div id="cart-bar" class="cart-bar">
+    <div class="cart-bar-info">
+      <div class="cart-bar-icon"><i class="ph ph-shopping-cart-simple"></i><span id="cart-count" class="cart-bar-count">0</span></div>
+      <span id="cart-total" class="cart-bar-total">R$ 0,00</span>
+    </div>
+    <button class="btn-checkout" onclick="window.totemOpenCart()"><i class="ph ph-arrow-right"></i> Ver carrinho</button>
+  </div>
+
+  <div id="cart-overlay" class="overlay">
+    <div class="sheet">
+      <button class="sheet-close" onclick="window.totemCloseCart()"><i class="ph ph-x"></i></button>
+      <div class="sheet-title">Seu pedido</div>
+      <div id="cart-items-list"></div>
+      <div class="cart-total-row"><span>Total</span><span id="cart-sheet-total">R$ 0,00</span></div>
+      <button class="btn-primary" onclick="window.totemCheckout()"><i class="ph ph-check-circle"></i> Finalizar pedido</button>
+      <button class="btn-secondary" onclick="window.totemCloseCart()">Continuar escolhendo</button>
+    </div>
+  </div>
+
+  <div id="item-overlay" class="overlay center">
+    <div class="modal-box">
+      <div id="item-emoji" style="font-size:64px; line-height:1;">🍽️</div>
+      <div id="item-name" style="font-size:22px; font-weight:800; margin:8px 0 2px;">Produto</div>
+      <div id="item-price" style="font-size:20px; font-weight:800; color:var(--primary); margin-bottom:18px;">R$ 0,00</div>
+      <div style="display:flex; align-items:center; justify-content:center; gap:22px; margin-bottom:8px;">
+        <button class="qty-btn" onclick="window.totemItemQty(-1)"><i class="ph ph-minus"></i></button>
+        <span id="item-qty" style="font-size:26px; font-weight:800; min-width:40px; text-align:center;">1</span>
+        <button class="qty-btn" onclick="window.totemItemQty(1)"><i class="ph ph-plus"></i></button>
+      </div>
+      <input id="item-obs" placeholder="Observação (opcional)" style="width:100%; padding:13px; border:2px solid var(--border); border-radius:12px; font-size:15px; margin:10px 0 6px; outline:none;" />
+      <button class="btn-primary" onclick="window.totemAddItem()"><i class="ph ph-plus"></i> Adicionar</button>
+      <button class="btn-secondary" onclick="window.totemCloseItem()">Cancelar</button>
+    </div>
+  </div>
+
+  <div id="status-overlay" class="overlay center">
+    <div class="modal-box">
+      <div id="status-icon" class="status-icon"><i class="ph ph-clock"></i></div>
+      <div id="status-title" class="status-title">Enviando pedido</div>
+      <div id="status-desc" class="status-desc">Aguarde um instante...</div>
+      <div id="status-spinner" class="spinner" style="display:none;"></div>
+      <div id="pix-box" class="pix-box" style="display:none;">
+        <img id="pix-qr-img" src="" alt="QR Code Pix" />
+        <div id="pix-key-text" class="pix-key"></div>
+        <div style="margin-top:10px; font-weight:700; color:#166534;">Total: <span id="pix-total-text"></span></div>
+      </div>
+      <div id="status-order-num"></div>
+      <button id="status-btn-close" class="btn-primary" style="display:none;" onclick="window.totemReset()">Fazer novo pedido</button>
+      <button id="status-btn-pix" class="btn-primary" style="display:none;" onclick="window.totemConfirmPix()"><i class="ph ph-check-circle"></i> Já paguei via Pix</button>
+    </div>
+  </div>
+
+  <div id="disabled-screen" class="disabled-screen" style="display:none;">
+    <i class="ph ph-storefront"></i>
+    <h2>Autoatendimento indisponível</h2>
+    <p>O totem está desativado neste momento.<br/>Por favor, chame um atendente.</p>
+  </div>
+
+  <div id="idle-progress" class="idle-progress" style="width:0%;"></div>
+
+  <script src="/socket.io.min.js"></script>
+  
+</body>
+</html>

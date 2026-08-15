@@ -1,0 +1,2798 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Super Admin | Chef Cozinha</title>
+  <!-- Google Fonts: Inter & Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css">
+  
+  <style>
+    /* ── SISTEMA DE DESIGN & VARIÁVEIS ────────────────────────── */
+    :root {
+      --bg-dark: #0f111a;
+      --bg-card: rgba(30, 32, 50, 0.65);
+      --bg-card-hover: rgba(40, 43, 67, 0.85);
+      --border-color: rgba(255, 255, 255, 0.08);
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
+      
+      --primary: #ff5722; /* Coral Chef Cozinha */
+      --primary-hover: #f4511e;
+      --primary-glow: rgba(255, 87, 34, 0.35);
+      
+      --success: #10b981;
+      --success-glow: rgba(16, 185, 129, 0.2);
+      --danger: #ef4444;
+      --danger-glow: rgba(239, 68, 68, 0.2);
+      --warning: #f59e0b;
+      --warning-glow: rgba(245, 158, 11, 0.2);
+      --info: #3b82f6;
+      --info-glow: rgba(59, 130, 246, 0.2);
+      
+      --sidebar-width: 260px;
+      --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* ── RESET & PADRÕES ──────────────────────────────────────── */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      background-image: 
+        radial-gradient(at 10% 20%, rgba(255, 87, 34, 0.05) 0px, transparent 50%),
+        radial-gradient(at 90% 80%, rgba(59, 130, 246, 0.05) 0px, transparent 50%);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow-x: hidden;
+    }
+
+    h1, h2, h3, h4, h5, h6 {
+      font-family: 'Outfit', sans-serif;
+    }
+
+    /* Barra de rolagem */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(0,0,0,0.2);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.1);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--primary);
+    }
+
+    /* ── ABAS DE MODO DE LOGIN ────────────────────────────────── */
+    .login-tabs {
+      display: flex;
+      gap: 0.5rem;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 12px;
+      padding: 0.3rem;
+    }
+
+    .login-tab {
+      flex: 1;
+      padding: 0.6rem 1rem;
+      border-radius: 9px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      transition: var(--transition);
+    }
+
+    .login-tab.active {
+      background: var(--primary);
+      color: white;
+      box-shadow: 0 2px 8px var(--primary-glow);
+    }
+
+    .login-tab:not(.active):hover {
+      color: white;
+      background: rgba(255, 255, 255, 0.07);
+    }
+
+    .login-mode-info {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.6rem;
+      background: rgba(59, 130, 246, 0.08);
+      border: 1px solid rgba(59, 130, 246, 0.2);
+      border-radius: 10px;
+      padding: 0.8rem 1rem;
+      font-size: 0.82rem;
+      color: #93c5fd;
+      line-height: 1.4;
+    }
+
+    .login-mode-info i {
+      margin-top: 0.1rem;
+      flex-shrink: 0;
+    }
+
+    /* ── TELA DE LOGIN (GLASSMORPHISM) ────────────────────────── */
+    #login-container {
+      width: 100%;
+      max-width: 480px;
+      padding: 2.5rem;
+      background: var(--bg-card);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--border-color);
+      border-radius: 24px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+      transform: translateY(0);
+      transition: var(--transition);
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .brand-logo-area {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      margin-bottom: 0.5rem;
+    }
+
+    .brand-logo-area i {
+      font-size: 3.5rem;
+      color: var(--primary);
+      filter: drop-shadow(0 0 15px var(--primary-glow));
+      margin-bottom: 1rem;
+      animation: pulse 2.5s infinite;
+    }
+
+    .brand-logo-area h1 {
+      font-size: 2rem;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, #fff, var(--text-muted));
+      background-clip: text;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .brand-logo-area p {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      margin-top: 0.25rem;
+    }
+
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      position: relative;
+    }
+
+    .input-group label {
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--text-muted);
+    }
+
+    .input-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .input-wrapper i {
+      position: absolute;
+      left: 1rem;
+      color: var(--text-muted);
+      font-size: 1.1rem;
+      pointer-events: none;
+    }
+
+    .input-wrapper input {
+      width: 100%;
+      padding: 0.9rem 1rem 0.9rem 2.8rem;
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      color: white;
+      font-size: 0.95rem;
+      outline: none;
+      transition: var(--transition);
+    }
+
+    .input-wrapper input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 10px var(--primary-glow);
+    }
+
+    .btn-login {
+      background: linear-gradient(135deg, var(--primary), #e64a19);
+      color: white;
+      border: none;
+      padding: 1rem;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 0.5rem;
+      box-shadow: 0 4px 12px var(--primary-glow);
+      transition: var(--transition);
+    }
+
+    .btn-login:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(255, 87, 34, 0.5);
+    }
+
+    .btn-login:active {
+      transform: translateY(0);
+    }
+
+    /* ── PRINCIPAL E SIDEBAR ─────────────────────────────────── */
+    #admin-panel {
+      display: none;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      grid-template-columns: var(--sidebar-width) 1fr;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      background: rgba(18, 20, 32, 0.9);
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      height: 100%;
+    }
+
+    .sidebar-header {
+      padding: 1.8rem 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .sidebar-header i {
+      font-size: 2rem;
+      color: var(--primary);
+      filter: drop-shadow(0 0 8px var(--primary-glow));
+    }
+
+    .sidebar-header h2 {
+      font-size: 1.3rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #fff, #b0bec5);
+      background-clip: text;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .sidebar-menu {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      padding: 1.5rem 0.8rem;
+      flex-grow: 1;
+    }
+
+    .menu-item {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 0.9rem 1.2rem;
+      color: var(--text-muted);
+      text-decoration: none;
+      border-radius: 12px;
+      font-weight: 500;
+      font-size: 0.95rem;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: var(--transition);
+    }
+
+    .menu-item:hover, .menu-item.active {
+      color: white;
+      background: rgba(255, 87, 34, 0.08);
+      border-color: rgba(255, 87, 34, 0.15);
+    }
+
+    .menu-item.active i {
+      color: var(--primary);
+      filter: drop-shadow(0 0 4px var(--primary-glow));
+    }
+
+    .sidebar-footer {
+      padding: 1.5rem 1rem;
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      gap: 0.8rem;
+    }
+
+    .admin-info {
+      display: flex;
+      align-items: center;
+      gap: 0.7rem;
+    }
+
+    .admin-info img {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      border: 2px solid var(--primary);
+      background: rgba(255,255,255,0.05);
+      object-fit: cover;
+    }
+
+    .admin-meta {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .admin-meta span {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: white;
+    }
+
+    .admin-meta small {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .btn-logout {
+      background: rgba(239, 68, 68, 0.1);
+      color: var(--danger);
+      border: 1px solid rgba(239, 68, 68, 0.2);
+      padding: 0.6rem;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 600;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 0.5rem;
+      transition: var(--transition);
+    }
+
+    .btn-logout:hover {
+      background: var(--danger);
+      color: white;
+      box-shadow: 0 0 10px var(--danger-glow);
+    }
+
+    /* ── ÁREA DE CONTEÚDO PRINCIPAL ──────────────────────────── */
+    .main-content {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow-y: auto;
+    }
+
+    .content-header {
+      padding: 1.8rem 2.5rem;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(15, 17, 26, 0.4);
+    }
+
+    .header-title h1 {
+      font-size: 1.8rem;
+      font-weight: 700;
+    }
+
+    .header-title p {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      margin-top: 0.2rem;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 1rem;
+    }
+
+    .btn-action {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      color: white;
+      padding: 0.8rem 1.2rem;
+      border-radius: 12px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: var(--transition);
+    }
+
+    .btn-action:hover {
+      background: var(--bg-card-hover);
+      border-color: var(--text-muted);
+    }
+
+    .btn-action.btn-primary-action {
+      background: var(--primary);
+      border-color: transparent;
+      box-shadow: 0 4px 12px var(--primary-glow);
+    }
+
+    .btn-action.btn-primary-action:hover {
+      background: var(--primary-hover);
+      box-shadow: 0 6px 16px rgba(255, 87, 34, 0.5);
+    }
+
+    .content-body {
+      padding: 2.5rem;
+      flex-grow: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+    }
+
+    /* Seções de Conteúdo */
+    .content-section {
+      display: none;
+      animation: fadeIn 0.4s ease-out;
+    }
+
+    .content-section.active {
+      display: block;
+    }
+
+    /* ── DASHBOARD: CARDS ────────────────────────────────────── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .stat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
+      padding: 1.8rem;
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      transition: var(--transition);
+    }
+
+    .stat-card:hover {
+      transform: translateY(-4px);
+      background: var(--bg-card-hover);
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    .stat-icon {
+      width: 54px;
+      height: 54px;
+      border-radius: 16px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 1.5rem;
+    }
+
+    .stat-card.active-card .stat-icon {
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--success);
+      box-shadow: 0 0 15px var(--success-glow);
+    }
+    .stat-card.trial-card .stat-icon {
+      background: rgba(59, 130, 246, 0.15);
+      color: var(--info);
+      box-shadow: 0 0 15px var(--info-glow);
+    }
+    .stat-card.expired-card .stat-icon {
+      background: rgba(245, 158, 11, 0.15);
+      color: var(--warning);
+      box-shadow: 0 0 15px var(--warning-glow);
+    }
+    .stat-card.blocked-card .stat-icon {
+      background: rgba(239, 68, 68, 0.15);
+      color: var(--danger);
+      box-shadow: 0 0 15px var(--danger-glow);
+    }
+
+    .stat-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+    }
+
+    .stat-meta span {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .stat-meta h3 {
+      font-size: 2rem;
+      font-weight: 700;
+      color: white;
+    }
+
+    /* ── TABELAS DE CLIENTES ────────────────────────────────── */
+    .table-container {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .table-controls {
+      padding: 1.5rem;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .search-bar {
+      display: flex;
+      align-items: center;
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 0.6rem 1rem;
+      width: 100%;
+      max-width: 320px;
+    }
+
+    .search-bar input {
+      background: transparent;
+      border: none;
+      outline: none;
+      color: white;
+      font-size: 0.9rem;
+      width: 100%;
+      margin-left: 0.6rem;
+    }
+
+    .filter-group {
+      display: flex;
+      gap: 0.8rem;
+    }
+
+    .select-filter {
+      background: var(--bg-dark);
+      border: 1px solid var(--border-color);
+      color: white;
+      padding: 0.6rem 1rem;
+      border-radius: 10px;
+      outline: none;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .select-filter:focus {
+      border-color: var(--primary);
+    }
+
+    .custom-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+    }
+
+    .custom-table th {
+      padding: 1.2rem 1.5rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border-color);
+      background: rgba(0, 0, 0, 0.15);
+    }
+
+    .custom-table td {
+      padding: 1.1rem 1.5rem;
+      font-size: 0.9rem;
+      color: var(--text-main);
+      border-bottom: 1px solid var(--border-color);
+      vertical-align: middle;
+    }
+
+    .custom-table tbody tr {
+      transition: var(--transition);
+    }
+
+    .custom-table tbody tr:hover {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    /* Badges */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.35rem 0.7rem;
+      border-radius: 100px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .badge-ativo {
+      background: rgba(16, 185, 129, 0.12);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.2);
+    }
+
+    .badge-trial {
+      background: rgba(59, 130, 246, 0.12);
+      color: #60a5fa;
+      border: 1px solid rgba(59, 130, 246, 0.2);
+    }
+
+    .badge-expirado {
+      background: rgba(245, 158, 11, 0.12);
+      color: #fbbf24;
+      border: 1px solid rgba(245, 158, 11, 0.2);
+    }
+
+    .badge-bloqueado {
+      background: rgba(239, 68, 68, 0.12);
+      color: #f87171;
+      border: 1px solid rgba(239, 68, 68, 0.2);
+    }
+
+    .badge-aguardando {
+      background: rgba(156, 163, 175, 0.12);
+      color: #d1d5db;
+      border: 1px solid rgba(156, 163, 175, 0.2);
+    }
+
+    .badge-plano {
+      background: rgba(139, 92, 246, 0.12);
+      color: #c084fc;
+      border: 1px solid rgba(139, 92, 246, 0.2);
+    }
+
+    .key-box {
+      font-family: monospace;
+      font-size: 0.85rem;
+      background: rgba(0, 0, 0, 0.3);
+      padding: 0.3rem 0.6rem;
+      border-radius: 6px;
+      border: 1px solid var(--border-color);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: var(--transition);
+    }
+
+    .key-box:hover {
+      border-color: var(--primary);
+      color: white;
+    }
+
+    /* Ações de linha */
+    .row-actions {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .btn-row-action {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+      background: rgba(0, 0, 0, 0.2);
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      transition: var(--transition);
+    }
+
+    .btn-row-action:hover {
+      color: white;
+      border-color: var(--text-muted);
+    }
+
+    .btn-row-action.edit-action:hover {
+      background: rgba(59, 130, 246, 0.15);
+      color: #60a5fa;
+      border-color: rgba(59, 130, 246, 0.3);
+    }
+
+    .btn-row-action.block-action:hover {
+      background: rgba(245, 158, 11, 0.15);
+      color: #fbbf24;
+      border-color: rgba(245, 158, 11, 0.3);
+    }
+
+    .btn-row-action.delete-action:hover {
+      background: rgba(239, 68, 68, 0.15);
+      color: #f87171;
+      border-color: rgba(239, 68, 68, 0.3);
+    }
+
+    .btn-row-action.danger-action:hover {
+      background: rgba(239, 68, 68, 0.15);
+      color: #f87171;
+      border-color: rgba(239, 68, 68, 0.3);
+    }
+
+    .quick-cmd {
+      padding: 0.4rem 0.8rem;
+      border-radius: 6px;
+      border: 1px solid var(--border-color);
+      background: rgba(0, 0, 0, 0.2);
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 0.75rem;
+      font-family: 'Consolas', 'Courier New', monospace;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+    .quick-cmd:hover {
+      color: #a8ff60;
+      border-color: rgba(168, 255, 96, 0.3);
+      background: rgba(168, 255, 96, 0.08);
+    }
+
+    /* ── FORMULÁRIOS MODERNOS ───────────────────────────────── */
+    .form-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 24px;
+      padding: 2.5rem;
+      max-width: 700px;
+      display: flex;
+      flex-direction: column;
+      gap: 1.8rem;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+    }
+
+    @media (max-width: 600px) {
+      .form-row {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .form-group label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    .form-group input, .form-group select, .form-group textarea {
+      padding: 0.8rem 1rem;
+      background: rgba(0,0,0,0.25);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      color: white;
+      outline: none;
+      font-size: 0.95rem;
+      transition: var(--transition);
+    }
+
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 8px var(--primary-glow);
+    }
+
+    .form-group textarea {
+      resize: vertical;
+      min-height: 80px;
+    }
+
+    .form-submit {
+      align-self: flex-start;
+      margin-top: 1rem;
+    }
+
+    /* ── BANNER DE UPDATE GLOBAL INFO ────────────────────────── */
+    .info-banner {
+      background: rgba(59, 130, 246, 0.08);
+      border: 1px solid rgba(59, 130, 246, 0.2);
+      border-radius: 16px;
+      padding: 1.5rem;
+      display: flex;
+      gap: 1.2rem;
+      align-items: flex-start;
+      margin-bottom: 2rem;
+    }
+
+    .info-banner i {
+      font-size: 1.5rem;
+      color: var(--info);
+      margin-top: 0.1rem;
+    }
+
+    .info-banner-content h4 {
+      font-size: 1rem;
+      font-weight: 600;
+      color: white;
+      margin-bottom: 0.3rem;
+    }
+
+    .info-banner-content p {
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    /* ── MODAIS (GLASSMORPHISM) ──────────────────────────────── */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .modal-overlay.active {
+      display: flex;
+      opacity: 1;
+    }
+
+    .modal-content {
+      background: rgba(22, 24, 38, 0.95);
+      border: 1px solid var(--border-color);
+      border-radius: 24px;
+      width: 90%;
+      max-width: 540px;
+      box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+      transform: translateY(-30px);
+      transition: transform 0.3s ease;
+      overflow: hidden;
+    }
+
+    .modal-overlay.active .modal-content {
+      transform: translateY(0);
+    }
+
+    .modal-header {
+      padding: 1.5rem 2rem;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-header h3 {
+      font-size: 1.3rem;
+      font-weight: 700;
+    }
+
+    .modal-close {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1.2rem;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .modal-close:hover {
+      color: white;
+    }
+
+    .modal-body {
+      padding: 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .modal-footer {
+      padding: 1.5rem 2rem;
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      justify-content: flex-end;
+      gap: 1rem;
+      background: rgba(0, 0, 0, 0.15);
+    }
+
+    /* ── ANIMAÇÕES ───────────────────────────────────────────── */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(1); filter: drop-shadow(0 0 15px var(--primary-glow)); }
+      50% { transform: scale(1.05); filter: drop-shadow(0 0 25px rgba(255, 87, 34, 0.6)); }
+      100% { transform: scale(1); filter: drop-shadow(0 0 15px var(--primary-glow)); }
+    }
+
+    .loading-spinner {
+      border: 3px solid rgba(255, 255, 255, 0.1);
+      border-top: 3px solid var(--primary);
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    /* Toast Notification */
+    .toast {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      background: rgba(22, 24, 38, 0.95);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1rem 1.5rem;
+      color: white;
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+      z-index: 1100;
+      transform: translateY(100px);
+      opacity: 0;
+      transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .toast.active {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    .toast-success { border-left: 4px solid var(--success); }
+    .toast-danger { border-left: 4px solid var(--danger); }
+    .toast-info { border-left: 4px solid var(--info); }
+
+    /* ── MENU BADGE "SOS" ─────────────────────────────────────── */
+    .menu-item-alert {
+      position: relative;
+    }
+
+    .menu-item-alert:hover, .menu-item-alert.active {
+      background: rgba(239, 68, 68, 0.08) !important;
+      border-color: rgba(239, 68, 68, 0.2) !important;
+    }
+
+    .menu-item-alert.active i {
+      color: var(--danger) !important;
+      filter: drop-shadow(0 0 4px var(--danger-glow)) !important;
+    }
+
+    .menu-badge {
+      margin-left: auto;
+      background: var(--danger);
+      color: white;
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 0.15rem 0.45rem;
+      border-radius: 100px;
+      letter-spacing: 0.5px;
+      animation: pulse-badge 2s infinite;
+    }
+
+    @keyframes pulse-badge {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+
+    /* ── INFO BANNER DANGER ───────────────────────────────────── */
+    .info-banner-danger {
+      background: rgba(239, 68, 68, 0.07);
+      border-color: rgba(239, 68, 68, 0.25);
+    }
+
+    .info-banner-danger i {
+      color: var(--danger) !important;
+    }
+
+    /* ── RECOVERY GRID ────────────────────────────────────────── */
+    .recuperar-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+    }
+
+    .recovery-card-full {
+      grid-column: 1 / -1;
+    }
+
+    .recovery-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
+      padding: 1.8rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.4rem;
+      transition: var(--transition);
+    }
+
+    .recovery-card:hover {
+      border-color: rgba(255, 255, 255, 0.12);
+    }
+
+    .recovery-card-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 1rem;
+    }
+
+    .recovery-card-header > div:nth-child(2) {
+      flex: 1;
+    }
+
+    .recovery-card-header h3 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: white;
+    }
+
+    .recovery-card-header p {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      margin-top: 0.2rem;
+    }
+
+    .recovery-card-icon {
+      width: 46px;
+      height: 46px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      flex-shrink: 0;
+    }
+
+    .icon-info { background: rgba(59, 130, 246, 0.15); color: var(--info); box-shadow: 0 0 12px var(--info-glow); }
+    .icon-warning { background: rgba(245, 158, 11, 0.15); color: var(--warning); box-shadow: 0 0 12px var(--warning-glow); }
+    .icon-success { background: rgba(16, 185, 129, 0.15); color: var(--success); box-shadow: 0 0 12px var(--success-glow); }
+    .icon-danger { background: rgba(239, 68, 68, 0.15); color: var(--danger); box-shadow: 0 0 12px var(--danger-glow); }
+
+    /* ── RECOVERY SEARCH ──────────────────────────────────────── */
+    .recovery-search {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 0.6rem 1rem;
+    }
+
+    .recovery-search i {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    .recovery-search input {
+      background: transparent;
+      border: none;
+      outline: none;
+      color: white;
+      font-size: 0.9rem;
+      width: 100%;
+    }
+
+    .recovery-table-wrap {
+      overflow-x: auto;
+      border-radius: 12px;
+      border: 1px solid var(--border-color);
+    }
+
+    .table-empty-state {
+      text-align: center;
+      color: var(--text-muted);
+      padding: 2rem !important;
+    }
+
+    .table-empty-state i {
+      display: block;
+      font-size: 1.5rem;
+      margin-bottom: 0.5rem;
+      opacity: 0.4;
+    }
+
+    /* ── ADMIN AUTH BOX ───────────────────────────────────────── */
+    .admin-auth-box {
+      background: rgba(239, 68, 68, 0.05);
+      border: 1px solid rgba(239, 68, 68, 0.2);
+      border-radius: 14px;
+      padding: 1.2rem 1.4rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.8rem;
+    }
+
+    .admin-auth-label {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.82rem;
+      color: #f87171;
+      font-weight: 500;
+    }
+
+    .admin-auth-input-wrap {
+      display: flex;
+      gap: 0.8rem;
+      align-items: center;
+    }
+
+    .admin-auth-input-wrap input {
+      flex: 1;
+      padding: 0.75rem 1rem;
+      background: rgba(0,0,0,0.3);
+      border: 1px solid rgba(239, 68, 68, 0.25);
+      border-radius: 10px;
+      color: white;
+      outline: none;
+      font-size: 0.9rem;
+      transition: var(--transition);
+    }
+
+    .admin-auth-input-wrap input:focus {
+      border-color: var(--danger);
+      box-shadow: 0 0 8px var(--danger-glow);
+    }
+
+    .btn-load-users {
+      background: var(--danger);
+      color: white;
+      border: none;
+      padding: 0.75rem 1.2rem;
+      border-radius: 10px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      white-space: nowrap;
+      transition: var(--transition);
+      box-shadow: 0 4px 10px var(--danger-glow);
+    }
+
+    .btn-load-users:hover {
+      background: #dc2626;
+      transform: translateY(-1px);
+    }
+
+    /* ── RESET FORM ───────────────────────────────────────────── */
+    .reset-form {
+      display: flex;
+      flex-direction: column;
+      gap: 1.2rem;
+    }
+
+    .selected-user-preview {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      background: rgba(16, 185, 129, 0.06);
+      border: 1px solid rgba(16, 185, 129, 0.15);
+      border-radius: 12px;
+      padding: 0.9rem 1.2rem;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .selected-user-preview i {
+      font-size: 1.6rem;
+      color: var(--success);
+    }
+
+    .selected-user-preview > div {
+      flex: 1;
+    }
+
+    .selected-user-preview strong {
+      display: block;
+      color: white;
+      font-size: 0.9rem;
+    }
+
+    .selected-user-preview small {
+      color: var(--text-muted);
+      font-size: 0.78rem;
+    }
+
+    .reset-divider {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      color: var(--text-muted);
+      font-size: 0.8rem;
+    }
+
+    .reset-divider::before, .reset-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border-color);
+    }
+
+    .toggle-senha-btn {
+      position: absolute;
+      right: 0.8rem;
+      top: 50%;
+      transform: translateY(-50%);
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: var(--transition);
+    }
+
+    .toggle-senha-btn:hover {
+      color: white;
+    }
+
+    /* ── FORÇA DA SENHA ───────────────────────────────────────── */
+    .senha-strength {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+    }
+
+    .strength-bar {
+      flex: 1;
+      height: 4px;
+      border-radius: 100px;
+      background: rgba(255, 255, 255, 0.08);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .strength-bar::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      height: 100%;
+      border-radius: 100px;
+      background: var(--strength-color, var(--danger));
+      width: var(--strength-width, 0%);
+      transition: width 0.4s ease, background 0.4s ease;
+    }
+
+    .strength-label {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--strength-color, var(--danger));
+      min-width: 60px;
+      text-align: right;
+    }
+
+    /* ── BOTÃO RESET ──────────────────────────────────────────── */
+    .btn-reset {
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+      color: white;
+      border: none;
+      padding: 0.9rem 1.5rem;
+      border-radius: 12px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.6rem;
+      box-shadow: 0 4px 12px var(--warning-glow);
+      transition: var(--transition);
+    }
+
+    .btn-reset:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(245, 158, 11, 0.4);
+    }
+
+    .btn-reset:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* ── BOTÃO DESATIVAR NA LINHA ─────────────────────────────── */
+    .btn-row-action.deactivate-action:hover {
+      background: rgba(239, 68, 68, 0.15);
+      color: #f87171;
+      border-color: rgba(239, 68, 68, 0.3);
+    }
+
+    .btn-row-action.select-action:hover {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border-color: rgba(16, 185, 129, 0.3);
+    }
+
+    @media (max-width: 900px) {
+      .recuperar-grid {
+        grid-template-columns: 1fr;
+      }
+      .recovery-card-full {
+        grid-column: 1;
+      }
+    }
+  </style>
+
+  <script src="/locales.js"></script>
+  <script src="/i18n.js"></script>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#fc4b15">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Chef Cozinha">
+<link rel="apple-touch-icon" href="/icons/icon-192.svg">
+  <script src="super-admin.js"></script>
+  </head>
+<body>
+
+  <!-- ── TELA DE LOGIN ────────────────────────────────────────── -->
+  <div id="login-container">
+    <div class="brand-logo-area">
+      <i class="fa-solid fa-crown"></i>
+      <h1>Chef Cozinha</h1>
+      <p>Painel de Super Administrador</p>
+    </div>
+
+    <!-- Abas de modo de login -->
+    <div class="login-tabs">
+      <button class="login-tab active" id="tab-local">
+        <i class="fa-solid fa-server"></i>
+        Acesso Local
+      </button>
+      <button class="login-tab" id="tab-cloud">
+        <i class="fa-brands fa-google"></i>
+        Apps Script
+      </button>
+    </div>
+
+    <!-- MODO LOCAL -->
+    <div id="login-local">
+      <div class="login-mode-info">
+        <i class="fa-solid fa-circle-info"></i>
+        <span>Use a senha do administrador do sistema local (o mesmo login que você usa no sistema)</span>
+      </div>
+      <div class="input-group">
+        <label for="local-senha">Senha do Administrador</label>
+        <div class="input-wrapper">
+          <i class="fa-solid fa-lock"></i>
+          <input type="password" id="local-senha" placeholder="Sua senha de admin" autocomplete="current-password">
+        </div>
+      </div>
+      <button class="btn-login" id="btn-entrar-local">
+        <span>Entrar no Painel</span>
+        <i class="fa-solid fa-arrow-right-to-bracket"></i>
+      </button>
+    </div>
+
+    <!-- MODO APPS SCRIPT (oculto por padrão) -->
+    <div id="login-cloud" style="display:none;">
+      <div class="input-group">
+        <label for="apps-url">Google Apps Script URL</label>
+        <div class="input-wrapper">
+          <i class="fa-solid fa-link"></i>
+          <input type="text" id="apps-url" placeholder="https://script.google.com/macros/s/.../exec">
+        </div>
+      </div>
+      <div class="input-group">
+        <label for="admin-token">Token Administrativo</label>
+        <div class="input-wrapper">
+          <i class="fa-solid fa-key"></i>
+          <input type="password" id="admin-token" placeholder="•••••••••••••••••••••">
+        </div>
+      </div>
+      <button class="btn-login" id="btn-entrar">
+        <span>Entrar no Painel</span>
+        <i class="fa-solid fa-arrow-right-to-bracket"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- ── PAINEL ADMIN CENTRAL ─────────────────────────────────── -->
+  <div id="admin-panel">
+    
+    <!-- Sidebar Lateral -->
+    <div class="sidebar">
+      <div>
+        <div class="sidebar-header">
+          <i class="fa-solid fa-crown"></i>
+          <h2>Super Admin</h2>
+        </div>
+        <div class="sidebar-menu">
+          <div class="menu-item active" data-target="sec-dash">
+            <i class="fa-solid fa-chart-line"></i>
+            <span>Dashboard</span>
+          </div>
+          <div class="menu-item" data-target="sec-bi">
+            <i class="fa-solid fa-chart-pie"></i>
+            <span>BI / Franquias</span>
+          </div>
+          <div class="menu-item" data-target="sec-restaurantes">
+            <i class="fa-solid fa-store"></i>
+            <span>Restaurantes</span>
+          </div>
+          <div class="menu-item" data-target="sec-usuarios">
+            <i class="fa-solid fa-users-gear"></i>
+            <span>Usuários</span>
+          </div>
+          <div class="menu-item" data-target="sec-suporte">
+            <i class="fa-solid fa-headset"></i>
+            <span>Equipe de Suporte</span>
+          </div>
+          <div class="menu-item" data-target="sec-servidor">
+            <i class="fa-solid fa-server"></i>
+            <span>Servidor</span>
+          </div>
+          <div class="menu-item" data-target="sec-mensagens">
+            <i class="fa-solid fa-bullhorn"></i>
+            <span>Mensagens</span>
+          </div>
+          <div class="menu-item" data-target="sec-logs" id="menu-item-logs">
+            <i class="fa-solid fa-file-invoice"></i>
+            <span>Logs do Sistema</span>
+          </div>
+          <div class="menu-item" data-target="sec-config">
+            <i class="fa-solid fa-gear"></i>
+            <span>Configurações</span>
+          </div>
+          <div class="menu-item" data-target="sec-licencas" id="menu-item-licencas">
+            <i class="fa-solid fa-key"></i>
+            <span>Licenças &amp; Telemetria</span>
+          </div>
+          <div class="menu-item menu-item-alert" data-target="sec-recuperar-acesso">
+            <i class="fa-solid fa-user-shield"></i>
+            <span>Recuperar Acesso</span>
+            <span class="menu-badge">SOS</span>
+          </div>
+          <div class="menu-item" data-target="sec-clientes">
+            <i class="fa-solid fa-users"></i>
+            <span>Clientes</span>
+          </div>
+          <div class="menu-item" data-target="sec-terminal">
+            <i class="fa-solid fa-terminal"></i>
+            <span>Terminal</span>
+          </div>
+        </div>
+      </div>
+      
+      <div class="sidebar-footer">
+        <div class="admin-info">
+          <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Crect width='40' height='40' rx='20' fill='%23ff5722'/%3E%3Ctext x='20' y='26' font-family='Arial' font-size='18' font-weight='bold' fill='white' text-anchor='middle'%3ECA%3C/text%3E%3C/svg%3E" alt="Avatar">
+          <div class="admin-meta">
+            <span>Chef Admin</span>
+            <small>Suporte Técnico</small>
+          </div>
+        </div>
+        <button class="btn-logout" id="btn-sair">
+          <i class="fa-solid fa-arrow-right-from-bracket"></i>
+          <span>Desconectar</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Área de Conteúdo -->
+    <div class="main-content">
+      
+      <!-- Cabeçalho -->
+      <div class="content-header">
+        <div class="header-title">
+          <h1 id="panel-title">Dashboard</h1>
+          <p id="panel-subtitle">Visão geral do ecossistema de licenças Chef Cozinha</p>
+        </div>
+        <div class="header-actions">
+          <button class="btn-action" id="btn-refresh-data">
+            <i class="fa-solid fa-rotate"></i>
+            <span>Sincronizar</span>
+          </button>
+          <button class="btn-action btn-primary-action" id="btn-header-new-key">
+            <i class="fa-solid fa-plus"></i>
+            <span>Nova Licença</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Corpo do Painel -->
+      <div class="content-body">
+        
+        <!-- ════ SEÇÃO 1: DASHBOARD ════ -->
+        <div class="content-section active" id="sec-dash">
+          <div class="stats-grid">
+            <div class="stat-card active-card">
+              <div class="stat-icon"><i class="fa-solid fa-circle-check"></i></div>
+              <div class="stat-meta">
+                <span>Ativas</span>
+                <h3 id="stat-ativas">0</h3>
+              </div>
+            </div>
+            <div class="stat-card trial-card">
+              <div class="stat-icon"><i class="fa-solid fa-hourglass-half"></i></div>
+              <div class="stat-meta">
+                <span>Em Trial</span>
+                <h3 id="stat-trials">0</h3>
+              </div>
+            </div>
+            <div class="stat-card expired-card">
+              <div class="stat-icon"><i class="fa-solid fa-circle-exclamation"></i></div>
+              <div class="stat-meta">
+                <span>Expiradas</span>
+                <h3 id="stat-expiradas">0</h3>
+              </div>
+            </div>
+            <div class="stat-card blocked-card">
+              <div class="stat-icon"><i class="fa-solid fa-ban"></i></div>
+              <div class="stat-meta">
+                <span>Bloqueadas</span>
+                <h3 id="stat-bloqueadas">0</h3>
+              </div>
+            </div>
+            <!-- NOVOS CARDS PREMIUM -->
+            <div class="stat-card sales-card" id="card-local-sales" style="display: none;">
+              <div class="stat-icon" style="background: rgba(139, 92, 246, 0.15); color: #c084fc; box-shadow: 0 0 15px rgba(139, 92, 246, 0.2);"><i class="fa-solid fa-money-bill-trend-up"></i></div>
+              <div class="stat-meta">
+                <span>Faturamento Total</span>
+                <h3 id="stat-vendas-locais">R$ 0,00</h3>
+              </div>
+            </div>
+            <div class="stat-card users-card" id="card-local-users" style="display: none;">
+              <div class="stat-icon" style="background: rgba(59, 130, 246, 0.15); color: #60a5fa; box-shadow: 0 0 15px rgba(59, 130, 246, 0.2);"><i class="fa-solid fa-users-gear"></i></div>
+              <div class="stat-meta">
+                <span>Usuários Totais</span>
+                <h3 id="stat-usuarios-locais">0</h3>
+              </div>
+            </div>
+          </div>
+          
+          <div style="margin-top: 2rem;" class="table-container">
+            <div class="table-controls">
+              <h3 style="font-family: 'Outfit', sans-serif;">Instalações Recentes</h3>
+            </div>
+            <table class="custom-table" id="recent-installations-table">
+              <thead>
+                <tr>
+                  <th>Cliente</th>
+                  <th>Status</th>
+                  <th>IP / Região</th>
+                  <th>Versão</th>
+                  <th>Última Conexão</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td colspan="5" style="text-align: center; color: var(--text-muted);">Sincronize para carregar os dados...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ════ SEÇÃO BI: FRANQUIAS ════ -->
+        <div class="content-section" id="sec-bi">
+          <div class="table-container" style="margin-bottom:1.5rem;">
+            <div class="table-controls">
+              <h3 style="font-family: 'Outfit', sans-serif;"><i class="fa-solid fa-chart-pie"></i> BI Comparativo — Franquias</h3>
+              <div class="filter-group">
+                <select class="select-filter" id="bi-periodo">
+                  <option value="7">Últimos 7 dias</option>
+                  <option value="30" selected>Últimos 30 dias</option>
+                  <option value="90">Últimos 90 dias</option>
+                  <option value="365">Último ano</option>
+                </select>
+                <button class="btn-action btn-primary-action" id="btn-bi-atualizar">
+                  <i class="fa-solid fa-rotate"></i><span>Atualizar</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="stats-grid" id="bi-summary">
+            <div class="stat-card active-card">
+              <div class="stat-icon"><i class="fa-solid fa-sack-dollar"></i></div>
+              <div class="stat-meta"><span>Faturamento</span><h3 id="bi-total-vendas">R$ 0,00</h3></div>
+            </div>
+            <div class="stat-card trial-card">
+              <div class="stat-icon"><i class="fa-solid fa-receipt"></i></div>
+              <div class="stat-meta"><span>Pedidos</span><h3 id="bi-total-pedidos">0</h3></div>
+            </div>
+            <div class="stat-card expired-card">
+              <div class="stat-icon"><i class="fa-solid fa-calculator"></i></div>
+              <div class="stat-meta"><span>Ticket Médio</span><h3 id="bi-ticket-medio">R$ 0,00</h3></div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon"><i class="fa-solid fa-store"></i></div>
+              <div class="stat-meta"><span>Restaurantes</span><h3 id="bi-qtd-rest">0</h3></div>
+            </div>
+          </div>
+
+          <div class="table-container" style="margin-top:1.5rem;">
+            <h3 style="font-family: 'Outfit', sans-serif; margin-bottom: 1rem;">Ranking de Faturamento</h3>
+            <div style="overflow-x:auto;">
+              <table class="custom-table" id="bi-ranking-table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Restaurante</th>
+                    <th>Faturamento</th>
+                    <th>Pedidos</th>
+                    <th>Ticket Médio</th>
+                    <th style="width:30%;">Participação</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="bi-ranking-tbody">
+                  <tr><td colspan="7" style="text-align:center;color:var(--text-muted);">Selecione o período e clique em Atualizar...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ════ SEÇÃO 2: RESTAURANTES ════ -->
+        <div class="content-section" id="sec-restaurantes">
+          <div class="table-container">
+            <div class="table-controls">
+              <div class="search-bar">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="rest-search" placeholder="Buscar restaurante...">
+              </div>
+              <div class="filter-group">
+                <select class="select-filter" id="rest-filter-status">
+                  <option value="">Todos os Status</option>
+                  <option value="ativo">Ativos</option>
+                  <option value="trial">Trial</option>
+                  <option value="bloqueado">Bloqueados</option>
+                </select>
+                <button class="btn-action btn-primary-action" id="btn-novo-restaurante">
+                  <i class="fa-solid fa-plus"></i><span>Novo Restaurante</span>
+                </button>
+              </div>
+            </div>
+            <div style="overflow-x: auto;">
+              <table class="custom-table" id="restaurantes-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Restaurante</th>
+                    <th>Licença</th>
+                    <th>Status</th>
+                    <th>Equipe</th>
+                    <th>Data Cadastro</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="restaurantes-tbody">
+                  <tr><td colspan="7" style="text-align:center;color:var(--text-muted);">Clique em Sincronizar para carregar...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ════ SEÇÃO 3: USUÁRIOS ════ -->
+        <div class="content-section" id="sec-usuarios">
+          <div class="table-container">
+            <div class="table-controls">
+              <div class="search-bar">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="user-search" placeholder="Buscar usuário...">
+              </div>
+              <div class="filter-group">
+                <select class="select-filter" id="user-filter-role">
+                  <option value="">Todos os Cargos</option>
+                  <option value="admin">Admin</option>
+                  <option value="caixa">Caixa</option>
+                  <option value="garcom">Garçom</option>
+                  <option value="cozinha">Cozinha</option>
+                </select>
+                <button class="btn-action btn-primary-action" id="btn-novo-usuario">
+                  <i class="fa-solid fa-user-plus"></i><span>Novo Usuário</span>
+                </button>
+              </div>
+            </div>
+            <div style="overflow-x: auto;">
+              <table class="custom-table" id="usuarios-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Email / Login</th>
+                    <th>Restaurante</th>
+                    <th>Cargo</th>
+                    <th>Status</th>
+                    <th>Cadastro</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="usuarios-tbody">
+                  <tr><td colspan="7" style="text-align:center;color:var(--text-muted);">Clique em Sincronizar para carregar...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ════ SEÇÃO 4: SERVIDOR ════ -->
+        <div class="content-section" id="sec-servidor">
+          <div class="stats-grid" id="server-stats">
+            <div class="stat-card active-card">
+              <div class="stat-icon"><i class="fa-solid fa-clock"></i></div>
+              <div class="stat-meta"><span>Uptime</span><h3 id="srv-uptime">--</h3></div>
+            </div>
+            <div class="stat-card trial-card">
+              <div class="stat-icon"><i class="fa-solid fa-memory"></i></div>
+              <div class="stat-meta"><span>Memória Heap</span><h3 id="srv-memoria">--</h3></div>
+            </div>
+            <div class="stat-card expired-card">
+              <div class="stat-icon"><i class="fa-solid fa-database"></i></div>
+              <div class="stat-meta"><span>Bancos de Dados</span><h3 id="srv-bancos">--</h3></div>
+            </div>
+            <div class="stat-card blocked-card">
+              <div class="stat-icon"><i class="fa-solid fa-hard-drive"></i></div>
+              <div class="stat-meta"><span>Tamanho Total</span><h3 id="srv-disco">--</h3></div>
+            </div>
+          </div>
+          <div style="margin-top:1.5rem;display:flex;gap:1rem;flex-wrap:wrap;">
+            <button class="btn-action btn-primary-action" id="btn-refresh-server">
+              <i class="fa-solid fa-rotate"></i><span>Atualizar Status</span>
+            </button>
+            <button class="btn-action" id="btn-backup" style="background:rgba(16,185,129,0.15);color:#34d399;border-color:rgba(16,185,129,0.3);">
+              <i class="fa-solid fa-download"></i><span>Criar Backup</span>
+            </button>
+          </div>
+          <div class="info-banner" style="margin-top:1.5rem;">
+            <i class="fa-solid fa-circle-info"></i>
+            <div class="info-banner-content">
+              <h4>Informações do Servidor</h4>
+              <p id="srv-info-extra">Aguarde carregar...</p>
+            </div>
+          </div>
+
+          <!-- ═══ CERTIFICADOS SSL (.pfx) ═══ -->
+          <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.5rem; margin-top: 1.5rem;">
+            <h4 style="margin-bottom: 1rem;"><i class="fa-solid fa-shield-halved" style="color:#34d399;"></i> Certificados SSL (.pfx)</h4>
+            <div id="cert-status" style="padding: 0.75rem 1rem; border-radius: 8px; background: var(--bg-tertiary); border: 1px solid var(--border-color); font-size: 0.9rem; margin-bottom: 1rem; color: var(--text-primary);">Carregando...</div>
+
+            <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; margin-bottom: 1.25rem;">
+              <input type="file" id="cert-file-input" accept=".pfx,.p12" style="flex:1; min-width:180px; padding:0.5rem; background:var(--bg-tertiary); border:1px solid var(--border-color); border-radius:8px; color:var(--text-primary);">
+              <input type="password" id="cert-pass-input" placeholder="Senha do certificado (padrão: chefcozinha)" style="flex:1; min-width:180px; padding:0.65rem 0.9rem; background:var(--bg-tertiary); border:1px solid var(--border-color); border-radius:8px; color:var(--text-primary);">
+              <button class="btn-action btn-primary-action" onclick="enviarCertificado()" style="white-space:nowrap;">
+                <i class="fa-solid fa-upload"></i><span>Enviar</span>
+              </button>
+            </div>
+
+            <div class="table-container">
+              <table class="custom-table">
+                <thead>
+                  <tr>
+                    <th>Arquivo</th>
+                    <th>Tamanho</th>
+                    <th>Status</th>
+                    <th style="width:190px;">Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="cert-tbody">
+                  <tr><td colspan="4" style="text-align:center;color:var(--text-muted);">Carregando certificados...</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 1rem;">
+              <i class="fa-solid fa-circle-info"></i> Se o servidor já estiver em HTTPS, a troca é aplicada ao vivo, sem derrubar conexões. Se estiver em HTTP, ative o certificado e reinicie o servidor para o HTTPS entrar em vigor.
+            </p>
+          </div>
+        </div>
+
+        <!-- ════ SEÇÃO 5: MENSAGENS / BROADCAST ════ -->
+        <div class="content-section" id="sec-mensagens">
+          <div class="content-header" style="margin-bottom: 1.5rem;">
+            <h3><i class="fa-solid fa-bullhorn"></i> Mensagens / Broadcast</h3>
+            <p style="color: var(--text-muted); font-size: 0.9rem;">Envie atualizações, avisos e notificações para todos os restaurantes.</p>
+          </div>
+
+          <!-- Formulário de envio -->
+          <div class="card" style="margin-bottom: 1.5rem; padding: 1.5rem;">
+            <h4 style="margin-bottom: 1rem;"><i class="fa-solid fa-paper-plane"></i> Nova Mensagem</h4>
+            <div style="display: grid; grid-template-columns: 1fr 160px; gap: 1rem; margin-bottom: 1rem;">
+              <div>
+                <label style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.4rem;">Título</label>
+                <input type="text" id="msg-titulo" placeholder="Ex: Atualização v3.2 disponível" style="width: 100%; padding: 0.7rem 1rem; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-size: 0.9rem; box-sizing: border-box;">
+              </div>
+              <div>
+                <label style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.4rem;">Tipo</label>
+                <select id="msg-tipo" style="width: 100%; padding: 0.7rem 1rem; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-size: 0.9rem; box-sizing: border-box;">
+                  <option value="aviso">Aviso</option>
+                  <option value="atualizacao">Atualização</option>
+                  <option value="manutencao">Manutenção</option>
+                  <option value="urgente">Urgente</option>
+                </select>
+              </div>
+            </div>
+            <div style="margin-bottom: 1rem;">
+              <label style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.4rem;">Mensagem</label>
+              <textarea id="msg-corpo" rows="4" placeholder="Escreva o conteúdo da mensagem aqui..." style="width: 100%; padding: 0.7rem 1rem; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-size: 0.9rem; resize: vertical; box-sizing: border-box;"></textarea>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 0.8rem;">
+              <button class="btn-action btn-secondary-action" id="btn-limpar-msg"><i class="fa-solid fa-eraser"></i> Limpar</button>
+              <button class="btn-action btn-primary-action" id="btn-enviar-msg"><i class="fa-solid fa-paper-plane"></i> Enviar para Todos</button>
+            </div>
+          </div>
+
+          <!-- Histórico -->
+          <div class="table-container">
+            <div class="table-controls">
+              <h4 style="margin: 0;"><i class="fa-solid fa-clock-rotate-left"></i> Histórico de Mensagens</h4>
+              <button class="btn-action btn-primary-action" id="btn-refresh-mensagens"><i class="fa-solid fa-rotate"></i> Atualizar</button>
+            </div>
+            <div style="overflow-x: auto; max-height: 500px;">
+              <table class="custom-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Tipo</th>
+                    <th>Título</th>
+                    <th>Mensagem</th>
+                    <th>Enviado em</th>
+                    <th>Lida por</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="mensagens-table-body">
+                  <tr>
+                    <td colspan="7" style="text-align: center; color: var(--text-muted);">Clique em "Atualizar" para carregar...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ════ SEÇÃO: EQUIPE DE SUPORTE ════ -->
+        <div class="content-section" id="sec-suporte">
+          <div style="padding:20px;">
+            <div class="content-header" style="margin-bottom:1.5rem;">
+              <div>
+                <h2 style="margin-bottom:6px;"><i class="fa-solid fa-headset"></i> Equipe de Suporte</h2>
+                <p style="color:#999;font-size:13px;">Gerencie os funcionários que prestam suporte aos restaurantes contratados.</p>
+              </div>
+              <button class="btn-action btn-primary-action" id="btn-novo-suporte">
+                <i class="fa-solid fa-plus"></i> Novo Membro
+              </button>
+            </div>
+
+            <div class="table-controls">
+              <input type="text" id="suporte-search" placeholder="Buscar por nome ou email..." style="flex:1;min-width:200px;">
+              <select id="suporte-filter-status" style="width:auto;">
+                <option value="">Todos os Status</option>
+                <option value="disponivel">Disponível</option>
+                <option value="ocupado">Ocupado</option>
+                <option value="offline">Offline</option>
+              </select>
+            </div>
+
+            <div class="table-container">
+              <div style="overflow-x: auto; max-height: 550px;">
+                <table class="data-table" style="width:100%;border-collapse:collapse;font-size:13px;">
+                  <thead>
+                    <tr style="background:#1a1d24;border-bottom:2px solid #2a2d35;">
+                      <th style="padding:10px 12px;text-align:left;color:#fc4b15;">Nome</th>
+                      <th style="padding:10px 12px;text-align:left;color:#888;">Email</th>
+                      <th style="padding:10px 12px;text-align:center;color:#888;">Telefone</th>
+                      <th style="padding:10px 12px;text-align:center;color:#888;">Cargo</th>
+                      <th style="padding:10px 12px;text-align:center;color:#888;">Especialidade</th>
+                      <th style="padding:10px 12px;text-align:center;color:#888;">Status</th>
+                      <th style="padding:10px 12px;text-align:center;color:#888;">Desde</th>
+                      <th style="padding:10px 12px;text-align:center;color:#888;">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody id="suporte-tbody">
+                    <tr><td colspan="8" style="text-align:center;color:var(--text-muted);">Carregando equipe de suporte...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ════ SEÇÃO 6: LOGS DO SISTEMA ════ -->
+        <div class="content-section" id="sec-logs">
+          <div class="table-container">
+            <div class="table-controls">
+              <div class="search-bar">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="logs-search-input" placeholder="Buscar operador, IP, endpoint, detalhes...">
+              </div>
+              <div class="filter-group">
+                <select id="logs-tipo-filter" class="select-filter">
+                  <option value="api" selected>Logs de API (Requisições)</option>
+                  <option value="auditoria">Registros de Auditoria</option>
+                </select>
+                <button class="btn-action btn-primary-action" id="btn-refresh-logs">
+                  <i class="fa-solid fa-rotate"></i>
+                  <span>Atualizar Logs</span>
+                </button>
+              </div>
+            </div>
+            
+            <div style="overflow-x: auto; max-height: 500px;">
+              <table class="custom-table" id="logs-table">
+                <thead>
+                  <tr id="logs-table-header">
+                    <!-- Dynamic header -->
+                  </tr>
+                </thead>
+                <tbody id="logs-table-body">
+                  <tr>
+                    <td colspan="7" style="text-align: center; color: var(--text-muted);">Sincronize para carregar logs...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            
+            <div class="table-controls" style="border-top: 1px solid var(--border-color); border-bottom: none; display: flex; justify-content: space-between; align-items: center;">
+              <span id="logs-pagination-info" style="font-size: 0.85rem; color: var(--text-muted);">Mostrando 0-0 de 0</span>
+              <div style="display: flex; gap: 0.5rem;">
+                <button class="btn-row-action" id="btn-logs-prev" title="Página Anterior"><i class="fa-solid fa-chevron-left"></i></button>
+                <button class="btn-row-action" id="btn-logs-next" title="Próxima Página"><i class="fa-solid fa-chevron-right"></i></button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ════ SEÇÃO 7: CONFIGURAÇÕES GLOBAIS ════ -->
+        <!-- ════ SEÇÃO: LICENÇAS & TELEMETRIA ════ -->
+        <div class="content-section" id="sec-licencas">
+          <div class="form-box">
+            <h3 style="font-family:'Outfit',sans-serif;font-size:1.4rem;">Gerar Chave de Ativação</h3>
+            <p style="color:var(--text-muted);font-size:0.9rem;margin-top:-1rem;">Crie uma chave CHEF-XXXX-YYYY-ZZZZ. O estabelecimento digita a chave na tela de ativação para sair do período de teste.</p>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="lic-restaurante-nome">Restaurante</label>
+                <input type="text" id="lic-restaurante-nome" placeholder="Ex: Churrascaria do Zé">
+              </div>
+              <div class="form-group">
+                <label for="lic-plano">Plano</label>
+                <select id="lic-plano">
+                  <option value="premium">Premium</option>
+                  <option value="pro">Pro</option>
+                  <option value="plus">Plus</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="lic-dias">Duração (dias)</label>
+                <input type="number" id="lic-dias" value="365" min="1" max="3650">
+              </div>
+              <div class="form-group">
+                <label for="lic-maxdisp">Máx. Dispositivos (0 = ilimitado)</label>
+                <input type="number" id="lic-maxdisp" value="0" min="0" max="1000">
+              </div>
+              <div class="form-group">
+                <label for="lic-obs">Observação</label>
+                <input type="text" id="lic-obs" placeholder="Ex: Assinatura anual">
+              </div>
+            </div>
+            <button class="btn-login form-submit" onclick="gerarChave()">
+              <i class="fa-solid fa-key"></i><span>Gerar Chave</span>
+            </button>
+            <div id="lic-result" style="display:none;margin-top:16px;padding:14px;background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.3);border-radius:10px;">
+              <div style="font-size:0.85rem;color:var(--text-muted);margin-bottom:6px;">Chave gerada (copie e envie ao cliente):</div>
+              <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+                <code id="lic-result-key" style="font-size:1.15rem;font-weight:700;color:#60a5fa;letter-spacing:1px;">CHEF-XXXX-YYYY-ZZZZ</code>
+                <button class="btn-row-action" onclick="copiarChave('lic-result-key')"><i class="fa-solid fa-copy"></i> Copiar</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-box" style="margin-top:20px;">
+            <h3 style="font-family:'Outfit',sans-serif;font-size:1.2rem;">Chaves Emitidas</h3>
+            <div class="table-controls">
+              <table class="custom-table" id="licencas-table">
+                <thead><tr>
+                  <th>Chave</th><th>Restaurante</th><th>Plano</th><th>Validade</th><th>Status</th><th>Usada por</th><th>Usada em</th><th>Ações</th>
+                </tr></thead>
+                <tbody id="licencas-tbody">
+                  <tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:20px;">Carregando chaves...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="form-box" style="margin-top:20px;">
+            <h3 style="font-family:'Outfit',sans-serif;font-size:1.2rem;">Telemetria dos Estabelecimentos</h3>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:14px 0;" id="telemetria-cards"></div>
+            <div class="table-controls">
+              <div style="display:flex;gap:10px;align-items:center;">
+                <button class="btn-login" style="padding:8px 16px;font-size:0.85rem;" onclick="carregarTelemetria()"><i class="fa-solid fa-rotate"></i> Atualizar</button>
+                <span style="font-size:0.8rem;color:var(--text-muted);">Atualiza a cada 5 minutos automaticamente.</span>
+              </div>
+            </div>
+            <div style="overflow-x:auto;">
+              <table class="custom-table" id="telemetria-table">
+                <thead><tr>
+                  <th>Estabelecimento</th><th>Status</th><th>Vendas Hoje</th><th>Vendas Total</th><th>Pedidos</th><th>Funcionários</th><th>Produtos</th><th>Mesas</th><th>Disp.</th><th>Tempo Uso</th><th>Lucro Est.</th><th>Disco</th>
+                </tr></thead>
+                <tbody id="telemetria-tbody">
+                  <tr><td colspan="12" style="text-align:center;color:var(--text-muted);padding:20px;">Carregando telemetria...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ════ SEÇÃO: CONFIGURAÇÕES GLOBAIS ════ -->
+        <div class="content-section" id="sec-config">
+          <div class="form-box">
+            <h3 style="font-family:'Outfit',sans-serif;font-size:1.4rem;">Configurações Globais do Sistema</h3>
+            <p style="color:var(--text-muted);font-size:0.9rem;margin-top:-1rem;">Configurações que afetam todos os restaurantes da plataforma.</p>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="cfg-update-ver">Versão do Update Global</label>
+                <input type="text" id="cfg-update-ver" placeholder="Ex: 1.2.0">
+              </div>
+              <div class="form-group">
+                <label for="cfg-update-url">URL do Instalador</label>
+                <input type="text" id="cfg-update-url" placeholder="https://...">
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="cfg-update-msg">Mensagem de Update (banner nos clientes)</label>
+              <textarea id="cfg-update-msg" placeholder="Novidades da atualização..."></textarea>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="cfg-whatsapp">WhatsApp Suporte</label>
+                <input type="text" id="cfg-whatsapp" placeholder="+55 11 99999-0000">
+              </div>
+              <div class="form-group">
+                <label for="cfg-email-suporte">Email Suporte</label>
+                <input type="email" id="cfg-email-suporte" placeholder="suporte@chefcozinha.com.br">
+              </div>
+            </div>
+            <button class="btn-login form-submit" id="btn-save-config">
+              <i class="fa-solid fa-floppy-disk"></i><span>Salvar Configurações</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- ════ SEÇÃO 8: RECUPERAR ACESSO ════ -->
+        <div class="content-section" id="sec-recuperar-acesso">
+
+          <!-- Banner de aviso -->
+          <div class="info-banner info-banner-danger">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <div class="info-banner-content">
+              <h4>Zona de Suporte Crítico</h4>
+              <p>Use esta seção para recuperar o acesso de clientes que esqueceram email ou senha. Todas as alterações são aplicadas imediatamente no banco de dados local do restaurante.</p>
+            </div>
+          </div>
+
+          <div class="recuperar-grid">
+
+            <!-- Card: Usuários cadastrados -->
+            <div class="recovery-card">
+              <div class="recovery-card-header">
+                <div class="recovery-card-icon icon-info">
+                  <i class="fa-solid fa-users"></i>
+                </div>
+                <div>
+                  <h3>Usuários Administradores</h3>
+                  <p>Todos os usuários com acesso ao sistema local</p>
+                </div>
+                <button class="btn-action" id="btn-refresh-usuarios" title="Atualizar lista">
+                  <i class="fa-solid fa-rotate"></i>
+                </button>
+              </div>
+
+              <!-- Busca inline -->
+              <div class="recovery-search">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="recovery-search-input" placeholder="Filtrar por email...">
+              </div>
+
+              <!-- Tabela de usuários -->
+              <div class="recovery-table-wrap">
+                <table class="custom-table" id="recovery-users-table">
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Email / Login</th>
+                      <th>Restaurante</th>
+                      <th>Cargo</th>
+                      <th>Status</th>
+                      <th>Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody id="recovery-users-tbody">
+                    <tr>
+                      <td colspan="6" class="table-empty-state">
+                        <i class="fa-solid fa-lock"></i>
+                        <span>Insira a senha de super admin e clique em Carregar Usuários</span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Card: Painel de ação -->
+            <div class="recovery-card">
+              <div class="recovery-card-header">
+                <div class="recovery-card-icon icon-warning">
+                  <i class="fa-solid fa-key"></i>
+                </div>
+                <div>
+                  <h3>Redefinir Credenciais</h3>
+                  <p>Altere email e/ou senha de um usuário</p>
+                </div>
+              </div>
+
+              <!-- Autenticação do super admin -->
+              <div class="admin-auth-box" id="admin-auth-box">
+                <div class="admin-auth-label">
+                  <i class="fa-solid fa-shield-halved"></i>
+                  <span>Sua senha de acesso ao sistema (para autorizar as alterações)</span>
+                </div>
+                <div class="admin-auth-input-wrap">
+                  <input type="password" id="recovery-admin-senha" placeholder="Senha do admin local" autocomplete="current-password">
+                  <button class="btn-load-users" id="btn-load-users">
+                    <i class="fa-solid fa-lock-open"></i>
+                    Carregar Usuários
+                  </button>
+                </div>
+              </div>
+
+              <!-- Formulário de reset -->
+              <div class="reset-form" id="reset-form">
+                <div class="form-group">
+                  <label for="reset-usuario-select">Usuário Alvo</label>
+                  <select id="reset-usuario-select">
+                    <option value="">— Selecione um usuário —</option>
+                  </select>
+                </div>
+
+                <div class="selected-user-preview" id="selected-user-preview" style="display:none;">
+                  <i class="fa-solid fa-circle-user"></i>
+                  <div>
+                    <strong id="preview-email">—</strong>
+                    <small id="preview-meta">—</small>
+                  </div>
+                  <span class="badge badge-ativo" id="preview-badge">ativo</span>
+                </div>
+
+                <div class="reset-divider">
+                  <span>Novos dados (deixe em branco o que não quer alterar)</span>
+                </div>
+
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="reset-novo-email">
+                      <i class="fa-solid fa-envelope" style="color:var(--info); margin-right: 0.3rem;"></i>
+                      Novo Email / Login
+                    </label>
+                    <input type="email" id="reset-novo-email" placeholder="novo@email.com" autocomplete="off">
+                  </div>
+                  <div class="form-group">
+                    <label for="reset-nova-senha">
+                      <i class="fa-solid fa-lock" style="color:var(--warning); margin-right: 0.3rem;"></i>
+                      Nova Senha
+                    </label>
+                    <div style="position: relative;">
+                      <input type="password" id="reset-nova-senha" placeholder="Mínimo 4 caracteres" autocomplete="new-password" style="padding-right: 2.8rem;">
+                      <button type="button" class="toggle-senha-btn" id="toggle-nova-senha" title="Mostrar/ocultar senha">
+                        <i class="fa-solid fa-eye"></i>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Indicador de força de senha -->
+                <div class="senha-strength" id="senha-strength" style="display:none;">
+                  <div class="strength-bar" id="strength-bar"></div>
+                  <span class="strength-label" id="strength-label">Fraca</span>
+                </div>
+
+                <button class="btn-reset" id="btn-reset-credenciais" disabled>
+                  <i class="fa-solid fa-rotate-left"></i>
+                  <span>Aplicar Redefinição</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Card: Criar novo usuário -->
+            <div class="recovery-card recovery-card-full">
+              <div class="recovery-card-header">
+                <div class="recovery-card-icon icon-success">
+                  <i class="fa-solid fa-user-plus"></i>
+                </div>
+                <div>
+                  <h3>Criar Novo Usuário Admin</h3>
+                  <p>Cria um acesso novo para um restaurante, caso o cliente nunca tenha se cadastrado</p>
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="novo-user-email">Email do Novo Usuário</label>
+                  <input type="email" id="novo-user-email" placeholder="restaurante@email.com">
+                </div>
+                <div class="form-group">
+                  <label for="novo-user-senha">Senha Inicial</label>
+                  <input type="password" id="novo-user-senha" placeholder="Senha de acesso">
+                </div>
+                <div class="form-group">
+                  <label for="novo-user-restaurante-id">ID do Restaurante</label>
+                  <input type="number" id="novo-user-restaurante-id" placeholder="Ex: 1" value="1" min="1">
+                </div>
+              </div>
+              <button class="btn-login form-submit" id="btn-criar-usuario">
+                <i class="fa-solid fa-user-plus"></i>
+                <span>Criar Usuário</span>
+              </button>
+            </div>
+
+          </div>
+        </div>
+        <!-- ════ FIM SEÇÃO 5 ════ -->
+
+        <!-- ════ SEÇÃO 9: CLIENTES ════ -->
+        <div class="content-section" id="sec-clientes">
+          <div class="table-container">
+            <div class="table-controls">
+              <div class="search-bar">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="clientes-search" placeholder="Buscar cliente por nome ou telefone...">
+              </div>
+              <div class="filter-group">
+                <select class="select-filter" id="clientes-filter-rest">
+                  <option value="">Todos os Restaurantes</option>
+                </select>
+                <button class="btn-action btn-primary-action" id="btn-refresh-clientes">
+                  <i class="fa-solid fa-rotate"></i><span>Atualizar</span>
+                </button>
+              </div>
+            </div>
+            <div style="overflow-x: auto; max-height: 550px;">
+              <table class="custom-table" id="clientes-table">
+                <thead>
+                  <tr>
+                    <th>Nome</th>
+                    <th>Telefone</th>
+                    <th>Restaurante</th>
+                    <th>Pontos</th>
+                    <th>Total Gasto</th>
+                    <th>Pedidos</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="clientes-tbody">
+                  <tr><td colspan="7" style="text-align:center;color:var(--text-muted);">Clique em Atualizar para carregar clientes...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ════ SEÇÃO 10: TERMINAL ════ -->
+        <div class="content-section" id="sec-terminal">
+          <div style="padding: 20px;">
+            <h2 style="margin-bottom:6px;"><i class="fa-solid fa-terminal"></i> Terminal de Comandos</h2>
+            <p style="color:#999;font-size:13px;margin-bottom:20px;">Execute comandos no servidor, direcionados a uma instalação específica.</p>
+
+            <div class="card" style="padding: 1.5rem; margin-bottom: 1.5rem;">
+              <div style="display:flex;gap:1rem;margin-bottom:1rem;align-items:end;flex-wrap:wrap;">
+                <div style="flex:1;min-width:200px;">
+                  <label style="display:block;font-size:0.85rem;color:var(--text-muted);margin-bottom:0.4rem;">Instalação Alvo</label>
+                  <select id="exec-target" style="width:100%;padding:0.7rem 1rem;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:0.9rem;">
+                    <option value="">Todas as instalações (local)</option>
+                  </select>
+                </div>
+                <button class="btn-action" id="btn-refresh-targets" style="margin-bottom:2px;" title="Recarregar lista de instalações">
+                  <i class="fa-solid fa-rotate"></i>
+                </button>
+              </div>
+              <div style="margin-bottom:0.8rem;">
+                <label style="display:block;font-size:0.85rem;color:var(--text-muted);margin-bottom:0.4rem;">Comando</label>
+                <div style="display:flex;gap:0.5rem;">
+                  <input type="text" id="exec-input" placeholder="Ex: node -e console.log('ok')" style="flex:1;padding:0.8rem 1rem;background:#0d0f17;border:1px solid rgba(255,87,34,0.3);border-radius:8px;color:#a8ff60;font-family:'Consolas','Courier New',monospace;font-size:0.9rem;">
+                  <button class="btn-action btn-primary-action" id="btn-exec" style="white-space:nowrap;">
+                    <i class="fa-solid fa-play"></i> Executar
+                  </button>
+                </div>
+              </div>
+              <div style="display:flex;gap:1rem;font-size:0.8rem;color:var(--text-muted);">
+                <span><i class="fa-solid fa-triangle-exclamation" style="color:var(--warning);"></i> Comandos são executados como administrador do sistema</span>
+                <span><i class="fa-solid fa-clock"></i> Timeout: 30s</span>
+              </div>
+
+              <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border-color);">
+                <label style="display:block;font-size:0.85rem;color:var(--text-muted);margin-bottom:0.6rem;">
+                  <i class="fa-solid fa-bolt"></i> Comandos Rápidos
+                  <span style="font-size:0.75rem;color:#666;margin-left:0.5rem;">— clique para inserir, ou Alt+Clique para executar direto</span>
+                </label>
+                <div style="display:flex;flex-wrap:wrap;gap:0.5rem;" id="quick-commands">
+                  <button class="quick-cmd" data-cmd="node -e &quot;console.log('Servidor OK');console.log('Uptime: '+process.uptime().toFixed(0)+'s');console.log('PID: '+process.pid);console.log('Mem: '+(process.memoryUsage().rss/1024/1024).toFixed(1)+' MB')&quot;">Status Servidor</button>
+                  <button class="quick-cmd" data-cmd="tasklist /FI &quot;IMAGENAME eq node.exe&quot; /FO TABLE">Processos Node</button>
+                  <button class="quick-cmd" data-cmd="systeminfo | findstr /B /C:&quot;OS Name&quot; /C:&quot;OS Version&quot; /C:&quot;System Type&quot;">Info Sistema</button>
+                  <button class="quick-cmd" data-cmd="wmic OS get FreePhysicalMemory,TotalVisibleMemorySize /Value">Memória RAM</button>
+                  <button class="quick-cmd" data-cmd="dir /S /B %TEMP% | find /V /C &quot;&quot; &amp; echo Arquivos temporarios">Limpar Temp</button>
+                  <button class="quick-cmd" data-cmd="npm run backup 2&gt;nul || echo Comando backup nao encontrado">Backup DB</button>
+                  <button class="quick-cmd" data-cmd="echo Iniciando restart... &amp;&amp; ping -n 3 127.0.0.1 &gt;nul &amp;&amp; exit">Reiniciar App</button>
+                  <button class="quick-cmd" data-cmd="node -e &quot;var c=require('child_process');c.exec('netstat -ano | findstr :3000',function(e,o){console.log(o||'Nada na porta 3000')})&quot;">Porta 3000</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="card" style="padding: 0; overflow: hidden;">
+              <div style="padding:0.8rem 1.2rem;background:rgba(255,87,34,0.08);border-bottom:1px solid var(--border-color);display:flex;justify-content:space-between;align-items:center;">
+                <span style="font-weight:600;font-size:0.9rem;"><i class="fa-solid fa-display"></i> Output</span>
+                <button class="btn-row-action" id="btn-clear-output" title="Limpar output">
+                  <i class="fa-solid fa-eraser"></i>
+                </button>
+              </div>
+              <pre id="exec-output" style="background:#0a0b12;color:#a8ff60;padding:1.2rem;margin:0;min-height:200px;max-height:400px;overflow:auto;font-family:'Consolas','Courier New',monospace;font-size:0.8rem;line-height:1.5;white-space:pre-wrap;word-break:break-all;">Clique em Executar para rodar um comando...</pre>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODAL: NOVO/EDITAR MEMBRO SUPORTE ───────────────────── -->
+  <div class="modal-overlay" id="modal-suporte">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modal-suporte-title">Novo Membro da Equipe</h3>
+        <button class="modal-close"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="suporte-edit-id" value="">
+        <div class="form-group">
+          <label>Nome Completo</label>
+          <input type="text" id="suporte-nome" placeholder="Ex: Carlos Silva" required>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Email</label>
+            <input type="email" id="suporte-email" placeholder="carlos@suporte.com" required>
+          </div>
+          <div class="form-group">
+            <label>Telefone</label>
+            <input type="text" id="suporte-telefone" placeholder="(11) 99999-8888">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Senha</label>
+          <input type="password" id="suporte-senha" placeholder="Mínimo 4 caracteres">
+          <small style="color:#888;font-size:0.75rem;">Deixe em branco para manter a senha atual (ao editar).</small>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Cargo</label>
+            <select id="suporte-cargo">
+              <option value="Suporte N1">Suporte N1</option>
+              <option value="Suporte N2">Suporte N2</option>
+              <option value="Suporte N3">Suporte N3</option>
+              <option value="Analista">Analista</option>
+              <option value="Coordenador">Coordenador</option>
+              <option value="Técnico de Campo">Técnico de Campo</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Especialidade</label>
+            <select id="suporte-especialidade">
+              <option value="Remoto">Remoto</option>
+              <option value="Presencial">Presencial</option>
+              <option value="Remoto e Presencial">Remoto e Presencial</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group" id="suporte-status-group" style="display:none;">
+          <label>Status</label>
+          <select id="suporte-status">
+            <option value="disponivel">Disponível</option>
+            <option value="ocupado">Ocupado</option>
+            <option value="offline">Offline</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-action modal-close">Cancelar</button>
+        <button class="btn-action btn-primary-action" id="btn-salvar-suporte">
+          <i class="fa-solid fa-floppy-disk"></i> Salvar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODAL: ATRIBUIR RESTAURANTES AO SUPORTE ────────────── -->
+  <div class="modal-overlay" id="modal-suporte-restaurantes">
+    <div class="modal-content" style="max-width:600px;">
+      <div class="modal-header">
+        <h3 id="modal-suporte-rest-title">Restaurantes Atribuídos</h3>
+        <button class="modal-close"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="suporte-rest-id" value="">
+        <p style="color:var(--text-muted);margin-bottom:1rem;" id="suporte-rest-info">Selecione os restaurantes para atribuir ao membro da equipe.</p>
+        <div style="margin-bottom:1rem;">
+          <input type="text" id="suporte-rest-search" placeholder="Buscar restaurantes..." style="width:100%;padding:0.6rem 1rem;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);">
+        </div>
+        <div style="max-height:350px;overflow-y:auto;border:1px solid var(--border-color);border-radius:8px;padding:0.5rem;" id="suporte-rest-list"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-action modal-close">Fechar</button>
+        <button class="btn-action btn-primary-action" id="btn-salvar-atribuicoes">
+          <i class="fa-solid fa-check"></i> Salvar Atribuições
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODAL: NOVO RESTAURANTE (WIZARD COMPLETO) ──────────── -->
+  <div class="modal-overlay" id="modal-novo-rest">
+    <div class="modal-content" style="max-width:720px;">
+      <div class="modal-header">
+        <h3>Novo Restaurante</h3>
+        <button class="modal-close"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <!-- Step indicator -->
+        <div style="display:flex;gap:0;margin-bottom:1.5rem;border-radius:8px;overflow:hidden;border:1px solid var(--border-color);">
+          <div class="wizard-step active" data-step="1" style="flex:1;padding:0.6rem;text-align:center;font-size:0.8rem;background:rgba(252,75,21,0.15);color:#fc4b15;font-weight:600;transition:all 0.3s;">
+            <i class="fa-solid fa-store"></i> Dados
+          </div>
+          <div class="wizard-step" data-step="2" style="flex:1;padding:0.6rem;text-align:center;font-size:0.8rem;background:transparent;color:#888;font-weight:400;transition:all 0.3s;">
+            <i class="fa-solid fa-user-shield"></i> Admin
+          </div>
+          <div class="wizard-step" data-step="3" style="flex:1;padding:0.6rem;text-align:center;font-size:0.8rem;background:transparent;color:#888;font-weight:400;transition:all 0.3s;">
+            <i class="fa-solid fa-gear"></i> Config
+          </div>
+          <div class="wizard-step" data-step="4" style="flex:1;padding:0.6rem;text-align:center;font-size:0.8rem;background:transparent;color:#888;font-weight:400;transition:all 0.3s;">
+            <i class="fa-solid fa-users"></i> Equipe
+          </div>
+        </div>
+
+        <!-- Step 1: Dados do Restaurante -->
+        <div class="wizard-panel" data-step="1">
+          <h4 style="margin-bottom:1rem;color:white;"><i class="fa-solid fa-store"></i> Dados do Restaurante</h4>
+          <div class="form-group">
+            <label>Nome do Restaurante *</label>
+            <input type="text" id="new-rest-nome" placeholder="Ex: Pizzaria Bella Italia">
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>CNPJ</label>
+              <input type="text" id="new-rest-cnpj" placeholder="00.000.000/0001-00">
+            </div>
+            <div class="form-group">
+              <label>Telefone</label>
+              <input type="text" id="new-rest-telefone" placeholder="(11) 3333-4444">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Endereço</label>
+            <input type="text" id="new-rest-endereco" placeholder="Rua, Número, Bairro, Cidade - UF">
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Plano</label>
+              <select id="new-rest-licenca">
+                <option value="trial">Trial</option>
+                <option value="basico">Básico</option>
+                <option value="premium" selected>Premium</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Status</label>
+              <select id="new-rest-ativo">
+                <option value="1">Ativo</option>
+                <option value="0">Inativo</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 2: Administrador -->
+        <div class="wizard-panel" data-step="2" style="display:none;">
+          <h4 style="margin-bottom:1rem;color:white;"><i class="fa-solid fa-user-shield"></i> Administrador do Restaurante</h4>
+          <div class="form-group">
+            <label>Nome do Administrador</label>
+            <input type="text" id="new-rest-admin-nome" placeholder="Ex: João Silva">
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Email (Login) *</label>
+              <input type="email" id="new-rest-email" placeholder="admin@restaurante.com">
+            </div>
+            <div class="form-group">
+              <label>Senha *</label>
+              <input type="password" id="new-rest-senha" placeholder="Mínimo 4 caracteres">
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 3: Configurações Iniciais -->
+        <div class="wizard-panel" data-step="3" style="display:none;">
+          <h4 style="margin-bottom:1rem;color:white;"><i class="fa-solid fa-gear"></i> Configurações Iniciais</h4>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Taxa de Entrega (R$)</label>
+              <input type="number" id="new-rest-taxa-entrega" placeholder="5.00" step="0.50" value="0">
+            </div>
+            <div class="form-group">
+              <label>WhatsApp (opcional)</label>
+              <input type="text" id="new-rest-whatsapp" placeholder="5511999998888">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Horário de Funcionamento</label>
+            <div class="form-row">
+              <div class="form-group">
+                <input type="time" id="new-rest-abertura" value="08:00" style="width:100%;padding:0.6rem 0.8rem;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);">
+              </div>
+              <div class="form-group" style="text-align:center;padding-top:0.6rem;">até</div>
+              <div class="form-group">
+                <input type="time" id="new-rest-fechamento" value="22:00" style="width:100%;padding:0.6rem 0.8rem;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);">
+              </div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Observações</label>
+            <textarea id="new-rest-observacoes" rows="2" placeholder="Informações adicionais sobre o restaurante..." style="width:100%;padding:0.6rem 0.8rem;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);resize:vertical;"></textarea>
+          </div>
+        </div>
+
+        <!-- Step 4: Equipe Inicial -->
+        <div class="wizard-panel" data-step="4" style="display:none;">
+          <h4 style="margin-bottom:1rem;color:white;"><i class="fa-solid fa-users"></i> Equipe Inicial (Opcional)</h4>
+          <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:1rem;">Adicione funcionários que já começam junto com o restaurante.</p>
+          <div id="initial-team-list">
+            <div class="initial-team-row" style="display:flex;gap:0.5rem;margin-bottom:0.5rem;align-items:end;">
+              <div style="flex:2;"><input type="text" class="team-nome" placeholder="Nome" style="width:100%;padding:0.5rem 0.7rem;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:6px;color:var(--text-primary);font-size:0.85rem;"></div>
+              <div style="flex:1;"><input type="text" class="team-cargo" placeholder="Cargo" value="Garçom" style="width:100%;padding:0.5rem 0.7rem;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:6px;color:var(--text-primary);font-size:0.85rem;"></div>
+              <div style="flex:1;"><input type="number" class="team-valor" placeholder="Valor hora" value="0" step="0.50" style="width:100%;padding:0.5rem 0.7rem;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:6px;color:var(--text-primary);font-size:0.85rem;"></div>
+              <button class="btn-row-action remove-team-row" style="flex-shrink:0;" title="Remover"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+          </div>
+          <button class="btn-action" id="btn-add-team-row" style="font-size:0.8rem;padding:0.4rem 0.8rem;margin-top:0.3rem;">
+            <i class="fa-solid fa-plus"></i> Adicionar Funcionário
+          </button>
+        </div>
+      </div>
+      <div class="modal-footer" style="justify-content:space-between;">
+        <div>
+          <button class="btn-action" id="btn-wizard-prev" style="display:none;"><i class="fa-solid fa-chevron-left"></i> Voltar</button>
+        </div>
+        <div style="display:flex;gap:0.5rem;">
+          <button class="btn-action modal-close">Cancelar</button>
+          <button class="btn-action btn-primary-action" id="btn-wizard-next">Próximo <i class="fa-solid fa-chevron-right"></i></button>
+          <button class="btn-action btn-primary-action" id="btn-criar-restaurante-completo" style="display:none;">
+            <i class="fa-solid fa-plus"></i> Criar Restaurante
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODAL: NOVO USUÁRIO ──────────────────────────────── -->
+  <div class="modal-overlay" id="modal-novo-user">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Novo Usuário</h3>
+        <button class="modal-close"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Email / Login</label>
+          <input type="email" id="new-user-email" placeholder="usuario@email.com">
+        </div>
+        <div class="form-group">
+          <label>Senha</label>
+          <input type="password" id="new-user-senha" placeholder="Senha de acesso">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Restaurante (ID)</label>
+            <input type="number" id="new-user-rest-id" placeholder="ID do restaurante" min="1" value="1">
+          </div>
+          <div class="form-group">
+            <label>Cargo</label>
+            <select id="new-user-role">
+              <option value="admin">Admin</option>
+              <option value="caixa">Caixa</option>
+              <option value="garcom">Garçom</option>
+              <option value="cozinha">Cozinha</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-action modal-close">Cancelar</button>
+        <button class="btn-action btn-primary-action" id="btn-criar-usuario-novo">
+          <i class="fa-solid fa-user-plus"></i> Criar Usuário
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODAL: EDIÇÃO DE CLIENTE ──────────────────────────────── -->
+  <div class="modal-overlay" id="modal-edit-client">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Editar Licença do Cliente</h3>
+        <button class="modal-close"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="edit-id">
+        
+        <div class="form-group">
+          <label>Nome do Restaurante</label>
+          <input type="text" id="edit-restaurante">
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Status</label>
+            <select id="edit-status">
+              <option value="ativo">Ativo</option>
+              <option value="trial">Trial</option>
+              <option value="expirado">Expirado</option>
+              <option value="bloqueado">Bloqueado</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Plano</label>
+            <select id="edit-plano">
+              <option value="starter">Starter</option>
+              <option value="pro">Pro</option>
+              <option value="enterprise">Enterprise</option>
+              <option value="trial">Trial</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Validade da Licença</label>
+            <input type="date" id="edit-validade">
+          </div>
+          <div class="form-group">
+            <label>Máx Dispositivos</label>
+            <input type="number" id="edit-maxdisp" min="0">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Modo de Login</label>
+          <select id="edit-loginmode">
+            <option value="multi">Multi login (vários dispositivos simultâneos)</option>
+            <option value="single">Single login (uma sessão por vez — monetizar contas)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Update Exclusivo (Opcional)</label>
+          <input type="text" id="edit-updatever" placeholder="Ex: 1.2.0 (sobrescreve o update global)">
+        </div>
+
+        <div class="form-group">
+          <label>Mensagem e URL do Update Exclusivo</label>
+          <input type="text" id="edit-updateurl" placeholder="URL do instalador do update" style="margin-bottom: 0.5rem;">
+          <textarea id="edit-updatemsg" placeholder="Novidades deste update específico"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label>Observações Internas</label>
+          <textarea id="edit-obs" placeholder="Informações adicionais do cliente..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-action modal-close">Cancelar</button>
+        <button class="btn-action btn-primary-action" id="btn-save-edit">Salvar Alterações</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODAL: PERFIL DO CLIENTE ──────────────────────────────── -->
+  <div class="modal-overlay" id="modal-perfil-cliente">
+    <div class="modal-content" style="max-width: 720px;">
+      <div class="modal-header">
+        <h3>Perfil do Cliente</h3>
+        <button class="modal-close"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body" id="perfil-cliente-body">
+        <div style="text-align:center;padding:30px;color:#888;">Carregando...</div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-action modal-close">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODAL: EQUIPE DO RESTAURANTE ─────────────────────────── -->
+  <div class="modal-overlay" id="modal-equipe">
+    <div class="modal-content" style="max-width: 700px;">
+      <div class="modal-header">
+        <h3>Equipe do Restaurante</h3>
+        <button class="modal-close"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body" id="equipe-body">
+        <div style="text-align:center;padding:30px;color:#888;">Carregando...</div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-action modal-close">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast de Notificações -->
+  <div class="toast" id="toast">
+    <i class="fa-solid fa-circle-info" id="toast-icon"></i>
+    <span id="toast-text">Sua ação foi processada.</span>
+  </div>
+
+<script src="/fullscreen.js"></script>
+
+</body>
+</html>

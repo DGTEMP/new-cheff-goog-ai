@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Painel do Dono - Chef Cozinha</title>
+  
+  <!-- Font Outfit for premium looks -->
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Phosphor Icons -->
+  <link rel="stylesheet" href="/vendor/phosphor/src/regular/style.css">
+  <link rel="stylesheet" href="/vendor/phosphor/src/bold/style.css">
+  <link rel="stylesheet" href="/vendor/phosphor/src/fill/style.css">
+  <!-- Socket.io -->
+  <script src="/socket.io/socket.io.js"></script>
+
+  <style>
+    :root {
+      --bg-primary: #0f172a;
+      --bg-card: #1e293b;
+      --text-main: #f8fafc;
+      --text-sub: #94a3b8;
+      --primary: #fc4b15;
+      --primary-hover: #e03e0d;
+      --accent-green: #10b981;
+      --accent-purple: #8b5cf6;
+      --accent-blue: #3b82f6;
+      --glass-border: rgba(255, 255, 255, 0.08);
+      --font-outfit: 'Outfit', sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: var(--font-outfit);
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background: var(--bg-primary);
+      color: var(--text-main);
+      padding: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    /* Pull to refresh / Loading state styles */
+    .loader-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(15, 23, 42, 0.9);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+      transition: opacity 0.3s ease;
+    }
+    .loader-overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .spinner {
+      width: 50px;
+      height: 50px;
+      border: 5px solid rgba(252, 75, 21, 0.1);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 1s infinite linear;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    /* Header styling */
+    header.header {
+      background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--glass-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(12px);
+    }
+    .header-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .logo-container {
+      width: 44px;
+      height: 44px;
+      background: linear-gradient(135deg, var(--primary) 0%, #ff7e5f 100%);
+      border-radius: 14px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      box-shadow: 0 4px 15px rgba(252, 75, 21, 0.3);
+    }
+    .logo-container i {
+      font-size: 24px;
+      color: white;
+    }
+    .title-area h1 {
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+    }
+    .title-area span {
+      font-size: 12px;
+      color: var(--text-sub);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .status-badge {
+      padding: 4px 8px;
+      border-radius: 20px;
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .status-badge.open {
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--accent-green);
+    }
+    .status-badge.closed {
+      background: rgba(244, 63, 94, 0.15);
+      color: #f43f5e;
+    }
+    .logout-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--glass-border);
+      color: var(--text-main);
+      padding: 10px;
+      border-radius: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+    .logout-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--primary);
+    }
+
+    /* Main Area layout */
+    main.main-content {
+      padding: 20px 16px 40px;
+      max-width: 600px;
+      margin: 0 auto;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* KPI Grid Layout */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+
+    .kpi-card {
+      background: var(--bg-card);
+      border: 1px solid var(--glass-border);
+      border-radius: 24px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .kpi-card:active {
+      transform: scale(0.98);
+    }
+    .kpi-card.full-width {
+      grid-column: span 2;
+    }
+    .kpi-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .kpi-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-sub);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .kpi-icon-wrap {
+      width: 32px;
+      height: 32px;
+      border-radius: 10px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .kpi-icon-wrap.orange { background: rgba(252, 75, 21, 0.15); color: var(--primary); }
+    .kpi-icon-wrap.green { background: rgba(16, 185, 129, 0.15); color: var(--accent-green); }
+    .kpi-icon-wrap.blue { background: rgba(59, 85, 246, 0.15); color: var(--accent-blue); }
+    .kpi-icon-wrap.purple { background: rgba(139, 92, 246, 0.15); color: var(--accent-purple); }
+
+    .kpi-value {
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--text-main);
+      line-height: 1.1;
+      margin-bottom: 4px;
+      letter-spacing: -0.5px;
+    }
+    .kpi-sub {
+      font-size: 11px;
+      color: var(--text-sub);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* Goal progress bar in faturamento card */
+    .kpi-progress-container {
+      margin-top: 14px;
+    }
+    .kpi-progress-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--text-sub);
+      margin-bottom: 6px;
+    }
+    .kpi-progress-bar-bg {
+      height: 8px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .kpi-progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--primary) 0%, #ff8c00 100%);
+      width: 0%;
+      border-radius: 10px;
+      transition: width 0.8s ease-out;
+    }
+
+    /* Quick action buttons & cards */
+    .section-title {
+      font-size: 15px;
+      font-weight: 800;
+      color: var(--text-main);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .section-title i {
+      color: var(--primary);
+    }
+
+    .action-card {
+      background: var(--bg-card);
+      border: 1px solid var(--glass-border);
+      border-radius: 24px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .form-group label {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-sub);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .form-control-row {
+      display: flex;
+      gap: 8px;
+    }
+    .form-control {
+      flex: 1;
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid var(--glass-border);
+      color: var(--text-main);
+      padding: 12px 16px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .form-control:focus {
+      border-color: var(--primary);
+    }
+
+    .btn {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 12px 18px;
+      border-radius: 12px;
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s;
+      outline: none;
+    }
+    .btn:active {
+      transform: scale(0.97);
+    }
+    .btn-secondary {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid var(--glass-border);
+    }
+    .btn-secondary:hover {
+      background: rgba(255,255,255,0.1);
+    }
+
+    /* Cashier Control UI inside action card */
+    .cashier-status-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(15, 23, 42, 0.4);
+      padding: 14px 18px;
+      border-radius: 16px;
+      border: 1px solid var(--glass-border);
+    }
+    .cashier-status-text h4 {
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .cashier-status-text p {
+      font-size: 12px;
+      color: var(--text-sub);
+    }
+
+    /* Accordion style details */
+    .accordion-toggle {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--glass-border);
+      border-radius: 16px;
+      padding: 14px 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 700;
+      transition: background 0.2s;
+    }
+    .accordion-toggle:active {
+      background: rgba(255, 255, 255, 0.08);
+    }
+    .accordion-content {
+      background: rgba(15, 23, 42, 0.2);
+      border-radius: 0 0 16px 16px;
+      padding: 0 18px;
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease-out, padding 0.3s ease-out;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .accordion-content.open {
+      padding: 14px 18px;
+      max-height: 500px;
+      border: 1px solid var(--glass-border);
+      border-top: none;
+    }
+    .accordion-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      padding: 6px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    }
+    .accordion-item:last-child {
+      border-bottom: none;
+    }
+    .accordion-item span.label {
+      color: var(--text-sub);
+      font-weight: 600;
+    }
+    .accordion-item span.val {
+      font-weight: 800;
+    }
+
+    /* Recent Live Feed */
+    .feed-container {
+      background: var(--bg-card);
+      border: 1px solid var(--glass-border);
+      border-radius: 24px;
+      padding: 20px;
+      max-height: 250px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .feed-item {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      padding-bottom: 10px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .feed-item:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+    .feed-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+    .feed-icon.blue { background: rgba(59, 130, 246, 0.15); color: var(--accent-blue); }
+    .feed-icon.green { background: rgba(16, 185, 129, 0.15); color: var(--accent-green); }
+    .feed-icon.purple { background: rgba(139, 92, 246, 0.15); color: var(--accent-purple); }
+    .feed-body {
+      flex: 1;
+    }
+    .feed-text {
+      font-size: 13px;
+      font-weight: 600;
+      line-height: 1.3;
+    }
+    .feed-time {
+      font-size: 10px;
+      color: var(--text-sub);
+      margin-top: 2px;
+    }
+
+    /* Toast system */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: #1e293b;
+      border: 1px solid var(--glass-border);
+      color: white;
+      padding: 12px 24px;
+      border-radius: 16px;
+      font-size: 13px;
+      font-weight: 700;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+      z-index: 10000;
+      transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      pointer-events: none;
+    }
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+    }
+    .toast i {
+      font-size: 18px;
+    }
+
+    /* Period filtering buttons */
+    .btn-periodo {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--glass-border);
+      color: var(--text-sub);
+      padding: 8px 16px;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      outline: none;
+    }
+    .btn-periodo:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-main);
+    }
+    .btn-periodo.active {
+      background: var(--primary);
+      color: white;
+      border-color: var(--primary);
+      box-shadow: 0 4px 12px rgba(252, 75, 21, 0.2);
+    }
+
+    /* RH Modal System */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(8px);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      opacity: 1;
+      transition: opacity 0.3s ease;
+    }
+    .modal-overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .modal-card {
+      background: var(--bg-card);
+      border: 1px solid var(--glass-border);
+      border-radius: 28px;
+      width: 90%;
+      max-width: 480px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+      transform: scale(1);
+      transition: transform 0.3s ease;
+    }
+    .modal-overlay.hidden .modal-card {
+      transform: scale(0.9);
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--glass-border);
+      padding-bottom: 12px;
+    }
+    .modal-title {
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--text-main);
+    }
+    .modal-close {
+      background: none;
+      border: none;
+      color: var(--text-sub);
+      cursor: pointer;
+      font-size: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+  </style>
+<script type="module" src="/painel-dono.js"></script>
+</head>
+<body>
+
+  <!-- Loading overlay -->
+  <div id="loader" class="loader-overlay">
+    <div class="spinner"></div>
+  </div>
+
+  <!-- Header -->
+  <header class="header">
+    <div class="header-info">
+      <div class="logo-container">
+        <i class="ph-bold ph-chart-line-up"></i>
+      </div>
+      <div class="title-area">
+        <h1>Painel do Dono</h1>
+        <span>
+          <span id="caixa-badge" class="status-badge closed">Fechado</span>
+          <span id="header-time">--:--</span>
+        </span>
+      </div>
+    </div>
+    <button class="logout-btn" onclick="efetuarLogout()" title="Sair do Painel">
+      <i class="ph-bold ph-sign-out" style="font-size: 20px;"></i>
+    </button>
+  </header>
+
+  <!-- Content Container -->
+  <main class="main-content">
+
+    <!-- Filtros de Período -->
+    <div style="margin-bottom: 8px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+        <span style="font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--text-sub); letter-spacing: 0.5px;">Visualizando: <span id="periodo-rotulo-exibicao" style="color: var(--accent-green);">Hoje</span></span>
+      </div>
+      <div style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px; scrollbar-width: none;">
+        <button class="btn-periodo active" onclick="selecionarPeriodoDono('hoje', this)">
+          <i class="ph-bold ph-calendar"></i> Hoje
+        </button>
+        <button class="btn-periodo" onclick="selecionarPeriodoDono('semana', this)">
+          <i class="ph-bold ph-calendar-blank"></i> Semana
+        </button>
+        <button class="btn-periodo" onclick="selecionarPeriodoDono('mes', this)">
+          <i class="ph-bold ph-calendar-plus"></i> Mês
+        </button>
+        <button class="btn-periodo" onclick="togglePeriodoCustomDono(this)">
+          <i class="ph-bold ph-funnel"></i> Outro Período
+        </button>
+      </div>
+    </div>
+
+    <!-- Container Datas Customizadas -->
+    <div id="container-datas-custom" style="display: none; grid-template-columns: 1fr 1fr auto; gap: 8px; align-items: end; background: var(--bg-card); padding: 14px; border-radius: 20px; border: 1px solid var(--glass-border); margin-bottom: 12px;">
+      <div class="form-group" style="margin:0;">
+        <label for="dono-data-inicio" style="font-size: 10px;">Início</label>
+        <input type="date" id="dono-data-inicio" class="form-control" style="padding: 8px 12px; font-size:12px;">
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label for="dono-data-fim" style="font-size: 10px;">Fim</label>
+        <input type="date" id="dono-data-fim" class="form-control" style="padding: 8px 12px; font-size:12px;">
+      </div>
+      <button class="btn" onclick="aplicarDatasCustomDono()" style="padding: 10px 14px;"><i class="ph-bold ph-funnel"></i></button>
+    </div>
+
+    <!-- KPI Grid -->
+    <div class="kpi-grid">
+      
+      <!-- Faturamento do Dia -->
+      <div class="kpi-card full-width">
+        <div class="kpi-header">
+          <span id="kpi-title-faturamento" class="kpi-title">Faturamento Hoje</span>
+          <div class="kpi-icon-wrap green">
+            <i class="ph-fill ph-currency-dollar"></i>
+          </div>
+        </div>
+        <div id="kpi-faturamento" class="kpi-value">R$ 0,00</div>
+        <div id="kpi-sub-total-pedidos" class="kpi-sub">
+          <i class="ph-bold ph-trend-up" style="color: var(--accent-green);"></i>
+          <span>Em relação à meta diária</span>
+        </div>
+        
+        <!-- Progress bar matching customizable goal -->
+        <div class="kpi-progress-container">
+          <div class="kpi-progress-labels">
+            <span id="goal-percent">0% atingido</span>
+            <span id="goal-target-label">Meta: R$ 0,00</span>
+          </div>
+          <div class="kpi-progress-bar-bg">
+            <div id="kpi-progress-fill" class="kpi-progress-bar-fill"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mesas Ativas -->
+      <div class="kpi-card">
+        <div class="kpi-header">
+          <span class="kpi-title">Mesas Ativas</span>
+          <div class="kpi-icon-wrap orange">
+            <i class="ph-fill ph-house-line"></i>
+          </div>
+        </div>
+        <div id="kpi-mesas" class="kpi-value">0</div>
+        <div class="kpi-sub">Comandas em aberto</div>
+      </div>
+
+      <!-- Ticket Médio -->
+      <div class="kpi-card">
+        <div class="kpi-header">
+          <span class="kpi-title">Ticket Médio</span>
+          <div class="kpi-icon-wrap blue">
+            <i class="ph-fill ph-trend-up"></i>
+          </div>
+        </div>
+        <div id="kpi-ticket" class="kpi-value">R$ 0,00</div>
+        <div class="kpi-sub">Por pedido finalizado</div>
+      </div>
+
+      <!-- Equipe Ativa -->
+      <div class="kpi-card full-width">
+        <div class="kpi-header">
+          <span class="kpi-title">Colaboradores Ativos</span>
+          <div class="kpi-icon-wrap purple">
+            <i class="ph-fill ph-users"></i>
+          </div>
+        </div>
+        <div id="kpi-equipe" class="kpi-value">0</div>
+        <div class="kpi-sub">Funcionários com ponto aberto neste turno</div>
+        <button class="btn btn-secondary" onclick="abrirModalRhDono()" style="margin-top: 14px; width: 100%; font-size: 13px; padding: 10px;">
+          <i class="ph-bold ph-users-three"></i> Gerenciar Equipe / RH
+        </button>
+      </div>
+
+    </div>
+
+    <!-- Actions Area -->
+    <div>
+      <div class="section-title">
+        <i class="ph-bold ph-lightning"></i>
+        <span>Ações Rápidas & Controles</span>
+      </div>
+      <div class="action-card">
+        
+        <!-- Cashier Status & Toggle -->
+        <div class="cashier-status-row">
+          <div class="cashier-status-text">
+            <h4 id="cashier-control-title">Carregando caixa...</h4>
+            <p id="cashier-control-subtitle">Verificando status...</p>
+          </div>
+          <button id="cashier-toggle-btn" class="btn" style="padding: 10px 14px;">
+            <i class="ph-bold ph-lock"></i> <span id="cashier-btn-text">Carregando</span>
+          </button>
+        </div>
+
+        <!-- Remote screen redirection -->
+        <button class="btn btn-secondary" onclick="comandarNavegacaoCaixaFinanceiro()" style="width: 100%; font-size: 13px; padding: 12px; gap: 8px;">
+          <i class="ph-bold ph-desktop"></i> Direcionar Caixa para Financeiro
+        </button>
+
+        <!-- Goal configuration -->
+        <div class="form-group">
+          <label for="meta-input">Definir Meta de Vendas (R$)</label>
+          <div class="form-control-row">
+            <input type="number" id="meta-input" class="form-control" placeholder="Meta diária (ex: 5000)">
+            <button class="btn" onclick="salvarMeta()">Salvar</button>
+          </div>
+        </div>
+
+        <!-- Notify team -->
+        <div class="form-group">
+          <label for="notif-input">Notificar Toda a Equipe</label>
+          <div class="form-control-row">
+            <input type="text" id="notif-input" class="form-control" placeholder="Digite um aviso urgente...">
+            <button class="btn" onclick="notificarEquipe()">
+              <i class="ph-bold ph-paper-plane-tilt"></i>
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Accordion detailed billing -->
+    <div>
+      <div id="accordion-btn" class="accordion-toggle">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <i class="ph-bold ph-money" style="color:var(--accent-green);font-size:18px;"></i>
+          <span>Visualizar Ranking de Produtos</span>
+        </div>
+        <i id="accordion-chevron" class="ph-bold ph-caret-down"></i>
+      </div>
+      <div id="accordion-panel" class="accordion-content">
+        <div id="ranking-list">
+          <div style="text-align:center;color:var(--text-sub);padding:10px;">Nenhuma venda realizada hoje.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Live activity feed -->
+    <div>
+      <div class="section-title">
+        <i class="ph-bold ph-activity"></i>
+        <span>Atividade Recente (Tempo Real)</span>
+      </div>
+      <div id="activity-feed" class="feed-container">
+        <div style="text-align:center;color:var(--text-sub);padding:10px;">Aguardando atividades do sistema...</div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- RH Management Modal -->
+  <div id="modal-rh-dono" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title"><i class="ph-bold ph-users-three" style="color:var(--accent-purple);"></i> Gerenciar Equipe</h3>
+        <button class="modal-close" onclick="document.getElementById('modal-rh-dono').classList.add('hidden')">
+          <i class="ph-bold ph-x"></i>
+        </button>
+      </div>
+
+      <div class="form-group">
+        <label for="select-rh-funcionario">Colaborador</label>
+        <select id="select-rh-funcionario" class="form-control">
+          <option value="">Carregando funcionários...</option>
+        </select>
+      </div>
+
+      <div style="display: flex; gap: 6px; margin-top: 8px; border-bottom: 1px solid var(--glass-border); padding-bottom: 8px; overflow-x: auto; scrollbar-width: none;">
+        <button id="tab-rh-btn-pagamento" class="btn-periodo active" onclick="alternarAbaRhDono('pagamento')" style="padding: 6px 12px; font-size:12px;">Pagamento</button>
+        <button id="tab-rh-btn-falta" class="btn-periodo" onclick="alternarAbaRhDono('falta')" style="padding: 6px 12px; font-size:12px;">Faltas</button>
+        <button id="tab-rh-btn-folga" class="btn-periodo" onclick="alternarAbaRhDono('folga')" style="padding: 6px 12px; font-size:12px;">Folgas</button>
+      </div>
+
+      <!-- Aba Pagamento -->
+      <div id="aba-rh-pagamento" style="display: block;">
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label for="rh-pagamento-valor">Valor do Pagamento (R$)</label>
+          <input type="number" step="0.01" id="rh-pagamento-valor" class="form-control" placeholder="Ex: 120.00">
+        </div>
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label for="rh-pagamento-forma">Forma de Pagamento</label>
+          <select id="rh-pagamento-forma" class="form-control">
+            <option value="Dinheiro">Dinheiro</option>
+            <option value="Pix">Pix</option>
+            <option value="Transferência">Transferência</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom: 16px;">
+          <label for="rh-pagamento-obs">Observação / Descrição</label>
+          <input type="text" id="rh-pagamento-obs" class="form-control" placeholder="Ex: Diária de freelancer">
+        </div>
+        <button class="btn" onclick="salvarPagamentoDono()" style="width: 100%;">Salvar Pagamento</button>
+      </div>
+
+      <!-- Aba Falta -->
+      <div id="aba-rh-falta" style="display: none;">
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label for="rh-falta-data">Data da Falta</label>
+          <input type="date" id="rh-falta-data" class="form-control">
+        </div>
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label for="rh-falta-justificativa">Justificativa / Motivo</label>
+          <input type="text" id="rh-falta-justificativa" class="form-control" placeholder="Ex: Atestado médico">
+        </div>
+        <div class="form-group" style="margin-bottom: 16px; flex-direction: row; align-items: center; gap: 8px;">
+          <input type="checkbox" id="rh-falta-remunerada" style="width:16px; height:16px;">
+          <label for="rh-falta-remunerada" style="text-transform:none; font-weight:600; cursor:pointer;">Falta Remunerada (não descontar do saldo)</label>
+        </div>
+        <button class="btn" onclick="salvarAbonoFaltaDono()" style="width: 100%;">Registrar Falta</button>
+      </div>
+
+      <!-- Aba Folga -->
+      <div id="aba-rh-folga" style="display: none;">
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label for="rh-folga-inicio">Data Início</label>
+          <input type="date" id="rh-folga-inicio" class="form-control">
+        </div>
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label for="rh-folga-fim">Data Fim (opcional)</label>
+          <input type="date" id="rh-folga-fim" class="form-control" placeholder="Deixe em branco se for 1 dia">
+        </div>
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label for="rh-folga-tipo">Tipo de Folga</label>
+          <select id="rh-folga-tipo" class="form-control">
+            <option value="Escala">Folga da Escala</option>
+            <option value="Feriado">Feriado compensado</option>
+            <option value="Outro">Outro motivo</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom: 16px;">
+          <label for="rh-folga-obs">Observações</label>
+          <input type="text" id="rh-folga-obs" class="form-control" placeholder="Ex: Compensação de hora extra">
+        </div>
+        <button class="btn" onclick="salvarFolgaDono()" style="width: 100%;">Conceder Folga</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast notification element -->
+  <div id="toast" class="toast">
+    <i class="ph-bold ph-info"></i>
+    <span id="toast-text">Notificação</span>
+  </div>
+
+</body>
+</html>

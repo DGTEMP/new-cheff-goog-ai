@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sua Conta - Chef Cozinha</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/vendor/phosphor/src/regular/style.css">
+  <link rel="stylesheet" href="/vendor/phosphor/src/bold/style.css">
+  <link rel="stylesheet" href="/vendor/phosphor/src/fill/style.css">
+  <!-- QR Code local (funciona sem internet) -->
+  <script src="/vendor/qrcode/qrcode-generator.js"></script>
+  <script src="/vendor/qrcode/qr-helper.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+
+    :root {
+      --primary: #fc4b15;
+      --primary-light: #ff7a3d;
+      --primary-dark: #d43a0c;
+      --bg-1: #f7f3f0;
+      --bg-2: #efe9e4;
+      --card-bg: rgba(255, 255, 255, 0.85);
+      --card-border: rgba(255, 255, 255, 0.5);
+      --text: #1c1917;
+      --text-secondary: #78716c;
+      --text-muted: #a8a29e;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.04);
+      --shadow-md: 0 8px 32px rgba(28,25,23,0.08);
+      --shadow-lg: 0 16px 48px rgba(28,25,23,0.12);
+      --radius: 20px;
+    }
+
+    body {
+      background: var(--bg-1);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      color: var(--text);
+      overflow-x: hidden;
+      padding-bottom: 24px;
+      background-image: radial-gradient(ellipse at 20% 0%, rgba(252,75,21,0.04) 0%, transparent 60%),
+                        radial-gradient(ellipse at 80% 100%, rgba(252,75,21,0.03) 0%, transparent 60%);
+    }
+
+    .container {
+      max-width: 520px;
+      margin: 0 auto;
+      width: 100%;
+      padding: 0 16px;
+    }
+
+    /* HEADER */
+    .header {
+      padding: 28px 20px 20px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+
+    .brand-icon {
+      width: 40px;
+      height: 40px;
+      background: linear-gradient(135deg, var(--primary), var(--primary-light));
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 22px;
+      box-shadow: 0 4px 12px rgba(252,75,21,0.25);
+    }
+
+    .brand-name {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      color: var(--text);
+    }
+
+    .table-name {
+      font-size: 28px;
+      font-weight: 900;
+      letter-spacing: -0.5px;
+      margin-top: 4px;
+      background: linear-gradient(135deg, var(--text), #44403c);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 16px;
+      border-radius: 100px;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-top: 4px;
+      background: #fef2f2;
+      color: #991b1b;
+    }
+
+    .status-badge.open {
+      background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+      color: #166534;
+    }
+
+    /* BILL CARD */
+    .bill-card {
+      background: var(--card-bg);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-md);
+      padding: 28px 24px;
+      margin-bottom: 20px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .bill-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--primary), var(--primary-light), #ffb088, var(--primary-light), var(--primary));
+      background-size: 200% 100%;
+      animation: shimmer 4s ease-in-out infinite;
+    }
+
+    @keyframes shimmer {
+      0%, 100% { background-position: 0% 0%; }
+      50% { background-position: 100% 0%; }
+    }
+
+    .section-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .section-title i { font-size: 16px; }
+
+    /* ITEMS */
+    .items-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      margin-bottom: 20px;
+      max-height: 45vh;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .items-list::-webkit-scrollbar { width: 3px; }
+    .items-list::-webkit-scrollbar-track { background: transparent; }
+    .items-list::-webkit-scrollbar-thumb { background: #d6d3d1; border-radius: 4px; }
+
+    .item-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 14px 0;
+      border-bottom: 1px solid rgba(0,0,0,0.05);
+      animation: fadeSlideIn 0.45s ease-out forwards;
+      opacity: 0;
+      transform: translateY(8px);
+    }
+
+    .item-row:last-child { border-bottom: none; }
+
+    @keyframes fadeSlideIn {
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .item-info { flex: 1; min-width: 0; }
+    .item-name {
+      font-size: 15px;
+      font-weight: 600;
+      line-height: 1.3;
+      color: var(--text);
+    }
+    .item-meta {
+      font-size: 13px;
+      color: var(--text-secondary);
+      font-weight: 500;
+      margin-top: 2px;
+    }
+    .item-total {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text);
+      white-space: nowrap;
+    }
+
+    /* DIVIDER */
+    .divider {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(0,0,0,0.08), transparent);
+      margin: 0;
+    }
+    .divider.thick {
+      height: 2px;
+      background: linear-gradient(90deg, transparent, rgba(252,75,21,0.15), transparent);
+      margin: 4px 0;
+    }
+
+    /* TOTALS */
+    .totals-wrapper {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding-top: 4px;
+    }
+
+    .total-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 14px;
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    .total-row.grand-total {
+      margin-top: 8px;
+      padding: 16px 0 0;
+      border-top: 2px solid rgba(252,75,21,0.12);
+    }
+
+    .total-row.grand-total .total-label {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .total-row.grand-total .total-value {
+      font-size: 38px;
+      font-weight: 900;
+      color: var(--primary);
+      letter-spacing: -1px;
+      line-height: 1;
+      animation: totalPop 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      transform-origin: right center;
+    }
+
+    @keyframes totalPop {
+      0% { opacity: 0; transform: scale(0.8); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+
+    .total-row.grand-total .total-value span.currency {
+      font-size: 22px;
+      font-weight: 600;
+      opacity: 0.6;
+    }
+
+    .total-row .label-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .total-row .label-group i {
+      font-size: 14px;
+      opacity: 0.5;
+    }
+
+    .desconto-value { color: #dc2626; }
+
+    /* LOADER */
+    .loader {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 60px 0;
+      color: var(--text-muted);
+      gap: 16px;
+    }
+
+    .loader-text {
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .spinner {
+      width: 36px;
+      height: 36px;
+      border: 3px solid rgba(252,75,21,0.12);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* EMPTY STATE */
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--text-secondary);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .empty-state i {
+      font-size: 48px;
+      opacity: 0.3;
+    }
+
+    .empty-state .empty-text {
+      font-size: 15px;
+      font-weight: 500;
+    }
+
+    /* FOOTER */
+    .footer {
+      text-align: center;
+      padding: 8px 20px 24px;
+      color: var(--text-muted);
+      font-size: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      align-items: center;
+    }
+
+    .footer-note {
+      font-size: 12px;
+      line-height: 1.5;
+      max-width: 300px;
+    }
+
+    .footer-buttons {
+      display: flex;
+      gap: 12px;
+      width: 100%;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 14px 20px;
+      border-radius: 14px;
+      font-weight: 700;
+      font-size: 15px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      border: none;
+      text-decoration: none;
+    }
+
+    .btn-outline {
+      background: white;
+      border: 1.5px solid #e7e5e4;
+      color: #57534e;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .btn-outline:hover {
+      background: #fafaf9;
+      border-color: #d6d3d1;
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      color: white;
+      box-shadow: 0 4px 16px rgba(252,75,21,0.25);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(252,75,21,0.35);
+    }
+
+    .btn-primary:active {
+      transform: translateY(0);
+      box-shadow: 0 2px 8px rgba(252,75,21,0.2);
+    }
+
+    /* RECEIPT DIV */
+    .receipt-cut {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 8px 0 16px;
+    }
+
+    .receipt-cut .line {
+      flex: 1;
+      height: 1px;
+      border-top: 1px dashed rgba(0,0,0,0.1);
+    }
+
+    .receipt-cut i {
+      font-size: 16px;
+      color: var(--text-muted);
+      opacity: 0.4;
+    }
+
+    /* PIX */
+    .pix-section {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      padding: 24px 16px 16px;
+      animation: fadeSlideIn 0.4s ease-out;
+    }
+
+    .pix-section.open { display: flex; }
+
+    .pix-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .pix-title i { color: #16a34a; font-size: 18px; }
+
+    .pix-qr-wrapper {
+      background: white;
+      padding: 16px;
+      border-radius: 16px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+      position: relative;
+    }
+
+    .pix-qr-wrapper img {
+      width: 180px;
+      height: 180px;
+      display: block;
+    }
+
+    .pix-qr-wrapper .pix-overlay {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: #16a34a;
+      color: white;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 6px;
+      letter-spacing: 0.5px;
+    }
+
+    .pix-info {
+      text-align: center;
+      width: 100%;
+    }
+
+    .pix-info .pix-beneficiary {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .pix-info .pix-amount {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--primary);
+      margin-top: 2px;
+    }
+
+    .pix-copy-area {
+      width: 100%;
+      display: flex;
+      gap: 8px;
+    }
+
+    .pix-copy-area input {
+      flex: 1;
+      padding: 10px 12px;
+      border: 1.5px solid #e7e5e4;
+      border-radius: 10px;
+      font-size: 11px;
+      color: var(--text-secondary);
+      background: #fafaf9;
+      font-family: 'Courier New', monospace;
+      outline: none;
+      cursor: default;
+    }
+
+    .btn-pix-copy {
+      background: #16a34a;
+      color: white;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 13px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .btn-pix-copy:hover { background: #15803d; transform: translateY(-1px); }
+    .btn-pix-copy.copied { background: #2563eb; }
+
+    .btn-pix {
+      flex: 1;
+      background: linear-gradient(135deg, #16a34a, #15803d);
+      color: white;
+      box-shadow: 0 4px 16px rgba(22,163,74,0.25);
+    }
+
+    .btn-pix:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(22,163,74,0.35);
+    }
+
+    .btn-pix:active {
+      transform: translateY(0);
+    }
+
+    @media (max-width: 400px) {
+      .total-row.grand-total .total-value {
+        font-size: 32px;
+      }
+      .table-name { font-size: 24px; }
+      .bill-card { padding: 20px 16px; }
+      .footer-buttons { flex-direction: column; }
+      .pix-qr-wrapper img { width: 150px; height: 150px; }
+    }
+  </style>
+  <script src="/locales.js"></script>
+  <script src="/i18n.js"></script>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#fc4b15">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Chef Cozinha">
+<link rel="apple-touch-icon" href="/icons/icon-192.svg">
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <div class="brand">
+      <div class="brand-icon"><i class="ph ph-chef-hat"></i></div>
+      <span class="brand-name">Chef Cozinha</span>
+    </div>
+    <div class="table-name" id="titulo-mesa">Mesa</div>
+    <div class="status-badge" id="status-badge">
+      <i class="ph ph-circle"></i> Carregando...
+    </div>
+  </div>
+
+  <div class="bill-card">
+    <div class="section-title"><i class="ph ph-shopping-bag-open"></i> Pedidos</div>
+
+    <div class="items-list" id="items-list">
+      <div class="loader">
+        <div class="spinner"></div>
+        <span class="loader-text">Buscando sua conta...</span>
+      </div>
+    </div>
+
+    <div class="receipt-cut" id="receipt-cut" style="display:none">
+      <div class="line"></div>
+      <i class="ph ph-scissors"></i>
+      <div class="line"></div>
+    </div>
+
+    <div class="totals-wrapper">
+      <div class="total-row" id="subtotal-row">
+        <span class="label-group"><i class="ph ph-shopping-cart-simple"></i> Subtotal</span>
+        <span id="subtotal">R$ 0,00</span>
+      </div>
+      <div class="total-row" id="desconto-row" style="display: none;">
+        <span class="label-group"><i class="ph ph-tag"></i> Descontos</span>
+        <span class="desconto-value" id="descontos">- R$ 0,00</span>
+      </div>
+      <div class="total-row grand-total">
+        <span class="total-label">Total</span>
+        <span class="total-value" id="total-pagar"><span class="currency">R$</span> 0,00</span>
+      </div>
+    </div>
+
+    <div class="pix-section" id="pix-section">
+      <div class="pix-title"><i class="ph ph-qr-code"></i> Pagamento via PIX</div>
+      <div class="pix-qr-wrapper">
+        <img id="pix-qr-img" src="" alt="QR Code PIX">
+        <div class="pix-overlay">PIX</div>
+      </div>
+      <div class="pix-info">
+        <div class="pix-beneficiary" id="pix-beneficiary">-</div>
+        <div class="pix-amount" id="pix-amount">R$ 0,00</div>
+      </div>
+      <div class="pix-copy-area">
+        <input type="text" id="pix-copy-input" readonly onclick="this.select()">
+        <button class="btn-pix-copy" id="btn-pix-copy" onclick="copiarPix()"><i class="ph ph-copy-simple"></i> Copiar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div class="footer-note">
+      <i class="ph ph-info"></i> Cobramos 10% de taxa de serviço. Por favor, confira os itens.
+    </div>
+    <div class="footer-buttons">
+      <button class="btn btn-outline" onclick="window.close()"><i class="ph ph-x"></i> Fechar</button>
+      <button class="btn btn-pix" id="btn-pagar-pix" onclick="togglePix()" style="display:none"><i class="ph ph-qr-code"></i> Pagar com PIX</button>
+      <button class="btn btn-primary" onclick="abrirCobranca()"><i class="ph ph-wallet"></i> Cobrar Agora</button>
+    </div>
+  </div>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  const socket = io({ query: { restaurante_id: new URLSearchParams(window.location.search).get('restaurante_id') || localStorage.getItem('restaurante_id') || '1' } });
+  const urlParams = new URLSearchParams(window.location.search);
+  const mesaQuery = urlParams.get('mesa');
+  let hasLoaded = false;
+
+  if (!mesaQuery) {
+    document.getElementById('titulo-mesa').innerText = 'Mesa não informada';
+    const badge = document.getElementById('status-badge');
+    if (badge) {
+      badge.innerHTML = '<i class="ph ph-warning-circle"></i> Erro';
+      badge.style.background = '#fef2f2';
+      badge.style.color = '#991b1b';
+    }
+    document.getElementById('items-list').innerHTML =
+      '<div class="empty-state"><i class="ph ph-x-circle"></i><span class="empty-text">Nenhuma mesa foi selecionada.</span></div>';
+  } else {
+    document.getElementById('titulo-mesa').innerText = mesaQuery;
+  }
+
+  setTimeout(() => {
+    if (!hasLoaded) {
+      const badge = document.getElementById('status-badge');
+      if (badge) {
+        badge.innerHTML = '<i class="ph ph-warning-circle"></i> Erro';
+        badge.style.background = '#fef2f2';
+        badge.style.color = '#991b1b';
+      }
+      document.getElementById('items-list').innerHTML =
+        '<div class="empty-state"><i class="ph ph-plug"></i><span class="empty-text">Não foi possível conectar ao servidor.</span></div>';
+    }
+  }, 5000);
+
+  function abrirCobranca() {
+    if (window.opener && !window.opener.closed) {
+      try {
+        const btnParcialIndex = window.opener.document.getElementById('btn-movimento-parcial');
+        if (btnParcialIndex) {
+          btnParcialIndex.click();
+        } else if (typeof window.opener.openPaymentModal === 'function') {
+          window.opener.openPaymentModal();
+        }
+        window.close();
+      } catch (e) {
+        console.error(e);
+      }
+    } else {
+      alert('A janela principal do sistema foi fechada ou não pode ser acessada.');
+    }
+  }
+
+  function parseDinheiro(val) {
+    if(typeof val === 'number') return val;
+    if(!val) return 0;
+    return parseFloat(String(val).replace('R$', '').replace('.', '').replace(',', '.').trim()) || 0;
+  }
+
+  function formatDinheiro(val) {
+    let v = val.toFixed(2);
+    let intPart = v.split('.')[0];
+    let decPart = v.split('.')[1];
+    intPart = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    let totalHtml = intPart + ',' + decPart;
+    return totalHtml;
+  }
+
+  function formatDinheiroDisplay(val) {
+    let v = val.toFixed(2);
+    let intPart = v.split('.')[0];
+    let decPart = v.split('.')[1];
+    intPart = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    return intPart + ',' + decPart;
+  }
+
+  let todasMesas = [];
+  let todosPedidos = [];
+  let CONFIGS = {};
+  let pixTotal = 0;
+
+  fetch('/api/config')
+    .then(r => r.json())
+    .then(conf => {
+      CONFIGS = conf;
+      if (CONFIGS.qr_pix_key) {
+        document.getElementById('btn-pagar-pix').style.display = 'flex';
+      }
+    })
+    .catch(() => {});
+
+  function togglePix() {
+    const section = document.getElementById('pix-section');
+    const isOpen = section.classList.contains('open');
+    if (isOpen) {
+      section.classList.remove('open');
+      return;
+    }
+    const totalEl = document.getElementById('total-pagar');
+    const totalText = totalEl.innerText || totalEl.textContent;
+    const total = parseDinheiro(totalText);
+    if (total <= 0) return;
+
+    const pixKey = CONFIGS.qr_pix_key || '';
+    const pixName = CONFIGS.qr_pix_name || 'Estabelecimento';
+    if (!pixKey) return;
+
+    pixTotal = total;
+
+    const merchantName = (CONFIGS.nome_restaurante || 'Estabelecimento').substring(0, 25);
+    const city = (CONFIGS.cidade || 'BRASILIA').substring(0, 15);
+    const txid = '***';
+
+    const amountStr = total.toFixed(2);
+    const pixKeyLen = String(pixKey).length;
+    const pixKeyLenStr = String(pixKeyLen).padStart(2, '0');
+    const merchantNameLen = String(merchantName.length).padStart(2, '0');
+    const cityLen = String(city.length).padStart(2, '0');
+
+    const gui = 'BR.GOV.BCB.PIX';
+    const guiLen = gui.length;
+    const guiLenStr = String(guiLen).padStart(2, '0');
+
+    const keyData = `01${pixKeyLenStr}${pixKey}`;
+    const keyDataLen = keyData.length;
+    const keyDataLenStr = String(keyDataLen).padStart(2, '0');
+
+    const merchantAccount = `00${guiLenStr}${gui}${keyDataLenStr}${keyData}`;
+    const merchantAccountLen = merchantAccount.length;
+    const merchantAccountLenStr = String(merchantAccountLen).padStart(2, '0');
+
+    const additionalData = `05${txid.length.toString().padStart(2, '0')}${txid}`;
+    const additionalDataLen = additionalData.length;
+    const additionalDataLenStr = String(additionalDataLen).padStart(2, '0');
+
+    let pixCopyString = '000201';
+    pixCopyString += `26${merchantAccountLenStr}${merchantAccount}`;
+    pixCopyString += '52040000';
+    pixCopyString += `5303986`;
+    pixCopyString += `54${amountStr.length.toString().padStart(2, '0')}${amountStr}`;
+    pixCopyString += `5802BR`;
+    pixCopyString += `59${merchantNameLen}${merchantName}`;
+    pixCopyString += `60${cityLen}${city}`;
+    pixCopyString += `62${additionalDataLenStr}${additionalData}`;
+    pixCopyString += '6304';
+
+    pixCopyString += crc16(pixCopyString);
+
+    document.getElementById('pix-beneficiary').innerText = pixName;
+    document.getElementById('pix-amount').innerText = 'R$ ' + total.toFixed(2).replace('.', ',');
+    document.getElementById('pix-copy-input').value = pixCopyString;
+
+    const pixQrImg = document.getElementById('pix-qr-img');
+    if (typeof window.qrImg === 'function') {
+      window.qrImg(pixQrImg, pixCopyString, 200);
+    } else {
+      pixQrImg.src = (window.location.origin || '') + '/api/qr?size=200&data=' + encodeURIComponent(pixCopyString);
+    }
+
+    section.classList.add('open');
+  }
+
+  function crc16(str) {
+    let crc = 0xFFFF;
+    for (let i = 0; i < str.length; i++) {
+      crc ^= str.charCodeAt(i) << 8;
+      for (let j = 0; j < 8; j++) {
+        if (crc & 0x8000) crc = (crc << 1) ^ 0x1021;
+        else crc = crc << 1;
+        crc &= 0xFFFF;
+      }
+    }
+    return (crc).toString(16).toUpperCase().padStart(4, '0');
+  }
+
+  function copiarPix() {
+    const input = document.getElementById('pix-copy-input');
+    input.select();
+    input.setSelectionRange(0, 99999);
+    navigator.clipboard.writeText(input.value).catch(() => {});
+    const btn = document.getElementById('btn-pix-copy');
+    btn.innerHTML = '<i class="ph ph-check"></i> Copiado!';
+    btn.classList.add('copied');
+    setTimeout(() => {
+      btn.innerHTML = '<i class="ph ph-copy-simple"></i> Copiar';
+      btn.classList.remove('copied');
+    }, 2500);
+  }
+
+  function processarDados() {
+    const minhaMesa = todasMesas.find(m => (m.nome === mesaQuery || m.mesaName === mesaQuery) && m.status !== 'Disponível');
+    const meusPedidos = todosPedidos.filter(p => (p.localName === mesaQuery || p.mesa_grupo === mesaQuery) && p.status !== 'Finalizado');
+    renderConta(minhaMesa, meusPedidos);
+  }
+
+  function renderConta(mesa, pedidosDaMesa) {
+    const pixSec = document.getElementById('pix-section');
+    if (pixSec) pixSec.classList.remove('open');
+    hasLoaded = true;
+    if (!mesa && (!pedidosDaMesa || pedidosDaMesa.length === 0)) {
+      const badge = document.getElementById('status-badge');
+      if (badge) {
+        badge.innerHTML = '<i class="ph ph-check-circle"></i> Fechada / Livre';
+        badge.style.background = '#f0fdf4';
+        badge.style.color = '#166534';
+      }
+      document.getElementById('items-list').innerHTML =
+        '<div class="empty-state"><i class="ph ph-check-circle"></i><span class="empty-text">Esta mesa não possui pedidos ativos no momento.</span></div>';
+      document.getElementById('subtotal').innerText = 'R$ 0,00';
+      document.getElementById('total-pagar').innerHTML = '<span class="currency">R$</span> 0,00';
+      return;
+    }
+
+    const badge = document.getElementById('status-badge');
+    if (badge) {
+      badge.innerHTML = '<i class="ph ph-clock"></i> Conta em Aberto';
+      badge.className = 'status-badge open';
+    }
+
+    let itemsHtml = '';
+    let subtotal = 0;
+
+    const items = pedidosDaMesa || [];
+
+    const agrupados = {};
+    items.forEach(item => {
+      if(item.status && item.status.toLowerCase() === 'cancelado') return;
+      const key = item.productName || item.produto;
+      if (!key) return;
+      const qtd = parseFloat(item.quantity || item.quantidade || 1);
+      const total = parseDinheiro(item.total || item.totalItem || 0);
+      if (!agrupados[key]) {
+        agrupados[key] = { nome: key, qtd: qtd, total: total };
+      } else {
+        agrupados[key].qtd += qtd;
+        agrupados[key].total += total;
+      }
+      subtotal += total;
+    });
+
+    let delay = 0;
+    for (const key in agrupados) {
+      const item = agrupados[key];
+      itemsHtml += `
+        <div class="item-row" style="animation-delay: ${delay}s">
+          <div class="item-info">
+            <div class="item-name">${item.nome}</div>
+            <div class="item-meta">${item.qtd}x</div>
+          </div>
+          <div class="item-total">R$ ${formatDinheiroDisplay(item.total)}</div>
+        </div>
+      `;
+      delay += 0.05;
+    }
+
+    if (!itemsHtml) {
+      itemsHtml = '<div class="empty-state"><i class="ph ph-shopping-bag-open"></i><span class="empty-text">Nenhum pedido encontrado.</span></div>';
+    }
+
+    document.getElementById('items-list').innerHTML = itemsHtml;
+
+    document.getElementById('subtotal').innerText = 'R$ ' + formatDinheiroDisplay(subtotal);
+    const cutEl = document.getElementById('receipt-cut');
+    if (cutEl) cutEl.style.display = 'flex';
+
+    let taxa = 0;
+    if (mesa && (mesa.servicoVal || mesa.taxaServico)) {
+      taxa = parseDinheiro(mesa.servicoVal || mesa.taxaServico);
+    } else {
+      taxa = subtotal * 0.10;
+    }
+
+    let descontos = (mesa && parseDinheiro(mesa.descontoVal || mesa.desconto)) || 0;
+
+    const descRow = document.getElementById('desconto-row');
+    if (descontos > 0) {
+      if (descRow) descRow.style.display = 'flex';
+      document.getElementById('descontos').innerText = '- R$ ' + formatDinheiroDisplay(descontos);
+    } else {
+      if (descRow) descRow.style.display = 'none';
+    }
+
+    let total = subtotal + taxa - descontos;
+    if(total < 0) total = 0;
+
+    document.getElementById('total-pagar').innerHTML = '<span class="currency">R$</span> ' + formatDinheiroDisplay(total);
+  }
+
+  socket.on('initial_data', (data) => {
+    todosPedidos = Array.isArray(data) ? data : (data.pedidos || []);
+    processarDados();
+  });
+
+  socket.on('pedidos_atualizados', (pedidos) => {
+    todosPedidos = pedidos || [];
+    processarDados();
+  });
+
+  socket.on('pedido_adicionado', (novoPedido) => {
+    const exists = todosPedidos.some(o => o.id === novoPedido.id);
+    if (!exists) todosPedidos.push(novoPedido);
+    processarDados();
+  });
+
+  socket.on('status_atualizado', (pedidoAtualizado) => {
+    const index = todosPedidos.findIndex(o => o.id === pedidoAtualizado.id);
+    if (index !== -1) todosPedidos[index] = pedidoAtualizado;
+    processarDados();
+  });
+
+  socket.on('mesas_atualizadas', (mesas) => {
+    todasMesas = mesas || [];
+    processarDados();
+  });
+
+  setTimeout(() => {
+    socket.emit('get_mesas');
+  }, 500);
+</script>
+</body>
+</html>

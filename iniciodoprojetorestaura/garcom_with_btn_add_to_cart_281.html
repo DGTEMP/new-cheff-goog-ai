@@ -1,0 +1,69 @@
+Created At: 2026-06-20T01:46:33Z
+Completed At: 2026-06-20T01:46:33Z
+File Path: `file:///c:/Users/computer/Desktop/chef%20cozinha/garcom.html`
+Total Lines: 478
+Total Bytes: 31375
+Showing lines 340 to 400
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+340:     <div id="view-details" class="view" style="padding-bottom: 100px;">
+341:       <div class="detail-hero">
+342:         <div id="detail-img"></div>
+343:         <div class="detail-hero-info">
+344:           <div id="detail-name"></div>
+345:           <div id="detail-unit-price"></div>
+346:         </div>
+347:       </div>
+348:       <div class="qty-control">
+349:         <span style="font-weight: 600; color: #555;">Quantidade</span>
+350:         <div class="qty-actions">
+351:           <button class="qty-btn" id="btn-minus"><i class="ph ph-minus"></i></button>
+352:           <span id="detail-qty">1</span>
+353:           <button class="qty-btn" id="btn-plus"><i class="ph ph-plus"></i></button>
+354:         </div>
+355:       </div>
+356:       <div id="detail-addons" style="display:none;"></div>
+357:       <textarea id="detail-obs" placeholder="Ex: Sem cebola, ponto da carne..."></textarea>
+358:       
+359:       <div id="detail-suggestions" style="margin-top: 24px; display: none;">
+360:         <h4 style="margin-bottom: 12px; font-size: 14px; color: #666;"><i class="ph ph-sparkle" style="color: #f39c12;"></i> Sugestões para acompanhar</h4>
+361:         <div id="sugestoes-list" style="display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px; scrollbar-width: none;">
+362:           <!-- Populated by JS -->
+363:         </div>
+364:       </div>
+365:       
+366:       <div class="fixed-bottom-bar">
+367:         <button id="btn-add-to-cart" class="btn-primary">
+368:           <span>Adicionar</span>
+369:         <button onclick="toggleServiceFee()" style="position: absolute; top: 16px; right: 16px; background: none; border: none; font-size: 20px; cursor: pointer; padding: 4px; display: flex; align-items: center; justify-content: center; opacity: 0.8;">
+370:           <i id="icon-service" class="ph-fill ph-percent" style="color: #fc4b15;"></i>
+371:         </button>
+372:         <input type="checkbox" id="bill-service-fee" checked style="display: none;">
+373:         
+374:         <h2 id="bill-table-name" style="font-size: 24px; color: #333; margin-bottom: 8px;">Mesa</h2>
+375:         <div style="font-size: 14px; color: #666; margin-bottom: 12px;">Total da Mesa: <span id="bill-subtotal">R$ 0,00</span></div>
+376:         
+377:         <div style="font-size: 14px; color: #666; font-weight: 500;">TOTAL A PAGAR</div>
+378:         <div id="bill-grand-total" style="font-size: 36px; font-weight: 800; color: #fc4b15;">R$ 0,00</div>
+379:       </div>
+380: 
+381:       <!-- Tabs -->
+382:       <div style="display: flex; gap: 8px; margin-bottom: 16px; background: #eee; padding: 4px; border-radius: 12px;">
+383:         <button id="tab-bill-pessoas" class="bill-tab active" onclick="switchBillTab('pessoas')" style="flex: 1; padding: 12px; border-radius: 8px; border: none; font-weight: bold; font-size: 14px; cursor: pointer;">Por Pessoas</button>
+384:         <button id="tab-bill-itens" class="bill-tab" onclick="switchBillTab('itens')" style="flex: 1; padding: 12px; border-radius: 8px; border: none; font-weight: bold; font-size: 14px; cursor: pointer; background: transparent; color: #666;">Por Itens</button>
+385:       </div>
+386: 
+387:       <!-- Tab Content: Pessoas -->
+388:       <div id="bill-content-pessoas" class="bill-content active">
+389:         <div style="background: white; padding: 24px 16px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); display: flex; flex-direction: column; align-items: center;">
+390:           <div style="font-size: 16px; font-weight: 600; color: #333; margin-bottom: 16px;">Dividir conta para quantos?</div>
+391:           
+392:           <div style="display: flex; align-items: center; justify-content: center; gap: 24px; margin-bottom: 24px;">
+393:             <button onclick="changeSplitCount(-1)" style="width: 48px; height: 48px; border-radius: 50%; border: none; background: #f0f2f5; font-size: 24px; font-weight: bold; color: #fc4b15; cursor: pointer;">-</button>
+394:             <span id="bill-split-count" style="font-size: 32px; font-weight: 800; color: #333;">1</span>
+395:             <button onclick="changeSplitCount(1)" style="width: 48px; height: 48px; border-radius: 50%; border: none; background: #f0f2f5; font-size: 24px; font-weight: bold; color: #fc4b15; cursor: pointer;">+</button>
+396:           </div>
+397:           
+398:           <div style="font-size: 14px; color: #666; font-weight: 500;">Valor por Pessoa</div>
+399:           <div id="bill-split-value" style="font-size: 36px; font-weight: 800; color: #3ab55b;">R$ 0,00</div>
+400:         </div>
+The above content does NOT show the entire file contents. If you need to view any lines of the file which were not shown to complete your task, call this tool again to view those lines.

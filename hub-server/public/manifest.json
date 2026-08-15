@@ -1,0 +1,24 @@
+{
+  "name": "Chef Cozinha",
+  "short_name": "Chef",
+  "description": "Sistema completo de gestão para restaurantes",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0a0b12",
+  "theme_color": "#fc4b15",
+  "orientation": "any",
+  "categories": ["business", "food", "productivity"],
+  "icons": [
+    { "src": "/icons/icon-72.svg", "type": "image/svg+xml", "sizes": "72x72", "purpose": "any" },
+    { "src": "/icons/icon-96.svg", "type": "image/svg+xml", "sizes": "96x96", "purpose": "any" },
+    { "src": "/icons/icon-128.svg", "type": "image/svg+xml", "sizes": "128x128", "purpose": "any" },
+    { "src": "/icons/icon-144.svg", "type": "image/svg+xml", "sizes": "144x144", "purpose": "any" },
+    { "src": "/icons/icon-152.svg", "type": "image/svg+xml", "sizes": "152x152", "purpose": "any" },
+    { "src": "/icons/icon-192.svg", "type": "image/svg+xml", "sizes": "192x192", "purpose": "any maskable" },
+    { "src": "/icons/icon-384.svg", "type": "image/svg+xml", "sizes": "384x384", "purpose": "any" },
+    { "src": "/icons/icon-512.svg", "type": "image/svg+xml", "sizes": "512x512", "purpose": "any maskable" }
+  ],
+  "screenshots": [],
+  "prefer_related_applications": false
+}

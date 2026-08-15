@@ -1,0 +1,18 @@
+{
+  "name": "chef-cozinha-hub",
+  "version": "1.0.0",
+  "private": true,
+  "main": "server-hub.js",
+  "scripts": {
+    "start": "node server-hub.js"
+  },
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "multer": "^2.1.1",
+    "socket.io": "^4.8.3",
+    "sqlite3": "^6.0.1"
+  }
+}

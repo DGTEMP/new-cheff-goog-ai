@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Diagnóstico Mobile</title>
+<style>
+  body { font-family: monospace; background: #0f172a; color: #e2e8f0; padding: 16px; }
+  h1 { font-size: 16px; color: #fc4b15; }
+  pre { background: rgba(255,255,255,0.06); padding: 10px; border-radius: 8px; overflow-x: auto; white-space: pre-wrap; word-break: break-word; font-size: 12px; }
+  iframe { width: 100%; height: 420px; border: 1px solid #334155; border-radius: 8px; }
+</style>
+</head>
+<body>
+<h1>Diagnóstico — PDV embutido</h1>
+<p style="color:#94a3b8;font-size:12px">Analisando a página principal do PDV em tempo real…</p>
+<div id="out"><p>Carregando…</p></div>
+<iframe id="pdv" src="/index.html" style="display:none;"></iframe>
+
+<script>
+  var ERROS = [];
+  window.addEventListener('error', function (e) {
+    var msg = (e.message || '') + ' @' + (e.filename || '') + ':' + (e.lineno || '') + ':' + (e.colno || '');
+    ERROS.push('error(capture): ' + msg);
+  }, true);
+  window.addEventListener('unhandledrejection', function (e) {
+    ERROS.push('unhandledrejection: ' + (e.reason && e.reason.message ? e.reason.message : e.reason));
+  });
+
+  function log(label, value) {
+    var el = document.createElement('div');
+    el.innerHTML = '<h2 style="font-size:13px;color:#94a3b8;margin:10px 0 4px">' + label + '</h2><pre>' + String(value) + '</pre>';
+    document.getElementById('out').appendChild(el);
+  }
+
+  var iframe = document.getElementById('pdv');
+  iframe.onload = function () {
+    setTimeout(function () {
+      var w = iframe.contentWindow;
+      var d = w.document;
+
+      log('UserAgent', navigator.userAgent);
+      log('Viewport (janela)', window.innerWidth + 'x' + window.innerHeight);
+
+      var mainScript = [].slice.call(d.querySelectorAll('script')).map(function (x) { return x.src; }).filter(function (s) { return s && s.indexOf('main.js') !== -1; })[0] || 'NAO ENCONTRADO';
+      log('Bundle main.js', mainScript);
+
+      var grid = d.getElementById('orders-grid');
+      log('orders-grid existe', grid ? 'SIM (innerHTML ' + grid.innerHTML.length + ' chars)' : 'NAO');
+      log('mesa-item count', grid ? grid.querySelectorAll('.mesa-item').length : 'NAO');
+      log('mesa-category count', grid ? grid.querySelectorAll('.mesa-category').length : 'NAO');
+      log('allMesas', (typeof w.allMesas !== 'undefined') ? ('SIM, len=' + w.allMesas.length) : 'indefinido');
+      log('ordersData', (typeof w.ordersData !== 'undefined') ? ('SIM, len=' + w.ordersData.length) : 'indefinido');
+      log('viewFilter', w.viewFilter);
+      log('workspace classes', d.querySelector('.workspace') ? d.querySelector('.workspace').className : 'SEM .workspace');
+      var mc = d.getElementById('mesas-section-container');
+      log('mesas-container computed', mc ? (function () {
+        var c = w.getComputedStyle(mc);
+        return 'display=' + c.display + ' | flex=' + c.flex + ' | height=' + c.height + ' | min-height=' + c.minHeight + ' | overflow=' + c.overflow;
+      })() : 'NAO');
+      var mw = d.querySelector('.main-workspace');
+      log('main-workspace computed', mw ? (function () {
+        var c = w.getComputedStyle(mw);
+        return 'display=' + c.display + ' | flex-direction=' + c.flexDirection + ' | height=' + c.height;
+      })() : 'NAO');
+      log('mobile-tab ativo', (function () {
+        var b = d.querySelector('.mobile-tab-btn.active');
+        return b ? (b.getAttribute('data-tab') + ' — ' + b.textContent.trim()) : 'nenhum tab ativo';
+      })());
+      log('toolbar Comandas ativo?', (function () {
+        var t = d.getElementById('toolbar-comandas');
+        return t ? t.classList.contains('active') : 'sem toolbar-comandas';
+      })());
+
+      var secaoVisivel = grid && grid.getBoundingClientRect ? (function () {
+        var r = grid.getBoundingClientRect();
+        return 'top=' + r.top + ' height=' + r.height + ' width=' + r.width;
+      })() : 'NAO';
+      log('orders-grid bounds', secaoVisivel);
+
+      log('Erros de JS capturados (' + ERROS.length + ')', ERROS.length ? ERROS.join('\n') : 'nenhum ✓');
+    }, 9000);
+  };
+</script>
+</body>
+</html>

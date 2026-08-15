@@ -1,0 +1,17 @@
+[Unit]
+Description=Chef Cozinha - HUB (Super Admin / gestão)
+After=network.target
+
+[Service]
+Type=simple
+User=__USER__
+WorkingDirectory=/opt/chefcozinha-hub
+ExecStart=/usr/bin/node server-hub.js
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=production
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

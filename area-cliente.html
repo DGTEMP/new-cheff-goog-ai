@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Área do Cliente - Fidelidade</title>
+  
+  <script src="/socket.io.min.js"></script>
+  <link rel="stylesheet" href="/vendor/phosphor/src/regular/style.css">
+  <link rel="stylesheet" href="/vendor/phosphor/src/bold/style.css">
+  <link rel="stylesheet" href="/vendor/phosphor/src/fill/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --primary: #fc4b15;
+      --primary-dark: #e03a0b;
+      --bg-color: #0f172a;
+      --card-bg: rgba(30, 41, 59, 0.7);
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+    
+    * {
+      box-sizing: border-box;
+      font-family: 'Outfit', sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      background-color: var(--bg-color);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background-image: radial-gradient(circle at 15% 50%, rgba(252, 75, 21, 0.15), transparent 25%),
+                        radial-gradient(circle at 85% 30%, rgba(56, 189, 248, 0.1), transparent 25%);
+      background-attachment: fixed;
+    }
+
+    /* GLASSMORPHISM */
+    .glass-card {
+      background: var(--card-bg);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 24px;
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+    }
+
+    /* LOGIN SCREEN */
+    #login-screen {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      width: 100%;
+      height: 100vh;
+      padding: 20px;
+    }
+
+    .login-box {
+      width: 100%;
+      max-width: 400px;
+      padding: 40px 30px;
+      text-align: center;
+      animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .login-box i.ph-crown {
+      font-size: 64px;
+      color: var(--primary);
+      margin-bottom: 20px;
+      animation: pulse 2s infinite;
+    }
+
+    .login-box h1 {
+      font-size: 28px;
+      font-weight: 800;
+      margin-bottom: 10px;
+      background: linear-gradient(135deg, #fff, #cbd5e1);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .login-box p {
+      color: var(--text-muted);
+      margin-bottom: 30px;
+      font-size: 15px;
+    }
+
+    .input-group {
+      position: relative;
+      margin-bottom: 20px;
+    }
+
+    .input-group i {
+      position: absolute;
+      left: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      font-size: 20px;
+    }
+
+    .login-input {
+      width: 100%;
+      padding: 16px 20px 16px 45px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(15, 23, 42, 0.6);
+      color: white;
+      font-size: 16px;
+      outline: none;
+      transition: all 0.3s;
+    }
+
+    .login-input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 4px rgba(252, 75, 21, 0.15);
+    }
+
+    .btn-primary {
+      width: 100%;
+      padding: 16px;
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-primary:active {
+      transform: scale(0.96);
+    }
+
+    .btn-primary:hover {
+      box-shadow: 0 10px 25px rgba(252, 75, 21, 0.4);
+    }
+
+    /* DASHBOARD SCREEN */
+    #dashboard-screen {
+      display: none;
+      width: 100%;
+      max-width: 500px;
+      padding: 20px;
+      padding-bottom: 100px;
+      animation: fadeIn 0.5s ease-out;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 30px;
+      margin-top: 20px;
+    }
+
+    .user-greeting h2 {
+      font-size: 22px;
+      font-weight: 700;
+    }
+
+    .user-greeting p {
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    .logout-btn {
+      background: rgba(255, 255, 255, 0.1);
+      border: none;
+      color: white;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 20px;
+      transition: 0.2s;
+    }
+
+    .logout-btn:hover { background: rgba(255, 255, 255, 0.2); }
+
+    .points-card {
+      padding: 30px;
+      text-align: center;
+      margin-bottom: 30px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .nivel-badge {
+      position: relative;
+      z-index: 1;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 18px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #f59e0b, #b45309);
+      color: #fff;
+      font-weight: 800;
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 16px;
+      box-shadow: 0 4px 16px rgba(245, 158, 11, 0.4);
+    }
+
+    .nivel-badge.prata { background: linear-gradient(135deg, #c0c0c0, #94a3b8); box-shadow: 0 4px 16px rgba(148,163,184,0.4); }
+    .nivel-badge.ouro { background: linear-gradient(135deg, #fbbf24, #d97706); box-shadow: 0 4px 16px rgba(251,191,36,0.4); }
+    .nivel-badge.diamante { background: linear-gradient(135deg, #38bdf8, #6366f1); box-shadow: 0 4px 16px rgba(56,189,248,0.4); }
+
+    .nivel-progress-wrap {
+      position: relative;
+      z-index: 1;
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.1);
+      margin: 20px 10px 8px;
+      overflow: hidden;
+    }
+
+    .nivel-progress {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--primary), #fbbf24);
+      transition: width 0.6s ease;
+    }
+
+    .nivel-progress-label {
+      position: relative;
+      z-index: 1;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .points-card::before {
+      content: '';
+      position: absolute;
+      top: -50%; left: -50%; width: 200%; height: 200%;
+      background: radial-gradient(circle, rgba(252,75,21,0.2) 0%, transparent 60%);
+      z-index: 0;
+    }
+
+    .points-value {
+      position: relative;
+      z-index: 1;
+      font-size: 64px;
+      font-weight: 800;
+      color: var(--primary);
+      text-shadow: 0 0 20px rgba(252, 75, 21, 0.3);
+      line-height: 1;
+      margin-bottom: 5px;
+    }
+
+    .points-label {
+      position: relative;
+      z-index: 1;
+      font-size: 16px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .section-title i { color: var(--primary); }
+
+    .beneficios-list {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      margin-bottom: 30px;
+    }
+
+    .beneficio-item {
+      display: flex;
+      align-items: center;
+      padding: 15px;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      transition: 0.3s;
+    }
+
+    .beneficio-item:hover {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(252, 75, 21, 0.3);
+    }
+
+    .beneficio-img {
+      width: 50px;
+      height: 50px;
+      border-radius: 12px;
+      object-fit: cover;
+      margin-right: 15px;
+      background: rgba(255,255,255,0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+    }
+
+    .beneficio-info {
+      flex: 1;
+    }
+
+    .beneficio-info h4 {
+      font-size: 16px;
+      margin-bottom: 4px;
+    }
+
+    .beneficio-info p {
+      font-size: 13px;
+      color: var(--primary);
+      font-weight: 700;
+    }
+
+    .resgatar-btn {
+      background: rgba(252, 75, 21, 0.1);
+      color: var(--primary);
+      border: 1px solid rgba(252, 75, 21, 0.3);
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    .resgatar-btn:hover:not(:disabled) {
+      background: var(--primary);
+      color: white;
+    }
+
+    .resgatar-btn:disabled {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-muted);
+      border-color: rgba(255, 255, 255, 0.1);
+      cursor: not-allowed;
+    }
+
+    .profile-tab {
+      padding: 10px 18px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.03);
+      color: var(--text-muted);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: 0.2s;
+    }
+
+    .profile-tab.active {
+      background: var(--primary);
+      color: white;
+      border-color: var(--primary);
+    }
+
+    .profile-tab:hover:not(.active) {
+      background: rgba(255,255,255,0.08);
+    }
+
+    .pedido-card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+
+    .pedido-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .pedido-header h4 {
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .pedido-header span {
+      font-size: 11px;
+      padding: 3px 10px;
+      border-radius: 8px;
+      font-weight: 700;
+    }
+
+    .pedido-itens {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    .pedido-total {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    .visita-card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 14px;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .visita-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: rgba(252, 75, 21, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      color: var(--primary);
+      flex-shrink: 0;
+    }
+
+    .visita-info {
+      flex: 1;
+    }
+
+    .visita-info h4 {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+
+    .visita-info p {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .visita-pontos {
+      font-size: 13px;
+      font-weight: 700;
+      color: #10b981;
+    }
+
+    /* ANIMATIONS */
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(40px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(1); filter: drop-shadow(0 0 0 rgba(252,75,21,0)); }
+      50% { transform: scale(1.05); filter: drop-shadow(0 0 15px rgba(252,75,21,0.5)); }
+      100% { transform: scale(1); filter: drop-shadow(0 0 0 rgba(252,75,21,0)); }
+    }
+
+    /* MODAL RESGATE */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      background: rgba(0,0,0,0.8);
+      z-index: 9999;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(8px);
+    }
+
+    .modal-content {
+      background: var(--bg-color);
+      border: 1px solid rgba(255,255,255,0.1);
+      padding: 40px 30px;
+      border-radius: 24px;
+      width: 90%;
+      max-width: 400px;
+      text-align: center;
+      animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .modal-content .code {
+      font-size: 32px;
+      font-weight: 800;
+      letter-spacing: 5px;
+      background: rgba(252, 75, 21, 0.1);
+      color: var(--primary);
+      padding: 15px;
+      border-radius: 12px;
+      margin: 20px 0;
+      border: 2px dashed var(--primary);
+    }
+  </style>
+  <script src="/locales.js"></script>
+  <script src="/broadcast.js"></script>
+  <script src="/i18n.js"></script>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#fc4b15">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Chef Cozinha">
+<link rel="apple-touch-icon" href="/icons/icon-192.svg">
+</head>
+<body>
+
+  <!-- TELA DE LOGIN -->
+  <div id="login-screen">
+    <div class="glass-card login-box">
+      <i class="ph-fill ph-crown"></i>
+      <h1>Clube de Vantagens</h1>
+      <p>Acesse com seu telefone para resgatar seus pontos e aproveitar benefícios.</p>
+      
+      <div class="input-group">
+        <i class="ph ph-phone"></i>
+        <input type="tel" id="input-telefone" class="login-input" placeholder="(11) 99999-9999" maxlength="15">
+      </div>
+      
+      <button class="btn-primary" id="btn-login" onclick="fazerLogin()">
+        Acessar Meus Pontos <i class="ph ph-arrow-right"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- TELA DASHBOARD -->
+  <div id="dashboard-screen">
+    <header>
+      <div class="user-greeting">
+        <p id="welcome-subtitle">Olá, bem-vindo de volta!</p>
+        <h2 id="cliente-nome">---</h2>
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <button class="logout-btn" id="btn-back-cardapio" onclick="window.history.back()" title="Voltar ao Cardápio" style="display:none;"><i class="ph ph-arrow-left"></i></button>
+        <button class="logout-btn" onclick="sair()"><i class="ph ph-sign-out"></i></button>
+      </div>
+    </header>
+
+    <div class="glass-card points-card">
+      <div class="nivel-badge" id="cliente-nivel-badge"><i class="ph-fill ph-crown"></i> Bronze</div>
+      <div class="points-value" id="cliente-pontos">0</div>
+      <div class="points-label">Pontos Disponíveis</div>
+      <div class="nivel-progress-wrap"><div class="nivel-progress" id="cliente-nivel-progress" style="width:0%"></div></div>
+      <div class="nivel-progress-label" id="cliente-nivel-progress-label"></div>
+    </div>
+
+    <!-- NAV TABS -->
+    <div style="display: flex; gap: 8px; margin-bottom: 24px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none;">
+      <button class="profile-tab active" data-section="pedidos" onclick="showSection('pedidos')"><i class="ph ph-receipt"></i> Pedidos</button>
+      <button class="profile-tab" data-section="visitas" onclick="showSection('visitas')"><i class="ph ph-map-pin"></i> Visitas</button>
+      <button class="profile-tab" data-section="ofertas" onclick="showSection('ofertas')"><i class="ph ph-megaphone"></i> Ofertas</button>
+      <button class="profile-tab" data-section="beneficios" onclick="showSection('beneficios')"><i class="ph ph-gift"></i> Loja</button>
+      <button class="profile-tab" data-section="resgates" onclick="showSection('resgates')"><i class="ph ph-ticket"></i> Resgates</button>
+    </div>
+
+    <!-- PEDIDOS RECENTES -->
+    <div class="profile-section" id="section-pedidos">
+      <h3 class="section-title"><i class="ph-fill ph-receipt"></i> Últimos Pedidos</h3>
+      <div class="beneficios-list" id="lista-pedidos">
+        <p style="color:#94a3b8; text-align:center; padding:20px;">Carregando...</p>
+      </div>
+    </div>
+
+    <!-- VISITAS -->
+    <div class="profile-section" id="section-visitas" style="display:none;">
+      <h3 class="section-title"><i class="ph-fill ph-map-pin"></i> Suas Visitas</h3>
+      <div id="lista-visitas">
+        <p style="color:#94a3b8; text-align:center; padding:20px;">Carregando...</p>
+      </div>
+    </div>
+
+    <!-- OFERTAS -->
+    <div class="profile-section" id="section-ofertas" style="display:none;">
+      <h3 class="section-title"><i class="ph-fill ph-megaphone"></i> Ofertas para Você</h3>
+      <div id="lista-ofertas">
+        <p style="color:#94a3b8; text-align:center; padding:20px;">Carregando...</p>
+      </div>
+    </div>
+
+    <!-- BENEFICIOS / LOJA -->
+    <div class="profile-section" id="section-beneficios" style="display:none;">
+      <h3 class="section-title"><i class="ph-fill ph-gift"></i> Loja de Pontos</h3>
+      <div class="beneficios-list" id="lista-beneficios">
+        <!-- Injetado via JS -->
+      </div>
+    </div>
+
+    <!-- RESGATES -->
+    <div class="profile-section" id="section-resgates" style="display:none;">
+      <h3 class="section-title"><i class="ph-fill ph-clock-counter-clockwise"></i> Seus Resgates</h3>
+      <div class="beneficios-list" id="lista-resgates">
+        <!-- Injetado via JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DE SUCESSO -->
+  <div class="modal-overlay" id="modal-sucesso">
+    <div class="modal-content">
+      <i class="ph-fill ph-check-circle" style="font-size: 64px; color: #10b981; margin-bottom: 15px;"></i>
+      <h2 style="margin-bottom: 10px;">Resgate Concluído!</h2>
+      <p style="color: var(--text-muted);">Mostre este código para o garçom ou no caixa para receber seu benefício.</p>
+      
+      <div class="code" id="codigo-gerado">ABC123</div>
+      
+      <button class="btn-primary" onclick="fecharModal()">Entendido</button>
+    </div>
+  </div>
+
+  
+<script src="/fullscreen.js"></script>
+<script>
+  const socket = io({ query: { token: localStorage.getItem('chef_token'), restaurante_id: localStorage.getItem('restaurante_id') || '1' } });
+    let clienteAtual = null;
+    let beneficiosGlobais = [];
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const fromCardapio = urlParams.get('from') === 'cardapio';
+    const secaoInicial = urlParams.get('secao') === 'beneficios' ? 'beneficios' : null;
+
+    document.getElementById('input-telefone').addEventListener('input', function (e) {
+      var x = e.target.value.replace(/\D/g, '').match(/(\d{0,2})(\d{0,5})(\d{0,4})/);
+      e.target.value = !x[2] ? x[1] : '(' + x[1] + ') ' + x[2] + (x[3] ? '-' + x[3] : '');
+    });
+
+    function showSection(name) {
+      document.querySelectorAll('.profile-section').forEach(s => s.style.display = 'none');
+      document.querySelectorAll('.profile-tab').forEach(t => t.classList.remove('active'));
+      const secao = document.getElementById('section-' + name);
+      if (secao) secao.style.display = 'block';
+      const tab = document.querySelector(`.profile-tab[data-section="${name}"]`);
+      if (tab) tab.classList.add('active');
+    }
+
+    function fazerLogin() {
+      const tel = document.getElementById('input-telefone').value.replace(/\D/g, '');
+      if (tel.length < 10) return alert('Por favor, insira um telefone válido.');
+      const btn = document.getElementById('btn-login');
+      btn.innerHTML = '<i class="ph ph-spinner-gap ph-spin"></i> Entrando...';
+      socket.emit('cliente_login', tel);
+    }
+
+    socket.on('cliente_login_response', (res) => {
+      document.getElementById('btn-login').innerHTML = 'Acessar Meus Pontos <i class="ph ph-arrow-right"></i>';
+      if (res.error) {
+        alert(res.error);
+      } else {
+        clienteAtual = res.cliente;
+        localStorage.setItem('fidelidade_telefone', clienteAtual.telefone);
+        mostrarDashboard();
+      }
+    });
+
+    function mostrarDashboard() {
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('dashboard-screen').style.display = 'block';
+
+      document.getElementById('cliente-nome').innerText = clienteAtual.nome;
+      animarPontos(0, clienteAtual.pontos);
+      atualizarNivel(clienteAtual.pontos);
+
+      const btnBack = document.getElementById('btn-back-cardapio');
+      if (fromCardapio && btnBack) {
+        btnBack.style.display = 'flex';
+        btnBack.onclick = function () {
+          if (history.length > 1) {
+            history.back();
+          } else {
+            const mesa = urlParams.get('mesa');
+            window.location.href = mesa ? '/cardapio?mesa=' + mesa : '/cardapio';
+          }
+        };
+        document.getElementById('welcome-subtitle').innerText = 'Seu Perfil';
+      }
+
+      socket.emit('get_beneficios');
+      socket.emit('get_resgates_cliente', clienteAtual.id);
+      socket.emit('get_cliente_pedidos', { cliente_id: clienteAtual.id, telefone: clienteAtual.telefone });
+      socket.emit('get_cliente_visitas', { cliente_id: clienteAtual.id, telefone: clienteAtual.telefone });
+
+      document.getElementById('lista-ofertas').innerHTML = '<p style="color:#94a3b8; text-align:center; padding:20px;">Nenhuma oferta disponível no momento.</p>';
+
+      if (secaoInicial) showSection(secaoInicial);
+    }
+
+    function sair() {
+      localStorage.removeItem('fidelidade_telefone');
+      window.location.reload();
+    }
+
+    window.onload = () => {
+      const cardapioProfile = localStorage.getItem('cliente_perfil');
+      if (cardapioProfile && fromCardapio) {
+        try {
+          const perfil = JSON.parse(cardapioProfile);
+          if (perfil && perfil.telefone) {
+            localStorage.setItem('fidelidade_telefone', perfil.telefone);
+          }
+        } catch (e) {}
+      }
+      const salvo = localStorage.getItem('fidelidade_telefone');
+      if (salvo) {
+        socket.emit('cliente_login', salvo);
+      }
+    };
+
+    socket.on('beneficios_lista', (lista) => {
+      beneficiosGlobais = lista;
+      renderizarBeneficios();
+    });
+
+    function renderizarBeneficios() {
+      const container = document.getElementById('lista-beneficios');
+      if (!beneficiosGlobais.length) {
+        container.innerHTML = '<p style="color:#94a3b8; text-align:center; padding:20px;">Nenhum benefício disponível no momento.</p>';
+        return;
+      }
+      container.innerHTML = beneficiosGlobais.map(b => {
+        const podeResgatar = clienteAtual.pontos >= b.pontos;
+        const imgHtml = b.imagem_url ? `<img src="${b.imagem_url}" class="beneficio-img">` : `<div class="beneficio-img"><i class="ph ph-gift"></i></div>`;
+        return `
+          <div class="beneficio-item" style="opacity: ${podeResgatar ? '1' : '0.5'}">
+            ${imgHtml}
+            <div class="beneficio-info">
+              <h4>${b.nome}</h4>
+              <p>${b.pontos} pontos</p>
+            </div>
+            <button class="resgatar-btn" ${!podeResgatar ? 'disabled' : ''} onclick="resgatar(${b.id})">
+              ${podeResgatar ? 'Resgatar' : 'Faltam ' + (b.pontos - clienteAtual.pontos)}
+            </button>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function resgatar(id) {
+      if (confirm('Deseja realmente trocar seus pontos por este benefício?')) {
+        socket.emit('resgatar_beneficio', { cliente_id: clienteAtual.id, beneficio_id: id });
+      }
+    }
+
+    socket.on('resgate_response', (res) => {
+      if (res.error) {
+        alert(res.error);
+      } else {
+        clienteAtual.pontos = res.novoSaldo;
+        document.getElementById('cliente-pontos').innerText = res.novoSaldo;
+        atualizarNivel(res.novoSaldo);
+        renderizarBeneficios();
+        socket.emit('get_resgates_cliente', clienteAtual.id);
+        document.getElementById('codigo-gerado').innerText = res.codigo;
+        document.getElementById('modal-sucesso').style.display = 'flex';
+      }
+    });
+
+    function fecharModal() {
+      document.getElementById('modal-sucesso').style.display = 'none';
+    }
+
+    socket.on('resgates_cliente_lista', (lista) => {
+      const container = document.getElementById('lista-resgates');
+      if (!lista.length) {
+        container.innerHTML = '<p style="color:#94a3b8; text-align:center; padding:20px;">Você ainda não fez nenhum resgate.</p>';
+        return;
+      }
+      container.innerHTML = lista.map(r => {
+        return `
+          <div class="beneficio-item">
+            <div class="beneficio-img" style="font-size:20px; color:${r.usado ? '#94a3b8' : '#10b981'}">
+              <i class="ph-fill ${r.usado ? 'ph-check-circle' : 'ph-ticket'}"></i>
+            </div>
+            <div class="beneficio-info">
+              <h4>${r.beneficio_nome}</h4>
+              <p style="color:#94a3b8; font-weight:normal; font-size:12px;">Código: <strong style="color:white; letter-spacing:1px;">${r.codigo}</strong></p>
+            </div>
+            <span style="font-size:12px; font-weight:bold; color: ${r.usado ? '#94a3b8' : '#10b981'}">
+              ${r.usado ? 'Usado' : 'Disponível'}
+            </span>
+          </div>
+        `;
+      }).join('');
+    });
+
+    socket.on('cliente_pedidos_response', (pedidos) => {
+      const container = document.getElementById('lista-pedidos');
+      const lista = pedidos || [];
+      if (!lista.length) {
+        container.innerHTML = '<p style="color:#94a3b8; text-align:center; padding:20px;">Nenhum pedido encontrado ainda.</p>';
+        return;
+      }
+      const grupos = {};
+      lista.forEach(p => {
+        const chave = (p.data || '') + '|' + (p.mesa || 'Balcão');
+        if (!grupos[chave]) grupos[chave] = { mesa: p.mesa || 'Balcão', data: p.data || '', status: p.status || 'Finalizado', total: 0, itens: [] };
+        grupos[chave].total += parseFloat(String(p.total || '0').replace(',', '.')) || 0;
+        grupos[chave].itens.push({ quantity: p.quantity || 1, productName: p.productName || 'Item' });
+      });
+      const statusColors = { 'Finalizado': '#10b981', 'Pronto': '#f59e0b', 'Em preparo': '#3b82f6', 'Cancelado': '#ef4444' };
+      container.innerHTML = Object.values(grupos).map(p => {
+        const cor = statusColors[p.status] || '#94a3b8';
+        const itensHtml = p.itens.map(i => `${i.quantity}x ${i.productName}`).join(', ');
+        return `
+          <div class="pedido-card">
+            <div class="pedido-header">
+              <h4>${p.mesa}</h4>
+              <span style="background: ${cor}20; color: ${cor};">${p.status}</span>
+            </div>
+            <div class="pedido-itens">${itensHtml}</div>
+            <div class="pedido-total">
+              <span>${p.data || ''}</span>
+              <span style="color: var(--primary);">R$ ${p.total.toFixed(2).replace('.', ',')}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+    });
+
+    socket.on('cliente_visitas_response', (visitas) => {
+      const container = document.getElementById('lista-visitas');
+      if (!visitas || !visitas.length) {
+        container.innerHTML = '<p style="color:#94a3b8; text-align:center; padding:20px;">Nenhuma visita registrada ainda.</p>';
+        return;
+      }
+      container.innerHTML = visitas.map(v => `
+        <div class="visita-card">
+          <div class="visita-icon"><i class="ph ph-storefront"></i></div>
+          <div class="visita-info">
+            <h4>${v.mesa || 'Balcão'}</h4>
+            <p>${v.data || ''} ${v.hora ? 'às ' + v.hora : ''}</p>
+          </div>
+          <div class="visita-pontos">R$ ${parseFloat(v.total || 0).toFixed(2).replace('.', ',')}</div>
+        </div>
+      `).join('');
+    });
+
+    setTimeout(() => {
+      const pedidosEl = document.getElementById('lista-pedidos');
+      const visitasEl = document.getElementById('lista-visitas');
+      if (pedidosEl && pedidosEl.innerText === 'Carregando...') {
+        pedidosEl.innerHTML = '<p style="color:#94a3b8; text-align:center; padding:20px;">Nenhum pedido encontrado ainda.</p>';
+      }
+      if (visitasEl && visitasEl.innerText === 'Carregando...') {
+        visitasEl.innerHTML = '<p style="color:#94a3b8; text-align:center; padding:20px;">Nenhuma visita registrada ainda.</p>';
+      }
+    }, 6000);
+
+    function atualizarNivel(pontos) {
+      const niveis = [
+        { nome: 'Bronze', min: 0, proximo: 100 },
+        { nome: 'Prata', min: 100, proximo: 300 },
+        { nome: 'Ouro', min: 300, proximo: 800 },
+        { nome: 'Diamante', min: 800, proximo: null }
+      ];
+      let atual = niveis[0];
+      for (const n of niveis) { if (pontos >= n.min) atual = n; }
+      const badge = document.getElementById('cliente-nivel-badge');
+      if (badge) {
+        badge.className = 'nivel-badge ' + atual.nome.toLowerCase();
+        badge.innerHTML = '<i class="ph-fill ph-crown"></i> ' + atual.nome;
+      }
+      const bar = document.getElementById('cliente-nivel-progress');
+      const label = document.getElementById('cliente-nivel-progress-label');
+      if (bar && label) {
+        if (atual.proximo != null) {
+          const pct = Math.min(100, Math.round(((pontos - atual.min) / (atual.proximo - atual.min)) * 100));
+          bar.style.width = pct + '%';
+          label.innerText = pontos + '/' + atual.proximo + ' pts para o próximo nível';
+        } else {
+          bar.style.width = '100%';
+          label.innerText = 'Nível máximo alcançado!';
+        }
+      }
+    }
+
+    function animarPontos(start, end) {
+      let current = start;
+      const el = document.getElementById('cliente-pontos');
+      const increment = Math.ceil((end - start) / 30);
+      const timer = setInterval(() => {
+        current += increment;
+        if (current >= end) {
+          current = end;
+          clearInterval(timer);
+        }
+        el.innerText = current;
+      }, 30);
+    }
+</script>
+
+</body>
+</html>

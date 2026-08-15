@@ -1,0 +1,42 @@
+Created At: 2026-06-20T15:46:28Z
+Completed At: 2026-06-20T15:46:28Z
+File Path: `file:///C:/Users/computer/.gemini/antigravity/brain/572b5ef2-df3a-452d-b484-217992cd5adc/scratch/restore_garcom_html.js`
+Total Lines: 34
+Total Bytes: 1202
+Showing lines 1 to 34
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+1: const fs = require('fs');
+2: const readline = require('readline');
+3: const path = require('path');
+4: 
+5: const logFile = 'C:\\Users\\computer\\.gemini\\antigravity\\brain\\572b5ef2-df3a-452d-b484-217992cd5adc\\.system_generated\\logs\\transcript_full.jsonl';
+6: 
+7: const rl = readline.createInterface({
+8:   input: fs.createReadStream(logFile),
+9:   crlfDelay: Infinity
+10: });
+11: 
+12: let lineNum = 0;
+13: rl.on('line', (line) => {
+14:   lineNum++;
+15:   if (line.includes('garcom.html') && line.includes('<!DOCTYPE html>')) {
+16:     console.log(`Line ${lineNum} looks like it has the full HTML content!`);
+17:     try {
+18:       const obj = JSON.parse(line);
+19:       // Let's inspect this object
+20:       console.log('Object keys:', Object.keys(obj));
+21:       if (obj.content) {
+22:         console.log('Content length:', obj.content.length);
+23:         fs.writeFileSync('C:\\Users\\computer\\Desktop\\chef cozinha\\garcom.html.restored', obj.content, 'utf8');
+24:         console.log('Wrote to garcom.html.restored');
+25:       } else if (obj.tool_calls) {
+26:         console.log('Tool calls length:', obj.tool_calls.length);
+27:         // Maybe it's in the tool response or parameters
+28:       }
+29:     } catch (e) {
+30:       console.error('Error parsing line:', e.message);
+31:     }
+32:   }
+33: });
+34: 
+The above content shows the entire, complete file contents of the requested file.

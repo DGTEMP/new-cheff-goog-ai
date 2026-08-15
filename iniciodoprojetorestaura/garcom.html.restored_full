@@ -1,0 +1,481 @@
+Created At: 2026-06-20T15:46:36Z
+Completed At: 2026-06-20T15:46:36Z
+File Path: `file:///c:/Users/computer/Desktop/chef%20cozinha/garcom.html`
+Total Lines: 473
+Total Bytes: 31741
+Showing lines 1 to 473
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+1: <!DOCTYPE html>
+2: <html lang="pt-BR">
+3: <head>
+4: 
+5:   <meta charset="UTF-8" />
+6:   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+7:   <title>Comanda Mobile</title>
+8:   <link rel="preconnect" href="https://fonts.googleapis.com">
+9:   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+10:   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+11:   <script src="https://unpkg.com/@phosphor-icons/web"></script>
+12:   <style>
+13:     * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+14:     body { font-family: 'Inter', sans-serif; background: #f0f2f5; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+15:     #app { width: 100%; max-width: 1024px; height: 100vh; height: 100dvh; background: #fff; display: flex; flex-direction: column; position: relative; overflow: hidden; box-shadow: 0 0 40px rgba(0,0,0,0.05); transition: all 0.3s ease; }
+16:     
+17:     @media (min-width: 768px) {
+18:       #app { height: 95vh; border-radius: 24px; overflow: hidden; }
+19:     }
+20:     
+21:     header { background: #fff; height: 60px; display: flex; align-items: center; padding: 0 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); z-index: 10; flex-shrink: 0; }
+22:     header button { background: none; border: none; font-size: 24px; color: #333; cursor: pointer; }
+23:     header h1 { flex: 1; font-size: 18px; font-weight: 600; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+24:     
+25:     .view { display: none; flex: 1; overflow-y: auto; padding: 16px; padding-bottom: 80px; }
+26:     .view.active { display: block; }
+27:     
+28:     /* Login */
+29:     #view-login { display: none; flex-direction: column; justify-content: center; align-items: center; padding: 32px; background: #fc4b15; color: white; }
+30:     #view-login.active { display: flex; }
+31:     
+32:     /* Bill View Styles */
+33:     .bill-tab.active { background: white !important; color: #fc4b15 !important; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+34:     .bill-item-row { display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid #eee; border-radius: 12px; cursor: pointer; transition: all 0.2s; }
+35:     .bill-item-row.selected { border-color: #fc4b15; background: #fffcfb; }
+36:     .bill-item-row .checkbox { width: 24px; height: 24px; border-radius: 6px; border: 2px solid #ccc; display: flex; justify-content: center; align-items: center; color: white; }
+37:     .bill-item-row.selected .checkbox { background: #fc4b15; border-color: #fc4b15; }
+38:     .split-fraction-btn { background: #f0f2f5; border: none; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; color: #fc4b15; margin-left: auto; cursor: pointer; }
+39:     #view-login h2 { font-size: 24px; margin-bottom: 24px; }
+40:     #view-login input { width: 100%; padding: 14px; border-radius: 8px; border: none; margin-bottom: 16px; font-size: 16px; }
+41:     #btn-login { width: 100%; padding: 14px; border-radius: 8px; border: none; background: #fff; color: #fc4b15; font-weight: bold; font-size: 16px; cursor: pointer; }
+42:     
+43:     /* Tables Grid */
+44:     #tables-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 16px; }
+45:     .table-card { background: #eaf8ef; border: 1px solid #3ab55b; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; font-weight: 600; color: #333; box-shadow: 0 2px 8px rgba(0,0,0,0.04); cursor: pointer; position: relative; }
+46:     .table-card i { font-size: 32px; color: #3ab55b; }
+47:     .table-card:active { transform: scale(0.95); }
+48:     .table-card.ocupada { background: #fff3f0; border-color: #ffccc0; }
+49:     .table-card.ocupada i { color: #fc4b15; }
+50:     .table-card.reservada { background: #eaf2f8; border-color: #3498db; }
+51:     .table-card.reservada i { color: #3498db; }
+52:     
+53:     .bill-requested-icon {
+54:       position: absolute;
+55:       top: -10px;
+56:       right: -10px;
+57:       background: #fc4b15;
+58:       color: white;
+59:       width: 28px;
+60:       height: 28px;
+61:       border-radius: 50%;
+62:       display: flex;
+63:       align-items: center;
+64:       justify-content: center;
+65:       font-size: 16px;
+66:       box-shadow: 0 2px 6px rgba(252, 75, 21, 0.4);
+67:       animation: bounce 1s infinite;
+68:     }
+69:     @keyframes bounce {
+70:       0%, 100% { transform: translateY(0); }
+71:       50% { transform: translateY(-4px); }
+72:     }
+73: 
+74:     /* Menu Tabs */
+75:     #menu-tabs { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 12px; margin-bottom: 16px; scrollbar-width: none; }
+76:     #menu-tabs::-webkit-scrollbar { display: none; }
+77:     .tab { padding: 8px 16px; background: #f0f2f5; border-radius: 20px; font-weight: 600; font-size: 14px; white-space: nowrap; cursor: pointer; color: #666; }
+78:     .tab.active { background: #fc4b15; color: #fff; }
+79: 
+80:     /* Menu List */
+81:     #menu-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+82:     .menu-item { display: flex; align-items: center; gap: 12px; padding: 12px; background: #fff; border: 1px solid #eee; border-radius: 12px; cursor: pointer; }
+83:     .menu-item .img-box { width: 60px; height: 60px; background: #f9f9f9; border-radius: 8px; display: flex; justify-content: center; align-items: center; font-size: 32px; }
+84:     .menu-item-info { flex: 1; }
+85:     .menu-item-name { font-weight: 600; margin-bottom: 4px; }
+86:     .menu-item-price { color: #fc4b15; font-weight: bold; }
+87: 
+88:     /* FAB Cart */
+89:     #fab-cart { position: absolute; bottom: 80px; right: 16px; width: 56px; height: 56px; background: #fc4b15; color: #fff; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 24px; box-shadow: 0 4px 12px rgba(252, 75, 21, 0.4); border: none; cursor: pointer; z-index: 20; }
+90:     #cart-badge { position: absolute; top: 0; right: 0; background: #fff; color: #fc4b15; font-size: 12px; font-weight: bold; width: 20px; height: 20px; border-radius: 50%; display: flex; justify-content: center; align-items: center; border: 2px solid #fc4b15; }
+91: 
+92:     /* Details */
+93:     .detail-hero { display: flex; flex-direction: row; align-items: center; padding: 16px; background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 16px; margin-top: 10px; }
+94:     #detail-img { font-size: 50px; margin-right: 16px; background: #f9f9f9; width: 80px; height: 80px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+95:     .detail-hero-info { flex: 1; text-align: left; }
+96:     #detail-name { font-size: 18px; font-weight: bold; margin-bottom: 4px; color: #333; }
+97:     #detail-unit-price { color: #fc4b15; font-weight: bold; font-size: 16px; }
+98:     
+99:     .qty-control { display: flex; align-items: center; justify-content: space-between; background: white; padding: 12px 16px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 16px; }
+100:     .qty-actions { display: flex; align-items: center; gap: 16px; }
+101:     .qty-btn { width: 40px; height: 40px; border-radius: 50%; border: none; background: #f0f2f5; font-size: 20px; font-weight: bold; color: #fc4b15; cursor: pointer; display: flex; justify-content: center; align-items: center; }
+102:     #detail-qty { font-size: 20px; font-weight: bold; width: 30px; text-align: center; }
+103:     
+104:     .suggestion-card { background: white; padding: 12px; border-radius: 12px; border: 1px solid #eee; min-width: 130px; display: flex; flex-direction: column; align-items: center; text-align: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.02); flex-shrink: 0; }
+105:     .suggestion-card:active { transform: scale(0.95); }
+106:     .suggestion-card .sug-img { font-size: 32px; margin-bottom: 8px; }
+107:     .suggestion-card .sug-name { font-size: 13px; font-weight: 600; color: #333; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
+108:     .suggestion-card .sug-price { font-size: 13px; color: #fc4b15; font-weight: bold; }
+109:     
+110:     textarea { width: 100%; height: 80px; padding: 12px; border-radius: 8px; border: 1px solid #ddd; font-family: 'Inter'; margin-top: 16px; resize: none; }
+111:     
+112:     .fixed-bottom-bar { position: absolute; bottom: 0; left: 0; right: 0; padding: 16px; background: #fff; border-top: 1px solid #eee; display: flex; z-index: 20; }
+113:     .btn-primary { flex: 1; background: #fc4b15; color: #fff; border: none; padding: 16px; border-radius: 12px; font-weight: bold; font-size: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+114: 
+115:     /* Bottom Nav */
+116:     .bottom-nav { position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%); width: calc(100% - 48px); max-width: 360px; height: 64px; background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-radius: 32px; box-shadow: 0 8px 32px rgba(0,0,0,0.1); border: 1px solid rgba(255,255,255,0.4); display: flex; z-index: 100; overflow: hidden; }
+117:     .nav-btn { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; color: #888; font-size: 12px; font-weight: 500; gap: 4px; cursor: pointer; transition: 0.2s; }
+118:     .nav-btn i { font-size: 24px; }
+119:     .nav-btn.active { color: #fc4b15; }
+120: 
+121:     #toast { display: none; position: absolute; top: 20px; left: 50%; transform: translateX(-50%); background: #3ab55b; color: white; padding: 12px 24px; border-radius: 24px; font-weight: bold; font-size: 14px; z-index: 100; box-shadow: 0 4px 12px rgba(58,181,91,0.3); }
+122:     
+123:     #qr-reader, #qr-reader * {
+124:       box-sizing: border-box !important;
+125:     }
+126:     #qr-reader {
+127:       position: absolute !important;
+128:       inset: 0 !important;
+129:       width: 100% !important;
+130:       height: 100% !important;
+131:       display: block !important;
+132:     }
+133:     #qr-reader > div {
+134:       position: absolute !important;
+135:       inset: 0 !important;
+136:       width: 100% !important;
+137:       height: 100% !important;
+138:     }
+139:     #qr-reader canvas {
+140:       position: absolute !important;
+141:       opacity: 0 !important;
+142:       pointer-events: none !important;
+143:       z-index: -1 !important;
+144:     }
+145:     #qr-reader video {
+146:       object-fit: cover !important;
+147:       width: 100% !important;
+148:       height: 100% !important;
+149:       position: absolute !important;
+150:       top: 0 !important;
+151:       left: 0 !important;
+152:       transform: none !important;
+153:       margin: 0 !important;
+154:       padding: 0 !important;
+155:       z-index: 1 !important;
+156:     }
+157:     
+158:     .qr-scan-line {
+159:       position: absolute;
+160:       top: 0;
+161:       left: 0;
+162:       width: 100%;
+163:       height: 3px;
+164:       background: #3ab55b;
+165:       box-shadow: 0 0 12px #3ab55b;
+166:       animation: scan 2s linear infinite;
+167:     }
+168:     @keyframes scan {
+169:       0% { top: 0; opacity: 0; }
+170:       10% { opacity: 1; }
+171:       90% { opacity: 1; }
+172:       100% { top: 100%; opacity: 0; }
+173:     }
+174:     @media (min-width: 768px) {
+175:         /* Estilização Modal para Telas Grandes */
+176:         #view-details.active, #view-cart.active {
+177:           display: flex; flex-direction: column; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+178:           width: 90%; max-width: 500px; height: 80vh; max-height: 800px; border-radius: 24px; box-shadow: 0 24px 48px rgba(0,0,0,0.2);
+179:           z-index: 999; animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+180:           box-sizing: border-box;
+181:         }
+182:         #view-bill.active {
+183:           display: flex; flex-direction: column; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+184:           width: 95%; max-width: 900px; height: 90vh; max-height: 90vh; border-radius: 24px; box-shadow: 0 24px 48px rgba(0,0,0,0.2);
+185:           z-index: 999; animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+186:           padding-bottom: 24px !important;
+187:           box-sizing: border-box;
+188:           overflow: hidden !important; /* Trava o scroll do modal */
+189:         }
+190:         
+191:         /* Flex containers para permitir scroll interno */
+192:         .bill-content {
+193:           flex: 1;
+194:           display: flex;
+195:           flex-direction: column;
+196:           overflow: hidden;
+197:         }
+198: 
+199:         #bill-content-pessoas[style*="display: block"] {
+200:           display: grid !important;
+201:           grid-template-columns: 1fr 1.5fr;
+202:           gap: 24px;
+203:           align-items: stretch;
+204:           flex: 1;
+205:           overflow: hidden;
+206:         }
+207:         #bill-content-pessoas > div, #bill-content-itens > div {
+208:           margin-top: 0 !important;
+209:           display: flex;
+210:           flex-direction: column;
+211:           overflow: hidden;
+212:           max-height: 100%;
+213:         }
+214:         
+215:         /* O segredo: Apenas as listas rolam! */
+216:         #bill-pessoas-items-list, #bill-items-list {
+217:           overflow-y: auto;
+218:           flex: 1;
+219:           padding-right: 8px;
+220:         }
+221: 
+222:         #bill-items-list {
+223:           display: grid;
+224:           grid-template-columns: 1fr 1fr;
+225:           gap: 16px;
+226:           align-content: start;
+227:         }
+228: 
+229:         #view-details.active::before, #view-cart.active::before, #view-bill.active::before {
+230:           content: ''; position: fixed; inset: -100vmax; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: -1;
+231:         }
+232:         .view { padding-bottom: 120px; }
+233:         
+234:         /* Tamanho das Fontes GIGANTES */
+235:         #bill-table-name { font-size: 42px !important; }
+236:         #bill-subtotal { font-size: 24px !important; }
+237:         #bill-grand-total { font-size: 68px !important; line-height: 1.1; }
+238:         #bill-split-count { font-size: 64px !important; }
+239:         #bill-split-value { font-size: 56px !important; line-height: 1.1; }
+240:         
+241:         #bill-pessoas-items-list > div { padding-bottom: 16px !important; }
+242:         #bill-pessoas-items-list div, #bill-pessoas-items-list span { font-size: 22px !important; }
+243:         
+244:         .bill-item-row { padding: 20px !important; }
+245:         .bill-item-row div { font-size: 22px !important; }
+246:         .bill-item-row .btn-split-item { font-size: 18px !important; padding: 12px 18px !important; }
+247:         
+248:         .bill-content > div > div:first-child { font-size: 26px !important; margin-bottom: 24px !important; }
+249:     }
+250:     @keyframes popIn { 0% { transform: translate(-50%, -45%) scale(0.9); opacity: 0; } 100% { transform: translate(-50%, -50%) scale(1); opacity: 1; } }
+251:   </style>
+252:   <script src="https://unpkg.com/html5-qrcode"></script>
+253:   <script type="module" src="/auth.js"></script>
+254:   <script src="https://cdn.jsdelivr.net/npm/morphdom@2.7.2/dist/morphdom-umd.min.js"></script>
+255: </head>
+256: <body>
+257:   <div id="app">
+258:     <header>
+259:       <button id="btn-back" style="display:none;"><i class="ph ph-caret-left"></i></button>
+260:       <h1 id="header-title">Chef Garçom</h1>
+261:       <button id="btn-home" style="display:none; color:#333; font-size:24px; margin-right:12px;" onclick="window.location.href='/index.html'" title="Início do App (Caixa)"><i class="ph ph-house"></i></button>
+262:         <button id="btn-colaborador" style="display:none; color:#9b59b6; font-size:24px; margin-right:12px;" onclick="window.location.href='/painel-funcionario.html'" title="Área de Membros"><i class="ph ph-user"></i></button>
+263:         <button id="btn-fullscreen" style="display:none; color:#3ab55b; font-size:24px; margin-right:12px;"><i class="ph ph-corners-out"></i></button>
+264:       <button id="btn-logout" style="display:none; color:#fc4b15; font-size:24px;"><i class="ph ph-sign-out"></i></button>
+265:     </header>
+266: 
+267:     <!-- Login -->
+268:     <div id="view-login" class="view active">
+269:       <h2>Acesso Garçom</h2>
+270:       <input type="text" id="input-usuario" placeholder="Usuário" />
+271:       <input type="password" id="input-senha" placeholder="Senha" />
+272:       <button id="btn-login">Entrar</button>
+273:     </div>
+274: 
+275:     <!-- Tables -->
+276:     <div id="view-tables" class="view">
+277:       <div id="tables-grid"></div>
+278:     </div>
+279: 
+280:     <!-- Table Options -->
+281:     <div id="view-table-options" class="view" style="justify-content: center; background: #fff;">
+282:         <div style="text-align: center; margin-bottom: 24px;">
+283:           <div style="width: 80px; height: 80px; border-radius: 50%; background: #fc4b15; color: white; display: flex; justify-content: center; align-items: center; font-size: 32px; margin: 0 auto; box-shadow: 0 4px 12px rgba(252, 75, 21, 0.3);">
+284:             <i class="ph ph-table"></i>
+285:           </div>
+286:           <h2 id="options-table-name" style="margin-top: 10px;">Mesa</h2>
+287:         </div>
+288:         <div style="display: flex; flex-direction: column; gap: 12px; padding: 0 16px;">
+289:           <button id="btn-opt-add" style="padding: 16px; border-radius: 12px; border: none; background: #fc4b15; color: white; font-weight: bold; font-size: 16px; display:flex; align-items:center; justify-content:center; gap:8px;"><i class="ph ph-plus" style="font-size:24px;"></i> Adicionar Itens</button>
+290:           <button id="btn-opt-qr" style="padding: 16px; border-radius: 12px; border: none; background: #3ab55b; color: white; font-weight: bold; font-size: 16px; display:flex; align-items:center; justify-content:center; gap:8px;"><i class="ph ph-qr-code" style="font-size:24px;"></i> Ler Cupom QR</button>
+291:           <button id="btn-opt-view" style="padding: 16px; border-radius: 12px; border: 1px solid #ddd; background: white; font-weight: bold; font-size: 16px; display:flex; align-items:center; justify-content:center; gap:8px;"><i class="ph ph-list" style="font-size:24px;"></i> Ver Conta Parcial</button>
+292:           <button id="btn-opt-bill" style="padding: 16px; border-radius: 12px; border: 1px solid #ddd; background: white; font-weight: bold; font-size: 16px; color: #333; display:flex; align-items:center; justify-content:center; gap:8px;"><i class="ph ph-receipt" style="font-size:24px;"></i> Pedir Conta</button>
+293:         </div>
+294:       
+295:       <!-- Modal Leitor de QR Premium -->
+296:       <div id="qr-modal" style="display: none; position: fixed; inset: 0; background: #000; z-index: 999; flex-direction: column;">
+297:         <div style="position: absolute; top: 0; left: 0; width: 100%; padding: 24px; display: flex; justify-content: space-between; align-items: center; z-index: 10;">
+298:           <h3 style="margin: 0; font-size: 20px; color: white; font-weight: 600; text-shadow: 0 2px 4px rgba(0,0,0,0.5);">Ler Cupom</h3>
+299:           <button onclick="closeQRScanner()" style="background: rgba(255,255,255,0.2); border: none; color: white; width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(10px); font-size: 24px; cursor: pointer;"><i class="ph ph-x"></i></button>
+300:         </div>
+301:         <div style="flex: 1; position: relative; display: flex; justify-content: center; align-items: center; overflow: hidden;">
+302:            <div id="qr-reader" style="width: 100%; height: 100%; position: absolute; inset: 0;"></div>
+303:            
+304:            <!-- Overlay Mask com furo central (usando box-shadow) -->
+305:            <div style="position: absolute; inset: 0; z-index: 5; pointer-events: none; display: flex; justify-content: center; align-items: center;">
+306:               <div style="width: 250px; height: 250px; box-shadow: 0 0 0 2000px rgba(0,0,0,0.65); border-radius: 24px;"></div>
+307:            </div>
+308:            
+309:            <!-- Borda Animada -->
+310:            <div style="position: relative; z-index: 10; width: 250px; height: 250px; border-radius: 24px; pointer-events: none;">
+311:              <!-- Corners -->
+312:              <div style="position: absolute; top: -2px; left: -2px; width: 40px; height: 40px; border-top: 4px solid #3ab55b; border-left: 4px solid #3ab55b; border-top-left-radius: 24px;"></div>
+313:              <div style="position: absolute; top: -2px; right: -2px; width: 40px; height: 40px; border-top: 4px solid #3ab55b; border-right: 4px solid #3ab55b; border-top-right-radius: 24px;"></div>
+314:              <div style="position: absolute; bottom: -2px; left: -2px; width: 40px; height: 40px; border-bottom: 4px solid #3ab55b; border-left: 4px solid #3ab55b; border-bottom-left-radius: 24px;"></div>
+315:              <div style="position: absolute; bottom: -2px; right: -2px; width: 40px; height: 40px; border-bottom: 4px solid #3ab55b; border-right: 4px solid #3ab55b; border-bottom-right-radius: 24px;"></div>
+316:              
+317:              <!-- Linha de Scan -->
+318:              <div class="qr-scan-line"></div>
+319:            </div>
+320:            
+321:            <div style="position: absolute; bottom: 40px; z-index: 10; width: 100%; text-align: center; pointer-events: none;">
+322:               <p style="color: white; font-size: 16px; font-weight: 500; background: rgba(0,0,0,0.5); display: inline-block; padding: 10px 20px; border-radius: 30px; backdrop-filter: blur(5px);">Aponte para o QR Code</p>
+323:            </div>
+324:         </div>
+325:       </div>
+326:     </div>
+327: 
+328:     <!-- Menu -->
+329:     <div id="view-menu" class="view">
+330:       <input type="text" id="garcom-search-product" placeholder="🔍 Buscar produto..." onkeyup="window.garcomSearchQuery=this.value.toLowerCase(); renderMenu();" style="width: 100%; padding: 12px; border: 1px solid #eee; border-radius: 12px; margin-bottom: 16px; font-size: 16px; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.02); outline: none;">
+331:         <div id="menu-tabs"></div>
+332:       <div id="menu-list"></div>
+333:       <button id="fab-cart">
+334:         <i class="ph ph-shopping-cart"></i>
+335:         <div id="cart-badge" style="display:none;">0</div>
+336:       </button>
+337:     </div>
+338: 
+339:     <!-- Details -->
+340:     <div id="view-details" class="view" style="padding-bottom: 100px;">
+341:       <div class="detail-hero">
+342:         <div id="detail-img"></div>
+343:         <div class="detail-hero-info">
+344:           <div id="detail-name"></div>
+345:           <div id="detail-unit-price"></div>
+346:         </div>
+347:       </div>
+348:       <div class="qty-control">
+349:         <span style="font-weight: 600; color: #555;">Quantidade</span>
+350:         <div class="qty-actions">
+351:           <button class="qty-btn" id="btn-minus"><i class="ph ph-minus"></i></button>
+352:           <span id="detail-qty">1</span>
+353:           <button class="qty-btn" id="btn-plus"><i class="ph ph-plus"></i></button>
+354:         </div>
+355:       </div>
+356:       <div id="detail-addons" style="display:none;"></div>
+357:       <textarea id="detail-obs" placeholder="Ex: Sem cebola, ponto da carne..."></textarea>
+358:       
+359:       <div id="detail-suggestions" style="margin-top: 24px; display: none;">
+360:         <h4 style="margin-bottom: 12px; font-size: 14px; color: #666;"><i class="ph ph-sparkle" style="color: #f39c12;"></i> Sugestões para acompanhar</h4>
+361:         <button onclick="toggleServiceFee()" style="position: absolute; top: 16px; right: 16px; background: none; border: none; font-size: 20px; cursor: pointer; padding: 4px; display: flex; align-items: center; justify-content: center; opacity: 0.8;">
+362:           <i id="icon-service" class="ph-fill ph-percent" style="color: #fc4b15;"></i>
+363:         </button>
+364:         <input type="checkbox" id="bill-service-fee" checked style="display: none;">
+365:         
+366:         <h2 id="bill-table-name" style="font-size: 24px; color: #333; margin-bottom: 8px;">Mesa</h2>
+367:         <div style="font-size: 14px; color: #666; margin-bottom: 12px;">Total da Mesa: <span id="bill-subtotal">R$ 0,00</span></div>
+368:         
+369:         <div style="font-size: 14px; color: #666; font-weight: 500;">TOTAL A PAGAR</div>
+370:         <div id="bill-grand-total" style="font-size: 36px; font-weight: 800; color: #fc4b15;">R$ 0,00</div>
+371:       </div>
+372: 
+373:       <!-- Tabs -->
+374:       <div style="display: flex; gap: 8px; margin-bottom: 16px; background: #eee; padding: 4px; border-radius: 12px;">
+375:         <button id="tab-bill-pessoas" class="bill-tab active" onclick="switchBillTab('pessoas')" style="flex: 1; padding: 12px; border-radius: 8px; border: none; font-weight: bold; font-size: 14px; cursor: pointer;">Por Pessoas</button>
+376:         <button id="tab-bill-itens" class="bill-tab" onclick="switchBillTab('itens')" style="flex: 1; padding: 12px; border-radius: 8px; border: none; font-weight: bold; font-size: 14px; cursor: pointer; background: transparent; color: #666;">Por Itens</button>
+377:       </div>
+378: 
+379:       <!-- Tab Content: Pessoas -->
+380:       <div id="bill-content-pessoas" class="bill-content active">
+381:         <div style="background: white; padding: 24px 16px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); display: flex; flex-direction: column; align-items: center;">
+382:           <div style="font-size: 16px; font-weight: 600; color: #333; margin-bottom: 16px;">Dividir conta para quantos?</div>
+383:           
+384:           <div style="display: flex; align-items: center; justify-content: center; gap: 24px; margin-bottom: 24px;">
+385:             <button onclick="changeSplitCount(-1)" style="width: 48px; height: 48px; border-radius: 50%; border: none; background: #f0f2f5; font-size: 24px; font-weight: bold; color: #fc4b15; cursor: pointer;">-</button>
+386:             <span id="bill-split-count" style="font-size: 32px; font-weight: 800; color: #333;">1</span>
+387:             <button onclick="changeSplitCount(1)" style="width: 48px; height: 48px; border-radius: 50%; border: none; background: #f0f2f5; font-size: 24px; font-weight: bold; color: #fc4b15; cursor: pointer;">+</button>
+388:           </div>
+389:           
+390:           <div style="font-size: 14px; color: #666; font-weight: 500;">Valor por Pessoa</div>
+391:           <div id="bill-split-value" style="font-size: 36px; font-weight: 800; color: #3ab55b;">R$ 0,00</div>
+392:         </div>
+393: 
+394:         <!-- NEW: Items for checking -->
+395:         <div style="background: white; padding: 16px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-top: 16px;">
+396:           <div style="font-size: 14px; font-weight: 600; color: #888; margin-bottom: 12px;">Conferência dos Itens</div>
+397:           <div id="bill-pessoas-items-list" style="display: flex; flex-direction: column; gap: 8px;">
+398:             <!-- Rendered by JS -->
+399:           </div>
+400:         </div>
+401:       </div>
+402: 
+403:       <!-- Tab Content: Itens -->
+404:       <div id="bill-content-itens" class="bill-content" style="display: none;">
+405:         <div style="background: white; padding: 16px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 16px;">
+406:           <div style="font-size: 14px; font-weight: 600; color: #888; margin-bottom: 12px; display: flex; justify-content: space-between;">
+407:             <span>Selecione o que foi consumido</span>
+408:             <span id="bill-selected-count" style="color: #fc4b15;">R$ 0,00</span>
+409:           </div>
+410:           <div id="bill-comanda-selectors" style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; display: none;">
+411:             <!-- Comanda selection buttons injected here -->
+412:           </div>
+413:           <div id="bill-items-list" style="display: flex; flex-direction: column; gap: 12px;">
+414:             <!-- Items rendered here -->
+415:           </div>
+416:         </div>
+417:       </div>
+418: 
+419:       <!-- Fixed Bottom Action -->
+420:       <div class="fixed-bottom-bar" style="flex-direction: column; gap: 8px;">
+421:         <button onclick="openPaymentModal()" style="width: 100%; background: #fc4b15; color: white; border: none; padding: 16px; border-radius: 12px; font-weight: bold; font-size: 16px; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px;">
+422:           <i class="ph ph-wallet" style="font-size: 24px;"></i> Receber Valor: <span id="bill-action-value">R$ 0,00</span>
+423:         </button>
+424:       </div>
+425:     </div>
+426: 
+427:     <!-- Payment Modal Overlay -->
+428:     <div id="payment-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 9999; flex-direction: column; justify-content: flex-end;">
+429:       <div style="background: white; border-radius: 24px 24px 0 0; padding: 24px; animation: slideUp 0.3s ease;">
+430:         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+431:           <h3 style="font-size: 20px; font-weight: bold;">Forma de Pagamento</h3>
+432:           <button onclick="closePaymentModal()" style="background: none; border: none; font-size: 24px; color: #888; cursor: pointer;"><i class="ph ph-x"></i></button>
+433:         </div>
+434:         
+435:         <div style="font-size: 16px; color: #666; margin-bottom: 24px; text-align: center; display: flex; flex-direction: column; align-items: center;">
+436:           <label for="payment-input-value" style="margin-bottom: 8px;">Valor a Receber:</label>
+437:           <input type="text" inputmode="decimal" id="payment-input-value" value="0,00" style="font-size: 32px; font-weight: bold; color: #fc4b15; text-align: center; border: 2px solid #ccc; border-radius: 12px; padding: 12px; width: 100%; max-width: 250px; outline: none; background: #f9f9f9;" onfocus="this.select()" onkeyup="updateCustomPaymentValue(this.value)">
+438:         </div>
+439: 
+440:         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px;">
+441:           <button onclick="processPayment('Pix')" style="padding: 20px; border-radius: 16px; border: 1px solid #eee; background: white; font-weight: bold; font-size: 16px; display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer; color: #32BCAD;">
+442:             <i class="ph ph-qr-code" style="font-size: 32px;"></i> Pix
+443:           </button>
+444:           <button onclick="processPayment('Cartão de Crédito')" style="padding: 20px; border-radius: 16px; border: 1px solid #eee; background: white; font-weight: bold; font-size: 16px; display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer; color: #f2c94c;">
+445:             <i class="ph ph-credit-card" style="font-size: 32px;"></i> Crédito
+446:           </button>
+447:           <button onclick="processPayment('Cartão de Débito')" style="padding: 20px; border-radius: 16px; border: 1px solid #eee; background: white; font-weight: bold; font-size: 16px; display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer; color: #2d9cdb;">
+448:             <i class="ph ph-credit-card" style="font-size: 32px;"></i> Débito
+449:           </button>
+450:           <button onclick="processPayment('Dinheiro')" style="padding: 20px; border-radius: 16px; border: 1px solid #eee; background: white; font-weight: bold; font-size: 16px; display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer; color: #3ab55b;">
+451:             <i class="ph ph-money" style="font-size: 32px;"></i> Dinheiro
+452:           </button>
+453:         </div>
+454:       </div>
+455:     </div>
+456:     <div id="view-esteira" class="view">
+457:       <div id="esteira-list"></div>
+458:     </div>
+459: 
+460:     <!-- Bottom Nav -->
+461:     <div class="bottom-nav">
+462:       <div class="nav-btn active" id="nav-mesas"><i class="ph ph-armchair"></i>Mesas</div>
+463:       <div class="nav-btn" id="nav-esteira"><i class="ph ph-bell-ringing"></i>Esteira</div>
+464:     </div>
+465: 
+466:     <div id="toast">Pedido Enviado com Sucesso!</div>
+467:   </div>
+468: 
+469:   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+470:   <script type="module" src="./garcom.js"></script>
+471: </body>
+472: </html>
+473: 
+The above content shows the entire, complete file contents of the requested file.

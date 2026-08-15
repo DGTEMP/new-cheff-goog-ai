@@ -1,0 +1,41 @@
+Created At: 2026-06-10T02:10:37Z
+Completed At: 2026-06-10T02:10:37Z
+File Path: `file:///c:/Users/computer/Desktop/chef%20cozinha/garcom.js`
+Total Lines: 33
+Total Bytes: 1144
+Showing lines 1 to 33
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+1: // Conecta ao Socket.io na mesma porta (3000)
+2: // Como o Vite proxy ou acesso direto não está configurado, o socket tentará conectar na mesma host, mas porta 3000.
+3: // É melhor conectar na porta dinâmica se servido pelo Node, mas como temos Vite na porta 5173 e Node na 3000...
+4: // Wait, se usarmos o próprio IP local do navegador e forçar a porta 3000:
+5: const HOST = window.location.hostname;
+6: const socket = io(`http://${HOST}:3000`);
+7: 
+8: window.enviarPedido = function(productName, productEmoji, price) {
+9:   const mesa = document.getElementById('mesaSelect').value;
+10:   
+11:   const pedido = {
+12:     productName,
+13:     productEmoji,
+14:     quantity: 1, // Fixo para o teste
+15:     time: 'Agora', // Seria gerado em tempo real
+16:     localName: mesa,
+17:     userName: 'Garçom 1',
+18:     total: price.toFixed(2).replace('.', ',')
+19:   };
+20: 
+21:   // Envia para o Servidor Backend!
+22:   socket.emit('novo_pedido', pedido);
+23: 
+24:   // Mostra feedback visual
+25:   const toast = document.getElementById('toast');
+26:   toast.style.display = 'block';
+27:   setTimeout(() => { toast.style.display = 'none'; }, 2000);
+28: };
+29: 
+30: socket.on('connect', () => {
+31:   console.log('Garçom conectado ao servidor!');
+32: });
+33: 
+The above content shows the entire, complete file contents of the requested file.

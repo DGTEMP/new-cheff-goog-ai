@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <script>
+    (function() {
+      const res = localStorage.getItem('chef_app_resolution') || 'auto';
+      const zoom = localStorage.getItem('chef_app_zoom_percent') || '100';
+      let target = '';
+      if (res === 'compact') target = '88%';
+      else if (res === 'standard') target = '100%';
+      else if (res === 'large') target = '118%';
+      else if (res === 'touch') target = '112%';
+      else if (res === 'custom') target = zoom + '%';
+      if (target) document.documentElement.style.zoom = target;
+    })();
+  </script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Área do Colaborador - Chef</title>
+  <link rel="stylesheet" href="/vendor/phosphor/src/regular/style.css">
+  <link rel="stylesheet" href="/vendor/phosphor/src/bold/style.css">
+  <link rel="stylesheet" href="/vendor/phosphor/src/fill/style.css">
+  <style>
+    :root {
+      --bg: #f8f9fa;
+      --card-bg: #ffffff;
+      --primary: #9b59b6;
+      --primary-dark: #8e44ad;
+      --success: #2ecc71;
+      --danger: #e74c3c;
+      --text-main: #2c3e50;
+      --text-muted: #7f8c8d;
+      --border: #ecf0f1;
+    }
+    
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', -apple-system, sans-serif; }
+    
+    body { background-color: var(--bg); color: var(--text-main); display: flex; justify-content: center; min-height: 100vh; }
+    
+    /* Login View */
+    #login-view {
+      width: 100%; max-width: 400px; padding: 40px 20px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    }
+    #login-view h2 { margin-bottom: 24px; color: var(--primary); font-size: 28px; }
+    .input-group { width: 100%; margin-bottom: 16px; }
+    .input-group label { display: block; margin-bottom: 8px; font-weight: 500; color: var(--text-muted); }
+    .input-group input { width: 100%; padding: 14px; border: 2px solid var(--border); border-radius: 12px; font-size: 16px; transition: 0.3s; }
+    .input-group input:focus { border-color: var(--primary); outline: none; }
+    
+    .btn-main {
+      width: 100%; padding: 16px; border: none; border-radius: 12px; background: var(--primary); color: white; font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.2s;
+    }
+    .btn-main:hover { background: var(--primary-dark); transform: translateY(-2px); }
+    .btn-main:active { transform: translateY(0); }
+
+    .btn-success { background: var(--success); }
+    .btn-success:hover { background: #27ae60; }
+    .btn-danger { background: var(--danger); }
+    .btn-danger:hover { background: #c0392b; }
+    
+    .btn-secondary {
+      width: 100%; padding: 14px; border: 2px solid var(--primary); border-radius: 12px; background: transparent; color: var(--primary); font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.2s; margin-top: 12px;
+    }
+
+    /* Dashboard View */
+    #dashboard-view {
+      width: 100%; max-width: 800px; padding: 20px; display: none; flex-direction: column; gap: 24px;
+    }
+    
+    .header { display: flex; justify-content: space-between; align-items: center; background: var(--card-bg); padding: 20px; border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+    .header-info h1 { font-size: 24px; color: var(--primary); margin-bottom: 4px; }
+    .header-info p { color: var(--text-muted); font-size: 14px; }
+    .btn-logout { background: none; border: none; color: var(--danger); font-size: 24px; cursor: pointer; padding: 8px; }
+
+    .clock-card {
+      background: linear-gradient(135deg, #2c3e50, #34495e); color: white; padding: 30px 20px; border-radius: 20px; text-align: center; box-shadow: 0 10px 25px rgba(44, 62, 80, 0.3);
+    }
+    .clock-time { font-size: 48px; font-weight: bold; font-variant-numeric: tabular-nums; margin-bottom: 10px; }
+    .clock-status { font-size: 16px; opacity: 0.8; margin-bottom: 24px; }
+
+    .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; }
+    .metric-card {
+      background: var(--card-bg); padding: 20px; border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); display: flex; flex-direction: column; align-items: center; text-align: center;
+    }
+    .metric-icon { font-size: 32px; color: var(--primary); margin-bottom: 12px; }
+    .metric-value { font-size: 24px; font-weight: bold; margin-bottom: 4px; }
+    .metric-label { font-size: 13px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+
+    .section-title { font-size: 18px; margin-bottom: 12px; color: var(--text-main); font-weight: 600; display: flex; align-items: center; gap: 8px; }
+
+    .vales-list { background: var(--card-bg); border-radius: 16px; overflow: visible; box-shadow: 0 4px 15px rgba(0,0,0,0.03); }
+    .vale-item { padding: 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+    .vale-item:last-child { border-bottom: none; }
+    .vale-info strong { display: block; font-size: 16px; margin-bottom: 4px; }
+    .vale-info span { font-size: 13px; color: var(--text-muted); }
+    .status-badge { padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: bold; }
+    .status-badge.pendente { background: #fff3cd; color: #856404; }
+    .status-badge.aprovado { background: #d4edda; color: #155724; }
+    .status-badge.recusado { background: #f8d7da; color: #721c24; }
+
+    .pagamento-item { padding: 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: background 0.2s; }
+    .pagamento-item:hover { background: #f8f9fa; }
+    .pagamento-item:last-child { border-bottom: none; }
+    .pagamento-info strong { display: block; font-size: 16px; margin-bottom: 4px; color: #16a34a; }
+    .pagamento-info span { font-size: 12px; color: var(--text-muted); }
+    .pagamento-valor { font-size: 18px; font-weight: 800; color: #16a34a; }
+
+    @keyframes celebBounceIn {
+      0% { transform: scale(0.3) translateY(100px); opacity: 0; }
+      50% { transform: scale(1.05) translateY(-10px); opacity: 1; }
+      70% { transform: scale(0.95) translateY(5px); }
+      100% { transform: scale(1) translateY(0); }
+    }
+    @keyframes celebPulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+    }
+    @keyframes confettiFall {
+      0% { transform: translateY(-10vh) rotate(0deg); opacity: 1; }
+      100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+    }
+
+    /* Modal */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
+    .modal-content { background: white; padding: 24px; border-radius: 16px; width: 100%; max-width: 350px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+    .modal-content h3 { margin-bottom: 16px; color: var(--primary); }
+    .modal-actions { display: flex; gap: 12px; margin-top: 24px; }
+    
+    @media (min-width: 600px) {
+      body { padding: 40px 20px; }
+    }
+
+    /* Calendario */
+    .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+    .cal-header { text-align: center; font-size: 13px; font-weight: 600; color: var(--text-muted); padding: 6px 0; }
+    .cal-day { aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 12px; font-size: 14px; font-weight: 500; cursor: pointer; transition: 0.2s; min-height: 48px; position: relative; }
+    .cal-day:hover { background: #f0f0f0; }
+    .cal-day.worked { background: #d4edda; color: #155724; }
+    .cal-day.falta { background: #f8d7da; color: #721c24; }
+    .cal-day.atipico { background: #e8d4f8; color: #6c2c8a; }
+    .cal-day.atipico-aprovado { background: #cce5ff; color: #004085; }
+    .cal-day.disponivel { border: 2px dashed #10b981; }
+    .cal-day.disponivel.worked { border: 2px solid #10b981; }
+    .cal-day.today { border: 2px solid var(--primary); }
+    .cal-day.other-month { opacity: 0.3; }
+    .cal-day .cal-day-value { font-size: 11px; color: #155724; font-weight: 600; }
+    .cal-day .cal-horas { font-size: 10px; color: var(--text-muted); }
+    .cal-day.selected { background: var(--primary); color: white; }
+    .cal-day.selected .cal-day-value { color: white; }
+    .cal-day.selected .cal-horas { color: rgba(255,255,255,0.7); }
+    .cal-summary { margin-top: 16px; padding: 16px; background: #f8f9fa; border-radius: 12px; display: none; }
+    .cal-summary.visible { display: block; }
+    .cal-summary-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 14px; }
+    .cal-summary-label { color: var(--text-muted); }
+    .cal-summary-value { font-weight: 600; }
+    /* Consumo items in modal */
+    .cardapio-item { display: flex; align-items: center; justify-content: space-between; padding: 12px; background: #f8f9fa; border-radius: 12px; }
+    .cardapio-item-info { display: flex; align-items: center; gap: 10px; }
+    .cardapio-item-emoji { font-size: 24px; }
+    .cardapio-item-nome { font-weight: 600; font-size: 14px; }
+    .cardapio-item-preco { font-size: 13px; color: var(--text-muted); }
+    .cardapio-item-add { padding: 10px 16px; background: var(--primary); color: white; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; font-weight: 600; min-height: 44px; }
+    .consumo-item { padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; font-size: 14px; }
+    .consumo-item:last-child { border-bottom: none; }
+    .consumo-item .consumo-nome { font-weight: 500; }
+    .consumo-item .consumo-total { font-weight: 700; color: var(--danger); }
+
+    /* Manager Panel */
+    .vales-pendentes-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.1); gap:8px; flex-wrap:wrap; }
+    .vales-pendentes-item:last-child { border-bottom: none; }
+    .vales-pendentes-item .vp-info { flex:1; min-width:120px; }
+    .vales-pendentes-item .vp-actions { display:flex; gap:4px; }
+    .vp-aprovar, .vp-recusar { padding:8px 14px; border:none; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer; color:white; min-height:36px; }
+    .vp-aprovar { background:#16a34a; }
+    .vp-recusar { background:#dc2626; }
+
+    @media (max-width: 480px) {
+      body { padding: 12px; }
+      #login-view { padding: 20px; }
+      #login-view h2 { font-size: 22px; }
+      .header { flex-direction: column; align-items: flex-start; gap: 8px; }
+      .header-info h1 { font-size: 20px; }
+      .header-info p { font-size: 13px; }
+      .metrics-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+      .metric-card { padding: 14px; }
+      .metric-icon { font-size: 26px; }
+      .metric-value { font-size: 20px; }
+      .section-title { font-size: 16px; }
+      #dashboard-view { padding: 0; }
+      .clock-card { padding: 16px; }
+      .clock-time { font-size: 28px; }
+      .btn-main { font-size: 14px; padding: 12px; }
+      .modal-content { max-width: 92vw; padding: 20px; }
+      .cal-day { min-height: 40px; font-size: 13px; }
+      .vales-pendentes-item { flex-direction: column; align-items: flex-start; }
+      .vales-pendentes-item .vp-actions { width: 100%; justify-content: flex-end; }
+      #manager-panel .grid-buttons { grid-template-columns: 1fr 1fr; gap: 6px; }
+      .quick-links button { font-size: 12px; padding: 8px; min-width: 80px; }
+      .btn-logout { font-size: 20px; padding: 6px; }
+      #btn-manager-toggle { padding: 8px 14px; font-size: 12px; }
+      .consumo-item { padding: 10px 12px; font-size: 13px; }
+    }
+    @media (max-width: 360px) {
+      body { padding: 8px; }
+      .metrics-grid { grid-template-columns: 1fr; }
+      #login-view { padding: 14px; }
+      .modal-content { padding: 16px; }
+      .cal-day { font-size: 12px; min-height: 36px; }
+    }
+  </style>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/locales.js"></script>
+  <script src="/broadcast.js"></script>
+  <script src="/i18n.js"></script>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#fc4b15">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Chef Cozinha">
+<link rel="apple-touch-icon" href="/icons/icon-192.svg">
+  <script src="painel-funcionario.js"></script>
+  <link rel="modulepreload" crossorigin href="/assets/modulepreload-polyfill-Dezn_h7o.js">
+</head>
+<body>
+
+  <!-- Login View -->
+  <div id="login-view">
+    <div style="width: 80px; height: 80px; background: var(--primary); border-radius: 20px; display: flex; align-items: center; justify-content: center; margin-bottom: 24px; box-shadow: 0 10px 25px rgba(155, 89, 182, 0.3);">
+      <i class="ph ph-identification-badge" style="font-size: 40px; color: white;"></i>
+    </div>
+    <h2>Área do Colaborador</h2>
+    
+    <div class="input-group">
+      <label>Usuário</label>
+      <input type="text" id="login-user" placeholder="Seu usuário de acesso">
+    </div>
+    <div class="input-group">
+      <label>Senha</label>
+      <input type="password" id="login-pass" placeholder="Sua senha">
+    </div>
+    <div id="login-error-msg" style="display:none; margin-top:12px; padding:10px 14px; background:#fee2e2; border:1px solid #fca5a5; border-radius:10px; color:#b91c1c; font-size:13px; font-weight:600; text-align:center; box-sizing:border-box;"></div>
+
+    <button class="btn-main" id="btn-login" style="margin-top: 16px;">Entrar</button>
+    <a href="/cadastro.html" style="margin-top: 24px; color: var(--text-muted); text-decoration: none; font-size: 14px;">Novo colaborador? Cadastre-se</a>
+  </div>
+
+  <!-- Dashboard View -->
+  <div id="dashboard-view">
+    
+    <div class="header">
+      <div class="header-info">
+        <h1>Olá, <span id="user-name">João</span>!</h1>
+        <p>Cargo: <strong id="user-role">Garçom</strong></p>
+      </div>
+      <div style="display:flex; gap:12px; align-items:center;">
+        <button id="btn-global-fullscreen" title="Tela Cheia" style="background:none; border:none; color:var(--primary); font-size:24px; cursor:pointer;"><i class="ph ph-corners-out"></i></button>
+        <button id="btn-manager-toggle" style="display:none; background:#059669; border:none; color:white; padding:6px 12px; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer;">
+          <i class="ph ph-shield-check"></i> Gerente
+        </button>
+        <button class="btn-logout" id="btn-logout"><i class="ph ph-sign-out"></i></button>
+      </div>
+    </div>
+
+    <!-- Clock In/Out Action -->
+    <div class="clock-card">
+      <div class="clock-time" id="current-time">00:00:00</div>
+      <div class="clock-status" id="work-status">Pronto para iniciar seu turno?</div>
+      <button class="btn-main btn-success" id="btn-ponto" style="font-size: 20px; padding: 20px;">
+        <i class="ph ph-fingerprint" style="margin-right: 8px;"></i> REGISTRAR ENTRADA
+      </button>
+    </div>
+
+    <!-- Metrics Grid -->
+    <h3 class="section-title"><i class="ph ph-chart-line-up"></i> Suas Métricas (Mês)</h3>
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <i class="ph ph-clock metric-icon"></i>
+        <div class="metric-value" id="metric-horas">0h</div>
+        <div class="metric-label">Horas Trabalhadas</div>
+      </div>
+      <div class="metric-card">
+        <i class="ph ph-currency-dollar metric-icon"></i>
+        <div class="metric-value" id="metric-valor">R$ 0,00</div>
+        <div class="metric-label">Valor Acumulado</div>
+      </div>
+      <div class="metric-card">
+        <i class="ph ph-calendar-check metric-icon"></i>
+        <div class="metric-value" id="metric-dias">0</div>
+        <div class="metric-label">Dias Trabalhados</div>
+      </div>
+      <div class="metric-card">
+        <i class="ph ph-trend-up metric-icon"></i>
+        <div class="metric-value" id="metric-media">0h</div>
+        <div class="metric-label">Média Diária</div>
+      </div>
+    </div>
+
+    <!-- Workspace Access -->
+    <button class="btn-main" id="btn-access-system" style="margin-top: 10px; background: #2c3e50;">
+      <i class="ph ph-desktop" style="margin-right: 8px;"></i> ACESSAR SISTEMA DE TRABALHO
+    </button>
+
+    <!-- MANAGER PANEL (hidden for non-managers) -->
+    <div id="manager-panel" style="display:none; flex-direction:column; gap:20px; margin-top:10px; padding:20px; background:linear-gradient(135deg,#065f46,#047857); border-radius:20px; color:white;">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h3 style="margin:0; font-size:18px;"><i class="ph ph-shield-check"></i> Painel do Gerente</h3>
+        <button id="btn-manager-close" style="background:rgba(255,255,255,0.2); border:none; color:white; padding:4px 10px; border-radius:6px; cursor:pointer; font-size:14px;"><i class="ph ph-x"></i></button>
+      </div>
+
+      <!-- Team Status -->
+      <div>
+        <h4 style="margin:0 0 8px; font-size:14px; opacity:0.9;"><i class="ph ph-users"></i> Status da Equipe</h4>
+        <div id="manager-team-status" style="font-size:13px; opacity:0.8;">Carregando...</div>
+      </div>
+
+      <!-- Pending Vales (all employees) -->
+      <div>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <h4 style="margin:0; font-size:14px; opacity:0.9;"><i class="ph ph-hand-coins"></i> Vales Pendentes</h4>
+          <span id="manager-pending-count" style="background:#ef4444; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:700;">0</span>
+        </div>
+        <div id="manager-vales-pendentes" style="margin-top:8px; font-size:13px; opacity:0.8;">Nenhum vale pendente.</div>
+      </div>
+
+      <!-- Quick Actions -->
+      <div>
+        <h4 style="margin:0 0 10px; font-size:14px; opacity:0.9;"><i class="ph ph-lightning"></i> Ações Rápidas</h4>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+          <button onclick="openModalLancarVale()" style="padding:12px; background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.2); border-radius:10px; color:white; cursor:pointer; font-weight:600; font-size:12px; text-align:center;">
+            <i class="ph ph-hand-coins" style="font-size:20px; display:block; margin-bottom:4px;"></i> Lançar Vale
+          </button>
+          <button onclick="openModalFazerPagamento()" style="padding:12px; background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.2); border-radius:10px; color:white; cursor:pointer; font-weight:600; font-size:12px; text-align:center;">
+            <i class="ph ph-certificate" style="font-size:20px; display:block; margin-bottom:4px;"></i> Fazer Pagamento
+          </button>
+          <button onclick="openModalDespesa()" style="padding:12px; background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.2); border-radius:10px; color:white; cursor:pointer; font-weight:600; font-size:12px; text-align:center;">
+            <i class="ph ph-currency-circle-dollar" style="font-size:20px; display:block; margin-bottom:4px;"></i> Registrar Despesa
+          </button>
+          <button onclick="openModalNfMercadorias()" style="padding:12px; background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.2); border-radius:10px; color:white; cursor:pointer; font-weight:600; font-size:12px; text-align:center;">
+            <i class="ph ph-file-text" style="font-size:20px; display:block; margin-bottom:4px;"></i> NF Mercadorias
+          </button>
+          <button onclick="openModalAjustes()" style="padding:12px; background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.2); border-radius:10px; color:white; cursor:pointer; font-weight:600; font-size:12px; text-align:center;">
+            <i class="ph ph-sliders" style="font-size:20px; display:block; margin-bottom:4px;"></i> Ajustes de Rotina
+          </button>
+          <button onclick="openModalPontoHoje()" style="padding:12px; background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.2); border-radius:10px; color:white; cursor:pointer; font-weight:600; font-size:12px; text-align:center;">
+            <i class="ph ph-clock-counter-clockwise" style="font-size:20px; display:block; margin-bottom:4px;"></i> Ponto Hoje
+          </button>
+          <button onclick="openModalColaboradores()" style="padding:12px; background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.2); border-radius:10px; color:white; cursor:pointer; font-weight:600; font-size:12px; text-align:center;">
+            <i class="ph ph-users-three" style="font-size:20px; display:block; margin-bottom:4px;"></i> Colaboradores
+          </button>
+          <button onclick="openModalRelampago()" style="padding:12px; background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.2); border-radius:10px; color:white; cursor:pointer; font-weight:600; font-size:12px; text-align:center;">
+            <i class="ph ph-chart-bar" style="font-size:20px; display:block; margin-bottom:4px;"></i> Relâmpago
+          </button>
+          <button onclick="openModalCaixaStatus()" style="padding:12px; background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.2); border-radius:10px; color:white; cursor:pointer; font-weight:600; font-size:12px; text-align:center;">
+            <i class="ph ph-cash-register" style="font-size:20px; display:block; margin-bottom:4px;"></i> Status Caixa
+          </button>
+          <button onclick="openModalEstoque()" style="padding:12px; background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.2); border-radius:10px; color:white; cursor:pointer; font-weight:600; font-size:12px; text-align:center;">
+            <i class="ph ph-package" style="font-size:20px; display:block; margin-bottom:4px;"></i> Gestão de Estoque
+          </button>
+          <button onclick="openModalProjecao()" style="padding:12px; background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.2); border-radius:10px; color:white; cursor:pointer; font-weight:600; font-size:12px; text-align:center;">
+            <i class="ph ph-chart-line-up" style="font-size:20px; display:block; margin-bottom:4px;"></i> Projeção de Ganhos
+          </button>
+        </div>
+      </div>
+
+      <!-- Quick Links -->
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button onclick="window.location.href='/configuracoes.html'" style="flex:1; min-width:120px; padding:10px; background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.2); border-radius:10px; color:white; font-weight:600; cursor:pointer; font-size:13px;">
+          <i class="ph ph-gear"></i> Configurações
+        </button>
+        <button onclick="localStorage.setItem('admin_active_tab','rh'); window.location.href='/configuracoes.html'" style="flex:1; min-width:120px; padding:10px; background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.2); border-radius:10px; color:white; font-weight:600; cursor:pointer; font-size:13px;">
+          <i class="ph ph-hand-coins"></i> RH / Folha
+        </button>
+        <button onclick="window.location.href='/index.html'" style="flex:1; min-width:120px; padding:10px; background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.2); border-radius:10px; color:white; font-weight:600; cursor:pointer; font-size:13px;">
+          <i class="ph ph-desktop"></i> Sistema
+        </button>
+      </div>
+    </div>
+
+    <!-- Cash Advance (Vales) -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px;">
+      <h3 class="section-title" style="margin: 0;"><i class="ph ph-hand-coins"></i> Meus Vales</h3>
+      <button class="btn-main" id="btn-solicitar-vale" style="width: auto; padding: 10px 20px; font-size: 14px;">Solicitar Vale</button>
+    </div>
+    
+    <div class="vales-list" id="vales-list">
+      <div style="padding: 20px; text-align: center; color: var(--text-muted);">Nenhum vale solicitado.</div>
+    </div>
+
+    <!-- Payment History -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px;">
+      <h3 class="section-title" style="margin: 0;"><i class="ph ph-certificate"></i> Meus Pagamentos</h3>
+    </div>
+
+    <div class="vales-list" id="pagamentos-list">
+      <div style="padding: 20px; text-align: center; color: var(--text-muted);">Nenhum pagamento registrado.</div>
+    </div>
+
+    <!-- My Consumption -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px;">
+      <h3 class="section-title" style="margin: 0;"><i class="ph ph-bowl-food"></i> Meu Consumo</h3>
+      <button class="btn-main" id="btn-meu-consumo" style="width: auto; padding: 10px 20px; font-size: 14px;">Adicionar Item</button>
+    </div>
+    <div class="vales-list" id="consumo-list">
+      <div style="padding: 20px; text-align: center; color: var(--text-muted);">Nenhum consumo registrado.</div>
+    </div>
+
+    <!-- Calendar -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px;">
+      <h3 class="section-title" style="margin: 0;"><i class="ph ph-calendar"></i> Meu Calendário</h3>
+      <div style="display:flex; gap:8px;">
+        <button class="btn-main" id="btn-cal-mes-menor" style="width:auto; padding:8px 12px; font-size:13px;"><i class="ph ph-caret-left"></i></button>
+        <span id="cal-mes-label" style="font-weight:600; font-size:16px; align-self:center;"></span>
+        <button class="btn-main" id="btn-cal-mes-maior" style="width:auto; padding:8px 12px; font-size:13px;"><i class="ph ph-caret-right"></i></button>
+      </div>
+    </div>
+    <div id="calendario-view" style="background:var(--card-bg); border-radius:16px; padding:16px; box-shadow:0 4px 15px rgba(0,0,0,0.03);"></div>
+
+  </div>
+
+  <!-- MEU CONSUMO MODAL -->
+  <div class="modal-overlay" id="modal-consumo">
+    <div class="modal-content" style="max-width: 450px;">
+      <h3><i class="ph ph-bowl-food"></i> Adicionar Consumo</h3>
+      <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 16px;">Selecione os itens que consumiu. O valor será descontado do seu pagamento.</p>
+      <div style="display:flex;gap:6px;margin-bottom:8px;">
+        <input type="text" id="consumo-barcode" placeholder="Código de barras..." style="flex:1;min-width:0;padding:10px 12px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;font-family:monospace;box-sizing:border-box;" onkeydown="if(event.key==='Enter')buscarProdutoBarcodeConsumo()">
+        <button class="btn-main" style="flex:0 0 auto;width:auto;padding:10px 14px;font-size:12px;" onclick="buscarProdutoBarcodeConsumo()"><i class="ph ph-barcode"></i> Buscar</button>
+        <button class="btn-main" style="flex:0 0 auto;width:auto;padding:10px 14px;font-size:12px;background:#2c3e50;" onclick="abrirScannerConsumo()" title="Escanear código de barras"><i class="ph ph-camera"></i></button>
+      </div>
+      <input type="text" id="consumo-search" placeholder="Buscar item..." style="width:100%;padding:10px 12px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;margin-bottom:12px;outline:none;box-sizing:border-box;" oninput="filtrarCardapio(this.value)">
+      <div id="cardapio-funcionario" style="max-height: 320px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;"></div>
+      <div class="modal-actions">
+        <button class="btn-secondary" id="btn-close-consumo" style="margin-top: 0;">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CELEBRATION OVERLAY -->
+  <div id="celebration-overlay" style="display: none; position: fixed; inset: 0; z-index: 99999; pointer-events: none; background: rgba(0,0,0,0.3); backdrop-filter: blur(2px); justify-content: center; align-items: center;">
+    <div id="celebration-card" style="background: white; border-radius: 24px; padding: 40px 32px; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.3); max-width: 380px; width: 90%; animation: celebBounceIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275); pointer-events: auto;">
+      <div id="celebration-icon" style="font-size: 64px; margin-bottom: 16px;">🎉</div>
+      <h2 id="celebration-title" style="font-size: 22px; color: #1e293b; margin: 0 0 8px;">Pagamento Recebido!</h2>
+      <p id="celebration-name" style="font-size: 18px; color: #6c5ce7; font-weight: 700; margin: 0 0 12px;"></p>
+      <p id="celebration-value" style="font-size: 32px; font-weight: 900; color: #16a34a; margin: 0 0 8px;"></p>
+      <p id="celebration-obs" style="font-size: 13px; color: #94a3b8; margin: 0 0 20px;"></p>
+      <button onclick="document.getElementById('celebration-overlay').style.display='none'" style="padding: 12px 32px; background: #6c5ce7; color: white; border: none; border-radius: 12px; font-size: 16px; font-weight: bold; cursor: pointer;">Fechar</button>
+    </div>
+    <!-- Confetti Canvas -->
+    <canvas id="confetti-canvas" style="position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none;"></canvas>
+  </div>
+
+  <!-- PAYMENT DETAIL MODAL -->
+  <div class="modal-overlay" id="modal-pagamento-detalhe">
+    <div class="modal-content" style="max-width: 380px;">
+      <h3 style="display: flex; align-items: center; gap: 8px;"><i class="ph ph-certificate" style="color: #6c5ce7;"></i> Detalhes do Pagamento</h3>
+      <div id="pgto-detalhe-content" style="margin-top: 12px;"></div>
+      <div class="modal-actions">
+        <button class="btn-secondary" id="btn-close-pgto-detalhe" style="margin-top: 0;">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Vale Modal -->
+  <div class="modal-overlay" id="modal-vale">
+    <div class="modal-content">
+      <h3>Solicitar Vale</h3>
+      <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 16px;">O valor será descontado do seu acerto final. Sujeito a aprovação do Caixa.</p>
+      <div class="input-group">
+        <label>Valor (R$)</label>
+        <input type="number" id="vale-valor" placeholder="Ex: 50.00" step="0.01" min="1">
+      </div>
+      <div class="modal-actions">
+        <button class="btn-secondary" id="btn-close-vale" style="margin-top: 0;">Cancelar</button>
+        <button class="btn-main" id="btn-confirm-vale">Confirmar Pedido</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/socket.io.min.js"></script>
+
+  <script src="/vendor/html5-qrcode/html5-qrcode.min.js"></script>
+
+  <!-- QR SCANNER MODAL -->
+  <div class="modal-overlay" id="modal-qr-scanner" style="display: none; z-index: 10000; padding:20px;">
+    <div class="modal" style="width: 100%; max-width: 400px; padding: 20px; text-align:center;box-sizing:border-box;">
+      <div class="modal-header">
+        <h3 style="margin: 0; display:flex; align-items:center; gap:8px;"><i class="ph ph-camera"></i> Escanear Ponto</h3>
+        <button class="modal-close" onclick="fecharScannerPonto()"><i class="ph ph-x"></i></button>
+      </div>
+      <p style="font-size:14px; color:#666; margin-bottom:15px;">Aponte a câmera para o QR Code na tela do Caixa Principal.</p>
+      <div id="qr-reader" style="width: 100%; margin: 0 auto;"></div>
+      <button class="btn-action" onclick="fecharScannerPonto()" style="margin-top:15px; width:100%; justify-content:center; padding:12px;box-sizing:border-box;">Cancelar</button>
+    </div>
+  </div>
+
+  <!-- CONSUMO BARCODE SCANNER MODAL -->
+  <div class="modal-overlay" id="modal-consumo-scanner" style="display: none; z-index: 10000; padding:20px;">
+    <div class="modal" style="width: 100%; max-width: 400px; padding: 20px; text-align:center;box-sizing:border-box;">
+      <div class="modal-header">
+        <h3 style="margin: 0; display:flex; align-items:center; gap:8px;"><i class="ph ph-camera"></i> Escanear Código de Barras</h3>
+        <button class="modal-close" onclick="fecharScannerConsumo()"><i class="ph ph-x"></i></button>
+      </div>
+      <p style="font-size:14px; color:#666; margin-bottom:15px;">Aponte a câmera para o código de barras do produto.</p>
+      <div id="consumo-qr-reader" style="width: 100%; margin: 0 auto;"></div>
+      <button class="btn-action" onclick="fecharScannerConsumo()" style="margin-top:15px; width:100%; justify-content:center; padding:12px;box-sizing:border-box;">Cancelar</button>
+    </div>
+  </div>
+
+  <!-- MODAL: Lançar Vale (Admin/Gerente) -->
+  <div class="modal-overlay" id="modal-mgr-vale">
+    <div class="modal-content" style="max-width:400px;">
+      <h3><i class="ph ph-hand-coins"></i> Lançar Vale</h3>
+      <p style="color:var(--text-muted);font-size:13px;margin-bottom:12px;">Conceder adiantamento a um colaborador.</p>
+      <div class="input-group">
+        <label>Colaborador</label>
+        <select id="mgr-vale-func" style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box;"></select>
+      </div>
+      <div class="input-group">
+        <label>Valor (R$)</label>
+        <input type="number" id="mgr-vale-valor" placeholder="Ex: 50.00" step="0.01" min="1">
+      </div>
+      <div class="input-group">
+        <label>Motivo (opcional)</label>
+        <input type="text" id="mgr-vale-motivo" placeholder="Ex: Adiantamento semana" style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box;">
+      </div>
+      <div class="modal-actions">
+        <button class="btn-secondary" onclick="fecharModal('modal-mgr-vale')">Cancelar</button>
+        <button class="btn-main" onclick="confirmarLancarVale()">Conceder Vale</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Fazer Pagamento (Admin/Gerente) -->
+  <div class="modal-overlay" id="modal-mgr-pagamento">
+    <div class="modal-content" style="max-width:480px;">
+      <h3><i class="ph ph-certificate"></i> Fazer Pagamento</h3>
+      <p style="color:var(--text-muted);font-size:13px;margin-bottom:12px;">Realizar pagamento a um colaborador com abatimento de vales e consumos.</p>
+      <div class="input-group">
+        <label>Colaborador</label>
+        <select id="mgr-pgto-func" style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box;" onchange="carregarExtratoPagamento()"></select>
+      </div>
+      <div id="mgr-pgto-extrato" style="display:none;margin-bottom:12px;">
+        <div id="mgr-pgto-vales-abater" style="margin-bottom:8px;font-size:13px;"></div>
+        <div id="mgr-pgto-consumo-abater" style="margin-bottom:8px;font-size:13px;"></div>
+        <div style="display:flex;gap:8px;">
+          <div style="flex:1;min-width:0;">
+            <label style="font-size:12px;color:var(--text-muted);">Valor Bruto (R$)</label>
+            <input type="number" id="mgr-pgto-bruto" step="0.01" style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box;" oninput="calcularLiquidoPagamento()">
+          </div>
+          <div style="flex:1;min-width:0;">
+            <label style="font-size:12px;color:var(--text-muted);">Valor Líquido</label>
+            <div id="mgr-pgto-liquido" style="padding:10px;font-weight:700;font-size:16px;color:#16a34a;">R$ 0,00</div>
+          </div>
+        </div>
+        <div class="input-group" style="margin-top:8px;">
+          <label>Observação</label>
+          <input type="text" id="mgr-pgto-obs" placeholder="Ex: Pagamento semana 01" style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box;">
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-secondary" onclick="fecharModal('modal-mgr-pagamento')">Cancelar</button>
+        <button class="btn-main" id="btn-mgr-pgto-confirmar" onclick="confirmarPagamento()">Confirmar Pagamento</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Registrar Despesa -->
+  <div class="modal-overlay" id="modal-mgr-despesa">
+    <div class="modal-content" style="max-width:400px;">
+      <h3><i class="ph ph-currency-circle-dollar"></i> Registrar Despesa</h3>
+      <p style="color:var(--text-muted);font-size:13px;margin-bottom:12px;">Registrar uma saída/despesa do caixa.</p>
+      <div class="input-group">
+        <label>Valor (R$)</label>
+        <input type="number" id="mgr-despesa-valor" placeholder="Ex: 150.00" step="0.01" min="0.01">
+      </div>
+      <div class="input-group">
+        <label>Descrição</label>
+        <input type="text" id="mgr-despesa-desc" placeholder="Ex: Compra de insumos" style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box;">
+      </div>
+      <div class="input-group">
+        <label>Forma de Pagamento</label>
+        <select id="mgr-despesa-forma" style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box;">
+          <option value="Dinheiro">Dinheiro</option>
+          <option value="PIX">PIX</option>
+          <option value="Cartão de Crédito">Cartão de Crédito</option>
+          <option value="Cartão de Débito">Cartão de Débito</option>
+          <option value="Crediário">Crediário</option>
+        </select>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-secondary" onclick="fecharModal('modal-mgr-despesa')">Cancelar</button>
+        <button class="btn-main" onclick="confirmarDespesa()">Registrar Despesa</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: NF Mercadorias -->
+  <div class="modal-overlay" id="modal-mgr-nf">
+    <div class="modal-content" style="max-width:450px;">
+      <h3><i class="ph ph-file-text"></i> NF Mercadorias</h3>
+      <div style="display:flex;gap:8px;margin-bottom:8px;">
+        <button class="btn-main" style="flex:1;min-width:0;font-size:13px;padding:8px;" onclick="document.getElementById('mgr-nf-form').style.display='block';document.getElementById('mgr-nf-lista').style.display='none';">Nova NF</button>
+        <button class="btn-main" style="flex:1;min-width:0;font-size:13px;padding:8px;background:#2c3e50;" onclick="document.getElementById('mgr-nf-form').style.display='none';document.getElementById('mgr-nf-lista').style.display='block';carregarNfMercadorias()">Ver Todas</button>
+      </div>
+      <div id="mgr-nf-form">
+        <div class="input-group">
+          <label>Número da NF</label>
+          <input type="text" id="mgr-nf-numero" placeholder="Ex: 123456" style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box;">
+        </div>
+        <div class="input-group">
+          <label>Fornecedor</label>
+          <input type="text" id="mgr-nf-fornecedor" placeholder="Nome do fornecedor" style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box;">
+        </div>
+        <div class="input-group">
+          <label>Valor Total (R$)</label>
+          <input type="number" id="mgr-nf-valor" step="0.01" min="0.01" style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box;">
+        </div>
+        <div class="input-group">
+          <label>Data de Emissão</label>
+          <input type="date" id="mgr-nf-data" style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box;">
+        </div>
+        <div class="input-group">
+          <label>Observação</label>
+          <input type="text" id="mgr-nf-obs" placeholder="Opcional" style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box;">
+        </div>
+        <div class="modal-actions">
+          <button class="btn-secondary" onclick="fecharModal('modal-mgr-nf')">Fechar</button>
+          <button class="btn-main" onclick="confirmarNfMercadoria()">Registrar NF</button>
+        </div>
+      </div>
+      <div id="mgr-nf-lista" style="display:none;max-height:300px;overflow-y:auto;"></div>
+    </div>
+  </div>
+
+  <!-- MODAL: Ajustes de Rotina -->
+  <div class="modal-overlay" id="modal-mgr-ajustes">
+    <div class="modal-content" style="max-width:450px;">
+      <h3><i class="ph ph-sliders"></i> Ajustes de Rotina</h3>
+      <p style="color:var(--text-muted);font-size:13px;margin-bottom:12px;">Alterar preço, ativar/desativar ou ajustar estoque de produtos.</p>
+      <div class="input-group">
+        <label>Produto</label>
+        <select id="mgr-ajuste-produto" style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box;" onchange="carregarDadosProduto()"></select>
+      </div>
+      <div id="mgr-ajuste-info" style="display:none;font-size:13px;margin-bottom:10px;padding:10px;background:#f1f5f9;border-radius:8px;"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:120px;">
+          <label style="font-size:12px;color:var(--text-muted);">Novo Preço (R$)</label>
+          <input type="number" id="mgr-ajuste-preco" step="0.01" style="width:100%;padding:8px;border:2px solid #e2e8f0;border-radius:8px;font-size:13px;box-sizing:border-box;">
+        </div>
+        <div style="flex:1;min-width:100px;">
+          <label style="font-size:12px;color:var(--text-muted);">Ajustar Estoque</label>
+          <input type="number" id="mgr-ajuste-estoque" step="1" style="width:100%;padding:8px;border:2px solid #e2e8f0;border-radius:8px;font-size:13px;box-sizing:border-box;">
+        </div>
+      </div>
+      <div style="margin-top:10px;display:flex;gap:8px;">
+        <button class="btn-main" style="flex:1;min-width:0;font-size:12px;padding:8px;background:#16a34a;" onclick="alternarStatusProduto('ativo')"><i class="ph ph-check-circle"></i> Ativar</button>
+        <button class="btn-main" style="flex:1;min-width:0;font-size:12px;padding:8px;background:#dc2626;" onclick="alternarStatusProduto('inativo')"><i class="ph ph-prohibit"></i> Desativar</button>
+      </div>
+      <div style="margin-top:10px;display:flex;gap:8px;">
+        <button class="btn-main" style="flex:1;min-width:0;font-size:12px;padding:8px;" onclick="salvarAjustePreco()"><i class="ph ph-currency-dollar"></i> Salvar Preço</button>
+        <button class="btn-main" style="flex:1;min-width:0;font-size:12px;padding:8px;background:#2c3e50;" onclick="salvarAjusteEstoque()"><i class="ph ph-package"></i> Salvar Estoque</button>
+      </div>
+      <div class="modal-actions" style="margin-top:12px;">
+        <button class="btn-secondary" onclick="fecharModal('modal-mgr-ajustes')">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Ponto Hoje -->
+  <div class="modal-overlay" id="modal-mgr-ponto-hoje">
+    <div class="modal-content" style="max-width:500px;">
+      <h3><i class="ph ph-clock-counter-clockwise"></i> Ponto de Hoje</h3>
+      <p style="color:var(--text-muted);font-size:13px;margin-bottom:12px;">Registro de ponto de todos os colaboradores para hoje.</p>
+      <div id="mgr-ponto-hoje-content" style="max-height:400px;overflow-y:auto;font-size:14px;">Carregando...</div>
+      <div class="modal-actions">
+        <button class="btn-secondary" onclick="fecharModal('modal-mgr-ponto-hoje')">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Gerenciar Colaboradores -->
+  <div class="modal-overlay" id="modal-mgr-colaboradores">
+    <div class="modal-content" style="max-width:520px;">
+      <h3><i class="ph ph-users-three"></i> Gerenciar Colaboradores</h3>
+      <div style="display:flex;gap:8px;margin-bottom:12px;">
+        <button class="btn-main" style="flex:1;min-width:0;font-size:13px;padding:8px;" onclick="abrirFormColaborador()"><i class="ph ph-plus"></i> Novo</button>
+        <input type="text" id="mgr-colab-search" placeholder="Buscar..." style="flex:2;min-width:0;padding:8px;border:2px solid #e2e8f0;border-radius:8px;font-size:13px;box-sizing:border-box;" oninput="filtrarColaboradores(this.value)">
+      </div>
+      <div id="mgr-colaboradores-lista" style="max-height:350px;overflow-y:auto;font-size:13px;">Carregando...</div>
+      <div id="mgr-colaboradores-form" style="display:none;margin-top:12px;border-top:1px solid #e2e8f0;padding-top:12px;">
+        <input type="hidden" id="mgr-colab-id">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div><label style="font-size:12px;color:var(--text-muted);">Nome</label><input type="text" id="mgr-colab-nome" style="width:100%;padding:8px;border:2px solid #e2e8f0;border-radius:8px;font-size:13px;box-sizing:border-box;"></div>
+          <div><label style="font-size:12px;color:var(--text-muted);">Usuário</label><input type="text" id="mgr-colab-usuario" style="width:100%;padding:8px;border:2px solid #e2e8f0;border-radius:8px;font-size:13px;box-sizing:border-box;"></div>
+          <div><label style="font-size:12px;color:var(--text-muted);">Senha</label><input type="text" id="mgr-colab-senha" placeholder="Deixar vazio = manter" style="width:100%;padding:8px;border:2px solid #e2e8f0;border-radius:8px;font-size:13px;box-sizing:border-box;"></div>
+          <div><label style="font-size:12px;color:var(--text-muted);">Cargo</label>
+            <select id="mgr-colab-cargo" style="width:100%;padding:8px;border:2px solid #e2e8f0;border-radius:8px;font-size:13px;box-sizing:border-box;">
+              <option value="Garçom">Garçom</option><option value="Caixa">Caixa</option><option value="Cozinha">Cozinha</option><option value="Gerente">Gerente</option><option value="Admin">Admin</option>
+            </select>
+          </div>
+          <div><label style="font-size:12px;color:var(--text-muted);">Valor Hora (R$)</label><input type="number" id="mgr-colab-valor-hora" step="0.01" style="width:100%;padding:8px;border:2px solid #e2e8f0;border-radius:8px;font-size:13px;box-sizing:border-box;"></div>
+          <div><label style="font-size:12px;color:var(--text-muted);">Telefone</label><input type="text" id="mgr-colab-telefone" style="width:100%;padding:8px;border:2px solid #e2e8f0;border-radius:8px;font-size:13px;box-sizing:border-box;"></div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:8px;">
+          <button class="btn-main" style="flex:1;min-width:0;font-size:13px;padding:8px;" onclick="salvarColaborador()">Salvar</button>
+          <button class="btn-secondary" style="flex:1;min-width:0;font-size:13px;padding:8px;" onclick="cancelarFormColaborador()">Cancelar</button>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-secondary" onclick="fecharModal('modal-mgr-colaboradores')">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Relâmpago (Relatório Rápido) -->
+  <div class="modal-overlay" id="modal-mgr-relampago">
+    <div class="modal-content" style="max-width:480px;">
+      <h3><i class="ph ph-chart-bar"></i> Relâmpago</h3>
+      <p style="color:var(--text-muted);font-size:13px;margin-bottom:12px;">Resumo rápido do dia e do mês com projeção de fechamento.</p>
+      <div id="mgr-relampago-content" style="font-size:14px;">Carregando...</div>
+      <div class="modal-actions">
+        <button class="btn-secondary" onclick="fecharModal('modal-mgr-relampago')">Fechar</button>
+        <button class="btn-main" onclick="openModalRelampago()"><i class="ph ph-arrows-clockwise"></i> Atualizar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Status Caixa -->
+  <div class="modal-overlay" id="modal-mgr-caixa">
+    <div class="modal-content" style="max-width:450px;">
+      <h3><i class="ph ph-cash-register"></i> Status do Caixa</h3>
+      <div id="mgr-caixa-content" style="font-size:14px;">Carregando...</div>
+      <div class="modal-actions">
+        <button class="btn-secondary" onclick="fecharModal('modal-mgr-caixa')">Fechar</button>
+        <button class="btn-main" onclick="openModalCaixaStatus()"><i class="ph ph-arrows-clockwise"></i> Atualizar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Gestão de Estoque -->
+  <div class="modal-overlay" id="modal-mgr-estoque">
+    <div class="modal-content" style="max-width:600px;">
+      <h3><i class="ph ph-package"></i> Gestão de Estoque</h3>
+      <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;">
+        <button class="btn-main" style="flex:1;min-width:0;font-size:12px;padding:8px;" onclick="mostrarAbaEstoque('entrada')"><i class="ph ph-plus-circle"></i> Entrada</button>
+        <button class="btn-main" style="flex:1;min-width:0;font-size:12px;padding:8px;background:#2c3e50;" onclick="mostrarAbaEstoque('atual')"><i class="ph ph-list-bullets"></i> Estoque Atual</button>
+        <button class="btn-main" style="flex:1;min-width:0;font-size:12px;padding:8px;background:#2c3e50;" onclick="mostrarAbaEstoque('validade')"><i class="ph ph-clock-countdown"></i> Validade</button>
+        <button class="btn-main" style="flex:1;min-width:0;font-size:12px;padding:8px;background:#2c3e50;" onclick="mostrarAbaEstoque('movimentos')"><i class="ph ph-clock-history"></i> Movimentos</button>
+      </div>
+
+      <!-- Aba: Entrada -->
+      <div id="mgr-estq-entrada">
+        <div style="display:flex;gap:6px;margin-bottom:8px;">
+          <input type="text" id="mgr-estq-barcode" placeholder="Código de barras..." style="flex:1;min-width:0;padding:10px 12px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;font-family:monospace;box-sizing:border-box;" onkeydown="if(event.key==='Enter')buscarProdutoPorBarcode()">
+          <button class="btn-main" style="flex:0 0 auto;width:auto;padding:10px 14px;font-size:12px;" onclick="buscarProdutoPorBarcode()"><i class="ph ph-barcode"></i> Buscar</button>
+          <button class="btn-main" style="flex:0 0 auto;width:auto;padding:10px 14px;font-size:12px;background:#2c3e50;" onclick="abrirScannerEstoque()" title="Escanear código de barras"><i class="ph ph-camera"></i></button>
+        </div>
+        <div style="margin-bottom:12px;">
+          <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Produto</label>
+          <select id="mgr-estq-produto" style="width:100%;padding:10px 12px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box;"></select>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <div style="flex:1;min-width:0;"><label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Quantidade</label><input type="number" id="mgr-estq-qtd" step="1" min="0.01" style="width:100%;padding:10px 12px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box;"></div>
+          <div style="flex:1;min-width:0;"><label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Custo Unit. (R$)</label><input type="number" id="mgr-estq-custo" step="0.01" min="0" style="width:100%;padding:10px 12px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box;"></div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:8px;">
+          <div style="flex:1;min-width:0;"><label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Fornecedor</label><input type="text" id="mgr-estq-fornecedor" style="width:100%;padding:10px 12px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box;"></div>
+          <div style="flex:1;min-width:0;"><label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Data Validade</label><input type="date" id="mgr-estq-validade" style="width:100%;padding:10px 12px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box;"></div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:8px;">
+          <div style="flex:1;min-width:0;"><label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">NF (opcional)</label>
+            <select id="mgr-estq-nf" style="width:100%;padding:10px 12px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box;"><option value="">Nenhuma</option></select>
+          </div>
+          <div style="flex:1;min-width:0;"><label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Observação</label><input type="text" id="mgr-estq-obs" style="width:100%;padding:10px 12px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box;"></div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn-secondary" onclick="fecharModal('modal-mgr-estoque')">Fechar</button>
+          <button class="btn-main" onclick="confirmarEntradaEstoque()">Registrar Entrada</button>
+        </div>
+      </div>
+
+      <!-- Aba: Estoque Atual -->
+      <div id="mgr-estq-atual" style="display:none;">
+        <input type="text" id="mgr-estq-busca" placeholder="Buscar produto..." style="width:100%;padding:10px 12px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;margin-bottom:8px;box-sizing:border-box;" oninput="renderEstoqueAtual(this.value)">
+        <div id="mgr-estq-atual-lista" style="max-height:350px;overflow-y:auto;font-size:13px;">Carregando...</div>
+        <div class="modal-actions"><button class="btn-secondary" onclick="fecharModal('modal-mgr-estoque')">Fechar</button></div>
+      </div>
+
+      <!-- Aba: Validade -->
+      <div id="mgr-estq-validade-aba" style="display:none;">
+        <p style="color:var(--text-muted);font-size:13px;margin-bottom:8px;">Produtos próximos ao vencimento. Selecione ações para evitar perda.</p>
+        <div style="display:flex;gap:8px;margin-bottom:8px;">
+          <input type="number" id="mgr-validade-dias" value="30" min="1" style="flex:1;min-width:0;padding:8px 12px;border:2px solid #e2e8f0;border-radius:8px;font-size:13px;box-sizing:border-box;" placeholder="Dias para vencer">
+          <button class="btn-main" style="flex:0 0 auto;width:auto;padding:8px 14px;font-size:12px;" onclick="carregarProdutosValidade()">Filtrar</button>
+        </div>
+        <div id="mgr-estq-validade-lista" style="max-height:400px;overflow-y:auto;font-size:13px;">Carregando...</div>
+        <div class="modal-actions"><button class="btn-secondary" onclick="fecharModal('modal-mgr-estoque')">Fechar</button></div>
+      </div>
+
+      <!-- Aba: Movimentos -->
+      <div id="mgr-estq-movimentos" style="display:none;">
+        <div style="display:flex;gap:8px;margin-bottom:8px;">
+          <input type="date" id="mgr-estq-mov-dtini" style="flex:1;min-width:0;padding:8px 12px;border:2px solid #e2e8f0;border-radius:8px;font-size:13px;box-sizing:border-box;">
+          <input type="date" id="mgr-estq-mov-dtfim" style="flex:1;min-width:0;padding:8px 12px;border:2px solid #e2e8f0;border-radius:8px;font-size:13px;box-sizing:border-box;">
+          <button class="btn-main" style="flex:0 0 auto;width:auto;padding:8px 14px;font-size:12px;" onclick="carregarMovimentosEstoque()">Filtrar</button>
+        </div>
+        <div id="mgr-estq-mov-lista" style="max-height:350px;overflow-y:auto;font-size:12px;">Carregando...</div>
+        <div class="modal-actions"><button class="btn-secondary" onclick="fecharModal('modal-mgr-estoque')">Fechar</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Projeção de Ganhos -->
+  <div class="modal-overlay" id="modal-mgr-projecao">
+    <div class="modal-content" style="max-width:520px;">
+      <h3><i class="ph ph-chart-line-up"></i> Projeção de Ganhos</h3>
+      <p style="color:var(--text-muted);font-size:13px;margin-bottom:12px;">Métricas de estoque e projeção de receita com base no custo dos produtos.</p>
+      <div style="display:flex;gap:8px;margin-bottom:12px;">
+        <input type="date" id="mgr-proj-dtini" style="flex:1;min-width:0;padding:8px 12px;border:2px solid #e2e8f0;border-radius:8px;font-size:13px;box-sizing:border-box;">
+        <input type="date" id="mgr-proj-dtfim" style="flex:1;min-width:0;padding:8px 12px;border:2px solid #e2e8f0;border-radius:8px;font-size:13px;box-sizing:border-box;">
+        <button class="btn-main" style="flex:0 0 auto;width:auto;padding:8px 14px;font-size:12px;" onclick="carregarProjecao()">Filtrar</button>
+      </div>
+      <div id="mgr-projecao-content" style="font-size:14px;">Carregando...</div>
+      <div class="modal-actions">
+        <button class="btn-secondary" onclick="fecharModal('modal-mgr-projecao')">Fechar</button>
+        <button class="btn-main" onclick="carregarProjecao()"><i class="ph ph-arrows-clockwise"></i> Atualizar</button>
+      </div>
+    </div>
+  </div>
+
+<script src="/fullscreen.js"></script>
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/service-worker.js')
+    .then(function(reg) { console.log('PWA pronto:', reg.scope); })
+    .catch(function(err) { console.log('Erro SW:', err); });
+}
+</script>
+<script src="tracking.js"></script>
+</body>
+</html>
+

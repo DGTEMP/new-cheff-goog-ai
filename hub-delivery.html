@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hub Delivery · Chef Cozinha</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/vendor/phosphor/src/regular/style.css">
+  <link rel="stylesheet" href="/vendor/phosphor/src/bold/style.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #0f1420;
+      color: #e6edf7;
+      min-height: 100vh;
+    }
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 20px; background: #151c2b; border-bottom: 1px solid rgba(255,255,255,.07);
+      position: sticky; top: 0; z-index: 50;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand i { font-size: 26px; color: #4ade80; }
+    .brand b { font-size: 19px; letter-spacing: .3px; }
+    .brand span { display: block; font-size: 11px; color: #8b95ad; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; }
+    .hdr-actions { display: flex; gap: 8px; }
+    button.btn {
+      border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.05); color: #e6edf7;
+      padding: 9px 14px; border-radius: 9px; font-family: 'Inter', sans-serif; font-size: 13px;
+      font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; transition: .15s;
+    }
+    button.btn:hover { background: rgba(255,255,255,.12); }
+    button.btn.primary { background: linear-gradient(90deg,#22c55e,#16a34a); border-color: transparent; color: #052e14; }
+    button.btn.primary:hover { filter: brightness(1.1); }
+    button.btn.icon { padding: 9px 10px; }
+    .banner {
+      padding: 10px 20px; font-size: 13px; font-weight: 600;
+      background: #3b2b00; color: #ffd166; border-bottom: 1px solid rgba(255,213,102,.25); display: none;
+    }
+    .filters {
+      display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+      padding: 14px 20px; background: #121826;
+    }
+    .filters input[type="text"] {
+      flex: 1; min-width: 200px; padding: 10px 14px; border-radius: 9px;
+      border: 1px solid rgba(255,255,255,.12); background: #0f1420; color: #e6edf7; font-family: 'Inter', sans-serif; font-size: 13px;
+    }
+    .filters select {
+      padding: 10px 12px; border-radius: 9px; border: 1px solid rgba(255,255,255,.12);
+      background: #0f1420; color: #e6edf7; font-family: 'Inter', sans-serif; font-size: 13px;
+    }
+    .resumo { margin-left: auto; font-size: 13px; color: #8b95ad; font-weight: 600; }
+    .resumo b { color: #4ade80; }
+    main { padding: 20px; display: flex; gap: 16px; align-items: flex-start; overflow-x: auto; }
+    .col {
+      flex: 1; min-width: 300px; max-width: 380px; background: #151c2b;
+      border: 1px solid rgba(255,255,255,.07); border-radius: 14px; overflow: hidden;
+    }
+    .col-head { padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,.07); }
+    .col-head b { font-size: 13px; letter-spacing: .4px; text-transform: uppercase; display: flex; align-items: center; gap: 8px; }
+    .col-head .dot { width: 9px; height: 9px; border-radius: 50%; }
+    .col-head .count { font-size: 11px; background: rgba(255,255,255,.1); padding: 2px 8px; border-radius: 20px; }
+    .col-body { padding: 10px; display: flex; flex-direction: column; gap: 10px; min-height: 120px; }
+    .card {
+      background: #1b2336; border: 1px solid rgba(255,255,255,.08); border-radius: 12px; padding: 12px;
+      transition: .15s; position: relative;
+    }
+    .card:hover { border-color: rgba(255,255,255,.2); }
+    .card.atrasado { border-color: rgba(239,68,68,.55); }
+    .card-top { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .badge { font-size: 10.5px; font-weight: 800; padding: 3px 9px; border-radius: 20px; letter-spacing: .3px; }
+    .b-ifood { background: #ea1d2c; color: #fff; }
+    .b-rappi { background: #6b21a8; color: #fff; }
+    .b-uber { background: #0f0f0f; color: #fff; border: 1px solid #555; }
+    .b-much { background: #16a34a; color: #fff; }
+    .b-proprio { background: #2563eb; color: #fff; }
+    .b-outro { background: #475569; color: #fff; }
+    .codigo { font-size: 12px; font-weight: 700; color: #aab4cd; }
+    .tempo { margin-left: auto; font-size: 11.5px; font-weight: 700; color: #8b95ad; display: flex; align-items: center; gap: 4px; }
+    .tempo.atrasado { color: #f87171; }
+    .card h4 { font-size: 14.5px; margin-bottom: 4px; }
+    .tel { color: #22d3ee; text-decoration: none; font-size: 12.5px; font-weight: 600; }
+    .endereco { font-size: 12.5px; color: #aab4cd; margin: 5px 0; line-height: 1.45; }
+    .itens { margin-top: 6px; border-top: 1px dashed rgba(255,255,255,.12); padding-top: 6px; }
+    .itens .item { display: flex; justify-content: space-between; font-size: 12.5px; color: #c3cbe0; padding: 2px 0; }
+    .itens .item span.qty { color: #fbbf24; font-weight: 700; margin-right: 6px; }
+    .total-row { display: flex; justify-content: space-between; margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,.12); font-weight: 800; font-size: 14px; }
+    .meta { font-size: 11.5px; color: #8b95ad; margin-top: 5px; display: flex; flex-wrap: wrap; gap: 8px; }
+    .obs { font-size: 12px; color: #ffd166; margin-top: 6px; font-style: italic; }
+    .card-foot { display: flex; align-items: center; gap: 6px; margin-top: 10px; }
+    .card-foot select {
+      flex: 1; padding: 7px 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,.14);
+      background: #0f1420; color: #e6edf7; font-family: 'Inter', sans-serif; font-size: 12px;
+    }
+    .step {
+      border: none; background: rgba(255,255,255,.08); color: #e6edf7; width: 30px; height: 30px;
+      border-radius: 8px; cursor: pointer; font-size: 14px; transition: .15s; font-family: 'Inter', sans-serif;
+    }
+    .step:hover { background: rgba(255,255,255,.18); }
+    .step.danger:hover { background: #ef4444; }
+    .vazio { text-align: center; color: #5b6479; font-size: 13px; padding: 18px 8px; }
+    .entregue-section { padding: 20px; }
+    .entregue-section h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .5px; color: #8b95ad; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+    .entregue-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; }
+    .entregue-grid .card { opacity: .85; }
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(5,8,15,.72); display: none;
+      align-items: flex-start; justify-content: center; padding: 30px 16px; z-index: 100; overflow-y: auto;
+    }
+    .modal { background: #161d2e; border: 1px solid rgba(255,255,255,.1); border-radius: 16px; width: 100%; max-width: 640px; padding: 22px; }
+    .modal h3 { font-size: 17px; margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+    .form-row .full { grid-column: 1 / -1; }
+    label { display: block; font-size: 11.5px; font-weight: 700; color: #8b95ad; text-transform: uppercase; letter-spacing: .4px; margin-bottom: 5px; }
+    input, select, textarea {
+      width: 100%; padding: 10px 12px; border-radius: 9px; border: 1px solid rgba(255,255,255,.13);
+      background: #0f1420; color: #e6edf7; font-family: 'Inter', sans-serif; font-size: 13.5px;
+    }
+    textarea { resize: vertical; min-height: 58px; }
+    .item-linha { display: grid; grid-template-columns: 1fr 70px 90px 34px; gap: 8px; margin-bottom: 8px; align-items: center; }
+    .item-linha input { padding: 8px 10px; }
+    .switch { display: inline-flex; align-items: center; gap: 10px; cursor: pointer; }
+    .switch input { width: auto; }
+    .switch .track { width: 44px; height: 24px; background: #0f1420; border: 1px solid rgba(255,255,255,.2); border-radius: 20px; position: relative; transition: .2s; }
+    .switch .track::after { content: ''; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; background: #8b95ad; border-radius: 50%; transition: .2s; }
+    .switch input:checked + .track { background: #22c55e; border-color: transparent; }
+    .switch input:checked + .track::after { left: 22px; background: #052e14; }
+    .canal-edit { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+    .canal-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 20px; background: rgba(255,255,255,.08); }
+    .canal-chip button { border: none; background: none; color: #f87171; cursor: pointer; font-size: 13px; }
+    #toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 200;
+      background: #1b2336; border: 1px solid rgba(255,255,255,.15); color: #e6edf7; padding: 12px 20px;
+      border-radius: 10px; font-size: 13.5px; font-weight: 600; display: none; box-shadow: 0 10px 30px rgba(0,0,0,.5);
+    }
+    #toast.ok { border-color: #22c55e; }
+    #toast.err { border-color: #ef4444; }
+    .pagin { display: flex; justify-content: center; gap: 8px; margin: 16px 0; }
+    .pagin button { border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.05); color: #e6edf7; padding: 8px 14px; border-radius: 9px; cursor: pointer; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; }
+    .pagin button.active { background: #22c55e; color: #052e14; border-color: transparent; }
+    .pagin button:disabled { opacity: .4; cursor: default; }
+    button.btn.icon { position: relative; }
+    .ifood-dot { position: absolute; top: 6px; right: 6px; width: 8px; height: 8px; border-radius: 50%; background: #8b95ad; }
+    .ifood-dot.ok { background: #22c55e; box-shadow: 0 0 8px #22c55e; }
+    .ifood-dot.err { background: #ef4444; }
+    .ifood-code { font-size: 22px; letter-spacing: 4px; font-weight: 800; text-align: center; background: #0f1420; border: 1px dashed rgba(34,197,94,.5); color: #4ade80; padding: 14px; border-radius: 10px; margin: 10px 0; }
+    .ifood-note { font-size: 12px; color: #8b95ad; line-height: 1.6; margin: 8px 0 4px; }
+    .ifood-status { font-size: 12.5px; font-weight: 700; padding: 10px 12px; border-radius: 9px; margin: 10px 0; background: rgba(255,255,255,.06); }
+    .ifood-status.ok { background: rgba(34,197,94,.12); color: #4ade80; border: 1px solid rgba(34,197,94,.3); }
+    .ifood-status.err { background: rgba(239,68,68,.12); color: #f87171; border: 1px solid rgba(239,68,68,.3); }
+    .ifood-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+    .ifood-actions .btn { flex: 1; min-width: 140px; justify-content: center; }
+    .ifood-link { color: #4ade80; font-weight: 700; word-break: break-all; }
+    button.btn.danger { background: rgba(239,68,68,.15); color: #f87171; border-color: rgba(239,68,68,.4); }
+    @media (max-width: 900px) {
+      main { flex-direction: column; align-items: stretch; }
+      .col { max-width: none; }
+      .resumo { width: 100%; margin-left: 0; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <i class="ph ph-truck-bold"></i>
+      <div><b>Hub Delivery</b><span>Chef Cozinha · Pedidos agregados</span></div>
+    </div>
+    <div class="hdr-actions">
+      <button class="btn icon" id="btn-refresh" title="Atualizar"><i class="ph ph-arrows-clockwise-bold"></i></button>
+      <button class="btn icon" id="btn-ifood" title="Integração iFood"><i class="ph ph-storefront-bold"></i><span class="ifood-dot" id="ifood-dot"></span></button>
+      <button class="btn icon" id="btn-config" title="Configurações"><i class="ph ph-gear-bold"></i></button>
+      <button class="btn primary" id="btn-novo"><i class="ph ph-plus-bold"></i> Novo Pedido</button>
+    </div>
+  </header>
+
+  <div class="banner" id="banner-desativado">
+    <i class="ph ph-warning-circle-bold"></i> O Hub Delivery está desativado. Ative nas configurações para registrar novos pedidos.
+  </div>
+
+  <div class="filters">
+    <input type="text" id="filtro-busca" placeholder="Buscar por cliente, código, endereço ou telefone...">
+    <select id="filtro-canal"><option value="">Todos os canais</option></select>
+    <select id="filtro-status">
+      <option value="">Todos os status</option>
+      <option>Recebido</option>
+      <option>Em preparo</option>
+      <option>Saiu para entrega</option>
+      <option>Entregue</option>
+      <option>Cancelado</option>
+    </select>
+    <div class="resumo" id="resumo"></div>
+  </div>
+
+  <main id="board"></main>
+
+  <div class="entregue-section" id="concluidos">
+    <h3><i class="ph ph-check-circle-bold"></i> Entregues &amp; Cancelados <span class="count" id="concluidos-count" style="font-size:11px;background:rgba(255,255,255,.1);padding:2px 8px;border-radius:20px;"></span></h3>
+    <div class="entregue-grid" id="concluidos-grid"></div>
+  </div>
+
+  <div class="pagin" id="pagin"></div>
+
+  <!-- MODAL NOVO PEDIDO -->
+  <div class="modal-overlay" id="modal-novo">
+    <div class="modal">
+      <h3><i class="ph ph-plus-circle-bold" style="color:#4ade80;"></i> Novo Pedido de Delivery</h3>
+      <div class="form-row">
+        <div>
+          <label>Canal</label>
+          <select id="np-canal"></select>
+        </div>
+        <div>
+          <label>Código no canal</label>
+          <input id="np-codigo" placeholder="Ex: #iFood-12345">
+        </div>
+      </div>
+      <div class="form-row">
+        <div>
+          <label>Cliente</label>
+          <input id="np-cliente" placeholder="Nome do cliente">
+        </div>
+        <div>
+          <label>Telefone</label>
+          <input id="np-telefone" placeholder="(00) 00000-0000">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="full">
+          <label>Endereço de entrega</label>
+          <input id="np-endereco" placeholder="Rua, número, bairro, cidade">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="full">
+          <label>Ponto de referência</label>
+          <input id="np-referencia" placeholder="Opcional">
+        </div>
+      </div>
+      <label style="margin:4px 0 8px;">Itens do pedido</label>
+      <div id="np-itens"></div>
+      <button class="btn" type="button" id="np-add-item" style="margin-bottom:12px;"><i class="ph ph-plus-bold"></i> Adicionar item</button>
+      <div class="form-row">
+        <div>
+          <label>Subtotal (R$)</label>
+          <input id="np-subtotal" type="number" step="0.01" value="0.00">
+        </div>
+        <div>
+          <label>Taxa de entrega (R$)</label>
+          <input id="np-taxa" type="number" step="0.01" value="0.00">
+        </div>
+      </div>
+      <div class="form-row">
+        <div>
+          <label>Total (R$)</label>
+          <input id="np-total" type="number" step="0.01" value="0.00">
+        </div>
+        <div>
+          <label>Forma de pagamento</label>
+          <select id="np-pagamento">
+            <option value="">—</option>
+            <option>Pix</option>
+            <option>Dinheiro</option>
+            <option>Cartão de Crédito</option>
+            <option>Cartão de Débito</option>
+            <option>App do canal</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div>
+          <label>Status inicial</label>
+          <select id="np-status">
+            <option>Recebido</option>
+            <option>Em preparo</option>
+            <option>Saiu para entrega</option>
+            <option>Entregue</option>
+            <option>Cancelado</option>
+          </select>
+        </div>
+        <div>
+          <label>Entregador</label>
+          <select id="np-entregador"><option value="">Nenhum</option></select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="full">
+          <label>Observações</label>
+          <textarea id="np-obs" placeholder="Instruções de entrega, complemento..."></textarea>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" id="np-cancelar">Cancelar</button>
+        <button class="btn primary" id="np-salvar"><i class="ph ph-check-bold"></i> Salvar Pedido</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL CONFIG -->
+  <div class="modal-overlay" id="modal-config">
+    <div class="modal" style="max-width:520px;">
+      <h3><i class="ph ph-gear-bold" style="color:#4ade80;"></i> Configurações do Hub Delivery</h3>
+      <label style="margin-bottom:12px;display:flex;align-items:center;gap:12px;justify-content:space-between;">
+        <span style="text-transform:none;letter-spacing:0;font-size:13.5px;color:#e6edf7;font-weight:600;">Hub Delivery ativado</span>
+        <span class="switch"><input type="checkbox" id="cfg-enabled"><span class="track"></span></span>
+      </label>
+      <label style="margin:14px 0 8px;">Canais de delivery ativos</label>
+      <div id="cfg-canais"></div>
+      <button class="btn" type="button" id="cfg-add-canal" style="margin:10px 0 14px;"><i class="ph ph-plus-bold"></i> Adicionar canal</button>
+      <div class="form-row">
+        <div>
+          <label>Taxa padrão (R$)</label>
+          <input id="cfg-taxa" type="number" step="0.01" value="0.00">
+        </div>
+        <div>
+          <label>Tempo médio (min)</label>
+          <input id="cfg-tempo" type="number" step="1" value="45">
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" id="cfg-cancelar">Cancelar</button>
+        <button class="btn primary" id="cfg-salvar"><i class="ph ph-check-bold"></i> Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL INTEGRAÇÃO iFOOD -->
+  <div class="modal-overlay" id="modal-ifood">
+    <div class="modal" style="max-width:560px;">
+      <h3><i class="ph ph-storefront-bold" style="color:#ea1d2c;"></i> Integração real com o iFood</h3>
+      <div class="ifood-status" id="ifd-status">Verificando conexão...</div>
+
+      <label>Credenciais do aplicativo (Programa de Parceiros iFood)</label>
+      <div class="form-row">
+        <div>
+          <label>Client ID</label>
+          <input id="ifd-client-id" type="text" placeholder="Client ID do app">
+        </div>
+        <div>
+          <label>Client Secret</label>
+          <input id="ifd-client-secret" type="password" placeholder="Client Secret do app">
+        </div>
+      </div>
+      <div class="ifood-actions">
+        <button class="btn" id="ifd-save-app"><i class="ph ph-floppy-disk-bold"></i> Salvar credenciais</button>
+      </div>
+
+      <hr style="border:none;border-top:1px solid rgba(255,255,255,.1);margin:14px 0;">
+
+      <label>Conectar a conta iFood deste restaurante</label>
+      <div class="ifood-note">O dono do restaurante autoriza no Portal do iFood (fluxo distribuído). Siga os passos:</div>
+      <div class="ifood-actions">
+        <button class="btn" id="ifd-connect"><i class="ph ph-plug-bold"></i> 1. Gerar código</button>
+        <button class="btn" id="ifd-copy-code" style="display:none;"><i class="ph ph-copy-bold"></i> Copiar código</button>
+      </div>
+      <div id="ifd-code-box" style="display:none;">
+        <div class="ifood-code" id="ifd-code"></div>
+        <div class="ifood-note">Abra <a class="ifood-link" id="ifd-url" href="#" target="_blank">portal.ifood.com.br/apps/code</a>, entre com a conta iFood do restaurante e digite o código acima. Após autorizar, o portal exibirá um <b>código de autorização</b>. Cole abaixo:</div>
+      </div>
+      <div class="form-row" style="margin-top:10px;">
+        <div class="full">
+          <label>Código de autorização (do portal iFood)</label>
+          <input id="ifd-authcode" type="text" placeholder="Cole o código de autorização aqui">
+        </div>
+      </div>
+      <div class="ifood-actions">
+        <button class="btn primary" id="ifd-complete"><i class="ph ph-link-bold"></i> 2. Conectar conta</button>
+        <button class="btn danger" id="ifd-disconnect" style="display:none;"><i class="ph ph-plug-slash-bold"></i> Desconectar</button>
+      </div>
+
+      <hr style="border:none;border-top:1px solid rgba(255,255,255,.1);margin:14px 0;">
+
+      <label>Catálogo</label>
+      <div class="ifood-actions">
+        <button class="btn" id="ifd-sync-catalog"><i class="ph ph-basket-bold"></i> Sincronizar cardápio (produtos) com o iFood</button>
+      </div>
+      <div id="ifd-catalog-result"></div>
+
+      <div class="modal-actions">
+        <button class="btn" id="ifd-close">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+  <script src="/socket.io.min.js"></script>
+  <script>
+  (function () {
+    var socket = io({ query: { token: localStorage.getItem('chef_token'), restaurante_id: localStorage.getItem('restaurante_id') || '1' } });
+
+    var state = {
+      pedidos: [],
+      config: { enabled: false, canais: [], taxa: '0.00', tempo: 45 },
+      funcionarios: [],
+      filtroBusca: '',
+      filtroCanal: '',
+      filtroStatus: '',
+      pagina: 1,
+      porPagina: 10,
+      editandoId: null
+    };
+
+    var COLUNAS = [
+      { status: 'Recebido', dot: '#fbbf24' },
+      { status: 'Em preparo', dot: '#22c55e' },
+      { status: 'Saiu para entrega', dot: '#22d3ee' }
+    ];
+    var FLUXO = ['Recebido', 'Em preparo', 'Saiu para entrega', 'Entregue', 'Cancelado'];
+    var FECHADOS = ['Entregue', 'Cancelado'];
+
+    function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (m) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]; }); }
+    function norm(s) { return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(); }
+    function fmtR(v) { return 'R$ ' + (parseFloat(v) || 0).toFixed(2).replace('.', ','); }
+    function badgeCls(canal) {
+      var c = norm(canal);
+      if (c.indexOf('ifood') >= 0) return 'b-ifood';
+      if (c.indexOf('rappi') >= 0) return 'b-rappi';
+      if (c.indexOf('uber') >= 0) return 'b-uber';
+      if (c.indexOf('much') >= 0) return 'b-much';
+      if (c.indexOf('proprio') >= 0) return 'b-proprio';
+      return 'b-outro';
+    }
+    function $id(x) { return document.getElementById(x); }
+
+    function parseLocal(ts) {
+      if (!ts) return null;
+      var m = String(ts).match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})/);
+      if (!m) return new Date(ts);
+      return new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]);
+    }
+    function tempoTexto(ts) {
+      var d = parseLocal(ts);
+      if (!d) return '';
+      var min = Math.max(0, Math.round((Date.now() - d.getTime()) / 60000));
+      if (min < 60) return min + 'min';
+      var h = Math.floor(min / 60);
+      return h + 'h ' + (min % 60) + 'min';
+    }
+    function ehAtrasado(ts) {
+      var d = parseLocal(ts);
+      if (!d) return false;
+      return (Date.now() - d.getTime()) > (parseInt(state.config.tempo, 10) || 45) * 60000;
+    }
+
+    function toast(msg, tipo) {
+      var t = $id('toast');
+      if (!t) return;
+      t.className = tipo || '';
+      t.textContent = msg;
+      t.style.display = 'block';
+      clearTimeout(t._h);
+      t._h = setTimeout(function () { t.style.display = 'none'; }, 2600);
+    }
+
+    function parseItens(p) {
+      try { return typeof p.itens === 'string' ? JSON.parse(p.itens || '[]') : (p.itens || []); } catch (e) { return []; }
+    }
+
+    function cardHtml(p) {
+      var atr = ehAtrasado(p.criado_em);
+      var itens = parseItens(p);
+      var itensHtml = itens.map(function (it) {
+        return '<div class="item"><span><span class="qty">' + (parseInt(it.qtd) || 1) + 'x</span> ' + esc(it.nome || '') + '</span><span>' + fmtR(it.preco ? (parseFloat(it.preco) * (parseInt(it.qtd) || 1)) : (it.total || 0)) + '</span></div>';
+      }).join('');
+      var statusOpts = FLUXO.map(function (s) { return '<option' + (p.status === s ? ' selected' : '') + '>' + s + '</option>'; }).join('');
+      return '<div class="card' + (atr ? ' atrasado' : '') + '" data-id="' + p.id + '">' +
+        '<div class="card-top">' +
+        '<span class="badge ' + badgeCls(p.canal) + '">' + esc(p.canal || 'Próprio') + '</span>' +
+        (p.codigo ? '<span class="codigo">' + esc(p.codigo) + '</span>' : '') +
+        '<span class="tempo' + (atr ? ' atrasado' : '') + '"><i class="ph ph-clock-bold"></i> ' + tempoTexto(p.criado_em) + '</span>' +
+        '</div>' +
+        '<h4>' + esc(p.cliente || '—') + '</h4>' +
+        (p.telefone ? '<a class="tel" href="tel:' + esc(p.telefone) + '"><i class="ph ph-phone-bold"></i> ' + esc(p.telefone) + '</a>' : '') +
+        (p.endereco ? '<div class="endereco">' + esc(p.endereco) + (p.referencia ? ' <span style="opacity:.7">(ref: ' + esc(p.referencia) + ')</span>' : '') + '</div>' : '') +
+        (itensHtml ? '<div class="itens">' + itensHtml + '</div>' : '') +
+        '<div class="total-row"><span>Total</span><span>' + fmtR(p.total) + '</span></div>' +
+        '<div class="meta">' +
+        (p.pagamento ? '<span><i class="ph ph-wallet-bold"></i> ' + esc(p.pagamento) + '</span>' : '') +
+        (p.entregador ? '<span><i class="ph ph-motorcycle-bold"></i> ' + esc(p.entregador) + '</span>' : '') +
+        '</div>' +
+        (p.obs ? '<div class="obs">' + esc(p.obs) + '</div>' : '') +
+        '<div class="card-foot">' +
+        '<select data-status>' + statusOpts + '</select>' +
+        '<button class="step" data-prev title="Anterior"><i class="ph ph-minus-bold"></i></button>' +
+        '<button class="step" data-next title="Próximo"><i class="ph ph-plus-bold"></i></button>' +
+        '<button class="step danger" data-del title="Excluir"><i class="ph ph-trash-bold"></i></button>' +
+        '</div></div>';
+    }
+
+    function render() {
+      var q = norm(state.filtroBusca);
+      var canal = state.filtroCanal;
+      var status = state.filtroStatus;
+      var lista = state.pedidos.filter(function (p) {
+        if (canal && p.canal !== canal) return false;
+        if (status && p.status !== status) return false;
+        if (q) {
+          var alvo = norm((p.cliente || '') + ' ' + (p.codigo || '') + ' ' + (p.endereco || '') + ' ' + (p.telefone || '') + ' ' + (p.canal || ''));
+          if (alvo.indexOf(q) < 0) return false;
+        }
+        return true;
+      });
+
+      var abertos = lista.filter(function (p) { return FECHADOS.indexOf(p.status) < 0; });
+      var fechados = lista.filter(function (p) { return FECHADOS.indexOf(p.status) >= 0; });
+
+      var board = $id('board');
+      board.innerHTML = COLUNAS.map(function (col) {
+        var cards = abertos.filter(function (p) { return p.status === col.status; });
+        return '<div class="col"><div class="col-head"><b><span class="dot" style="background:' + col.dot + '"></span> ' + col.status + '</b><span class="count">' + cards.length + '</span></div><div class="col-body">' +
+          (cards.length ? cards.map(cardHtml).join('') : '<div class="vazio">Sem pedidos</div>') + '</div></div>';
+      }).join('');
+
+      var totalFechados = fechados.length;
+      var totalPag = Math.max(1, Math.ceil(totalFechados / state.porPagina));
+      if (state.pagina > totalPag) state.pagina = totalPag;
+      var fatia = fechados.slice((state.pagina - 1) * state.porPagina, state.pagina * state.porPagina);
+
+      var countEl = $id('concluidos-count');
+      if (countEl) countEl.textContent = totalFechados + ' pedido(s)';
+      var grid = $id('concluidos-grid');
+      grid.innerHTML = fatia.length ? fatia.map(cardHtml).join('') : '<div class="vazio" style="grid-column:1/-1;">Nenhum pedido entregue/cancelado.</div>';
+
+      var pagin = $id('pagin');
+      if (totalPag > 1) {
+        var b = [];
+        for (var i = 1; i <= totalPag; i++) b.push('<button data-pg="' + i + '"' + (i === state.pagina ? ' class="active"' : '') + '>' + i + '</button>');
+        pagin.innerHTML = b.join('');
+      } else {
+        pagin.innerHTML = '';
+      }
+
+      var resumo = $id('resumo');
+      if (resumo) resumo.innerHTML = '<i class="ph ph-basket-bold"></i> <b>' + abertos.length + '</b> em andamento · <b>' + fechados.length + '</b> concluídos';
+      renderBanner();
+    }
+
+    function renderBanner() {
+      var b = $id('banner-desativado');
+      if (b) b.style.display = state.config.enabled ? 'none' : 'block';
+      var canalSel = $id('filtro-canal');
+      if (canalSel) {
+        var atual = canalSel.value;
+        var ativos = (state.config.canais || []).filter(function (c) { return c.ativo; });
+        canalSel.innerHTML = '<option value="">Todos os canais</option>' + ativos.map(function (c) { return '<option value="' + esc(c.nome) + '">' + esc(c.nome) + '</option>'; }).join('');
+        if (atual) canalSel.value = atual;
+      }
+      var npCanal = $id('np-canal');
+      if (npCanal) npCanal.innerHTML = ativos.map(function (c) { return '<option value="' + esc(c.nome) + '">' + esc(c.nome) + '</option>'; }).join('');
+    }
+
+    function moverStatus(id, dir) {
+      var p = state.pedidos.find(function (x) { return String(x.id) === String(id); });
+      if (!p) return;
+      var idx = FLUXO.indexOf(p.status);
+      var nIdx = Math.max(0, Math.min(FLUXO.length - 1, idx + dir));
+      if (nIdx !== idx) socket.emit('hub_mudar_status', { id: p.id, status: FLUXO[nIdx] });
+    }
+
+    // ---- NOVO PEDIDO MODAL ----
+    function abrirNovo(p) {
+      state.editandoId = p ? p.id : null;
+      $id('np-canal').value = p ? p.canal : ($id('np-canal').options[0] ? $id('np-canal').options[0].value : 'Próprio');
+      $id('np-codigo').value = p ? p.codigo || '' : '';
+      $id('np-cliente').value = p ? p.cliente || '' : '';
+      $id('np-telefone').value = p ? p.telefone || '' : '';
+      $id('np-endereco').value = p ? p.endereco || '' : '';
+      $id('np-referencia').value = p ? p.referencia || '' : '';
+      $id('np-pagamento').value = p ? p.pagamento || '' : '';
+      $id('np-status').value = p ? p.status || 'Recebido' : 'Recebido';
+      $id('np-entregador').value = p ? p.entregador || '' : '';
+      $id('np-obs').value = p ? p.obs || '' : '';
+      var taxa = p ? (p.taxa || 0) : (parseFloat(state.config.taxa) || 0);
+      $id('np-taxa').value = taxa;
+      var itens = p ? parseItens(p) : [];
+      $id('np-subtotal').value = p ? (p.subtotal || 0) : '0.00';
+      $id('np-total').value = p ? (p.total || 0) : '0.00';
+      $id('np-itens').innerHTML = '';
+      if (!itens.length) itens.push({ nome: '', qtd: 1, preco: 0 });
+      itens.forEach(function (it) { addItemLinha(it); });
+      recalcular();
+      $id('modal-novo').style.display = 'flex';
+    }
+    function fecharNovo() { $id('modal-novo').style.display = 'none'; }
+
+    function addItemLinha(it) {
+      it = it || {};
+      var row = document.createElement('div');
+      row.className = 'item-linha';
+      row.innerHTML =
+        '<input type="text" class="il-nome" placeholder="Item" value="' + esc(it.nome || '') + '">' +
+        '<input type="number" class="il-qtd" min="1" value="' + (it.qtd || 1) + '">' +
+        '<input type="number" class="il-preco" step="0.01" min="0" value="' + (it.preco || 0) + '">' +
+        '<button type="button" class="btn icon il-del" title="Remover item"><i class="ph ph-x-bold"></i></button>';
+      $id('np-itens').appendChild(row);
+    }
+    function recalcular() {
+      var sub = 0;
+      document.querySelectorAll('#np-itens .item-linha').forEach(function (r) {
+        sub += (parseFloat(r.querySelector('.il-qtd').value) || 1) * (parseFloat(r.querySelector('.il-preco').value) || 0);
+      });
+      $id('np-subtotal').value = sub.toFixed(2);
+      var taxa = parseFloat($id('np-taxa').value) || 0;
+      $id('np-total').value = (sub + taxa).toFixed(2);
+    }
+    function salvarNovo() {
+      var itens = [];
+      document.querySelectorAll('#np-itens .item-linha').forEach(function (r) {
+        var nome = r.querySelector('.il-nome').value.trim();
+        if (!nome) return;
+        itens.push({ nome: nome, qtd: parseInt(r.querySelector('.il-qtd').value) || 1, preco: parseFloat(r.querySelector('.il-preco').value) || 0 });
+      });
+      if (!$id('np-cliente').value.trim()) return toast('Informe o nome do cliente.', 'err');
+      var payload = {
+        id: state.editandoId || undefined,
+        canal: $id('np-canal').value,
+        codigo: $id('np-codigo').value.trim(),
+        cliente: $id('np-cliente').value.trim(),
+        telefone: $id('np-telefone').value.trim(),
+        endereco: $id('np-endereco').value.trim(),
+        referencia: $id('np-referencia').value.trim(),
+        itens: itens,
+        subtotal: parseFloat($id('np-subtotal').value) || 0,
+        taxa: parseFloat($id('np-taxa').value) || 0,
+        total: parseFloat($id('np-total').value) || 0,
+        pagamento: $id('np-pagamento').value,
+        status: $id('np-status').value,
+        entregador: $id('np-entregador').value,
+        obs: $id('np-obs').value.trim()
+      };
+      socket.emit('hub_salvar_pedido', payload);
+      fecharNovo();
+      toast('Pedido salvo!', 'ok');
+    }
+
+    // ---- CONFIG MODAL ----
+    function abrirConfig() {
+      $id('cfg-enabled').checked = !!state.config.enabled;
+      $id('cfg-taxa').value = state.config.taxa || '0.00';
+      $id('cfg-tempo').value = state.config.tempo || 45;
+      var canais = state.config.canais || [];
+      $id('cfg-canais').innerHTML = canais.map(function (c, i) {
+        return '<div class="canal-edit"><span class="canal-chip"><i class="ph ph-storefront-bold"></i> ' + esc(c.nome) +
+          ' <button type="button" data-del-canal="' + i + '" title="Remover canal"><i class="ph ph-x-bold"></i></button></span>' +
+          '<span class="switch"><input type="checkbox" data-tog-canal="' + i + '"' + (c.ativo ? ' checked' : '') + '><span class="track"></span></span></div>';
+      }).join('') || '<div class="vazio">Nenhum canal cadastrado.</div>';
+      $id('modal-config').style.display = 'flex';
+    }
+    function fecharConfig() { $id('modal-config').style.display = 'none'; }
+    function salvarConfig() {
+      var cfg = {
+        enabled: $id('cfg-enabled').checked,
+        taxa: $id('cfg-taxa').value,
+        tempo: $id('cfg-tempo').value,
+        canais: (state.config.canais || []).map(function (c) { return { nome: c.nome, ativo: c.ativo }; })
+      };
+      socket.emit('hub_salvar_config', cfg);
+      fecharConfig();
+      toast('Configurações salvas!', 'ok');
+    }
+
+    // ---- EVENT DELEGATION ----
+    document.addEventListener('click', function (e) {
+      var t = e.target;
+      var del = t.closest('[data-del]');
+      if (del) {
+        var id = del.closest('[data-id]').getAttribute('data-id');
+        if (confirm('Excluir este pedido?')) socket.emit('hub_deletar_pedido', id);
+        return;
+      }
+      var prev = t.closest('[data-prev]');
+      if (prev) { moverStatus(prev.closest('[data-id]').getAttribute('data-id'), -1); return; }
+      var next = t.closest('[data-next]');
+      if (next) { moverStatus(next.closest('[data-id]').getAttribute('data-id'), 1); return; }
+      var pg = t.closest('[data-pg]');
+      if (pg) { state.pagina = parseInt(pg.getAttribute('data-pg'), 10); render(); return; }
+      var dc = t.closest('[data-del-canal]');
+      if (dc) {
+        var idx = parseInt(dc.getAttribute('data-del-canal'), 10);
+        (state.config.canais || []).splice(idx, 1);
+        abrirConfig();
+        return;
+      }
+      var tc = t.closest('[data-tog-canal]');
+      if (tc) {
+        var i2 = parseInt(tc.getAttribute('data-tog-canal'), 10);
+        if (state.config.canais[i2]) state.config.canais[i2].ativo = tc.checked;
+        return;
+      }
+      var delItem = t.closest('.il-del');
+      if (delItem) { delItem.closest('.item-linha').remove(); recalcular(); return; }
+    });
+    document.addEventListener('change', function (e) {
+      var t = e.target;
+      if (t.closest('#np-itens')) { recalcular(); return; }
+      if (t.id === 'np-taxa') { recalcular(); return; }
+      var st = t.closest('[data-status]');
+      if (st) {
+        socket.emit('hub_mudar_status', { id: st.closest('[data-id]').getAttribute('data-id'), status: t.value });
+      }
+    });
+
+    // ---- INTEGRAÇÃO iFOOD ----
+    var ifood = { app: { has_client_id: false, has_client_secret: false }, connection: { status: 'disconnected' } };
+
+    function atualizarIfoodDot() {
+      var dot = $id('ifood-dot');
+      if (dot) dot.className = 'ifood-dot ' + (ifood.connection.status === 'authorized' ? 'ok' : (ifood.connection.status === 'error' ? 'err' : ''));
+    }
+
+    function renderIfood() {
+      var st = ifood.connection || {};
+      var statusTxt = {
+        'disconnected': 'Não conectado ao iFood.',
+        'awaiting_code': 'Aguardando autorização no portal iFood.',
+        'authorized': 'Conectado ao iFood' + (st.merchant_name ? ' — ' + st.merchant_name : '') + (st.last_poll_at ? ' · último poll: ' + st.last_poll_at.replace('T', ' ').slice(0, 19) : ''),
+        'error': 'Erro: ' + (st.last_error || 'consulta ao iFood falhou.')
+      }[st.status] || ('Status: ' + st.status);
+      var statusEl = $id('ifd-status');
+      statusEl.textContent = statusTxt;
+      statusEl.className = 'ifood-status ' + (st.status === 'authorized' ? 'ok' : (st.status === 'disconnected' ? '' : 'err'));
+
+      $id('ifd-client-id').value = '';
+      $id('ifd-client-secret').value = '';
+      $id('ifd-authcode').value = '';
+
+      var showConnect = st.status !== 'authorized';
+      $id('ifd-connect').style.display = showConnect ? '' : 'none';
+      $id('ifd-complete').style.display = showConnect ? '' : 'none';
+      $id('ifd-disconnect').style.display = showConnect ? 'none' : '';
+      if (!showConnect) $id('ifd-code-box').style.display = 'none';
+      atualizarIfoodDot();
+    }
+
+    function abrirIfood() {
+      $id('modal-ifood').style.display = 'flex';
+      renderIfood();
+      socket.emit('ifood_get_state');
+    }
+    function fecharIfood() { $id('modal-ifood').style.display = 'none'; }
+
+    // ---- HEADER / FILTERS ----
+    $id('btn-refresh').onclick = function () { socket.emit('hub_get_pedidos'); socket.emit('hub_get_config'); socket.emit('ifood_get_state'); toast('Atualizado!', 'ok'); };
+    $id('btn-ifood').onclick = abrirIfood;
+    $id('btn-config').onclick = abrirConfig;
+    $id('btn-novo').onclick = function () { abrirNovo(null); };
+    $id('np-cancelar').onclick = fecharNovo;
+    $id('np-salvar').onclick = salvarNovo;
+    $id('np-add-item').onclick = function () { addItemLinha(); recalcular(); };
+    $id('cfg-cancelar').onclick = fecharConfig;
+    $id('cfg-salvar').onclick = salvarConfig;
+    $id('cfg-add-canal').onclick = function () {
+      var nome = prompt('Nome do canal (ex: iFood, Rappi, Uber Eats, Mucho):');
+      if (!nome || !nome.trim()) return;
+      (state.config.canais = state.config.canais || []).push({ nome: nome.trim(), ativo: true });
+      abrirConfig();
+    };
+    $id('ifd-close').onclick = fecharIfood;
+    $id('ifd-save-app').onclick = function () {
+      socket.emit('ifood_save_app_config', {
+        client_id: $id('ifd-client-id').value.trim(),
+        client_secret: $id('ifd-client-secret').value.trim()
+      });
+      toast('Salvando credenciais...', 'ok');
+    };
+    $id('ifd-connect').onclick = function () {
+      if (!ifood.app.has_client_id) { toast('Salve as credenciais do aplicativo iFood primeiro.', 'err'); return; }
+      $id('ifd-code-box').style.display = 'none';
+      socket.emit('ifood_request_code');
+    };
+    $id('ifd-copy-code').onclick = function () {
+      var code = $id('ifd-code').textContent;
+      if (navigator.clipboard && code) {
+        navigator.clipboard.writeText(code).then(function () { toast('Código copiado!', 'ok'); }).catch(function () { toast('Copie o código manualmente.', 'err'); });
+      } else toast('Copie o código manualmente.', 'err');
+    };
+    $id('ifd-complete').onclick = function () {
+      var code = $id('ifd-authcode').value.trim();
+      if (!code) { toast('Cole o código de autorização recebido no portal.', 'err'); return; }
+      socket.emit('ifood_complete_auth', { authorization_code: code });
+    };
+    $id('ifd-disconnect').onclick = function () {
+      if (confirm('Desconectar a conta iFood deste restaurante?')) socket.emit('ifood_disconnect');
+    };
+    $id('ifd-sync-catalog').onclick = function () {
+      $id('ifd-catalog-result').innerHTML = '<div class="ifood-status">Sincronizando catálogo... aguarde (pode demorar).</div>';
+      socket.emit('ifood_sync_catalog');
+    };
+    $id('filtro-busca').oninput = function () { state.filtroBusca = this.value; state.pagina = 1; render(); };
+    $id('filtro-canal').onchange = function () { state.filtroCanal = this.value; state.pagina = 1; render(); };
+    $id('filtro-status').onchange = function () { state.filtroStatus = this.value; state.pagina = 1; render(); };
+    ['modal-novo', 'modal-config', 'modal-ifood'].forEach(function (id) {
+      var el = $id(id);
+      if (el) el.addEventListener('click', function (e) { if (e.target === el) el.style.display = 'none'; });
+    });
+
+    // ---- SOCKET ----
+    socket.on('hub_pedidos_atualizados', function (lista) { state.pedidos = lista || []; render(); });
+    socket.on('hub_config_atualizada', function (cfg) { if (cfg) state.config = cfg; renderBanner(); });
+    socket.on('funcionarios_atualizados', function (funcs) {
+      state.funcionarios = funcs || [];
+      var sel = $id('np-entregador');
+      if (sel) {
+        var atual = sel.value;
+        sel.innerHTML = '<option value="">Nenhum</option>' + state.funcionarios.map(function (f) { return '<option value="' + esc(f.nome) + '">' + esc(f.nome) + '</option>'; }).join('');
+        if (atual) sel.value = atual;
+      }
+    });
+    socket.on('connect', function () {
+      socket.emit('hub_get_pedidos');
+      socket.emit('hub_get_config');
+      socket.emit('get_funcionarios');
+      socket.emit('ifood_get_state');
+    });
+    socket.on('connect_error', function () { toast('Sem conexão com o servidor.', 'err'); });
+    socket.on('ifood_state', function (st) {
+      if (st) {
+        if (st.app) ifood.app = st.app;
+        if (st.connection) ifood.connection = st.connection;
+      }
+      renderIfood();
+    });
+    socket.on('ifood_app_config_saved', function () {
+      ifood.app.has_client_id = true;
+      ifood.app.has_client_secret = true;
+      toast('Credenciais salvas!', 'ok');
+      renderIfood();
+    });
+    socket.on('ifood_code_ready', function (info) {
+      if (info && info.userCode) {
+        $id('ifd-code').textContent = info.userCode;
+        var url = info.verificationUrlComplete || info.verificationUrl || 'https://portal.ifood.com.br/apps/code';
+        var a = $id('ifd-url');
+        if (a) { a.href = url; a.textContent = url; }
+        $id('ifd-code-box').style.display = 'block';
+        $id('ifd-copy-code').style.display = '';
+        toast('Código gerado! Peça ao dono do restaurante para autorizar no portal do iFood.', 'ok');
+      } else {
+        toast('Erro ao gerar código de autorização.', 'err');
+      }
+    });
+    socket.on('ifood_auth_completed', function (result) {
+      ifood.connection.status = 'authorized';
+      ifood.connection.merchant_name = result && result.merchantName;
+      toast('Conta iFood conectada!', 'ok');
+      socket.emit('ifood_get_state');
+    });
+    socket.on('ifood_poll_done', function () {
+      toast('Polling iFood executado.', 'ok');
+      socket.emit('ifood_get_state');
+    });
+    socket.on('ifood_catalog_synced', function (result) {
+      var el = $id('ifd-catalog-result');
+      if (!el) return;
+      if (result && result.error) {
+        el.innerHTML = '<div class="ifood-status err">Erro: ' + esc(result.error) + '</div>';
+        toast('Falha ao sincronizar catálogo.', 'err');
+      } else if (result) {
+        el.innerHTML = '<div class="ifood-status ok">Catálogo sincronizado: ' + result.categorias + ' categorias, ' + result.itens + ' itens enviados, ' + result.atualizados + ' atualizados.</div>';
+        toast('Catálogo sincronizado!', 'ok');
+      }
+    });
+    socket.on('ifood_error', function (msg) { toast(msg || 'Erro na integração iFood.', 'err'); });
+
+    render();
+  })();
+  </script>
+</body>
+</html>
