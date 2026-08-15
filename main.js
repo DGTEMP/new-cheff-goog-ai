@@ -2037,17 +2037,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnAbrir = document.getElementById('btn-abrir-caixa');
   if (btnAbrir) {
     btnAbrir.onclick = () => {
-      alert("Botão clicado! Verificando conexão com o servidor...");
-      let valInput = document.getElementById('fundo-troco').value;
-      if (!valInput) valInput = '0';
-      const fundo = parseFloat(valInput.replace(',', '.'));
-      if (!isNaN(fundo)) {
-        const senhaAdmin = prompt('Digite a senha de administrador para abrir o caixa:');
-        if (!senhaAdmin) return alert('Operação cancelada.');
-        console.log("Emitindo abrir_caixa:", fundo);
-        socket.emit('abrir_caixa', { fundo_troco: fundo, operador: window.crmPerfil ? window.crmPerfil.nome : 'Desconhecido', senha: senhaAdmin });
+      if (typeof window.abrirCaixaClick === 'function') {
+        window.abrirCaixaClick();
       } else {
-        alert('Digite um valor numérico válido para o fundo de troco.');
+        let valInput = document.getElementById('fundo-troco') ? document.getElementById('fundo-troco').value : '0';
+        const fundo = parseFloat(String(valInput || '0').replace(',', '.'));
+        socket.emit('abrir_caixa', { fundo_troco: isNaN(fundo) ? 0 : fundo, operador: window.crmPerfil ? window.crmPerfil.nome : 'Caixa' });
       }
     };
   }

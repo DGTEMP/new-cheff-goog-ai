@@ -795,6 +795,33 @@ const db = {
 };
 // ------------------------------
 
+global.registrarAuditoria = (operador, acao, detalhes, motivo, risco, socketId = null) => {
+  let opFinal = (operador || '').trim();
+  if (!opFinal || opFinal === 'Desconhecido' || opFinal === 'Caixa / Desconhecido' || opFinal.toLowerCase().includes('desconhecido') || opFinal === 'undefined') {
+    if (socketId && typeof activeSockets !== 'undefined' && activeSockets.has(socketId)) {
+      const conn = activeSockets.get(socketId);
+      if (conn && conn.user && conn.user !== 'Visitante') {
+        opFinal = conn.user;
+      }
+    }
+  }
+  if (!opFinal || opFinal.toLowerCase().includes('desconhecido') || opFinal === 'undefined') {
+    opFinal = 'Operador do Caixa';
+  }
+  try {
+    db.run(
+      `INSERT INTO auditoria (operador, acao, detalhes, motivo, risco) VALUES (?, ?, ?, ?, ?)`,
+      [opFinal, acao, detalhes || '-', motivo || 'Sem justificativa', risco || 'BAIXO'],
+      (err) => {
+        if (err) console.error("Erro ao registrar auditoria:", err);
+      }
+    );
+  } catch (e) {
+    console.error("Erro ao executar registrarAuditoria:", e);
+  }
+};
+
+
 
 db.serialize(() => {
   db.run('PRAGMA journal_mode = WAL;');

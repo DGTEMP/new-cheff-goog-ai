@@ -146,7 +146,13 @@ module.exports = function(socket, io, db, helpers) {
           function (err) {
             if (!err) {
               const newTurno = { id: this.lastID, status: 'Aberto', fundo_troco };
-              global.registrarAuditoria(data.operador || 'Caixa', 'ABERTURA_CAIXA', `Caixa aberto com fundo R$ ${fundo_troco.toFixed(2)}`, 'Início de Turno', 'BAIXO');
+              if (typeof global.registrarAuditoria === 'function') {
+                try {
+                  global.registrarAuditoria(data.operador || 'Caixa', 'ABERTURA_CAIXA', `Caixa aberto com fundo R$ ${fundo_troco.toFixed(2)}`, 'Início de Turno', 'BAIXO');
+                } catch (eAudit) {
+                  console.error("Erro ao registrar auditoria de abertura:", eAudit);
+                }
+              }
               io.emit('estado_caixa', newTurno);
               socket.emit('caixa_aberto_sucesso');
               db.all(`SELECT * FROM mesas`, (e, r) => io.emit('mesas_atualizadas', r || []));
@@ -188,7 +194,13 @@ module.exports = function(socket, io, db, helpers) {
             `UPDATE turnos_caixa SET status = 'Fechado', data_fechamento = datetime('now', 'localtime') WHERE status = 'Aberto'`,
             function (err) {
               if (!err) {
-                global.registrarAuditoria(op, 'FECHAMENTO_CAIXA', 'Caixa fechado (Fechamento Normal)', 'Rotina de Encerramento', 'ALTO');
+                if (typeof global.registrarAuditoria === 'function') {
+                  try {
+                    global.registrarAuditoria(op, 'FECHAMENTO_CAIXA', 'Caixa fechado (Fechamento Normal)', 'Rotina de Encerramento', 'ALTO');
+                  } catch (eAudit) {
+                    console.error("Erro ao registrar auditoria de fechamento:", eAudit);
+                  }
+                }
                 
                 if (autoClosePonto) {
                   db.all(
