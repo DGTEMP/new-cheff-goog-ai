@@ -557,6 +557,13 @@ app.post('/api/super/login-local', async (req, res) => {
   res.json({ ok: true, token });
 });
 
+// Carregar rotas do Super Admin
+require('./controllers/super-admin')(app, masterDb, sqlite3, {
+  JWT_SECRET,
+  superAdminAuth,
+  io
+});
+
 // ── SUPER ADMIN: GERENCIAMENTO DE CERTIFICADOS (.pfx) ────────────────────
 // GET /api/super/certs — lista certificados na pasta certs/ e status atual
 app.get('/api/super/certs', superAdminAuth, (req, res) => {
