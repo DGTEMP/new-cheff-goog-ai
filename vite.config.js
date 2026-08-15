@@ -26,10 +26,12 @@ const injectPolyfills = () => {
   }
 }
 
+const isCodespaces = process.env.CODESPACES === 'true';
+
 export default defineConfig({
   plugins: [
     injectPolyfills(),
-    basicSsl(),
+    ...(!isCodespaces ? [basicSsl()] : []),
     legacy({
       targets: ['iOS >= 9']
     })
