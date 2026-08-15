@@ -33,6 +33,21 @@ const multer = require('multer');
 const nfceService = require('./nfce-service');
 const ifoodApi = require('./ifood-integration');
 
+// Carrega variáveis do arquivo .env (sem dependência externa)
+try {
+  const envFile = path.join(__dirname, '.env');
+  if (fs.existsSync(envFile)) {
+    fs.readFileSync(envFile, 'utf8').split(/\r?\n/).forEach(line => {
+      const m = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/);
+      if (m && process.env[m[1]] === undefined) {
+        process.env[m[1]] = m[2].replace(/^["']|["']$/g, '');
+      }
+    });
+  }
+} catch (e) {
+  console.error('[Startup] Erro ao carregar .env:', e.message);
+}
+
 // ── NOTIFICAÇÕES PUSH (Web Push API) ──
 const webpush = require('web-push');
 const VAPID_PUBLIC_KEY = 'BCaA01Z--nSI2tJaXLNEf_mlW959ex1fW7x-jAH1tYSEqVYemjVApDllzr1jpwQqB_nlyjX3GIRb9uEyP_IUuRI';
@@ -986,6 +1001,7 @@ db.serialize(() => {
   `);
   db.run(`ALTER TABLE pedidos ADD COLUMN funcionario_id INTEGER`, (err) => { });
   db.run(`ALTER TABLE pedidos ADD COLUMN pagamento_id INTEGER`, (err) => { });
+  db.run(`ALTER TABLE pedidos ADD COLUMN prontoEm DATETIME`, (err) => { });
 
   db.run(`
     CREATE TABLE IF NOT EXISTS clientes (
@@ -5186,7 +5202,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('manager_aprovar_vale', ({ id }) => {
-    if (socket.funcionarioCargo !== 'Gerente' && socket.funcionarioCargo !== 'Admin' && socket.funcionarioCargo !== 'Administrador') {
+    if (!['Gerente', 'Admin', 'Administrador', 'adm'].includes(socket.funcionarioCargo)) {
       return socket.emit('erro_caixa', 'Apenas gerentes ou administradores podem aprovar vales.');
     }
     db.get("SELECT * FROM vales WHERE id = ?", [id], (err, vale) => {
@@ -5211,7 +5227,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('manager_recusar_vale', ({ id }) => {
-    if (socket.funcionarioCargo !== 'Gerente' && socket.funcionarioCargo !== 'Admin' && socket.funcionarioCargo !== 'Administrador') {
+    if (!['Gerente', 'Admin', 'Administrador', 'adm'].includes(socket.funcionarioCargo)) {
       return socket.emit('erro_caixa', 'Apenas gerentes ou administradores podem recusar vales.');
     }
     db.run("UPDATE vales SET status = 'Recusado' WHERE id = ?", [id], (err) => {
@@ -5878,10 +5894,10 @@ app.post('/api/restore', verificarToken, upload.single('backup'), (req, res) => 
   });
 });
 
-let PORT = 3000;
+let PORT = parseInt(process.env.PORT, 10) || 3000;
 try {
   const portFilePath = path.join(__dirname, 'port.txt');
-  if (fs.existsSync(portFilePath)) {
+  if (fs.existsSync(portFilePath) && !process.env.PORT) {
     PORT = parseInt(fs.readFileSync(portFilePath, 'utf8').trim());
   }
 } catch (e) { }

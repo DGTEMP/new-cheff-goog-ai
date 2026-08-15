@@ -1,0 +1,39 @@
+# =============================================================================
+# Render Blueprint - Chef Cozinha
+#
+# COMO USAR (2 opções):
+#   1) Render Dashboard → "New" → "Blueprint" → escolha este repositório.
+#      O Render lê este arquivo e cria tudo automaticamente.
+#   2) Rode:  powershell -ExecutionPolicy Bypass -File deploy\install-render.ps1
+#
+# IMPORTANTE:
+#   - No plano Free os dados (SQLite) vivem no disco efêmero e são apagados
+#     a cada deploy. Serve para TESTAR. Para dados permanentes, suba o plano
+#     pago e descomente a seção "disk" abaixo.
+#   - A variável JWT_SECRET é gerada automaticamente na 1ª subida.
+# =============================================================================
+services:
+  - type: web
+    name: chef-cozinha
+    runtime: node
+    plan: free
+    buildCommand: npm install --omit=dev
+    startCommand: node server.js
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CORS_ORIGIN
+        sync: false
+        value: ""    # vazio = aceita qualquer origem (ajuste depois)
+    # ---- PARA DADOS PERMANENTES (plano pago) ------------------------------
+    # Descomente o bloco abaixo e troque "sizeGB" se quiser que os dados
+    # do SQLite sobrevivam aos redeploys. Depois edite server.js para gravar
+    # o banco dentro de CHEF_DATA_DIR (consulte deploy/install-render.ps1).
+    #
+    # disk:
+    #   name: data
+    #   mountPath: /opt/data
+    #   sizeGB: 1

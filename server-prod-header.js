@@ -119,6 +119,21 @@ const fs = require('fs');
 const multer = require('multer');
 const nfceService = require('./nfce-service');
 
+// Carrega variáveis do arquivo .env (sem dependência externa)
+try {
+  const envFile = path.join(__dirname, '.env');
+  if (fs.existsSync(envFile)) {
+    fs.readFileSync(envFile, 'utf8').split(/\r?\n/).forEach(line => {
+      const m = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/);
+      if (m && process.env[m[1]] === undefined) {
+        process.env[m[1]] = m[2].replace(/^["']|["']$/g, '');
+      }
+    });
+  }
+} catch (e) {
+  console.error('[Startup] Erro ao carregar .env:', e.message);
+}
+
 // Carregar configuracao da licenca e URL do Apps Script antes de importar o license-manager
 
 // Diretório de dados da instalação, por plataforma:

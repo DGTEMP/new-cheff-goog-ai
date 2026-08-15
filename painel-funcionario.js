@@ -7,6 +7,23 @@ function esc(v) {
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
+function getAuthToken() {
+  try {
+    const sess = JSON.parse(localStorage.getItem('chef_session') || '{}');
+    if (sess && sess.token) return sess.token;
+  } catch (e) {}
+  return localStorage.getItem('chef_token') || '';
+}
+
+function authHeaders(extra = {}) {
+  const token = getAuthToken();
+  const h = Object.assign({}, extra);
+  if (token) {
+    h['Authorization'] = 'Bearer ' + token;
+  }
+  return h;
+}
+
 // Views
 function getLoginView() { return document.getElementById('login-view'); }
 function getDashView() { return document.getElementById('dashboard-view'); }
@@ -21,8 +38,10 @@ let managerCalendarData = [];
 let managerCalMonth = new Date().getMonth();
 let managerCalYear = new Date().getFullYear();
 let restConfig = {};
+let colaboradoresCache = [];
+let estoqueProdutosCache = [];
 
-// Carregar sessão (via token — nunca senha em texto puro)
+// Carregar sessão (via token)
 localStorage.removeItem('chef_credentials');
 const savedSession = localStorage.getItem('chef_session');
 if (savedSession) {
@@ -54,7 +73,11 @@ function resetLoginBtn() {
   }
 }
 
+// ==========================================
+// DOM INITIALIZATION (Runs on DOMContentLoaded)
+// ==========================================
 function initPainelFuncionarioDOM() {
+  // Login
   const btnLogin = document.getElementById('btn-login');
   if (btnLogin) {
     btnLogin.onclick = () => {
@@ -98,6 +121,121 @@ function initPainelFuncionarioDOM() {
     }
   });
 
+  // Logout
+  const btnLogout = document.getElementById('btn-logout');
+  if (btnLogout) {
+    btnLogout.onclick = () => {
+      localStorage.removeItem('chef_session');
+      window.location.replace('/painel-funcionario.html');
+    };
+  }
+
+  // Ponto
+  const btnPonto = document.getElementById('btn-ponto');
+  if (btnPonto) {
+    btnPonto.onclick = () => {
+      if (!currentUser) return;
+      const acao = currentStatus === 'fora' ? 'entrada' : 'saida';
+      abrirScanner(acao);
+    };
+  }
+
+  // Detalhes Pagamento Modal Close
+  const btnClosePgto = document.getElementById('btn-close-pgto-detalhe');
+  if (btnClosePgto) {
+    btnClosePgto.onclick = () => {
+      const modal = document.getElementById('modal-pagamento-detalhe');
+      if (modal) modal.style.display = 'none';
+    };
+  }
+
+  // Solicitar Vale
+  const btnSolVale = document.getElementById('btn-solicitar-vale');
+  const modalVale = document.getElementById('modal-vale');
+  if (btnSolVale && modalVale) {
+    btnSolVale.onclick = () => { modalVale.style.display = 'flex'; };
+  }
+  const btnCloseVale = document.getElementById('btn-close-vale');
+  if (btnCloseVale && modalVale) {
+    btnCloseVale.onclick = () => { modalVale.style.display = 'none'; };
+  }
+  const btnConfirmVale = document.getElementById('btn-confirm-vale');
+  if (btnConfirmVale) {
+    btnConfirmVale.onclick = () => {
+      const valInput = document.getElementById('vale-valor');
+      const val = parseFloat(valInput ? valInput.value : 0);
+      if (!val || val <= 0) return alert('Insira um valor válido');
+      if (!currentUser) return alert('Faça login primeiro.');
+      socket.emit('solicitar_vale', { funcionario_id: currentUser.id, valor: val });
+      if (modalVale) modalVale.style.display = 'none';
+      if (valInput) valInput.value = '';
+    };
+  }
+
+  // Meu Consumo
+  const btnConsumo = document.getElementById('btn-meu-consumo');
+  const modalConsumo = document.getElementById('modal-consumo');
+  if (btnConsumo && modalConsumo) {
+    btnConsumo.onclick = () => {
+      modalConsumo.style.display = 'flex';
+      const barcodeInput = document.getElementById('consumo-barcode');
+      if (barcodeInput) barcodeInput.value = '';
+      socket.emit('get_cardapio_funcionario');
+    };
+  }
+  const btnCloseConsumo = document.getElementById('btn-close-consumo');
+  if (btnCloseConsumo && modalConsumo) {
+    btnCloseConsumo.onclick = () => {
+      modalConsumo.style.display = 'none';
+    };
+  }
+
+  // Calendário Navegação
+  const btnCalMenor = document.getElementById('btn-cal-mes-menor');
+  if (btnCalMenor) {
+    btnCalMenor.onclick = () => {
+      calendarMonth--;
+      if (calendarMonth < 0) { calendarMonth = 11; calendarYear--; }
+      renderCalendar();
+    };
+  }
+  const btnCalMaior = document.getElementById('btn-cal-mes-maior');
+  if (btnCalMaior) {
+    btnCalMaior.onclick = () => {
+      calendarMonth++;
+      if (calendarMonth > 11) { calendarMonth = 0; calendarYear++; }
+      renderCalendar();
+    };
+  }
+
+  // Manager Calendário Navegação
+  const btnMgrCalMenor = document.getElementById('btn-mgr-cal-menor');
+  if (btnMgrCalMenor) {
+    btnMgrCalMenor.onclick = () => {
+      managerCalMonth--;
+      if (managerCalMonth < 0) { managerCalMonth = 11; managerCalYear--; }
+      renderManagerCalendar();
+    };
+  }
+  const btnMgrCalMaior = document.getElementById('btn-mgr-cal-maior');
+  if (btnMgrCalMaior) {
+    btnMgrCalMaior.onclick = () => {
+      managerCalMonth++;
+      if (managerCalMonth > 11) { managerCalMonth = 0; managerCalYear++; }
+      renderManagerCalendar();
+    };
+  }
+
+  // Manager Panel Close
+  const btnMgrClose = document.getElementById('btn-manager-close');
+  if (btnMgrClose) {
+    btnMgrClose.onclick = () => {
+      const panel = document.getElementById('manager-panel');
+      if (panel) panel.style.display = 'none';
+    };
+  }
+
+  // Relógio
   setInterval(() => {
     const el = document.getElementById('current-time');
     if (el) {
@@ -113,6 +251,21 @@ if (document.readyState === 'loading') {
   initPainelFuncionarioDOM();
 }
 
+// Se a página for restaurada do cache do navegador
+window.addEventListener('pageshow', () => {
+  if (!localStorage.getItem('chef_session') && currentUser) {
+    currentUser = null;
+    const dv = getDashView();
+    const lv = getLoginView();
+    if (dv) dv.style.display = 'none';
+    if (lv) lv.style.display = 'flex';
+    socket.emit('logout_funcionario');
+  }
+});
+
+// ==========================================
+// SOCKET EVENT LISTENERS
+// ==========================================
 socket.on('login_error', (msg) => {
   resetLoginBtn();
   localStorage.removeItem('chef_credentials');
@@ -149,62 +302,42 @@ socket.on('login_success', (user) => {
   }
 
   const isAdmin = ['Admin', 'Administrador', 'adm', 'Gerente'].includes(user.cargo);
-  if (isAdmin) {
-    const btnToggle = document.getElementById('btn-manager-toggle');
-    if (btnToggle) {
-      btnToggle.style.display = '';
+  const btnToggle = document.getElementById('btn-manager-toggle');
+  if (btnToggle) {
+    if (isAdmin) {
+      btnToggle.style.display = 'inline-flex';
       btnToggle.onclick = () => {
         const panel = document.getElementById('manager-panel');
-        if (panel && panel.style.display === 'flex') { panel.style.display = 'none'; return; }
-        if (panel) panel.style.display = 'flex';
-        loadManagerData();
+        if (panel && (panel.style.display === 'flex' || panel.style.display === 'block')) {
+          panel.style.display = 'none';
+          return;
+        }
+        if (panel) {
+          panel.style.display = 'flex';
+          loadManagerData();
+        }
       };
-    }
-    const btnClose = document.getElementById('btn-manager-close');
-    if (btnClose) {
-      btnClose.onclick = () => {
-        const panel = document.getElementById('manager-panel');
-        if (panel) panel.style.display = 'none';
-      };
+    } else {
+      btnToggle.style.display = 'none';
     }
   }
 
   socket.emit('get_metricas_funcionario', user.id);
+  socket.emit('get_restaurante_config');
 });
 
-// (Segurança) Armazena apenas o token de sessão (sem senha) para reautenticação automática.
 socket.on('login_token', (token) => {
   if (!token || !currentUser) return;
   try {
-    localStorage.setItem('chef_session', JSON.stringify({ token, usuario: currentUser.usuario, cargo: currentUser.cargo, nome: currentUser.nome, id: currentUser.id }));
+    localStorage.setItem('chef_session', JSON.stringify({
+      token,
+      usuario: currentUser.usuario,
+      cargo: currentUser.cargo,
+      nome: currentUser.nome,
+      id: currentUser.id
+    }));
   } catch (e) {}
 });
-
-document.getElementById('btn-logout').onclick = () => {
-    localStorage.removeItem('chef_session');
-    window.location.replace('/painel-funcionario.html');
-  };
-
-// Se a página for restaurada do cache do navegador (botão voltar) sem sessão de
-// funcionário, garante que a tela de login seja exibida em vez do painel anterior.
-window.addEventListener('pageshow', () => {
-  if (!localStorage.getItem('chef_session') && currentUser) {
-    currentUser = null;
-    dashView.style.display = 'none';
-    loginView.style.display = 'flex';
-    socket.emit('logout_funcionario');
-  }
-});
-
-// Ponto
-const btnPonto = document.getElementById('btn-ponto');
-const workStatus = document.getElementById('work-status');
-
-btnPonto.onclick = () => {
-  if (!currentUser) return;
-  const acao = currentStatus === 'fora' ? 'entrada' : 'saida';
-  abrirScanner(acao);
-};
 
 socket.on('ponto_registrado', ({ acao }) => {
   if (acao === 'entrada') {
@@ -212,22 +345,36 @@ socket.on('ponto_registrado', ({ acao }) => {
   } else {
     alert('Saída registrada com sucesso! Seu turno foi encerrado.');
   }
-  socket.emit('get_metricas_funcionario', currentUser.id);
+  if (currentUser) socket.emit('get_metricas_funcionario', currentUser.id);
 });
 
-// Atualizar View com Métricas
 socket.on('metricas_funcionario_response', ({ pontos, vales, pagamentos }) => {
+  pontos = pontos || [];
+  vales = vales || [];
+  pagamentos = pagamentos || [];
+
+  const btnPonto = document.getElementById('btn-ponto');
+  const workStatus = document.getElementById('work-status');
   const lastPonto = pontos[0];
+
   if (lastPonto && !lastPonto.saida) {
     currentStatus = 'trabalhando';
-    btnPonto.className = 'btn-main btn-danger';
-    btnPonto.innerHTML = '<i class="ph ph-fingerprint" style="margin-right: 8px;"></i> REGISTRAR SAÍDA';
-    workStatus.innerText = 'Turno em andamento (Entrada: ' + new Date(lastPonto.entrada).toLocaleTimeString('pt-BR') + ')';
+    if (btnPonto) {
+      btnPonto.className = 'btn-main btn-danger';
+      btnPonto.innerHTML = '<i class="ph ph-fingerprint" style="margin-right: 8px;"></i> REGISTRAR SAÍDA';
+    }
+    if (workStatus) {
+      workStatus.innerText = 'Turno em andamento (Entrada: ' + new Date(lastPonto.entrada).toLocaleTimeString('pt-BR') + ')';
+    }
   } else {
     currentStatus = 'fora';
-    btnPonto.className = 'btn-main btn-success';
-    btnPonto.innerHTML = '<i class="ph ph-fingerprint" style="margin-right: 8px;"></i> REGISTRAR ENTRADA';
-    workStatus.innerText = 'Pronto para iniciar seu turno?';
+    if (btnPonto) {
+      btnPonto.className = 'btn-main btn-success';
+      btnPonto.innerHTML = '<i class="ph ph-fingerprint" style="margin-right: 8px;"></i> REGISTRAR ENTRADA';
+    }
+    if (workStatus) {
+      workStatus.innerText = 'Pronto para iniciar seu turno?';
+    }
   }
 
   const currentMonth = new Date().getMonth();
@@ -240,62 +387,70 @@ socket.on('metricas_funcionario_response', ({ pontos, vales, pagamentos }) => {
     if (pDate.getMonth() === currentMonth) {
       if (p.total_horas) totalHoras += p.total_horas;
       if (p.valor_pagar) valorAcumulado += p.valor_pagar;
-      diasTrabalhados.add(p.data);
+      if (p.data) diasTrabalhados.add(p.data);
     }
   });
 
-  document.getElementById('metric-horas').innerText = totalHoras.toFixed(1) + 'h';
-  document.getElementById('metric-valor').innerText = 'R$ ' + valorAcumulado.toFixed(2).replace('.',',');
-  document.getElementById('metric-dias').innerText = diasTrabalhados.size;
-  
+  const elHoras = document.getElementById('metric-horas');
+  if (elHoras) elHoras.innerText = totalHoras.toFixed(1) + 'h';
+  const elVal = document.getElementById('metric-valor');
+  if (elVal) elVal.innerText = 'R$ ' + valorAcumulado.toFixed(2).replace('.', ',');
+  const elDias = document.getElementById('metric-dias');
+  if (elDias) elDias.innerText = diasTrabalhados.size;
+
   const media = diasTrabalhados.size > 0 ? (totalHoras / diasTrabalhados.size).toFixed(1) : 0;
-  document.getElementById('metric-media').innerText = media + 'h';
+  const elMedia = document.getElementById('metric-media');
+  if (elMedia) elMedia.innerText = media + 'h';
 
   // Render Vales
   const list = document.getElementById('vales-list');
-  if (vales.length === 0) {
-    list.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--text-muted);">Nenhum vale solicitado.</div>';
-  } else {
-    let html = '';
-    vales.forEach(v => {
-      let statusClass = v.status.toLowerCase();
-      if(statusClass === 'pendente') statusClass = 'pendente';
-      else if(statusClass === 'aprovado') statusClass = 'aprovado';
-      else statusClass = 'recusado';
-      
-      html += `
-        <div class="vale-item">
-          <div class="vale-info">
-            <strong>R$ ${v.valor.toFixed(2).replace('.',',')}</strong>
-            <span>${new Date(v.data_pedido).toLocaleDateString('pt-BR')}</span>
+  if (list) {
+    if (vales.length === 0) {
+      list.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--text-muted);">Nenhum vale solicitado.</div>';
+    } else {
+      let html = '';
+      vales.forEach(v => {
+        let statusClass = (v.status || '').toLowerCase();
+        if (statusClass === 'pendente') statusClass = 'pendente';
+        else if (statusClass === 'aprovado') statusClass = 'aprovado';
+        else statusClass = 'recusado';
+
+        html += `
+          <div class="vale-item">
+            <div class="vale-info">
+              <strong>R$ ${parseFloat(v.valor || 0).toFixed(2).replace('.', ',')}</strong>
+              <span>${v.data_pedido ? new Date(v.data_pedido).toLocaleDateString('pt-BR') : ''}</span>
+            </div>
+            <span class="status-badge ${statusClass}">${esc(v.status)}</span>
           </div>
-          <span class="status-badge ${statusClass}">${esc(v.status)}</span>
-        </div>
-      `;
-    });
-    list.innerHTML = html;
+        `;
+      });
+      list.innerHTML = html;
+    }
   }
 
   // Render Pagamentos
   const pgtoList = document.getElementById('pagamentos-list');
-  if (!pagamentos || pagamentos.length === 0) {
-    pgtoList.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--text-muted);">Nenhum pagamento registrado.</div>';
-  } else {
-    let pgHtml = '';
-    pagamentos.forEach(p => {
-      const data = p.data_pagamento ? new Date(p.data_pagamento).toLocaleDateString('pt-BR') : '-';
-      const valor = parseFloat(p.valor_liquido || p.valor_bruto || 0);
-      pgHtml += `
-        <div class="pagamento-item" onclick="window.verDetalhePagamento(${JSON.stringify(p).replace(/"/g, '&quot;')})">
-          <div class="pagamento-info">
-            <strong>${esc(p.observacao || 'Pagamento')}</strong>
-            <span>${data}</span>
+  if (pgtoList) {
+    if (!pagamentos || pagamentos.length === 0) {
+      pgtoList.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--text-muted);">Nenhum pagamento registrado.</div>';
+    } else {
+      let pgHtml = '';
+      pagamentos.forEach(p => {
+        const data = p.data_pagamento ? new Date(p.data_pagamento).toLocaleDateString('pt-BR') : '-';
+        const valor = parseFloat(p.valor_liquido || p.valor_bruto || 0);
+        pgHtml += `
+          <div class="pagamento-item" onclick="window.verDetalhePagamento(${JSON.stringify(p).replace(/"/g, '&quot;')})">
+            <div class="pagamento-info">
+              <strong>${esc(p.observacao || 'Pagamento')}</strong>
+              <span>${data}</span>
+            </div>
+            <div class="pagamento-valor">R$ ${valor.toFixed(2).replace('.', ',')}</div>
           </div>
-          <div class="pagamento-valor">R$ ${valor.toFixed(2).replace('.', ',')}</div>
-        </div>
-      `;
-    });
-    pgtoList.innerHTML = pgHtml;
+        `;
+      });
+      pgtoList.innerHTML = pgHtml;
+    }
   }
 
   // Load calendar & consumo after metrics
@@ -305,306 +460,23 @@ socket.on('metricas_funcionario_response', ({ pontos, vales, pagamentos }) => {
   }
 });
 
-socket.on('restaurante_config', (cfg) => { restConfig = cfg; });
-socket.emit('get_restaurante_config');
-
-// Detalhe Pagamento Modal
-document.getElementById('btn-close-pgto-detalhe').onclick = () => {
-  document.getElementById('modal-pagamento-detalhe').style.display = 'none';
-};
-
-window.verDetalhePagamento = function(pag) {
-  const data = pag.data_pagamento ? new Date(pag.data_pagamento).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' }) : '-';
-  const valorBruto = parseFloat(pag.valor_bruto || 0);
-  const vales = parseFloat(pag.total_vales_abatidos || 0);
-  const consumo = parseFloat(pag.total_consumo_abatido || 0);
-  const liquido = parseFloat(pag.valor_liquido || 0);
-
-  document.getElementById('pgto-detalhe-content').innerHTML = `
-    <div style="background: #f0fdf4; border-radius: 12px; padding: 20px; text-align: center; margin-bottom: 16px;">
-      <div style="font-size: 14px; color: #166534;">Valor Recebido</div>
-      <div style="font-size: 32px; font-weight: 900; color: #16a34a;">R$ ${liquido.toFixed(2).replace('.', ',')}</div>
-    </div>
-    <div style="display: flex; flex-direction: column; gap: 8px;">
-      <div style="display: flex; justify-content: space-between; padding: 10px 12px; background: #f8f9fa; border-radius: 8px;">
-        <span style="color: #64748b;">Data</span>
-        <span style="font-weight: 600;">${data}</span>
-      </div>
-      <div style="display: flex; justify-content: space-between; padding: 10px 12px; background: #f8f9fa; border-radius: 8px;">
-        <span style="color: #64748b;">Valor Bruto</span>
-        <span style="font-weight: 600;">R$ ${valorBruto.toFixed(2).replace('.', ',')}</span>
-      </div>
-      ${vales > 0 ? `<div style="display: flex; justify-content: space-between; padding: 10px 12px; background: #fff1f2; border-radius: 8px;">
-        <span style="color: #e11d48;">Vales Abatidos</span>
-        <span style="font-weight: 600; color: #e11d48;">- R$ ${vales.toFixed(2).replace('.', ',')}</span>
-      </div>` : ''}
-      ${consumo > 0 ? `<div style="display: flex; justify-content: space-between; padding: 10px 12px; background: #fff7ed; border-radius: 8px;">
-        <span style="color: #ea580c;">Consumo Abatido</span>
-        <span style="font-weight: 600; color: #ea580c;">- R$ ${consumo.toFixed(2).replace('.', ',')}</span>
-      </div>` : ''}
-      ${pag.observacao ? `<div style="padding: 10px 12px; background: #f8f9fa; border-radius: 8px;">
-        <span style="color: #64748b;">Observação: </span>
-        <span style="font-weight: 500;">${esc(pag.observacao)}</span>
-      </div>` : ''}
-    </div>
-  `;
-  document.getElementById('modal-pagamento-detalhe').style.display = 'flex';
-};
-
-// === CELEBRATION SYSTEM ===
-function launchConfetti() {
-  const canvas = document.getElementById('confetti-canvas');
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-
-  const colors = ['#6c5ce7', '#a29bfe', '#00b894', '#fdcb6e', '#e17055', '#ff7675', '#74b9ff', '#55efc4', '#fd79a8'];
-  const particles = [];
-
-  for (let i = 0; i < 120; i++) {
-    particles.push({
-      x: Math.random() * canvas.width,
-      y: Math.random() * canvas.height - canvas.height,
-      w: Math.random() * 10 + 5,
-      h: Math.random() * 6 + 3,
-      color: colors[Math.floor(Math.random() * colors.length)],
-      vx: (Math.random() - 0.5) * 4,
-      vy: Math.random() * 3 + 2,
-      rot: Math.random() * 360,
-      rotSpeed: (Math.random() - 0.5) * 10,
-      opacity: 1
-    });
-  }
-
-  let frame = 0;
-  function animate() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    let alive = false;
-    particles.forEach(p => {
-      p.x += p.vx;
-      p.y += p.vy;
-      p.vy += 0.05;
-      p.rot += p.rotSpeed;
-      if (frame > 60) p.opacity -= 0.015;
-      if (p.opacity > 0 && p.y < canvas.height + 50) {
-        alive = true;
-        ctx.save();
-        ctx.translate(p.x, p.y);
-        ctx.rotate((p.rot * Math.PI) / 180);
-        ctx.globalAlpha = Math.max(0, p.opacity);
-        ctx.fillStyle = p.color;
-        ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
-        ctx.restore();
-      }
-    });
-    frame++;
-    if (alive) requestAnimationFrame(animate);
-    else ctx.clearRect(0, 0, canvas.width, canvas.height);
-  }
-  animate();
-}
-
-function playCelebrationSound() {
-  try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const notes = [523.25, 659.25, 783.99, 1046.50, 783.99, 1046.50];
-    const durations = [0.12, 0.12, 0.12, 0.2, 0.12, 0.3];
-    let t = ctx.currentTime;
-
-    notes.forEach((freq, i) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.value = freq;
-      gain.gain.setValueAtTime(0.3, t);
-      gain.gain.exponentialRampToValueAtTime(0.001, t + durations[i] + 0.05);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(t);
-      osc.stop(t + durations[i] + 0.05);
-      t += durations[i];
-    });
-  } catch (e) { /* silent fail */ }
-}
-
-function showCelebration(data) {
-  if (currentUser && data.funcionario_id !== currentUser.id) return;
-
-  const overlay = document.getElementById('celebration-overlay');
-  document.getElementById('celebration-name').textContent = data.funcionario_nome;
-  document.getElementById('celebration-value').textContent = 'R$ ' + parseFloat(data.valor).toFixed(2).replace('.', ',');
-  document.getElementById('celebration-obs').textContent = data.observacao || '';
-
-  overlay.style.display = 'flex';
-  launchConfetti();
-  playCelebrationSound();
-
-  setTimeout(() => { overlay.style.display = 'none'; }, 8000);
-}
+socket.on('restaurante_config', (cfg) => { restConfig = cfg || {}; });
 
 socket.on('pagamento_colaborador_celebracao', (data) => {
   showCelebration(data);
   if (currentUser) socket.emit('get_metricas_funcionario', currentUser.id);
 });
 
-// Modal Vales
-const modalVale = document.getElementById('modal-vale');
-document.getElementById('btn-solicitar-vale').onclick = () => modalVale.style.display = 'flex';
-document.getElementById('btn-close-vale').onclick = () => modalVale.style.display = 'none';
-
-document.getElementById('btn-confirm-vale').onclick = () => {
-  const val = parseFloat(document.getElementById('vale-valor').value);
-  if (!val || val <= 0) return alert('Insira um valor válido');
-  
-  socket.emit('solicitar_vale', { funcionario_id: currentUser.id, valor: val });
-  modalVale.style.display = 'none';
-  document.getElementById('vale-valor').value = '';
-};
-
 socket.on('vale_solicitado_success', () => {
   alert('Vale solicitado com sucesso!');
-  socket.emit('get_metricas_funcionario', currentUser.id);
+  if (currentUser) socket.emit('get_metricas_funcionario', currentUser.id);
 });
 
 socket.on('bater_ponto_error', (msg) => { alert(msg); });
 
-let html5QrCode = null;
-
-window.fecharScannerPonto = function() {
-  document.getElementById('modal-qr-scanner').style.display = 'none';
-  if (html5QrCode) {
-    html5QrCode.stop().then(() => {
-      html5QrCode.clear();
-      html5QrCode = null;
-    }).catch(e => console.error("Falha ao parar scanner", e));
-  }
-};
-
-function abrirScanner(acao) {
-  const modal = document.getElementById('modal-qr-scanner');
-  
-  if (typeof Html5Qrcode === 'undefined') {
-    if (modal) modal.style.display = 'none';
-    alert('Leitor de QR indisponível (biblioteca não carregada).');
-    return;
-  }
-  
-  if (modal) modal.style.display = 'flex';
-  
-  if (!html5QrCode) {
-    html5QrCode = new Html5Qrcode("qr-reader");
-  }
-
-  html5QrCode.start(
-    { facingMode: "environment" },
-    {
-      fps: 10,
-      qrbox: { width: 250, height: 250 }
-    },
-    (decodedText, decodedResult) => {
-      try {
-        const url = new URL(decodedText);
-        const t = url.searchParams.get('t');
-        if (t) {
-          fecharScannerPonto();
-          socket.emit('bater_ponto', { funcionario_id: currentUser.id, acao, token: t });
-        } else {
-          fecharScannerPonto();
-          alert("QR Code inválido. Token não encontrado.");
-        }
-      } catch(e) {
-        fecharScannerPonto();
-        alert("QR Code não reconhecido. Certifique-se de escanear o código correto.");
-      }
-    },
-    (errorMessage) => {
-      // ignore
-    }
-  ).catch(err => {
-    alert("Erro ao acessar a câmera. Verifique se deu permissão ao navegador.");
-    fecharScannerPonto();
-  });
-}
-
-// === CONSUMO BARCODE SCANNER ===
-let consumoScanner = null;
-
-window.fecharScannerConsumo = function() {
-  document.getElementById('modal-consumo-scanner').style.display = 'none';
-  if (consumoScanner) {
-    consumoScanner.stop().then(() => {
-      consumoScanner.clear();
-      consumoScanner = null;
-    }).catch(e => console.error("Falha ao parar scanner consumo", e));
-  }
-};
-
-window.abrirScannerBarcode = function(onDecoded) {
-  document.getElementById('modal-consumo-scanner').style.display = 'flex';
-  
-  if (!consumoScanner) {
-    consumoScanner = new Html5Qrcode("consumo-qr-reader", {
-      formatsToSupport: [
-        Html5QrcodeSupportedFormats.EAN_13,
-        Html5QrcodeSupportedFormats.EAN_8,
-        Html5QrcodeSupportedFormats.UPC_A,
-        Html5QrcodeSupportedFormats.UPC_E,
-        Html5QrcodeSupportedFormats.CODE_128,
-        Html5QrcodeSupportedFormats.CODE_39,
-        Html5QrcodeSupportedFormats.CODE_93,
-        Html5QrcodeSupportedFormats.ITF
-      ]
-    });
-  }
-
-  consumoScanner.start(
-    { facingMode: "environment" },
-    {
-      fps: 10,
-      qrbox: { width: 250, height: 250 }
-    },
-    (decodedText, decodedResult) => {
-      fecharScannerConsumo();
-      if (onDecoded) onDecoded(decodedText);
-    },
-    (errorMessage) => {
-      // ignore
-    }
-  ).catch(err => {
-    alert("Erro ao acessar a câmera. Verifique se deu permissão ao navegador.");
-    fecharScannerConsumo();
-  });
-};
-
-window.abrirScannerConsumo = function() {
-  abrirScannerBarcode(function(codigo) {
-    const input = document.getElementById('consumo-barcode');
-    if (input) input.value = codigo;
-    buscarProdutoBarcodeConsumo();
-  });
-};
-
-window.abrirScannerEstoque = function() {
-  abrirScannerBarcode(function(codigo) {
-    const input = document.getElementById('mgr-estq-barcode');
-    if (input) input.value = codigo;
-    buscarProdutoPorBarcode();
-  });
-};
-
-// === MEU CONSUMO ===
-document.getElementById('btn-meu-consumo').onclick = () => {
-  document.getElementById('modal-consumo').style.display = 'flex';
-  document.getElementById('consumo-barcode').value = '';
-  socket.emit('get_cardapio_funcionario');
-};
-document.getElementById('btn-close-consumo').onclick = () => {
-  document.getElementById('modal-consumo').style.display = 'none';
-};
-
 socket.on('cardapio_funcionario', (produtos) => {
   const container = document.getElementById('cardapio-funcionario');
+  if (!container) return;
   if (!produtos || produtos.length === 0) {
     container.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);">Nenhum item disponível.</div>';
     return;
@@ -630,6 +502,298 @@ socket.on('cardapio_funcionario', (produtos) => {
   container.innerHTML = html;
 });
 
+socket.on('consumo_adicionado', () => {
+  const modal = document.getElementById('modal-consumo');
+  if (modal) modal.style.display = 'none';
+  if (currentUser) {
+    socket.emit('get_meu_consumo', currentUser.id);
+    loadCalendar();
+  }
+});
+
+socket.on('consumo_erro', (msg) => { alert(msg); });
+
+socket.on('meu_consumo', (items) => {
+  const list = document.getElementById('consumo-list');
+  if (!list) return;
+  if (!items || items.length === 0) {
+    list.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--text-muted);">Nenhum consumo registrado.</div>';
+    return;
+  }
+  let html = '';
+  let total = 0;
+  items.forEach(i => {
+    const val = parseFloat(i.total || 0);
+    total += val;
+    html += `
+      <div class="consumo-item">
+        <div>
+          <div class="consumo-nome">${esc(i.productName)}</div>
+          <div style="font-size:11px;color:var(--text-muted);">${i.createdAt ? new Date(i.createdAt).toLocaleDateString('pt-BR') : ''}</div>
+        </div>
+        <div class="consumo-total">- R$ ${val.toFixed(2).replace('.', ',')}</div>
+      </div>
+    `;
+  });
+  html += `
+    <div class="consumo-item" style="background:#fff3cd;">
+      <div class="consumo-nome" style="font-weight:700;">Total a Pagar</div>
+      <div style="font-weight:800;color:#dc2626;">R$ ${total.toFixed(2).replace('.', ',')}</div>
+    </div>
+  `;
+  list.innerHTML = html;
+});
+
+socket.on('calendario_funcionario', (data) => {
+  calendarData = data || { pontos: [], consumo: [], vales: [] };
+  renderCalendar();
+});
+
+socket.on('disponibilidade_funcionario', (rows) => {
+  calendarData.disponibilidades = rows || [];
+  renderCalendar();
+});
+
+socket.on('dia_atipico_atualizado', () => {
+  loadCalendar();
+});
+
+socket.on('manager_team_status', (funcionarios) => {
+  const el = document.getElementById('manager-team-status');
+  if (!el) return;
+  funcionarios = funcionarios || [];
+  let online = 0, offline = 0, clockedIn = 0;
+  funcionarios.forEach(f => {
+    if (f.online) online++;
+    if (!f.online) offline++;
+    if (f.ponto_aberto) clockedIn++;
+  });
+  el.innerHTML = `
+    <div style="display:flex; gap:16px; flex-wrap:wrap; margin-bottom:8px;">
+      <span><strong>${funcionarios.length}</strong> total</span>
+      <span style="color:#4ade80;"><strong>${online}</strong> online</span>
+      <span style="color:#94a3b8;"><strong>${offline}</strong> offline</span>
+      <span style="color:#facc15;"><strong>${clockedIn}</strong> em ponto</span>
+    </div>
+    <div style="margin-top:6px; max-height:120px; overflow-y:auto;">
+      ${funcionarios.map(f => `
+        <div style="display:flex; justify-content:space-between; padding:3px 0; font-size:12px; border-bottom:1px solid rgba(255,255,255,0.08);">
+          <span>${esc(f.nome)} <small style="opacity:0.7;">(${esc(f.cargo || '')})</small></span>
+          <span>${f.ponto_aberto ? '<i class="ph ph-clock" style="color:#facc15;"></i>' : (f.online ? '<span style="color:#4ade80;">online</span>' : '<span style="opacity:0.5;">offline</span>')}</span>
+        </div>
+      `).join('')}
+    </div>
+  `;
+});
+
+socket.on('manager_pending_vales', (vales) => {
+  const el = document.getElementById('manager-vales-pendentes');
+  const countEl = document.getElementById('manager-pending-count');
+  vales = vales || [];
+  if (countEl) countEl.textContent = vales.length;
+  if (!el) return;
+  if (!vales.length) {
+    el.innerHTML = 'Nenhum vale pendente.';
+    return;
+  }
+  el.innerHTML = vales.map(v => `
+    <div class="vales-pendentes-item">
+      <div class="vp-info">
+        <strong>${esc(v.funcionario_nome)}</strong><br>
+        <span>R$ ${parseFloat(v.valor || 0).toFixed(2)}</span>
+        <span style="opacity:0.6; font-size:11px;"> — ${esc(v.motivo || 'sem motivo')}</span>
+      </div>
+      <div class="vp-actions">
+        <button class="vp-aprovar" onclick="managerAprovarVale(${v.id}, this)">Aprovar</button>
+        <button class="vp-recusar" onclick="managerRecusarVale(${v.id}, this)">Recusar</button>
+      </div>
+    </div>
+  `).join('');
+});
+
+socket.on('manager_calendar_vales', (vales) => {
+  managerCalendarData = vales || [];
+  renderManagerCalendar();
+});
+
+socket.on('manager_vale_atualizado', () => {
+  loadManagerData();
+});
+
+socket.on('rh_update', () => {
+  if (currentUser) {
+    socket.emit('get_metricas_funcionario', currentUser.id);
+  }
+  const panel = document.getElementById('manager-panel');
+  if (panel && panel.style.display === 'flex') {
+    loadManagerData();
+  }
+});
+
+// ==========================================
+// MANAGER & COLLABORATOR GLOBAL FUNCTIONS
+// ==========================================
+
+window.fecharModal = function(id) {
+  const el = document.getElementById(id);
+  if (el) el.style.display = 'none';
+};
+
+window.verDetalhePagamento = function(pag) {
+  const data = pag.data_pagamento ? new Date(pag.data_pagamento).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' }) : '-';
+  const valorBruto = parseFloat(pag.valor_bruto || 0);
+  const vales = parseFloat(pag.total_vales_abatidos || 0);
+  const consumo = parseFloat(pag.total_consumo_abatido || 0);
+  const liquido = parseFloat(pag.valor_liquido || 0);
+
+  const container = document.getElementById('pgto-detalhe-content');
+  if (container) {
+    container.innerHTML = `
+      <div style="background: #f0fdf4; border-radius: 12px; padding: 20px; text-align: center; margin-bottom: 16px;">
+        <div style="font-size: 14px; color: #166534;">Valor Recebido</div>
+        <div style="font-size: 32px; font-weight: 900; color: #16a34a;">R$ ${liquido.toFixed(2).replace('.', ',')}</div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <div style="display: flex; justify-content: space-between; padding: 10px 12px; background: #f8f9fa; border-radius: 8px;">
+          <span style="color: #64748b;">Data</span>
+          <span style="font-weight: 600;">${data}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; padding: 10px 12px; background: #f8f9fa; border-radius: 8px;">
+          <span style="color: #64748b;">Valor Bruto</span>
+          <span style="font-weight: 600;">R$ ${valorBruto.toFixed(2).replace('.', ',')}</span>
+        </div>
+        ${vales > 0 ? `<div style="display: flex; justify-content: space-between; padding: 10px 12px; background: #fff1f2; border-radius: 8px;">
+          <span style="color: #e11d48;">Vales Abatidos</span>
+          <span style="font-weight: 600; color: #e11d48;">- R$ ${vales.toFixed(2).replace('.', ',')}</span>
+        </div>` : ''}
+        ${consumo > 0 ? `<div style="display: flex; justify-content: space-between; padding: 10px 12px; background: #fff7ed; border-radius: 8px;">
+          <span style="color: #ea580c;">Consumo Abatido</span>
+          <span style="font-weight: 600; color: #ea580c;">- R$ ${consumo.toFixed(2).replace('.', ',')}</span>
+        </div>` : ''}
+        ${pag.observacao ? `<div style="padding: 10px 12px; background: #f8f9fa; border-radius: 8px;">
+          <span style="color: #64748b;">Observação: </span>
+          <span style="font-weight: 500;">${esc(pag.observacao)}</span>
+        </div>` : ''}
+      </div>
+    `;
+  }
+  const modal = document.getElementById('modal-pagamento-detalhe');
+  if (modal) modal.style.display = 'flex';
+};
+
+// QR & Barcode scanner helpers
+let html5QrCode = null;
+let consumoScanner = null;
+
+window.fecharScannerPonto = function() {
+  const el = document.getElementById('modal-qr-scanner');
+  if (el) el.style.display = 'none';
+  if (html5QrCode) {
+    html5QrCode.stop().then(() => {
+      html5QrCode.clear();
+      html5QrCode = null;
+    }).catch(e => console.error("Falha ao parar scanner", e));
+  }
+};
+
+function abrirScanner(acao) {
+  const modal = document.getElementById('modal-qr-scanner');
+  if (typeof Html5Qrcode === 'undefined') {
+    if (modal) modal.style.display = 'none';
+    alert('Leitor de QR indisponível (biblioteca não carregada).');
+    return;
+  }
+  if (modal) modal.style.display = 'flex';
+  if (!html5QrCode) {
+    html5QrCode = new Html5Qrcode("qr-reader");
+  }
+
+  html5QrCode.start(
+    { facingMode: "environment" },
+    { fps: 10, qrbox: { width: 250, height: 250 } },
+    (decodedText) => {
+      try {
+        const url = new URL(decodedText);
+        const t = url.searchParams.get('t');
+        if (t && currentUser) {
+          fecharScannerPonto();
+          socket.emit('bater_ponto', { funcionario_id: currentUser.id, acao, token: t });
+        } else {
+          fecharScannerPonto();
+          alert("QR Code inválido. Token não encontrado.");
+        }
+      } catch (e) {
+        fecharScannerPonto();
+        alert("QR Code não reconhecido. Certifique-se de escanear o código correto.");
+      }
+    },
+    () => {}
+  ).catch(() => {
+    alert("Erro ao acessar a câmera. Verifique se deu permissão ao navegador.");
+    fecharScannerPonto();
+  });
+}
+
+window.fecharScannerConsumo = function() {
+  const el = document.getElementById('modal-consumo-scanner');
+  if (el) el.style.display = 'none';
+  if (consumoScanner) {
+    consumoScanner.stop().then(() => {
+      consumoScanner.clear();
+      consumoScanner = null;
+    }).catch(e => console.error("Falha ao parar scanner consumo", e));
+  }
+};
+
+window.abrirScannerBarcode = function(onDecoded) {
+  const modal = document.getElementById('modal-consumo-scanner');
+  if (modal) modal.style.display = 'flex';
+
+  if (!consumoScanner) {
+    consumoScanner = new Html5Qrcode("consumo-qr-reader", {
+      formatsToSupport: [
+        Html5QrcodeSupportedFormats.EAN_13,
+        Html5QrcodeSupportedFormats.EAN_8,
+        Html5QrcodeSupportedFormats.UPC_A,
+        Html5QrcodeSupportedFormats.UPC_E,
+        Html5QrcodeSupportedFormats.CODE_128,
+        Html5QrcodeSupportedFormats.CODE_39,
+        Html5QrcodeSupportedFormats.CODE_93,
+        Html5QrcodeSupportedFormats.ITF
+      ]
+    });
+  }
+
+  consumoScanner.start(
+    { facingMode: "environment" },
+    { fps: 10, qrbox: { width: 250, height: 250 } },
+    (decodedText) => {
+      fecharScannerConsumo();
+      if (onDecoded) onDecoded(decodedText);
+    },
+    () => {}
+  ).catch(() => {
+    alert("Erro ao acessar a câmera. Verifique se deu permissão ao navegador.");
+    fecharScannerConsumo();
+  });
+};
+
+window.abrirScannerConsumo = function() {
+  abrirScannerBarcode(function(codigo) {
+    const input = document.getElementById('consumo-barcode');
+    if (input) input.value = codigo;
+    buscarProdutoBarcodeConsumo();
+  });
+};
+
+window.abrirScannerEstoque = function() {
+  abrirScannerBarcode(function(codigo) {
+    const input = document.getElementById('mgr-estq-barcode');
+    if (input) input.value = codigo;
+    buscarProdutoPorBarcode();
+  });
+};
+
 window.adicionarConsumo = function(produto_id) {
   if (!currentUser) return;
   socket.emit('adicionar_consumo_funcionario', { funcionario_id: currentUser.id, produto_id, quantidade: 1 });
@@ -646,74 +810,40 @@ window.buscarProdutoBarcodeConsumo = function() {
       return;
     }
     adicionarConsumo(prod.id);
-    input.value = '';
+    if (input) input.value = '';
     const container = document.getElementById('cardapio-funcionario');
-    container.innerHTML = `<div style="padding:20px;text-align:center;color:#16a34a;font-weight:600;">✓ ${esc(prod.nome)} adicionado ao consumo!</div>`;
+    if (container) {
+      container.innerHTML = `<div style="padding:20px;text-align:center;color:#16a34a;font-weight:600;">✓ ${esc(prod.nome)} adicionado ao consumo!</div>`;
+    }
     setTimeout(() => socket.emit('get_cardapio_funcionario'), 800);
   });
 };
 
-socket.on('consumo_adicionado', (item) => {
-  document.getElementById('modal-consumo').style.display = 'none';
-  socket.emit('get_meu_consumo', currentUser.id);
-  loadCalendar();
-});
-
-socket.on('consumo_erro', (msg) => { alert(msg); });
-
 window.filtrarCardapio = function(valor) {
   const termo = valor.toLowerCase();
   document.querySelectorAll('.cardapio-item').forEach(el => {
-    const nome = el.querySelector('.cardapio-item-nome').innerText.toLowerCase();
+    const nomeEl = el.querySelector('.cardapio-item-nome');
+    const nome = nomeEl ? nomeEl.innerText.toLowerCase() : '';
     el.style.display = nome.includes(termo) ? 'flex' : 'none';
   });
 };
 
-socket.on('meu_consumo', (items) => {
-  const list = document.getElementById('consumo-list');
-  if (!items || items.length === 0) {
-    list.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--text-muted);">Nenhum consumo registrado.</div>';
-    return;
-  }
-  let html = '';
-  let total = 0;
-  items.forEach(i => {
-    const val = parseFloat(i.total || 0);
-    total += val;
-    html += `
-      <div class="consumo-item">
-        <div>
-          <div class="consumo-nome">${esc(i.productName)}</div>
-          <div style="font-size:11px;color:var(--text-muted);">${new Date(i.createdAt).toLocaleDateString('pt-BR')}</div>
-        </div>
-        <div class="consumo-total">- R$ ${val.toFixed(2).replace('.', ',')}</div>
-      </div>
-    `;
-  });
-  html += `
-    <div class="consumo-item" style="background:#fff3cd;">
-      <div class="consumo-nome" style="font-weight:700;">Total a Pagar</div>
-      <div style="font-weight:800;color:#dc2626;">R$ ${total.toFixed(2).replace('.', ',')}</div>
-    </div>
-  `;
-  list.innerHTML = html;
-});
-
-// === CALENDÁRIO ===
-function loadCalendar() {
+// ==========================================
+// CALENDÁRIO DO COLABORADOR
+// ==========================================
+window.loadCalendar = function() {
   if (currentUser) socket.emit('get_calendario_funcionario', currentUser.id);
-}
+};
 
-socket.on('calendario_funcionario', (data) => {
-  calendarData = data;
-  renderCalendar();
-});
-
-function renderCalendar() {
+window.renderCalendar = function() {
   const container = document.getElementById('calendario-view');
+  if (!container) return;
   const mes = calendarMonth;
   const ano = calendarYear;
-  document.getElementById('cal-mes-label').innerText = new Date(ano, mes).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+  const labelEl = document.getElementById('cal-mes-label');
+  if (labelEl) {
+    labelEl.innerText = new Date(ano, mes).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+  }
 
   const firstDay = new Date(ano, mes, 1).getDay();
   const daysInMonth = new Date(ano, mes + 1, 0).getDate();
@@ -721,7 +851,6 @@ function renderCalendar() {
   const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
   const dataCadastro = calendarData.data_cadastro ? String(calendarData.data_cadastro).split(' ')[0] : '';
 
-  // Expected work days from restaurant config (default: Qua-Dom = [0,3,4,5,6])
   let expectedDays = [0, 3, 4, 5, 6];
   try {
     const cfgDays = restConfig['rest_dias_funcionamento'];
@@ -729,7 +858,8 @@ function renderCalendar() {
       const parsed = JSON.parse(cfgDays);
       if (Array.isArray(parsed) && parsed.length > 0) expectedDays = parsed;
     }
-  } catch(e) {}
+  } catch (e) {}
+
   function isExpectedWorkDay(d) {
     const dow = new Date(ano, mes, d).getDay();
     return expectedDays.includes(dow);
@@ -797,7 +927,6 @@ function renderCalendar() {
     if (isToday) cls += ' today';
 
     const horas = ponto ? (ponto.total_horas || 0) : 0;
-
     const totalVale = vales.reduce((s, v) => s + parseFloat(v.valor || 0), 0);
     const temValePendente = vales.some(v => v.status === 'Pendente');
 
@@ -872,7 +1001,7 @@ function renderCalendar() {
   `;
 
   container.innerHTML = html;
-}
+};
 
 window.selectCalDay = function(dateStr) {
   renderCalendar();
@@ -881,6 +1010,7 @@ window.selectCalDay = function(dateStr) {
   const atipicos = (calendarData.atipicos || []).filter(a => a.data && a.data.startsWith(dateStr));
   const vales = (calendarData.vales || []).filter(v => v.data_pedido && v.data_pedido.startsWith(dateStr));
   const container = document.getElementById('calendario-view');
+  if (!container) return;
 
   const dt = new Date(dateStr + 'T12:00:00');
   let detailHtml = `
@@ -909,7 +1039,7 @@ window.selectCalDay = function(dateStr) {
   } else {
     detailHtml += `<div style="padding:12px;text-align:center;color:var(--text-muted);">Nenhum ponto registrado neste dia.</div>`;
   }
-  // Dias atipicos
+
   if (atipicos.length > 0) {
     detailHtml += `<div style="margin-top:8px;font-weight:600;color:#7c3aed;">Convocação Extra</div>`;
     atipicos.forEach(a => {
@@ -928,6 +1058,7 @@ window.selectCalDay = function(dateStr) {
       `;
     });
   }
+
   if (itens.length > 0) {
     detailHtml += `<div style="margin-top:8px;font-weight:600;">Consumo do Dia</div>`;
     itens.forEach(i => {
@@ -939,6 +1070,7 @@ window.selectCalDay = function(dateStr) {
       `;
     });
   }
+
   if (vales.length > 0) {
     detailHtml += `<div style="margin-top:8px;font-weight:600;">Vales do Dia</div>`;
     vales.forEach(v => {
@@ -951,6 +1083,7 @@ window.selectCalDay = function(dateStr) {
       `;
     });
   }
+
   const isDisponivel = (calendarData.disponibilidades || []).some(d => d.data === dateStr && d.disponivel === 1);
   detailHtml += `
     <div class="cal-summary-row" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.06); align-items: center;">
@@ -976,36 +1109,14 @@ window.toggleDisponibilidade = function(dateStr, isChecked) {
   }
 };
 
-socket.on('disponibilidade_funcionario', (rows) => {
-  calendarData.disponibilidades = rows;
-  renderCalendar();
-});
-
-document.getElementById('btn-cal-mes-menor').onclick = () => {
-  calendarMonth--;
-  if (calendarMonth < 0) { calendarMonth = 11; calendarYear--; }
-  renderCalendar();
-};
-document.getElementById('btn-cal-mes-maior').onclick = () => {
-  calendarMonth++;
-  if (calendarMonth > 11) { calendarMonth = 0; calendarYear++; }
-  renderCalendar();
-};
-
-// === DIA EXTRA RESPONSE ===
 window.responderAtipico = function(id, acao) {
   if (!currentUser) return;
   socket.emit('responder_dia_atipico', { id, acao });
 };
-socket.on('dia_atipico_atualizado', () => {
-  loadCalendar();
-});
 
-// Remove solicitar-dia-extra button if it exists (flow changed: admin convoca)
-const btnSolicitar = document.getElementById('btn-solicitar-dia-extra');
-if (btnSolicitar) btnSolicitar.style.display = 'none';
-
-// === SYSTEM PICKER FOR MANAGERS ===
+// ==========================================
+// SYSTEM PICKER MODAL
+// ==========================================
 function showSystemPicker() {
   const existing = document.getElementById('manager-system-picker-overlay');
   if (existing) existing.remove();
@@ -1046,100 +1157,49 @@ function showSystemPicker() {
   overlay.appendChild(box);
   document.body.appendChild(overlay);
 
-  document.getElementById('picker-close-btn').onclick = () => overlay.remove();
+  const closeBtn = document.getElementById('picker-close-btn');
+  if (closeBtn) closeBtn.onclick = () => overlay.remove();
   overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
 }
 
-// === MANAGER DATA ===
-async function loadManagerData() {
+// ==========================================
+// MANAGER PANEL FUNCTIONS
+// ==========================================
+window.loadManagerData = async function() {
   const statusEl = document.getElementById('manager-team-status');
   const valesEl = document.getElementById('manager-vales-pendentes');
-  statusEl.innerHTML = 'Carregando...';
-  valesEl.innerHTML = 'Carregando...';
+  if (statusEl) statusEl.innerHTML = 'Carregando...';
+  if (valesEl) valesEl.innerHTML = 'Carregando...';
   socket.emit('manager_get_team_status');
   socket.emit('manager_get_pending_vales');
   socket.emit('manager_get_calendar_vales');
-}
-
-socket.on('manager_team_status', (funcionarios) => {
-  const el = document.getElementById('manager-team-status');
-  if (!el) return;
-  let online = 0, offline = 0, clockedIn = 0;
-  funcionarios.forEach(f => {
-    if (f.online) online++;
-    if (!f.online) offline++;
-    if (f.ponto_aberto) clockedIn++;
-  });
-  el.innerHTML = `
-    <div style="display:flex; gap:16px; flex-wrap:wrap;">
-      <span><strong>${funcionarios.length}</strong> total</span>
-      <span style="color:#4ade80;"><strong>${online}</strong> online</span>
-      <span style="color:#94a3b8;"><strong>${offline}</strong> offline</span>
-      <span style="color:#facc15;"><strong>${clockedIn}</strong> em ponto</span>
-    </div>
-    <div style="margin-top:6px; max-height:120px; overflow-y:auto;">
-      ${funcionarios.map(f => `
-        <div style="display:flex; justify-content:space-between; padding:2px 0; font-size:12px; border-bottom:1px solid rgba(255,255,255,0.05);">
-          <span>${esc(f.nome)}</span>
-          <span>${f.ponto_aberto ? '<i class="ph ph-clock"></i>' : (f.online ? '<span style="color:#4ade80;">online</span>' : '<span style="opacity:0.5;">offline</span>')}</span>
-        </div>
-      `).join('')}
-    </div>
-  `;
-});
-
-socket.on('manager_pending_vales', (vales) => {
-  const el = document.getElementById('manager-vales-pendentes');
-  const countEl = document.getElementById('manager-pending-count');
-  if (!el) return;
-  countEl.textContent = vales.length;
-  if (!vales.length) {
-    el.innerHTML = 'Nenhum vale pendente.';
-    return;
-  }
-  el.innerHTML = vales.map(v => `
-    <div class="vales-pendentes-item">
-      <div class="vp-info">
-        <strong>${esc(v.funcionario_nome)}</strong><br>
-        <span>R$ ${parseFloat(v.valor).toFixed(2)}</span>
-        <span style="opacity:0.6; font-size:11px;"> — ${esc(v.motivo || 'sem motivo')}</span>
-      </div>
-      <div class="vp-actions">
-        <button class="vp-aprovar" onclick="managerAprovarVale(${v.id}, this)">Aprovar</button>
-        <button class="vp-recusar" onclick="managerRecusarVale(${v.id}, this)">Recusar</button>
-      </div>
-    </div>
-  `).join('');
-});
+};
 
 window.managerAprovarVale = function(id, btn) {
-  btn.disabled = true;
-  btn.textContent = '...';
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = '...';
+  }
   socket.emit('manager_aprovar_vale', { id });
 };
 
 window.managerRecusarVale = function(id, btn) {
-  btn.disabled = true;
-  btn.textContent = '...';
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = '...';
+  }
   socket.emit('manager_recusar_vale', { id });
 };
-
-socket.on('manager_vale_atualizado', (data) => {
-  loadManagerData();
-});
-
-// === MANAGER VALES CALENDAR ===
-socket.on('manager_calendar_vales', (vales) => {
-  managerCalendarData = vales || [];
-  renderManagerCalendar();
-});
 
 function renderManagerCalendar() {
   const container = document.getElementById('manager-calendar-view');
   if (!container) return;
   const mes = managerCalMonth;
   const ano = managerCalYear;
-  document.getElementById('mgr-cal-mes-label').innerText = new Date(ano, mes).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+  const labelEl = document.getElementById('mgr-cal-mes-label');
+  if (labelEl) {
+    labelEl.innerText = new Date(ano, mes).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+  }
 
   const firstDay = new Date(ano, mes, 1).getDay();
   const daysInMonth = new Date(ano, mes + 1, 0).getDate();
@@ -1227,27 +1287,6 @@ window.selectManagerCalDay = function(dateStr) {
   container.insertAdjacentHTML('beforeend', detailHtml);
 };
 
-document.addEventListener('DOMContentLoaded', () => {
-  const btnMenor = document.getElementById('btn-mgr-cal-menor');
-  const btnMaior = document.getElementById('btn-mgr-cal-maior');
-  if (btnMenor) btnMenor.onclick = () => {
-    managerCalMonth--;
-    if (managerCalMonth < 0) { managerCalMonth = 11; managerCalYear--; }
-    renderManagerCalendar();
-  };
-  if (btnMaior) btnMaior.onclick = () => {
-    managerCalMonth++;
-    if (managerCalMonth > 11) { managerCalMonth = 0; managerCalYear++; }
-    renderManagerCalendar();
-  };
-});
-
-// === MANAGER MODAL HELPERS ===
-window.fecharModal = function(id) {
-  const el = document.getElementById(id);
-  if (el) el.style.display = 'none';
-};
-
 function popularSelectFuncionarios(selectId) {
   socket.emit('get_funcionarios');
   socket.once('funcionarios_atualizados', (funcs) => {
@@ -1260,20 +1299,28 @@ function popularSelectFuncionarios(selectId) {
   });
 }
 
-// === 1. LANÇAR VALE ===
+// 1. LANÇAR VALE (Gerente)
 window.openModalLancarVale = function() {
-  document.getElementById('modal-mgr-vale').style.display = 'flex';
-  document.getElementById('mgr-vale-valor').value = '';
-  document.getElementById('mgr-vale-motivo').value = '';
+  const modal = document.getElementById('modal-mgr-vale');
+  if (modal) modal.style.display = 'flex';
+  const val = document.getElementById('mgr-vale-valor');
+  if (val) val.value = '';
+  const mot = document.getElementById('mgr-vale-motivo');
+  if (mot) mot.value = '';
   popularSelectFuncionarios('mgr-vale-func');
 };
 
 window.confirmarLancarVale = function() {
-  const funcId = document.getElementById('mgr-vale-func').value;
-  const valor = parseFloat(document.getElementById('mgr-vale-valor').value);
-  const motivo = document.getElementById('mgr-vale-motivo').value || '';
+  const funcEl = document.getElementById('mgr-vale-func');
+  const funcId = funcEl ? funcEl.value : '';
+  const valEl = document.getElementById('mgr-vale-valor');
+  const valor = parseFloat(valEl ? valEl.value : 0);
+  const motEl = document.getElementById('mgr-vale-motivo');
+  const motivo = motEl ? motEl.value : '';
+
   if (!funcId) return alert('Selecione um colaborador.');
   if (!valor || valor <= 0) return alert('Informe um valor válido.');
+
   socket.emit('solicitar_vale', { funcionario_id: parseInt(funcId), valor, motivo });
   socket.once('vale_solicitado_success', () => {
     fecharModal('modal-mgr-vale');
@@ -1283,65 +1330,81 @@ window.confirmarLancarVale = function() {
   socket.once('solicitar_vale_error', (msg) => alert(msg || 'Erro ao conceder vale.'));
 };
 
-// === 2. FAZER PAGAMENTO ===
+// 2. FAZER PAGAMENTO
 window.openModalFazerPagamento = function() {
-  document.getElementById('modal-mgr-pagamento').style.display = 'flex';
-  document.getElementById('mgr-pgto-extrato').style.display = 'none';
-  document.getElementById('mgr-pgto-bruto').value = '';
-  document.getElementById('mgr-pgto-obs').value = '';
-  document.getElementById('mgr-pgto-liquido').textContent = 'R$ 0,00';
+  const modal = document.getElementById('modal-mgr-pagamento');
+  if (modal) modal.style.display = 'flex';
+  const extrato = document.getElementById('mgr-pgto-extrato');
+  if (extrato) extrato.style.display = 'none';
+  const bruto = document.getElementById('mgr-pgto-bruto');
+  if (bruto) bruto.value = '';
+  const obs = document.getElementById('mgr-pgto-obs');
+  if (obs) obs.value = '';
+  const liq = document.getElementById('mgr-pgto-liquido');
+  if (liq) liq.textContent = 'R$ 0,00';
   popularSelectFuncionarios('mgr-pgto-func');
 };
 
 window.carregarExtratoPagamento = function() {
-  const funcId = document.getElementById('mgr-pgto-func').value;
+  const funcEl = document.getElementById('mgr-pgto-func');
+  const funcId = funcEl ? funcEl.value : '';
   const extratoDiv = document.getElementById('mgr-pgto-extrato');
-  if (!funcId) { extratoDiv.style.display = 'none'; return; }
-  extratoDiv.style.display = 'block';
-  document.getElementById('mgr-pgto-vales-abater').innerHTML = 'Carregando...';
-  document.getElementById('mgr-pgto-consumo-abater').innerHTML = '';
+  if (!funcId) {
+    if (extratoDiv) extratoDiv.style.display = 'none';
+    return;
+  }
+  if (extratoDiv) extratoDiv.style.display = 'block';
 
-  fetch(`/api/rh/extrato/${funcId}`)
+  const valesContainer = document.getElementById('mgr-pgto-vales-abater');
+  const consumoContainer = document.getElementById('mgr-pgto-consumo-abater');
+  if (valesContainer) valesContainer.innerHTML = 'Carregando...';
+  if (consumoContainer) consumoContainer.innerHTML = '';
+
+  fetch(`/api/rh/extrato/${funcId}`, {
+    headers: authHeaders()
+  })
     .then(r => r.json())
     .then(data => {
       const valesHtml = (data.vales || []).map(v =>
         `<label style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid #f1f5f9;cursor:pointer;">
           <input type="checkbox" class="mgr-pgto-check-vale" data-id="${v.id}" data-valor="${v.valor}" checked>
-          <span style="flex:1;">Vale #${v.id} <span style="font-size:11px;color:#94a3b8;">${new Date(v.data_pedido).toLocaleDateString('pt-BR')}</span></span>
-          <span style="font-weight:700;color:#dc2626;">-R$ ${parseFloat(v.valor).toFixed(2)}</span>
+          <span style="flex:1;">Vale #${v.id} <span style="font-size:11px;color:#94a3b8;">${v.data_pedido ? new Date(v.data_pedido).toLocaleDateString('pt-BR') : ''}</span></span>
+          <span style="font-weight:700;color:#dc2626;">-R$ ${parseFloat(v.valor || 0).toFixed(2)}</span>
         </label>`
       ).join('');
-      document.getElementById('mgr-pgto-vales-abater').innerHTML =
-        (valesHtml ? `<strong style="font-size:12px;">Vales a Abater:</strong><br>${valesHtml}` : '<span style="opacity:0.7;">Nenhum vale pendente</span>');
+      if (valesContainer) {
+        valesContainer.innerHTML = (valesHtml ? `<strong style="font-size:12px;">Vales a Abater:</strong><br>${valesHtml}` : '<span style="opacity:0.7;">Nenhum vale pendente</span>');
+      }
 
       const consumoHtml = (data.fiados || []).map(c =>
         `<label style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid #f1f5f9;cursor:pointer;">
           <input type="checkbox" class="mgr-pgto-check-consumo" data-id="${c.id}" data-valor="${c.total}" checked>
-          <span style="flex:1;">${esc(c.productName)} x${c.quantity} <span style="font-size:11px;color:#94a3b8;">${new Date(c.createdAt).toLocaleDateString('pt-BR')}</span></span>
+          <span style="flex:1;">${esc(c.productName)} x${c.quantity} <span style="font-size:11px;color:#94a3b8;">${c.createdAt ? new Date(c.createdAt).toLocaleDateString('pt-BR') : ''}</span></span>
           <span style="font-weight:700;color:#ea580c;">-R$ ${parseFloat(String(c.total).replace('R$','').replace(/\./g,'').replace(',','.')).toFixed(2)}</span>
         </label>`
       ).join('');
-      document.getElementById('mgr-pgto-consumo-abater').innerHTML =
-        (consumoHtml ? `<strong style="font-size:12px;">Consumo a Abater:</strong><br>${consumoHtml}` : '<span style="opacity:0.7;">Nenhum consumo pendente</span>');
+      if (consumoContainer) {
+        consumoContainer.innerHTML = (consumoHtml ? `<strong style="font-size:12px;">Consumo a Abater:</strong><br>${consumoHtml}` : '<span style="opacity:0.7;">Nenhum consumo pendente</span>');
+      }
 
       document.querySelectorAll('.mgr-pgto-check-vale, .mgr-pgto-check-consumo').forEach(cb => {
         cb.addEventListener('change', calcularLiquidoPagamento);
       });
 
       if (data.suggested_bruto) {
-        document.getElementById('mgr-pgto-bruto').value = data.suggested_bruto.toFixed(2);
-        calcularLiquidoPagamento();
-      } else {
-        calcularLiquidoPagamento();
+        const bEl = document.getElementById('mgr-pgto-bruto');
+        if (bEl) bEl.value = data.suggested_bruto.toFixed(2);
       }
+      calcularLiquidoPagamento();
     })
     .catch(() => {
-      document.getElementById('mgr-pgto-vales-abater').innerHTML = 'Erro ao carregar extrato.';
+      if (valesContainer) valesContainer.innerHTML = 'Erro ao carregar extrato.';
     });
 };
 
 window.calcularLiquidoPagamento = function() {
-  const bruto = parseFloat(document.getElementById('mgr-pgto-bruto').value) || 0;
+  const brutoEl = document.getElementById('mgr-pgto-bruto');
+  const bruto = parseFloat(brutoEl ? brutoEl.value : 0) || 0;
   let totalVales = 0;
   document.querySelectorAll('.mgr-pgto-check-vale:checked').forEach(cb => {
     totalVales += parseFloat(cb.dataset.valor) || 0;
@@ -1352,16 +1415,25 @@ window.calcularLiquidoPagamento = function() {
   });
   const totalAbates = totalVales + totalConsumo;
   const liq = Math.max(0, bruto - totalAbates);
-  document.getElementById('mgr-pgto-total-vales').textContent = `R$ ${totalVales.toFixed(2)}`;
-  document.getElementById('mgr-pgto-total-consumo').textContent = `R$ ${totalConsumo.toFixed(2)}`;
-  document.getElementById('mgr-pgto-total-abates').textContent = `R$ ${totalAbates.toFixed(2)}`;
-  document.getElementById('mgr-pgto-liquido').textContent = `R$ ${liq.toFixed(2)}`;
+
+  const tv = document.getElementById('mgr-pgto-total-vales');
+  if (tv) tv.textContent = `R$ ${totalVales.toFixed(2)}`;
+  const tc = document.getElementById('mgr-pgto-total-consumo');
+  if (tc) tc.textContent = `R$ ${totalConsumo.toFixed(2)}`;
+  const ta = document.getElementById('mgr-pgto-total-abates');
+  if (ta) ta.textContent = `R$ ${totalAbates.toFixed(2)}`;
+  const lq = document.getElementById('mgr-pgto-liquido');
+  if (lq) lq.textContent = `R$ ${liq.toFixed(2).replace('.', ',')}`;
 };
 
 window.confirmarPagamento = function() {
-  const funcId = document.getElementById('mgr-pgto-func').value;
-  const bruto = parseFloat(document.getElementById('mgr-pgto-bruto').value);
-  const obs = document.getElementById('mgr-pgto-obs').value || 'Pagamento via Painel Gerente';
+  const funcEl = document.getElementById('mgr-pgto-func');
+  const funcId = funcEl ? funcEl.value : '';
+  const brutoEl = document.getElementById('mgr-pgto-bruto');
+  const bruto = parseFloat(brutoEl ? brutoEl.value : 0);
+  const obsEl = document.getElementById('mgr-pgto-obs');
+  const obs = (obsEl ? obsEl.value : '') || 'Pagamento via Painel Gerente';
+
   if (!funcId) return alert('Selecione um colaborador.');
   if (!bruto || bruto <= 0) return alert('Informe um valor bruto válido.');
 
@@ -1369,6 +1441,7 @@ window.confirmarPagamento = function() {
   const pedidosIds = [];
   let totalVales = 0;
   let totalConsumo = 0;
+
   document.querySelectorAll('.mgr-pgto-check-vale:checked').forEach(cb => {
     valesIds.push(parseInt(cb.dataset.id));
     totalVales += parseFloat(cb.dataset.valor) || 0;
@@ -1382,7 +1455,7 @@ window.confirmarPagamento = function() {
 
   fetch('/api/rh/pagamentos', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify({
       funcionario_id: parseInt(funcId),
       valor_bruto: bruto,
@@ -1396,66 +1469,91 @@ window.confirmarPagamento = function() {
   })
   .then(r => r.json())
   .then(res => {
-    if (res.success) {
+    if (res.success || res.ok) {
       fecharModal('modal-mgr-pagamento');
       alert(`Pagamento de R$ ${liquido.toFixed(2)} registrado com sucesso!`);
       loadManagerData();
     } else {
-      alert(res.erro || 'Erro ao registrar pagamento.');
+      alert(res.erro || res.error || 'Erro ao registrar pagamento.');
     }
   })
   .catch(() => alert('Erro ao conectar com o servidor.'));
 };
 
-// === 3. REGISTRAR DESPESA ===
+// 3. REGISTRAR DESPESA
 window.openModalDespesa = function() {
-  document.getElementById('modal-mgr-despesa').style.display = 'flex';
-  document.getElementById('mgr-despesa-valor').value = '';
-  document.getElementById('mgr-despesa-desc').value = '';
+  const modal = document.getElementById('modal-mgr-despesa');
+  if (modal) modal.style.display = 'flex';
+  const val = document.getElementById('mgr-despesa-valor');
+  if (val) val.value = '';
+  const desc = document.getElementById('mgr-despesa-desc');
+  if (desc) desc.value = '';
 };
 
 window.confirmarDespesa = function() {
-  const valor = parseFloat(document.getElementById('mgr-despesa-valor').value);
-  const desc = document.getElementById('mgr-despesa-desc').value.trim();
-  const forma = document.getElementById('mgr-despesa-forma').value;
+  const valEl = document.getElementById('mgr-despesa-valor');
+  const valor = parseFloat(valEl ? valEl.value : 0);
+  const descEl = document.getElementById('mgr-despesa-desc');
+  const desc = descEl ? descEl.value.trim() : '';
+  const formaEl = document.getElementById('mgr-despesa-forma');
+  const forma = formaEl ? formaEl.value : 'Dinheiro';
+
   if (!valor || valor <= 0) return alert('Informe um valor válido.');
   if (!desc) return alert('Informe uma descrição para a despesa.');
+
   socket.emit('add_despesa', { valor, descricao: desc, forma_pagamento: forma });
   socket.once('financeiro_atualizado', () => {
     fecharModal('modal-mgr-despesa');
     alert('Despesa registrada com sucesso!');
   });
-  // fallback timeout
-  setTimeout(() => { fecharModal('modal-mgr-despesa'); alert('Despesa registrada!'); }, 1500);
+  setTimeout(() => {
+    fecharModal('modal-mgr-despesa');
+  }, 1500);
 };
 
-// === 4. NF MERCADORIAS ===
+// 4. NF MERCADORIAS
 window.openModalNfMercadorias = function() {
-  document.getElementById('modal-mgr-nf').style.display = 'flex';
-  document.getElementById('mgr-nf-form').style.display = 'block';
-  document.getElementById('mgr-nf-lista').style.display = 'none';
-  document.getElementById('mgr-nf-numero').value = '';
-  document.getElementById('mgr-nf-fornecedor').value = '';
-  document.getElementById('mgr-nf-valor').value = '';
-  document.getElementById('mgr-nf-data').value = new Date().toISOString().split('T')[0];
-  document.getElementById('mgr-nf-obs').value = '';
+  const modal = document.getElementById('modal-mgr-nf');
+  if (modal) modal.style.display = 'flex';
+  const form = document.getElementById('mgr-nf-form');
+  if (form) form.style.display = 'block';
+  const lista = document.getElementById('mgr-nf-lista');
+  if (lista) lista.style.display = 'none';
+
+  const num = document.getElementById('mgr-nf-numero');
+  if (num) num.value = '';
+  const forn = document.getElementById('mgr-nf-fornecedor');
+  if (forn) forn.value = '';
+  const val = document.getElementById('mgr-nf-valor');
+  if (val) val.value = '';
+  const dt = document.getElementById('mgr-nf-data');
+  if (dt) dt.value = new Date().toISOString().split('T')[0];
+  const obs = document.getElementById('mgr-nf-obs');
+  if (obs) obs.value = '';
 };
 
 window.confirmarNfMercadoria = function() {
-  const numero = document.getElementById('mgr-nf-numero').value.trim();
-  const fornecedor = document.getElementById('mgr-nf-fornecedor').value.trim();
-  const valor = parseFloat(document.getElementById('mgr-nf-valor').value);
-  const data = document.getElementById('mgr-nf-data').value;
-  const obs = document.getElementById('mgr-nf-obs').value.trim();
+  const numEl = document.getElementById('mgr-nf-numero');
+  const numero = numEl ? numEl.value.trim() : '';
+  const fornEl = document.getElementById('mgr-nf-fornecedor');
+  const fornecedor = fornEl ? fornEl.value.trim() : '';
+  const valEl = document.getElementById('mgr-nf-valor');
+  const valor = parseFloat(valEl ? valEl.value : 0);
+  const dataEl = document.getElementById('mgr-nf-data');
+  const data = dataEl ? dataEl.value : '';
+  const obsEl = document.getElementById('mgr-nf-obs');
+  const obs = obsEl ? obsEl.value.trim() : '';
+
   if (!numero) return alert('Informe o número da NF.');
   if (!fornecedor) return alert('Informe o fornecedor.');
   if (!valor || valor <= 0) return alert('Informe o valor total.');
+
   socket.emit('add_nf_mercadoria', { numero_nf: numero, fornecedor, valor_total: valor, data_emissao: data, observacao: obs });
   socket.once('nf_mercadoria_adicionada', () => {
-    document.getElementById('mgr-nf-numero').value = '';
-    document.getElementById('mgr-nf-fornecedor').value = '';
-    document.getElementById('mgr-nf-valor').value = '';
-    document.getElementById('mgr-nf-obs').value = '';
+    if (numEl) numEl.value = '';
+    if (fornEl) fornEl.value = '';
+    if (valEl) valEl.value = '';
+    if (obsEl) obsEl.value = '';
     alert('NF registrada com sucesso!');
   });
   socket.once('nf_mercadoria_erro', (msg) => alert(msg || 'Erro ao registrar NF.'));
@@ -1463,7 +1561,7 @@ window.confirmarNfMercadoria = function() {
 
 window.carregarNfMercadorias = function() {
   const el = document.getElementById('mgr-nf-lista');
-  el.innerHTML = 'Carregando...';
+  if (el) el.innerHTML = 'Carregando...';
   socket.emit('get_nf_mercadorias');
 };
 
@@ -1478,7 +1576,7 @@ socket.on('nf_mercadorias_list', (list) => {
     <div style="padding:10px;border-bottom:1px solid #e2e8f0;font-size:13px;">
       <div style="display:flex;justify-content:space-between;">
         <strong>NF ${esc(nf.numero_nf)}</strong>
-        <span style="font-weight:700;">R$ ${parseFloat(nf.valor_total).toFixed(2)}</span>
+        <span style="font-weight:700;">R$ ${parseFloat(nf.valor_total || 0).toFixed(2)}</span>
       </div>
       <div style="color:var(--text-muted);">${esc(nf.fornecedor)} — ${esc(nf.data_emissao || '')}</div>
       ${nf.observacao ? `<div style="opacity:0.6;font-size:11px;">${esc(nf.observacao)}</div>` : ''}
@@ -1486,45 +1584,57 @@ socket.on('nf_mercadorias_list', (list) => {
   `).join('');
 });
 
-// === 5. AJUSTES DE ROTINA ===
+// 5. AJUSTES DE ROTINA
 window.openModalAjustes = function() {
-  document.getElementById('modal-mgr-ajustes').style.display = 'flex';
-  document.getElementById('mgr-ajuste-info').style.display = 'none';
-  document.getElementById('mgr-ajuste-preco').value = '';
-  document.getElementById('mgr-ajuste-estoque').value = '';
+  const modal = document.getElementById('modal-mgr-ajustes');
+  if (modal) modal.style.display = 'flex';
+  const info = document.getElementById('mgr-ajuste-info');
+  if (info) info.style.display = 'none';
+  const preco = document.getElementById('mgr-ajuste-preco');
+  if (preco) preco.value = '';
+  const estq = document.getElementById('mgr-ajuste-estoque');
+  if (estq) estq.value = '';
+
   socket.emit('get_produtos');
   socket.once('produtos_atualizados', (prods) => {
     const sel = document.getElementById('mgr-ajuste-produto');
     if (!sel) return;
     sel.innerHTML = '<option value="">Selecione...</option>' +
       (prods || []).filter(p => p.status === 'ativo').map(p =>
-        `<option value="${p.id}" data-preco="${p.preco}" data-estoque="${p.estoque || 0}" data-status="${p.status}">${esc(p.nome)} — R$ ${parseFloat(p.preco).toFixed(2)}</option>`
+        `<option value="${p.id}" data-preco="${p.preco}" data-estoque="${p.estoque || 0}" data-status="${p.status}">${esc(p.nome)} — R$ ${parseFloat(p.preco || 0).toFixed(2)}</option>`
       ).join('');
   });
 };
 
 window.carregarDadosProduto = function() {
   const sel = document.getElementById('mgr-ajuste-produto');
-  const opt = sel.options[sel.selectedIndex];
+  const opt = sel ? sel.options[sel.selectedIndex] : null;
   const info = document.getElementById('mgr-ajuste-info');
-  if (!opt || !opt.value) { info.style.display = 'none'; return; }
-  info.style.display = 'block';
-  const preco = parseFloat(opt.dataset.preco) || 0;
-  const estoque = parseFloat(opt.dataset.estoque) || 0;
-  const status = opt.dataset.status;
-  info.innerHTML = `
-    <strong>${opt.text.split(' — ')[0]}</strong><br>
-    Preço atual: <strong>R$ ${preco.toFixed(2)}</strong> | 
-    Estoque: <strong>${estoque}</strong> | 
-    Status: <strong style="color:${status === 'ativo' ? '#16a34a' : '#dc2626'};">${status}</strong>
-  `;
-  document.getElementById('mgr-ajuste-preco').value = preco.toFixed(2);
-  document.getElementById('mgr-ajuste-estoque').value = estoque;
+  if (!opt || !opt.value) {
+    if (info) info.style.display = 'none';
+    return;
+  }
+  if (info) {
+    info.style.display = 'block';
+    const preco = parseFloat(opt.dataset.preco) || 0;
+    const estoque = parseFloat(opt.dataset.estoque) || 0;
+    const status = opt.dataset.status;
+    info.innerHTML = `
+      <strong>${opt.text.split(' — ')[0]}</strong><br>
+      Preço atual: <strong>R$ ${preco.toFixed(2)}</strong> | 
+      Estoque: <strong>${estoque}</strong> | 
+      Status: <strong style="color:${status === 'ativo' ? '#16a34a' : '#dc2626'};">${status}</strong>
+    `;
+    const prInput = document.getElementById('mgr-ajuste-preco');
+    if (prInput) prInput.value = preco.toFixed(2);
+    const esInput = document.getElementById('mgr-ajuste-estoque');
+    if (esInput) esInput.value = estoque;
+  }
 };
 
 window.alternarStatusProduto = function(novoStatus) {
   const sel = document.getElementById('mgr-ajuste-produto');
-  const id = parseInt(sel.value);
+  const id = parseInt(sel ? sel.value : 0);
   if (!id) return alert('Selecione um produto.');
   socket.emit('edit_produto', { id, status: novoStatus, operador: currentUser?.nome || 'Gerente' });
   socket.once('produtos_atualizados', () => {
@@ -1537,8 +1647,9 @@ window.alternarStatusProduto = function(novoStatus) {
 
 window.salvarAjustePreco = function() {
   const sel = document.getElementById('mgr-ajuste-produto');
-  const id = parseInt(sel.value);
-  const preco = parseFloat(document.getElementById('mgr-ajuste-preco').value);
+  const id = parseInt(sel ? sel.value : 0);
+  const prEl = document.getElementById('mgr-ajuste-preco');
+  const preco = parseFloat(prEl ? prEl.value : 0);
   if (!id) return alert('Selecione um produto.');
   if (!preco || preco <= 0) return alert('Informe um preço válido.');
   socket.emit('edit_produto', { id, preco, operador: currentUser?.nome || 'Gerente' });
@@ -1550,8 +1661,9 @@ window.salvarAjustePreco = function() {
 
 window.salvarAjusteEstoque = function() {
   const sel = document.getElementById('mgr-ajuste-produto');
-  const id = parseInt(sel.value);
-  const qtd = parseFloat(document.getElementById('mgr-ajuste-estoque').value);
+  const id = parseInt(sel ? sel.value : 0);
+  const estEl = document.getElementById('mgr-ajuste-estoque');
+  const qtd = parseFloat(estEl ? estEl.value : NaN);
   if (!id) return alert('Selecione um produto.');
   if (isNaN(qtd)) return alert('Informe uma quantidade válida.');
   socket.emit('atualizar_estoque', { id, quantidade: qtd, operador: currentUser?.nome || 'Gerente' });
@@ -1561,10 +1673,13 @@ window.salvarAjusteEstoque = function() {
   });
 };
 
-// === 6. PONTO HOJE ===
+// 6. PONTO HOJE
 window.openModalPontoHoje = function() {
-  document.getElementById('modal-mgr-ponto-hoje').style.display = 'flex';
-  document.getElementById('mgr-ponto-hoje-content').innerHTML = 'Carregando...';
+  const modal = document.getElementById('modal-mgr-ponto-hoje');
+  if (modal) modal.style.display = 'flex';
+  const content = document.getElementById('mgr-ponto-hoje-content');
+  if (content) content.innerHTML = 'Carregando...';
+
   const hoje = new Date().toISOString().split('T')[0];
   socket.emit('get_rh_data', { start_date: hoje, end_date: hoje });
   socket.once('rh_data', (data) => {
@@ -1587,28 +1702,30 @@ window.openModalPontoHoje = function() {
   });
 };
 
-// === 7. GERENCIAR COLABORADORES ===
-let colaboradoresCache = [];
-
+// 7. GERENCIAR COLABORADORES
 window.openModalColaboradores = function() {
-  document.getElementById('modal-mgr-colaboradores').style.display = 'flex';
-  document.getElementById('mgr-colaboradores-form').style.display = 'none';
-  document.getElementById('mgr-colab-search').value = '';
+  const modal = document.getElementById('modal-mgr-colaboradores');
+  if (modal) modal.style.display = 'flex';
+  const form = document.getElementById('mgr-colaboradores-form');
+  if (form) form.style.display = 'none';
+  const search = document.getElementById('mgr-colab-search');
+  if (search) search.value = '';
   carregarListaColaboradores();
 };
 
-function carregarListaColaboradores(filtro) {
+window.carregarListaColaboradores = function(filtro) {
   const el = document.getElementById('mgr-colaboradores-lista');
-  el.innerHTML = 'Carregando...';
+  if (el) el.innerHTML = 'Carregando...';
   socket.emit('get_funcionarios');
   socket.once('funcionarios_atualizados', (funcs) => {
     colaboradoresCache = funcs || [];
     renderListaColaboradores(filtro);
   });
-}
+};
 
-function renderListaColaboradores(filtro) {
+window.renderListaColaboradores = function(filtro) {
   const el = document.getElementById('mgr-colaboradores-lista');
+  if (!el) return;
   let list = colaboradoresCache;
   if (filtro) {
     const f = filtro.toLowerCase();
@@ -1632,46 +1749,53 @@ function renderListaColaboradores(filtro) {
       </div>
     </div>`;
   }).join('');
-}
+};
 
 window.filtrarColaboradores = function(v) { renderListaColaboradores(v); };
 
 window.abrirFormColaborador = function() {
-  document.getElementById('mgr-colab-id').value = '';
-  document.getElementById('mgr-colab-nome').value = '';
-  document.getElementById('mgr-colab-usuario').value = '';
-  document.getElementById('mgr-colab-senha').value = '';
-  document.getElementById('mgr-colab-cargo').value = 'Garçom';
-  document.getElementById('mgr-colab-valor-hora').value = '';
-  document.getElementById('mgr-colab-telefone').value = '';
-  document.getElementById('mgr-colaboradores-form').style.display = 'block';
+  const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+  setVal('mgr-colab-id', '');
+  setVal('mgr-colab-nome', '');
+  setVal('mgr-colab-usuario', '');
+  setVal('mgr-colab-senha', '');
+  setVal('mgr-colab-cargo', 'Garçom');
+  setVal('mgr-colab-valor-hora', '');
+  setVal('mgr-colab-telefone', '');
+  const form = document.getElementById('mgr-colaboradores-form');
+  if (form) form.style.display = 'block';
 };
 
 window.cancelarFormColaborador = function() {
-  document.getElementById('mgr-colaboradores-form').style.display = 'none';
+  const form = document.getElementById('mgr-colaboradores-form');
+  if (form) form.style.display = 'none';
 };
 
 window.editarColaborador = function(id) {
   const c = colaboradoresCache.find(x => x.id === id);
   if (!c) return;
-  document.getElementById('mgr-colab-id').value = c.id;
-  document.getElementById('mgr-colab-nome').value = c.nome || '';
-  document.getElementById('mgr-colab-usuario').value = c.usuario || '';
-  document.getElementById('mgr-colab-senha').value = '';
-  document.getElementById('mgr-colab-cargo').value = c.cargo || 'Garçom';
-  document.getElementById('mgr-colab-valor-hora').value = c.valor_hora || '';
-  document.getElementById('mgr-colab-telefone').value = c.telefone || '';
-  document.getElementById('mgr-colaboradores-form').style.display = 'block';
+  const setVal = (fid, v) => { const el = document.getElementById(fid); if (el) el.value = v; };
+  setVal('mgr-colab-id', c.id);
+  setVal('mgr-colab-nome', c.nome || '');
+  setVal('mgr-colab-usuario', c.usuario || '');
+  setVal('mgr-colab-senha', '');
+  setVal('mgr-colab-cargo', c.cargo || 'Garçom');
+  setVal('mgr-colab-valor-hora', c.valor_hora || '');
+  setVal('mgr-colab-telefone', c.telefone || '');
+  const form = document.getElementById('mgr-colaboradores-form');
+  if (form) form.style.display = 'block';
 };
 
 window.salvarColaborador = function() {
-  const id = document.getElementById('mgr-colab-id').value;
-  const nome = document.getElementById('mgr-colab-nome').value.trim();
-  const usuario = document.getElementById('mgr-colab-usuario').value.trim();
-  const senha = document.getElementById('mgr-colab-senha').value;
-  const cargo = document.getElementById('mgr-colab-cargo').value;
-  const valor_hora = parseFloat(document.getElementById('mgr-colab-valor-hora').value) || 0;
-  const telefone = document.getElementById('mgr-colab-telefone').value.trim();
+  const getVal = (id) => { const el = document.getElementById(id); return el ? el.value : ''; };
+  const id = getVal('mgr-colab-id');
+  const nome = getVal('mgr-colab-nome').trim();
+  const usuario = getVal('mgr-colab-usuario').trim();
+  const senha = getVal('mgr-colab-senha');
+  const cargo = getVal('mgr-colab-cargo');
+  const valor_hora = parseFloat(getVal('mgr-colab-valor-hora')) || 0;
+  const telefone = getVal('mgr-colab-telefone').trim();
+
   if (!nome || !usuario) return alert('Nome e usuário são obrigatórios.');
   if (!id && !senha) return alert('Informe uma senha para o novo colaborador.');
 
@@ -1685,7 +1809,8 @@ window.salvarColaborador = function() {
     socket.emit('add_funcionario', payload);
   }
   socket.once('funcionarios_atualizados', () => {
-    document.getElementById('mgr-colaboradores-form').style.display = 'none';
+    const form = document.getElementById('mgr-colaboradores-form');
+    if (form) form.style.display = 'none';
     alert(id ? 'Colaborador atualizado!' : 'Colaborador adicionado!');
     carregarListaColaboradores();
   });
@@ -1698,14 +1823,18 @@ window.alternarStatusColaborador = function(id, statusAtual) {
   socket.once('funcionarios_atualizados', () => carregarListaColaboradores());
 };
 
-// === 8. RELÂMPAGO ===
+// 8. RELÂMPAGO
 window.openModalRelampago = function() {
-  document.getElementById('modal-mgr-relampago').style.display = 'flex';
-  document.getElementById('mgr-relampago-content').innerHTML = 'Carregando...';
+  const modal = document.getElementById('modal-mgr-relampago');
+  if (modal) modal.style.display = 'flex';
+  const content = document.getElementById('mgr-relampago-content');
+  if (content) content.innerHTML = 'Carregando...';
+
   socket.emit('get_dashboard_stats');
   socket.once('dashboard_stats_result', (data) => {
     const el = document.getElementById('mgr-relampago-content');
     if (!el) return;
+    data = data || {};
     el.innerHTML = `
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
         <div style="background:#f0fdf4;padding:12px;border-radius:10px;text-align:center;">
@@ -1745,10 +1874,13 @@ window.openModalRelampago = function() {
   });
 };
 
-// === 9. STATUS CAIXA ===
+// 9. STATUS CAIXA
 window.openModalCaixaStatus = function() {
-  document.getElementById('modal-mgr-caixa').style.display = 'flex';
-  document.getElementById('mgr-caixa-content').innerHTML = 'Carregando...';
+  const modal = document.getElementById('modal-mgr-caixa');
+  if (modal) modal.style.display = 'flex';
+  const content = document.getElementById('mgr-caixa-content');
+  if (content) content.innerHTML = 'Carregando...';
+
   socket.emit('get_relatorio_caixa');
   socket.once('relatorio_caixa', (data) => {
     const el = document.getElementById('mgr-caixa-content');
@@ -1785,21 +1917,21 @@ window.openModalCaixaStatus = function() {
   });
 };
 
-// === 10. GESTÃO DE ESTOQUE ===
-let estoqueProdutosCache = [];
-
+// 10. GESTÃO DE ESTOQUE
 window.openModalEstoque = function() {
-  document.getElementById('modal-mgr-estoque').style.display = 'flex';
+  const modal = document.getElementById('modal-mgr-estoque');
+  if (modal) modal.style.display = 'flex';
   mostrarAbaEstoque('entrada');
-  // Load products and NFs for dropdowns
+
   socket.emit('get_estoque_produtos');
   socket.once('estoque_produtos_list', (prods) => {
     estoqueProdutosCache = prods || [];
     const sel = document.getElementById('mgr-estq-produto');
     if (!sel) return;
     sel.innerHTML = '<option value="">Selecione...</option>' +
-      prods.map(p => `<option value="${p.id}" data-categoria="${p.categoria}">${esc(p.emoji || '')} ${esc(p.nome)} (${esc(p.categoria)}) — Est: ${p.estoque || 0}</option>`).join('');
+      (prods || []).map(p => `<option value="${p.id}" data-categoria="${p.categoria}">${esc(p.emoji || '')} ${esc(p.nome)} (${esc(p.categoria)}) — Est: ${p.estoque || 0}</option>`).join('');
   });
+
   socket.emit('get_nf_mercadorias');
   socket.once('nf_mercadorias_list', (nfs) => {
     const sel = document.getElementById('mgr-estq-nf');
@@ -1821,50 +1953,62 @@ window.buscarProdutoPorBarcode = function() {
       alert('Produto não encontrado para o código de barras informado.');
       return;
     }
-    // Select the product in dropdown
     for (let i = 0; i < sel.options.length; i++) {
       if (parseInt(sel.options[i].value) === prod.id) {
         sel.selectedIndex = i;
         break;
       }
     }
-    input.value = '';
-    document.getElementById('mgr-estq-qtd').focus();
+    if (input) input.value = '';
+    const qtdEl = document.getElementById('mgr-estq-qtd');
+    if (qtdEl) qtdEl.focus();
   });
 };
 
 window.mostrarAbaEstoque = function(aba) {
-  document.getElementById('mgr-estq-entrada').style.display = aba === 'entrada' ? 'block' : 'none';
-  document.getElementById('mgr-estq-atual').style.display = aba === 'atual' ? 'block' : 'none';
-  document.getElementById('mgr-estq-validade-aba').style.display = aba === 'validade' ? 'block' : 'none';
-  document.getElementById('mgr-estq-movimentos').style.display = aba === 'movimentos' ? 'block' : 'none';
+  const setDisp = (id, v) => { const el = document.getElementById(id); if (el) el.style.display = v; };
+  setDisp('mgr-estq-entrada', aba === 'entrada' ? 'block' : 'none');
+  setDisp('mgr-estq-atual', aba === 'atual' ? 'block' : 'none');
+  setDisp('mgr-estq-validade-aba', aba === 'validade' ? 'block' : 'none');
+  setDisp('mgr-estq-movimentos', aba === 'movimentos' ? 'block' : 'none');
+
   if (aba === 'atual') renderEstoqueAtual();
   if (aba === 'validade') carregarProdutosValidade();
   if (aba === 'movimentos') carregarMovimentosEstoque();
+
   const btns = document.querySelectorAll('#modal-mgr-estoque .btn-main');
   const cores = { entrada: 0, atual: 1, validade: 2, movimentos: 3 };
   btns.forEach((b, i) => {
-    b.style.background = i === cores[aba] ? '#9b59b6' : '#2c3e50';
+    if (i < 4) b.style.background = i === cores[aba] ? '#9b59b6' : '#2c3e50';
   });
 };
 
 window.confirmarEntradaEstoque = function() {
-  const produto_id = parseInt(document.getElementById('mgr-estq-produto').value);
-  const quantidade = parseFloat(document.getElementById('mgr-estq-qtd').value);
-  const custo_unitario = parseFloat(document.getElementById('mgr-estq-custo').value) || 0;
-  const fornecedor = document.getElementById('mgr-estq-fornecedor').value.trim();
-  const data_validade = document.getElementById('mgr-estq-validade').value || null;
-  const nf_mercadoria_id = parseInt(document.getElementById('mgr-estq-nf').value) || null;
-  const observacao = document.getElementById('mgr-estq-obs').value.trim();
+  const prodEl = document.getElementById('mgr-estq-produto');
+  const produto_id = parseInt(prodEl ? prodEl.value : 0);
+  const qtdEl = document.getElementById('mgr-estq-qtd');
+  const quantidade = parseFloat(qtdEl ? qtdEl.value : 0);
+  const custoEl = document.getElementById('mgr-estq-custo');
+  const custo_unitario = parseFloat(custoEl ? custoEl.value : 0) || 0;
+  const fornEl = document.getElementById('mgr-estq-fornecedor');
+  const fornecedor = fornEl ? fornEl.value.trim() : '';
+  const valEl = document.getElementById('mgr-estq-validade');
+  const data_validade = valEl ? valEl.value : null;
+  const nfEl = document.getElementById('mgr-estq-nf');
+  const nf_mercadoria_id = parseInt(nfEl ? nfEl.value : 0) || null;
+  const obsEl = document.getElementById('mgr-estq-obs');
+  const observacao = obsEl ? obsEl.value.trim() : '';
+
   if (!produto_id) return alert('Selecione um produto.');
   if (!quantidade || quantidade <= 0) return alert('Informe a quantidade.');
+
   socket.emit('add_estoque_movimento', { produto_id, tipo: 'entrada', quantidade, custo_unitario, fornecedor, data_validade, nf_mercadoria_id, observacao });
   socket.once('estoque_movimento_adicionado', () => {
-    document.getElementById('mgr-estq-qtd').value = '';
-    document.getElementById('mgr-estq-custo').value = '';
-    document.getElementById('mgr-estq-fornecedor').value = '';
-    document.getElementById('mgr-estq-validade').value = '';
-    document.getElementById('mgr-estq-obs').value = '';
+    if (qtdEl) qtdEl.value = '';
+    if (custoEl) custoEl.value = '';
+    if (fornEl) fornEl.value = '';
+    if (valEl) valEl.value = '';
+    if (obsEl) obsEl.value = '';
     alert('Entrada de estoque registrada!');
     mostrarAbaEstoque('atual');
   });
@@ -1875,7 +2019,9 @@ window.carregarProdutosValidade = function() {
   const el = document.getElementById('mgr-estq-validade-lista');
   if (!el) return;
   el.innerHTML = 'Carregando...';
-  const dias = parseInt(document.getElementById('mgr-validade-dias').value) || 30;
+  const valDias = document.getElementById('mgr-validade-dias');
+  const dias = parseInt(valDias ? valDias.value : 30) || 30;
+
   socket.emit('get_produtos_validade', dias);
   socket.once('produtos_validade_result', (prods) => {
     if (!el) return;
@@ -1901,7 +2047,7 @@ window.carregarProdutosValidade = function() {
           </div>
           <div style="text-align:right;">
             <div style="font-size:18px;font-weight:800;">${diasLabel}</div>
-            <div style="font-size:10px;color:var(--text-muted);">${new Date(p.data_validade).toLocaleDateString('pt-BR')}</div>
+            <div style="font-size:10px;color:var(--text-muted);">${p.data_validade ? new Date(p.data_validade).toLocaleDateString('pt-BR') : ''}</div>
           </div>
         </div>
         <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">
@@ -1917,21 +2063,18 @@ window.carregarProdutosValidade = function() {
 window.renderEstoqueAtual = function(filtro) {
   const el = document.getElementById('mgr-estq-atual-lista');
   if (!el) return;
-  let list = estoqueProdutosCache;
-  if (filtro) {
-    const f = filtro.toLowerCase();
-    list = list.filter(p => p.nome?.toLowerCase().includes(f) || p.categoria?.toLowerCase().includes(f));
-  }
-  if (!list.length) {
-    el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);">Nenhum produto encontrado.</div>';
-    return;
-  }
-  // Re-query fresh data
   socket.emit('get_produtos');
   socket.once('produtos_atualizados', (prods) => {
     estoqueProdutosCache = prods || [];
-    list = prods || [];
-    if (filtro) { const f = filtro.toLowerCase(); list = list.filter(p => p.nome?.toLowerCase().includes(f) || p.categoria?.toLowerCase().includes(f)); }
+    let list = prods || [];
+    if (filtro) {
+      const f = filtro.toLowerCase();
+      list = list.filter(p => p.nome?.toLowerCase().includes(f) || p.categoria?.toLowerCase().includes(f));
+    }
+    if (!list.length) {
+      el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);">Nenhum produto encontrado.</div>';
+      return;
+    }
     el.innerHTML = list.map(p => `
       <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #e2e8f0;">
         <div><strong>${esc(p.emoji || '')} ${esc(p.nome)}</strong><br><span style="font-size:11px;color:var(--text-muted);">${esc(p.categoria)} | Custo: R$ ${parseFloat(p.custo || 0).toFixed(2)} | Venda: R$ ${parseFloat(p.preco || 0).toFixed(2)}</span></div>
@@ -1948,14 +2091,18 @@ window.carregarMovimentosEstoque = function() {
   const el = document.getElementById('mgr-estq-mov-lista');
   if (!el) return;
   el.innerHTML = 'Carregando...';
+  const dtIni = document.getElementById('mgr-estq-mov-dtini');
+  const dtFim = document.getElementById('mgr-estq-mov-dtfim');
   const filtro = {
-    start_date: document.getElementById('mgr-estq-mov-dtini').value || undefined,
-    end_date: document.getElementById('mgr-estq-mov-dtfim').value || undefined
+    start_date: dtIni ? dtIni.value : undefined,
+    end_date: dtFim ? dtFim.value : undefined
   };
   if (!filtro.start_date) delete filtro.start_date;
   if (!filtro.end_date) delete filtro.end_date;
+
   socket.emit('get_estoque_movimentacoes', filtro);
   socket.once('estoque_movimentacoes_list', (movs) => {
+    if (!el) return;
     if (!movs || !movs.length) {
       el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);">Nenhum movimento encontrado.</div>';
       return;
@@ -1978,14 +2125,16 @@ window.carregarMovimentosEstoque = function() {
   });
 };
 
-// === 11. PROJEÇÃO DE GANHOS ===
+// 11. PROJEÇÃO DE GANHOS
 window.openModalProjecao = function() {
-  document.getElementById('modal-mgr-projecao').style.display = 'flex';
-  // Default to current month
+  const modal = document.getElementById('modal-mgr-projecao');
+  if (modal) modal.style.display = 'flex';
   const now = new Date();
   const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-  document.getElementById('mgr-proj-dtini').value = firstDay.toISOString().split('T')[0];
-  document.getElementById('mgr-proj-dtfim').value = now.toISOString().split('T')[0];
+  const dtIni = document.getElementById('mgr-proj-dtini');
+  if (dtIni) dtIni.value = firstDay.toISOString().split('T')[0];
+  const dtFim = document.getElementById('mgr-proj-dtfim');
+  if (dtFim) dtFim.value = now.toISOString().split('T')[0];
   carregarProjecao();
 };
 
@@ -1993,15 +2142,20 @@ window.carregarProjecao = function() {
   const el = document.getElementById('mgr-projecao-content');
   if (!el) return;
   el.innerHTML = 'Carregando...';
+
+  const dtIni = document.getElementById('mgr-proj-dtini');
+  const dtFim = document.getElementById('mgr-proj-dtfim');
   const filtro = {
-    start_date: document.getElementById('mgr-proj-dtini').value || undefined,
-    end_date: document.getElementById('mgr-proj-dtfim').value || undefined
+    start_date: dtIni ? dtIni.value : undefined,
+    end_date: dtFim ? dtFim.value : undefined
   };
   if (!filtro.start_date) delete filtro.start_date;
   if (!filtro.end_date) delete filtro.end_date;
+
   socket.emit('get_estoque_metrics', filtro);
   socket.once('estoque_metrics_result', (data) => {
     if (!el) return;
+    data = data || {};
     const format = (v) => `R$ ${(v || 0).toFixed(2)}`;
     el.innerHTML = `
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
@@ -2019,7 +2173,7 @@ window.carregarProjecao = function() {
         </div>
         <div style="background:#f5f3ff;padding:12px;border-radius:10px;text-align:center;">
           <div style="font-size:11px;color:var(--text-muted);">Produtos em Estoque</div>
-          <div style="font-size:20px;font-weight:800;color:#6c5ce7;">${data.total_produtos_estoque}</div>
+          <div style="font-size:20px;font-weight:800;color:#6c5ce7;">${data.total_produtos_estoque || 0}</div>
         </div>
       </div>
       <div style="border-top:1px solid #e2e8f0;padding-top:12px;">
@@ -2030,7 +2184,7 @@ window.carregarProjecao = function() {
         </div>
         <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px;">
           <span>Total itens entrados</span>
-          <span style="font-weight:600;">${data.total_itens_entrados_periodo}</span>
+          <span style="font-weight:600;">${data.total_itens_entrados_periodo || 0}</span>
         </div>
         <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px;">
           <span>Total NF recebidas</span>
