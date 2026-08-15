@@ -2901,6 +2901,12 @@
             if (statusName) statusName.innerText = 'Caixa Fechado';
           }
         });
+        socket.on('caixa_aberto_sucesso', function() {
+          var overlay = document.getElementById('caixa-overlay');
+          var statusName = document.getElementById('status-caixa-name');
+          if (overlay) overlay.style.display = 'none';
+          if (statusName) statusName.innerText = 'Caixa Aberto';
+        });
         socket.emit('get_estado_caixa');
       } else {
         setTimeout(initSocketCaixa, 500);
