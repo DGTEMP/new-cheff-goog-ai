@@ -1,20 +1,46 @@
 // auth.js
 (function() {
-  const credsStr = localStorage.getItem('chef_session') || localStorage.getItem('chef_credentials') || localStorage.getItem('chef_app_creds');
-  if (!credsStr) {
-    if (!window.location.pathname.endsWith('login.html') &&
-        !window.location.pathname.includes('pdv-mobile.html') &&
-        !window.location.pathname.includes('painel-funcionario.html') &&
-        !window.location.pathname.includes('garcom.html')) {
-      window.location.href = '/login.html';
-    }
+  const path = window.location.pathname.toLowerCase();
+  
+  // Páginas públicas que não exigem login
+  const publicPages = [
+    'login.html',
+    'registro.html',
+    'ativacao.html',
+    'cardapio.html',
+    'conta-cliente.html',
+    'area-cliente.html',
+    'site-vendas.html',
+    'totem.html',
+    'fila-lite.html',
+    'garcom-lite.html'
+  ];
+  if (publicPages.some(p => path.includes(p))) {
+    return;
+  }
+
+  const token = localStorage.getItem('chef_token');
+  let credsStr = localStorage.getItem('chef_session') || localStorage.getItem('chef_credentials') || localStorage.getItem('chef_app_creds');
+  
+  // Se tem token mas não tem creds, criar creds padrão a partir do token
+  if (token && !credsStr) {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const role = payload.role || 'admin';
+      const defaultCreds = { cargo: role, role: role, restaurante_id: payload.restaurante_id || 1 };
+      localStorage.setItem('chef_credentials', JSON.stringify(defaultCreds));
+      credsStr = JSON.stringify(defaultCreds);
+    } catch(e) {}
+  }
+
+  if (!token && !credsStr) {
+    window.location.href = '/login.html';
     return;
   }
   
   try {
-    const creds = JSON.parse(credsStr);
-    const cargo = (creds.cargo || creds.funcao || creds.role || '').toLowerCase();
-    const path = window.location.pathname;
+    const creds = JSON.parse(credsStr || '{}');
+    const cargo = (creds.cargo || creds.funcao || creds.role || 'admin').toLowerCase();
     
     // Auth logic based on role
     const isGarcom = cargo === 'garçom' || cargo === 'garcom';
@@ -24,16 +50,16 @@
     
     // If accessing config or dashboard, needs strict admin
     if ((path.includes('configuracoes.html') || path.includes('dashboard.html')) && !isStrictAdmin) {
-      if(isGarcom) window.location.href = '/garcom.html';
-      else if(isCozinha) window.location.href = '/fila-pedidos.html';
+      if (isGarcom) window.location.href = '/garcom.html';
+      else if (isCozinha) window.location.href = '/fila-pedidos.html';
       else window.location.href = '/index.html';
       return;
     }
     
     // If accessing index.html (Caixa), needs Admin or Caixa
     if (path.includes('index.html') && !isAdmin) {
-      if(isGarcom) window.location.href = '/garcom.html';
-      else if(isCozinha) window.location.href = '/fila-pedidos.html';
+      if (isGarcom) window.location.href = '/garcom.html';
+      else if (isCozinha) window.location.href = '/fila-pedidos.html';
       else window.location.href = '/login.html';
       return;
     }

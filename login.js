@@ -26,8 +26,8 @@ async function attemptLogin() {
 
     if (res.success) {
       localStorage.setItem('chef_token', res.token);
-      localStorage.setItem('restaurante_id', res.restaurante_id);
-      localStorage.setItem('chef_credentials', JSON.stringify({ cargo: res.role }));
+      localStorage.setItem('restaurante_id', res.restaurante_id || '1');
+      localStorage.setItem('chef_credentials', JSON.stringify({ cargo: res.role || 'admin', role: res.role || 'admin', usuario: email, nome: email.split('@')[0] }));
 
       const role = (res.role || '').toLowerCase();
       if (['admin', 'administrador', 'gerente', 'caixa'].includes(role)) {

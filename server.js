@@ -768,7 +768,65 @@ function parseNfceHtml(html) {
 
 // --- MULTI-TENANT PROXY DB ---
 const masterDb = new sqlite3.Database(path.join(__dirname, 'master.sqlite'));
-masterDb.run(`CREATE TABLE IF NOT EXISTS ifood_app_config (chave TEXT PRIMARY KEY, valor TEXT)`);
+masterDb.serialize(async () => {
+  masterDb.run(`CREATE TABLE IF NOT EXISTS ifood_app_config (chave TEXT PRIMARY KEY, valor TEXT)`);
+  masterDb.run(`CREATE TABLE IF NOT EXISTS restaurantes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nome TEXT,
+    licenca TEXT DEFAULT 'ativo',
+    ativo BOOLEAN DEFAULT 1,
+    login_mode TEXT DEFAULT 'multi',
+    chave_ativacao TEXT,
+    validade_licenca TEXT,
+    max_dispositivos INTEGER DEFAULT 0,
+    data_cadastro DATETIME DEFAULT (datetime('now', 'localtime'))
+  )`);
+  masterDb.run(`CREATE TABLE IF NOT EXISTS usuarios (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    restaurante_id INTEGER DEFAULT 1,
+    username TEXT UNIQUE,
+    password_hash TEXT,
+    role TEXT DEFAULT 'admin',
+    ativo BOOLEAN DEFAULT 1,
+    data_cadastro DATETIME DEFAULT (datetime('now', 'localtime'))
+  )`);
+  masterDb.run(`CREATE TABLE IF NOT EXISTS licencas (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    chave TEXT UNIQUE,
+    restaurante_nome TEXT,
+    plano TEXT DEFAULT 'premium',
+    dias INTEGER DEFAULT 365,
+    validade TEXT,
+    max_dispositivos INTEGER DEFAULT 0,
+    obs TEXT,
+    status TEXT DEFAULT 'disponivel',
+    criada_em DATETIME DEFAULT (datetime('now', 'localtime')),
+    usada_em DATETIME,
+    usada_por TEXT,
+    install_id TEXT
+  )`);
+
+  // Restaurante padrão (id 1)
+  masterDb.run(`INSERT OR IGNORE INTO restaurantes (id, nome, licenca, ativo) VALUES (1, 'Restaurante Pirão', 'ativo', 1)`);
+  masterDb.run(`UPDATE restaurantes SET nome = 'Restaurante Pirão', licenca = 'ativo', ativo = 1 WHERE id = 1`);
+
+  // Usuário padrão Admin: pirao@chef.com / 123456
+  try {
+    const defaultHash = await bcrypt.hash('123456', 10);
+    masterDb.run(
+      `INSERT OR IGNORE INTO usuarios (restaurante_id, username, password_hash, role, ativo) VALUES (1, 'pirao@chef.com', ?, 'admin', 1)`,
+      [defaultHash],
+      function (err) {
+        masterDb.run(
+          `UPDATE usuarios SET password_hash = ?, role = 'admin', ativo = 1, restaurante_id = 1 WHERE username = 'pirao@chef.com'`,
+          [defaultHash]
+        );
+      }
+    );
+  } catch (eHash) {
+    console.error('Erro ao gerar hash do usuário padrão:', eHash);
+  }
+});
 const tenantDbs = new Map();
 
 function getTenantDb() {
