@@ -557,13 +557,6 @@ app.post('/api/super/login-local', async (req, res) => {
   res.json({ ok: true, token });
 });
 
-// Carregar rotas do Super Admin
-require('./controllers/super-admin')(app, masterDb, sqlite3, {
-  JWT_SECRET,
-  superAdminAuth,
-  io
-});
-
 // ── SUPER ADMIN: GERENCIAMENTO DE CERTIFICADOS (.pfx) ────────────────────
 // GET /api/super/certs — lista certificados na pasta certs/ e status atual
 app.get('/api/super/certs', superAdminAuth, (req, res) => {
@@ -833,6 +826,13 @@ masterDb.serialize(async () => {
   } catch (eHash) {
     console.error('Erro ao gerar hash do usuário padrão:', eHash);
   }
+});
+
+// Carregar rotas do Super Admin
+require('./controllers/super-admin')(app, masterDb, sqlite3, {
+  JWT_SECRET,
+  superAdminAuth,
+  io
 });
 const tenantDbs = new Map();
 
