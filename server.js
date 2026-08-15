@@ -294,6 +294,17 @@ app.use(express.static(__dirname, {
     }
   }
 }));
+app.use(express.static(path.join(__dirname, 'public'), {
+  etag: true,
+  setHeaders: (res, filePath) => {
+    const cachePath = filePath.replace(/\\/g, '/').toLowerCase();
+    if (/\.(js|css|png|jpg|jpeg|gif|svg|ico|woff2?|ttf|mp4|webp)$/.test(cachePath)) {
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+    } else {
+      res.setHeader('Cache-Control', 'no-cache');
+    }
+  }
+}));
 app.use(express.static(path.join(__dirname, 'dist'), {
   etag: true,
   setHeaders: (res, filePath) => {
