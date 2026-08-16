@@ -118,6 +118,45 @@ function funcionarioPublico(row) {
   return rest;
 }
 
+// (Multi-tenant) Localiza um funcionário pelo usuário/nome. Primeiro tenta no
+// tenant atual (o que o socket conectou); se não achar, varre os bancos dos
+// outros tenants. Isso cobre aparelhos/QR compartilhados onde o
+// localStorage.restaurante_id pode estar com o tenant de outro negócio.
+function localizarFuncionarioLogin(usuario, cb) {
+  const q = `SELECT * FROM funcionarios WHERE LOWER(TRIM(usuario)) = LOWER(TRIM(?)) OR LOWER(TRIM(nome)) = LOWER(TRIM(?))`;
+  db.get(q, [usuario, usuario], (err, row) => {
+    if (!err && row) {
+      if (!row.restaurante_id) row.restaurante_id = tenantContext.getStore() || 1;
+      return cb(row);
+    }
+    masterDb.all(`SELECT id FROM restaurantes WHERE ativo = 1`, [], (e, rests) => {
+      if (e || !rests || !rests.length) return cb(null);
+      let i = 0;
+      const atual = tenantContext.getStore() || 1;
+      const next = () => {
+        while (i < rests.length) {
+          const tid = parseInt(rests[i++].id, 10);
+          if (!Number.isFinite(tid) || tid <= 0 || tid === atual) continue;
+          const dbPath = path.join(__dirname, `database_${tid}.sqlite`);
+          if (!fsSync.existsSync(dbPath)) continue;
+          const tdb = new sqlite3.Database(dbPath);
+          tdb.get(q, [usuario, usuario], (e2, row2) => {
+            tdb.close();
+            if (!e2 && row2) {
+              if (!row2.restaurante_id) row2.restaurante_id = tid;
+              return cb(row2);
+            }
+            next();
+          });
+          return;
+        }
+        cb(null);
+      };
+      next();
+    });
+  });
+}
+
 function verificarSenhaFuncionario(row, senha) {
   const s = String(senha || '').trim();
   const dbSenha = String(row ? row.senha : '').trim();
@@ -247,13 +286,15 @@ app.use((req, res, next) => {
   next();
 });
 
-// Compressão gzip (GET de conteúdo textual, sem dep externa) ─────────
+// Compressão brotli/gzip (GET de conteúdo textual, sem dep externa) ─────────
 app.use((req, res, next) => {
   if (req.method !== 'GET') return next();
   const urlPath = (req.path || '').toLowerCase();
   if (urlPath.startsWith('/api') || urlPath.startsWith('/socket.io')) return next();
   const accept = req.headers['accept-encoding'] || '';
-  if (!/gzip/i.test(accept)) return next();
+  const useBr = /(^|[,\s])br($|[,\s])/i.test(accept);
+  const useGz = /gzip/i.test(accept);
+  if (!useBr && !useGz) return next();
 
   const origWrite = res.write;
   const origEnd = res.end;
@@ -275,16 +316,17 @@ app.use((req, res, next) => {
       return origEnd.call(res, body, encoding, callback);
     }
     res.removeHeader('content-length');
-    zlib.gzip(body, (err, gz) => {
-      if (err) {
+    const compress = useBr ? zlib.brotliCompress : zlib.gzip;
+    compress(body, (err, out) => {
+      if (err || out.length >= body.length) {
         res.write = origWrite;
         res.end = origEnd;
         return origEnd.call(res, body, encoding, callback);
       }
-      res.setHeader('content-encoding', 'gzip');
+      res.setHeader('content-encoding', useBr ? 'br' : 'gzip');
       res.setHeader('vary', 'Accept-Encoding');
-      res.setHeader('content-length', gz.length);
-      origEnd.call(res, gz);
+      res.setHeader('content-length', out.length);
+      origEnd.call(res, out);
     });
     return res;
   };
@@ -293,13 +335,25 @@ app.use((req, res, next) => {
 
 // Serve a raiz primeiro (HTML/JS das páginas), com o dist como fallback (vendor, assets, libs)
 // Estáticos com cache: ativos com hash (v=...) podem ser cacheados por mais tempo; os demais curtos.
+// Cache curto do mtime evita um statSync síncrono (que bloqueia o event loop) por requisição.
+const mtimeCache = new Map();
+function cachedMtime(filePath) {
+  const hit = mtimeCache.get(filePath);
+  if (hit && Date.now() - hit.t < 2000) return hit.mtime;
+  let m;
+  try { m = fsSync.statSync(filePath).mtime; } catch (e) { m = new Date(0); }
+  mtimeCache.set(filePath, { mtime: m, t: Date.now() });
+  if (mtimeCache.size > 400) {
+    const entries = mtimeCache.keys();
+    for (const k of entries) { mtimeCache.delete(k); if (mtimeCache.size <= 250) break; }
+  }
+  return m;
+}
 app.use(express.static(__dirname, {
   etag: true,
   setHeaders: (res, filePath) => {
-    const mtime = new Date(fs.statSync(filePath).mtime).toUTCString();
-    res.setHeader('Last-Modified', mtime);
+    res.setHeader('Last-Modified', cachedMtime(filePath).toUTCString());
     const cachePath = filePath.replace(/\\/g, '/').toLowerCase();
-    const hasVersionQuery = false;
     if (/\.(js|css|png|jpg|jpeg|gif|svg|ico|woff2?|ttf|mp4|webp)$/.test(cachePath)) {
       res.setHeader('Cache-Control', 'public, max-age=3600');
     } else if (/\.html$/.test(cachePath)) {
@@ -542,8 +596,23 @@ const io = new Server(server, {
   cors: {
     origin: "*",
     methods: ["GET", "POST"]
-  }
+  },
+  // Tenta WebSocket primeiro (1 round-trip) em vez de polling (vários round-trips);
+  // polling fica apenas como fallback para redes que bloqueiam upgrade.
+  transports: ['websocket', 'polling']
 });
+
+// (Multi-tenant) Todo io.emit() executado dentro de um contexto de tenant é
+// roteado para a sala restaurante_<id>, isolando broadcasts entre negócios.
+// Fora de contexto (ex.: timers de startup) cai no comportamento global.
+const _ioEmitGlobal = io.emit.bind(io);
+io.emit = function (event, ...args) {
+  const tid = tenantContext.getStore();
+  if (typeof tid === 'number' && tid > 0) {
+    return io.to(`restaurante_${tid}`).emit(event, ...args);
+  }
+  return _ioEmitGlobal(event, ...args);
+};
 
 const mesasFechando = new Set();
 
@@ -646,11 +715,13 @@ let pedidosDebounceTimeout = null;
 let mpCurrentIntentId = null;
 let mpCurrentDeviceId = null;
 
-function broadcastFormasPagamento(targetSocket = null) {
+function broadcastFormasPagamento(targetSocket = null, tenantId = null) {
   db.all(`SELECT * FROM formas_pagamento ORDER BY ordem ASC, id ASC`, [], (err, rows) => {
     if (!err) {
       if (targetSocket) {
         targetSocket.emit('formas_pagamento_atualizadas', rows || []);
+      } else if (Number.isFinite(tenantId) && tenantId > 0) {
+        io.to(`restaurante_${tenantId}`).emit('formas_pagamento_atualizadas', rows || []);
       } else {
         io.emit('formas_pagamento_atualizadas', rows || []);
       }
@@ -869,22 +940,65 @@ function getTenantDb() {
 
     // Configura o banco
     newDb.run('PRAGMA journal_mode = WAL;');
+    newDb.run('PRAGMA synchronous = NORMAL;');
+    newDb.run('PRAGMA busy_timeout = 5000;');
+    newDb.run('PRAGMA cache_size = -20000;');
+    newDb.run('PRAGMA temp_store = MEMORY;');
     tenantDbs.set(tenantId, newDb);
   }
   return tenantDbs.get(tenantId);
 }
 
+// (Multi-tenant) O AsyncLocalStorage NÃO propaga automaticamente para callbacks
+// de addons nativos (node-sqlite3). Capturamos o tenant na chamada e o
+// reestabelecemos ao invocar o callback, garantindo que io.emit() e novas
+// consultas dentro do callback continuem no tenant correto.
+function wrapDbCb(args) {
+  const tid = tenantContext.getStore();
+  if (typeof tid !== 'number' || tid <= 0) return args;
+  const last = args.length - 1;
+  if (last < 0 || typeof args[last] !== 'function') return args;
+  const orig = args[last];
+  args[last] = function (...cbArgs) {
+    tenantContext.run(tid, () => orig.apply(this, cbArgs));
+  };
+  return args;
+}
+
 const db = {
-  run: function (...args) { return getTenantDb().run(...args); },
-  all: function (...args) { return getTenantDb().all(...args); },
-  get: function (...args) { return getTenantDb().get(...args); },
+  run: function (...args) { return getTenantDb().run(...wrapDbCb(args)); },
+  all: function (...args) { return getTenantDb().all(...wrapDbCb(args)); },
+  get: function (...args) { return getTenantDb().get(...wrapDbCb(args)); },
   serialize: function (cb) {
-    // Executa o serialize no contexto atual
+    // Executa o serialize no contexto atual (statements capturam o tenant na chamada)
     return getTenantDb().serialize(cb);
   },
   close: function (...args) { return getTenantDb().close(...args); }
 };
 // ------------------------------
+
+function resolveTenantId(req) {
+  const fromQuery = parseInt(req.query.restaurante_id, 10);
+  if (Number.isFinite(fromQuery) && fromQuery > 0) return fromQuery;
+  const fromBody = parseInt((req.body || {}).restaurante_id, 10);
+  if (Number.isFinite(fromBody) && fromBody > 0) return fromBody;
+  const authHeader = req.headers['authorization'] || '';
+  const token = authHeader.split(' ')[1];
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      const tid = parseInt(decoded && decoded.restaurante_id, 10);
+      if (Number.isFinite(tid) && tid > 0) return tid;
+    } catch (e) { }
+  }
+  return null;
+}
+
+function withTenant(req, cb) {
+  const tid = resolveTenantId(req);
+  if (tid !== null) tenantContext.run(tid, cb);
+  else cb();
+}
 
 global.registrarAuditoria = (operador, acao, detalhes, motivo, risco, socketId = null) => {
   let opFinal = (operador || '').trim();
@@ -916,6 +1030,10 @@ global.registrarAuditoria = (operador, acao, detalhes, motivo, risco, socketId =
 
 db.serialize(() => {
   db.run('PRAGMA journal_mode = WAL;');
+  db.run('PRAGMA synchronous = NORMAL;');
+  db.run('PRAGMA busy_timeout = 5000;');
+  db.run('PRAGMA cache_size = -20000;');
+  db.run('PRAGMA temp_store = MEMORY;');
 
   // Removed DROP TABLE to persist data
   db.run(`
@@ -1144,6 +1262,7 @@ db.serialize(() => {
   db.run(`ALTER TABLE produtos ADD COLUMN preco_custo REAL DEFAULT 0`, (err) => { });
   db.run(`ALTER TABLE produtos ADD COLUMN unidade TEXT DEFAULT 'UN'`, (err) => { });
   db.run(`ALTER TABLE produtos ADD COLUMN fornecedor TEXT`, (err) => { });
+  db.run(`ALTER TABLE produtos ADD COLUMN descricao TEXT`, (err) => { });
 
   db.run(`
     CREATE TABLE IF NOT EXISTS notas_compra (
@@ -1198,6 +1317,7 @@ db.serialize(() => {
   db.run(`ALTER TABLE funcionarios ADD COLUMN observacao_rh TEXT`, (err) => { });
   db.run(`ALTER TABLE funcionarios ADD COLUMN login_expires_at TEXT`, (err) => { });
   db.run(`ALTER TABLE funcionarios ADD COLUMN data_cadastro TEXT`, (err) => { });
+  db.run(`ALTER TABLE funcionarios ADD COLUMN restaurante_id INTEGER`, (err) => { });
 
   db.run(`
     CREATE TABLE IF NOT EXISTS pontos (
@@ -1406,6 +1526,7 @@ db.serialize(() => {
   db.run(`ALTER TABLE produtos ADD COLUMN preco_custo REAL DEFAULT 0`, (err) => { });
   db.run(`ALTER TABLE produtos ADD COLUMN unidade TEXT DEFAULT 'UN'`, (err) => { });
   db.run(`ALTER TABLE produtos ADD COLUMN fornecedor TEXT`, (err) => { });
+  db.run(`ALTER TABLE produtos ADD COLUMN descricao TEXT`, (err) => { });
 
   db.run(`
     CREATE TABLE IF NOT EXISTS notas_compra (
@@ -1460,6 +1581,7 @@ db.serialize(() => {
   db.run(`ALTER TABLE funcionarios ADD COLUMN observacao_rh TEXT`, (err) => { });
   db.run(`ALTER TABLE funcionarios ADD COLUMN login_expires_at TEXT`, (err) => { });
   db.run(`ALTER TABLE funcionarios ADD COLUMN data_cadastro TEXT`, (err) => { });
+  db.run(`ALTER TABLE funcionarios ADD COLUMN restaurante_id INTEGER`, (err) => { });
 
   db.run(`
     CREATE TABLE IF NOT EXISTS pontos (
@@ -1860,8 +1982,111 @@ db.serialize(() => {
   db.run('CREATE INDEX IF NOT EXISTS idx_pedidos_mesa_grupo ON pedidos(mesa_grupo);');
   db.run('CREATE INDEX IF NOT EXISTS idx_movimentacoes_turno_id ON movimentacoes(turno_id);');
   db.run('CREATE INDEX IF NOT EXISTS idx_pedidos_status_sector_created ON pedidos(status, sector, createdAt);');
-  db.run('CREATE INDEX IF NOT EXISTS idx_pedidos_local_status ON pedidos(localName, status);');
+  db.run('CREATE INDEX IF NOT EXISTS idx_pedidos_local_status ON pedidos(localName, status);', () => {
+    // Sincroniza o schema dos bancos de tenants existentes após as migrações do tenant 1
+    syncAllTenantSchemas();
+  });
 });
+
+// ── SINCRONIZAÇÃO DE SCHEMA DOS TENANTS ──────────────────────
+// Bancos de tenants criados antes das últimas migrações ficam com tabelas/colunas
+// antigas. Aqui garantimos que cada banco existente receba as mesmas tabelas e
+// colunas do template (database_1.sqlite).
+function syncTenantSchema(tenantDb, refPath, done) {
+  tenantDb.serialize(() => {
+    tenantDb.run(`ATTACH DATABASE ? AS ref`, [refPath], (attachErr) => {
+      if (attachErr) {
+        console.error('[Tenant Schema] Erro ao anexar schema de referência:', attachErr.message);
+        return done && done();
+      }
+      tenantDb.all(`SELECT name, sql FROM ref.sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'`, [], (err, tables) => {
+        if (err) {
+          console.error('[Tenant Schema] Erro ao listar tabelas de referência:', err.message);
+          tenantDb.run('DETACH DATABASE ref');
+          return done && done();
+        }
+        const q = (v) => '"' + String(v).replace(/"/g, '""') + '"';
+        let ti = 0;
+        const nextTable = () => {
+          if (ti >= tables.length) {
+            tenantDb.run('DETACH DATABASE ref', () => done && done());
+            return;
+          }
+          const t = tables[ti++];
+          tenantDb.get(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?`, [t.name], (e2, row) => {
+            if (e2) return nextTable();
+            if (!row) {
+              tenantDb.run(t.sql, (e3) => {
+                if (e3 && !/already exists/i.test(e3.message)) {
+                  console.error(`[Tenant Schema] Erro ao criar tabela ${t.name}:`, e3.message);
+                }
+                nextTable();
+              });
+              return;
+            }
+            tenantDb.all(`PRAGMA ref.table_info(${q(t.name)})`, [], (e4, refCols) => {
+              if (e4) return nextTable();
+              tenantDb.all(`PRAGMA table_info(${q(t.name)})`, [], (e5, cols) => {
+                if (e5) return nextTable();
+                const have = new Set((cols || []).map((c) => c.name));
+                let ci = 0;
+                const nextCol = () => {
+                  while (ci < refCols.length) {
+                    const c = refCols[ci++];
+                    if (have.has(c.name)) continue;
+                    const decl = [q(c.name), c.type].filter(Boolean).join(' ');
+                    tenantDb.run(`ALTER TABLE ${q(t.name)} ADD COLUMN ${decl}`, (e6) => {
+                      if (e6) console.error(`[Tenant Schema] Erro ao adicionar ${t.name}.${c.name}:`, e6.message);
+                      nextCol();
+                    });
+                    return;
+                  }
+                  nextTable();
+                };
+                nextCol();
+              });
+            });
+          });
+        };
+        nextTable();
+      });
+    });
+  });
+}
+
+function syncAllTenantSchemas() {
+  let files = [];
+  try {
+    files = fsSync.readdirSync(__dirname).filter((f) => /^database_(\d+)\.sqlite$/.test(f) && f !== 'database_1.sqlite');
+  } catch (e) {
+    return;
+  }
+  files.forEach((file) => {
+    const tid = parseInt(file.match(/^database_(\d+)\.sqlite$/)[1], 10);
+    const dbPath = path.join(__dirname, file);
+    const tdb = new sqlite3.Database(dbPath, (err) => {
+      if (err) {
+        console.error(`[Tenant Schema] Erro ao abrir ${file}:`, err.message);
+        return;
+      }
+    });
+    tdb.run('PRAGMA journal_mode = WAL;', () => {
+      tdb.run('PRAGMA synchronous = NORMAL;', () => {
+        tdb.run('PRAGMA busy_timeout = 5000;', () => {
+          tdb.run('PRAGMA cache_size = -20000;', () => {
+            tdb.run('PRAGMA temp_store = MEMORY;', () => {
+              syncTenantSchema(tdb, path.join(__dirname, 'database_1.sqlite'), () => {
+                tdb.close();
+                console.log(`[Tenant Schema] Schema de ${file} (tenant ${tid}) sincronizado.`);
+              });
+            });
+          });
+        });
+      });
+    });
+  });
+}
+
 
 function broadcastProdutos(targetSocket = io) {
   db.all(`SELECT * FROM produtos`, (err, rows) => {
@@ -1956,6 +2181,13 @@ io.on('connection', (socket) => {
     } catch (e) { }
   }
 
+  // Tenants sem token (ex.: cliente que escaneou o QR do cardápio) usam o
+  // restaurante_id informado na própria URL/query do socket.
+  if (!socket.auth) {
+    const qrid = parseInt(socket.handshake.query.restaurante_id, 10);
+    if (Number.isFinite(qrid) && qrid > 0) socketTenantId = qrid;
+  }
+
   socket.restaurante_id = socketTenantId;
   socket.join(`restaurante_${socketTenantId}`);
 
@@ -1968,11 +2200,6 @@ io.on('connection', (socket) => {
       });
     });
   };
-
-  // --- SAAS MULTI-TENANT SIMULATION ---
-  socketTenantId = 1;
-  socket.restaurante_id = 1;
-  socket.join(`restaurante_${socket.restaurante_id}`);
 
   let mpPollInterval = null;
 
@@ -2196,7 +2423,7 @@ io.on('connection', (socket) => {
       });
   });
 
-  socket.emit('update_ponto_token', { url: `https://${getLocalIp()}:${PORT}/painel-funcionario.html?t=${pontoToken}` });
+  socket.emit('update_ponto_token', { url: `https://${getLocalIp()}:${PORT}/painel-funcionario.html?t=${pontoToken}&restaurante_id=${socket.restaurante_id || 1}` });
   socket.emit('server_ip', getLocalIp());
   console.log('Cliente conectado:', socket.id);
 
@@ -3160,8 +3387,8 @@ io.on('connection', (socket) => {
     db.all(`SELECT * FROM mesas`, (e, r) => io.emit('mesas_atualizadas', r || []));
   }));
 
-  socket.on('add_produto', (p) => db.run(`INSERT INTO produtos (categoria, nome, preco, emoji, hasAddons, setor, status_inicial, status, categoria_fiscal) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [p.categoria, p.nome, p.preco, p.emoji, p.hasAddons, p.setor || 'Cozinha 1', p.status_inicial || 'Em espera', p.status || 'ativo', p.categoria_fiscal || 'Alimentacao'], (err) => {
+  socket.on('add_produto', (p) => db.run(`INSERT INTO produtos (categoria, nome, preco, emoji, hasAddons, setor, status_inicial, status, categoria_fiscal, descricao) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [p.categoria, p.nome, p.preco, p.emoji, p.hasAddons, p.setor || 'Cozinha 1', p.status_inicial || 'Em espera', p.status || 'ativo', p.categoria_fiscal || 'Alimentacao', p.descricao || ''], (err) => {
       if (err) {
         console.error(err);
         socket.emit('erro_servidor', 'Falha ao adicionar o produto.');
@@ -3171,8 +3398,8 @@ io.on('connection', (socket) => {
     }));
 
   socket.on('edit_produto', (p) => {
-    db.run(`UPDATE produtos SET categoria=?, nome=?, preco=?, emoji=?, setor=?, status_inicial=?, status=?, categoria_fiscal=? WHERE id=?`,
-      [p.categoria, p.nome, p.preco, p.emoji, p.setor || 'Cozinha 1', p.status_inicial || 'Em espera', p.status || 'ativo', p.categoria_fiscal || 'Alimentacao', p.id], () => {
+    db.run(`UPDATE produtos SET categoria=?, nome=?, preco=?, emoji=?, setor=?, status_inicial=?, status=?, categoria_fiscal=?, descricao=? WHERE id=?`,
+      [p.categoria, p.nome, p.preco, p.emoji, p.setor || 'Cozinha 1', p.status_inicial || 'Em espera', p.status || 'ativo', p.categoria_fiscal || 'Alimentacao', p.descricao || '', p.id], () => {
         global.registrarAuditoria(p.operador || 'Admin', 'EDITAR_PRODUTO', `Produto editado: ${p.nome} (ID: ${p.id})`, 'Atualização de Cardápio', 'MEDIO');
         broadcastProdutos();
       });
@@ -3481,41 +3708,52 @@ io.on('connection', (socket) => {
     delete socket.funcionarioCargo;
   });
 
-  socket.on('login_funcionario', ({ usuario, senha }) => {
-    const u = trimStr(usuario, 50);
-    const s = trimStr(senha, 200);
+    socket.on('login_funcionario', ({ usuario, senha }) => {
+      const u = trimStr(usuario, 50);
+      const s = trimStr(senha, 200);
     if (!u || !s) return socket.emit('login_error', 'Usuário e senha são obrigatórios.');
     const ip = socket.handshake.address || 'unknown';
     if (!checkLoginRate(ip)) return socket.emit('login_error', 'Muitas tentativas. Aguarde alguns minutos.');
-    db.get(`SELECT * FROM funcionarios WHERE LOWER(TRIM(usuario)) = LOWER(TRIM(?)) OR LOWER(TRIM(nome)) = LOWER(TRIM(?))`, [u, u], (err, row) => {
+    localizarFuncionarioLogin(u, (row) => {
       if (!row) {
         recordFailedLogin(ip);
         return socket.emit('login_error', 'Usuário ou senha incorretos');
       }
-      verificarSenhaFuncionario(row, s).then((ok) => {
-        if (!ok) {
-          recordFailedLogin(ip);
-          return socket.emit('login_error', 'Usuário ou senha incorretos');
+      const tid = parseInt(row.restaurante_id, 10) || (tenantContext.getStore() || 1);
+      tenantContext.run(tid, () => {
+        if (tid !== socketTenantId) {
+          socket.leave(`restaurante_${socketTenantId}`);
+          socketTenantId = tid;
+          socket.restaurante_id = tid;
+          socket.join(`restaurante_${tid}`);
         }
-        if (row.status === 'Pendente') {
-          socket.emit('login_error', 'Seu cadastro está aguardando aprovação do caixa.');
-        } else if (row.login_expires_at && row.login_expires_at !== 'SESSION' && new Date(row.login_expires_at) < new Date()) {
-          socket.emit('login_error', 'Seu login expirou. Solicite uma nova aprovação ao gerente.');
-        } else {
-          clearLoginRate(ip);
-          socket.emit('login_success', funcionarioPublico(row));
-          socket.funcionarioId = row.id;
-          socket.funcionarioCargo = row.cargo;
-          const sessToken = jwt.sign({ tipo: 'funcionario', id: row.id, nome: row.nome, usuario: row.usuario, cargo: row.cargo }, JWT_SECRET, { expiresIn: '12h' });
-          socket.emit('login_token', sessToken);
-          db.run("INSERT INTO historico_logins (funcionario_id, funcionario_nome) VALUES (?, ?)", [row.id, row.nome]);
-          const conn = activeSockets.get(socket.id);
-          if (conn) {
-            conn.user = row.nome;
-            conn.device = row.cargo + ' (' + conn.deviceType + ')';
+        verificarSenhaFuncionario(row, s).then((ok) => {
+          if (!ok) {
+            recordFailedLogin(ip);
+            return socket.emit('login_error', 'Usuário ou senha incorretos');
           }
-          desconectarSessoesSingleLogin();
-        }
+          if (row.status === 'Pendente') {
+            socket.emit('login_error', 'Seu cadastro está aguardando aprovação do caixa.');
+          } else if (row.login_expires_at && row.login_expires_at !== 'SESSION' && new Date(row.login_expires_at) < new Date()) {
+            socket.emit('login_error', 'Seu login expirou. Solicite uma nova aprovação ao gerente.');
+          } else {
+            clearLoginRate(ip);
+            const payload = funcionarioPublico(row);
+            if (!payload.restaurante_id) payload.restaurante_id = tid;
+            socket.emit('login_success', payload);
+            socket.funcionarioId = row.id;
+            socket.funcionarioCargo = row.cargo;
+            const sessToken = jwt.sign({ tipo: 'funcionario', id: row.id, nome: row.nome, usuario: row.usuario, cargo: row.cargo, restaurante_id: tid }, JWT_SECRET, { expiresIn: '12h' });
+            socket.emit('login_token', sessToken);
+            db.run("INSERT INTO historico_logins (funcionario_id, funcionario_nome) VALUES (?, ?)", [row.id, row.nome]);
+            const conn = activeSockets.get(socket.id);
+            if (conn) {
+              conn.user = row.nome;
+              conn.device = row.cargo + ' (' + conn.deviceType + ')';
+            }
+            desconectarSessoesSingleLogin();
+          }
+        });
       });
     });
   });
@@ -3533,20 +3771,31 @@ io.on('connection', (socket) => {
     if (!decoded || decoded.tipo !== 'funcionario' || !isValidId(decoded.id)) {
       return socket.emit('login_error', 'Sessão inválida.');
     }
-    db.get(`SELECT * FROM funcionarios WHERE id = ?`, [decoded.id], (err, row) => {
-      if (err || !row) return socket.emit('login_error', 'Funcionário não encontrado. Faça login novamente.');
-      if (row.status === 'Pendente') return socket.emit('login_error', 'Seu cadastro está aguardando aprovação do caixa.');
-      if (row.login_expires_at && row.login_expires_at !== 'SESSION' && new Date(row.login_expires_at) < new Date()) return socket.emit('login_error', 'Seu login expirou. Solicite uma nova aprovação ao gerente.');
-      socket.emit('login_success', funcionarioPublico(row));
-      socket.funcionarioId = row.id;
-      socket.funcionarioCargo = row.cargo;
-      db.run("INSERT INTO historico_logins (funcionario_id, funcionario_nome) VALUES (?, ?)", [row.id, row.nome]);
-      const conn = activeSockets.get(socket.id);
-      if (conn) {
-        conn.user = row.nome;
-        conn.device = row.cargo + ' (' + conn.deviceType + ')';
+    const tid = parseInt(decoded.restaurante_id, 10) || (tenantContext.getStore() || 1);
+    tenantContext.run(tid, () => {
+      if (tid !== socketTenantId) {
+        socket.leave(`restaurante_${socketTenantId}`);
+        socketTenantId = tid;
+        socket.restaurante_id = tid;
+        socket.join(`restaurante_${tid}`);
       }
-      desconectarSessoesSingleLogin();
+      db.get(`SELECT * FROM funcionarios WHERE id = ?`, [decoded.id], (err, row) => {
+        if (err || !row) return socket.emit('login_error', 'Funcionário não encontrado. Faça login novamente.');
+        if (row.status === 'Pendente') return socket.emit('login_error', 'Seu cadastro está aguardando aprovação do caixa.');
+        if (row.login_expires_at && row.login_expires_at !== 'SESSION' && new Date(row.login_expires_at) < new Date()) return socket.emit('login_error', 'Seu login expirou. Solicite uma nova aprovação ao gerente.');
+        const payload = funcionarioPublico(row);
+        if (!payload.restaurante_id) payload.restaurante_id = tid;
+        socket.emit('login_success', payload);
+        socket.funcionarioId = row.id;
+        socket.funcionarioCargo = row.cargo;
+        db.run("INSERT INTO historico_logins (funcionario_id, funcionario_nome) VALUES (?, ?)", [row.id, row.nome]);
+        const conn = activeSockets.get(socket.id);
+        if (conn) {
+          conn.user = row.nome;
+          conn.device = row.cargo + ' (' + conn.deviceType + ')';
+        }
+        desconectarSessoesSingleLogin();
+      });
     });
   });
 
@@ -5264,19 +5513,23 @@ setTimeout(() => {
 
 // --- RETRO API PARA ANDROID 3.2 ---
 app.get('/api/retro/mesas', (req, res) => {
-  db.all("SELECT * FROM mesas", (err, mesas) => {
-    if (err) return res.status(500).json({ error: 'Erro no banco' });
-    db.all("SELECT * FROM pedidos WHERE status != 'Finalizado' ORDER BY createdAt ASC", (err, pedidos) => {
+  withTenant(req, () => {
+    db.all("SELECT * FROM mesas", (err, mesas) => {
       if (err) return res.status(500).json({ error: 'Erro no banco' });
-      res.json({ mesas: mesas || [], pedidos: pedidos || [] });
+      db.all("SELECT * FROM pedidos WHERE status != 'Finalizado' ORDER BY createdAt ASC", (err, pedidos) => {
+        if (err) return res.status(500).json({ error: 'Erro no banco' });
+        res.json({ mesas: mesas || [], pedidos: pedidos || [] });
+      });
     });
   });
 });
 
 app.get('/api/retro/cardapio', (req, res) => {
-  db.all("SELECT * FROM produtos WHERE LOWER(status) != 'inativo' OR status IS NULL", (err, produtos) => {
-    if (err) return res.status(500).json({ error: 'Erro no banco' });
-    res.json({ produtos: produtos || [] });
+  withTenant(req, () => {
+    db.all("SELECT * FROM produtos WHERE LOWER(status) != 'inativo' OR status IS NULL", (err, produtos) => {
+      if (err) return res.status(500).json({ error: 'Erro no banco' });
+      res.json({ produtos: produtos || [] });
+    });
   });
 });
 
@@ -5286,56 +5539,64 @@ app.post('/api/retro/pedido', (req, res) => {
   }
   const pedido = req.body;
   if (!pedido || !pedido.mesa_comanda) return res.status(400).json({ error: 'Dados inválidos' });
+  const tid = parseInt(req.body.restaurante_id, 10);
+  const roomId = (Number.isFinite(tid) && tid > 0) ? `restaurante_${tid}` : null;
 
   let status = pedido.status_inicial || 'Em preparo';
 
-  db.get(`SELECT status FROM mesas WHERE nome = ?`, [pedido.mesa_comanda], (err, rowMesa) => {
-    if (rowMesa && rowMesa.status !== 'Fechando') {
-      db.run(`UPDATE mesas SET status = 'Ocupada' WHERE nome = ? AND status = 'Disponível'`, [pedido.mesa_comanda]);
-    }
-  });
-
-  const query = `
-    INSERT INTO pedidos (
-      userName, localName, productName, quantity, options, observations,
-      status, mesa_comanda, mesa_grupo, isCommand,
-      printer, sector, total,
-      cliente_id, is_delivery
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `;
-  const params = [
-    pedido.userName || 'Garçom Retro',
-    pedido.localName || pedido.mesa_comanda,
-    pedido.productName,
-    pedido.quantity || 1,
-    pedido.options || '[]',
-    pedido.observations || '',
-    status,
-    pedido.mesa_comanda,
-    pedido.mesa_grupo || pedido.mesa_comanda,
-    pedido.isCommand || 0,
-    pedido.printer || '',
-    pedido.sector || '',
-    pedido.total || 0,
-    pedido.cliente_id || null,
-    pedido.is_delivery || 0
-  ];
-
-  db.run(query, params, function (err) {
-    if (err) {
-      console.error('Erro /api/retro/pedido:', err);
-      return res.status(500).json({ error: 'Erro ao inserir pedido' });
-    }
-    const novoId = this.lastID;
-    const novoItem = { id: novoId, ...pedido, status, createdAt: new Date().toISOString() };
-
-    io.emit('novo_pedido_sync', [novoItem]);
-
-    db.all("SELECT * FROM mesas", (e, m) => {
-      if (!e) io.emit('mesas_atualizadas', m || []);
+  withTenant(req, () => {
+    db.get(`SELECT status FROM mesas WHERE nome = ?`, [pedido.mesa_comanda], (err, rowMesa) => {
+      if (rowMesa && rowMesa.status !== 'Fechando') {
+        db.run(`UPDATE mesas SET status = 'Ocupada' WHERE nome = ? AND status = 'Disponível'`, [pedido.mesa_comanda]);
+      }
     });
 
-    res.json({ success: true, id: novoId });
+    const query = `
+      INSERT INTO pedidos (
+        userName, localName, productName, quantity, options, observations,
+        status, mesa_comanda, mesa_grupo, isCommand,
+        printer, sector, total,
+        cliente_id, is_delivery
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+    const params = [
+      pedido.userName || 'Garçom Retro',
+      pedido.localName || pedido.mesa_comanda,
+      pedido.productName,
+      pedido.quantity || 1,
+      pedido.options || '[]',
+      pedido.observations || '',
+      status,
+      pedido.mesa_comanda,
+      pedido.mesa_grupo || pedido.mesa_comanda,
+      pedido.isCommand || 0,
+      pedido.printer || '',
+      pedido.sector || '',
+      pedido.total || 0,
+      pedido.cliente_id || null,
+      pedido.is_delivery || 0
+    ];
+
+    db.run(query, params, function (err) {
+      if (err) {
+        console.error('Erro /api/retro/pedido:', err);
+        return res.status(500).json({ error: 'Erro ao inserir pedido' });
+      }
+      const novoId = this.lastID;
+      const novoItem = { id: novoId, ...pedido, status, createdAt: new Date().toISOString() };
+
+      if (roomId) io.to(roomId).emit('novo_pedido_sync', [novoItem]);
+      else io.emit('novo_pedido_sync', [novoItem]);
+
+      db.all("SELECT * FROM mesas", (e, m) => {
+        if (!e) {
+          if (roomId) io.to(roomId).emit('mesas_atualizadas', m || []);
+          else io.emit('mesas_atualizadas', m || []);
+        }
+      });
+
+      res.json({ success: true, id: novoId });
+    });
   });
 });
 // ---------------------------------
@@ -5346,13 +5607,15 @@ app.post('/api/retro/pedido', (req, res) => {
 app.post('/api/retro/login', (req, res) => {
   const { usuario, senha } = req.body;
   const u = String(usuario || '').trim();
-  db.get("SELECT * FROM funcionarios WHERE LOWER(TRIM(usuario)) = LOWER(TRIM(?)) OR LOWER(TRIM(nome)) = LOWER(TRIM(?))", [u, u], (err, row) => {
-    if (err) return res.status(500).json({ error: 'Erro ao consultar banco.' });
-    if (!row) return res.status(401).json({ error: 'Usuário ou senha inválidos.' });
-    verificarSenhaFuncionario(row, senha).then((ok) => {
-      if (!ok) return res.status(401).json({ error: 'Usuário ou senha inválidos.' });
-      if (row.status !== 'Ativo') return res.status(403).json({ error: 'Funcionário pendente ou inativo.' });
-      res.json({ ok: true, funcionario: funcionarioPublico(row) });
+  withTenant(req, () => {
+    db.get("SELECT * FROM funcionarios WHERE LOWER(TRIM(usuario)) = LOWER(TRIM(?)) OR LOWER(TRIM(nome)) = LOWER(TRIM(?))", [u, u], (err, row) => {
+      if (err) return res.status(500).json({ error: 'Erro ao consultar banco.' });
+      if (!row) return res.status(401).json({ error: 'Usuário ou senha inválidos.' });
+      verificarSenhaFuncionario(row, senha).then((ok) => {
+        if (!ok) return res.status(401).json({ error: 'Usuário ou senha inválidos.' });
+        if (row.status !== 'Ativo') return res.status(403).json({ error: 'Funcionário pendente ou inativo.' });
+        res.json({ ok: true, funcionario: funcionarioPublico(row) });
+      });
     });
   });
 });
@@ -5364,18 +5627,26 @@ app.put('/api/retro/pedido/:id/status', (req, res) => {
   if (!status) return res.status(400).json({ error: 'Status obrigatório.' });
   const validos = ['Recebido', 'Em preparo', 'Pronto', 'Entregue', 'Finalizado'];
   if (!validos.includes(status)) return res.status(400).json({ error: 'Status inválido.' });
+  const tid = parseInt(req.body.restaurante_id, 10);
+  const roomId = (Number.isFinite(tid) && tid > 0) ? `restaurante_${tid}` : null;
 
-  db.run(`UPDATE pedidos SET status = ?, garcom_call = NULL WHERE id = ?`, [status, id], function (err) {
-    if (err) return res.status(500).json({ error: 'Erro ao atualizar pedido.' });
-    if (this.changes === 0) return res.status(404).json({ error: 'Pedido não encontrado.' });
+  withTenant(req, () => {
+    db.run(`UPDATE pedidos SET status = ?, garcom_call = NULL WHERE id = ?`, [status, id], function (err) {
+      if (err) return res.status(500).json({ error: 'Erro ao atualizar pedido.' });
+      if (this.changes === 0) return res.status(404).json({ error: 'Pedido não encontrado.' });
 
-    io.emit('pedido_atualizado', { id: Number(id), status });
+      if (roomId) io.to(roomId).emit('pedido_atualizado', { id: Number(id), status });
+      else io.emit('pedido_atualizado', { id: Number(id), status });
 
-    db.all("SELECT * FROM mesas", (e, m) => {
-      if (!e) io.emit('mesas_atualizadas', m || []);
+      db.all("SELECT * FROM mesas", (e, m) => {
+        if (!e) {
+          if (roomId) io.to(roomId).emit('mesas_atualizadas', m || []);
+          else io.emit('mesas_atualizadas', m || []);
+        }
+      });
+
+      res.json({ success: true });
     });
-
-    res.json({ success: true });
   });
 });
 
@@ -5385,17 +5656,23 @@ app.post('/api/retro/cobranca', (req, res) => {
   if (!mesaNome || !metodo || valor === undefined) {
     return res.status(400).json({ error: 'mesaNome, metodo e valor são obrigatórios.' });
   }
+  const tid = parseInt(req.body.restaurante_id, 10);
+  const roomId = (Number.isFinite(tid) && tid > 0) ? `restaurante_${tid}` : null;
 
-  db.run(`UPDATE pedidos SET status = 'Finalizado', paymentMethod = ?, finalizadoEm = datetime('now') WHERE mesa_comanda = ? AND status != 'Finalizado'`, [metodo, mesaNome], function (err) {
-    if (err) return res.status(500).json({ error: 'Erro ao finalizar pedidos.' });
+  withTenant(req, () => {
+    db.run(`UPDATE pedidos SET status = 'Finalizado', paymentMethod = ?, finalizadoEm = datetime('now') WHERE mesa_comanda = ? AND status != 'Finalizado'`, [metodo, mesaNome], function (err) {
+      if (err) return res.status(500).json({ error: 'Erro ao finalizar pedidos.' });
 
-    db.run(`UPDATE mesas SET status = 'Disponível' WHERE nome = ?`, [mesaNome], function (err2) {
-      if (err2) return res.status(500).json({ error: 'Erro ao atualizar mesa.' });
+      db.run(`UPDATE mesas SET status = 'Disponível' WHERE nome = ?`, [mesaNome], function (err2) {
+        if (err2) return res.status(500).json({ error: 'Erro ao atualizar mesa.' });
 
-      io.emit('mesas_atualizadas');
-      io.emit('pedido_atualizado', { mesa: mesaNome, status: 'Finalizado' });
+        if (roomId) io.to(roomId).emit('mesas_atualizadas');
+        else io.emit('mesas_atualizadas');
+        if (roomId) io.to(roomId).emit('pedido_atualizado', { mesa: mesaNome, status: 'Finalizado' });
+        else io.emit('pedido_atualizado', { mesa: mesaNome, status: 'Finalizado' });
 
-      res.json({ success: true, message: 'Cobrança registrada com sucesso!' });
+        res.json({ success: true, message: 'Cobrança registrada com sucesso!' });
+      });
     });
   });
 });
@@ -5416,45 +5693,53 @@ app.get('/api/retro/taxa-servico', (req, res) => {
 
 // --- REST API NFC-E ---
 app.get('/api/nfce/notas', (req, res) => {
-  db.all(`SELECT id, pedido_id, localName, cliente_nome, cpf_cnpj, valor_total, chave_acesso, numero_nota, serie, ambiente, status, protocolo, created_at FROM nfce_notas ORDER BY id DESC`, (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json(rows || []);
+  withTenant(req, () => {
+    db.all(`SELECT id, pedido_id, localName, cliente_nome, cpf_cnpj, valor_total, chave_acesso, numero_nota, serie, ambiente, status, protocolo, created_at FROM nfce_notas ORDER BY id DESC`, (err, rows) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json(rows || []);
+    });
   });
 });
 
 app.get('/api/nfce/danfe/:id', (req, res) => {
-  db.get(`SELECT * FROM nfce_notas WHERE id = ?`, [req.params.id], (err, nota) => {
-    if (err || !nota) return res.status(404).send('Nota Fiscal não encontrada');
-    db.all(`SELECT * FROM configuracoes`, (errCfg, rows) => {
-      const config = {};
-      if (rows) rows.forEach(r => config[r.chave] = r.valor);
-      const danfeHtml = nota.danfe_html || nfceService.gerarDANFEHTML(nota, config);
-      res.setHeader('Content-Type', 'text/html; charset=utf-8');
-      res.send(danfeHtml);
+  withTenant(req, () => {
+    db.get(`SELECT * FROM nfce_notas WHERE id = ?`, [req.params.id], (err, nota) => {
+      if (err || !nota) return res.status(404).send('Nota Fiscal não encontrada');
+      db.all(`SELECT * FROM configuracoes`, (errCfg, rows) => {
+        const config = {};
+        if (rows) rows.forEach(r => config[r.chave] = r.valor);
+        const danfeHtml = nota.danfe_html || nfceService.gerarDANFEHTML(nota, config);
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.send(danfeHtml);
+      });
     });
   });
 });
 
 app.get('/api/nfce/xml/:id', (req, res) => {
-  db.get(`SELECT * FROM nfce_notas WHERE id = ?`, [req.params.id], (err, nota) => {
-    if (err || !nota) return res.status(404).send('Nota Fiscal não encontrada');
-    db.all(`SELECT * FROM configuracoes`, (errCfg, rows) => {
-      const config = {};
-      if (rows) rows.forEach(r => config[r.chave] = r.valor);
-      const xml = nota.xml_content || nfceService.gerarXMLNFCe(nota, config);
-      res.setHeader('Content-Type', 'application/xml');
-      res.setHeader('Content-Disposition', `attachment; filename=NFCe_${nota.chave_acesso}.xml`);
-      res.send(xml);
+  withTenant(req, () => {
+    db.get(`SELECT * FROM nfce_notas WHERE id = ?`, [req.params.id], (err, nota) => {
+      if (err || !nota) return res.status(404).send('Nota Fiscal não encontrada');
+      db.all(`SELECT * FROM configuracoes`, (errCfg, rows) => {
+        const config = {};
+        if (rows) rows.forEach(r => config[r.chave] = r.valor);
+        const xml = nota.xml_content || nfceService.gerarXMLNFCe(nota, config);
+        res.setHeader('Content-Type', 'application/xml');
+        res.setHeader('Content-Disposition', `attachment; filename=NFCe_${nota.chave_acesso}.xml`);
+        res.send(xml);
+      });
     });
   });
 });
 
 app.post('/api/nfce/emitir', async (req, res) => {
-  db.all(`SELECT * FROM configuracoes`, async (errConfig, configRows) => {
-    const config = {};
-    if (configRows) configRows.forEach(r => config[r.chave] = r.valor);
-    const result = await nfceService.emitirNFCe({ db, ...req.body, config });
-    res.json(result);
+  withTenant(req, () => {
+    db.all(`SELECT * FROM configuracoes`, async (errConfig, configRows) => {
+      const config = {};
+      if (configRows) configRows.forEach(r => config[r.chave] = r.valor);
+      const result = await nfceService.emitirNFCe({ db, ...req.body, config });
+      res.json(result);
+    });
   });
 });
 
@@ -5494,62 +5779,73 @@ app.get('/api/server-status', (req, res) => {
 
 // --- API FORMAS DE PAGAMENTO & CARTÕES ---
 app.get('/api/formas-pagamento', (req, res) => {
-  db.all(`SELECT * FROM formas_pagamento ORDER BY ordem ASC, id ASC`, [], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json(rows || []);
+  withTenant(req, () => {
+    db.all(`SELECT * FROM formas_pagamento ORDER BY ordem ASC, id ASC`, [], (err, rows) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json(rows || []);
+    });
   });
 });
 
 app.post('/api/formas-pagamento', (req, res) => {
   const { id, nome, tipo, taxa, prazo_dias, ativo, icone } = req.body || {};
   if (!nome) return res.status(400).json({ error: 'Nome é obrigatório' });
+  const tid = parseInt(req.body.restaurante_id, 10);
 
-  if (id) {
-    db.run(
-      `UPDATE formas_pagamento SET nome = ?, tipo = ?, taxa = ?, prazo_dias = ?, ativo = ?, icone = ? WHERE id = ?`,
-      [nome, tipo || 'credito', parseFloat(taxa) || 0, parseInt(prazo_dias) || 0, ativo ? 1 : 0, icone || 'ph-credit-card', id],
-      function (err) {
-        if (err) return res.status(500).json({ error: err.message });
-        broadcastFormasPagamento();
-        res.json({ success: true, id });
-      }
-    );
-  } else {
-    db.run(
-      `INSERT INTO formas_pagamento (nome, tipo, taxa, prazo_dias, ativo, icone) VALUES (?, ?, ?, ?, ?, ?)`,
-      [nome, tipo || 'credito', parseFloat(taxa) || 0, parseInt(prazo_dias) || 0, ativo !== undefined ? (ativo ? 1 : 0) : 1, icone || 'ph-credit-card'],
-      function (err) {
-        if (err) return res.status(500).json({ error: err.message });
-        const newId = this.lastID;
-        broadcastFormasPagamento();
-        res.json({ success: true, id: newId });
-      }
-    );
-  }
+  withTenant(req, () => {
+    if (id) {
+      db.run(
+        `UPDATE formas_pagamento SET nome = ?, tipo = ?, taxa = ?, prazo_dias = ?, ativo = ?, icone = ? WHERE id = ?`,
+        [nome, tipo || 'credito', parseFloat(taxa) || 0, parseInt(prazo_dias) || 0, ativo ? 1 : 0, icone || 'ph-credit-card', id],
+        function (err) {
+          if (err) return res.status(500).json({ error: err.message });
+          broadcastFormasPagamento(null, tid);
+          res.json({ success: true, id });
+        }
+      );
+    } else {
+      db.run(
+        `INSERT INTO formas_pagamento (nome, tipo, taxa, prazo_dias, ativo, icone) VALUES (?, ?, ?, ?, ?, ?)`,
+        [nome, tipo || 'credito', parseFloat(taxa) || 0, parseInt(prazo_dias) || 0, ativo !== undefined ? (ativo ? 1 : 0) : 1, icone || 'ph-credit-card'],
+        function (err) {
+          if (err) return res.status(500).json({ error: err.message });
+          const newId = this.lastID;
+          broadcastFormasPagamento(null, tid);
+          res.json({ success: true, id: newId });
+        }
+      );
+    }
+  });
 });
 
 app.post('/api/formas-pagamento/:id/toggle', (req, res) => {
   const { id } = req.params;
   const { ativo } = req.body || {};
-  db.run(`UPDATE formas_pagamento SET ativo = ? WHERE id = ?`, [ativo ? 1 : 0, id], function (err) {
-    if (err) return res.status(500).json({ error: err.message });
-    broadcastFormasPagamento();
-    res.json({ success: true });
+  const tid = parseInt(req.body.restaurante_id, 10);
+  withTenant(req, () => {
+    db.run(`UPDATE formas_pagamento SET ativo = ? WHERE id = ?`, [ativo ? 1 : 0, id], function (err) {
+      if (err) return res.status(500).json({ error: err.message });
+      broadcastFormasPagamento(null, tid);
+      res.json({ success: true });
+    });
   });
 });
 
 app.delete('/api/formas-pagamento/:id', (req, res) => {
   const { id } = req.params;
-  db.get(`SELECT nome FROM formas_pagamento WHERE id = ?`, [id], (err, row) => {
-    if (err || !row) return res.status(404).json({ error: 'Forma de pagamento não encontrada.' });
-    db.get(`SELECT COUNT(*) as count FROM pedidos WHERE paymentMethod = ?`, [row.nome], (e, r) => {
-      if (!e && r && r.count > 0) {
-        return res.status(400).json({ error: `"${row.nome}" não pode ser excluído pois já foi utilizado em ${r.count} pedido(s). Apenas desative-o.` });
-      }
-      db.run(`DELETE FROM formas_pagamento WHERE id = ?`, [id], function (err2) {
-        if (err2) return res.status(500).json({ error: err2.message });
-        broadcastFormasPagamento();
-        res.json({ success: true });
+  const tid = parseInt(req.query.restaurante_id, 10);
+  withTenant(req, () => {
+    db.get(`SELECT nome FROM formas_pagamento WHERE id = ?`, [id], (err, row) => {
+      if (err || !row) return res.status(404).json({ error: 'Forma de pagamento não encontrada.' });
+      db.get(`SELECT COUNT(*) as count FROM pedidos WHERE paymentMethod = ?`, [row.nome], (e, r) => {
+        if (!e && r && r.count > 0) {
+          return res.status(400).json({ error: `"${row.nome}" não pode ser excluído pois já foi utilizado em ${r.count} pedido(s). Apenas desative-o.` });
+        }
+        db.run(`DELETE FROM formas_pagamento WHERE id = ?`, [id], function (err2) {
+          if (err2) return res.status(500).json({ error: err2.message });
+          broadcastFormasPagamento(null, tid);
+          res.json({ success: true });
+        });
       });
     });
   });
@@ -5698,17 +5994,19 @@ const CONFIG_SECRET_KEYS = [
 ];
 
 app.get('/api/config', (req, res) => {
-  db.all(`SELECT * FROM configuracoes`, (err, rows) => {
-    if (err) return res.status(500).send(err);
-    const cfgs = {};
-    if (rows) rows.forEach(r => {
-      if (CONFIG_SECRET_KEYS.includes(r.chave) && r.valor) {
-        cfgs[r.chave] = '***';
-      } else {
-        cfgs[r.chave] = r.valor;
-      }
+  withTenant(req, () => {
+    db.all(`SELECT * FROM configuracoes`, (err, rows) => {
+      if (err) return res.status(500).send(err);
+      const cfgs = {};
+      if (rows) rows.forEach(r => {
+        if (CONFIG_SECRET_KEYS.includes(r.chave) && r.valor) {
+          cfgs[r.chave] = '***';
+        } else {
+          cfgs[r.chave] = r.valor;
+        }
+      });
+      res.json(cfgs);
     });
-    res.json(cfgs);
   });
 });
 
@@ -5736,12 +6034,13 @@ app.post('/api/config', verificarToken, (req, res) => {
 });
 
 // --- ENDPOINT TESTE DE CONEXÃO COM MAQUININHA ---
-app.post('/api/maquininha/testar', async (req, res) => {
+app.post('/api/maquininha/testar', (req, res) => {
   const { provedor } = req.body || {};
   if (!provedor || provedor === 'none') {
     return res.json({ ok: false, msg: 'Nenhum provedor selecionado.' });
   }
-  db.all(`SELECT * FROM configuracoes`, async (err, rows) => {
+  withTenant(req, () => {
+    db.all(`SELECT * FROM configuracoes`, async (err, rows) => {
     if (err) return res.json({ ok: false, msg: 'Erro ao carregar configurações.' });
     const config = {};
     if (rows) rows.forEach(r => config[r.chave] = r.valor);
@@ -5809,6 +6108,7 @@ app.post('/api/maquininha/testar', async (req, res) => {
     } catch (e) {
       return res.json({ ok: false, msg: `Erro ao testar: ${e.message}` });
     }
+    });
   });
 });
 
@@ -5915,7 +6215,11 @@ function getLocalIp() {
 let pontoToken = Math.random().toString(36).substring(2, 10);
 setInterval(() => {
   pontoToken = Math.random().toString(36).substring(2, 10);
-  io.emit('update_ponto_token', { url: `https://${getLocalIp()}:${PORT}/painel-funcionario.html?t=${pontoToken}` });
+  // Emite por socket para que cada tenant receba a URL com o seu restaurante_id
+  for (const s of io.sockets.sockets.values()) {
+    const tid = s.restaurante_id || 1;
+    s.emit('update_ponto_token', { url: `https://${getLocalIp()}:${PORT}/painel-funcionario.html?t=${pontoToken}&restaurante_id=${tid}` });
+  }
 }, 30000);
 
 const HOST = '0.0.0.0';
@@ -6521,7 +6825,8 @@ app.post('/api/rh/pagamentos', verificarToken, (req, res) => {
 app.get('/api/mesa-perfil/:mesa_nome', (req, res) => {
   const mesa_nome = req.params.mesa_nome;
 
-  db.all("SELECT id, userName, productName, quantity, total, createdAt, localName, status FROM pedidos WHERE localName = ? ORDER BY id DESC LIMIT 300", [mesa_nome], (err, rows) => {
+  withTenant(req, () => {
+    db.all("SELECT id, userName, productName, quantity, total, createdAt, localName, status FROM pedidos WHERE localName = ? ORDER BY id DESC LIMIT 300", [mesa_nome], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
 
     let clientes_recentes = [];
@@ -6580,22 +6885,20 @@ app.get('/api/mesa-perfil/:mesa_nome', (req, res) => {
       aberta_em: abertaEm,
       clientes_detalhe
     });
+    });
   });
 });
 
 // ── SUGESTÕES DE PROMOÇÕES (INTELIGÊNCIA DE VENDAS) ────────────
 app.get('/api/sugestoes-promocao', (req, res) => {
-  // Pega os itens dos últimos 7 dias
-  db.all("SELECT itens_json FROM pedidos WHERE data_pedido >= datetime('now', '-7 days')", (err, pedidos) => {
+  withTenant(req, () => {
+    // Pega os itens dos últimos 7 dias
+    db.all(`SELECT productName, SUM(quantity) as qty FROM pedidos WHERE createdAt >= datetime('now', '-7 days') GROUP BY productName`, (err, vendidos) => {
     if (err) return res.status(500).json({ error: err.message });
 
     let vended = {};
-    pedidos.forEach(p => {
-      let itens = [];
-      try { itens = JSON.parse(p.itens_json); } catch (e) { }
-      itens.forEach(item => {
-        vended[item.nome] = (vended[item.nome] || 0) + (item.quantidade || 1);
-      });
+    (vendidos || []).forEach(r => {
+      if (r.productName) vended[r.productName] = (vended[r.productName] || 0) + (parseInt(r.qty) || 1);
     });
 
     // Obter todos os produtos cadastrados para descobrir os obsoletos (não vendidos)
@@ -6658,6 +6961,7 @@ app.get('/api/sugestoes-promocao', (req, res) => {
         tendencias,
         sugestoes
       });
+    });
     });
   });
 });
@@ -6969,6 +7273,13 @@ io.on('connection', (socket) => {
       socketTenantId = decoded.restaurante_id;
       socket.auth = decoded;
     } catch (e) { }
+  }
+
+  // Tenants sem token (ex.: cliente que escaneou o QR do cardápio) usam o
+  // restaurante_id informado na própria URL/query do socket.
+  if (!socket.auth) {
+    const qrid = parseInt(socket.handshake.query.restaurante_id, 10);
+    if (Number.isFinite(qrid) && qrid > 0) socketTenantId = qrid;
   }
 
   socket.restaurante_id = socketTenantId;

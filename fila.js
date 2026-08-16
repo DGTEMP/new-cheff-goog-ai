@@ -258,7 +258,7 @@ function renderizarSecoesFila() {
 }
 
 function sincronizarSecoesFilaDoServidor() {
-  fetch('/api/config', { headers: { 'Accept': 'application/json' } })
+  fetch('/api/config?restaurante_id=' + encodeURIComponent(localStorage.getItem('restaurante_id') || '1'), { headers: { 'Accept': 'application/json' } })
     .then(r => r.json())
     .then(cfg => {
       let secoes = null;

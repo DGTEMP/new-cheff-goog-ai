@@ -372,6 +372,7 @@ window.submeterLoginFuncionarioMobile = function() {
       if (mobTimeout) clearTimeout(mobTimeout);
       window.socket.off('login_success', onSuccess);
       window.socket.off('login_error', onError);
+      if (data.restaurante_id) localStorage.setItem('restaurante_id', data.restaurante_id);
       if (btn) btn.disabled = false;
       if (fb) {
         fb.style.background = '#f0fdf4';
@@ -605,7 +606,9 @@ function buildAppUrl(page, mesaNome) {
     : (window.location.protocol === 'https:' ? 'https' : 'http');
   const port = String(qrConfig.qr_port || '').trim() || window.location.port;
   const q = mesaNome ? `?mesa=${encodeURIComponent(mesaNome)}` : '';
-  return `${proto}://${serverIp}${port ? ':' + port : ''}/${page}${q}`;
+  const tenantId = encodeURIComponent(localStorage.getItem('restaurante_id') || '1');
+  const url = `${proto}://${serverIp}${port ? ':' + port : ''}/${page}${q}`;
+  return url + (url.indexOf('?') !== -1 ? '&' : '?') + 'restaurante_id=' + tenantId;
 }
 
 function updateQrCode() {
@@ -6215,7 +6218,7 @@ window.carregarNotasNfce = function () {
   if (typeof socket !== 'undefined' && socket) {
     socket.emit('get_nfce_notas', opts);
   } else {
-    fetch('/api/nfce/notas?limit=' + limit)
+    fetch('/api/nfce/notas?limit=' + limit + '&restaurante_id=' + encodeURIComponent(localStorage.getItem('restaurante_id') || '1'))
       .then(r => r.json())
       .then(data => {
         window.todasNotasNfce = data || [];

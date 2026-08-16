@@ -1027,6 +1027,22 @@
       <input type="text" class="search-input" id="search-input" placeholder="Buscar produtos no cardápio...">
     </div>
 
+    <!-- Tour Banner -->
+    <div class="tour-banner" id="tour-banner">
+      <div class="tour-step" id="tour-step-label">Bem-vindo</div>
+      <h2 id="tour-banner-title">Bem-vindo ao nosso restaurante!</h2>
+      <p id="tour-banner-text">Explore o cardápio e descubra os sabores que preparamos com carinho para você.</p>
+    </div>
+
+    <div class="tour-progress" id="tour-progress">
+      <div class="tour-progress-bar">
+        <div class="tour-progress-fill" id="tour-progress-fill" style="width: 0%;"></div>
+      </div>
+      <span class="tour-progress-text" id="tour-progress-text">0%</span>
+    </div>
+
+    <div class="categories-container" id="categories-tabs"></div>
+
     <div class="skeleton-grid" id="menu-skeletons">
       <div class="skeleton-card"></div>
       <div class="skeleton-card"></div>
@@ -2098,7 +2114,7 @@
 
     function pwaGoAreaCliente(section) {
       if (crmPerfil) localStorage.setItem('cliente_perfil', JSON.stringify(crmPerfil));
-      window.location.href = '/area-cliente?from=cardapio' + (section ? '&secao=' + section : '');
+      window.location.href = '/area-cliente?from=cardapio&restaurante_id=' + encodeURIComponent(restauranteId) + (section ? '&secao=' + section : '');
     }
 
     function showPwaOrderPrompt() {
@@ -2151,7 +2167,7 @@
         document.getElementById('modal-crm-login').style.display = 'flex';
       }
       localStorage.setItem('cliente_perfil', JSON.stringify(crmPerfil));
-      window.location.href = '/area-cliente?from=cardapio';
+      window.location.href = '/area-cliente?from=cardapio&restaurante_id=' + encodeURIComponent(restauranteId);
     };
 
     // === FILA DE ESPERA DE CLIENTES (modo=fila, via QR Code) ===
@@ -2215,7 +2231,7 @@
         socket.emit('cliente_aceitou_mesa_fila', { id: id, mesaName: mesaName });
       }
       alert('Ótimo! Você aceitou a ' + mesaName + '. Por favor, dirija-se à mesa.');
-      window.location.href = 'cardapio.html?mesa=' + encodeURIComponent(mesaName);
+      window.location.href = 'cardapio.html?mesa=' + encodeURIComponent(mesaName) + '&restaurante_id=' + encodeURIComponent(restauranteId);
     };
 
     window.recusarMesaOfertadaFila = function (id, mesaName) {

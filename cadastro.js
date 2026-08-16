@@ -1,4 +1,6 @@
 ﻿const HOST = window.location.hostname;
+const _ridCadastro = new URLSearchParams(window.location.search).get('restaurante_id');
+if (_ridCadastro) localStorage.setItem('restaurante_id', _ridCadastro);
 const socket = io({ query: { token: localStorage.getItem('chef_token'), restaurante_id: localStorage.getItem('restaurante_id') || '1' } });
 
 document.getElementById('btn-register').onclick = () => {

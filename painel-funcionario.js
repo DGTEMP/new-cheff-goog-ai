@@ -1,4 +1,6 @@
 const HOST = window.location.hostname;
+const _ridUrl = new URLSearchParams(window.location.search).get('restaurante_id');
+if (_ridUrl) localStorage.setItem('restaurante_id', _ridUrl);
 const socket = typeof io === 'function' ? io({ query: { token: localStorage.getItem('chef_token'), restaurante_id: localStorage.getItem('restaurante_id') || '1' } }) : (window.socket || {});
 
 function esc(v) {
@@ -276,6 +278,7 @@ socket.on('login_error', (msg) => {
 socket.on('login_success', (user) => {
   resetLoginBtn();
   currentUser = user;
+  if (user.restaurante_id) localStorage.setItem('restaurante_id', user.restaurante_id);
 
   const lv = getLoginView();
   const dv = getDashView();

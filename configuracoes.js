@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 let currentMesas = [];
-const socket = window.socket || (typeof io === 'function' ? io({ query: { token: localStorage.getItem('chef_token') } }) : {
+const socket = window.socket || (typeof io === 'function' ? io({ query: { token: localStorage.getItem('chef_token'), restaurante_id: localStorage.getItem('restaurante_id') || '1' } }) : {
   emit: () => { },
   on: () => { },
   once: () => { }
@@ -70,7 +70,8 @@ window.confirmarSenhaAdminAcao = function() {
 window.listaFormasPagamento = [];
 
 window.carregarFormasPagamento = function() {
-  fetch('/api/formas-pagamento')
+  const rid = encodeURIComponent(localStorage.getItem('restaurante_id') || '1');
+  fetch('/api/formas-pagamento?restaurante_id=' + rid)
     .then(r => r.json())
     .then(data => {
       if (Array.isArray(data)) {
@@ -233,7 +234,7 @@ window.salvarFormaPagamento = function () {
     return;
   }
 
-  const payload = { id, nome, tipo, icone, taxa, prazo_dias, ativo };
+  const payload = { id, nome, tipo, icone, taxa, prazo_dias, ativo, restaurante_id: localStorage.getItem('restaurante_id') || '1' };
 
   fetch('/api/formas-pagamento', {
     method: 'POST',
@@ -261,7 +262,7 @@ window.toggleFormaPagamento = function (id, ativo) {
   fetch(`/api/formas-pagamento/${id}/toggle`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ativo })
+    body: JSON.stringify({ ativo, restaurante_id: localStorage.getItem('restaurante_id') || '1' })
   })
     .then(() => window.carregarFormasPagamento())
     .catch(() => {
@@ -276,7 +277,7 @@ window.editarFormaPagamento = function (id) {
 
 window.excluirFormaPagamento = function (id) {
   if (confirm('Deseja realmente excluir esta forma de pagamento?')) {
-    fetch(`/api/formas-pagamento/${id}`, { method: 'DELETE' })
+    fetch(`/api/formas-pagamento/${id}?restaurante_id=${encodeURIComponent(localStorage.getItem('restaurante_id') || '1')}`, { method: 'DELETE' })
       .then(r => r.json().then(d => ({ ok: r.ok, data: d })))
       .then(({ ok, data }) => {
         if (ok) {
@@ -326,7 +327,8 @@ function buildCardapioUrl(mesaNome) {
   let host = serverIp || window.location.hostname;
   const customPort = String(configs.qr_port || '').trim();
   const portPart = customPort ? ':' + customPort : (serverPort ? ':' + serverPort : '');
-  return `${proto}//${host}${portPart}/cardapio.html?mesa=${encodeURIComponent(mesaNome)}`;
+  const tenantId = encodeURIComponent(localStorage.getItem('restaurante_id') || '1');
+  return `${proto}//${host}${portPart}/cardapio.html?mesa=${encodeURIComponent(mesaNome)}&restaurante_id=${tenantId}`;
 }
 
 fetch('/api/server-status')
@@ -1651,7 +1653,7 @@ socket.on('produtos_atualizados', (prods) => {
         <span class="badge ${p.visibilidade === 'caixa' ? 'badge-blue' : (p.visibilidade === 'garcom' ? 'badge-purple' : 'badge-orange')}" style="font-size:11px;">${p.visibilidade === 'caixa' ? 'Só Caixa' : (p.visibilidade === 'garcom' ? 'Garçom' : 'Todos')}</span>
       </td>
       <td style="padding: 10px;">
-        <button onclick="window.editProduto(${p.id}, '${(p.categoria || '').replace(/'/g, "\\'")}', '${(p.nome || '').replace(/'/g, "\\'")}', ${p.preco}, '${(p.emoji || '').replace(/'/g, "\\'")}', '${p.setor || 'Cozinha 1'}', '${p.status || 'ativo'}', '${(p.status_inicial || 'Em espera').replace(/'/g, "\\'")}', '${p.visibilidade || 'todos'}')" style="color: #2D9CDB; border: none; background: none; cursor: pointer; margin-right: 8px; font-weight: bold;"><i class="ph ph-pencil"></i> Editar</button>
+        <button onclick="window.editProduto(${p.id}, '${(p.categoria || '').replace(/'/g, "\\'")}', '${(p.nome || '').replace(/'/g, "\\'")}', ${p.preco}, '${(p.emoji || '').replace(/'/g, "\\'")}', '${p.setor || 'Cozinha 1'}', '${p.status || 'ativo'}', '${(p.status_inicial || 'Em espera').replace(/'/g, "\\'")}', '${p.visibilidade || 'todos'}', '${(p.descricao || '').replace(/'/g, "\\'")}')" style="color: #2D9CDB; border: none; background: none; cursor: pointer; margin-right: 8px; font-weight: bold;"><i class="ph ph-pencil"></i> Editar</button>
         <button onclick="window.deleteProduto(${p.id})" style="color: red; border: none; background: none; cursor: pointer; font-weight: bold;"><i class="ph ph-trash"></i> Excluir</button>
       </td>
     </tr>
@@ -1660,7 +1662,7 @@ socket.on('produtos_atualizados', (prods) => {
 
 window.deleteProduto = (id) => { if (confirm('Excluir produto?')) socket.emit('delete_produto', { id, operador: window.crmPerfil ? window.crmPerfil.nome : 'Admin' }); };
 
-window.editProduto = (id, categoria, nome, preco, emoji, setor, status, status_inicial, visibilidade) => {
+window.editProduto = (id, categoria, nome, preco, emoji, setor, status, status_inicial, visibilidade, descricao) => {
   document.getElementById('admin-prod-id').value = id;
 
   const selectCat = document.getElementById('admin-prod-cat-select');
@@ -1676,6 +1678,8 @@ window.editProduto = (id, categoria, nome, preco, emoji, setor, status, status_i
   document.getElementById('admin-prod-nome').value = nome;
   document.getElementById('admin-prod-preco').value = preco;
   document.getElementById('admin-prod-emoji').value = emoji;
+  const descEl = document.getElementById('admin-prod-descricao');
+  if (descEl) descEl.value = descricao || '';
   const setoEl = document.getElementById('admin-prod-fila');
   if (setoEl) setoEl.value = setor || 'Cozinha 1';
   
@@ -1725,9 +1729,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!categoria || !nome || isNaN(preco)) return alert('Preencha Categoria, Nome e Preço.');
 
     if (id) {
-      socket.emit('edit_produto', { id, categoria, nome, preco, codigo_barras, emoji, setor, status, status_inicial, categoria_fiscal, visibilidade, operador: window.crmPerfil ? window.crmPerfil.nome : 'Admin' });
+      socket.emit('edit_produto', { id, categoria, nome, preco, codigo_barras, emoji, setor, status, status_inicial, categoria_fiscal, visibilidade, descricao, operador: window.crmPerfil ? window.crmPerfil.nome : 'Admin' });
     } else {
-      socket.emit('add_produto', { categoria, nome, preco, codigo_barras, emoji, setor, status, status_inicial, hasAddons: false, categoria_fiscal, visibilidade });
+      socket.emit('add_produto', { categoria, nome, preco, codigo_barras, emoji, setor, status, status_inicial, hasAddons: false, categoria_fiscal, visibilidade, descricao });
     }
     // Reset
     document.getElementById('admin-prod-id').value = '';
@@ -3036,7 +3040,8 @@ window.gerarQrCheckin = () => {
   const protocol = window.location.protocol;
   const port = window.location.port;
   const ip = (typeof _serverIpReal !== 'undefined' && _serverIpReal) || window.location.hostname;
-  const appUrl = `${protocol}//${ip}${port ? ':' + port : ''}/area-cliente.html?checkin=1`;
+  const tenantId = encodeURIComponent(localStorage.getItem('restaurante_id') || '1');
+  const appUrl = `${protocol}//${ip}${port ? ':' + port : ''}/area-cliente.html?checkin=1&restaurante_id=${tenantId}`;
   const img = document.getElementById('fid-checkin-qr-img');
   if (img) img.src = (window.location.origin || '') + '/api/qr?size=140&data=' + encodeURIComponent(appUrl);
   window._checkinQrUrl = appUrl;
@@ -3125,7 +3130,8 @@ function updateQrCodeConvite(ip) {
   if (!qrImg) return;
   const protocol = window.location.protocol;
   const port = window.location.port;
-  const appUrl = `${protocol}//${ip}${port ? ':' + port : ''}/cadastro.html`;
+  const tenantId = encodeURIComponent(localStorage.getItem('restaurante_id') || '1');
+  const appUrl = `${protocol}//${ip}${port ? ':' + port : ''}/cadastro.html?restaurante_id=${tenantId}`;
   if (typeof window.qrImg === 'function') {
     window.qrImg(qrImg, appUrl, 140);
   } else {
@@ -4956,7 +4962,7 @@ window.initMaquininhasTab = function () {
         const res = await fetch('/api/maquininha/testar', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ provedor })
+          body: JSON.stringify({ provedor, restaurante_id: localStorage.getItem('restaurante_id') || '1' })
         });
         const data = await res.json();
         if (data.ok) {
@@ -5052,7 +5058,7 @@ window.abrirPerfilMesa = function(mesaNome) {
   
   modal.style.display = 'flex';
   
-  fetch('/api/mesa-perfil/' + encodeURIComponent(mesaNome))
+  fetch('/api/mesa-perfil/' + encodeURIComponent(mesaNome) + '?restaurante_id=' + encodeURIComponent(localStorage.getItem('restaurante_id') || '1'))
     .then(r => r.json())
     .then(data => {
       // Clientes
@@ -5258,12 +5264,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
 window.imprimirDanfeNfce = function(id) {
   if (!id) return;
-  window.open('/api/nfce/danfe/' + id, '_blank', 'width=420,height=650,scrollbars=yes');
+  const rid = encodeURIComponent(localStorage.getItem('restaurante_id') || '1');
+  window.open('/api/nfce/danfe/' + id + '?restaurante_id=' + rid, '_blank', 'width=420,height=650,scrollbars=yes');
 };
 
 window.baixarXmlNfce = function(id) {
   if (!id) return;
-  window.open('/api/nfce/xml/' + id, '_blank');
+  const rid = encodeURIComponent(localStorage.getItem('restaurante_id') || '1');
+  window.open('/api/nfce/xml/' + id + '?restaurante_id=' + rid, '_blank');
 };
 
 

@@ -182,6 +182,7 @@ document.addEventListener('MSFullscreenChange', handleFullscreenChange);
 
 socket.on('login_success', (user) => {
   loggedUser = user;
+  if (user.restaurante_id) localStorage.setItem('restaurante_id', user.restaurante_id);
   if (typeof initTracking === 'function') initTracking(user.id);
   const isAdmin = (user.cargo || user.funcao || '') !== 'Garçom';
   if(document.getElementById('btn-home')) document.getElementById('btn-home').style.display = isAdmin ? 'block' : 'none';
@@ -379,7 +380,7 @@ socket.on('configuracoes_atualizadas', fetchConfigs);
 
 async function fetchConfigs() {
   try {
-    const res = await fetch('/api/config');
+    const res = await fetch('/api/config?restaurante_id=' + encodeURIComponent(localStorage.getItem('restaurante_id') || '1'));
     CONFIGS = await res.json();
     if (MENU.length > 0) reorderTabs();
   } catch (e) {

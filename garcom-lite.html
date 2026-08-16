@@ -436,7 +436,7 @@ body.light .conta-total-row { border-top-color: #ccc; }
   var socket = null;
   var CONFIRMADO = true;
   try {
-    if (typeof io === 'function') socket = io();
+    if (typeof io === 'function') socket = io({ query: { restaurante_id: localStorage.getItem('restaurante_id') || '1' } });
   } catch (e) {}
 </script>
 
@@ -496,6 +496,8 @@ body.light .conta-total-row { border-top-color: #ccc; }
 
   /* ═══ XHR HELPERS ═══ */
   function xhrGet(url, cb) {
+    var sep = url.indexOf('?') === -1 ? '?' : '&';
+    url += sep + 'restaurante_id=' + encodeURIComponent(localStorage.getItem('restaurante_id') || '1');
     var x = new XMLHttpRequest();
     x.open('GET', url, true);
     x.onreadystatechange = function() {
@@ -508,6 +510,9 @@ body.light .conta-total-row { border-top-color: #ccc; }
   }
 
   function xhrPost(url, data, cb) {
+    if (data && typeof data === 'object' && !data.restaurante_id) {
+      data.restaurante_id = localStorage.getItem('restaurante_id') || '1';
+    }
     var x = new XMLHttpRequest();
     x.open('POST', url, true);
     x.setRequestHeader('Content-Type', 'application/json');
@@ -1180,6 +1185,9 @@ body.light .conta-total-row { border-top-color: #ccc; }
   };
 
   function xhrPut(url, data, cb) {
+    if (data && typeof data === 'object' && !data.restaurante_id) {
+      data.restaurante_id = localStorage.getItem('restaurante_id') || '1';
+    }
     var x = new XMLHttpRequest();
     x.open('PUT', url, true);
     x.setRequestHeader('Content-Type', 'application/json');
