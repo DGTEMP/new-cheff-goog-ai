@@ -59,8 +59,13 @@ function run(sql, params) {
 }
 
 async function flushOutbox() {
+  // Reseta itens presos em 'sending' (WS caiu durante flush)
+  try {
+    await run(`UPDATE sync_outbox SET status = 'pending', retry_count = retry_count + 1 WHERE status = 'sending'`, []);
+  } catch (e) {}
+
   const pending = await query(
-    `SELECT * FROM sync_outbox WHERE status = 'pending' AND direction = 'up' ORDER BY id ASC LIMIT 50`
+    `SELECT * FROM sync_outbox WHERE status = 'pending' AND direction = 'up' AND retry_count < 10 ORDER BY id ASC LIMIT 50`
   );
   if (!pending.length) return;
 
@@ -81,7 +86,8 @@ async function flushOutbox() {
     sendToServer('instance:data_push', msg);
 
     for (const item of items) {
-      await run(`UPDATE sync_outbox SET status = 'sent', sent_at = datetime('now','localtime') WHERE id = ?`, [item.id]);
+      // Marca como 'sending' — só vira 'sent' quando ACK do servidor chegar
+      await run(`UPDATE sync_outbox SET status = 'sending', sent_at = datetime('now','localtime') WHERE id = ?`, [item.id]);
     }
   }
 }
@@ -120,17 +126,16 @@ async function executeCommand(command, params) {
     case 'update_features': {
       if (params.features && ctx.masterDb) {
         const tenantId = await getTenantId();
-        for (const [feature, enabled] of Object.entries(params.features)) {
-          await new Promise((resolve, reject) => {
-            ctx.masterDb.run(
-              `INSERT INTO tenant_features (restaurante_id, overrides_json, updated_at)
-               VALUES (?, ?, datetime('now','localtime'))
-               ON CONFLICT(restaurante_id) DO UPDATE SET overrides_json = ?, updated_at = datetime('now','localtime')`,
-              [tenantId, JSON.stringify(params.features), JSON.stringify(params.features)],
-              (err) => err ? reject(err) : resolve()
-            );
-          });
-        }
+        const featuresJson = JSON.stringify(params.features);
+        await new Promise((resolve, reject) => {
+          ctx.masterDb.run(
+            `INSERT INTO tenant_features (restaurante_id, overrides_json, updated_at)
+             VALUES (?, ?, datetime('now','localtime'))
+             ON CONFLICT(restaurante_id) DO UPDATE SET overrides_json = ?, updated_at = datetime('now','localtime')`,
+            [tenantId, featuresJson, featuresJson],
+            (err) => err ? reject(err) : resolve()
+          );
+        });
       }
       return { ok: true, features: params.features };
     }
@@ -205,9 +210,9 @@ function sendToServer(event, data) {
   }
 }
 
-function queueForHttpPush(event, data) {
+async function queueForHttpPush(event, data) {
   try {
-    run(
+    await run(
       `INSERT INTO sync_outbox (message_type, payload, direction, status) VALUES (?, ?, 'up', 'pending')`,
       [event, JSON.stringify(data)]
     );
@@ -391,9 +396,17 @@ function connectWebSocket() {
       }
     });
 
-    ws.on('server:sync_ack', (msg) => {
+    ws.on('server:sync_ack', async (msg) => {
       if (msg && msg.payload) {
         console.log('[Sync] ACK recebido:', msg.payload.status);
+        if (msg.payload.status === 'received') {
+          try {
+            await run(
+              `UPDATE sync_outbox SET status = 'sent' WHERE status = 'sending'`,
+              []
+            );
+          } catch (e) {}
+        }
       }
     });
 

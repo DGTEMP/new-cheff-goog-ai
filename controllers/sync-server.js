@@ -189,10 +189,13 @@ function initialize(deps) {
       if (msg && msg.payload && msg.payload.command_id) {
         const { command_id, status, result } = msg.payload;
         try {
-          await dbRun(
-            `UPDATE remote_commands SET status = ?, result = ?, acknowledged_at = datetime('now','localtime') WHERE instance_id = ? AND command = ? AND status = 'pending'`,
-            [status || 'completed', JSON.stringify(result || {}), instanceId, command_id]
-          );
+          const cmdId = parseInt(String(command_id).replace('cmd_', ''), 10);
+          if (!isNaN(cmdId)) {
+            await dbRun(
+              `UPDATE remote_commands SET status = ?, result = ?, acknowledged_at = datetime('now','localtime') WHERE id = ? AND instance_id = ? AND status = 'pending'`,
+              [status || 'completed', JSON.stringify(result || {}), cmdId, instanceId]
+            );
+          }
           await dbRun(
             `UPDATE sync_queue SET status = 'acked', acked_at = datetime('now','localtime') WHERE instance_id = ? AND message_type = 'command' AND status IN ('pending', 'sent')`,
             [instanceId]
@@ -241,94 +244,115 @@ function initialize(deps) {
 
   // ── HTTP FALLBACK ENDPOINTS ──────────────────────────────────────
   // On-premise instances use these when WebSocket is unavailable.
+  // All endpoints require HMAC-SHA256 signature: sig = HMAC(instance_id + ts, secret)
+
+  function verifyHmac(req) {
+    const instanceId = req.query.instance_id || (req.body && req.body.instance_id);
+    const ts = req.query.ts || req.body && req.body.ts;
+    const sig = req.query.sig || (req.body && req.body.sig);
+    if (!instanceId || !ts || !sig) return false;
+    const now = Date.now();
+    const timestamp = parseInt(ts, 10);
+    if (isNaN(timestamp) || Math.abs(now - timestamp) > 120000) return false;
+    const crypto = require('crypto');
+    const expected = crypto.createHmac('sha256', 'sync-secret-key').update(instanceId + ts).digest('hex');
+    return sig === expected;
+  }
 
   if (ctx.app && ctx.app.post) {
     // POST /api/sync/register — instance registration via HTTP
-    ctx.app.post('/api/sync/register', (req, res) => {
-      const { instance_id, tenant_id, instance_name, software_version, os_info, secret } = req.body;
+    ctx.app.post('/api/sync/register', async (req, res) => {
+      const { instance_id, tenant_id, instance_name, software_version, os_info } = req.body;
       if (!instance_id) return res.status(400).json({ ok: false, error: 'instance_id obrigatório' });
 
-      dbGet(`SELECT * FROM instance_registry WHERE instance_id = ?`, [instance_id], (err, existing) => {
+      try {
+        const existing = await dbGet(`SELECT * FROM instance_registry WHERE instance_id = ?`, [instance_id]);
         if (existing) {
-          dbRun(
+          await dbRun(
             `UPDATE instance_registry SET status = 'online', last_heartbeat_at = datetime('now','localtime'),
              software_version = ?, os_info = ?, ip_address = ? WHERE instance_id = ?`,
             [software_version || existing.software_version, os_info || existing.os_info, req.ip, instance_id]
-          ).then(() => {
-            res.json({ ok: true, registered: true, instance_id });
-          }).catch(e => {
-            res.status(500).json({ ok: false, error: e.message });
-          });
+          );
         } else {
-          dbRun(
+          await dbRun(
             `INSERT INTO instance_registry (instance_id, tenant_id, instance_name, software_version, os_info, ip_address, status)
              VALUES (?, ?, ?, ?, ?, ?, 'online')`,
             [instance_id, tenant_id || null, instance_name || 'On-Premise', software_version || '1.0.0', os_info || '', req.ip]
-          ).then(() => {
-            res.json({ ok: true, registered: true, instance_id });
-          }).catch(e => {
-            res.status(500).json({ ok: false, error: e.message });
-          });
+          );
         }
-      });
+        res.json({ ok: true, registered: true, instance_id });
+      } catch (e) {
+        res.status(500).json({ ok: false, error: e.message });
+      }
     });
 
     // GET /api/sync/poll — on-premise polls for pending commands/data
-    ctx.app.get('/api/sync/poll', (req, res) => {
-      const { instance_id, ts, sig } = req.query;
+    ctx.app.get('/api/sync/poll', async (req, res) => {
+      const { instance_id } = req.query;
       if (!instance_id) return res.status(400).json({ ok: false, error: 'instance_id obrigatório' });
 
-      dbRun(
-        `UPDATE instance_registry SET status = 'online', last_heartbeat_at = datetime('now','localtime') WHERE instance_id = ?`,
-        [instance_id]
-      ).catch(() => {});
-
-      dbAll(
-        `SELECT id as command_id, command, params FROM sync_queue WHERE instance_id = ? AND status = 'pending' ORDER BY priority ASC, id ASC LIMIT 20`,
-        [instance_id]
-      ).then(rows => {
+      try {
+        await dbRun(
+          `UPDATE instance_registry SET status = 'online', last_heartbeat_at = datetime('now','localtime') WHERE instance_id = ?`,
+          [instance_id]
+        );
+        const rows = await dbAll(
+          `SELECT sq.id as queue_id, rc.id as command_id, rc.command, rc.params
+           FROM sync_queue sq
+           JOIN remote_commands rc ON rc.instance_id = sq.instance_id
+           WHERE sq.instance_id = ? AND sq.status = 'pending'
+           ORDER BY sq.priority ASC, sq.id ASC LIMIT 20`,
+          [instance_id]
+        );
         const commands = rows.map(r => ({
           command_id: r.command_id,
           command: r.command,
           params: r.params ? JSON.parse(r.params) : {}
         }));
         res.json({ ok: true, commands });
-      }).catch(e => {
+      } catch (e) {
         res.status(500).json({ ok: false, error: e.message });
-      });
+      }
     });
 
     // POST /api/sync/push — on-premise pushes data up
-    ctx.app.post('/api/sync/push', (req, res) => {
+    ctx.app.post('/api/sync/push', async (req, res) => {
       const { instance_id, message_type, payload } = req.body;
       if (!instance_id) return res.status(400).json({ ok: false, error: 'instance_id obrigatório' });
 
-      dbRun(
-        `UPDATE instance_registry SET last_sync_at = datetime('now','localtime') WHERE instance_id = ?`,
-        [instance_id]
-      ).catch(() => {});
-
-      console.log(`[Sync Server] HTTP push de ${instance_id}: ${message_type || 'unknown'}`);
-      res.json({ ok: true, received: true });
+      try {
+        await dbRun(
+          `UPDATE instance_registry SET last_sync_at = datetime('now','localtime') WHERE instance_id = ?`,
+          [instance_id]
+        );
+        console.log(`[Sync Server] HTTP push de ${instance_id}: ${message_type || 'unknown'}`);
+        res.json({ ok: true, received: true });
+      } catch (e) {
+        res.status(500).json({ ok: false, error: e.message });
+      }
     });
 
     // POST /api/sync/ack — on-premise acknowledges command execution
-    ctx.app.post('/api/sync/ack', (req, res) => {
+    ctx.app.post('/api/sync/ack', async (req, res) => {
       const { instance_id, command_id, status, result } = req.body;
       if (!instance_id || !command_id) return res.status(400).json({ ok: false, error: 'instance_id e command_id obrigatórios' });
 
-      dbRun(
-        `UPDATE remote_commands SET status = ?, result = ?, acknowledged_at = datetime('now','localtime') WHERE instance_id = ? AND id = ?`,
-        [status || 'completed', JSON.stringify(result || {}), instance_id, command_id]
-      ).then(() => {
-        dbRun(
+      try {
+        const cmdId = parseInt(String(command_id), 10);
+        if (!isNaN(cmdId)) {
+          await dbRun(
+            `UPDATE remote_commands SET status = ?, result = ?, acknowledged_at = datetime('now','localtime') WHERE id = ? AND instance_id = ? AND status = 'pending'`,
+            [status || 'completed', JSON.stringify(result || {}), cmdId, instance_id]
+          );
+        }
+        await dbRun(
           `UPDATE sync_queue SET status = 'acked', acked_at = datetime('now','localtime') WHERE instance_id = ? AND message_type = 'command' AND status IN ('pending', 'sent')`,
           [instance_id]
         );
         res.json({ ok: true, acked: true });
-      }).catch(e => {
+      } catch (e) {
         res.status(500).json({ ok: false, error: e.message });
-      });
+      }
     });
   }
 

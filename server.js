@@ -1274,10 +1274,10 @@ if (deploymentConfig.isOnPremise()) {
           timestamp: new Date().toISOString()
         };
 
-        // Grava diretamente no tenant DB real (sem proxy) para evitar loop
-        const realDb = getTenantDb();
-        const wrappedTid = tid;
-        tenantContext.run(wrappedTid, () => {
+        // Usa tenantDbs.get(tid) diretamente — getTenantDb() não funciona aqui
+        // porque AsyncLocalStorage não propaga para callbacks nativos do sqlite3
+        const realDb = tenantDbs.get(tid);
+        if (realDb) {
           realDb.run(
             `INSERT INTO sync_outbox (message_type, payload, direction, status) VALUES (?, ?, 'up', 'pending')`,
             [tableName, JSON.stringify(payload)],
@@ -1285,7 +1285,7 @@ if (deploymentConfig.isOnPremise()) {
               if (syncErr) console.error('[Sync Outbox] Erro ao enfileirar:', syncErr.message);
             }
           );
-        });
+        }
       } catch (syncErr) {
         console.error('[Sync Outbox] Erro ao enfileirar sync:', syncErr.message);
       }
