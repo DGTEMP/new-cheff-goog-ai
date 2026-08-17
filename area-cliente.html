@@ -577,6 +577,12 @@
       <div class="nivel-progress-label" id="cliente-nivel-progress-label"></div>
     </div>
 
+    <div id="btn-fazer-pedido-wrap" style="display:none; margin-bottom: 20px;">
+      <button onclick="irParaCardapio()" style="width:100%; padding:14px 20px; border:none; border-radius:12px; background: linear-gradient(135deg, #f59e0b, #d97706); color:white; font-size:16px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:10px; box-shadow: 0 4px 15px rgba(245,158,11,0.3);">
+        <i class="ph ph-shopping-cart" style="font-size:22px;"></i> Fazer Pedido
+      </button>
+    </div>
+
     <!-- NAV TABS -->
     <div style="display: flex; gap: 8px; margin-bottom: 24px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none;">
       <button class="profile-tab active" data-section="pedidos" onclick="showSection('pedidos')"><i class="ph ph-receipt"></i> Pedidos</button>
@@ -650,6 +656,7 @@
     const urlParams = new URLSearchParams(window.location.search);
     const fromCardapio = urlParams.get('from') === 'cardapio';
     const secaoInicial = urlParams.get('secao') === 'beneficios' ? 'beneficios' : null;
+    const mesaUrl = urlParams.get('mesa') || '';
 
     const ridUrl = urlParams.get('restaurante_id');
     if (ridUrl) localStorage.setItem('restaurante_id', ridUrl);
@@ -715,10 +722,21 @@
       socket.emit('get_resgates_cliente', clienteAtual.id);
       socket.emit('get_cliente_pedidos', { cliente_id: clienteAtual.id, telefone: clienteAtual.telefone });
       socket.emit('get_cliente_visitas', { cliente_id: clienteAtual.id, telefone: clienteAtual.telefone });
+      socket.emit('registrar_visita', { cliente_id: clienteAtual.id, cliente_nome: clienteAtual.nome, cliente_telefone: clienteAtual.telefone, mesa: mesaUrl });
 
       document.getElementById('lista-ofertas').innerHTML = '<p style="color:#94a3b8; text-align:center; padding:20px;">Nenhuma oferta disponível no momento.</p>';
 
       if (secaoInicial) showSection(secaoInicial);
+
+      if (mesaUrl || fromCardapio) {
+        document.getElementById('btn-fazer-pedido-wrap').style.display = 'block';
+      }
+    }
+
+    function irParaCardapio() {
+      const rid = localStorage.getItem('restaurante_id') || '1';
+      const mesa = mesaUrl || '';
+      window.location.href = '/cardapio' + (mesa ? '?mesa=' + encodeURIComponent(mesa) : '') + (mesa ? '&' : '?') + 'restaurante_id=' + encodeURIComponent(rid);
     }
 
     function sair() {
@@ -864,9 +882,11 @@
           <div class="visita-icon"><i class="ph ph-storefront"></i></div>
           <div class="visita-info">
             <h4>${v.mesa || 'Balcão'}</h4>
-            <p>${v.data || ''} ${v.hora ? 'às ' + v.hora : ''}</p>
+            <p>${v.data || ''}</p>
           </div>
-          <div class="visita-pontos">R$ ${parseFloat(v.total || 0).toFixed(2).replace('.', ',')}</div>
+          <div class="visita-pontos" style="text-align:right;">
+            ${v.contabilizado ? '<span style="color:#10b981;font-size:12px;">+' + (v.pontos_ganhos || 0) + ' pts</span>' : '<span style="color:#f59e0b;font-size:11px;">Aguardando fechamento</span>'}
+          </div>
         </div>
       `).join('');
     });

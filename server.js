@@ -1518,6 +1518,21 @@ db.serialize(() => {
   db.run(`ALTER TABLE clientes ADD COLUMN endereco TEXT`, (err) => { });
   db.run(`ALTER TABLE clientes ADD COLUMN data_nascimento TEXT`, (err) => { });
   db.run(`ALTER TABLE clientes ADD COLUMN pontos INTEGER DEFAULT 0`, (err) => { });
+  db.run(`ALTER TABLE clientes ADD COLUMN total_gasto REAL DEFAULT 0`, (err) => { });
+  db.run(`ALTER TABLE clientes ADD COLUMN nivel TEXT DEFAULT 'Bronze'`, (err) => { });
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS cliente_visitas (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      cliente_id INTEGER,
+      cliente_nome TEXT,
+      cliente_telefone TEXT,
+      data_visita DATETIME DEFAULT (datetime('now', 'localtime')),
+      mesa TEXT,
+      pontos_ganhos INTEGER DEFAULT 0,
+      contabilizado INTEGER DEFAULT 0
+    )
+  `);
 
   db.run(`
     CREATE TABLE IF NOT EXISTS promocoes (
@@ -3400,6 +3415,7 @@ io.on('connection', (socket) => {
     const quantity = d.quantity || 1;
     const localName = d.localName || d.nome || 'PDV Mobile';
     const userName = d.userName || 'PDV Mobile';
+    const clienteNome = d.clienteNome || '';
     const now = Date.now();
     // (Segurança) Limite por socket (ex.: cliente do QR chamando garçom) para
     // evitar spam de notificações.
@@ -3409,15 +3425,15 @@ io.on('connection', (socket) => {
     const isReChamado = lastCall && (now - lastCall) < 10000;
     chamarTimestamps[id] = now;
     if (!id) {
-      const entry = { id: 'pdv_' + now, localName, productName, quantity, userName, tipo: 'pdv', criadoEm: now, status: 'Pronto', targetGarcom: d.targetGarcom || null };
+      const entry = { id: 'pdv_' + now, localName, productName, quantity, userName, clienteNome, tipo: 'pdv', criadoEm: now, status: 'Pronto', targetGarcom: d.targetGarcom || null };
       if (!isReChamado) pdvCalls.push(entry);
       io.emit('notificacao_garcom', Object.assign({}, entry, { reChamado: isReChamado }));
-      if (!isReChamado) sendPush('garcom', '🔔 Garçom Chamado!', `${quantity}x ${productName} — ${localName}`, 'chamar-pdv-' + now, '/garcom.html');
+      if (!isReChamado) sendPush('garcom', '🔔 Garçom Chamado!', `${quantity}x ${productName} — ${localName}${clienteNome ? ' (' + clienteNome + ')' : ''}`, 'chamar-pdv-' + now, '/garcom.html');
       broadcastPedidos();
     } else {
-      io.emit('notificacao_garcom', { id, productName, quantity, localName, userName, tipo: 'chamada', reChamado: isReChamado, targetGarcom: d.targetGarcom || null });
+      io.emit('notificacao_garcom', { id, productName, quantity, localName, userName, clienteNome, tipo: 'chamada', reChamado: isReChamado, targetGarcom: d.targetGarcom || null });
       if (!isReChamado) {
-        sendPush('garcom', '🔔 Garçom Chamado!', `${quantity}x ${productName} — ${localName}`, 'chamar-' + id, '/garcom.html');
+        sendPush('garcom', '🔔 Garçom Chamado!', `${quantity}x ${productName} — ${localName}${clienteNome ? ' (' + clienteNome + ')' : ''}`, 'chamar-' + id, '/garcom.html');
         db.run(`UPDATE pedidos SET garcom_call = datetime('now', 'localtime') WHERE id = ?`, [id]);
         broadcastPedidos();
       }
@@ -4821,15 +4837,24 @@ io.on('connection', (socket) => {
     if (!cliente_id && !telefone) return socket.emit('cliente_visitas_response', []);
     let query, params;
     if (cliente_id) {
-      query = `SELECT p.localName as mesa, p.createdAt as data, p.time as hora, p.total FROM pedidos p WHERE p.cliente_id = ? AND p.status = 'Finalizado' ORDER BY p.id DESC LIMIT 30`;
+      query = `SELECT v.mesa, v.data_visita as data, v.pontos_ganhos, v.contabilizado FROM cliente_visitas v WHERE v.cliente_id = ? ORDER BY v.id DESC LIMIT 30`;
       params = [cliente_id];
     } else {
-      query = `SELECT p.localName as mesa, p.createdAt as data, p.time as hora, p.total FROM pedidos p WHERE p.userName = ? AND p.status = 'Finalizado' ORDER BY p.id DESC LIMIT 30`;
+      query = `SELECT v.mesa, v.data_visita as data, v.pontos_ganhos, v.contabilizado FROM cliente_visitas v WHERE v.cliente_telefone = ? ORDER BY v.id DESC LIMIT 30`;
       params = [telefone];
     }
     db.all(query, params, (err, rows) => {
       socket.emit('cliente_visitas_response', rows || []);
     });
+  });
+
+  socket.on('registrar_visita', (data) => {
+    const { cliente_id, cliente_nome, cliente_telefone, mesa } = data || {};
+    if (!cliente_id && !cliente_telefone) return;
+    db.run(`INSERT INTO cliente_visitas (cliente_id, cliente_nome, cliente_telefone, mesa) VALUES (?, ?, ?, ?)`,
+      [cliente_id || null, cliente_nome || '', cliente_telefone || '', mesa || ''], (err) => {
+        if (!err) socket.emit('visita_registrada', { success: true });
+      });
   });
 
   socket.on('admin_get_beneficios', () => {

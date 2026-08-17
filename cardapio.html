@@ -2047,7 +2047,9 @@
     };
 
     window.chamarGarcom = () => {
-      socket.emit('chamar_garcom', { localName: mesaNome, mensagem: 'Garçom chamado via QR' });
+      const perfil = perfilClienteAtual();
+      const clienteNome = (perfil && perfil.nome) ? perfil.nome : '';
+      socket.emit('chamar_garcom', { localName: mesaNome, userName: 'Chamada', clienteNome: clienteNome, mensagem: 'Garçom chamado via QR' });
       const btn = document.getElementById('fab-garcom');
       btn.innerHTML = '<i class="ph ph-check"></i>';
       btn.style.background = 'linear-gradient(135deg, #059669, #047857)';
@@ -2186,7 +2188,7 @@
 
     function pwaGoAreaCliente(section) {
       if (crmPerfil) localStorage.setItem('cliente_perfil', JSON.stringify(crmPerfil));
-      window.location.href = '/area-cliente?from=cardapio&restaurante_id=' + encodeURIComponent(restauranteId) + (section ? '&secao=' + section : '');
+      window.location.href = '/area-cliente?from=cardapio&mesa=' + encodeURIComponent(mesaNome) + '&restaurante_id=' + encodeURIComponent(restauranteId) + (section ? '&secao=' + section : '');
     }
 
     function showPwaOrderPrompt() {
@@ -2239,7 +2241,7 @@
         document.getElementById('modal-crm-login').style.display = 'flex';
       }
       localStorage.setItem('cliente_perfil', JSON.stringify(crmPerfil));
-      window.location.href = '/area-cliente?from=cardapio&restaurante_id=' + encodeURIComponent(restauranteId);
+      window.location.href = '/area-cliente?from=cardapio&mesa=' + encodeURIComponent(mesaNome) + '&restaurante_id=' + encodeURIComponent(restauranteId);
     };
 
     // === FILA DE ESPERA DE CLIENTES (modo=fila, via QR Code) ===

@@ -2015,6 +2015,7 @@ function showAcceptNotification(data) {
     <div style="font-size:48px;margin-bottom:8px;"><i class="ph ph-hand-waving"></i></div>
     <h3 style="font-size:18px;font-weight:800;margin-bottom:4px;">Chamado na Mesa</h3>
     <p style="font-size:14px;color:#64748b;margin-bottom:4px;">${escHtml(data.localName)}</p>
+    ${data.clienteNome ? '<p style="font-size:13px;color:#d97706;font-weight:700;margin-bottom:4px;"><i class="ph ph-user"></i> ' + escHtml(data.clienteNome) + '</p>' : ''}
     <p style="font-size:13px;color:#94a3b8;margin-bottom:20px;">Cliente chamou o garçom</p>
     <div style="display:flex;gap:10px;">
       <button id="btn-recusar-chamado" style="flex:1;padding:12px;border-radius:12px;border:2px solid #e2e8f0;background:white;font-weight:700;font-size:14px;cursor:pointer;color:#64748b;">Recusar</button>
@@ -2064,14 +2065,15 @@ socket.on('notificacao_garcom', (data) => {
     showAcceptNotification(data);
   }
 
-  const msg = `🔔 ${data.quantity}x ${data.productName} - ${data.localName} aguardando retirada!`;
+  const clienteLabel = data.clienteNome ? ` — ${data.clienteNome}` : '';
+  const msg = `🔔 ${data.quantity}x ${data.productName} - ${data.localName}${clienteLabel} aguardando retirada!`;
   showToast(msg, '#8b5cf6');
   playChamarGarcom();
 
   if ('Notification' in window) {
     const sendNotif = () => {
       new Notification('🔔 Garçom Chamado!', {
-        body: `${data.quantity}x ${data.productName} - ${data.localName}`,
+        body: `${data.quantity}x ${data.productName} - ${data.localName}${data.clienteNome ? ' (' + data.clienteNome + ')' : ''}`,
         tag: `chamar-${data.id}`,
         requireInteraction: true
       });

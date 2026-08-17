@@ -591,6 +591,7 @@ module.exports = function(socket, io, db, helpers) {
                         if (bonus > 0) pontosGanhos += Math.floor(pontosGanhos * bonus / 100);
                         if (pontosGanhos > 0 || cliente.nivel !== nivel) {
                            db.run(`UPDATE clientes SET pontos = pontos + ?, total_gasto = ?, nivel = ? WHERE id = ?`, [pontosGanhos, totalGastoNovo, nivel, row.cliente_id], () => {
+                              db.run(`UPDATE cliente_visitas SET contabilizado = 1, pontos_ganhos = ? WHERE id = (SELECT id FROM cliente_visitas WHERE cliente_id = ? AND contabilizado = 0 LIMIT 1)`, [pontosGanhos, row.cliente_id], () => {});
                               db.all(`SELECT * FROM clientes`, (e, r) => io.emit('clientes_atualizados', r || []));
                            });
                         }
