@@ -242,9 +242,61 @@ app.use('/api', (req, res, next) => {
   next();
 });
 
+// --- DOMÍNIO POR TENANT (subdomínio + domínio próprio) ---
+const BASE_DOMAIN = (process.env.BASE_DOMAIN || 'chefcozinha.com.br').toLowerCase();
+const domainMap = new Map(); // custom_domain → tenant_id
+const slugMap = new Map();   // slug → tenant_id
+let domainMapLoaded = false;
+
+function loadDomainMaps() {
+  return new Promise((resolve) => {
+    masterDb.all(`SELECT id, slug, custom_domain FROM restaurantes WHERE ativo = 1`, [], (err, rows) => {
+      if (err) return resolve();
+      domainMap.clear();
+      slugMap.clear();
+      (rows || []).forEach(r => {
+        if (r.custom_domain && r.custom_domain.trim()) {
+          domainMap.set(r.custom_domain.trim().toLowerCase(), r.id);
+        }
+        if (r.slug && r.slug.trim()) {
+          slugMap.set(r.slug.trim().toLowerCase(), r.id);
+        }
+      });
+      domainMapLoaded = true;
+      resolve();
+    });
+  });
+}
+
+function resolveTenantFromHost(req) {
+  const host = (req.get('host') || '').split(':')[0].toLowerCase();
+  if (!host) return null;
+
+  // 1) Match custom domain first
+  if (domainMap.has(host)) return domainMap.get(host);
+
+  // 2) Check if it's a subdomain of BASE_DOMAIN (e.g. pizzaria.chefcozinha.com.br)
+  const suffix = '.' + BASE_DOMAIN;
+  if (host.endsWith(suffix) && host.length > suffix.length) {
+    const subdomain = host.slice(0, host.length - suffix.length);
+    if (slugMap.has(subdomain)) return slugMap.get(subdomain);
+  }
+
+  return null;
+}
+
 // --- SAAS MULTI-TENANT SIMULATION ---
 app.use((req, res, next) => {
-  req.restaurante_id = 1; // Default tenant
+  const domainTenant = resolveTenantFromHost(req);
+  req.restaurante_id = domainTenant || 1; // Domain-resolved or default tenant
+  req.tenant_slug = null;
+  if (domainTenant) {
+    const host = (req.get('host') || '').split(':')[0].toLowerCase();
+    const suffix = '.' + BASE_DOMAIN;
+    if (host.endsWith(suffix)) {
+      req.tenant_slug = host.slice(0, host.length - suffix.length);
+    }
+  }
   next();
 });
 
@@ -349,6 +401,18 @@ function cachedMtime(filePath) {
   }
   return m;
 }
+// Rota do cardápio digital com gate por feature (cardapio) do tenant
+app.get('/cardapio.html', (req, res) => {
+  const qrid = parseInt(req.query.restaurante_id, 10);
+  const tid = (Number.isFinite(qrid) && qrid > 0) ? qrid : 1;
+  if (!isTenantFeatureEnabled(tid, 'cardapio')) {
+    return res.status(403).send(
+      '<div style="font-family:sans-serif;text-align:center;margin-top:15vh;color:#555"><h2>Cardápio indisponível</h2><p>Este estabelecimento não está com o cardápio digital ativo.</p></div>'
+    );
+  }
+  res.sendFile(path.join(__dirname, 'cardapio.html'));
+});
+
 app.use(express.static(__dirname, {
   etag: true,
   setHeaders: (res, filePath) => {
@@ -609,6 +673,7 @@ const _ioEmitGlobal = io.emit.bind(io);
 io.emit = function (event, ...args) {
   const tid = tenantContext.getStore();
   if (typeof tid === 'number' && tid > 0) {
+    if (!isTenantFeatureEnabled(tid, 'tempo_real')) return;
     return io.to(`restaurante_${tid}`).emit(event, ...args);
   }
   return _ioEmitGlobal(event, ...args);
@@ -865,6 +930,8 @@ masterDb.serialize(async () => {
     chave_ativacao TEXT,
     validade_licenca TEXT,
     max_dispositivos INTEGER DEFAULT 0,
+    slug TEXT UNIQUE,
+    custom_domain TEXT UNIQUE,
     data_cadastro DATETIME DEFAULT (datetime('now', 'localtime'))
   )`);
   masterDb.run(`CREATE TABLE IF NOT EXISTS usuarios (
@@ -892,6 +959,29 @@ masterDb.serialize(async () => {
     install_id TEXT
   )`);
 
+  // Overrides de features por tenant (features = liga/desliga por tenant ou plano)
+  masterDb.run(`CREATE TABLE IF NOT EXISTS tenant_features (
+    restaurante_id INTEGER PRIMARY KEY,
+    overrides_json TEXT,
+    updated_at DATETIME DEFAULT (datetime('now', 'localtime'))
+  )`);
+
+  // Colunas de domínio para tenants (subdomínio + domínio próprio)
+  masterDb.run(`ALTER TABLE restaurantes ADD COLUMN slug TEXT`);
+  masterDb.run(`ALTER TABLE restaurantes ADD COLUMN custom_domain TEXT`);
+  try { masterDb.run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_restaurantes_slug ON restaurantes(slug) WHERE slug IS NOT NULL AND slug != ''`); } catch(e) {}
+  try { masterDb.run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_restaurantes_custom_domain ON restaurantes(custom_domain) WHERE custom_domain IS NOT NULL AND custom_domain != ''`); } catch(e) {}
+
+  // Métricas de pico (amostras de sockets ativos por tenant/hora)
+  masterDb.run(`CREATE TABLE IF NOT EXISTS metrica_picos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    restaurante_id INTEGER,
+    dia TEXT,
+    hora INTEGER,
+    sockets INTEGER DEFAULT 0,
+    UNIQUE(restaurante_id, dia, hora)
+  )`);
+
   // Restaurante padrão (id 1)
   masterDb.run(`INSERT OR IGNORE INTO restaurantes (id, nome, licenca, ativo) VALUES (1, 'Restaurante Pirão', 'ativo', 1)`);
   masterDb.run(`UPDATE restaurantes SET nome = 'Restaurante Pirão', licenca = 'ativo', ativo = 1 WHERE id = 1`);
@@ -915,10 +1005,100 @@ masterDb.serialize(async () => {
 });
 
 // Carregar rotas do Super Admin
+const featurePlans = require('./feature-plans');
+const tenantFeatures = new Map();
+const tenantSocketCounts = new Map();
+const TENANT_FEATURES_REFRESH_MS = 30000;
+
+// Recarrega o snapshot de features de todos os tenants (síncrono depois disso)
+function loadAllTenantFeatures() {
+  return new Promise((resolve) => {
+    masterDb.all(`SELECT id, licenca FROM restaurantes`, [], (err, rests) => {
+      masterDb.all(`SELECT restaurante_id, overrides_json FROM tenant_features`, [], (err2, ovs) => {
+        const ovMap = {};
+        (ovs || []).forEach((o) => {
+          try { ovMap[o.restaurante_id] = JSON.parse(o.overrides_json) || {}; } catch (e) { ovMap[o.restaurante_id] = {}; }
+        });
+        const map = new Map();
+        (rests || []).forEach((r) => {
+          map.set(r.id, featurePlans.resolveFeatures(r.licenca, ovMap[r.id]));
+        });
+        tenantFeatures.clear();
+        map.forEach((f, tid) => tenantFeatures.set(tid, f));
+        resolve();
+      });
+    });
+  });
+}
+
+function getTenantFeaturesSync(tid) {
+  return tenantFeatures.get(tid) || featurePlans.getPlanDefaults('premium');
+}
+
+function isTenantFeatureEnabled(tid, feature) {
+  const f = tenantFeatures.get(tid);
+  if (!f) return true;
+  return !!f[feature];
+}
+
+// Contadores de sockets ativos por tenant (para métricas de pico)
+function metricAddSocket(socket) {
+  if (socket._metricCounted) return;
+  socket._metricCounted = true;
+  const tid = socket.restaurante_id || 1;
+  tenantSocketCounts.set(tid, (tenantSocketCounts.get(tid) || 0) + 1);
+}
+function metricRemoveSocket(socket) {
+  if (!socket._metricCounted) return;
+  socket._metricCounted = false;
+  const tid = socket.restaurante_id || 1;
+  const c = (tenantSocketCounts.get(tid) || 1) - 1;
+  if (c <= 0) tenantSocketCounts.delete(tid);
+  else tenantSocketCounts.set(tid, c);
+}
+function metricSocketCount(tid) {
+  return tenantSocketCounts.get(tid) || 0;
+}
+
+function getLocalDateStr(d) {
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+// Amostra o pico de sockets por tenant/hora e persiste no masterDb
+function samplePicos() {
+  const now = new Date();
+  const dia = getLocalDateStr(now);
+  const hora = now.getHours();
+  tenantSocketCounts.forEach((count, tid) => {
+    masterDb.run(
+      `INSERT INTO metrica_picos (restaurante_id, dia, hora, sockets) VALUES (?, ?, ?, ?)
+       ON CONFLICT(restaurante_id, dia, hora) DO UPDATE SET sockets = MAX(sockets, excluded.sockets)`,
+      [tid, dia, hora, count]
+    );
+  });
+}
+
 require('./controllers/super-admin')(app, masterDb, sqlite3, {
   JWT_SECRET,
   superAdminAuth,
-  io
+  io,
+  featurePlans,
+  loadAllTenantFeatures,
+  getTenantFeaturesSync,
+  isTenantFeatureEnabled,
+  metricSocketCount,
+  ifoodApi,
+  baseDomain: BASE_DOMAIN,
+  reloadDomainMaps: loadDomainMaps,
+  ifoodDeps: {
+    io,
+    masterDb,
+    tenantContext,
+    getTenantDb,
+    dir: __dirname,
+    isFeatureEnabled: isTenantFeatureEnabled
+  }
 });
 const tenantDbs = new Map();
 
@@ -2191,6 +2371,10 @@ io.on('connection', (socket) => {
   socket.restaurante_id = socketTenantId;
   socket.join(`restaurante_${socketTenantId}`);
 
+  // Contagem de sockets por tenant (métricas de pico) + snapshot de features
+  metricAddSocket(socket);
+  socket.features = getTenantFeaturesSync(socketTenantId);
+
   // Wrap all socket events in tenant context!
   const originalOn = socket.on.bind(socket);
   socket.on = function (eventName, callback) {
@@ -2586,15 +2770,18 @@ io.on('connection', (socket) => {
   });
 
   // Fetch all active orders and send to the new client (always, regardless of IA config)
-  db.all(`SELECT * FROM pedidos WHERE status NOT IN ('Finalizado','Cancelado') ORDER BY createdAt ASC`, [], (err, rows) => {
-    if (err) {
-      console.error(err);
-      return;
-    }
-    const rowsAll = rows || [];
-    socket.emit('initial_data', rowsAll.filter(r => r.status !== 'Pago'));
-    socket.emit('initial_pdv_data', rowsAll);
-  });
+  // Poupando servidor: se o tenant tiver a feature tempo_real desligada, pula o envio inicial.
+  if (!socket.features || socket.features.tempo_real) {
+    db.all(`SELECT * FROM pedidos WHERE status NOT IN ('Finalizado','Cancelado') ORDER BY createdAt ASC`, [], (err, rows) => {
+      if (err) {
+        console.error(err);
+        return;
+      }
+      const rowsAll = rows || [];
+      socket.emit('initial_data', rowsAll.filter(r => r.status !== 'Pago'));
+      socket.emit('initial_pdv_data', rowsAll);
+    });
+  }
 
 
   socket.on('validar_cupom', ({ mesaName, codigo, userName }) => {
@@ -3572,7 +3759,11 @@ io.on('connection', (socket) => {
     try {
       const tdb = getTenantDb();
       const result = await ifoodApi.completeAuth(tdb, masterDb, tidAtual(), authCode);
-      ifoodApi.ensurePoller(tidAtual(), { io, masterDb, tenantContext, getTenantDb, dir: __dirname });
+      if (isTenantFeatureEnabled(tidAtual(), 'ifood')) {
+        ifoodApi.ensurePoller(tidAtual(), { io, masterDb, tenantContext, getTenantDb, dir: __dirname });
+      } else {
+        ifoodApi.stopPoller(tidAtual());
+      }
       socket.emit('ifood_auth_completed', result);
       console.log(`[iFood] Conta conectada para o tenant ${tidAtual()}: ${result.merchantName || 'sem nome'}.`);
     } catch (e) {
@@ -5490,6 +5681,7 @@ io.on('connection', (socket) => {
 
   socket.on('disconnect', () => {
     activeSockets.delete(socket.id);
+    metricRemoveSocket(socket);
     if (mpPollInterval) {
       clearInterval(mpPollInterval);
       mpPollInterval = null;
@@ -5504,12 +5696,23 @@ io.on('connection', (socket) => {
 // Liga os pollers de eventos das contas iFood já autorizadas em cada tenant.
 setTimeout(() => {
   try {
-    ifoodApi.startAllPollers({ io, masterDb, tenantContext, getTenantDb, dir: __dirname });
+    ifoodApi.startAllPollers({ io, masterDb, tenantContext, getTenantDb, dir: __dirname, isFeatureEnabled });
     console.log('[iFood] Integração iniciada.');
   } catch (e) {
     console.error('[iFood] Falha ao iniciar integração:', e.message || e);
   }
 }, 3000);
+
+// --- SNAPSHOT DE FEATURES + MÉTRICAS DE PICO ---
+loadAllTenantFeatures().then(() => {
+  console.log('[Features] Snapshot de features dos tenants carregado.');
+});
+loadDomainMaps().then(() => {
+  console.log('[Domains] Mapa de domínios dos tenants carregado (' + domainMap.size + ' domínios, ' + slugMap.size + ' slugs).');
+});
+setInterval(() => { loadAllTenantFeatures().catch(() => { }); }, TENANT_FEATURES_REFRESH_MS);
+setInterval(() => { loadDomainMaps().catch(() => { }); }, 60000);
+setInterval(() => { samplePicos(); }, 60000);
 
 // --- RETRO API PARA ANDROID 3.2 ---
 app.get('/api/retro/mesas', (req, res) => {
@@ -7284,6 +7487,10 @@ io.on('connection', (socket) => {
 
   socket.restaurante_id = socketTenantId;
   socket.join(`restaurante_${socketTenantId}`);
+
+  // Contagem de sockets por tenant (o guard evita dupla contagem com o bloco principal)
+  metricAddSocket(socket);
+  if (!socket.features) socket.features = getTenantFeaturesSync(socketTenantId);
 
   // Wrap all socket events in tenant context!
   const originalOn = socket.on.bind(socket);

@@ -198,6 +198,8 @@ const pollers = new Map();
 
 function ensurePoller(tenantId, deps) {
   if (pollers.has(tenantId)) return;
+  // Poupando servidor: se a feature ifood estiver desligada para o tenant, não cria o poller
+  if (deps && typeof deps.isFeatureEnabled === 'function' && !deps.isFeatureEnabled(tenantId, 'ifood')) return;
   const { io, masterDb, tenantContext, getTenantDb } = deps;
   const tick = async () => {
     try {

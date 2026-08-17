@@ -100,6 +100,21 @@ function apiPut(url, data, cb) {
   x.send(JSON.stringify(data));
 }
 
+function apiDelete(url, data, cb) {
+  var x = new XMLHttpRequest();
+  x.open('DELETE', url, true);
+  x.setRequestHeader('Content-Type', 'application/json');
+  x.setRequestHeader('x-super-admin-token', localToken);
+  x.onreadystatechange = function() {
+    if (x.readyState === 4) {
+      try { cb(null, JSON.parse(x.responseText)); }
+      catch(e) { cb(e, null); }
+    }
+  };
+  x.onerror = function() { cb(new Error('Erro de rede'), null); };
+  x.send(JSON.stringify(data));
+}
+
 function apiDelete(url, cb) {
   var x = new XMLHttpRequest();
   x.open('DELETE', url, true);
@@ -326,6 +341,9 @@ function switchTab(targetId) {
     'sec-mensagens': ['Mensagens', 'Envie atualizações e avisos para todos os restaurantes'],
     'sec-logs': ['Logs do Sistema', 'Auditoria e logs de requisições API'],
     'sec-config': ['Configurações', 'Configurações globais da plataforma'],
+    'sec-funcoes': ['Funções', 'Gerencie funcionalidades habilitadas por restaurante'],
+    'sec-dominios': ['Domínios', 'Configure subdomínios e domínios próprios por restaurante'],
+    'sec-capacidade': ['Pico & Capacidade', 'Métricas de uso do servidor e capacidade'],
     'sec-licencas': ['Licenças & Telemetria', 'Chaves de ativação e telemetria dos estabelecimentos'],
     'sec-recuperar-acesso': ['Recuperar Acesso', 'Redefina email e senha de clientes'],
     'sec-clientes': ['Clientes', 'Perfil completo de todos os clientes da plataforma'],
@@ -355,6 +373,9 @@ function switchTab(targetId) {
   else if (targetId === 'sec-licencas') carregarLicencas();
    else if (targetId === 'sec-clientes') carregarClientes();
    else if (targetId === 'sec-suporte') carregarSuporte();
+   else if (targetId === 'sec-funcoes') renderFuncoes();
+   else if (targetId === 'sec-dominios') renderDominios();
+   else if (targetId === 'sec-capacidade') renderCapacidade();
    else if (targetId === 'sec-terminal') { resetInactivityTimer(); }
 }
 
@@ -2056,6 +2077,378 @@ document.addEventListener('DOMContentLoaded', function() {
       '<div style="font-size:1.25rem;font-weight:700;color:' + color + ';">' + value + '</div>' +
       '<div style="font-size:0.75rem;color:var(--text-muted);margin-top:4px;">' + label + '</div></div>';
   }
+
+  /* ═══ RENDER FUNÇÕES ═══ */
+  var _featuresDef = [];
+  var _featurePlans = {};
+
+  window.renderFuncoes = function() {
+    apiGet('/api/super/features', function(err, data) {
+      var tbody = document.getElementById('func-tbody');
+      if (!tbody) return;
+      if (err || !data || !data.ok) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--danger);padding:20px;">Erro ao carregar funções: ' + (err ? err.message : (data ? data.erro : 'Sem resposta')) + '</td></tr>';
+        return;
+      }
+      _featuresDef = data.features || [];
+      _featurePlans = data.planos || {};
+      var tenants = data.tenants || [];
+      var searchVal = (document.getElementById('func-search') ? document.getElementById('func-search').value : '').toLowerCase();
+      if (searchVal) {
+        tenants = tenants.filter(function(t) { return (t.nome || '').toLowerCase().indexOf(searchVal) !== -1; });
+      }
+      if (tenants.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:20px;">Nenhum restaurante encontrado.</td></tr>';
+        return;
+      }
+      var html = '';
+      for (var i = 0; i < tenants.length; i++) {
+        var t = tenants[i];
+        var planoColor = t.plano === 'trial' ? '#f59e0b' : (t.plano === 'pro' ? '#3b82f6' : '#c084fc');
+        var statusBadge = t.ativo ? '<span class="badge badge-ativo">Ativo</span>' : '<span class="badge badge-bloqueado">Inativo</span>';
+        var featureChips = '';
+        for (var f = 0; f < _featuresDef.length; f++) {
+          var feat = _featuresDef[f];
+          var enabled = t.features && t.features[feat.chave];
+          var chipBg = enabled ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.1)';
+          var chipColor = enabled ? '#34d399' : '#f87171';
+          var chipBorder = enabled ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.2)';
+          var isOverride = t.overrides && t.overrides.hasOwnProperty(feat.chave);
+          var overrideTag = isOverride ? ' <span style="font-size:9px;color:#fbbf24;" title="Override manual">*</span>' : '';
+          featureChips += '<span style="display:inline-block;padding:2px 8px;border-radius:100px;font-size:0.7rem;font-weight:600;background:' + chipBg + ';color:' + chipColor + ';border:1px solid ' + chipBorder + ';margin:2px;cursor:pointer;" ' +
+            'onclick="toggleFeature(' + t.id + ',\'' + feat.chave + '\',' + !enabled + ')" ' +
+            'title="' + escapeHtml(feat.desc) + '">' +
+            escapeHtml(feat.nome) + overrideTag + '</span>';
+        }
+        html += '<tr>' +
+          '<td style="font-weight:600;">' + t.id + '</td>' +
+          '<td style="font-weight:600;color:white;">' + escapeHtml(t.nome) + '</td>' +
+          '<td><span class="badge badge-plano" style="background:rgba(139,92,246,0.12);color:' + planoColor + ';border:1px solid ' + planoColor + '33;">' + (t.plano || 'premium').toUpperCase() + '</span></td>' +
+          '<td>' + statusBadge + '</td>' +
+          '<td>' + featureChips + '</td>' +
+          '<td>' +
+            '<div class="row-actions">' +
+              '<button class="btn-row-action edit-action" onclick="resetFeatures(' + t.id + ')" title="Resetar para padrão do plano"><i class="fa-solid fa-rotate-left"></i></button>' +
+            '</div>' +
+          '</td>' +
+        '</tr>';
+      }
+      tbody.innerHTML = html;
+    });
+  };
+
+  window.toggleFeature = function(restId, feature, enabled) {
+    apiPost('/api/super/features', { restaurante_id: restId, feature: feature, enabled: enabled }, function(err, data) {
+      if (err || !data || !data.ok) {
+        showToast('Erro ao alterar função: ' + (err ? err.message : (data ? data.erro : 'Falha')), 'danger');
+        return;
+      }
+      showToast('Função ' + (enabled ? 'ativada' : 'desativada') + ' com sucesso!', 'success');
+      renderFuncoes();
+    });
+  };
+
+  window.resetFeatures = function(restId) {
+    if (!confirm('Resetar todas as funções deste restaurante para os padrões do plano?')) return;
+    apiPost('/api/super/features', { restaurante_id: restId, reset: true }, function(err, data) {
+      if (err || !data || !data.ok) {
+        showToast('Erro ao resetar funções: ' + (err ? err.message : (data ? data.erro : 'Falha')), 'danger');
+        return;
+      }
+      showToast('Funções resetadas com sucesso!', 'success');
+      renderFuncoes();
+    });
+  };
+
+  document.addEventListener('DOMContentLoaded', function() {
+    var funcSearch = document.getElementById('func-search');
+    if (funcSearch) {
+      funcSearch.addEventListener('input', function() { renderFuncoes(); });
+    }
+    var btnRefreshFunc = document.getElementById('btn-refresh-func');
+    if (btnRefreshFunc) {
+      btnRefreshFunc.addEventListener('click', function() { renderFuncoes(); });
+    }
+  });
+
+  /* ═══ RENDER CAPACIDADE ═══ */
+  window.renderCapacidade = function() {
+    apiGet('/api/super/capacidade', function(err, data) {
+      if (err || !data || !data.ok) {
+        showToast('Erro ao carregar capacidade: ' + (err ? err.message : (data ? data.erro : 'Sem resposta')), 'danger');
+        return;
+      }
+      var srv = data.server || {};
+      var cap = data.capacidade || {};
+      var heatmap = data.heatmap || [];
+      var tenants = data.tenants || [];
+
+      // Stats
+      setTextById('cap-ram-total', (srv.totalRamMB || 0) + ' MB');
+      setTextById('cap-ram-used', (srv.usedRamMB || 0) + ' MB');
+      setTextById('cap-sockets', srv.socketsAtivos || 0);
+      setTextById('cap-tenants', (srv.tenantsAtivos || 0) + '/' + (srv.tenantsTotal || 0));
+
+      // Capacidade
+      setTextById('cap-max-tenants', cap.maxTenants || 0);
+      setTextById('cap-restantes', cap.restantes || 0);
+      setTextById('cap-percentual', (cap.percentual || 0) + '%');
+      setTextById('cap-ram-tenant', (cap.ramPorTenantMB || 80) + ' MB');
+
+      // Barra de progresso
+      var bar = document.getElementById('cap-bar');
+      var barLabel = document.getElementById('cap-bar-label');
+      if (bar) {
+        var pct = Math.min(100, cap.percentual || 0);
+        bar.style.width = pct + '%';
+        if (pct > 80) {
+          bar.style.background = 'linear-gradient(90deg,var(--warning),var(--danger))';
+        } else if (pct > 50) {
+          bar.style.background = 'linear-gradient(90deg,var(--success),var(--warning))';
+        } else {
+          bar.style.background = 'linear-gradient(90deg,var(--success),var(--info))';
+        }
+      }
+      if (barLabel) barLabel.textContent = (cap.percentual || 0) + '%';
+
+      // Heatmap
+      renderHeatmap(heatmap);
+
+      // Tabela tenants
+      var tbody = document.getElementById('cap-tenants-tbody');
+      if (tbody) {
+        if (tenants.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);">Nenhum tenant encontrado.</td></tr>';
+          return;
+        }
+        var html = '';
+        var sorted = tenants.slice().sort(function(a, b) { return (b.sockets || 0) - (a.sockets || 0); });
+        for (var i = 0; i < sorted.length; i++) {
+          var t = sorted[i];
+          var statusBadge = t.ativo ? '<span class="badge badge-ativo">Ativo</span>' : '<span class="badge badge-bloqueado">Inativo</span>';
+          var socketsPct = srv.socketsAtivos > 0 ? Math.round((t.sockets / srv.socketsAtivos) * 100) : 0;
+          var barColor = t.sockets > 50 ? 'var(--danger)' : (t.sockets > 20 ? 'var(--warning)' : 'var(--success)');
+          html += '<tr>' +
+            '<td style="font-weight:600;">' + t.id + '</td>' +
+            '<td style="font-weight:600;color:white;">' + escapeHtml(t.nome) + '</td>' +
+            '<td><span class="badge badge-plano">' + (t.licenca || 'premium').toUpperCase() + '</span></td>' +
+            '<td>' + statusBadge + '</td>' +
+            '<td>' +
+              '<div style="display:flex;align-items:center;gap:8px;">' +
+                '<div style="flex:1;background:rgba(0,0,0,0.3);border-radius:100px;height:8px;overflow:hidden;">' +
+                  '<div style="height:100%;width:' + Math.max(2, socketsPct) + '%;background:' + barColor + ';border-radius:100px;transition:width 0.4s;"></div>' +
+                '</div>' +
+                '<span style="font-weight:700;min-width:30px;text-align:right;color:white;">' + (t.sockets || 0) + '</span>' +
+              '</div>' +
+            '</td>' +
+            '<td style="color:var(--text-muted);">' + (t.hora !== null && t.hora !== undefined ? t.hora + ':00' : '—') + '</td>' +
+          '</tr>';
+        }
+        tbody.innerHTML = html;
+      }
+    });
+  };
+
+  function renderHeatmap(data) {
+    var container = document.getElementById('cap-heatmap');
+    if (!container) return;
+    if (!data || data.length === 0) {
+      container.innerHTML = '<div style="width:100%;text-align:center;color:var(--text-muted);padding:20px;">Sem dados de heatmap</div>';
+      return;
+    }
+    var maxSockets = 1;
+    for (var i = 0; i < data.length; i++) {
+      if (data[i].sockets > maxSockets) maxSockets = data[i].sockets;
+    }
+    var html = '';
+    for (var j = 0; j < data.length; j++) {
+      var d = data[j];
+      var intensity = maxSockets > 0 ? d.sockets / maxSockets : 0;
+      var r = Math.round(59 + (239 - 59) * intensity);
+      var g = Math.round(130 + (68 - 130) * intensity);
+      var b = Math.round(246 + (68 - 246) * intensity);
+      var bgColor = 'rgba(' + r + ',' + g + ',' + b + ',' + (0.15 + intensity * 0.7) + ')';
+      var height = Math.max(8, intensity * 100);
+      var label = d.hora + ':00 (' + d.sockets + ')';
+      html += '<div style="flex:1;background:' + bgColor + ';border-radius:4px 4px 0 0;height:' + height + '%;min-width:20px;position:relative;transition:height 0.4s;cursor:pointer;" title="' + label + '">' +
+        '<div style="position:absolute;top:-18px;left:50%;transform:translateX(-50%);font-size:9px;color:var(--text-muted);white-space:nowrap;">' + d.sockets + '</div>' +
+        '</div>';
+    }
+    container.innerHTML = html;
+  }
+
+  function setTextById(id, text) {
+    var el = document.getElementById(id);
+    if (el) el.textContent = text;
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    var btnRefreshCap = document.getElementById('btn-refresh-cap');
+    if (btnRefreshCap) {
+      btnRefreshCap.addEventListener('click', function() { renderCapacidade(); });
+    }
+  });
+
+  /* ═══ RENDER DOMÍNIOS ═══ */
+  var _baseDomain = 'chefcozinha.com.br';
+
+  window.renderDominios = function() {
+    apiGet('/api/super/dominios', function(err, data) {
+      var tbody = document.getElementById('dom-tbody');
+      var select = document.getElementById('dom-tenant-select');
+      if (!tbody) return;
+      if (err || !data || !data.ok) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--danger);padding:20px;">Erro ao carregar domínios: ' + (err ? err.message : (data ? data.erro : 'Sem resposta')) + '</td></tr>';
+        return;
+      }
+      _baseDomain = data.baseDomain || 'chefcozinha.com.br';
+      var tenants = data.tenants || [];
+
+      // Populate select
+      if (select) {
+        var currentVal = select.value;
+        select.innerHTML = '<option value="">Selecione...</option>';
+        for (var s = 0; s < tenants.length; s++) {
+          var t = tenants[s];
+          var opt = document.createElement('option');
+          opt.value = t.id;
+          opt.textContent = t.id + ' — ' + (t.nome || 'Sem nome');
+          select.appendChild(opt);
+        }
+        if (currentVal) select.value = currentVal;
+      }
+
+      // Filter
+      var searchVal = (document.getElementById('dom-search') ? document.getElementById('dom-search').value : '').toLowerCase();
+      if (searchVal) {
+        tenants = tenants.filter(function(t) {
+          return (t.nome || '').toLowerCase().indexOf(searchVal) !== -1 ||
+                 (t.slug || '').toLowerCase().indexOf(searchVal) !== -1 ||
+                 (t.custom_domain || '').toLowerCase().indexOf(searchVal) !== -1;
+        });
+      }
+
+      if (tenants.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:20px;">Nenhum restaurante encontrado.</td></tr>';
+        return;
+      }
+
+      var html = '';
+      for (var i = 0; i < tenants.length; i++) {
+        var t = tenants[i];
+        var slugUrl = t.slug ? 'https://' + t.slug + '.' + _baseDomain : '—';
+        var slugDisplay = t.slug
+          ? '<code style="background:rgba(16,185,129,0.1);color:#34d399;padding:2px 6px;border-radius:4px;font-size:0.82rem;cursor:pointer;" onclick="copyDomainUrl(\'' + escapeHtml(slugUrl) + '\')" title="Clique para copiar">' + escapeHtml(t.slug) + '</code>'
+          : '<span style="color:var(--text-muted);">—</span>';
+        var customDisplay = t.custom_domain
+          ? '<code style="background:rgba(59,130,246,0.1);color:#60a5fa;padding:2px 6px;border-radius:4px;font-size:0.82rem;cursor:pointer;" onclick="copyDomainUrl(\'https://' + escapeHtml(t.custom_domain) + '\')" title="Clique para copiar">' + escapeHtml(t.custom_domain) + '</code>'
+          : '<span style="color:var(--text-muted);">—</span>';
+        var statusBadge = t.ativo ? '<span class="badge badge-ativo">Ativo</span>' : '<span class="badge badge-bloqueado">Inativo</span>';
+
+        html += '<tr>' +
+          '<td style="font-weight:600;">' + t.id + '</td>' +
+          '<td style="font-weight:600;color:white;">' + escapeHtml(t.nome || 'Sem nome') + '</td>' +
+          '<td>' + slugDisplay + '</td>' +
+          '<td style="font-size:0.8rem;color:var(--text-muted);">' + (t.slug ? '<a href="' + slugUrl + '" target="_blank" style="color:var(--info);text-decoration:none;">' + escapeHtml(slugUrl) + '</a>' : '—') + '</td>' +
+          '<td>' + customDisplay + '</td>' +
+          '<td>' + statusBadge + '</td>' +
+          '<td>' +
+            '<div class="row-actions">' +
+              '<button class="btn-row-action edit-action" onclick="editDomain(' + t.id + ',\'' + escapeHtml(t.slug || '') + '\',\'' + escapeHtml(t.custom_domain || '') + '\')" title="Editar"><i class="fa-solid fa-pen"></i></button>' +
+              '<button class="btn-row-action delete-action" onclick="deleteDomain(' + t.id + ')" title="Remover domínios"><i class="fa-solid fa-trash"></i></button>' +
+            '</div>' +
+          '</td>' +
+        '</tr>';
+      }
+      tbody.innerHTML = html;
+    });
+  };
+
+  window.editDomain = function(id, slug, customDomain) {
+    var select = document.getElementById('dom-tenant-select');
+    var slugInput = document.getElementById('dom-slug');
+    var customInput = document.getElementById('dom-custom');
+    if (select) select.value = id;
+    if (slugInput) slugInput.value = slug;
+    if (customInput) customInput.value = customDomain;
+    if (slugInput) slugInput.focus();
+  };
+
+  window.copyDomainUrl = function(url) {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(url).then(function() {
+        showToast('URL copiada: ' + url, 'success');
+      });
+    } else {
+      showToast(url, 'info');
+    }
+  };
+
+  window.deleteDomain = function(restId) {
+    if (!confirm('Remover todos os domínios deste restaurante?')) return;
+    apiDelete('/api/super/dominios', { restaurante_id: restId }, function(err, data) {
+      if (err || !data || !data.ok) {
+        showToast('Erro ao remover domínios: ' + (err ? err.message : (data ? data.erro : 'Falha')), 'danger');
+        return;
+      }
+      showToast('Domínios removidos com sucesso!', 'success');
+      renderDominios();
+    });
+  };
+
+  document.addEventListener('DOMContentLoaded', function() {
+    var btnSalvarDom = document.getElementById('btn-salvar-dom');
+    if (btnSalvarDom) {
+      btnSalvarDom.addEventListener('click', function() {
+        var select = document.getElementById('dom-tenant-select');
+        var slugInput = document.getElementById('dom-slug');
+        var customInput = document.getElementById('dom-custom');
+        var tenantId = select ? parseInt(select.value, 10) : 0;
+        if (!tenantId) {
+          showToast('Selecione um restaurante.', 'warning');
+          return;
+        }
+        var payload = {
+          restaurante_id: tenantId,
+          slug: slugInput ? slugInput.value : '',
+          custom_domain: customInput ? customInput.value : ''
+        };
+        apiPost('/api/super/dominios', payload, function(err, data) {
+          if (err || !data || !data.ok) {
+            showToast('Erro ao salvar domínio: ' + (err ? err.message : (data ? data.erro : 'Falha')), 'danger');
+            return;
+          }
+          showToast('Domínio salvo com sucesso!', 'success');
+          renderDominios();
+        });
+      });
+    }
+    var btnRefreshDom = document.getElementById('btn-refresh-dom');
+    if (btnRefreshDom) {
+      btnRefreshDom.addEventListener('click', function() { renderDominios(); });
+    }
+    var domSearch = document.getElementById('dom-search');
+    if (domSearch) {
+      domSearch.addEventListener('input', function() { renderDominios(); });
+    }
+    var domTenantSelect = document.getElementById('dom-tenant-select');
+    if (domTenantSelect) {
+      domTenantSelect.addEventListener('change', function() {
+        var tenants = [];
+        // Find tenant data from the table to prefill
+        apiGet('/api/super/dominios', function(err, data) {
+          if (err || !data || !data.ok) return;
+          var found = (data.tenants || []).find(function(t) { return t.id === parseInt(domTenantSelect.value, 10); });
+          if (found) {
+            var slugInput = document.getElementById('dom-slug');
+            var customInput = document.getElementById('dom-custom');
+            if (slugInput) slugInput.value = found.slug || '';
+            if (customInput) customInput.value = found.custom_domain || '';
+          }
+        });
+      });
+    }
+  });
 
 });
 

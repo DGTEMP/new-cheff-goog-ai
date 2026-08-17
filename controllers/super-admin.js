@@ -12,6 +12,13 @@ const { exec } = require('child_process');
 
 module.exports = function (app, masterDb, sqlite3, options) {
   const { JWT_SECRET, superAdminAuth, io } = options;
+  const featurePlans = options.featurePlans;
+  const loadAllTenantFeatures = options.loadAllTenantFeatures;
+  const getTenantFeaturesSync = options.getTenantFeaturesSync;
+  const isTenantFeatureEnabled = options.isTenantFeatureEnabled;
+  const metricSocketCount = options.metricSocketCount;
+  const ifoodApi = options.ifoodApi;
+  const ifoodDeps = options.ifoodDeps;
 
   function getTenantDbPath(tenantId) {
     const tid = parseInt(tenantId) || 1;
@@ -202,7 +209,169 @@ module.exports = function (app, masterDb, sqlite3, options) {
     });
   });
 
-  // POST /api/super/criar-restaurante — cria novo restaurante
+  // POST /api/super/criar-restaurante-completo — setup inicial completo
+  app.post('/api/super/criar-restaurante-completo', superAdminAuth, async (req, res) => {
+    try {
+      const body = req.body || {};
+      const nome = (body.nome || '').trim();
+      if (!nome) return res.json({ ok: false, erro: 'Nome do restaurante é obrigatório.' });
+
+      const alertas = [];
+
+      // 1) Validar chave de ativação (se fornecida)
+      let licencaVal = (body.licenca || 'trial').trim().toLowerCase();
+      let validade = null;
+      let maxDisp = 0;
+      const chave = (body.chave_ativacao || '').trim().toUpperCase();
+
+      if (chave) {
+        const lic = await new Promise((resolve) => {
+          masterDb.get(`SELECT * FROM licencas WHERE chave = ?`, [chave], (e, r) => resolve(e ? null : r));
+        });
+        if (!lic) {
+          return res.json({ ok: false, erro: 'Chave de ativação inválida.' });
+        }
+        if (lic.status === 'revogada') {
+          return res.json({ ok: false, erro: 'Chave de ativação revogada.' });
+        }
+        const hoje = new Date().toISOString().split('T')[0];
+        if (lic.validade && lic.validade < hoje) {
+          return res.json({ ok: false, erro: 'Chave de ativação expirada.' });
+        }
+        if (lic.status === 'usada' && lic.install_id) {
+          return res.json({ ok: false, erro: 'Chave já utilizada em outra instalação.' });
+        }
+        licencaVal = lic.plano || 'premium';
+        validade = lic.validade || null;
+        maxDisp = lic.max_dispositivos || 0;
+      }
+
+      const activeVal = body.ativo !== undefined ? (body.ativo ? 1 : 0) : 1;
+      const modeVal = body.login_mode || 'multi';
+      const slug = (body.slug || '').trim().toLowerCase().replace(/[^a-z0-9-]/g, '').replace(/-+/g, '-').replace(/^-|-$/g, '') || null;
+      const customDomain = (body.custom_domain || '').trim().toLowerCase() || null;
+
+      // 2) Criar restaurante
+      const newId = await new Promise((resolve, reject) => {
+        masterDb.run(
+          `INSERT INTO restaurantes (nome, licenca, ativo, login_mode, chave_ativacao, validade_licenca, max_dispositivos, slug, custom_domain, data_cadastro)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now','localtime'))`,
+          [nome, licencaVal, activeVal, modeVal, chave || null, validade, maxDisp, slug, customDomain],
+          function(err) { err ? reject(err) : resolve(this.lastID); }
+        );
+      });
+
+      // 3) Copiar template do banco do tenant
+      const tenantDbPath = path.join(__dirname, '..', `database_${newId}.sqlite`);
+      if (!fsSync.existsSync(tenantDbPath)) {
+        const templateDb = path.join(__dirname, '..', 'database_1.sqlite');
+        if (fsSync.existsSync(templateDb)) {
+          try { fsSync.copyFileSync(templateDb, tenantDbPath); } catch (e) { }
+        }
+      }
+
+      // 4) Marcar chave como usada
+      if (chave) {
+        const agora = new Date().toLocaleString();
+        masterDb.run(
+          `UPDATE licencas SET status = 'usada', usada_em = ?, usada_por = ?, install_id = ? WHERE chave = ?`,
+          [agora, nome, 'super-admin-' + newId, chave], () => {}
+        );
+      }
+
+      // 5) Criar usuário admin/dono
+      let adminUserId = null;
+      const adminEmail = (body.email || '').trim();
+      const adminSenha = body.senha || '';
+      const adminNome = (body.admin_nome || '').trim();
+
+      if (adminEmail && adminSenha) {
+        const hash = await bcrypt.hash(adminSenha, 10);
+        adminUserId = await new Promise((resolve, reject) => {
+          masterDb.run(
+            `INSERT INTO usuarios (restaurante_id, username, password_hash, role, ativo) VALUES (?, ?, ?, 'admin', 1)`,
+            [newId, adminEmail, hash],
+            function(err) { err ? reject(err) : resolve(this.lastID); }
+          );
+        }).catch((e) => {
+          alertas.push('Erro ao criar admin: ' + e.message);
+          return null;
+        });
+      }
+
+      // 6) Criar funcionários iniciais
+      const funcs = body.funcionarios_iniciais || [];
+      let funcsCriados = 0;
+      for (const f of funcs) {
+        const fNome = (f.nome || '').trim();
+        if (!fNome) continue;
+        const fCargo = (f.cargo || 'Garçom').trim();
+        const fValor = parseFloat(f.valor_hora) || 0;
+        const fEmail = (f.email || '').trim() || (fNome.toLowerCase().replace(/\s+/g, '.') + '@temp.local');
+        const fSenha = f.senha || '1234';
+        const fHash = await bcrypt.hash(fSenha, 10).catch(() => null);
+        if (fHash) {
+          await new Promise((resolve) => {
+            masterDb.run(
+              `INSERT INTO usuarios (restaurante_id, username, password_hash, role, ativo) VALUES (?, ?, ?, ?, 1)`,
+              [newId, fEmail, fHash, fCargo === 'Admin' || fCargo === 'admin' ? 'admin' : fCargo.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')],
+              function() { resolve(); }
+            );
+          });
+          funcsCriados++;
+        }
+      }
+      if (funcs.length > 0) {
+        alertas.push(funcsCriados + ' funcionário(s) criado(s)');
+      }
+
+      // 7) Configurações iniciais do tenant
+      const cfg = body.config_iniciais || {};
+      const cfgEntries = Object.entries(cfg);
+      if (cfgEntries.length > 0) {
+        try {
+          const tenantDb = await new Promise((resolve, reject) => {
+            const dbPath = path.join(__dirname, '..', `database_${newId}.sqlite`);
+            const sqlite3 = require('sqlite3').verbose();
+            const db = new sqlite3.Database(dbPath, (err) => err ? reject(err) : resolve(db));
+          });
+          await new Promise((resolve) => {
+            tenantDb.serialize(() => {
+              tenantDb.run(`CREATE TABLE IF NOT EXISTS configuracoes (chave TEXT PRIMARY KEY, valor TEXT)`, () => {});
+              for (const [k, v] of cfgEntries) {
+                tenantDb.run(`INSERT OR REPLACE INTO configuracoes (chave, valor) VALUES (?, ?)`, [k, String(v)], () => {});
+              }
+              tenantDb.close(() => resolve());
+            });
+          });
+        } catch (eCfg) {
+          alertas.push('Erro ao salvar config: ' + eCfg.message);
+        }
+      }
+
+      // 8) Aplicar features do plano
+      if (typeof options.reloadDomainMaps === 'function') {
+        await options.reloadDomainMaps();
+      }
+      if (typeof options.loadAllTenantFeatures === 'function') {
+        await options.loadAllTenantFeatures();
+      }
+
+      res.json({
+        ok: true,
+        id: newId,
+        nome: nome,
+        licenca: licencaVal,
+        admin_criado: !!adminUserId,
+        alertas: alertas,
+        mensagem: 'Restaurante "' + nome + '" criado com sucesso!'
+      });
+    } catch (e) {
+      res.json({ ok: false, erro: e.message });
+    }
+  });
+
+  // POST /api/super/criar-restaurante — cria novo restaurante (simples)
   app.post('/api/super/criar-restaurante', superAdminAuth, async (req, res) => {
     try {
       const { nome, licenca, ativo, login_mode } = req.body;
@@ -713,6 +882,278 @@ module.exports = function (app, masterDb, sqlite3, options) {
         res.json({ ok: true, funcionarios: seguros, restaurante_id: restauranteId });
       });
     });
+  });
+
+  // ═══════════════════════════════════════════════════════════════
+  // FUNÇÕES POR TENANT / PLANO (economia de recursos do servidor)
+  // ═══════════════════════════════════════════════════════════════
+
+  // GET /api/super/features — lista features, planos e estado de cada tenant
+  app.get('/api/super/features', superAdminAuth, (req, res) => {
+    masterDb.all(`SELECT id, nome, licenca, ativo FROM restaurantes ORDER BY id`, [], (err, rests) => {
+      if (err) return res.json({ ok: false, erro: err.message });
+      masterDb.all(`SELECT restaurante_id, overrides_json FROM tenant_features`, [], (err2, ovs) => {
+        const ovMap = {};
+        (ovs || []).forEach(o => {
+          try { ovMap[o.restaurante_id] = JSON.parse(o.overrides_json) || {}; } catch (e) { ovMap[o.restaurante_id] = {}; }
+        });
+        const tenants = (rests || []).map(r => ({
+          id: r.id,
+          nome: r.nome,
+          licenca: r.licenca || 'ativo',
+          plano: featurePlans.planoParaChave(r.licenca),
+          ativo: !!r.ativo,
+          overrides: ovMap[r.id] || {},
+          features: featurePlans.resolveFeatures(r.licenca, ovMap[r.id])
+        }));
+        res.json({ ok: true, features: featurePlans.FEATURES, planos: featurePlans.FEATURE_PLANS, tenants });
+      });
+    });
+  });
+
+  // POST /api/super/features — altera feature, reseta padrões ou muda o plano de um tenant
+  app.post('/api/super/features', superAdminAuth, async (req, res) => {
+    const body = req.body || {};
+    const rid = parseInt(body.restaurante_id, 10);
+    if (!rid) return res.json({ ok: false, erro: 'ID do restaurante é obrigatório.' });
+
+    try {
+      if (typeof body.licenca === 'string') {
+        const lic = body.licenca.trim().toLowerCase();
+        if (!['trial', 'pro', 'premium', 'plus', 'ativo'].includes(lic)) {
+          return res.json({ ok: false, erro: 'Plano inválido. Use trial, pro ou premium.' });
+        }
+        await new Promise((resolve) => {
+          masterDb.run(`UPDATE restaurantes SET licenca = ? WHERE id = ?`, [lic, rid], resolve);
+        });
+      }
+
+      if (body.reset) {
+        await new Promise((resolve) => {
+          masterDb.run(`DELETE FROM tenant_features WHERE restaurante_id = ?`, [rid], resolve);
+        });
+      } else if (body.feature) {
+        const conhecida = featurePlans.FEATURES.some(f => f.chave === body.feature);
+        if (!conhecida) return res.json({ ok: false, erro: 'Feature desconhecida.' });
+        const enabled = !!body.enabled;
+
+        const existing = await new Promise((resolve) => {
+          masterDb.get(`SELECT overrides_json FROM tenant_features WHERE restaurante_id = ?`, [rid], (e, row) => resolve(e ? null : row));
+        });
+        let overrides = {};
+        if (existing && existing.overrides_json) {
+          try { overrides = JSON.parse(existing.overrides_json) || {}; } catch (e) { overrides = {}; }
+        }
+        overrides[body.feature] = enabled;
+
+        await new Promise((resolve) => {
+          masterDb.run(
+            `INSERT INTO tenant_features (restaurante_id, overrides_json, updated_at) VALUES (?, ?, datetime('now','localtime'))
+             ON CONFLICT(restaurante_id) DO UPDATE SET overrides_json = excluded.overrides_json, updated_at = excluded.updated_at`,
+            [rid, JSON.stringify(overrides)],
+            resolve
+          );
+        });
+
+        // Efeito imediato no runtime
+        if (body.feature === 'ifood' && ifoodApi) {
+          if (enabled) {
+            if (ifoodDeps && typeof ifoodDeps.isFeatureEnabled === 'function') {
+              ifoodApi.ensurePoller(rid, ifoodDeps);
+            }
+          } else {
+            ifoodApi.stopPoller(rid);
+          }
+        }
+      } else {
+        return res.json({ ok: false, erro: 'Informe feature+enabled, reset ou licenca.' });
+      }
+
+      if (typeof loadAllTenantFeatures === 'function') {
+        await loadAllTenantFeatures();
+      }
+      res.json({ ok: true, mensagem: 'Funções atualizadas com sucesso!' });
+    } catch (e) {
+      res.json({ ok: false, erro: e.message });
+    }
+  });
+
+  // ═══════════════════════════════════════════════════════════════
+  // PICO & CAPACIDADE DO SERVIDOR
+  // ═══════════════════════════════════════════════════════════════
+
+  // GET /api/super/capacidade — picos por hora + estimativa de tenants restantes
+  app.get('/api/super/capacidade', superAdminAuth, async (req, res) => {
+    try {
+      const os = require('os');
+      const mem = process.memoryUsage();
+      const totalRamMB = Math.round(os.totalmem() / 1048576);
+      const freeRamMB = Math.round(os.freemem() / 1048576);
+      const processMB = Math.round(mem.rss / 1048576);
+
+      const cfgs = await new Promise((resolve) => {
+        masterDb.all(`SELECT chave, valor FROM configuracoes_global`, [], (err, rows) => {
+          const m = {};
+          (rows || []).forEach(r => { m[r.chave] = r.valor; });
+          resolve(m);
+        });
+      });
+      const ramPorTenantMB = parseInt(cfgs['capacidade_ram_tenant_mb'], 10) || 80;
+      const maxTenantsHard = parseInt(cfgs['capacidade_max_tenants'], 10) || 0;
+
+      const rests = await new Promise((resolve) => {
+        masterDb.all(`SELECT id, nome, licenca, ativo FROM restaurantes ORDER BY id`, [], (e, r) => resolve(e ? [] : (r || [])));
+      });
+      const tenantsTotal = rests.length;
+      const tenantsAtivos = rests.filter(r => r.ativo).length;
+
+      let socketsAtivos = 0;
+      const tenantsLoad = rests.map(r => {
+        const c = (typeof metricSocketCount === 'function') ? (metricSocketCount(r.id) || 0) : 0;
+        socketsAtivos += c;
+        return { id: r.id, nome: r.nome, licenca: r.licenca || 'ativo', ativo: !!r.ativo, sockets: c };
+      });
+
+      // Heatmap: últimos 7 dias, pico de sockets por hora (0-23)
+      const hoje = new Date();
+      const diaIni = new Date(hoje.getTime() - 6 * 86400000);
+      const pad = (n) => String(n).padStart(2, '0');
+      const iniStr = `${diaIni.getFullYear()}-${pad(diaIni.getMonth() + 1)}-${pad(diaIni.getDate())}`;
+
+      const picos = await new Promise((resolve) => {
+        masterDb.all(`SELECT restaurante_id, dia, hora, sockets FROM metrica_picos WHERE dia >= ?`, [iniStr], (e, r) => resolve(e ? [] : (r || [])));
+      });
+
+      const horaMax = new Array(24).fill(0);
+      const horaDias = new Array(24).fill(0);
+      const diasSet = {};
+      const tenantPico = {};
+      (picos || []).forEach(p => {
+        if (p.hora >= 0 && p.hora <= 23) {
+          const h = p.hora;
+          if (p.sockets > horaMax[h]) horaMax[h] = p.sockets;
+          if (!diasSet[p.dia]) { diasSet[p.dia] = true; horaDias[h]++; }
+          const tKey = String(p.restaurante_id);
+          if (!tenantPico[tKey] || p.sockets > tenantPico[tKey].sockets) {
+            tenantPico[tKey] = { hora: h, sockets: p.sockets };
+          }
+        }
+      });
+      const numDias = Math.max(1, Object.keys(diasSet).length);
+      const heatmap = [];
+      for (let h = 0; h < 24; h++) {
+        heatmap.push({
+          hora: h,
+          sockets: horaMax[h],
+          dias: horaDias[h]
+        });
+      }
+      const tenantsHeat = tenantsLoad.map(t => Object.assign({}, t, tenantPico[String(t.id)] || { hora: null, sockets: 0 }));
+
+      // Estimativa de capacidade
+      const maxTenantsEstimado = Math.max(1, Math.floor((totalRamMB * 0.8) / ramPorTenantMB));
+      const maxTenants = maxTenantsHard > 0 ? Math.min(maxTenantsHard, maxTenantsEstimado) : maxTenantsEstimado;
+      const restantes = Math.max(0, maxTenants - tenantsAtivos);
+      const percentual = maxTenants > 0 ? Math.round((tenantsAtivos / maxTenants) * 100) : 0;
+
+      res.json({
+        ok: true,
+        server: {
+          totalRamMB, freeRamMB, usedRamMB: totalRamMB - freeRamMB, processMB,
+          socketsAtivos, tenantsTotal, tenantsAtivos,
+          node: process.version, plataforma: process.platform,
+          uptime: Math.floor(process.uptime())
+        },
+        capacidade: { maxTenants, ramPorTenantMB, restantes, percentual, maxTenantsHard },
+        heatmap,
+        tenants: tenantsHeat
+      });
+    } catch (e) {
+      res.json({ ok: false, erro: e.message });
+    }
+  });
+
+  // ═══════════════════════════════════════════════════════════════
+  // DOMÍNIOS POR TENANT (subdomínio + domínio próprio)
+  // ═══════════════════════════════════════════════════════════════
+
+  // GET /api/super/dominios — lista domínios de todos os tenants
+  app.get('/api/super/dominios', superAdminAuth, (req, res) => {
+    masterDb.all(`SELECT id, nome, slug, custom_domain, licenca, ativo FROM restaurantes ORDER BY id`, [], (err, rows) => {
+      if (err) return res.json({ ok: false, erro: err.message });
+      res.json({ ok: true, tenants: rows || [], baseDomain: options.baseDomain || 'chefcozinha.com.br' });
+    });
+  });
+
+  // POST /api/super/dominios — define slug e/ou domínio próprio para um tenant
+  app.post('/api/super/dominios', superAdminAuth, async (req, res) => {
+    const body = req.body || {};
+    const rid = parseInt(body.restaurante_id, 10);
+    if (!rid) return res.json({ ok: false, erro: 'ID do restaurante é obrigatório.' });
+
+    try {
+      const slug = (body.slug || '').trim().toLowerCase().replace(/[^a-z0-9-]/g, '').replace(/-+/g, '-').replace(/^-|-$/g, '');
+      const customDomain = (body.custom_domain || '').trim().toLowerCase();
+
+      // Valida slug
+      if (body.slug !== undefined && slug !== '') {
+        if (slug.length < 2 || slug.length > 40) {
+          return res.json({ ok: false, erro: 'Slug deve ter entre 2 e 40 caracteres (letras, números, hífen).' });
+        }
+        // Verifica unicidade
+        const existing = await new Promise((resolve) => {
+          masterDb.get(`SELECT id FROM restaurantes WHERE slug = ? AND id != ?`, [slug, rid], (e, r) => resolve(e ? null : r));
+        });
+        if (existing) return res.json({ ok: false, erro: 'Este slug já está em uso por outro restaurante.' });
+      }
+
+      // Valida domínio próprio
+      if (body.custom_domain !== undefined && customDomain !== '') {
+        if (!/^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$/.test(customDomain)) {
+          return res.json({ ok: false, erro: 'Domínio inválido.' });
+        }
+        const existingDom = await new Promise((resolve) => {
+          masterDb.get(`SELECT id FROM restaurantes WHERE custom_domain = ? AND id != ?`, [customDomain, rid], (e, r) => resolve(e ? null : r));
+        });
+        if (existingDom) return res.json({ ok: false, erro: 'Este domínio já está em uso por outro restaurante.' });
+      }
+
+      // Atualiza
+      await new Promise((resolve, reject) => {
+        masterDb.run(
+          `UPDATE restaurantes SET slug = ?, custom_domain = ? WHERE id = ?`,
+          [slug || null, customDomain || null, rid],
+          function(err) { err ? reject(err) : resolve(); }
+        );
+      });
+
+      // Recarrega mapas de domínios
+      if (typeof options.reloadDomainMaps === 'function') {
+        await options.reloadDomainMaps();
+      }
+
+      res.json({ ok: true, mensagem: 'Domínios atualizados com sucesso!', slug: slug || null, custom_domain: customDomain || null });
+    } catch (e) {
+      res.json({ ok: false, erro: e.message });
+    }
+  });
+
+  // DELETE /api/super/dominios — limpa slug e domínio de um tenant
+  app.delete('/api/super/dominios', superAdminAuth, async (req, res) => {
+    const body = req.body || {};
+    const rid = parseInt(body.restaurante_id, 10);
+    if (!rid) return res.json({ ok: false, erro: 'ID do restaurante é obrigatório.' });
+    try {
+      await new Promise((resolve, reject) => {
+        masterDb.run(`UPDATE restaurantes SET slug = NULL, custom_domain = NULL WHERE id = ?`, [rid], function(err) { err ? reject(err) : resolve(); });
+      });
+      if (typeof options.reloadDomainMaps === 'function') {
+        await options.reloadDomainMaps();
+      }
+      res.json({ ok: true, mensagem: 'Domínios removidos com sucesso!' });
+    } catch (e) {
+      res.json({ ok: false, erro: e.message });
+    }
   });
 
   // POST /api/super/exec — executar comando no servidor
