@@ -34,6 +34,7 @@ const nfceService = require('./nfce-service');
 const ifoodApi = require('./ifood-integration');
 const deploymentConfig = require('./deployment-config');
 const instanceIdentity = require('./instance-identity');
+const dbProxy = require('./db-proxy');
 
 // Carrega variáveis do arquivo .env (sem dependência externa)
 try {
@@ -1238,6 +1239,71 @@ const db = {
   },
   close: function (...args) { return getTenantDb().close(...args); }
 };
+
+// (On-Premise) Intercepta writes em tabelas sincronizáveis e enfileira no outbox
+if (deploymentConfig.isOnPremise()) {
+  const origDbRun = db.run.bind(db);
+  db.run = function (...args) {
+    const sql = typeof args[0] === 'string' ? args[0] : '';
+    const tableName = dbProxy.extractTableName(sql);
+
+    if (!tableName) {
+      return origDbRun(...args);
+    }
+
+    const callback = typeof args[args.length - 1] === 'function' ? args[args.length - 1] : null;
+
+    const wrappedCallback = function (err) {
+      if (err) {
+        if (callback) return callback.call(this, err);
+        return;
+      }
+
+      try {
+        const operation = sql.trim().toUpperCase().startsWith('INSERT') ? 'INSERT'
+          : sql.trim().toUpperCase().startsWith('UPDATE') ? 'UPDATE'
+          : sql.trim().toUpperCase().startsWith('DELETE') ? 'DELETE'
+          : 'UNKNOWN';
+
+        const tid = tenantContext.getStore() || 1;
+        const payload = {
+          table: tableName,
+          operation,
+          row_id: (typeof this.lastID === 'number' && this.lastID > 0) ? this.lastID : null,
+          sql_template: sql.replace(/\s+/g, ' ').substring(0, 500),
+          timestamp: new Date().toISOString()
+        };
+
+        // Grava diretamente no tenant DB real (sem proxy) para evitar loop
+        const realDb = getTenantDb();
+        const wrappedTid = tid;
+        tenantContext.run(wrappedTid, () => {
+          realDb.run(
+            `INSERT INTO sync_outbox (message_type, payload, direction, status) VALUES (?, ?, 'up', 'pending')`,
+            [tableName, JSON.stringify(payload)],
+            (syncErr) => {
+              if (syncErr) console.error('[Sync Outbox] Erro ao enfileirar:', syncErr.message);
+            }
+          );
+        });
+      } catch (syncErr) {
+        console.error('[Sync Outbox] Erro ao enfileirar sync:', syncErr.message);
+      }
+
+      if (callback) return callback.call(this);
+    };
+
+    const newArgs = [...args];
+    if (callback) {
+      newArgs[newArgs.length - 1] = wrappedCallback;
+    } else {
+      newArgs.push(wrappedCallback);
+    }
+
+    return origDbRun(...newArgs);
+  };
+  console.log('[Sync] DB Proxy ativo — writes em tabelas sincronizáveis serão enfileirados.');
+}
 // ------------------------------
 
 function resolveTenantId(req) {
@@ -6006,6 +6072,7 @@ if (deploymentConfig.isOnPremise()) {
 } else {
   const syncServer = require('./controllers/sync-server');
   syncServer.initialize({
+    app,
     io,
     masterDb,
     tenantContext,

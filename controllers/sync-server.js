@@ -239,9 +239,100 @@ function initialize(deps) {
 
   startOfflineDetector();
 
-  ctx.app = ctx.io;
+  // ── HTTP FALLBACK ENDPOINTS ──────────────────────────────────────
+  // On-premise instances use these when WebSocket is unavailable.
 
-  console.log('[Sync Server] Inicializado. Namespace /sync ativo.');
+  if (ctx.app && ctx.app.post) {
+    // POST /api/sync/register — instance registration via HTTP
+    ctx.app.post('/api/sync/register', (req, res) => {
+      const { instance_id, tenant_id, instance_name, software_version, os_info, secret } = req.body;
+      if (!instance_id) return res.status(400).json({ ok: false, error: 'instance_id obrigatório' });
+
+      dbGet(`SELECT * FROM instance_registry WHERE instance_id = ?`, [instance_id], (err, existing) => {
+        if (existing) {
+          dbRun(
+            `UPDATE instance_registry SET status = 'online', last_heartbeat_at = datetime('now','localtime'),
+             software_version = ?, os_info = ?, ip_address = ? WHERE instance_id = ?`,
+            [software_version || existing.software_version, os_info || existing.os_info, req.ip, instance_id]
+          ).then(() => {
+            res.json({ ok: true, registered: true, instance_id });
+          }).catch(e => {
+            res.status(500).json({ ok: false, error: e.message });
+          });
+        } else {
+          dbRun(
+            `INSERT INTO instance_registry (instance_id, tenant_id, instance_name, software_version, os_info, ip_address, status)
+             VALUES (?, ?, ?, ?, ?, ?, 'online')`,
+            [instance_id, tenant_id || null, instance_name || 'On-Premise', software_version || '1.0.0', os_info || '', req.ip]
+          ).then(() => {
+            res.json({ ok: true, registered: true, instance_id });
+          }).catch(e => {
+            res.status(500).json({ ok: false, error: e.message });
+          });
+        }
+      });
+    });
+
+    // GET /api/sync/poll — on-premise polls for pending commands/data
+    ctx.app.get('/api/sync/poll', (req, res) => {
+      const { instance_id, ts, sig } = req.query;
+      if (!instance_id) return res.status(400).json({ ok: false, error: 'instance_id obrigatório' });
+
+      dbRun(
+        `UPDATE instance_registry SET status = 'online', last_heartbeat_at = datetime('now','localtime') WHERE instance_id = ?`,
+        [instance_id]
+      ).catch(() => {});
+
+      dbAll(
+        `SELECT id as command_id, command, params FROM sync_queue WHERE instance_id = ? AND status = 'pending' ORDER BY priority ASC, id ASC LIMIT 20`,
+        [instance_id]
+      ).then(rows => {
+        const commands = rows.map(r => ({
+          command_id: r.command_id,
+          command: r.command,
+          params: r.params ? JSON.parse(r.params) : {}
+        }));
+        res.json({ ok: true, commands });
+      }).catch(e => {
+        res.status(500).json({ ok: false, error: e.message });
+      });
+    });
+
+    // POST /api/sync/push — on-premise pushes data up
+    ctx.app.post('/api/sync/push', (req, res) => {
+      const { instance_id, message_type, payload } = req.body;
+      if (!instance_id) return res.status(400).json({ ok: false, error: 'instance_id obrigatório' });
+
+      dbRun(
+        `UPDATE instance_registry SET last_sync_at = datetime('now','localtime') WHERE instance_id = ?`,
+        [instance_id]
+      ).catch(() => {});
+
+      console.log(`[Sync Server] HTTP push de ${instance_id}: ${message_type || 'unknown'}`);
+      res.json({ ok: true, received: true });
+    });
+
+    // POST /api/sync/ack — on-premise acknowledges command execution
+    ctx.app.post('/api/sync/ack', (req, res) => {
+      const { instance_id, command_id, status, result } = req.body;
+      if (!instance_id || !command_id) return res.status(400).json({ ok: false, error: 'instance_id e command_id obrigatórios' });
+
+      dbRun(
+        `UPDATE remote_commands SET status = ?, result = ?, acknowledged_at = datetime('now','localtime') WHERE instance_id = ? AND id = ?`,
+        [status || 'completed', JSON.stringify(result || {}), instance_id, command_id]
+      ).then(() => {
+        dbRun(
+          `UPDATE sync_queue SET status = 'acked', acked_at = datetime('now','localtime') WHERE instance_id = ? AND message_type = 'command' AND status IN ('pending', 'sent')`,
+          [instance_id]
+        );
+        res.json({ ok: true, acked: true });
+      }).catch(e => {
+        res.status(500).json({ ok: false, error: e.message });
+      });
+    });
+  }
+
+  console.log('[Sync Server] Inicializado. Namespace /sync + HTTP fallback ativos.');
 }
 
 async function getAllInstances() {
