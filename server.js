@@ -32,6 +32,8 @@ const fs = require('fs');
 const multer = require('multer');
 const nfceService = require('./nfce-service');
 const ifoodApi = require('./ifood-integration');
+const deploymentConfig = require('./deployment-config');
+const instanceIdentity = require('./instance-identity');
 
 // Carrega variáveis do arquivo .env (sem dependência externa)
 try {
@@ -1003,6 +1005,64 @@ masterDb.serialize(async () => {
     hora INTEGER,
     sockets INTEGER DEFAULT 0,
     UNIQUE(restaurante_id, dia, hora)
+  )`);
+
+  // ── TABELAS DE SYNC / ON-PREMISE ──
+  masterDb.run(`CREATE TABLE IF NOT EXISTS instance_registry (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    instance_id TEXT UNIQUE NOT NULL,
+    tenant_id INTEGER,
+    instance_name TEXT,
+    public_key TEXT,
+    registered_at DATETIME DEFAULT (datetime('now','localtime')),
+    last_heartbeat_at DATETIME,
+    last_sync_at DATETIME,
+    status TEXT DEFAULT 'offline',
+    ip_address TEXT,
+    software_version TEXT,
+    os_info TEXT,
+    install_id TEXT,
+    mode TEXT DEFAULT 'on-premise',
+    FOREIGN KEY (tenant_id) REFERENCES restaurantes(id)
+  )`);
+
+  masterDb.run(`CREATE TABLE IF NOT EXISTS sync_queue (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    instance_id TEXT NOT NULL,
+    message_type TEXT NOT NULL,
+    payload TEXT NOT NULL,
+    priority INTEGER DEFAULT 5,
+    status TEXT DEFAULT 'pending',
+    created_at DATETIME DEFAULT (datetime('now','localtime')),
+    sent_at DATETIME,
+    acked_at DATETIME,
+    retry_count INTEGER DEFAULT 0,
+    max_retries INTEGER DEFAULT 5,
+    FOREIGN KEY (instance_id) REFERENCES instance_registry(instance_id)
+  )`);
+
+  masterDb.run(`CREATE TABLE IF NOT EXISTS remote_commands (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    instance_id TEXT NOT NULL,
+    command TEXT NOT NULL,
+    params TEXT,
+    issued_by TEXT,
+    issued_at DATETIME DEFAULT (datetime('now','localtime')),
+    acknowledged_at DATETIME,
+    result TEXT,
+    status TEXT DEFAULT 'pending',
+    FOREIGN KEY (instance_id) REFERENCES instance_registry(instance_id)
+  )`);
+
+  masterDb.run(`CREATE TABLE IF NOT EXISTS sync_conflicts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    instance_id TEXT NOT NULL,
+    table_name TEXT NOT NULL,
+    record_id INTEGER,
+    local_data TEXT,
+    remote_data TEXT,
+    resolution TEXT,
+    resolved_at DATETIME DEFAULT (datetime('now','localtime'))
   )`);
 
   // Restaurante padrão (id 1)
@@ -2192,6 +2252,49 @@ db.serialize(() => {
       db.run(`INSERT INTO funcionarios (nome, usuario, senha, cargo) VALUES (?, ?, ?, ?)`, ['Garçom Teste', 'garcom', '123', 'Garçom']);
     }
   });
+
+  // ── TABELAS DE SYNC / ON-PREMISE (tenant DB) ──
+  db.run(`CREATE TABLE IF NOT EXISTS instance_identity (
+    key TEXT PRIMARY KEY,
+    value TEXT
+  )`);
+
+  db.run(`CREATE TABLE IF NOT EXISTS sync_outbox (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    message_type TEXT NOT NULL,
+    payload TEXT NOT NULL,
+    direction TEXT DEFAULT 'up',
+    status TEXT DEFAULT 'pending',
+    created_at DATETIME DEFAULT (datetime('now','localtime')),
+    sent_at DATETIME,
+    retry_count INTEGER DEFAULT 0
+  )`);
+
+  db.run(`CREATE TABLE IF NOT EXISTS pending_commands (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    command_id TEXT NOT NULL UNIQUE,
+    command TEXT NOT NULL,
+    params TEXT,
+    received_at DATETIME DEFAULT (datetime('now','localtime')),
+    status TEXT DEFAULT 'pending',
+    result TEXT
+  )`);
+
+  db.run(`CREATE TABLE IF NOT EXISTS sync_versions (
+    table_name TEXT PRIMARY KEY,
+    last_sync_version INTEGER DEFAULT 0,
+    last_push_at DATETIME
+  )`);
+
+  db.run(`ALTER TABLE pedidos ADD COLUMN sync_version INTEGER DEFAULT 0`, (err) => { });
+  db.run(`ALTER TABLE produtos ADD COLUMN sync_version INTEGER DEFAULT 0`, (err) => { });
+  db.run(`ALTER TABLE configuracoes ADD COLUMN sync_version INTEGER DEFAULT 0`, (err) => { });
+  db.run(`ALTER TABLE clientes ADD COLUMN sync_version INTEGER DEFAULT 0`, (err) => { });
+  db.run(`ALTER TABLE funcionarios ADD COLUMN sync_version INTEGER DEFAULT 0`, (err) => { });
+  db.run(`ALTER TABLE mesas ADD COLUMN sync_version INTEGER DEFAULT 0`, (err) => { });
+  db.run(`ALTER TABLE promocoes ADD COLUMN sync_version INTEGER DEFAULT 0`, (err) => { });
+  db.run(`ALTER TABLE cupons ADD COLUMN sync_version INTEGER DEFAULT 0`, (err) => { });
+  db.run(`ALTER TABLE formas_pagamento ADD COLUMN sync_version INTEGER DEFAULT 0`, (err) => { });
 
   // Criar índices após garantir que as tabelas existem
   db.run('CREATE INDEX IF NOT EXISTS idx_pedidos_status ON pedidos(status);');
@@ -5881,6 +5984,37 @@ loadDomainMaps().then(() => {
 setInterval(() => { loadAllTenantFeatures().catch(() => { }); }, TENANT_FEATURES_REFRESH_MS);
 setInterval(() => { loadDomainMaps().catch(() => { }); }, 60000);
 setInterval(() => { samplePicos(); }, 60000);
+
+// --- INICIALIZAÇÃO DO MODO DE DEPLOY ---
+console.log('[Deploy] Modo:', deploymentConfig.getDeployMode(), '| Versão:', deploymentConfig.getSoftwareVersion());
+
+if (deploymentConfig.isOnPremise()) {
+  const syncAgent = require('./sync-agent');
+  syncAgent.initialize({
+    db,
+    masterDb: null,
+    tenantContext,
+    io,
+    getTenantDb,
+    deploymentConfig,
+    instanceIdentity
+  }).then(() => {
+    console.log('[Sync] Agente on-premise inicializado com sucesso.');
+  }).catch((err) => {
+    console.error('[Sync] Falha ao inicializar agente:', err.message || err);
+  });
+} else {
+  const syncServer = require('./controllers/sync-server');
+  syncServer.initialize({
+    io,
+    masterDb,
+    tenantContext,
+    superAdminAuth,
+    getTenantDb,
+    deploymentConfig
+  });
+  console.log('[Sync] Servidor sync (cloud) inicializado.');
+}
 
 // --- RETRO API PARA ANDROID 3.2 ---
 app.get('/api/retro/mesas', (req, res) => {
