@@ -6439,7 +6439,7 @@ window.chamarClienteWhatsapp = function (id, nome, telefone, pessoas) {
 
 window.acomodarClienteFilaPrompt = function (id, nomeCliente) {
   const isAuto = window.pdvConfigs && window.pdvConfigs.rest_fila_alocacao_auto === 'auto';
-  const mesasLivres = (window.todasMesas || []).filter(m => m.status === 'Disponível' || m.status === 'Livre').map(m => m.nome || m.mesaName);
+  const mesasLivres = (window.allMesas || []).filter(m => m.status === 'Disponível' || m.status === 'Livre').map(m => m.nome || m.mesaName);
   
   if (isAuto) {
     if (mesasLivres.length === 0) {
@@ -6710,9 +6710,11 @@ socket.on('recusar_pedido_qr_resposta', (res) => {
 // Emit request to fetch pending QR orders on connect
 socket.on('connect', () => {
   socket.emit('get_qr_pedidos_pendentes');
+  socket.emit('get_mesas');
 });
 if (socket.connected) {
   socket.emit('get_qr_pedidos_pendentes');
+  socket.emit('get_mesas');
 }
 
 // --- LOGICA DO QR CODE DA MESA ---

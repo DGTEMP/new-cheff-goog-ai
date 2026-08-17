@@ -6042,7 +6042,7 @@ io.on('connection', (socket) => {
 // Liga os pollers de eventos das contas iFood já autorizadas em cada tenant.
 setTimeout(() => {
   try {
-    ifoodApi.startAllPollers({ io, masterDb, tenantContext, getTenantDb, dir: __dirname, isFeatureEnabled });
+    ifoodApi.startAllPollers({ io, masterDb, tenantContext, getTenantDb, dir: __dirname, isFeatureEnabled: isTenantFeatureEnabled });
     console.log('[iFood] Integração iniciada.');
   } catch (e) {
     console.error('[iFood] Falha ao iniciar integração:', e.message || e);
@@ -8091,15 +8091,105 @@ app.post('/api/auth/registro', async (req, res) => {
   }
 });
 
+// ── Verificação de disponibilidade de Slug / Subdomínio ──
+app.get('/api/auth/check-slug', (req, res) => {
+  const raw = req.query.slug || '';
+  const currentRestId = req.query.restaurante_id ? parseInt(req.query.restaurante_id, 10) : 0;
+  const slug = String(raw).trim().toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9-]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+
+  if (!slug || slug.length < 2 || slug.length > 40) {
+    return res.json({ available: false, slug, error: 'O link deve ter entre 2 e 40 caracteres (apenas letras, números e hífen).' });
+  }
+
+  const query = currentRestId > 0 
+    ? `SELECT id FROM restaurantes WHERE slug = ? AND id != ?`
+    : `SELECT id FROM restaurantes WHERE slug = ?`;
+  const params = currentRestId > 0 ? [slug, currentRestId] : [slug];
+
+  masterDb.get(query, params, (err, row) => {
+    if (err) return res.status(500).json({ available: false, slug, error: 'Erro de validação no servidor.' });
+    if (row) return res.json({ available: false, slug, error: 'Este link já está em uso por outro restaurante.' });
+    res.json({ available: true, slug, baseDomain: BASE_DOMAIN, previewUrl: `https://${slug}.${BASE_DOMAIN}` });
+  });
+});
+
+// ── Definir Slug individualmente ──
+app.post('/api/auth/definir-slug', verificarToken, (req, res) => {
+  const restauranteId = req.restaurante_id;
+  const raw = (req.body && req.body.slug) || '';
+  const slug = String(raw).trim().toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9-]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+
+  if (!slug) {
+    masterDb.run(`UPDATE restaurantes SET slug = NULL WHERE id = ?`, [restauranteId], () => {
+      if (typeof loadDomainMaps === 'function') loadDomainMaps();
+      return res.json({ success: true, slug: null });
+    });
+    return;
+  }
+
+  if (slug.length < 2 || slug.length > 40) {
+    return res.status(400).json({ success: false, error: 'Slug deve ter entre 2 e 40 caracteres.' });
+  }
+
+  masterDb.get(`SELECT id FROM restaurantes WHERE slug = ? AND id != ?`, [slug, restauranteId], (err, row) => {
+    if (err) return res.status(500).json({ success: false, error: 'Erro no servidor.' });
+    if (row) return res.status(400).json({ success: false, error: 'Este link já está em uso.' });
+
+    masterDb.run(`UPDATE restaurantes SET slug = ? WHERE id = ?`, [slug, restauranteId], function(errUp) {
+      if (errUp) return res.status(500).json({ success: false, error: 'Erro ao salvar link.' });
+      if (typeof loadDomainMaps === 'function') loadDomainMaps();
+      res.json({ success: true, slug, url: `https://${slug}.${BASE_DOMAIN}` });
+    });
+  });
+});
+
 // ── Onboarding de equipe apos registro ──
 app.post('/api/auth/equipe-onboarding', verificarToken, async (req, res) => {
-  const { equipe } = req.body;
+  const { equipe, slug } = req.body;
   const restauranteId = req.restaurante_id;
   if (!restauranteId) return res.status(400).json({ success: false, error: 'Restaurante invalido.' });
+
+  // Se um slug foi fornecido, valida e salva
+  if (slug && typeof slug === 'string') {
+    const cleanSlug = slug.trim().toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9-]/g, '')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '');
+
+    if (cleanSlug.length >= 2 && cleanSlug.length <= 40) {
+      await new Promise((resolve) => {
+        masterDb.get(`SELECT id FROM restaurantes WHERE slug = ? AND id != ?`, [cleanSlug, restauranteId], (err, row) => {
+          if (!err && !row) {
+            masterDb.run(`UPDATE restaurantes SET slug = ? WHERE id = ?`, [cleanSlug, restauranteId], () => {
+              if (typeof loadDomainMaps === 'function') loadDomainMaps();
+              resolve();
+            });
+          } else {
+            resolve();
+          }
+        });
+      });
+    }
+  }
+
   if (!Array.isArray(equipe) || equipe.length === 0) return res.status(400).json({ success: false, error: 'Envie pelo menos um funcionario.' });
 
   const dbPath = path.join(__dirname, `database_${restauranteId}.sqlite`);
-  if (!fsSync.existsSync(dbPath)) return res.status(404).json({ success: false, error: 'Banco do restaurante nao encontrado.' });
+  if (!fsSync.existsSync(dbPath)) {
+    const templatePath = path.join(__dirname, 'database_1.sqlite');
+    if (fsSync.existsSync(templatePath)) {
+      try { fsSync.copyFileSync(templatePath, dbPath); } catch (e) {}
+    }
+  }
 
   const tenantDb = new sqlite3.Database(dbPath);
   let criados = 0;

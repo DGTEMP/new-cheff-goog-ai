@@ -467,6 +467,26 @@
       <span id="contaCriadaTexto">Conta criada com sucesso! Agora configure sua equipe para liberar todos os acessos.</span>
     </div>
 
+    <!-- SEÇÃO SLUG (OPCIONAL) -->
+    <div class="equipe-card" style="border: 1px dashed var(--border); background: rgba(52, 73, 94, 0.15);">
+      <div class="equipe-card-header">
+        <div class="equipe-card-title">
+          <span class="badge" style="background: rgba(59,130,246,0.2); color: #60a5fa;">LINK</span>
+          <strong>Link personalizado do restaurante</strong>
+        </div>
+      </div>
+      <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">Escolha um endereço próprio para acessar o painel. <em>Opcional — pode configurar depois.</em></p>
+      <div class="form-group" style="margin-bottom: 0;">
+        <label for="slugInput">Seu link personalizado</label>
+        <div class="input-wrapper">
+          <i class="ph ph-link"></i>
+          <input type="text" id="slugInput" placeholder="meu-restaurante" style="padding-left: 42px;" maxlength="40" autocomplete="off">
+        </div>
+        <div id="slugPreview" style="font-size: 12px; color: var(--text-muted); margin-top: 6px; display: none;"></div>
+        <div id="slugStatus" style="font-size: 12px; margin-top: 4px; display: none;"></div>
+      </div>
+    </div>
+
     <!-- CARD DONO -->
     <div class="equipe-card">
       <div class="equipe-card-header">
@@ -604,6 +624,55 @@
 
     // Escutar inputs da etapa 2 para salvar rascunho
     passoEquipe.addEventListener('input', salvarRascunho);
+
+    // ── Validação de Slug em tempo real ──
+    let slugCheckTimeout = null;
+    const slugInput = document.getElementById('slugInput');
+    const slugPreview = document.getElementById('slugPreview');
+    const slugStatus = document.getElementById('slugStatus');
+
+    slugInput.addEventListener('input', () => {
+      let raw = slugInput.value.trim().toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9-]/g, '')
+        .replace(/-+/g, '-').replace(/^-|-$/g, '');
+      slugInput.value = raw;
+
+      if (!raw || raw.length < 2) {
+        slugPreview.style.display = 'none';
+        slugStatus.style.display = 'none';
+        return;
+      }
+
+      slugPreview.style.display = 'block';
+      slugPreview.innerHTML = `<i class="ph ph-link"></i> Link: <strong>https://${raw}.chefcozinha.com.br</strong>`;
+      slugPreview.style.color = 'var(--text-muted)';
+
+      slugStatus.style.display = 'block';
+      slugStatus.innerHTML = '<i class="ph ph-spinner ph-spin"></i> Verificando disponibilidade...';
+      slugStatus.style.color = 'var(--text-muted)';
+
+      clearTimeout(slugCheckTimeout);
+      slugCheckTimeout = setTimeout(async () => {
+        try {
+          const rid = localStorage.getItem('restaurante_id') || '0';
+          const res = await fetch(`/api/auth/check-slug?slug=${encodeURIComponent(raw)}&restaurante_id=${rid}`);
+          const data = await res.json();
+          if (data.available) {
+            slugStatus.innerHTML = '<i class="ph ph-check-circle"></i> Disponível!';
+            slugStatus.style.color = 'var(--success)';
+            slugPreview.style.color = 'var(--success)';
+          } else {
+            slugStatus.innerHTML = `<i class="ph ph-x-circle"></i> ${data.error || 'Indisponível'}`;
+            slugStatus.style.color = 'var(--danger)';
+            slugPreview.style.color = 'var(--text-muted)';
+          }
+        } catch (e) {
+          slugStatus.innerHTML = '<i class="ph ph-warning"></i> Erro ao verificar';
+          slugStatus.style.color = 'var(--text-muted)';
+        }
+      }, 500);
+    });
 
     // ── Passo 1: Criar conta ──
     document.getElementById('registroForm').addEventListener('submit', async (e) => {
@@ -847,10 +916,11 @@
       btn.disabled = true;
 
       try {
+        const slug = document.getElementById('slugInput').value.trim();
         const res = await fetch('/api/auth/equipe-onboarding', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-          body: JSON.stringify({ restaurante_id: restauranteId, equipe })
+          body: JSON.stringify({ restaurante_id: restauranteId, equipe, slug: slug || undefined })
         });
         const data = await res.json();
         if (data.success) {

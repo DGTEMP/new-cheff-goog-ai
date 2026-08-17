@@ -17,6 +17,14 @@ socket.on('tenant_atualizado', (data) => {
   socket.connect();
 });
 
+socket.on('connect', () => {
+  if (loggedUser) {
+    socket.emit('get_mesas');
+    socket.emit('get_produtos');
+    socket.emit('get_esteira', loggedUser.nome);
+  }
+});
+
 function escHtml(t){return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 function escJs(t){try{return JSON.stringify(String(t==null?'':t)).replace(/</g,'\\x3C').replace(/>/g,'\\x3E').replace(/"/g,'&quot;').replace(/\u2028/g,'\\u2028').replace(/\u2029/g,'\\u2029');}catch(e){return '""';}}
 
