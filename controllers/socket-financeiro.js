@@ -1,5 +1,5 @@
 module.exports = function(socket, io, db, helpers) {
-  const { checkCaixa, activePaymentLocks, broadcastPedidos, mesasFechando, licenseManager, verificarSenhaAdmin, verificarSenhaFuncionario, getLocalTimestamp } = helpers;
+  const { checkCaixa, activePaymentLocks, broadcastPedidos, mesasFechando, licenseManager, verificarSenhaAdmin, verificarPinOuSenha, verificarSenhaFuncionario, getLocalTimestamp } = helpers;
 
   function fidelidadeNivel(totalGasto, cfg) {
     const prata = parseFloat(cfg.fidelidade_nivel_prata) || 500;
@@ -62,9 +62,9 @@ module.exports = function(socket, io, db, helpers) {
     const senha = data && data.senha ? String(data.senha) : '';
     if (!senha) return false;
 
-    // Admin master (usuários) também autoriza o fechamento.
+    // PIN ou senha admin/master autoriza o fechamento.
     try {
-      if (await verificarSenhaAdmin(senha)) return true;
+      if (await verificarPinOuSenha(senha)) return true;
     } catch (e) {}
 
     // Caixa identificado no socket: exige a PRÓPRIA senha do caixa.

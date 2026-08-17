@@ -110,6 +110,29 @@ function verificarSenhaAdmin(senha) {
   });
 }
 
+function verificarPinTemporario(pin) {
+  return new Promise((resolve) => {
+    if (!pin || typeof pin !== 'string') return resolve({ ok: false });
+    const pinUpper = pin.trim().toUpperCase();
+    db.get(`SELECT * FROM pins_temporarios WHERE pin = ? AND ativo = 1`, [pinUpper], (err, row) => {
+      if (err || !row) return resolve({ ok: false });
+      if (row.tipo_expiracao !== 'sessao' && row.expira_em && row.expira_em !== 'SESSION') {
+        if (new Date(row.expira_em) < new Date()) return resolve({ ok: false });
+      }
+      if (row.usos_atual >= row.max_usos) return resolve({ ok: false });
+      db.run(`UPDATE pins_temporarios SET usos_atual = usos_atual + 1 WHERE id = ?`, [row.id], () => {});
+      resolve({ ok: true, pin: row });
+    });
+  });
+}
+
+async function verificarPinOuSenha(valor) {
+  if (!valor) return false;
+  if (await verificarSenhaAdmin(valor)) return true;
+  const pinResult = await verificarPinTemporario(valor);
+  return pinResult.ok;
+}
+
 function isBcryptHash(v) { return typeof v === 'string' && /^\$2[aby]\$/.test(v); }
 
 function funcionarioPublico(row) {
@@ -1534,6 +1557,22 @@ db.serialize(() => {
       total_consumo_abatido REAL,
       valor_liquido REAL,
       observacao TEXT
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS pins_temporarios (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      pin TEXT NOT NULL,
+      nome_colaborador TEXT,
+      categorias TEXT DEFAULT '[]',
+      max_usos INTEGER DEFAULT 1,
+      usos_atual INTEGER DEFAULT 0,
+      expira_em TEXT,
+      tipo_expiracao TEXT DEFAULT 'minutos',
+      ativo INTEGER DEFAULT 1,
+      criado_por TEXT,
+      criado_em TEXT DEFAULT (datetime('now','localtime'))
     )
   `);
 
@@ -3216,8 +3255,8 @@ io.on('connection', (socket) => {
     if (itemId === undefined || itemId === null || itemId === '') return;
 
     if (senha !== undefined) {
-      if (!(await verificarSenhaAdmin(senha))) {
-        socket.emit('erro_caixa', 'Senha de administrador incorreta!');
+      if (!(await verificarPinOuSenha(senha))) {
+        socket.emit('erro_caixa', 'Senha ou PIN incorreto!');
         return;
       }
     }
@@ -3253,8 +3292,8 @@ io.on('connection', (socket) => {
     if (itemId === undefined || itemId === null || itemId === '') return;
 
     if (senha !== undefined) {
-      if (!(await verificarSenhaAdmin(senha))) {
-        socket.emit('erro_caixa', 'Senha de administrador incorreta!');
+      if (!(await verificarPinOuSenha(senha))) {
+        socket.emit('erro_caixa', 'Senha ou PIN incorreto!');
         return;
       }
     }
@@ -3288,7 +3327,11 @@ io.on('connection', (socket) => {
     activePaymentLocks,
     broadcastPedidos,
     mesasFechando,
-    licenseManager
+    licenseManager,
+    verificarSenhaAdmin,
+    verificarPinOuSenha,
+    verificarSenhaFuncionario,
+    getLocalTimestamp
   });
   require('./controllers/socket-fila')(socket, io, db, {});
 
@@ -3592,9 +3635,16 @@ io.on('connection', (socket) => {
       });
   });
 
-  socket.on('delete_produto', (data) => {
+  socket.on('delete_produto', async (data) => {
     const id = (typeof data === 'object') ? data.id : data;
     const op = (typeof data === 'object') ? data.operador : 'Admin';
+    const senha = (typeof data === 'object') ? data.senha : undefined;
+    if (senha !== undefined) {
+      if (!(await verificarPinOuSenha(senha))) {
+        socket.emit('erro_caixa', 'Senha ou PIN incorreto!');
+        return;
+      }
+    }
     db.run(`DELETE FROM produtos WHERE id = ?`, [id], () => {
       global.registrarAuditoria(op || 'Admin', 'EXCLUSAO_PRODUTO', `Produto removido (ID: ${id})`, 'Atualização de Cardápio', 'ALTO');
       broadcastProdutos();
@@ -5423,11 +5473,11 @@ io.on('connection', (socket) => {
 
   socket.on('cancelar_mesa', async ({ mesaName, motivo, senha }) => {
     if (!mesaName) return;
-    if (!(await verificarSenhaAdmin(senha))) {
-      socket.emit('erro_caixa', 'Senha de administrador incorreta!');
+    if (!(await verificarPinOuSenha(senha))) {
+      socket.emit('erro_caixa', 'Senha ou PIN incorreto!');
       return;
     }
-    console.log(`[Admin] Mesa "${mesaName}" cancelada por admin. Motivo: ${motivo}`);
+    console.log(`[Admin] Mesa "${mesaName}" cancelada. Motivo: ${motivo}`);
     db.run(
       `UPDATE pedidos SET status = 'Cancelado' WHERE (localName = ? OR mesa_grupo = ?) AND status NOT IN ('Finalizado','Entregue','Pago','Cancelado')`,
       [mesaName, mesaName],
@@ -5444,8 +5494,8 @@ io.on('connection', (socket) => {
   });
 
   socket.on('zerar_todos_dados', async ({ senha }) => {
-    if (!(await verificarSenhaAdmin(senha))) {
-      socket.emit('erro_caixa', 'Senha de administrador incorreta!');
+    if (!(await verificarPinOuSenha(senha))) {
+      socket.emit('erro_caixa', 'Senha ou PIN incorreto!');
       return;
     }
     console.log('[Admin] ZERANDO TODOS OS DADOS DO SISTEMA');
@@ -5460,6 +5510,116 @@ io.on('connection', (socket) => {
         io.emit('clientes_atualizados', []);
         socket.emit('zerar_concluido', { ok: true });
       });
+    });
+  });
+
+  // ── PINs TEMPORARIOS ──
+  function gerarPinCustomizado(tamanho) {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    const tam = Math.min(Math.max(parseInt(tamanho) || 4, 3), 6);
+    let pin = '';
+    for (let i = 0; i < tam; i++) pin += chars[Math.floor(Math.random() * chars.length)];
+    return pin;
+  }
+
+  socket.on('criar_pin_temporario', (data) => {
+    const cargo = socket.funcionarioCargo || '';
+    const isAdmin = ['Admin', 'Administrador', 'adm', 'Gerente'].includes(cargo);
+    if (!isAdmin) return socket.emit('pin_erro', 'Apenas Admin ou Gerente podem criar PINs.');
+    const { nome_colaborador, categorias, max_usos, tipo_expiracao, expira_minutos, expira_em, pin_customizado, pin_tamanho } = data;
+    if (!nome_colaborador) return socket.emit('pin_erro', 'Informe o nome do colaborador.');
+    let pin;
+    if (pin_customizado && pin_customizado.trim()) {
+      pin = pin_customizado.trim().toUpperCase();
+      const tam = parseInt(pin_tamanho) || 4;
+      if (pin.length < 3 || pin.length > 6) return socket.emit('pin_erro', 'O PIN deve ter entre 3 e 6 caracteres.');
+      if (!/^[A-Z0-9]+$/.test(pin)) return socket.emit('pin_erro', 'O PIN deve conter apenas letras e números.');
+      if (pin.length !== tam) return socket.emit('pin_erro', 'O PIN deve ter ' + tam + ' caracteres.');
+    } else {
+      const tam = parseInt(pin_tamanho) || 4;
+      pin = gerarPinCustomizado(tam);
+    }
+    let expira = null;
+    if (tipo_expiracao === 'minutos' && expira_minutos) {
+      const d = new Date(); d.setMinutes(d.getMinutes() + parseInt(expira_minutos));
+      expira = d.toISOString();
+    } else if (tipo_expiracao === 'data' && expira_em) {
+      expira = expira_em;
+    } else if (tipo_expiracao === 'sessao') {
+      expira = 'SESSION';
+    }
+    const usos = parseInt(max_usos) || 1;
+    const cats = JSON.stringify(categorias || []);
+    db.run(`INSERT INTO pins_temporarios (pin, nome_colaborador, categorias, max_usos, expira_em, tipo_expiracao, criado_por) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [pin, nome_colaborador, cats, usos, expira, tipo_expiracao || 'minutos', socket.funcionarioCargo || 'Admin'], (err) => {
+        if (err) return socket.emit('pin_erro', 'Erro ao criar PIN.');
+        socket.emit('pin_criado', { pin, nome_colaborador, categorias: categorias || [], max_usos: usos, expira_em: expira, tipo_expiracao: tipo_expiracao || 'minutos' });
+        socket.emit('pins_atualizados');
+      });
+  });
+
+  socket.on('listar_pins_temporarios', () => {
+    const cargo = socket.funcionarioCargo || '';
+    if (!['Admin', 'Administrador', 'adm', 'Gerente'].includes(cargo)) {
+      return socket.emit('lista_pins', []);
+    }
+    db.all(`SELECT * FROM pins_temporarios ORDER BY id DESC`, [], (err, rows) => {
+      socket.emit('lista_pins', rows || []);
+    });
+  });
+
+  socket.on('revogar_pin', (id) => {
+    const cargo = socket.funcionarioCargo || '';
+    if (!['Admin', 'Administrador', 'adm', 'Gerente'].includes(cargo)) return;
+    db.run(`UPDATE pins_temporarios SET ativo = 0 WHERE id = ?`, [id], () => {
+      socket.emit('pins_atualizados');
+    });
+  });
+
+  socket.on('renovar_pin', (data) => {
+    const cargo = socket.funcionarioCargo || '';
+    if (!['Admin', 'Administrador', 'adm', 'Gerente'].includes(cargo)) return;
+    const { id, minutos } = data;
+    let novaExpira = null;
+    if (minutos && parseInt(minutos) > 0) {
+      const d = new Date(); d.setMinutes(d.getMinutes() + parseInt(minutos));
+      novaExpira = d.toISOString();
+    }
+    db.run(`UPDATE pins_temporarios SET ativo = 1, usos_atual = 0, expira_em = ? WHERE id = ?`, [novaExpira, id], () => {
+      socket.emit('pins_atualizados');
+    });
+  });
+
+  socket.on('login_por_pin', (data) => {
+    const { pin } = data;
+    if (!pin) return socket.emit('login_error', 'Informe o PIN.');
+    db.get(`SELECT * FROM pins_temporarios WHERE pin = ? AND ativo = 1`, [pin], (err, row) => {
+      if (err || !row) return socket.emit('login_error', 'PIN invalido ou inativo.');
+      if (row.tipo_expiracao !== 'sessao' && row.expira_em && row.expira_em !== 'SESSION') {
+        if (new Date(row.expira_em) < new Date()) {
+          return socket.emit('login_error', 'PIN expirado. Solicite um novo ao administrador.');
+        }
+      }
+      if (row.usos_atual >= row.max_usos) {
+        return socket.emit('login_error', 'PIN atingiu o limite de usos.');
+      }
+      db.run(`UPDATE pins_temporarios SET usos_atual = usos_atual + 1 WHERE id = ?`, [row.id], () => {});
+      const categorias = JSON.parse(row.categorias || '[]');
+      const payload = {
+        id: -row.id,
+        nome: row.nome_colaborador || 'Colaborador',
+        usuario: 'pin_' + row.pin,
+        cargo: categorias[0] || 'Garcom',
+        categorias_pin: categorias,
+        status: 'Ativo',
+        restaurante_id: socketTenantId || tenantContext.getStore() || 1,
+        login_expires_at: row.tipo_expiracao === 'sessao' ? 'SESSION' : row.expira_em
+      };
+      socket.emit('login_success', payload);
+      socket.funcionarioId = row.id;
+      socket.funcionarioCargo = payload.cargo;
+      const sessToken = jwt.sign({ tipo: 'funcionario', id: row.id, nome: row.nome_colaborador, usuario: 'pin_' + row.pin, cargo: payload.cargo, restaurante_id: payload.restaurante_id, pin: true }, JWT_SECRET, { expiresIn: '12h' });
+      socket.emit('login_token', sessToken);
     });
   });
 
@@ -7752,6 +7912,27 @@ app.post('/api/auth/login', async (req, res) => {
 
     const token = jwt.sign({ id: user.id, restaurante_id: user.restaurante_id, role: user.role }, JWT_SECRET, { expiresIn: '12h' });
     res.json({ success: true, token, restaurante_id: user.restaurante_id, role: user.role });
+  });
+});
+
+// ── Deslogar Restaurante do Sistema ──
+app.post('/api/auth/deslogar-restaurante', verificarToken, async (req, res) => {
+  const { senha, restaurante_id } = req.body;
+  const adminId = req.restaurante_id;
+  if (!senha) return res.status(400).json({ success: false, error: 'Senha obrigatoria.' });
+
+  masterDb.get(`SELECT * FROM usuarios WHERE restaurante_id = ? AND role = 'admin' AND ativo = 1`, [adminId], async (err, user) => {
+    if (err || !user) return res.status(404).json({ success: false, error: 'Admin nao encontrado.' });
+    const match = await bcrypt.compare(senha, user.password_hash);
+    if (!match) return res.status(401).json({ success: false, error: 'Senha incorreta.' });
+
+    masterDb.run(`UPDATE restaurantes SET ativo = 0 WHERE id = ?`, [adminId], function (errUp) {
+      if (errUp) return res.status(500).json({ success: false, error: 'Erro ao desativar.' });
+
+      masterDb.run(`UPDATE usuarios SET ativo = 0 WHERE restaurante_id = ?`, [adminId], () => {
+        res.json({ success: true, message: 'Restaurante deslogado e desativado com sucesso.' });
+      });
+    });
   });
 });
 

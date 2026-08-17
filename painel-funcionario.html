@@ -227,15 +227,30 @@
       <i class="ph ph-identification-badge" style="font-size: 40px; color: white;"></i>
     </div>
     <h2>Área do Colaborador</h2>
-    
-    <div class="input-group">
-      <label>Usuário</label>
-      <input type="text" id="login-user" placeholder="Seu usuário de acesso">
+
+    <div style="display:flex; gap:0; margin-bottom:16px; background:#f3f4f6; border-radius:10px; padding:3px;">
+      <button id="btn-mode-usuario" style="flex:1; padding:8px; border:none; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; background:white; color:#7c3aed; box-shadow:0 1px 3px rgba(0,0,0,0.1);">Usuário / Senha</button>
+      <button id="btn-mode-pin" style="flex:1; padding:8px; border:none; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; background:transparent; color:#6b7280;">PIN</button>
     </div>
-    <div class="input-group">
-      <label>Senha</label>
-      <input type="password" id="login-pass" placeholder="Sua senha">
+
+    <div id="login-form-usuario">
+      <div class="input-group">
+        <label>Usuário</label>
+        <input type="text" id="login-user" placeholder="Seu usuário de acesso">
+      </div>
+      <div class="input-group">
+        <label>Senha</label>
+        <input type="password" id="login-pass" placeholder="Sua senha">
+      </div>
     </div>
+
+    <div id="login-form-pin" style="display:none;">
+      <div class="input-group">
+        <label>PIN de Acesso</label>
+        <input type="text" id="login-pin" placeholder="Digite o PIN de 6 dígitos" maxlength="6" style="text-align:center; font-size:24px; letter-spacing:8px; font-family:monospace; font-weight:700;">
+      </div>
+    </div>
+
     <div id="login-error-msg" style="display:none; margin-top:12px; padding:10px 14px; background:#fee2e2; border:1px solid #fca5a5; border-radius:10px; color:#b91c1c; font-size:13px; font-weight:600; text-align:center; box-sizing:border-box;"></div>
 
     <button class="btn-main" id="btn-login" style="margin-top: 16px;">Entrar</button>

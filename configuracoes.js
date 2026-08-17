@@ -492,6 +492,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // Sempre buscar via fetch para garantir dados atualizados
         if (window.carregarFormasPagamento) window.carregarFormasPagamento();
       }
+      if (tabId === 'pins') {
+        socket.emit('listar_pins_temporarios');
+      }
 
       // Muda titulo
       const elTitulo = document.getElementById('titulo-aba');
@@ -1466,9 +1469,35 @@ window.zerarTodosDados = function() {
 
 socket.on('zerar_concluido', (data) => {
   if (data && data.ok) {
-    alert('Todos os dados foram apagados com sucesso! O sistema será recarregado.');
+    alert('Todos os dados foram apagados com sucesso! O sistema sera recarregado.');
     window.location.reload();
   }
+});
+
+// ── Deslogar Restaurante do Sistema ──
+document.getElementById('btn-deslogar-restaurante').addEventListener('click', () => {
+  if (!confirm('Tem certeza que deseja deslogar este restaurante do sistema?\n\nVoce precisara fazer login novamente para acessar.')) return;
+  const senha = prompt('Digite a senha de administrador para confirmar o deslogamento:');
+  if (!senha) return;
+  const restauranteId = localStorage.getItem('restaurante_id');
+  const token = localStorage.getItem('chef_token');
+  fetch('/api/auth/deslogar-restaurante', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+    body: JSON.stringify({ restaurante_id: restauranteId, senha })
+  }).then(r => r.json()).then(data => {
+    if (data.success) {
+      localStorage.removeItem('chef_token');
+      localStorage.removeItem('restaurante_id');
+      localStorage.removeItem('chef_credentials');
+      alert('Restaurante deslogado com sucesso!');
+      window.location.href = '/login.html';
+    } else {
+      alert(data.error || 'Erro ao deslogar restaurante.');
+    }
+  }).catch(() => {
+    alert('Erro de conexao com o servidor.');
+  });
 });
 
 socket.on('ia_config_atual', (config) => {
@@ -1660,7 +1689,15 @@ socket.on('produtos_atualizados', (prods) => {
   `).join('');
 });
 
-window.deleteProduto = (id) => { if (confirm('Excluir produto?')) socket.emit('delete_produto', { id, operador: window.crmPerfil ? window.crmPerfil.nome : 'Admin' }); };
+window.deleteProduto = (id) => {
+  if (typeof window.solicitarAutorizacaoAdmin === 'function') {
+    window.solicitarAutorizacaoAdmin('Excluir Produto', 'Informe a senha ou PIN para confirmar a exclusão.', (senha, motivo) => {
+      socket.emit('delete_produto', { id, operador: window.crmPerfil ? window.crmPerfil.nome : 'Admin', senha });
+    });
+  } else if (confirm('Excluir produto?')) {
+    socket.emit('delete_produto', { id, operador: window.crmPerfil ? window.crmPerfil.nome : 'Admin' });
+  }
+};
 
 window.editProduto = (id, categoria, nome, preco, emoji, setor, status, status_inicial, visibilidade, descricao) => {
   document.getElementById('admin-prod-id').value = id;
@@ -5570,3 +5607,175 @@ socket.on('restaurante_config_salvo', () => {
 document.querySelector('.admin-tab-btn[data-tab="perfil"]').addEventListener('click', () => {
   socket.emit('get_restaurante_config');
 });
+
+// ── PINs TEMPORARIOS ──
+(function() {
+  const modal = document.getElementById('modal-novo-pin');
+  if (!modal) return;
+
+  const charsPin = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  function gerarPinAleatorio(tam) {
+    let p = '';
+    for (let i = 0; i < tam; i++) p += charsPin[Math.floor(Math.random() * charsPin.length)];
+    return p;
+  }
+
+  function getPinTamanho() { return parseInt(document.getElementById('pin-tamanho').value) || 4; }
+
+  function validarPinCustomizado() {
+    const input = document.getElementById('pin-customizado');
+    const errDiv = document.getElementById('pin-erro-msg');
+    const val = input.value.trim().toUpperCase();
+    const tam = getPinTamanho();
+    if (!val) { errDiv.style.display = 'none'; return true; }
+    if (val.length !== tam) {
+      errDiv.textContent = 'O PIN deve ter exatamente ' + tam + ' caracteres (atual: ' + val.length + ')';
+      errDiv.style.display = 'block'; return false;
+    }
+    if (!/^[A-Z0-9]+$/.test(val)) {
+      errDiv.textContent = 'Use apenas letras (A-Z) e números (0-9).';
+      errDiv.style.display = 'block'; return false;
+    }
+    errDiv.style.display = 'none'; return true;
+  }
+
+  document.getElementById('btn-novo-pin').addEventListener('click', () => {
+    modal.style.display = 'flex';
+    document.getElementById('pin-nome').value = '';
+    document.getElementById('pin-max-usos').value = '1';
+    document.getElementById('pin-minutos').value = '60';
+    document.getElementById('pin-tamanho').value = '4';
+    document.getElementById('pin-tipo-expiracao').value = 'minutos';
+    document.getElementById('pin-customizado').value = '';
+    document.querySelectorAll('.pin-categoria').forEach(c => c.checked = false);
+    document.getElementById('pin-expiracao-minutos').style.display = 'block';
+    document.getElementById('pin-expiracao-data').style.display = 'none';
+    document.getElementById('pin-erro-msg').style.display = 'none';
+  });
+
+  document.getElementById('btn-cancelar-pin').addEventListener('click', () => {
+    modal.style.display = 'none';
+  });
+
+  document.getElementById('pin-tamanho').addEventListener('change', () => {
+    const input = document.getElementById('pin-customizado');
+    input.value = '';
+    input.maxLength = getPinTamanho();
+    document.getElementById('pin-erro-msg').style.display = 'none';
+  });
+
+  document.getElementById('pin-customizado').addEventListener('input', (e) => {
+    e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, getPinTamanho());
+    validarPinCustomizado();
+  });
+
+  document.getElementById('btn-gerar-pin').addEventListener('click', () => {
+    const input = document.getElementById('pin-customizado');
+    input.value = gerarPinAleatorio(getPinTamanho());
+    document.getElementById('pin-erro-msg').style.display = 'none';
+  });
+
+  document.getElementById('pin-tipo-expiracao').addEventListener('change', (e) => {
+    document.getElementById('pin-expiracao-minutos').style.display = e.target.value === 'minutos' ? 'block' : 'none';
+    document.getElementById('pin-expiracao-data').style.display = e.target.value === 'data' ? 'block' : 'none';
+  });
+
+  document.getElementById('btn-salvar-pin').addEventListener('click', () => {
+    const nome = document.getElementById('pin-nome').value.trim();
+    if (!nome) { alert('Informe o nome do colaborador.'); return; }
+    const categorias = [];
+    document.querySelectorAll('.pin-categoria:checked').forEach(c => categorias.push(c.value));
+    if (categorias.length === 0) { alert('Selecione pelo menos uma categoria.'); return; }
+    if (!validarPinCustomizado()) return;
+    const max_usos = parseInt(document.getElementById('pin-max-usos').value) || 1;
+    const tipo_expiracao = document.getElementById('pin-tipo-expiracao').value;
+    const expira_minutos = document.getElementById('pin-minutos').value;
+    const expira_em = document.getElementById('pin-data-expiracao').value;
+    const pin_customizado = document.getElementById('pin-customizado').value.trim();
+    const pin_tamanho = document.getElementById('pin-tamanho').value;
+    socket.emit('criar_pin_temporario', { nome_colaborador: nome, categorias, max_usos, tipo_expiracao, expira_minutos, expira_em, pin_customizado, pin_tamanho });
+    modal.style.display = 'none';
+  });
+
+  socket.on('pin_criado', (pin) => {
+    const msg = 'PIN criado com sucesso!\n\nPIN: ' + pin.pin + '\nColaborador: ' + pin.nome_colaborador + '\nCategorias: ' + pin.categorias.join(', ') + '\nUsos: ' + pin.max_usos;
+    alert(msg);
+    socket.emit('listar_pins_temporarios');
+  });
+
+  socket.on('pin_erro', (msg) => {
+    alert('Erro: ' + msg);
+  });
+
+  socket.on('lista_pins', (pins) => {
+    const tbody = document.getElementById('pins-tabela-body');
+    if (!tbody) return;
+    if (!pins || pins.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" style="padding:20px; text-align:center; color:#9ca3af;">Nenhum PIN criado ainda.</td></td></tr>';
+      document.getElementById('pin-count-ativos').textContent = '0';
+      document.getElementById('pin-count-usados').textContent = '0';
+      document.getElementById('pin-count-expirados').textContent = '0';
+      document.getElementById('pin-count-hoje').textContent = '0';
+      return;
+    }
+    const now = new Date();
+    const hoje = now.toISOString().slice(0, 10);
+    let ativos = 0, usados = 0, expirados = 0, hojeCount = 0;
+    let html = '';
+    pins.forEach(p => {
+      const cats = JSON.parse(p.categorias || '[]');
+      const expirado = p.expira_em && p.expira_em !== 'SESSION' && new Date(p.expira_em) < now;
+      const esgotado = p.usos_atual >= p.max_usos;
+      let status = 'Ativo';
+      let statusColor = '#16a34a';
+      let statusBg = '#f0fdf4';
+      if (!p.ativo) { status = 'Revogado'; statusColor = '#6b7280'; statusBg = '#f3f4f6'; }
+      else if (expirado) { status = 'Expirado'; statusColor = '#dc2626'; statusBg = '#fef2f2'; expirados++; }
+      else if (esgotado) { status = 'Esgotado'; statusColor = '#d97706'; statusBg = '#fef3c7'; usados++; }
+      else { ativos++; }
+      if (p.criado_em && p.criado_em.startsWith(hoje)) hojeCount++;
+      let expiraTexto = '-';
+      if (p.expira_em === 'SESSION') expiraTexto = 'Sessão';
+      else if (p.expira_em) {
+        const d = new Date(p.expira_em);
+        expiraTexto = d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      }
+      const categoriasHTML = cats.map(c => '<span style="display:inline-block;padding:2px 8px;background:#f3f4f6;border-radius:4px;font-size:11px;margin:1px;">' + c + '</span>').join(' ');
+      html += '<tr style="border-bottom:1px solid #f3f4f6;">' +
+        '<td style="padding:10px 16px; font-family:monospace; font-weight:700; font-size:15px; letter-spacing:2px; color:#7c3aed;">' + p.pin + '</td>' +
+        '<td style="padding:10px 16px; font-size:13px;">' + (p.nome_colaborador || '-') + '</td>' +
+        '<td style="padding:10px 16px;">' + categoriasHTML + '</td>' +
+        '<td style="padding:10px 16px; font-size:13px; font-weight:600;">' + p.usos_atual + '/' + p.max_usos + '</td>' +
+        '<td style="padding:10px 16px; font-size:12px;">' + expiraTexto + '</td>' +
+        '<td style="padding:10px 16px;"><span style="display:inline-block;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600;background:' + statusBg + ';color:' + statusColor + ';">' + status + '</span></td>' +
+        '<td style="padding:10px 16px; text-align:right;">';
+      if (p.ativo && !expirado && !esgotado) {
+        html += '<button onclick="window.renovarPin(' + p.id + ')" style="padding:4px 10px; background:#f59e0b; color:white; border:none; border-radius:4px; font-size:11px; cursor:pointer; margin-right:4px;" title="Renovar"><i class="ph ph-arrows-clockwise"></i></button>';
+        html += '<button onclick="window.revogarPin(' + p.id + ')" style="padding:4px 10px; background:#dc2626; color:white; border:none; border-radius:4px; font-size:11px; cursor:pointer;" title="Revogar"><i class="ph ph-x"></i></button>';
+      } else if (!p.ativo || expirado || esgotado) {
+        html += '<button onclick="window.renovarPin(' + p.id + ')" style="padding:4px 10px; background:#16a34a; color:white; border:none; border-radius:4px; font-size:11px; cursor:pointer;" title="Reativar"><i class="ph ph-play"></i></button>';
+      }
+      html += '</td></tr>';
+    });
+    tbody.innerHTML = html;
+    document.getElementById('pin-count-ativos').textContent = ativos;
+    document.getElementById('pin-count-usados').textContent = usados;
+    document.getElementById('pin-count-expirados').textContent = expirados;
+    document.getElementById('pin-count-hoje').textContent = hojeCount;
+  });
+
+  window.revogarPin = function(id) {
+    if (!confirm('Revogar este PIN? O colaborador não poderá mais utilizá-lo.')) return;
+    socket.emit('revogar_pin', id);
+  };
+
+  window.renovarPin = function(id) {
+    const minutos = prompt('Renovar PIN por quantos minutos? (Deixe vazio para renovar 60 min)', '60');
+    if (minutos === null) return;
+    socket.emit('renovar_pin', { id, minutos: parseInt(minutos) || 60 });
+  };
+
+  socket.on('pins_atualizados', () => {
+    socket.emit('listar_pins_temporarios');
+  });
+})();

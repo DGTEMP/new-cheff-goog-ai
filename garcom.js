@@ -110,21 +110,43 @@ function showToast(msg, bg = '#3ab55b') {
 }
 
 // --- Login Logic ---
+let loginMode = 'usuario';
+const btnModeUsuario = document.getElementById('btn-mode-usuario');
+const btnModePin = document.getElementById('btn-mode-pin');
+const formUsuario = document.getElementById('login-form-usuario');
+const formPin = document.getElementById('login-form-pin');
+
+if (btnModeUsuario) btnModeUsuario.addEventListener('click', () => {
+  loginMode = 'usuario';
+  btnModeUsuario.style.background = 'white'; btnModeUsuario.style.color = '#7c3aed'; btnModeUsuario.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+  btnModePin.style.background = 'transparent'; btnModePin.style.color = '#6b7280'; btnModePin.style.boxShadow = 'none';
+  formUsuario.style.display = 'block'; formPin.style.display = 'none';
+});
+if (btnModePin) btnModePin.addEventListener('click', () => {
+  loginMode = 'pin';
+  btnModePin.style.background = 'white'; btnModePin.style.color = '#7c3aed'; btnModePin.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+  btnModeUsuario.style.background = 'transparent'; btnModeUsuario.style.color = '#6b7280'; btnModeUsuario.style.boxShadow = 'none';
+  formPin.style.display = 'block'; formUsuario.style.display = 'none';
+  document.getElementById('input-pin').focus();
+});
+
 document.getElementById('btn-login').onclick = () => {
-  const usuario = document.getElementById('input-usuario').value;
-  const senha = document.getElementById('input-senha').value;
-  if (!usuario || !senha) return showToast('Preencha os campos', '#fc4b15');
-  
-  // Tentar entrar em tela cheia ao clicar
   try {
     if (!document.fullscreenElement) {
       document.documentElement.requestFullscreen().catch(err => console.log(err));
     }
   } catch(e) {}
-  
-  // (Segurança) A senha NÃO é salva no navegador. Um token de sessão curto é
-  // emitido pelo servidor (evento login_token) e usado na reautenticação.
-  socket.emit('login_funcionario', { usuario, senha });
+
+  if (loginMode === 'pin') {
+    const pin = document.getElementById('input-pin').value.trim();
+    if (!pin) return showToast('Informe o PIN', '#fc4b15');
+    socket.emit('login_por_pin', { pin });
+  } else {
+    const usuario = document.getElementById('input-usuario').value;
+    const senha = document.getElementById('input-senha').value;
+    if (!usuario || !senha) return showToast('Preencha os campos', '#fc4b15');
+    socket.emit('login_funcionario', { usuario, senha });
+  }
 };
 
 document.getElementById('btn-logout').onclick = () => {

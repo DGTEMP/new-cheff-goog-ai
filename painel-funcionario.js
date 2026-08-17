@@ -79,39 +79,64 @@ function resetLoginBtn() {
 // DOM INITIALIZATION (Runs on DOMContentLoaded)
 // ==========================================
 function initPainelFuncionarioDOM() {
+  // Modo de login toggle
+  let loginMode = 'usuario';
+  const btnModeUsuario = document.getElementById('btn-mode-usuario');
+  const btnModePin = document.getElementById('btn-mode-pin');
+  const formUsuario = document.getElementById('login-form-usuario');
+  const formPin = document.getElementById('login-form-pin');
+
+  if (btnModeUsuario) btnModeUsuario.addEventListener('click', () => {
+    loginMode = 'usuario';
+    btnModeUsuario.style.background = 'white'; btnModeUsuario.style.color = '#7c3aed'; btnModeUsuario.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+    btnModePin.style.background = 'transparent'; btnModePin.style.color = '#6b7280'; btnModePin.style.boxShadow = 'none';
+    formUsuario.style.display = 'block'; formPin.style.display = 'none';
+  });
+  if (btnModePin) btnModePin.addEventListener('click', () => {
+    loginMode = 'pin';
+    btnModePin.style.background = 'white'; btnModePin.style.color = '#7c3aed'; btnModePin.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+    btnModeUsuario.style.background = 'transparent'; btnModeUsuario.style.color = '#6b7280'; btnModeUsuario.style.boxShadow = 'none';
+    formPin.style.display = 'block'; formUsuario.style.display = 'none';
+    const pinInput = document.getElementById('login-pin');
+    if (pinInput) pinInput.focus();
+  });
+
   // Login
   const btnLogin = document.getElementById('btn-login');
   if (btnLogin) {
     btnLogin.onclick = () => {
-      const uEl = document.getElementById('login-user');
-      const pEl = document.getElementById('login-pass');
-      const u = uEl ? uEl.value.trim() : '';
-      const p = pEl ? pEl.value : '';
       const errBox = document.getElementById('login-error-msg');
       if (errBox) errBox.style.display = 'none';
-
-      if (!u || !p) {
-        return showLoginError('Por favor, informe seu usuário e senha.');
-      }
 
       if (!socket || !socket.connected) {
         return showLoginError('Sem conexão com o servidor. Verifique a rede e tente novamente.');
       }
 
-      btnLogin.disabled = true;
-      btnLogin.innerHTML = '<i class="ph ph-spinner-gap spin" style="font-size:18px; display:inline-block; vertical-align:middle;"></i> Entrando...';
-      btnLogin.style.opacity = '0.7';
-
-      loginTimeout = setTimeout(() => {
-        resetLoginBtn();
-        showLoginError('O servidor demorou para responder. Verifique sua conexão e tente novamente.');
-      }, 6000);
-
-      socket.emit('login_funcionario', { usuario: u, senha: p });
+      if (loginMode === 'pin') {
+        const pinEl = document.getElementById('login-pin');
+        const pin = pinEl ? pinEl.value.trim() : '';
+        if (!pin) return showLoginError('Por favor, informe o PIN.');
+        btnLogin.disabled = true;
+        btnLogin.innerHTML = '<i class="ph ph-spinner-gap spin" style="font-size:18px; display:inline-block; vertical-align:middle;"></i> Entrando...';
+        btnLogin.style.opacity = '0.7';
+        loginTimeout = setTimeout(() => { resetLoginBtn(); showLoginError('O servidor demorou para responder.'); }, 6000);
+        socket.emit('login_por_pin', { pin });
+      } else {
+        const uEl = document.getElementById('login-user');
+        const pEl = document.getElementById('login-pass');
+        const u = uEl ? uEl.value.trim() : '';
+        const p = pEl ? pEl.value : '';
+        if (!u || !p) return showLoginError('Por favor, informe seu usuário e senha.');
+        btnLogin.disabled = true;
+        btnLogin.innerHTML = '<i class="ph ph-spinner-gap spin" style="font-size:18px; display:inline-block; vertical-align:middle;"></i> Entrando...';
+        btnLogin.style.opacity = '0.7';
+        loginTimeout = setTimeout(() => { resetLoginBtn(); showLoginError('O servidor demorou para responder.'); }, 6000);
+        socket.emit('login_funcionario', { usuario: u, senha: p });
+      }
     };
   }
 
-  ['login-user', 'login-pass'].forEach(id => {
+  ['login-user', 'login-pass', 'login-pin'].forEach(id => {
     const el = document.getElementById(id);
     if (el) {
       el.addEventListener('keydown', (e) => {

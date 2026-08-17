@@ -5956,7 +5956,7 @@ window.solicitarAutorizacaoAdmin = function (titulo, detalhe, callback) {
 
   if (elTitulo && titulo) elTitulo.innerText = titulo;
   if (elDetalhe && detalhe) elDetalhe.innerText = detalhe;
-  if (inputSenha) inputSenha.value = '';
+  if (inputSenha) { inputSenha.value = ''; inputSenha.type = 'text'; }
   if (inputMotivo) inputMotivo.value = '';
 
   if (modal) {
@@ -5978,7 +5978,7 @@ window.confirmarSenhaAdminAcao = function () {
   const senha = inputSenha ? inputSenha.value.trim() : '';
   const motivo = inputMotivo ? inputMotivo.value.trim() : '';
 
-  if (!senha) return alert('Por favor, informe a senha de administrador.');
+  if (!senha) return alert('Por favor, informe a senha de administrador ou PIN.');
   if (!motivo) return alert('Por favor, informe o motivo/justificativa obrigatoriamente.');
 
   const callback = window.pendingAdminAction;
