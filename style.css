@@ -943,6 +943,7 @@ to {
 .mobile-hamburger-btn { display: none !important; }
 .mobile-menu-overlay { display: none; }
 .mobile-action-popup { display: none; }
+.mobile-action-popup.show { display: flex; position: fixed; inset: 0; z-index: 10003; }
 
 @media (max-width: 767px) {
 

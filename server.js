@@ -5292,11 +5292,34 @@ io.on('connection', (socket) => {
     });
   });
 
-  socket.on('reservar_mesa', ({ mesaName, observacao }) => {
+  socket.on('reservar_mesa', ({ mesaName, observacao, cliente, telefone }) => {
     db.run(`UPDATE mesas SET status = 'Reservada', observacao = ? WHERE nome = ?`, [observacao, mesaName], () => {
-      db.all(`SELECT * FROM mesas`, (err, rows) => {
-        io.emit('mesas_atualizadas', rows || []);
-      });
+      const finalizar = () => {
+        db.all(`SELECT * FROM mesas`, (err, rows) => {
+          io.emit('mesas_atualizadas', rows || []);
+        });
+      };
+      if (cliente && telefone) {
+        db.get(`SELECT id FROM clientes WHERE telefone = ?`, [telefone], (err, row) => {
+          if (row) {
+            db.run(`UPDATE clientes SET nome = ? WHERE id = ?`, [cliente, row.id], () => finalizar());
+          } else {
+            db.run(`INSERT INTO clientes (nome, telefone, observacao, endereco, data_nascimento, pontos) VALUES (?, ?, '', '', '', 0)`,
+              [cliente, telefone], () => finalizar());
+          }
+        });
+      } else if (cliente) {
+        db.get(`SELECT id FROM clientes WHERE nome = ? ORDER BY id DESC LIMIT 1`, [cliente], (err, row) => {
+          if (!row) {
+            db.run(`INSERT INTO clientes (nome, telefone, observacao, endereco, data_nascimento, pontos) VALUES (?, '', '', '', '', 0)`,
+              [cliente], () => finalizar());
+          } else {
+            finalizar();
+          }
+        });
+      } else {
+        finalizar();
+      }
     });
   });
 

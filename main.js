@@ -834,6 +834,7 @@ function renderOrders() {
               total: 0,
               totalBruto: 0,
               userName: 'Caixa',
+              observacao: mesa.observacao,
               originalMesa: mesa
             });
           } else {
@@ -977,9 +978,9 @@ function renderOrders() {
       const mesaCli = (!isGroup && window.mesaClientes && window.mesaClientes[nome]) ? window.mesaClientes[nome] : null;
       if (mesaCli && mesaCli.cliente_nome) {
         cliente = mesaCli.cliente_nome;
-      } else if (item.status === 'Reservada') {
+      } else if (item.observacao) {
         try {
-          const obsObj = JSON.parse(item.observacao || '{}');
+          const obsObj = JSON.parse(item.observacao);
           if (obsObj.cliente) cliente = obsObj.cliente;
           if (obsObj.data) {
             const dt = new Date(obsObj.data);
@@ -1235,9 +1236,10 @@ function renderOrders() {
       if (infoAtendente) infoAtendente.innerText = item.isGroup ? item.userName : '-';
 
       let clientName = '-';
-      if (item.status === 'Reservada') {
+      const obsData = item.observacao || '';
+      if (obsData) {
         try {
-          const obsObj = JSON.parse(item.observacao || '{}');
+          const obsObj = JSON.parse(obsData);
           if (obsObj.cliente) clientName = obsObj.cliente;
         } catch (e) { }
       }
@@ -2965,8 +2967,16 @@ document.addEventListener('DOMContentLoaded', () => {
         tipoPedido.dispatchEvent(new Event('change'));
         tipoPedido.disabled = true;
         const mesaName = window.mesaAtual.nome || window.mesaAtual.mesaName;
+        let clienteName = mesaName;
+        const obsSrc = window.mesaAtual.observacao || (window.mesaAtual.originalMesa && window.mesaAtual.originalMesa.observacao) || '';
+        if (obsSrc) {
+          try {
+            const obsObj = JSON.parse(obsSrc);
+            if (obsObj.cliente) clienteName = obsObj.cliente;
+          } catch (e) { }
+        }
         if (clienteNomeInput) {
-          clienteNomeInput.value = mesaName;
+          clienteNomeInput.value = clienteName;
           clienteNomeInput.disabled = true;
         }
 
@@ -3824,14 +3834,15 @@ document.addEventListener('DOMContentLoaded', () => {
   if (btnDesconto) {
     btnDesconto.addEventListener('click', () => {
       if (!window.mesaAtual) return alert('Selecione uma mesa primeiro.');
-      const val = prompt('Digite o valor do desconto em R$ (Ex: 15.50):');
-      if (val) {
-        const num = parseFloat(val.replace(',', '.'));
-        if (!isNaN(num) && num >= 0) {
-          window.descontoAdicional = num;
-          if (window.calcularTotal) window.calcularTotal();
-          if (window.calcRestante) window.calcRestante();
-        }
+      if (window.mesaAtual.isGroup === false) return alert('Selecione uma mesa com pedidos ativos.');
+      const modal = document.getElementById('modal-aplicar-desconto');
+      if (modal) {
+        document.getElementById('input-desconto-valor').value = '';
+        document.getElementById('select-tipo-desconto').value = 'reais';
+        document.getElementById('select-motivo-desconto').value = 'Cortesia da Casa';
+        document.getElementById('input-motivo-desconto-outro').style.display = 'none';
+        document.getElementById('lbl-tipo-desconto').innerText = 'R$';
+        modal.style.display = 'flex';
       }
     });
   }
@@ -3851,6 +3862,41 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 });
+
+window.aplicarDesconto = function() {
+  const modal = document.getElementById('modal-aplicar-desconto');
+  if (!modal) return;
+
+  const valor = parseFloat(document.getElementById('input-desconto-valor').value.replace(',', '.'));
+  const tipo = document.getElementById('select-tipo-desconto').value;
+  const motivoRaw = document.getElementById('select-motivo-desconto').value;
+  const motivo = motivoRaw === 'Outro'
+    ? (document.getElementById('input-motivo-desconto-outro').value || '').trim()
+    : motivoRaw;
+
+  if (isNaN(valor) || valor <= 0) return alert('Informe um valor de desconto válido.');
+  if (!motivo) return alert('Informe o motivo do desconto.');
+
+  let descontoFinal = valor;
+  if (tipo === 'porcentagem') {
+    const subtotal = window.mesaAtual ? (window.mesaAtual.totalBruto || window.mesaAtual.total || 0) : 0;
+    descontoFinal = subtotal * (valor / 100);
+  }
+
+  window.descontoAdicional = descontoFinal;
+  if (window.calcularTotal) window.calcularTotal();
+  if (window.calcRestante) window.calcRestante();
+
+  modal.style.display = 'none';
+};
+
+window.removerDescontoAplicado = function() {
+  window.descontoAdicional = 0;
+  if (window.calcularTotal) window.calcularTotal();
+  if (window.calcRestante) window.calcRestante();
+  const modal = document.getElementById('modal-aplicar-desconto');
+  if (modal) modal.style.display = 'none';
+};
 
 document.addEventListener('DOMContentLoaded', () => {
   // --- TOP MENUBAR DROPDOWNS ---
@@ -4162,6 +4208,7 @@ window.uploadRestore = async (event) => {
 
 
 // --- Reserva de Mesa ---
+document.addEventListener('DOMContentLoaded', () => {
 const btnReservarMesa = document.getElementById('btn-reservar-mesa');
 const modalReserva = document.getElementById('modal-reserva');
 const btnSalvarReserva = document.getElementById('btn-salvar-reserva');
@@ -4178,6 +4225,8 @@ if (btnReservarMesa) {
       try {
         const obsObj = JSON.parse(window.mesaAtual.observacao || '{}');
         document.getElementById('reserva-cliente').value = obsObj.cliente || '';
+        document.getElementById('reserva-telefone').value = obsObj.telefone || '';
+        document.getElementById('reserva-pessoas').value = obsObj.pessoas || '2';
         document.getElementById('reserva-data').value = obsObj.data || '';
         document.getElementById('reserva-obs').value = obsObj.obs || '';
       } catch (e) {
@@ -4187,6 +4236,8 @@ if (btnReservarMesa) {
       document.getElementById('modal-reserva-titulo').innerText = 'Editar Reserva: ' + (window.mesaAtual.nome || window.mesaAtual.mesaName);
     } else {
       document.getElementById('reserva-cliente').value = '';
+      document.getElementById('reserva-telefone').value = '';
+      document.getElementById('reserva-pessoas').value = '2';
       document.getElementById('reserva-data').value = '';
       document.getElementById('reserva-obs').value = '';
       btnRemoverReserva.style.display = 'none';
@@ -4206,6 +4257,8 @@ if (btnCancelarReserva) {
 if (btnSalvarReserva) {
   btnSalvarReserva.onclick = () => {
     const cliente = document.getElementById('reserva-cliente').value;
+    const telefone = document.getElementById('reserva-telefone').value;
+    const pessoas = document.getElementById('reserva-pessoas').value;
     const data = document.getElementById('reserva-data').value;
     const obs = document.getElementById('reserva-obs').value;
 
@@ -4213,13 +4266,17 @@ if (btnSalvarReserva) {
 
     const obsObj = {
       cliente,
+      telefone,
+      pessoas,
       data,
       obs
     };
 
     socket.emit('reservar_mesa', {
       mesaName: window.mesaAtual.nome || window.mesaAtual.mesaName,
-      observacao: JSON.stringify(obsObj)
+      observacao: JSON.stringify(obsObj),
+      cliente,
+      telefone
     });
 
     modalReserva.style.display = 'none';
@@ -4235,6 +4292,7 @@ if (btnRemoverReserva) {
     modalReserva.style.display = 'none';
   };
 }
+});
 
 
 
@@ -4253,7 +4311,7 @@ socket.on('update_ponto_token', (data) => {
 });
 
 
-// -- Lógica Nova Comanda --
+// --- Lógica Nova Comanda ---
 window.abrirComandaNaMesa = (mesaName, comanda) => {
   const norm = (s) => String(s || '').trim().toLowerCase();
   const findMesaCard = () => Array.from(document.querySelectorAll('.mesa-item')).find(c => {
@@ -4261,7 +4319,6 @@ window.abrirComandaNaMesa = (mesaName, comanda) => {
     return idEl && norm(idEl.innerText) === norm(mesaName);
   });
   let mesaCard = findMesaCard();
-  // Na vista de Comandas a mesa de origem não aparece -> alterna para a vista de Mesas
   const toolbarComandas = document.getElementById('toolbar-comandas');
   const inComandasView = toolbarComandas && toolbarComandas.classList.contains('active');
   if (!mesaCard && inComandasView) {
@@ -4274,7 +4331,6 @@ window.abrirComandaNaMesa = (mesaName, comanda) => {
     return;
   }
   mesaCard.click();
-  // Destaque visual da comanda no painel de divisão por comanda
   setTimeout(() => {
     const rows = document.querySelectorAll('.comanda-racha-row');
     rows.forEach(r => {
@@ -4299,6 +4355,7 @@ window.abrirModalNovaComanda = () => {
   setTimeout(() => { if (inpNome) inpNome.focus(); }, 100);
 };
 
+document.addEventListener('DOMContentLoaded', () => {
 const btnNovaComanda = document.getElementById('btn-nova-comanda');
 const modalNovaComanda = document.getElementById('modal-nova-comanda-ui');
 const btnSalvarNovaComanda = document.getElementById('btn-salvar-nova-comanda');
@@ -4317,6 +4374,7 @@ if (btnSalvarNovaComanda) {
     modalNovaComanda.style.display = 'none';
   };
 }
+});
 
 socket.on('comanda_criada_sucesso', ({ nomeMesa }) => {
   // Forçar a visualização para Comandas para o usuário ver a comanda criada
