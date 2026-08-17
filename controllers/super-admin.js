@@ -1207,4 +1207,141 @@ module.exports = function (app, masterDb, sqlite3, options) {
       });
     });
   });
+
+  // ── INSTÂNCIAS ON-PREMISE ──────────────────────────────────────────
+
+  app.get('/api/super/instances', superAdminAuth, (req, res) => {
+    masterDb.all(`SELECT * FROM instance_registry ORDER BY last_heartbeat_at DESC`, [], (err, rows) => {
+      if (err) return res.status(500).json({ ok: false, error: err.message });
+      res.json({ ok: true, instances: rows || [] });
+    });
+  });
+
+  app.get('/api/super/instances/:id', superAdminAuth, (req, res) => {
+    const { id } = req.params;
+    masterDb.get(`SELECT * FROM instance_registry WHERE instance_id = ?`, [id], (err, inst) => {
+      if (err || !inst) return res.status(404).json({ ok: false, error: 'Instância não encontrada' });
+      masterDb.all(
+        `SELECT * FROM remote_commands WHERE instance_id = ? ORDER BY issued_at DESC LIMIT 20`,
+        [id], (e2, commands) => {
+          masterDb.all(
+            `SELECT * FROM sync_conflicts WHERE instance_id = ? ORDER BY resolved_at DESC LIMIT 20`,
+            [id], (e3, conflicts) => {
+              masterDb.all(
+                `SELECT * FROM sync_queue WHERE instance_id = ? ORDER BY created_at DESC LIMIT 20`,
+                [id], (e4, queue) => {
+                  res.json({
+                    ok: true,
+                    instance: inst,
+                    commands: commands || [],
+                    conflicts: conflicts || [],
+                    syncQueue: queue || []
+                  });
+                }
+              );
+            }
+          );
+        }
+      );
+    });
+  });
+
+  app.post('/api/super/remote-command', superAdminAuth, (req, res) => {
+    const { instance_id, command, params } = req.body;
+    if (!instance_id || !command) {
+      return res.status(400).json({ ok: false, error: 'instance_id e command obrigatórios' });
+    }
+    const validCommands = ['deactivate', 'reactivate', 'push_config', 'update_features', 'force_sync', 'update_plan', 'restart', 'send_message', 'get_status', 'update_software'];
+    if (!validCommands.includes(command)) {
+      return res.status(400).json({ ok: false, error: 'Comando inválido: ' + command });
+    }
+    const commandId = 'cmd_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    const issuedBy = req.user ? (req.user.username || req.user.id || 'super_admin') : 'super_admin';
+    masterDb.run(
+      `INSERT INTO remote_commands (instance_id, command, params, issued_by, status) VALUES (?, ?, ?, ?, 'pending')`,
+      [instance_id, command, JSON.stringify(params || {}), issuedBy],
+      function (err) {
+        if (err) return res.status(500).json({ ok: false, error: err.message });
+        masterDb.run(
+          `INSERT INTO sync_queue (instance_id, message_type, payload, priority, status) VALUES (?, 'command', ?, ?, 'pending')`,
+          [instance_id, JSON.stringify({ command_id: commandId, command, params: params || {} }), command === 'deactivate' ? 1 : 5],
+          function (e2) {
+            if (e2) return res.status(500).json({ ok: false, error: e2.message });
+
+            try {
+              const syncServer = require('./sync-server');
+              const instances = syncServer.getConnectedInstances();
+              if (instances.has(instance_id)) {
+                masterDb.run(
+                  `UPDATE sync_queue SET status = 'sent', sent_at = datetime('now','localtime') WHERE instance_id = ? AND message_type = 'command' AND status = 'pending' ORDER BY id DESC LIMIT 1`,
+                  [instance_id]
+                );
+              }
+            } catch (e) {}
+
+            res.json({ ok: true, command_id: commandId, instance_id, command });
+          }
+        );
+      }
+    );
+  });
+
+  app.get('/api/super/remote-command/:id', superAdminAuth, (req, res) => {
+    const { id } = req.params;
+    masterDb.get(`SELECT * FROM remote_commands WHERE id = ?`, [id], (err, row) => {
+      if (err || !row) return res.status(404).json({ ok: false, error: 'Comando não encontrado' });
+      res.json({ ok: true, command: row });
+    });
+  });
+
+  app.get('/api/super/sync-queue', superAdminAuth, (req, res) => {
+    const { instance_id, status } = req.query;
+    let sql = `SELECT * FROM sync_queue WHERE 1=1`;
+    const params = [];
+    if (instance_id) { sql += ` AND instance_id = ?`; params.push(instance_id); }
+    if (status) { sql += ` AND status = ?`; params.push(status); }
+    sql += ` ORDER BY created_at DESC LIMIT 200`;
+    masterDb.all(sql, params, (err, rows) => {
+      if (err) return res.status(500).json({ ok: false, error: err.message });
+      res.json({ ok: true, queue: rows || [] });
+    });
+  });
+
+  app.post('/api/super/push-config', superAdminAuth, (req, res) => {
+    const { instance_id, configs } = req.body;
+    if (!instance_id || !configs) {
+      return res.status(400).json({ ok: false, error: 'instance_id e configs obrigatórios' });
+    }
+    const commandId = 'cmd_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    const issuedBy = req.user ? (req.user.username || req.user.id || 'super_admin') : 'super_admin';
+    masterDb.run(
+      `INSERT INTO remote_commands (instance_id, command, params, issued_by, status) VALUES (?, 'push_config', ?, ?, 'pending')`,
+      [instance_id, JSON.stringify({ configs }), issuedBy],
+      function (err) {
+        if (err) return res.status(500).json({ ok: false, error: err.message });
+        masterDb.run(
+          `INSERT INTO sync_queue (instance_id, message_type, payload, priority, status) VALUES (?, 'config_push', ?, 3, 'pending')`,
+          [instance_id, JSON.stringify({ command_id: commandId, command: 'push_config', params: { configs } })],
+          function (e2) {
+            if (e2) return res.status(500).json({ ok: false, error: e2.message });
+            res.json({ ok: true, command_id: commandId });
+          }
+        );
+      }
+    );
+  });
+
+  app.get('/api/super/sync-conflicts', superAdminAuth, (req, res) => {
+    const { instance_id, limit } = req.query;
+    const l = Math.min(parseInt(limit) || 50, 200);
+    let sql = `SELECT * FROM sync_conflicts WHERE 1=1`;
+    const params = [];
+    if (instance_id) { sql += ` AND instance_id = ?`; params.push(instance_id); }
+    sql += ` ORDER BY resolved_at DESC LIMIT ?`;
+    params.push(l);
+    masterDb.all(sql, params, (err, rows) => {
+      if (err) return res.status(500).json({ ok: false, error: err.message });
+      res.json({ ok: true, conflicts: rows || [] });
+    });
+  });
 };

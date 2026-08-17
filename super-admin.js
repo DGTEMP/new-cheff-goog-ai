@@ -348,7 +348,8 @@ function switchTab(targetId) {
     'sec-recuperar-acesso': ['Recuperar Acesso', 'Redefina email e senha de clientes'],
     'sec-clientes': ['Clientes', 'Perfil completo de todos os clientes da plataforma'],
     'sec-suporte': ['Equipe de Suporte', 'Funcionários que prestam suporte aos restaurantes'],
-    'sec-terminal': ['Terminal', 'Execute comandos no servidor local']
+    'sec-terminal': ['Terminal', 'Execute comandos no servidor local'],
+    'sec-instancias': ['Instâncias On-Premise', 'Gerencie instalações locais conectadas ao servidor']
   };
 
   for (var i = 0; i < items.length; i++) {
@@ -377,6 +378,7 @@ function switchTab(targetId) {
    else if (targetId === 'sec-dominios') renderDominios();
    else if (targetId === 'sec-capacidade') renderCapacidade();
    else if (targetId === 'sec-terminal') { resetInactivityTimer(); }
+   else if (targetId === 'sec-instancias') carregarInstancias();
 }
 
 /* ═══ DASHBOARD ═══ */
@@ -2592,6 +2594,190 @@ document.addEventListener('DOMContentLoaded', function() {
       });
     }
   });
+
+  /* ═══ INSTÂNCIAS ON-PREMISE ═══ */
+  function carregarInstancias() {
+    apiGet('/api/super/instances', function(err, data) {
+      if (err || !data || !data.ok) return;
+      renderInstancias(data.instances || []);
+    });
+  }
+
+  function renderInstancias(instances) {
+    var total = instances.length;
+    var online = instances.filter(function(i) { return i.status === 'online'; }).length;
+    var offline = instances.filter(function(i) { return i.status === 'offline'; }).length;
+    var pendingBadge = document.getElementById('offline-count-badge');
+
+    document.getElementById('inst-total').textContent = total;
+    document.getElementById('inst-online').textContent = online;
+    document.getElementById('inst-offline').textContent = offline;
+
+    if (pendingBadge) {
+      if (offline > 0) {
+        pendingBadge.style.display = 'inline';
+        pendingBadge.textContent = offline;
+      } else {
+        pendingBadge.style.display = 'none';
+      }
+    }
+
+    var tbody = document.getElementById('instances-table-body');
+    if (!instances.length) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text-muted);">Nenhuma instância on-premise registrada.</td></tr>';
+      document.getElementById('inst-pending').textContent = '0';
+      return;
+    }
+
+    var pendingCount = 0;
+    var html = '';
+    instances.forEach(function(inst) {
+      var statusColor = inst.status === 'online' ? '#00c853' : inst.status === 'deactivated' ? '#ffc107' : '#ff5252';
+      var statusIcon = inst.status === 'online' ? 'fa-circle-check' : inst.status === 'deactivated' ? 'fa-circle-pause' : 'fa-circle-xmark';
+      var lastHb = inst.last_heartbeat_at ? timeAgo(inst.last_heartbeat_at) : 'Nunca';
+      var lastSync = inst.last_sync_at ? timeAgo(inst.last_sync_at) : 'Nunca';
+
+      html += '<tr>';
+      html += '<td><strong>' + escHtml(inst.instance_name || 'Sem nome') + '</strong><br><small style="color:var(--text-muted);">' + escHtml(inst.instance_id || '').substring(0, 12) + '...</small></td>';
+      html += '<td><span style="color:' + statusColor + ';font-weight:600;"><i class="fa-solid ' + statusIcon + '"></i> ' + escHtml(inst.status || 'unknown') + '</span></td>';
+      html += '<td>' + escHtml(inst.software_version || '-') + '</td>';
+      html += '<td><small>' + escHtml(lastHb) + '</small></td>';
+      html += '<td><small>' + escHtml(lastSync) + '</small></td>';
+      html += '<td>';
+      html += '<button class="btn-row-action" onclick="detalharInstancia(\'' + escHtml(inst.instance_id) + '\')" title="Detalhes"><i class="fa-solid fa-eye"></i></button> ';
+      html += '<button class="btn-row-action" onclick="enviarComandoInstancia(\'' + escHtml(inst.instance_id) + '\', \'force_sync\')" title="Forçar Sync" style="color:#2196f3;"><i class="fa-solid fa-rotate"></i></button> ';
+      if (inst.status !== 'deactivated') {
+        html += '<button class="btn-row-action" onclick="enviarComandoInstancia(\'' + escHtml(inst.instance_id) + '\', \'deactivate\')" title="Desativar" style="color:#ff5252;"><i class="fa-solid fa-power-off"></i></button>';
+      } else {
+        html += '<button class="btn-row-action" onclick="enviarComandoInstancia(\'' + escHtml(inst.instance_id) + '\', \'reactivate\')" title="Reativar" style="color:#00c853;"><i class="fa-solid fa-power-off"></i></button>';
+      }
+      html += '</td>';
+      html += '</tr>';
+    });
+    tbody.innerHTML = html;
+    document.getElementById('inst-pending').textContent = pendingCount || '0';
+  }
+
+  function timeAgo(dateStr) {
+    if (!dateStr) return '-';
+    var now = new Date();
+    var then = new Date(dateStr);
+    var diffMs = now - then;
+    var mins = Math.floor(diffMs / 60000);
+    if (mins < 1) return 'agora';
+    if (mins < 60) return mins + 'min atrás';
+    var hours = Math.floor(mins / 60);
+    if (hours < 24) return hours + 'h atrás';
+    var days = Math.floor(hours / 24);
+    return days + 'd atrás';
+  }
+
+  window.detalharInstancia = function(instanceId) {
+    apiGet('/api/super/instances/' + encodeURIComponent(instanceId), function(err, data) {
+      if (err || !data || !data.ok) return alert('Erro ao carregar detalhes da instância.');
+      var inst = data.instance;
+      var commands = data.commands || [];
+      var conflicts = data.conflicts || [];
+
+      var html = '<div style="max-height:60vh;overflow-y:auto;">';
+      html += '<h3 style="margin-bottom:1rem;">' + escHtml(inst.instance_name || 'Instância') + '</h3>';
+      html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.8rem;margin-bottom:1rem;">';
+      html += '<div><strong>ID:</strong> <small>' + escHtml(inst.instance_id) + '</small></div>';
+      html += '<div><strong>Status:</strong> ' + escHtml(inst.status) + '</div>';
+      html += '<div><strong>Versão:</strong> ' + escHtml(inst.software_version || '-') + '</div>';
+      html += '<div><strong>Tenant ID:</strong> ' + (inst.tenant_id || '-') + '</div>';
+      html += '<div><strong>IP:</strong> ' + escHtml(inst.ip_address || '-') + '</div>';
+      html += '<div><strong>OS:</strong> ' + escHtml(inst.os_info || '-') + '</div>';
+      html += '<div><strong>Registrado:</strong> ' + escHtml(inst.registered_at || '-') + '</div>';
+      html += '<div><strong>Último Heartbeat:</strong> ' + escHtml(inst.last_heartbeat_at || '-') + '</div>';
+      html += '</div>';
+
+      html += '<div style="margin-bottom:1rem;">';
+      html += '<button class="btn-action btn-primary-action" onclick="enviarComandoInstancia(\'' + escHtml(inst.instance_id) + '\', \'get_status\')" style="margin-right:0.5rem;"><i class="fa-solid fa-circle-info"></i> Status Remoto</button>';
+      html += '<button class="btn-action" onclick="enviarComandoInstancia(\'' + escHtml(inst.instance_id) + '\', \'force_sync\')" style="margin-right:0.5rem;"><i class="fa-solid fa-rotate"></i> Forçar Sync</button>';
+      html += '<button class="btn-action" onclick="enviarComandoInstancia(\'' + escHtml(inst.instance_id) + '\', \'restart\')" style="margin-right:0.5rem;color:#ffc107;"><i class="fa-solid fa-rotate-right"></i> Reiniciar</button>';
+      html += '<button class="btn-action" onclick="pushConfigInstancia(\'' + escHtml(inst.instance_id) + '\')" style="margin-right:0.5rem;"><i class="fa-solid fa-paper-plane"></i> Push Config</button>';
+      html += '</div>';
+
+      if (commands.length) {
+        html += '<h4 style="margin:1rem 0 0.5rem;">Últimos Comandos</h4>';
+        html += '<table class="custom-table" style="font-size:0.8rem;"><thead><tr><th>Comando</th><th>Status</th><th>Emitido</th><th>Resultado</th></tr></thead><tbody>';
+        commands.forEach(function(c) {
+          var sColor = c.status === 'completed' ? '#00c853' : c.status === 'failed' ? '#ff5252' : '#ffc107';
+          html += '<tr>';
+          html += '<td>' + escHtml(c.command) + '</td>';
+          html += '<td style="color:' + sColor + ';">' + escHtml(c.status) + '</td>';
+          html += '<td><small>' + escHtml(c.issued_at || '-') + '</small></td>';
+          html += '<td><small>' + escHtml((c.result || '').substring(0, 80)) + '</small></td>';
+          html += '</tr>';
+        });
+        html += '</tbody></table>';
+      }
+
+      if (conflicts.length) {
+        html += '<h4 style="margin:1rem 0 0.5rem;">Conflitos de Sync</h4>';
+        html += '<table class="custom-table" style="font-size:0.8rem;"><thead><tr><th>Tabela</th><th>Registro</th><th>Resolução</th><th>Data</th></tr></thead><tbody>';
+        conflicts.forEach(function(c) {
+          html += '<tr>';
+          html += '<td>' + escHtml(c.table_name) + '</td>';
+          html += '<td>' + (c.record_id || '-') + '</td>';
+          html += '<td>' + escHtml(c.resolution || '-') + '</td>';
+          html += '<td><small>' + escHtml(c.resolved_at || '-') + '</small></td>';
+          html += '</tr>';
+        });
+        html += '</tbody></table>';
+      }
+
+      html += '</div>';
+
+      var overlay = document.createElement('div');
+      overlay.className = 'modal-overlay';
+      overlay.style.display = 'flex';
+      overlay.innerHTML = '<div class="modal-content" style="max-width:700px;"><div class="modal-header"><h3>Detalhes da Instância</h3><button class="modal-close" onclick="this.closest(\'.modal-overlay\').remove()"><i class="fa-solid fa-xmark"></i></button></div><div class="modal-body" style="padding:1.5rem;">' + html + '</div></div>';
+      document.body.appendChild(overlay);
+      overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+    });
+  };
+
+  window.enviarComandoInstancia = function(instanceId, command) {
+    var confirmMsg = {
+      'deactivate': 'Tem certeza que deseja DESATIVAR esta instância?',
+      'restart': 'Tem certeza que deseja REINICIAR esta instância?',
+      'force_sync': 'Forçar sincronização imediata?',
+      'get_status': 'Solicitar status remoto?'
+    };
+    if (confirmMsg[command] && !confirm(confirmMsg[command])) return;
+
+    var params = {};
+    if (command === 'send_message') {
+      params = { title: 'Aviso do Admin', body: 'Mensagem do super admin', type: 'info' };
+    }
+
+    apiPost('/api/super/remote-command', { instance_id: instanceId, command: command, params: params }, function(err, data) {
+      if (err || !data || !data.ok) return alert('Erro ao enviar comando: ' + (data ? data.error : err));
+      alert('Comando enviado! ID: ' + data.command_id);
+      carregarInstancias();
+    });
+  };
+
+  window.pushConfigInstancia = function(instanceId) {
+    var configStr = prompt('Configs JSON (chave: valor):', '{"restaurant_status": "ativo"}');
+    if (!configStr) return;
+    try {
+      var configs = JSON.parse(configStr);
+      apiPost('/api/super/push-config', { instance_id: instanceId, configs: configs }, function(err, data) {
+        if (err || !data || !data.ok) return alert('Erro ao enviar config: ' + (data ? data.error : err));
+        alert('Config push enviado! ID: ' + data.command_id);
+      });
+    } catch (e) {
+      alert('JSON inválido: ' + e.message);
+    }
+  };
+
+  var btnRefreshInstances = document.getElementById('btn-refresh-instances');
+  if (btnRefreshInstances) {
+    btnRefreshInstances.addEventListener('click', function() { carregarInstancias(); });
+  }
 
 });
 
