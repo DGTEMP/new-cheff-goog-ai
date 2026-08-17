@@ -15,6 +15,15 @@ const socket = window.socket || (typeof io === 'function' ? io({ query: { token:
   once: () => { }
 });
 
+socket.on('tenant_atualizado', (data) => {
+  if (data && data.restaurante_id) {
+    localStorage.setItem('restaurante_id', data.restaurante_id);
+  }
+  if (data && data.token) {
+    localStorage.setItem('chef_token', data.token);
+  }
+});
+
 function authHeaders() {
   const t = localStorage.getItem('chef_token');
   const h = { 'Content-Type': 'application/json' };

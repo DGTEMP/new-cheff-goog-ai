@@ -38,6 +38,11 @@ function redirecionarSemSessao() {
 const socket = io({ query: { token: obterTokenAtual(), restaurante_id: localStorage.getItem('restaurante_id') || '1' } });
 window.socket = socket;
 
+socket.on('tenant_atualizado', (data) => {
+  if (data && data.restaurante_id) localStorage.setItem('restaurante_id', data.restaurante_id);
+  if (data && data.token) localStorage.setItem('chef_token', data.token);
+});
+
 let queueData = [];
 let currentFilter = localStorage.getItem('filaCurrentFilter') || 'Em espera';
 let currentSector = localStorage.getItem('filaCurrentSector') || 'Todos';

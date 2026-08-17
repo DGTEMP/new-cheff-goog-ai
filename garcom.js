@@ -5,6 +5,15 @@ const HOST = window.location.hostname;
 const socket = io({ query: { token: localStorage.getItem('chef_token'), restaurante_id: localStorage.getItem('restaurante_id') || '1' } });
 window.socket = socket;
 
+socket.on('tenant_atualizado', (data) => {
+  if (data && data.restaurante_id) {
+    localStorage.setItem('restaurante_id', data.restaurante_id);
+  }
+  if (data && data.token) {
+    localStorage.setItem('chef_token', data.token);
+  }
+});
+
 function escHtml(t){return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 function escJs(t){try{return JSON.stringify(String(t==null?'':t)).replace(/</g,'\\x3C').replace(/>/g,'\\x3E').replace(/"/g,'&quot;').replace(/\u2028/g,'\\u2028').replace(/\u2029/g,'\\u2029');}catch(e){return '""';}}
 

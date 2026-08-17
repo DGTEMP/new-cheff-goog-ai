@@ -367,6 +367,15 @@ socket.on('login_token', (token) => {
   } catch (e) {}
 });
 
+socket.on('tenant_atualizado', (data) => {
+  if (data && data.restaurante_id) {
+    localStorage.setItem('restaurante_id', data.restaurante_id);
+  }
+  if (data && data.token) {
+    localStorage.setItem('chef_token', data.token);
+  }
+});
+
 socket.on('ponto_registrado', ({ acao }) => {
   if (acao === 'entrada') {
     alert('Entrada registrada com sucesso!');

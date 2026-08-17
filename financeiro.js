@@ -1,6 +1,11 @@
 const HOST = window.location.hostname;
 const socket = io({ query: { token: localStorage.getItem('chef_token'), restaurante_id: localStorage.getItem('restaurante_id') || '1' } });
 
+socket.on('tenant_atualizado', (data) => {
+  if (data && data.restaurante_id) localStorage.setItem('restaurante_id', data.restaurante_id);
+  if (data && data.token) localStorage.setItem('chef_token', data.token);
+});
+
 // (Segurança) Escapa valor para conteúdo HTML.
 function escHtml(v) {
   return (v === null || v === undefined) ? '' : String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');

@@ -596,6 +596,15 @@ const HOST = window.location.hostname || 'localhost';
 const socket = io({ query: { token: localStorage.getItem('chef_token'), restaurante_id: localStorage.getItem('restaurante_id') || '1' } });
 window.socket = socket;
 
+socket.on('tenant_atualizado', (data) => {
+  if (data && data.restaurante_id) {
+    localStorage.setItem('restaurante_id', data.restaurante_id);
+  }
+  if (data && data.token) {
+    localStorage.setItem('chef_token', data.token);
+  }
+});
+
 let serverIp = HOST;
 let qrConfig = { qr_protocol: '', qr_port: '' };
 fetch('/api/config', { headers: authHeaders() }).then(r => r.json()).then(c => { qrConfig = c || {}; }).catch(() => {});

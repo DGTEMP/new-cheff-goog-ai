@@ -27,6 +27,15 @@ const socket = io({
   }
 });
 
+socket.on('tenant_atualizado', (data) => {
+  if (data && data.restaurante_id) {
+    localStorage.setItem('restaurante_id', data.restaurante_id);
+  }
+  if (data && data.token) {
+    localStorage.setItem('chef_token', data.token);
+  }
+});
+
 // Cache DOM elements
 const loader = document.getElementById('loader');
 const faturamentoEl = document.getElementById('kpi-faturamento');

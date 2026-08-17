@@ -3,6 +3,11 @@ const _ridCadastro = new URLSearchParams(window.location.search).get('restaurant
 if (_ridCadastro) localStorage.setItem('restaurante_id', _ridCadastro);
 const socket = io({ query: { token: localStorage.getItem('chef_token'), restaurante_id: localStorage.getItem('restaurante_id') || '1' } });
 
+socket.on('tenant_atualizado', (data) => {
+  if (data && data.restaurante_id) localStorage.setItem('restaurante_id', data.restaurante_id);
+  if (data && data.token) localStorage.setItem('chef_token', data.token);
+});
+
 document.getElementById('btn-register').onclick = () => {
   const nome = document.getElementById('reg-nome').value.trim();
   const usuario = document.getElementById('reg-user').value.trim();

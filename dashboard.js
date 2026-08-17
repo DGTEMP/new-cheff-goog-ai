@@ -1,5 +1,10 @@
 const socket = io({ query: { token: localStorage.getItem('chef_token'), restaurante_id: localStorage.getItem('restaurante_id') || '1' } });
 
+socket.on('tenant_atualizado', (data) => {
+  if (data && data.restaurante_id) localStorage.setItem('restaurante_id', data.restaurante_id);
+  if (data && data.token) localStorage.setItem('chef_token', data.token);
+});
+
 // --- SIDEBAR TOGGLE (hambúrguer) ---
 const menuIcon = document.querySelector('.menu-icon');
 const sidebar = document.querySelector('.sidebar');

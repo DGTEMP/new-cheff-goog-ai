@@ -1181,10 +1181,6 @@ const db = {
 // ------------------------------
 
 function resolveTenantId(req) {
-  const fromQuery = parseInt(req.query.restaurante_id, 10);
-  if (Number.isFinite(fromQuery) && fromQuery > 0) return fromQuery;
-  const fromBody = parseInt((req.body || {}).restaurante_id, 10);
-  if (Number.isFinite(fromBody) && fromBody > 0) return fromBody;
   const authHeader = req.headers['authorization'] || '';
   const token = authHeader.split(' ')[1];
   if (token) {
@@ -1194,6 +1190,10 @@ function resolveTenantId(req) {
       if (Number.isFinite(tid) && tid > 0) return tid;
     } catch (e) { }
   }
+  const fromQuery = parseInt(req.query.restaurante_id, 10);
+  if (Number.isFinite(fromQuery) && fromQuery > 0) return fromQuery;
+  const fromBody = parseInt((req.body || {}).restaurante_id, 10);
+  if (Number.isFinite(fromBody) && fromBody > 0) return fromBody;
   return null;
 }
 
@@ -3988,6 +3988,7 @@ io.on('connection', (socket) => {
             socket.funcionarioCargo = row.cargo;
             const sessToken = jwt.sign({ tipo: 'funcionario', id: row.id, nome: row.nome, usuario: row.usuario, cargo: row.cargo, restaurante_id: tid }, JWT_SECRET, { expiresIn: '12h' });
             socket.emit('login_token', sessToken);
+            socket.emit('tenant_atualizado', { restaurante_id: tid, token: sessToken });
             db.run("INSERT INTO historico_logins (funcionario_id, funcionario_nome) VALUES (?, ?)", [row.id, row.nome]);
             const conn = activeSockets.get(socket.id);
             if (conn) {
@@ -4031,6 +4032,9 @@ io.on('connection', (socket) => {
         socket.emit('login_success', payload);
         socket.funcionarioId = row.id;
         socket.funcionarioCargo = row.cargo;
+        const sessToken = jwt.sign({ tipo: 'funcionario', id: row.id, nome: row.nome, usuario: row.usuario, cargo: row.cargo, restaurante_id: tid }, JWT_SECRET, { expiresIn: '12h' });
+        socket.emit('login_token', sessToken);
+        socket.emit('tenant_atualizado', { restaurante_id: tid, token: sessToken });
         db.run("INSERT INTO historico_logins (funcionario_id, funcionario_nome) VALUES (?, ?)", [row.id, row.nome]);
         const conn = activeSockets.get(socket.id);
         if (conn) {
@@ -5620,6 +5624,7 @@ io.on('connection', (socket) => {
       socket.funcionarioCargo = payload.cargo;
       const sessToken = jwt.sign({ tipo: 'funcionario', id: row.id, nome: row.nome_colaborador, usuario: 'pin_' + row.pin, cargo: payload.cargo, restaurante_id: payload.restaurante_id, pin: true }, JWT_SECRET, { expiresIn: '12h' });
       socket.emit('login_token', sessToken);
+      socket.emit('tenant_atualizado', { restaurante_id: payload.restaurante_id, token: sessToken });
     });
   });
 
@@ -5905,7 +5910,7 @@ app.post('/api/retro/pedido', (req, res) => {
   }
   const pedido = req.body;
   if (!pedido || !pedido.mesa_comanda) return res.status(400).json({ error: 'Dados inválidos' });
-  const tid = parseInt(req.body.restaurante_id, 10);
+  const tid = resolveTenantId(req);
   const roomId = (Number.isFinite(tid) && tid > 0) ? `restaurante_${tid}` : null;
 
   let status = pedido.status_inicial || 'Em preparo';
@@ -5993,7 +5998,7 @@ app.put('/api/retro/pedido/:id/status', (req, res) => {
   if (!status) return res.status(400).json({ error: 'Status obrigatório.' });
   const validos = ['Recebido', 'Em preparo', 'Pronto', 'Entregue', 'Finalizado'];
   if (!validos.includes(status)) return res.status(400).json({ error: 'Status inválido.' });
-  const tid = parseInt(req.body.restaurante_id, 10);
+  const tid = resolveTenantId(req);
   const roomId = (Number.isFinite(tid) && tid > 0) ? `restaurante_${tid}` : null;
 
   withTenant(req, () => {
@@ -6022,7 +6027,7 @@ app.post('/api/retro/cobranca', (req, res) => {
   if (!mesaNome || !metodo || valor === undefined) {
     return res.status(400).json({ error: 'mesaNome, metodo e valor são obrigatórios.' });
   }
-  const tid = parseInt(req.body.restaurante_id, 10);
+  const tid = resolveTenantId(req);
   const roomId = (Number.isFinite(tid) && tid > 0) ? `restaurante_${tid}` : null;
 
   withTenant(req, () => {
@@ -6156,7 +6161,7 @@ app.get('/api/formas-pagamento', (req, res) => {
 app.post('/api/formas-pagamento', (req, res) => {
   const { id, nome, tipo, taxa, prazo_dias, ativo, icone } = req.body || {};
   if (!nome) return res.status(400).json({ error: 'Nome é obrigatório' });
-  const tid = parseInt(req.body.restaurante_id, 10);
+  const tid = resolveTenantId(req);
 
   withTenant(req, () => {
     if (id) {
@@ -6187,7 +6192,7 @@ app.post('/api/formas-pagamento', (req, res) => {
 app.post('/api/formas-pagamento/:id/toggle', (req, res) => {
   const { id } = req.params;
   const { ativo } = req.body || {};
-  const tid = parseInt(req.body.restaurante_id, 10);
+  const tid = resolveTenantId(req);
   withTenant(req, () => {
     db.run(`UPDATE formas_pagamento SET ativo = ? WHERE id = ?`, [ativo ? 1 : 0, id], function (err) {
       if (err) return res.status(500).json({ error: err.message });
@@ -6199,7 +6204,7 @@ app.post('/api/formas-pagamento/:id/toggle', (req, res) => {
 
 app.delete('/api/formas-pagamento/:id', (req, res) => {
   const { id } = req.params;
-  const tid = parseInt(req.query.restaurante_id, 10);
+  const tid = resolveTenantId(req);
   withTenant(req, () => {
     db.get(`SELECT nome FROM formas_pagamento WHERE id = ?`, [id], (err, row) => {
       if (err || !row) return res.status(404).json({ error: 'Forma de pagamento não encontrada.' });
