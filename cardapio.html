@@ -985,6 +985,65 @@
     <!-- BANNER FILA DE ESPERA -->
     <div id="banner-fila-espera"
       style="display: none; background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); border: 1.5px solid #f59e0b; border-radius: var(--radius-md); padding: 16px; margin-bottom: 16px; box-shadow: 0 4px 12px rgba(245, 158, 11, 0.15);">
+
+      <!-- FORMULARIO DE CADASTRO NA FILA (escondido quando ja esta na fila) -->
+      <div id="fila-cadastro-form" style="display: none;">
+        <div style="text-align: center; margin-bottom: 14px;">
+          <div style="font-size: 40px; margin-bottom: 6px;">⏳</div>
+          <h3 style="margin: 0; color: #92400e; font-size: 17px; font-weight: 800;">Fila de Espera</h3>
+          <p style="margin: 4px 0 0 0; font-size: 13px; color: #b45309;">Cadastre-se abaixo para entrar na fila e aguardar uma mesa.</p>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 10px; text-align: left;">
+          <div>
+            <label style="display: block; font-size: 12px; font-weight: 700; color: #92400e; margin-bottom: 4px;">Seu Nome *</label>
+            <input type="text" id="input-fila-cadastro-nome" placeholder="Nome completo"
+              style="width: 100%; padding: 11px 12px; border: 1.5px solid #fde68a; border-radius: 10px; font-size: 14px; background: white; color: #1e293b; outline: none; transition: border 0.2s;"
+              onfocus="this.style.borderColor='#d97706'" onblur="this.style.borderColor='#fde68a'">
+          </div>
+          <div>
+            <label style="display: block; font-size: 12px; font-weight: 700; color: #92400e; margin-bottom: 4px;">WhatsApp (DDD + Número) *</label>
+            <input type="tel" id="input-fila-cadastro-telefone" placeholder="Ex: 11999999999"
+              style="width: 100%; padding: 11px 12px; border: 1.5px solid #fde68a; border-radius: 10px; font-size: 14px; background: white; color: #1e293b; outline: none; transition: border 0.2s;"
+              onfocus="this.style.borderColor='#d97706'" onblur="this.style.borderColor='#fde68a'">
+          </div>
+          <div style="display: flex; gap: 10px;">
+            <div style="flex: 1;">
+              <label style="display: block; font-size: 12px; font-weight: 700; color: #92400e; margin-bottom: 4px;">Pessoas *</label>
+              <select id="input-fila-cadastro-pessoas"
+                style="width: 100%; padding: 11px 12px; border: 1.5px solid #fde68a; border-radius: 10px; font-size: 14px; background: white; color: #1e293b; font-weight: 700;">
+                <option value="1">1 pessoa</option>
+                <option value="2" selected>2 pessoas</option>
+                <option value="3">3 pessoas</option>
+                <option value="4">4 pessoas</option>
+                <option value="5">5 pessoas</option>
+                <option value="6">6 pessoas</option>
+                <option value="7">7 pessoas</option>
+                <option value="8">8+ pessoas</option>
+              </select>
+            </div>
+            <div style="flex: 1;">
+              <label style="display: block; font-size: 12px; font-weight: 700; color: #92400e; margin-bottom: 4px;">Preferência</label>
+              <input type="text" id="input-fila-cadastro-preferencia" placeholder="Ex: Salão, Varanda"
+                style="width: 100%; padding: 11px 12px; border: 1.5px solid #fde68a; border-radius: 10px; font-size: 14px; background: white; color: #1e293b; outline: none; transition: border 0.2s;"
+                onfocus="this.style.borderColor='#d97706'" onblur="this.style.borderColor='#fde68a'">
+            </div>
+          </div>
+          <div>
+            <label style="display: block; font-size: 12px; font-weight: 700; color: #92400e; margin-bottom: 4px;">Observação</label>
+            <input type="text" id="input-fila-cadastro-obs" placeholder="Ex: Cadeira de bebê, aniversário"
+              style="width: 100%; padding: 11px 12px; border: 1.5px solid #fde68a; border-radius: 10px; font-size: 14px; background: white; color: #1e293b; outline: none; transition: border 0.2s;"
+              onfocus="this.style.borderColor='#d97706'" onblur="this.style.borderColor='#fde68a'">
+          </div>
+          <button id="btn-fila-cadastrar" onclick="window.filaCadastrarCliente()"
+            style="width: 100%; padding: 14px; background: linear-gradient(135deg, #d97706 0%, #b45309 100%); color: white; border: none; border-radius: 12px; font-weight: 800; font-size: 15px; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px; box-shadow: 0 4px 14px rgba(217, 119, 6, 0.35); transition: transform 0.2s; margin-top: 4px;"
+            onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+            <i class="ph ph-hand-raised" style="font-size: 20px;"></i> Entrar na Fila de Espera
+          </button>
+        </div>
+      </div>
+
+      <!-- STATUS DA FILA (escondido enquanto nao esta na fila) -->
+      <div id="fila-status-conteudo" style="display: none;">
       <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
         <div>
           <h3 style="margin: 0; color: #92400e; font-size: 16px; display: flex; align-items: center; gap: 6px;">
@@ -1020,6 +1079,7 @@
         onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
         <i class="ph ph-bell-ringing" style="font-size: 20px;"></i> 🔔 CHAMAR GARÇOM NA ESPERA
       </button>
+      </div>
     </div>
 
     <div class="search-container">
@@ -1308,6 +1368,18 @@
     let mesaNome = urlParams.get('mesa') || 'Mesa';
     document.getElementById('mesa-badge').innerText = mesaNome;
     const restauranteId = urlParams.get('restaurante_id') || localStorage.getItem('restaurante_id') || '1';
+
+    // FILA DE ESPERA - declarations moved here to avoid temporal dead zone
+    const MODO_FILA = urlParams.get('modo') === 'fila';
+    const bannerFila = document.getElementById('banner-fila-espera');
+    const badgeFilaPos = document.getElementById('badge-fila-posicao');
+    const listaFilaRows = document.getElementById('lista-fila-rows');
+    const listaFilaCount = document.getElementById('lista-fila-count');
+    const listaFilaWrap = document.getElementById('lista-fila-espera');
+    const filaCadastroForm = document.getElementById('fila-cadastro-form');
+    const filaStatusConteudo = document.getElementById('fila-status-conteudo');
+    const escFila = (t) => String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
     const socket = io({ query: { token: localStorage.getItem('chef_token'), restaurante_id: restauranteId } });
 
     socket.on('connect', () => {
@@ -1511,8 +1583,8 @@
       })
       .catch(e => console.error('Error fetching configs:', e));
 
-    // Show CRM login modal
-    checkCrmLogin();
+    // Show CRM login modal (skip in fila mode - has its own registration)
+    if (!MODO_FILA) checkCrmLogin();
 
     // Request menu products from server
     socket.emit('get_produtos');
@@ -2171,13 +2243,6 @@
     };
 
     // === FILA DE ESPERA DE CLIENTES (modo=fila, via QR Code) ===
-    const MODO_FILA = urlParams.get('modo') === 'fila';
-    const bannerFila = document.getElementById('banner-fila-espera');
-    const badgeFilaPos = document.getElementById('badge-fila-posicao');
-    const listaFilaRows = document.getElementById('lista-fila-rows');
-    const listaFilaCount = document.getElementById('lista-fila-count');
-    const listaFilaWrap = document.getElementById('lista-fila-espera');
-    const escFila = (t) => String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
     function perfilClienteAtual() {
       if (typeof crmPerfil !== 'undefined' && crmPerfil && crmPerfil.nome) return crmPerfil;
@@ -2230,22 +2295,64 @@
       if (typeof socket !== 'undefined' && socket) {
         socket.emit('cliente_aceitou_mesa_fila', { id: id, mesaName: mesaName });
       }
-      alert('Ótimo! Você aceitou a ' + mesaName + '. Por favor, dirija-se à mesa.');
+      alert('Otimo! Voce aceitou a ' + mesaName + '. Por favor, dirija-se a mesa.');
       window.location.href = 'cardapio.html?mesa=' + encodeURIComponent(mesaName) + '&restaurante_id=' + encodeURIComponent(restauranteId);
     };
 
     window.recusarMesaOfertadaFila = function (id, mesaName) {
-      if (!confirm('Deseja aguardar a próxima mesa e liberar a ' + mesaName + '?')) return;
+      if (!confirm('Deseja aguardar a proxima mesa e liberar a ' + mesaName + '?')) return;
       if (typeof socket !== 'undefined' && socket) {
         socket.emit('cliente_recusou_mesa_fila', { id: id, mesaName: mesaName });
       }
     };
 
+    window.filaCadastrarCliente = function () {
+      const nome = (document.getElementById('input-fila-cadastro-nome') || {}).value || '';
+      const telefone = (document.getElementById('input-fila-cadastro-telefone') || {}).value || '';
+      const pessoas = parseInt((document.getElementById('input-fila-cadastro-pessoas') || {}).value) || 2;
+      const preferencia = (document.getElementById('input-fila-cadastro-preferencia') || {}).value || '';
+      const obs = (document.getElementById('input-fila-cadastro-obs') || {}).value || '';
+
+      if (!nome.trim()) return alert('Por favor, informe seu nome.');
+      if (!telefone.trim()) return alert('Por favor, informe seu telefone/WhatsApp.');
+
+      const btn = document.getElementById('btn-fila-cadastrar');
+      if (btn) { btn.innerText = 'Entrando na fila...'; btn.disabled = true; btn.style.opacity = '0.7'; }
+
+      const perfilDados = { nome: nome.trim(), telefone: telefone.trim() };
+      crmPerfil = perfilDados;
+      localStorage.setItem('cliente_perfil', JSON.stringify(perfilDados));
+
+      socket.emit('identificar_cliente_qr', { nome: perfilDados.nome, telefone: perfilDados.telefone, data_nascimento: '' }, function () { });
+
+      socket.emit('adicionar_fila_espera', {
+        cliente_nome: nome.trim(),
+        cliente_telefone: telefone.trim(),
+        pessoas: pessoas,
+        mesa_preferida: preferencia.trim(),
+        observacao: obs.trim()
+      });
+
+      if (btn) { btn.innerHTML = '<i class="ph ph-spinner" style="font-size:18px; animation: spin 1s linear infinite;"></i> Cadastrando...'; }
+
+      setTimeout(function () {
+        socket.emit('get_fila_espera');
+      }, 800);
+    };
+
     function atualizarFilaEsperaCliente(rows) {
       if (!MODO_FILA || !bannerFila) return;
       const perfil = perfilClienteAtual();
-      if (!perfil) return;
       const lista = rows || [];
+
+      bannerFila.style.display = 'block';
+
+      if (!perfil) {
+        if (filaCadastroForm) filaCadastroForm.style.display = 'block';
+        if (filaStatusConteudo) filaStatusConteudo.style.display = 'none';
+        return;
+      }
+
       const telCliente = String(perfil.telefone || '').replace(/\D/g, '');
       const nomeCliente = String(perfil.nome || '').toLowerCase().trim();
       let idx = -1;
@@ -2256,12 +2363,16 @@
         if (telCliente && telRow && telRow === telCliente) { idx = i; break; }
         if (nomeCliente && nomeRow && nomeRow === nomeCliente) { idx = i; break; }
       }
-      if (idx >= 0) {
-        bannerFila.style.display = 'block';
-        if (badgeFilaPos) badgeFilaPos.textContent = 'Posição: ' + (idx + 1) + 'º';
-      } else {
-        bannerFila.style.display = 'none';
+
+      if (idx < 0) {
+        if (filaCadastroForm) filaCadastroForm.style.display = 'block';
+        if (filaStatusConteudo) filaStatusConteudo.style.display = 'none';
+        return;
       }
+
+      if (filaCadastroForm) filaCadastroForm.style.display = 'none';
+      if (filaStatusConteudo) filaStatusConteudo.style.display = 'block';
+      if (badgeFilaPos) badgeFilaPos.textContent = 'Posicao: ' + (idx + 1) + 'o';
 
       const offerContainer = document.getElementById('cardapio-offer-container');
       if (offerContainer) {
@@ -2272,14 +2383,14 @@
           offerContainer.innerHTML =
             '<div style="background:#f0fdf4; border:2px solid #22c55e; border-radius:14px; padding:16px; margin:12px 0; text-align:center; box-shadow:0 4px 12px rgba(34,197,94,0.15);">' +
             '<div style="font-size: 26px; margin-bottom: 4px;">🎉</div>' +
-            '<h3 style="margin: 0 0 6px 0; color: #15803d; font-size: 18px;">A ' + escFila(mesa) + ' está liberada para você!</h3>' +
-            '<p style="margin: 0 0 14px 0; font-size: 13px; color: #166534;">Deseja aceitar e ir para a <strong>' + escFila(mesa) + '</strong> agora ou aguardar a próxima?</p>' +
+            '<h3 style="margin: 0 0 6px 0; color: #15803d; font-size: 18px;">A ' + escFila(mesa) + ' esta liberada para voce!</h3>' +
+            '<p style="margin: 0 0 14px 0; font-size: 13px; color: #166534;">Deseja aceitar e ir para a <strong>' + escFila(mesa) + '</strong> agora ou aguardar a proxima?</p>' +
             '<div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">' +
             '<button onclick="window.aceitarMesaOfertadaFila(' + item.id + ', \'' + escFila(mesa) + '\')" style="background: #22c55e; color: white; border: none; padding: 12px 18px; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 13.5px; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 8px rgba(34,197,94,0.3);">' +
             '<i class="ph ph-check-circle" style="font-size: 18px;"></i> Aceitar e Ir para a ' + escFila(mesa) +
             '</button>' +
             '<button onclick="window.recusarMesaOfertadaFila(' + item.id + ', \'' + escFila(mesa) + '\')" style="background: #ffffff; color: #64748b; border: 1px solid #cbd5e1; padding: 12px 14px; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 12.5px; display: flex; align-items: center; gap: 6px;">' +
-            '<i class="ph ph-arrow-u-up-right"></i> Aguardar Próxima Mesa' +
+            '<i class="ph ph-arrow-u-up-right"></i> Aguardar Proxima Mesa' +
             '</button>' +
             '</div>' +
             '</div>';
@@ -2296,11 +2407,19 @@
       else document.getElementById('fab-garcom').click();
     };
 
-    if (MODO_FILA && (typeof mesaNome === 'undefined' || mesaNome === 'Mesa' || !mesaNome)) {
+    if (MODO_FILA) {
       const p = perfilClienteAtual();
-      const mName = (p && p.nome) ? p.nome : 'Cliente da Fila';
       const mBadge = document.getElementById('mesa-badge');
-      if (mBadge) mBadge.innerText = mName;
+      if (mBadge) mBadge.innerText = (p && p.nome) ? p.nome : 'Fila de Espera';
+
+      bannerFila.style.display = 'block';
+      if (p && p.nome) {
+        if (filaCadastroForm) filaCadastroForm.style.display = 'none';
+        if (filaStatusConteudo) filaStatusConteudo.style.display = 'block';
+      } else {
+        if (filaCadastroForm) filaCadastroForm.style.display = 'block';
+        if (filaStatusConteudo) filaStatusConteudo.style.display = 'none';
+      }
     }
 
     if (typeof socket !== 'undefined' && socket) {
