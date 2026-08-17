@@ -34,6 +34,9 @@ socket.on('tenant_atualizado', (data) => {
   if (data && data.token) {
     localStorage.setItem('chef_token', data.token);
   }
+  socket.disconnect();
+  socket.io.opts.query = { token: data.token, restaurante_id: String(data.restaurante_id) };
+  socket.connect();
 });
 
 // Cache DOM elements

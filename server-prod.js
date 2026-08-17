@@ -1105,6 +1105,10 @@ setInterval(() => processarFilaSync(), 60 * 1000);
 
 db.serialize(() => {
   db.run('PRAGMA journal_mode = WAL;');
+  db.run('PRAGMA synchronous = NORMAL;');
+  db.run('PRAGMA busy_timeout = 5000;');
+  db.run('PRAGMA cache_size = -20000;');
+  db.run('PRAGMA temp_store = MEMORY;');
 
   // Removed DROP TABLE to persist data
   db.run(`
@@ -1333,6 +1337,7 @@ db.serialize(() => {
   db.run(`ALTER TABLE produtos ADD COLUMN preco_custo REAL DEFAULT 0`, (err) => { });
   db.run(`ALTER TABLE produtos ADD COLUMN unidade TEXT DEFAULT 'UN'`, (err) => { });
   db.run(`ALTER TABLE produtos ADD COLUMN fornecedor TEXT`, (err) => { });
+  db.run(`ALTER TABLE produtos ADD COLUMN descricao TEXT`, (err) => { });
 
   db.run(`
     CREATE TABLE IF NOT EXISTS notas_compra (
@@ -1387,6 +1392,7 @@ db.serialize(() => {
   db.run(`ALTER TABLE funcionarios ADD COLUMN observacao_rh TEXT`, (err) => { });
   db.run(`ALTER TABLE funcionarios ADD COLUMN login_expires_at TEXT`, (err) => { });
   db.run(`ALTER TABLE funcionarios ADD COLUMN data_cadastro TEXT`, (err) => { });
+  db.run(`ALTER TABLE funcionarios ADD COLUMN restaurante_id INTEGER`, (err) => { });
 
   db.run(`
     CREATE TABLE IF NOT EXISTS pontos (
@@ -1423,6 +1429,22 @@ db.serialize(() => {
       total_consumo_abatido REAL,
       valor_liquido REAL,
       observacao TEXT
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS pins_temporarios (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      pin TEXT NOT NULL,
+      nome_colaborador TEXT,
+      categorias TEXT DEFAULT '[]',
+      max_usos INTEGER DEFAULT 1,
+      usos_atual INTEGER DEFAULT 0,
+      expira_em TEXT,
+      tipo_expiracao TEXT DEFAULT 'minutos',
+      ativo INTEGER DEFAULT 1,
+      criado_por TEXT,
+      criado_em TEXT DEFAULT (datetime('now','localtime'))
     )
   `);
 
@@ -1595,6 +1617,7 @@ db.serialize(() => {
   db.run(`ALTER TABLE produtos ADD COLUMN preco_custo REAL DEFAULT 0`, (err) => { });
   db.run(`ALTER TABLE produtos ADD COLUMN unidade TEXT DEFAULT 'UN'`, (err) => { });
   db.run(`ALTER TABLE produtos ADD COLUMN fornecedor TEXT`, (err) => { });
+  db.run(`ALTER TABLE produtos ADD COLUMN descricao TEXT`, (err) => { });
 
   db.run(`
     CREATE TABLE IF NOT EXISTS notas_compra (
@@ -1649,6 +1672,7 @@ db.serialize(() => {
   db.run(`ALTER TABLE funcionarios ADD COLUMN observacao_rh TEXT`, (err) => { });
   db.run(`ALTER TABLE funcionarios ADD COLUMN login_expires_at TEXT`, (err) => { });
   db.run(`ALTER TABLE funcionarios ADD COLUMN data_cadastro TEXT`, (err) => { });
+  db.run(`ALTER TABLE funcionarios ADD COLUMN restaurante_id INTEGER`, (err) => { });
 
   db.run(`
     CREATE TABLE IF NOT EXISTS pontos (
@@ -2041,6 +2065,49 @@ db.serialize(() => {
     }
   });
 
+  // ── TABELAS DE SYNC / ON-PREMISE (tenant DB) ──
+  db.run(`CREATE TABLE IF NOT EXISTS instance_identity (
+    key TEXT PRIMARY KEY,
+    value TEXT
+  )`);
+
+  db.run(`CREATE TABLE IF NOT EXISTS sync_outbox (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    message_type TEXT NOT NULL,
+    payload TEXT NOT NULL,
+    direction TEXT DEFAULT 'up',
+    status TEXT DEFAULT 'pending',
+    created_at DATETIME DEFAULT (datetime('now','localtime')),
+    sent_at DATETIME,
+    retry_count INTEGER DEFAULT 0
+  )`);
+
+  db.run(`CREATE TABLE IF NOT EXISTS pending_commands (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    command_id TEXT NOT NULL UNIQUE,
+    command TEXT NOT NULL,
+    params TEXT,
+    received_at DATETIME DEFAULT (datetime('now','localtime')),
+    status TEXT DEFAULT 'pending',
+    result TEXT
+  )`);
+
+  db.run(`CREATE TABLE IF NOT EXISTS sync_versions (
+    table_name TEXT PRIMARY KEY,
+    last_sync_version INTEGER DEFAULT 0,
+    last_push_at DATETIME
+  )`);
+
+  db.run(`ALTER TABLE pedidos ADD COLUMN sync_version INTEGER DEFAULT 0`, (err) => { });
+  db.run(`ALTER TABLE produtos ADD COLUMN sync_version INTEGER DEFAULT 0`, (err) => { });
+  db.run(`ALTER TABLE configuracoes ADD COLUMN sync_version INTEGER DEFAULT 0`, (err) => { });
+  db.run(`ALTER TABLE clientes ADD COLUMN sync_version INTEGER DEFAULT 0`, (err) => { });
+  db.run(`ALTER TABLE funcionarios ADD COLUMN sync_version INTEGER DEFAULT 0`, (err) => { });
+  db.run(`ALTER TABLE mesas ADD COLUMN sync_version INTEGER DEFAULT 0`, (err) => { });
+  db.run(`ALTER TABLE promocoes ADD COLUMN sync_version INTEGER DEFAULT 0`, (err) => { });
+  db.run(`ALTER TABLE cupons ADD COLUMN sync_version INTEGER DEFAULT 0`, (err) => { });
+  db.run(`ALTER TABLE formas_pagamento ADD COLUMN sync_version INTEGER DEFAULT 0`, (err) => { });
+
   // Criar índices após garantir que as tabelas existem
   db.run('CREATE INDEX IF NOT EXISTS idx_pedidos_status ON pedidos(status);');
   db.run('CREATE INDEX IF NOT EXISTS idx_pedidos_localName ON pedidos(localName);');
@@ -2049,8 +2116,111 @@ db.serialize(() => {
   db.run('CREATE INDEX IF NOT EXISTS idx_pedidos_mesa_grupo ON pedidos(mesa_grupo);');
   db.run('CREATE INDEX IF NOT EXISTS idx_movimentacoes_turno_id ON movimentacoes(turno_id);');
   db.run('CREATE INDEX IF NOT EXISTS idx_pedidos_status_sector_created ON pedidos(status, sector, createdAt);');
-  db.run('CREATE INDEX IF NOT EXISTS idx_pedidos_local_status ON pedidos(localName, status);');
+  db.run('CREATE INDEX IF NOT EXISTS idx_pedidos_local_status ON pedidos(localName, status);', () => {
+    // Sincroniza o schema dos bancos de tenants existentes após as migrações do tenant 1
+    syncAllTenantSchemas();
+  });
 });
+
+// ── SINCRONIZAÇÃO DE SCHEMA DOS TENANTS ──────────────────────
+// Bancos de tenants criados antes das últimas migrações ficam com tabelas/colunas
+// antigas. Aqui garantimos que cada banco existente receba as mesmas tabelas e
+// colunas do template (database_1.sqlite).
+function syncTenantSchema(tenantDb, refPath, done) {
+  tenantDb.serialize(() => {
+    tenantDb.run(`ATTACH DATABASE ? AS ref`, [refPath], (attachErr) => {
+      if (attachErr) {
+        console.error('[Tenant Schema] Erro ao anexar schema de referência:', attachErr.message);
+        return done && done();
+      }
+      tenantDb.all(`SELECT name, sql FROM ref.sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'`, [], (err, tables) => {
+        if (err) {
+          console.error('[Tenant Schema] Erro ao listar tabelas de referência:', err.message);
+          tenantDb.run('DETACH DATABASE ref');
+          return done && done();
+        }
+        const q = (v) => '"' + String(v).replace(/"/g, '""') + '"';
+        let ti = 0;
+        const nextTable = () => {
+          if (ti >= tables.length) {
+            tenantDb.run('DETACH DATABASE ref', () => done && done());
+            return;
+          }
+          const t = tables[ti++];
+          tenantDb.get(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?`, [t.name], (e2, row) => {
+            if (e2) return nextTable();
+            if (!row) {
+              tenantDb.run(t.sql, (e3) => {
+                if (e3 && !/already exists/i.test(e3.message)) {
+                  console.error(`[Tenant Schema] Erro ao criar tabela ${t.name}:`, e3.message);
+                }
+                nextTable();
+              });
+              return;
+            }
+            tenantDb.all(`PRAGMA ref.table_info(${q(t.name)})`, [], (e4, refCols) => {
+              if (e4) return nextTable();
+              tenantDb.all(`PRAGMA table_info(${q(t.name)})`, [], (e5, cols) => {
+                if (e5) return nextTable();
+                const have = new Set((cols || []).map((c) => c.name));
+                let ci = 0;
+                const nextCol = () => {
+                  while (ci < refCols.length) {
+                    const c = refCols[ci++];
+                    if (have.has(c.name)) continue;
+                    const decl = [q(c.name), c.type].filter(Boolean).join(' ');
+                    tenantDb.run(`ALTER TABLE ${q(t.name)} ADD COLUMN ${decl}`, (e6) => {
+                      if (e6) console.error(`[Tenant Schema] Erro ao adicionar ${t.name}.${c.name}:`, e6.message);
+                      nextCol();
+                    });
+                    return;
+                  }
+                  nextTable();
+                };
+                nextCol();
+              });
+            });
+          });
+        };
+        nextTable();
+      });
+    });
+  });
+}
+
+function syncAllTenantSchemas() {
+  let files = [];
+  try {
+    files = fsSync.readdirSync(__dirname).filter((f) => /^database_(\d+)\.sqlite$/.test(f) && f !== 'database_1.sqlite');
+  } catch (e) {
+    return;
+  }
+  files.forEach((file) => {
+    const tid = parseInt(file.match(/^database_(\d+)\.sqlite$/)[1], 10);
+    const dbPath = path.join(__dirname, file);
+    const tdb = new sqlite3.Database(dbPath, (err) => {
+      if (err) {
+        console.error(`[Tenant Schema] Erro ao abrir ${file}:`, err.message);
+        return;
+      }
+    });
+    tdb.run('PRAGMA journal_mode = WAL;', () => {
+      tdb.run('PRAGMA synchronous = NORMAL;', () => {
+        tdb.run('PRAGMA busy_timeout = 5000;', () => {
+          tdb.run('PRAGMA cache_size = -20000;', () => {
+            tdb.run('PRAGMA temp_store = MEMORY;', () => {
+              syncTenantSchema(tdb, path.join(__dirname, 'database_1.sqlite'), () => {
+                tdb.close();
+                console.log(`[Tenant Schema] Schema de ${file} (tenant ${tid}) sincronizado.`);
+              });
+            });
+          });
+        });
+      });
+    });
+  });
+}
+
 
 function broadcastProdutos(targetSocket = io) {
   db.all(`SELECT * FROM produtos`, (err, rows) => {
@@ -2106,16 +2276,19 @@ function broadcastProdutos(targetSocket = io) {
 
 function broadcastPedidos() {
   if (pedidosDebounceTimeout) clearTimeout(pedidosDebounceTimeout);
+  const tid = tenantContext.getStore();
   pedidosDebounceTimeout = setTimeout(() => {
-    db.all(`SELECT * FROM pedidos WHERE status NOT IN ('Finalizado','Cancelado') ORDER BY createdAt ASC`, [], (err, rows) => {
-      if (!err) {
-        const rowsAll = rows || [];
-        const rowsAbertos = rowsAll.filter(r => r.status !== 'Pago' && r.status !== 'Fracionado');
-        io.emit('pedidos_atualizados', rowsAbertos);
-        io.emit('initial_data', rowsAbertos);
-        io.emit('pedidos_pdv_atualizados', rowsAll);
-        io.emit('initial_pdv_data', rowsAll);
-      }
+    tenantContext.run(tid || 1, () => {
+      db.all(`SELECT * FROM pedidos WHERE status NOT IN ('Finalizado','Cancelado') ORDER BY createdAt ASC`, [], (err, rows) => {
+        if (!err) {
+          const rowsAll = rows || [];
+          const rowsAbertos = rowsAll.filter(r => r.status !== 'Pago' && r.status !== 'Fracionado');
+          io.emit('pedidos_atualizados', rowsAbertos);
+          io.emit('initial_data', rowsAbertos);
+          io.emit('pedidos_pdv_atualizados', rowsAll);
+          io.emit('initial_pdv_data', rowsAll);
+        }
+      });
     });
   }, 300);
 }
@@ -2145,8 +2318,19 @@ io.on('connection', (socket) => {
     } catch (e) { }
   }
 
+  // Tenants sem token (ex.: cliente que escaneou o QR do cardápio) usam o
+  // restaurante_id informado na própria URL/query do socket.
+  if (!socket.auth) {
+    const qrid = parseInt(socket.handshake.query.restaurante_id, 10);
+    if (Number.isFinite(qrid) && qrid > 0) socketTenantId = qrid;
+  }
+
   socket.restaurante_id = socketTenantId;
   socket.join(`restaurante_${socketTenantId}`);
+
+  // Contagem de sockets por tenant (métricas de pico) + snapshot de features
+  metricAddSocket(socket);
+  socket.features = getTenantFeaturesSync(socketTenantId);
 
   // Wrap all socket events in tenant context!
   const originalOn = socket.on.bind(socket);
@@ -2157,11 +2341,6 @@ io.on('connection', (socket) => {
       });
     });
   };
-
-  // --- SAAS MULTI-TENANT SIMULATION ---
-  socketTenantId = 1;
-  socket.restaurante_id = 1;
-  socket.join(`restaurante_${socket.restaurante_id}`);
 
   let mpPollInterval = null;
 
@@ -2385,7 +2564,7 @@ io.on('connection', (socket) => {
       });
   });
 
-  socket.emit('update_ponto_token', { url: `https://${getLocalIp()}:${PORT}/painel-funcionario.html?t=${pontoToken}` });
+  socket.emit('update_ponto_token', { url: `https://${getLocalIp()}:${PORT}/painel-funcionario.html?t=${pontoToken}&restaurante_id=${socket.restaurante_id || 1}` });
   socket.emit('server_ip', getLocalIp());
   console.log('Cliente conectado:', socket.id);
 
@@ -2548,15 +2727,18 @@ io.on('connection', (socket) => {
   });
 
   // Fetch all active orders and send to the new client (always, regardless of IA config)
-  db.all(`SELECT * FROM pedidos WHERE status NOT IN ('Finalizado','Cancelado') ORDER BY createdAt ASC`, [], (err, rows) => {
-    if (err) {
-      console.error(err);
-      return;
-    }
-    const rowsAll = rows || [];
-    socket.emit('initial_data', rowsAll.filter(r => r.status !== 'Pago'));
-    socket.emit('initial_pdv_data', rowsAll);
-  });
+  // Poupando servidor: se o tenant tiver a feature tempo_real desligada, pula o envio inicial.
+  if (!socket.features || socket.features.tempo_real) {
+    db.all(`SELECT * FROM pedidos WHERE status NOT IN ('Finalizado','Cancelado') ORDER BY createdAt ASC`, [], (err, rows) => {
+      if (err) {
+        console.error(err);
+        return;
+      }
+      const rowsAll = rows || [];
+      socket.emit('initial_data', rowsAll.filter(r => r.status !== 'Pago'));
+      socket.emit('initial_pdv_data', rowsAll);
+    });
+  }
 
 
   socket.on('validar_cupom', ({ mesaName, codigo, userName }) => {
@@ -2991,8 +3173,8 @@ io.on('connection', (socket) => {
     if (itemId === undefined || itemId === null || itemId === '') return;
 
     if (senha !== undefined) {
-      if (!(await verificarSenhaAdmin(senha))) {
-        socket.emit('erro_caixa', 'Senha de administrador incorreta!');
+      if (!(await verificarPinOuSenha(senha))) {
+        socket.emit('erro_caixa', 'Senha ou PIN incorreto!');
         return;
       }
     }
@@ -3028,8 +3210,8 @@ io.on('connection', (socket) => {
     if (itemId === undefined || itemId === null || itemId === '') return;
 
     if (senha !== undefined) {
-      if (!(await verificarSenhaAdmin(senha))) {
-        socket.emit('erro_caixa', 'Senha de administrador incorreta!');
+      if (!(await verificarPinOuSenha(senha))) {
+        socket.emit('erro_caixa', 'Senha ou PIN incorreto!');
         return;
       }
     }
@@ -3063,7 +3245,11 @@ io.on('connection', (socket) => {
     activePaymentLocks,
     broadcastPedidos,
     mesasFechando,
-    licenseManager
+    licenseManager,
+    verificarSenhaAdmin,
+    verificarPinOuSenha,
+    verificarSenhaFuncionario,
+    getLocalTimestamp
   });
   require('./controllers/socket-fila')(socket, io, db, {});
 
@@ -3349,8 +3535,8 @@ io.on('connection', (socket) => {
     db.all(`SELECT * FROM mesas`, (e, r) => io.emit('mesas_atualizadas', r || []));
   }));
 
-  socket.on('add_produto', (p) => db.run(`INSERT INTO produtos (categoria, nome, preco, emoji, hasAddons, setor, status_inicial, status, categoria_fiscal) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [p.categoria, p.nome, p.preco, p.emoji, p.hasAddons, p.setor || 'Cozinha 1', p.status_inicial || 'Em espera', p.status || 'ativo', p.categoria_fiscal || 'Alimentacao'], (err) => {
+  socket.on('add_produto', (p) => db.run(`INSERT INTO produtos (categoria, nome, preco, emoji, hasAddons, setor, status_inicial, status, categoria_fiscal, descricao) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [p.categoria, p.nome, p.preco, p.emoji, p.hasAddons, p.setor || 'Cozinha 1', p.status_inicial || 'Em espera', p.status || 'ativo', p.categoria_fiscal || 'Alimentacao', p.descricao || ''], (err) => {
       if (err) {
         console.error(err);
         socket.emit('erro_servidor', 'Falha ao adicionar o produto.');
@@ -3360,16 +3546,23 @@ io.on('connection', (socket) => {
     }));
 
   socket.on('edit_produto', (p) => {
-    db.run(`UPDATE produtos SET categoria=?, nome=?, preco=?, emoji=?, setor=?, status_inicial=?, status=?, categoria_fiscal=? WHERE id=?`,
-      [p.categoria, p.nome, p.preco, p.emoji, p.setor || 'Cozinha 1', p.status_inicial || 'Em espera', p.status || 'ativo', p.categoria_fiscal || 'Alimentacao', p.id], () => {
+    db.run(`UPDATE produtos SET categoria=?, nome=?, preco=?, emoji=?, setor=?, status_inicial=?, status=?, categoria_fiscal=?, descricao=? WHERE id=?`,
+      [p.categoria, p.nome, p.preco, p.emoji, p.setor || 'Cozinha 1', p.status_inicial || 'Em espera', p.status || 'ativo', p.categoria_fiscal || 'Alimentacao', p.descricao || '', p.id], () => {
         global.registrarAuditoria(p.operador || 'Admin', 'EDITAR_PRODUTO', `Produto editado: ${p.nome} (ID: ${p.id})`, 'Atualização de Cardápio', 'MEDIO');
         broadcastProdutos();
       });
   });
 
-  socket.on('delete_produto', (data) => {
+  socket.on('delete_produto', async (data) => {
     const id = (typeof data === 'object') ? data.id : data;
     const op = (typeof data === 'object') ? data.operador : 'Admin';
+    const senha = (typeof data === 'object') ? data.senha : undefined;
+    if (senha !== undefined) {
+      if (!(await verificarPinOuSenha(senha))) {
+        socket.emit('erro_caixa', 'Senha ou PIN incorreto!');
+        return;
+      }
+    }
     db.run(`DELETE FROM produtos WHERE id = ?`, [id], () => {
       global.registrarAuditoria(op || 'Admin', 'EXCLUSAO_PRODUTO', `Produto removido (ID: ${id})`, 'Atualização de Cardápio', 'ALTO');
       broadcastProdutos();
@@ -3378,8 +3571,10 @@ io.on('connection', (socket) => {
 
   socket.on('add_funcionario', (f) => {
     const valor_hora = f.valor_hora || 0;
-    db.run(`INSERT INTO funcionarios (nome, usuario, senha, cargo, valor_hora) VALUES (?, ?, ?, ?, ?)`,
-      [f.nome, f.usuario, f.senha, f.cargo, valor_hora], () => {
+    const hash = bcrypt.hashSync(f.senha || '123', 10);
+    const restauranteId = socketTenantId || tenantContext.getStore() || 1;
+    db.run(`INSERT INTO funcionarios (nome, usuario, senha, cargo, valor_hora, status, restaurante_id) VALUES (?, ?, ?, ?, ?, 'Pendente', ?)`,
+      [f.nome, f.usuario, hash, f.cargo || 'Garcom', valor_hora, restauranteId], () => {
         db.all(`SELECT * FROM funcionarios`, (e, r) => io.emit('funcionarios_atualizados', r || []));
       });
   });
@@ -3534,7 +3729,11 @@ io.on('connection', (socket) => {
     try {
       const tdb = getTenantDb();
       const result = await ifoodApi.completeAuth(tdb, masterDb, tidAtual(), authCode);
-      ifoodApi.ensurePoller(tidAtual(), { io, masterDb, tenantContext, getTenantDb, dir: __dirname });
+      if (isTenantFeatureEnabled(tidAtual(), 'ifood')) {
+        ifoodApi.ensurePoller(tidAtual(), { io, masterDb, tenantContext, getTenantDb, dir: __dirname });
+      } else {
+        ifoodApi.stopPoller(tidAtual());
+      }
       socket.emit('ifood_auth_completed', result);
       console.log(`[iFood] Conta conectada para o tenant ${tidAtual()}: ${result.merchantName || 'sem nome'}.`);
     } catch (e) {
@@ -3670,41 +3869,53 @@ io.on('connection', (socket) => {
     delete socket.funcionarioCargo;
   });
 
-  socket.on('login_funcionario', ({ usuario, senha }) => {
-    const u = trimStr(usuario, 50);
-    const s = trimStr(senha, 200);
+    socket.on('login_funcionario', ({ usuario, senha }) => {
+      const u = trimStr(usuario, 50);
+      const s = trimStr(senha, 200);
     if (!u || !s) return socket.emit('login_error', 'Usuário e senha são obrigatórios.');
     const ip = socket.handshake.address || 'unknown';
     if (!checkLoginRate(ip)) return socket.emit('login_error', 'Muitas tentativas. Aguarde alguns minutos.');
-    db.get(`SELECT * FROM funcionarios WHERE LOWER(TRIM(usuario)) = LOWER(TRIM(?)) OR LOWER(TRIM(nome)) = LOWER(TRIM(?))`, [u, u], (err, row) => {
+    localizarFuncionarioLogin(u, (row) => {
       if (!row) {
         recordFailedLogin(ip);
         return socket.emit('login_error', 'Usuário ou senha incorretos');
       }
-      verificarSenhaFuncionario(row, s).then((ok) => {
-        if (!ok) {
-          recordFailedLogin(ip);
-          return socket.emit('login_error', 'Usuário ou senha incorretos');
+      const tid = parseInt(row.restaurante_id, 10) || (tenantContext.getStore() || 1);
+      tenantContext.run(tid, () => {
+        if (tid !== socketTenantId) {
+          socket.leave(`restaurante_${socketTenantId}`);
+          socketTenantId = tid;
+          socket.restaurante_id = tid;
+          socket.join(`restaurante_${tid}`);
         }
-        if (row.status === 'Pendente') {
-          socket.emit('login_error', 'Seu cadastro está aguardando aprovação do caixa.');
-        } else if (row.login_expires_at && row.login_expires_at !== 'SESSION' && new Date(row.login_expires_at) < new Date()) {
-          socket.emit('login_error', 'Seu login expirou. Solicite uma nova aprovação ao gerente.');
-        } else {
-          clearLoginRate(ip);
-          socket.emit('login_success', funcionarioPublico(row));
-          socket.funcionarioId = row.id;
-          socket.funcionarioCargo = row.cargo;
-          const sessToken = jwt.sign({ tipo: 'funcionario', id: row.id, nome: row.nome, usuario: row.usuario, cargo: row.cargo }, JWT_SECRET, { expiresIn: '12h' });
-          socket.emit('login_token', sessToken);
-          db.run("INSERT INTO historico_logins (funcionario_id, funcionario_nome) VALUES (?, ?)", [row.id, row.nome]);
-          const conn = activeSockets.get(socket.id);
-          if (conn) {
-            conn.user = row.nome;
-            conn.device = row.cargo + ' (' + conn.deviceType + ')';
+        verificarSenhaFuncionario(row, s).then((ok) => {
+          if (!ok) {
+            recordFailedLogin(ip);
+            return socket.emit('login_error', 'Usuário ou senha incorretos');
           }
-          desconectarSessoesSingleLogin();
-        }
+          if (row.status === 'Pendente') {
+            socket.emit('login_error', 'Seu cadastro está aguardando aprovação do caixa.');
+          } else if (row.login_expires_at && row.login_expires_at !== 'SESSION' && new Date(row.login_expires_at) < new Date()) {
+            socket.emit('login_error', 'Seu login expirou. Solicite uma nova aprovação ao gerente.');
+          } else {
+            clearLoginRate(ip);
+            const payload = funcionarioPublico(row);
+            if (!payload.restaurante_id) payload.restaurante_id = tid;
+            socket.emit('login_success', payload);
+            socket.funcionarioId = row.id;
+            socket.funcionarioCargo = row.cargo;
+            const sessToken = jwt.sign({ tipo: 'funcionario', id: row.id, nome: row.nome, usuario: row.usuario, cargo: row.cargo, restaurante_id: tid }, JWT_SECRET, { expiresIn: '12h' });
+            socket.emit('login_token', sessToken);
+            socket.emit('tenant_atualizado', { restaurante_id: tid, token: sessToken });
+            db.run("INSERT INTO historico_logins (funcionario_id, funcionario_nome) VALUES (?, ?)", [row.id, row.nome]);
+            const conn = activeSockets.get(socket.id);
+            if (conn) {
+              conn.user = row.nome;
+              conn.device = row.cargo + ' (' + conn.deviceType + ')';
+            }
+            desconectarSessoesSingleLogin();
+          }
+        });
       });
     });
   });
@@ -3722,20 +3933,34 @@ io.on('connection', (socket) => {
     if (!decoded || decoded.tipo !== 'funcionario' || !isValidId(decoded.id)) {
       return socket.emit('login_error', 'Sessão inválida.');
     }
-    db.get(`SELECT * FROM funcionarios WHERE id = ?`, [decoded.id], (err, row) => {
-      if (err || !row) return socket.emit('login_error', 'Funcionário não encontrado. Faça login novamente.');
-      if (row.status === 'Pendente') return socket.emit('login_error', 'Seu cadastro está aguardando aprovação do caixa.');
-      if (row.login_expires_at && row.login_expires_at !== 'SESSION' && new Date(row.login_expires_at) < new Date()) return socket.emit('login_error', 'Seu login expirou. Solicite uma nova aprovação ao gerente.');
-      socket.emit('login_success', funcionarioPublico(row));
-      socket.funcionarioId = row.id;
-      socket.funcionarioCargo = row.cargo;
-      db.run("INSERT INTO historico_logins (funcionario_id, funcionario_nome) VALUES (?, ?)", [row.id, row.nome]);
-      const conn = activeSockets.get(socket.id);
-      if (conn) {
-        conn.user = row.nome;
-        conn.device = row.cargo + ' (' + conn.deviceType + ')';
+    const tid = parseInt(decoded.restaurante_id, 10) || (tenantContext.getStore() || 1);
+    tenantContext.run(tid, () => {
+      if (tid !== socketTenantId) {
+        socket.leave(`restaurante_${socketTenantId}`);
+        socketTenantId = tid;
+        socket.restaurante_id = tid;
+        socket.join(`restaurante_${tid}`);
       }
-      desconectarSessoesSingleLogin();
+      db.get(`SELECT * FROM funcionarios WHERE id = ?`, [decoded.id], (err, row) => {
+        if (err || !row) return socket.emit('login_error', 'Funcionário não encontrado. Faça login novamente.');
+        if (row.status === 'Pendente') return socket.emit('login_error', 'Seu cadastro está aguardando aprovação do caixa.');
+        if (row.login_expires_at && row.login_expires_at !== 'SESSION' && new Date(row.login_expires_at) < new Date()) return socket.emit('login_error', 'Seu login expirou. Solicite uma nova aprovação ao gerente.');
+        const payload = funcionarioPublico(row);
+        if (!payload.restaurante_id) payload.restaurante_id = tid;
+        socket.emit('login_success', payload);
+        socket.funcionarioId = row.id;
+        socket.funcionarioCargo = row.cargo;
+        const sessToken = jwt.sign({ tipo: 'funcionario', id: row.id, nome: row.nome, usuario: row.usuario, cargo: row.cargo, restaurante_id: tid }, JWT_SECRET, { expiresIn: '12h' });
+        socket.emit('login_token', sessToken);
+        socket.emit('tenant_atualizado', { restaurante_id: tid, token: sessToken });
+        db.run("INSERT INTO historico_logins (funcionario_id, funcionario_nome) VALUES (?, ?)", [row.id, row.nome]);
+        const conn = activeSockets.get(socket.id);
+        if (conn) {
+          conn.user = row.nome;
+          conn.device = row.cargo + ' (' + conn.deviceType + ')';
+        }
+        desconectarSessoesSingleLogin();
+      });
     });
   });
 
@@ -3743,10 +3968,11 @@ io.on('connection', (socket) => {
     const s = trimStr(f.senha, 200);
     if (!s) return socket.emit('cadastro_erro', 'Informe uma senha.');
     const hash = bcrypt.hashSync(s, 10);
-    db.run(`INSERT INTO funcionarios (nome, usuario, senha, cargo, status) VALUES (?, ?, ?, 'Garçom', 'Pendente')`,
-      [f.nome, f.usuario, hash], (err) => {
+    const restauranteId = socketTenantId || tenantContext.getStore() || 1;
+    db.run(`INSERT INTO funcionarios (nome, usuario, senha, cargo, status, restaurante_id) VALUES (?, ?, ?, 'Garcom', 'Pendente', ?)`,
+      [f.nome, f.usuario, hash, restauranteId], (err) => {
         if (err) {
-          socket.emit('cadastro_erro', 'Erro ao cadastrar. Usuário pode já existir.');
+          socket.emit('cadastro_erro', 'Erro ao cadastrar. Usuario pode ja existir.');
         } else {
           socket.emit('cadastro_sucesso');
           db.all(`SELECT * FROM funcionarios`, (e, r) => io.emit('funcionarios_atualizados', (r || []).map(funcionarioPublico)));
@@ -5169,11 +5395,11 @@ io.on('connection', (socket) => {
 
   socket.on('cancelar_mesa', async ({ mesaName, motivo, senha }) => {
     if (!mesaName) return;
-    if (!(await verificarSenhaAdmin(senha))) {
-      socket.emit('erro_caixa', 'Senha de administrador incorreta!');
+    if (!(await verificarPinOuSenha(senha))) {
+      socket.emit('erro_caixa', 'Senha ou PIN incorreto!');
       return;
     }
-    console.log(`[Admin] Mesa "${mesaName}" cancelada por admin. Motivo: ${motivo}`);
+    console.log(`[Admin] Mesa "${mesaName}" cancelada. Motivo: ${motivo}`);
     db.run(
       `UPDATE pedidos SET status = 'Cancelado' WHERE (localName = ? OR mesa_grupo = ?) AND status NOT IN ('Finalizado','Entregue','Pago','Cancelado')`,
       [mesaName, mesaName],
@@ -5190,8 +5416,8 @@ io.on('connection', (socket) => {
   });
 
   socket.on('zerar_todos_dados', async ({ senha }) => {
-    if (!(await verificarSenhaAdmin(senha))) {
-      socket.emit('erro_caixa', 'Senha de administrador incorreta!');
+    if (!(await verificarPinOuSenha(senha))) {
+      socket.emit('erro_caixa', 'Senha ou PIN incorreto!');
       return;
     }
     console.log('[Admin] ZERANDO TODOS OS DADOS DO SISTEMA');
@@ -5206,6 +5432,117 @@ io.on('connection', (socket) => {
         io.emit('clientes_atualizados', []);
         socket.emit('zerar_concluido', { ok: true });
       });
+    });
+  });
+
+  // ── PINs TEMPORARIOS ──
+  function gerarPinCustomizado(tamanho) {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    const tam = Math.min(Math.max(parseInt(tamanho) || 4, 3), 6);
+    let pin = '';
+    for (let i = 0; i < tam; i++) pin += chars[Math.floor(Math.random() * chars.length)];
+    return pin;
+  }
+
+  socket.on('criar_pin_temporario', (data) => {
+    const cargo = socket.funcionarioCargo || '';
+    const isAdmin = ['Admin', 'Administrador', 'adm', 'Gerente'].includes(cargo);
+    if (!isAdmin) return socket.emit('pin_erro', 'Apenas Admin ou Gerente podem criar PINs.');
+    const { nome_colaborador, categorias, max_usos, tipo_expiracao, expira_minutos, expira_em, pin_customizado, pin_tamanho } = data;
+    if (!nome_colaborador) return socket.emit('pin_erro', 'Informe o nome do colaborador.');
+    let pin;
+    if (pin_customizado && pin_customizado.trim()) {
+      pin = pin_customizado.trim().toUpperCase();
+      const tam = parseInt(pin_tamanho) || 4;
+      if (pin.length < 3 || pin.length > 6) return socket.emit('pin_erro', 'O PIN deve ter entre 3 e 6 caracteres.');
+      if (!/^[A-Z0-9]+$/.test(pin)) return socket.emit('pin_erro', 'O PIN deve conter apenas letras e números.');
+      if (pin.length !== tam) return socket.emit('pin_erro', 'O PIN deve ter ' + tam + ' caracteres.');
+    } else {
+      const tam = parseInt(pin_tamanho) || 4;
+      pin = gerarPinCustomizado(tam);
+    }
+    let expira = null;
+    if (tipo_expiracao === 'minutos' && expira_minutos) {
+      const d = new Date(); d.setMinutes(d.getMinutes() + parseInt(expira_minutos));
+      expira = d.toISOString();
+    } else if (tipo_expiracao === 'data' && expira_em) {
+      expira = expira_em;
+    } else if (tipo_expiracao === 'sessao') {
+      expira = 'SESSION';
+    }
+    const usos = parseInt(max_usos) || 1;
+    const cats = JSON.stringify(categorias || []);
+    db.run(`INSERT INTO pins_temporarios (pin, nome_colaborador, categorias, max_usos, expira_em, tipo_expiracao, criado_por) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [pin, nome_colaborador, cats, usos, expira, tipo_expiracao || 'minutos', socket.funcionarioCargo || 'Admin'], (err) => {
+        if (err) return socket.emit('pin_erro', 'Erro ao criar PIN.');
+        socket.emit('pin_criado', { pin, nome_colaborador, categorias: categorias || [], max_usos: usos, expira_em: expira, tipo_expiracao: tipo_expiracao || 'minutos' });
+        socket.emit('pins_atualizados');
+      });
+  });
+
+  socket.on('listar_pins_temporarios', () => {
+    const cargo = socket.funcionarioCargo || '';
+    if (!['Admin', 'Administrador', 'adm', 'Gerente'].includes(cargo)) {
+      return socket.emit('lista_pins', []);
+    }
+    db.all(`SELECT * FROM pins_temporarios ORDER BY id DESC`, [], (err, rows) => {
+      socket.emit('lista_pins', rows || []);
+    });
+  });
+
+  socket.on('revogar_pin', (id) => {
+    const cargo = socket.funcionarioCargo || '';
+    if (!['Admin', 'Administrador', 'adm', 'Gerente'].includes(cargo)) return;
+    db.run(`UPDATE pins_temporarios SET ativo = 0 WHERE id = ?`, [id], () => {
+      socket.emit('pins_atualizados');
+    });
+  });
+
+  socket.on('renovar_pin', (data) => {
+    const cargo = socket.funcionarioCargo || '';
+    if (!['Admin', 'Administrador', 'adm', 'Gerente'].includes(cargo)) return;
+    const { id, minutos } = data;
+    let novaExpira = null;
+    if (minutos && parseInt(minutos) > 0) {
+      const d = new Date(); d.setMinutes(d.getMinutes() + parseInt(minutos));
+      novaExpira = d.toISOString();
+    }
+    db.run(`UPDATE pins_temporarios SET ativo = 1, usos_atual = 0, expira_em = ? WHERE id = ?`, [novaExpira, id], () => {
+      socket.emit('pins_atualizados');
+    });
+  });
+
+  socket.on('login_por_pin', (data) => {
+    const { pin } = data;
+    if (!pin) return socket.emit('login_error', 'Informe o PIN.');
+    db.get(`SELECT * FROM pins_temporarios WHERE pin = ? AND ativo = 1`, [pin], (err, row) => {
+      if (err || !row) return socket.emit('login_error', 'PIN invalido ou inativo.');
+      if (row.tipo_expiracao !== 'sessao' && row.expira_em && row.expira_em !== 'SESSION') {
+        if (new Date(row.expira_em) < new Date()) {
+          return socket.emit('login_error', 'PIN expirado. Solicite um novo ao administrador.');
+        }
+      }
+      if (row.usos_atual >= row.max_usos) {
+        return socket.emit('login_error', 'PIN atingiu o limite de usos.');
+      }
+      db.run(`UPDATE pins_temporarios SET usos_atual = usos_atual + 1 WHERE id = ?`, [row.id], () => {});
+      const categorias = JSON.parse(row.categorias || '[]');
+      const payload = {
+        id: -row.id,
+        nome: row.nome_colaborador || 'Colaborador',
+        usuario: 'pin_' + row.pin,
+        cargo: categorias[0] || 'Garcom',
+        categorias_pin: categorias,
+        status: 'Ativo',
+        restaurante_id: socketTenantId || tenantContext.getStore() || 1,
+        login_expires_at: row.tipo_expiracao === 'sessao' ? 'SESSION' : row.expira_em
+      };
+      socket.emit('login_success', payload);
+      socket.funcionarioId = row.id;
+      socket.funcionarioCargo = payload.cargo;
+      const sessToken = jwt.sign({ tipo: 'funcionario', id: row.id, nome: row.nome_colaborador, usuario: 'pin_' + row.pin, cargo: payload.cargo, restaurante_id: payload.restaurante_id, pin: true }, JWT_SECRET, { expiresIn: '12h' });
+      socket.emit('login_token', sessToken);
+      socket.emit('tenant_atualizado', { restaurante_id: payload.restaurante_id, token: sessToken });
     });
   });
 
@@ -5430,6 +5767,7 @@ io.on('connection', (socket) => {
 
   socket.on('disconnect', () => {
     activeSockets.delete(socket.id);
+    metricRemoveSocket(socket);
     if (mpPollInterval) {
       clearInterval(mpPollInterval);
       mpPollInterval = null;
@@ -5444,28 +5782,75 @@ io.on('connection', (socket) => {
 // Liga os pollers de eventos das contas iFood já autorizadas em cada tenant.
 setTimeout(() => {
   try {
-    ifoodApi.startAllPollers({ io, masterDb, tenantContext, getTenantDb, dir: __dirname });
+    ifoodApi.startAllPollers({ io, masterDb, tenantContext, getTenantDb, dir: __dirname, isFeatureEnabled });
     console.log('[iFood] Integração iniciada.');
   } catch (e) {
     console.error('[iFood] Falha ao iniciar integração:', e.message || e);
   }
 }, 3000);
 
+// --- SNAPSHOT DE FEATURES + MÉTRICAS DE PICO ---
+loadAllTenantFeatures().then(() => {
+  console.log('[Features] Snapshot de features dos tenants carregado.');
+});
+loadDomainMaps().then(() => {
+  console.log('[Domains] Mapa de domínios dos tenants carregado (' + domainMap.size + ' domínios, ' + slugMap.size + ' slugs).');
+});
+setInterval(() => { loadAllTenantFeatures().catch(() => { }); }, TENANT_FEATURES_REFRESH_MS);
+setInterval(() => { loadDomainMaps().catch(() => { }); }, 60000);
+setInterval(() => { samplePicos(); }, 60000);
+
+// --- INICIALIZAÇÃO DO MODO DE DEPLOY ---
+console.log('[Deploy] Modo:', deploymentConfig.getDeployMode(), '| Versão:', deploymentConfig.getSoftwareVersion());
+
+if (deploymentConfig.isOnPremise()) {
+  const syncAgent = require('./sync-agent');
+  syncAgent.initialize({
+    db,
+    masterDb: null,
+    tenantContext,
+    io,
+    getTenantDb,
+    deploymentConfig,
+    instanceIdentity
+  }).then(() => {
+    console.log('[Sync] Agente on-premise inicializado com sucesso.');
+  }).catch((err) => {
+    console.error('[Sync] Falha ao inicializar agente:', err.message || err);
+  });
+} else {
+  const syncServer = require('./controllers/sync-server');
+  syncServer.initialize({
+    app,
+    io,
+    masterDb,
+    tenantContext,
+    superAdminAuth,
+    getTenantDb,
+    deploymentConfig
+  });
+  console.log('[Sync] Servidor sync (cloud) inicializado.');
+}
+
 // --- RETRO API PARA ANDROID 3.2 ---
 app.get('/api/retro/mesas', (req, res) => {
-  db.all("SELECT * FROM mesas", (err, mesas) => {
-    if (err) return res.status(500).json({ error: 'Erro no banco' });
-    db.all("SELECT * FROM pedidos WHERE status != 'Finalizado' ORDER BY createdAt ASC", (err, pedidos) => {
+  withTenant(req, () => {
+    db.all("SELECT * FROM mesas", (err, mesas) => {
       if (err) return res.status(500).json({ error: 'Erro no banco' });
-      res.json({ mesas: mesas || [], pedidos: pedidos || [] });
+      db.all("SELECT * FROM pedidos WHERE status != 'Finalizado' ORDER BY createdAt ASC", (err, pedidos) => {
+        if (err) return res.status(500).json({ error: 'Erro no banco' });
+        res.json({ mesas: mesas || [], pedidos: pedidos || [] });
+      });
     });
   });
 });
 
 app.get('/api/retro/cardapio', (req, res) => {
-  db.all("SELECT * FROM produtos WHERE LOWER(status) != 'inativo' OR status IS NULL", (err, produtos) => {
-    if (err) return res.status(500).json({ error: 'Erro no banco' });
-    res.json({ produtos: produtos || [] });
+  withTenant(req, () => {
+    db.all("SELECT * FROM produtos WHERE LOWER(status) != 'inativo' OR status IS NULL", (err, produtos) => {
+      if (err) return res.status(500).json({ error: 'Erro no banco' });
+      res.json({ produtos: produtos || [] });
+    });
   });
 });
 
@@ -5475,56 +5860,64 @@ app.post('/api/retro/pedido', (req, res) => {
   }
   const pedido = req.body;
   if (!pedido || !pedido.mesa_comanda) return res.status(400).json({ error: 'Dados inválidos' });
+  const tid = resolveTenantId(req);
+  const roomId = (Number.isFinite(tid) && tid > 0) ? `restaurante_${tid}` : null;
 
   let status = pedido.status_inicial || 'Em preparo';
 
-  db.get(`SELECT status FROM mesas WHERE nome = ?`, [pedido.mesa_comanda], (err, rowMesa) => {
-    if (rowMesa && rowMesa.status !== 'Fechando') {
-      db.run(`UPDATE mesas SET status = 'Ocupada' WHERE nome = ? AND status = 'Disponível'`, [pedido.mesa_comanda]);
-    }
-  });
-
-  const query = `
-    INSERT INTO pedidos (
-      userName, localName, productName, quantity, options, observations,
-      status, mesa_comanda, mesa_grupo, isCommand,
-      printer, sector, total,
-      cliente_id, is_delivery
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `;
-  const params = [
-    pedido.userName || 'Garçom Retro',
-    pedido.localName || pedido.mesa_comanda,
-    pedido.productName,
-    pedido.quantity || 1,
-    pedido.options || '[]',
-    pedido.observations || '',
-    status,
-    pedido.mesa_comanda,
-    pedido.mesa_grupo || pedido.mesa_comanda,
-    pedido.isCommand || 0,
-    pedido.printer || '',
-    pedido.sector || '',
-    pedido.total || 0,
-    pedido.cliente_id || null,
-    pedido.is_delivery || 0
-  ];
-
-  db.run(query, params, function (err) {
-    if (err) {
-      console.error('Erro /api/retro/pedido:', err);
-      return res.status(500).json({ error: 'Erro ao inserir pedido' });
-    }
-    const novoId = this.lastID;
-    const novoItem = { id: novoId, ...pedido, status, createdAt: new Date().toISOString() };
-
-    io.emit('novo_pedido_sync', [novoItem]);
-
-    db.all("SELECT * FROM mesas", (e, m) => {
-      if (!e) io.emit('mesas_atualizadas', m || []);
+  withTenant(req, () => {
+    db.get(`SELECT status FROM mesas WHERE nome = ?`, [pedido.mesa_comanda], (err, rowMesa) => {
+      if (rowMesa && rowMesa.status !== 'Fechando') {
+        db.run(`UPDATE mesas SET status = 'Ocupada' WHERE nome = ? AND status = 'Disponível'`, [pedido.mesa_comanda]);
+      }
     });
 
-    res.json({ success: true, id: novoId });
+    const query = `
+      INSERT INTO pedidos (
+        userName, localName, productName, quantity, options, observations,
+        status, mesa_comanda, mesa_grupo, isCommand,
+        printer, sector, total,
+        cliente_id, is_delivery
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+    const params = [
+      pedido.userName || 'Garçom Retro',
+      pedido.localName || pedido.mesa_comanda,
+      pedido.productName,
+      pedido.quantity || 1,
+      pedido.options || '[]',
+      pedido.observations || '',
+      status,
+      pedido.mesa_comanda,
+      pedido.mesa_grupo || pedido.mesa_comanda,
+      pedido.isCommand || 0,
+      pedido.printer || '',
+      pedido.sector || '',
+      pedido.total || 0,
+      pedido.cliente_id || null,
+      pedido.is_delivery || 0
+    ];
+
+    db.run(query, params, function (err) {
+      if (err) {
+        console.error('Erro /api/retro/pedido:', err);
+        return res.status(500).json({ error: 'Erro ao inserir pedido' });
+      }
+      const novoId = this.lastID;
+      const novoItem = { id: novoId, ...pedido, status, createdAt: new Date().toISOString() };
+
+      if (roomId) io.to(roomId).emit('novo_pedido_sync', [novoItem]);
+      else io.emit('novo_pedido_sync', [novoItem]);
+
+      db.all("SELECT * FROM mesas", (e, m) => {
+        if (!e) {
+          if (roomId) io.to(roomId).emit('mesas_atualizadas', m || []);
+          else io.emit('mesas_atualizadas', m || []);
+        }
+      });
+
+      res.json({ success: true, id: novoId });
+    });
   });
 });
 // ---------------------------------
@@ -5535,13 +5928,15 @@ app.post('/api/retro/pedido', (req, res) => {
 app.post('/api/retro/login', (req, res) => {
   const { usuario, senha } = req.body;
   const u = String(usuario || '').trim();
-  db.get("SELECT * FROM funcionarios WHERE LOWER(TRIM(usuario)) = LOWER(TRIM(?)) OR LOWER(TRIM(nome)) = LOWER(TRIM(?))", [u, u], (err, row) => {
-    if (err) return res.status(500).json({ error: 'Erro ao consultar banco.' });
-    if (!row) return res.status(401).json({ error: 'Usuário ou senha inválidos.' });
-    verificarSenhaFuncionario(row, senha).then((ok) => {
-      if (!ok) return res.status(401).json({ error: 'Usuário ou senha inválidos.' });
-      if (row.status !== 'Ativo') return res.status(403).json({ error: 'Funcionário pendente ou inativo.' });
-      res.json({ ok: true, funcionario: funcionarioPublico(row) });
+  withTenant(req, () => {
+    db.get("SELECT * FROM funcionarios WHERE LOWER(TRIM(usuario)) = LOWER(TRIM(?)) OR LOWER(TRIM(nome)) = LOWER(TRIM(?))", [u, u], (err, row) => {
+      if (err) return res.status(500).json({ error: 'Erro ao consultar banco.' });
+      if (!row) return res.status(401).json({ error: 'Usuário ou senha inválidos.' });
+      verificarSenhaFuncionario(row, senha).then((ok) => {
+        if (!ok) return res.status(401).json({ error: 'Usuário ou senha inválidos.' });
+        if (row.status !== 'Ativo') return res.status(403).json({ error: 'Funcionário pendente ou inativo.' });
+        res.json({ ok: true, funcionario: funcionarioPublico(row) });
+      });
     });
   });
 });
@@ -5553,18 +5948,26 @@ app.put('/api/retro/pedido/:id/status', (req, res) => {
   if (!status) return res.status(400).json({ error: 'Status obrigatório.' });
   const validos = ['Recebido', 'Em preparo', 'Pronto', 'Entregue', 'Finalizado'];
   if (!validos.includes(status)) return res.status(400).json({ error: 'Status inválido.' });
+  const tid = resolveTenantId(req);
+  const roomId = (Number.isFinite(tid) && tid > 0) ? `restaurante_${tid}` : null;
 
-  db.run(`UPDATE pedidos SET status = ?, garcom_call = NULL WHERE id = ?`, [status, id], function (err) {
-    if (err) return res.status(500).json({ error: 'Erro ao atualizar pedido.' });
-    if (this.changes === 0) return res.status(404).json({ error: 'Pedido não encontrado.' });
+  withTenant(req, () => {
+    db.run(`UPDATE pedidos SET status = ?, garcom_call = NULL WHERE id = ?`, [status, id], function (err) {
+      if (err) return res.status(500).json({ error: 'Erro ao atualizar pedido.' });
+      if (this.changes === 0) return res.status(404).json({ error: 'Pedido não encontrado.' });
 
-    io.emit('pedido_atualizado', { id: Number(id), status });
+      if (roomId) io.to(roomId).emit('pedido_atualizado', { id: Number(id), status });
+      else io.emit('pedido_atualizado', { id: Number(id), status });
 
-    db.all("SELECT * FROM mesas", (e, m) => {
-      if (!e) io.emit('mesas_atualizadas', m || []);
+      db.all("SELECT * FROM mesas", (e, m) => {
+        if (!e) {
+          if (roomId) io.to(roomId).emit('mesas_atualizadas', m || []);
+          else io.emit('mesas_atualizadas', m || []);
+        }
+      });
+
+      res.json({ success: true });
     });
-
-    res.json({ success: true });
   });
 });
 
@@ -5574,17 +5977,23 @@ app.post('/api/retro/cobranca', (req, res) => {
   if (!mesaNome || !metodo || valor === undefined) {
     return res.status(400).json({ error: 'mesaNome, metodo e valor são obrigatórios.' });
   }
+  const tid = resolveTenantId(req);
+  const roomId = (Number.isFinite(tid) && tid > 0) ? `restaurante_${tid}` : null;
 
-  db.run(`UPDATE pedidos SET status = 'Finalizado', paymentMethod = ?, finalizadoEm = datetime('now') WHERE mesa_comanda = ? AND status != 'Finalizado'`, [metodo, mesaNome], function (err) {
-    if (err) return res.status(500).json({ error: 'Erro ao finalizar pedidos.' });
+  withTenant(req, () => {
+    db.run(`UPDATE pedidos SET status = 'Finalizado', paymentMethod = ?, finalizadoEm = datetime('now') WHERE mesa_comanda = ? AND status != 'Finalizado'`, [metodo, mesaNome], function (err) {
+      if (err) return res.status(500).json({ error: 'Erro ao finalizar pedidos.' });
 
-    db.run(`UPDATE mesas SET status = 'Disponível' WHERE nome = ?`, [mesaNome], function (err2) {
-      if (err2) return res.status(500).json({ error: 'Erro ao atualizar mesa.' });
+      db.run(`UPDATE mesas SET status = 'Disponível' WHERE nome = ?`, [mesaNome], function (err2) {
+        if (err2) return res.status(500).json({ error: 'Erro ao atualizar mesa.' });
 
-      io.emit('mesas_atualizadas');
-      io.emit('pedido_atualizado', { mesa: mesaNome, status: 'Finalizado' });
+        if (roomId) io.to(roomId).emit('mesas_atualizadas');
+        else io.emit('mesas_atualizadas');
+        if (roomId) io.to(roomId).emit('pedido_atualizado', { mesa: mesaNome, status: 'Finalizado' });
+        else io.emit('pedido_atualizado', { mesa: mesaNome, status: 'Finalizado' });
 
-      res.json({ success: true, message: 'Cobrança registrada com sucesso!' });
+        res.json({ success: true, message: 'Cobrança registrada com sucesso!' });
+      });
     });
   });
 });
@@ -5605,45 +6014,53 @@ app.get('/api/retro/taxa-servico', (req, res) => {
 
 // --- REST API NFC-E ---
 app.get('/api/nfce/notas', (req, res) => {
-  db.all(`SELECT id, pedido_id, localName, cliente_nome, cpf_cnpj, valor_total, chave_acesso, numero_nota, serie, ambiente, status, protocolo, created_at FROM nfce_notas ORDER BY id DESC`, (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json(rows || []);
+  withTenant(req, () => {
+    db.all(`SELECT id, pedido_id, localName, cliente_nome, cpf_cnpj, valor_total, chave_acesso, numero_nota, serie, ambiente, status, protocolo, created_at FROM nfce_notas ORDER BY id DESC`, (err, rows) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json(rows || []);
+    });
   });
 });
 
 app.get('/api/nfce/danfe/:id', (req, res) => {
-  db.get(`SELECT * FROM nfce_notas WHERE id = ?`, [req.params.id], (err, nota) => {
-    if (err || !nota) return res.status(404).send('Nota Fiscal não encontrada');
-    db.all(`SELECT * FROM configuracoes`, (errCfg, rows) => {
-      const config = {};
-      if (rows) rows.forEach(r => config[r.chave] = r.valor);
-      const danfeHtml = nota.danfe_html || nfceService.gerarDANFEHTML(nota, config);
-      res.setHeader('Content-Type', 'text/html; charset=utf-8');
-      res.send(danfeHtml);
+  withTenant(req, () => {
+    db.get(`SELECT * FROM nfce_notas WHERE id = ?`, [req.params.id], (err, nota) => {
+      if (err || !nota) return res.status(404).send('Nota Fiscal não encontrada');
+      db.all(`SELECT * FROM configuracoes`, (errCfg, rows) => {
+        const config = {};
+        if (rows) rows.forEach(r => config[r.chave] = r.valor);
+        const danfeHtml = nota.danfe_html || nfceService.gerarDANFEHTML(nota, config);
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.send(danfeHtml);
+      });
     });
   });
 });
 
 app.get('/api/nfce/xml/:id', (req, res) => {
-  db.get(`SELECT * FROM nfce_notas WHERE id = ?`, [req.params.id], (err, nota) => {
-    if (err || !nota) return res.status(404).send('Nota Fiscal não encontrada');
-    db.all(`SELECT * FROM configuracoes`, (errCfg, rows) => {
-      const config = {};
-      if (rows) rows.forEach(r => config[r.chave] = r.valor);
-      const xml = nota.xml_content || nfceService.gerarXMLNFCe(nota, config);
-      res.setHeader('Content-Type', 'application/xml');
-      res.setHeader('Content-Disposition', `attachment; filename=NFCe_${nota.chave_acesso}.xml`);
-      res.send(xml);
+  withTenant(req, () => {
+    db.get(`SELECT * FROM nfce_notas WHERE id = ?`, [req.params.id], (err, nota) => {
+      if (err || !nota) return res.status(404).send('Nota Fiscal não encontrada');
+      db.all(`SELECT * FROM configuracoes`, (errCfg, rows) => {
+        const config = {};
+        if (rows) rows.forEach(r => config[r.chave] = r.valor);
+        const xml = nota.xml_content || nfceService.gerarXMLNFCe(nota, config);
+        res.setHeader('Content-Type', 'application/xml');
+        res.setHeader('Content-Disposition', `attachment; filename=NFCe_${nota.chave_acesso}.xml`);
+        res.send(xml);
+      });
     });
   });
 });
 
 app.post('/api/nfce/emitir', async (req, res) => {
-  db.all(`SELECT * FROM configuracoes`, async (errConfig, configRows) => {
-    const config = {};
-    if (configRows) configRows.forEach(r => config[r.chave] = r.valor);
-    const result = await nfceService.emitirNFCe({ db, ...req.body, config });
-    res.json(result);
+  withTenant(req, () => {
+    db.all(`SELECT * FROM configuracoes`, async (errConfig, configRows) => {
+      const config = {};
+      if (configRows) configRows.forEach(r => config[r.chave] = r.valor);
+      const result = await nfceService.emitirNFCe({ db, ...req.body, config });
+      res.json(result);
+    });
   });
 });
 
@@ -5683,62 +6100,73 @@ app.get('/api/server-status', (req, res) => {
 
 // --- API FORMAS DE PAGAMENTO & CARTÕES ---
 app.get('/api/formas-pagamento', (req, res) => {
-  db.all(`SELECT * FROM formas_pagamento ORDER BY ordem ASC, id ASC`, [], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json(rows || []);
+  withTenant(req, () => {
+    db.all(`SELECT * FROM formas_pagamento ORDER BY ordem ASC, id ASC`, [], (err, rows) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json(rows || []);
+    });
   });
 });
 
 app.post('/api/formas-pagamento', (req, res) => {
   const { id, nome, tipo, taxa, prazo_dias, ativo, icone } = req.body || {};
   if (!nome) return res.status(400).json({ error: 'Nome é obrigatório' });
+  const tid = resolveTenantId(req);
 
-  if (id) {
-    db.run(
-      `UPDATE formas_pagamento SET nome = ?, tipo = ?, taxa = ?, prazo_dias = ?, ativo = ?, icone = ? WHERE id = ?`,
-      [nome, tipo || 'credito', parseFloat(taxa) || 0, parseInt(prazo_dias) || 0, ativo ? 1 : 0, icone || 'ph-credit-card', id],
-      function (err) {
-        if (err) return res.status(500).json({ error: err.message });
-        broadcastFormasPagamento();
-        res.json({ success: true, id });
-      }
-    );
-  } else {
-    db.run(
-      `INSERT INTO formas_pagamento (nome, tipo, taxa, prazo_dias, ativo, icone) VALUES (?, ?, ?, ?, ?, ?)`,
-      [nome, tipo || 'credito', parseFloat(taxa) || 0, parseInt(prazo_dias) || 0, ativo !== undefined ? (ativo ? 1 : 0) : 1, icone || 'ph-credit-card'],
-      function (err) {
-        if (err) return res.status(500).json({ error: err.message });
-        const newId = this.lastID;
-        broadcastFormasPagamento();
-        res.json({ success: true, id: newId });
-      }
-    );
-  }
+  withTenant(req, () => {
+    if (id) {
+      db.run(
+        `UPDATE formas_pagamento SET nome = ?, tipo = ?, taxa = ?, prazo_dias = ?, ativo = ?, icone = ? WHERE id = ?`,
+        [nome, tipo || 'credito', parseFloat(taxa) || 0, parseInt(prazo_dias) || 0, ativo ? 1 : 0, icone || 'ph-credit-card', id],
+        function (err) {
+          if (err) return res.status(500).json({ error: err.message });
+          broadcastFormasPagamento(null, tid);
+          res.json({ success: true, id });
+        }
+      );
+    } else {
+      db.run(
+        `INSERT INTO formas_pagamento (nome, tipo, taxa, prazo_dias, ativo, icone) VALUES (?, ?, ?, ?, ?, ?)`,
+        [nome, tipo || 'credito', parseFloat(taxa) || 0, parseInt(prazo_dias) || 0, ativo !== undefined ? (ativo ? 1 : 0) : 1, icone || 'ph-credit-card'],
+        function (err) {
+          if (err) return res.status(500).json({ error: err.message });
+          const newId = this.lastID;
+          broadcastFormasPagamento(null, tid);
+          res.json({ success: true, id: newId });
+        }
+      );
+    }
+  });
 });
 
 app.post('/api/formas-pagamento/:id/toggle', (req, res) => {
   const { id } = req.params;
   const { ativo } = req.body || {};
-  db.run(`UPDATE formas_pagamento SET ativo = ? WHERE id = ?`, [ativo ? 1 : 0, id], function (err) {
-    if (err) return res.status(500).json({ error: err.message });
-    broadcastFormasPagamento();
-    res.json({ success: true });
+  const tid = resolveTenantId(req);
+  withTenant(req, () => {
+    db.run(`UPDATE formas_pagamento SET ativo = ? WHERE id = ?`, [ativo ? 1 : 0, id], function (err) {
+      if (err) return res.status(500).json({ error: err.message });
+      broadcastFormasPagamento(null, tid);
+      res.json({ success: true });
+    });
   });
 });
 
 app.delete('/api/formas-pagamento/:id', (req, res) => {
   const { id } = req.params;
-  db.get(`SELECT nome FROM formas_pagamento WHERE id = ?`, [id], (err, row) => {
-    if (err || !row) return res.status(404).json({ error: 'Forma de pagamento não encontrada.' });
-    db.get(`SELECT COUNT(*) as count FROM pedidos WHERE paymentMethod = ?`, [row.nome], (e, r) => {
-      if (!e && r && r.count > 0) {
-        return res.status(400).json({ error: `"${row.nome}" não pode ser excluído pois já foi utilizado em ${r.count} pedido(s). Apenas desative-o.` });
-      }
-      db.run(`DELETE FROM formas_pagamento WHERE id = ?`, [id], function (err2) {
-        if (err2) return res.status(500).json({ error: err2.message });
-        broadcastFormasPagamento();
-        res.json({ success: true });
+  const tid = resolveTenantId(req);
+  withTenant(req, () => {
+    db.get(`SELECT nome FROM formas_pagamento WHERE id = ?`, [id], (err, row) => {
+      if (err || !row) return res.status(404).json({ error: 'Forma de pagamento não encontrada.' });
+      db.get(`SELECT COUNT(*) as count FROM pedidos WHERE paymentMethod = ?`, [row.nome], (e, r) => {
+        if (!e && r && r.count > 0) {
+          return res.status(400).json({ error: `"${row.nome}" não pode ser excluído pois já foi utilizado em ${r.count} pedido(s). Apenas desative-o.` });
+        }
+        db.run(`DELETE FROM formas_pagamento WHERE id = ?`, [id], function (err2) {
+          if (err2) return res.status(500).json({ error: err2.message });
+          broadcastFormasPagamento(null, tid);
+          res.json({ success: true });
+        });
       });
     });
   });
@@ -5887,17 +6315,19 @@ const CONFIG_SECRET_KEYS = [
 ];
 
 app.get('/api/config', (req, res) => {
-  db.all(`SELECT * FROM configuracoes`, (err, rows) => {
-    if (err) return res.status(500).send(err);
-    const cfgs = {};
-    if (rows) rows.forEach(r => {
-      if (CONFIG_SECRET_KEYS.includes(r.chave) && r.valor) {
-        cfgs[r.chave] = '***';
-      } else {
-        cfgs[r.chave] = r.valor;
-      }
+  withTenant(req, () => {
+    db.all(`SELECT * FROM configuracoes`, (err, rows) => {
+      if (err) return res.status(500).send(err);
+      const cfgs = {};
+      if (rows) rows.forEach(r => {
+        if (CONFIG_SECRET_KEYS.includes(r.chave) && r.valor) {
+          cfgs[r.chave] = '***';
+        } else {
+          cfgs[r.chave] = r.valor;
+        }
+      });
+      res.json(cfgs);
     });
-    res.json(cfgs);
   });
 });
 
@@ -5925,12 +6355,13 @@ app.post('/api/config', verificarToken, (req, res) => {
 });
 
 // --- ENDPOINT TESTE DE CONEXÃO COM MAQUININHA ---
-app.post('/api/maquininha/testar', async (req, res) => {
+app.post('/api/maquininha/testar', (req, res) => {
   const { provedor } = req.body || {};
   if (!provedor || provedor === 'none') {
     return res.json({ ok: false, msg: 'Nenhum provedor selecionado.' });
   }
-  db.all(`SELECT * FROM configuracoes`, async (err, rows) => {
+  withTenant(req, () => {
+    db.all(`SELECT * FROM configuracoes`, async (err, rows) => {
     if (err) return res.json({ ok: false, msg: 'Erro ao carregar configurações.' });
     const config = {};
     if (rows) rows.forEach(r => config[r.chave] = r.valor);
@@ -5998,6 +6429,7 @@ app.post('/api/maquininha/testar', async (req, res) => {
     } catch (e) {
       return res.json({ ok: false, msg: `Erro ao testar: ${e.message}` });
     }
+    });
   });
 });
 
@@ -6104,7 +6536,11 @@ function getLocalIp() {
 let pontoToken = Math.random().toString(36).substring(2, 10);
 setInterval(() => {
   pontoToken = Math.random().toString(36).substring(2, 10);
-  io.emit('update_ponto_token', { url: `https://${getLocalIp()}:${PORT}/painel-funcionario.html?t=${pontoToken}` });
+  // Emite por socket para que cada tenant receba a URL com o seu restaurante_id
+  for (const s of io.sockets.sockets.values()) {
+    const tid = s.restaurante_id || 1;
+    s.emit('update_ponto_token', { url: `https://${getLocalIp()}:${PORT}/painel-funcionario.html?t=${pontoToken}&restaurante_id=${tid}` });
+  }
 }, 30000);
 
 const HOST = '0.0.0.0';
@@ -6710,7 +7146,8 @@ app.post('/api/rh/pagamentos', verificarToken, (req, res) => {
 app.get('/api/mesa-perfil/:mesa_nome', (req, res) => {
   const mesa_nome = req.params.mesa_nome;
 
-  db.all("SELECT id, userName, productName, quantity, total, createdAt, localName, status FROM pedidos WHERE localName = ? ORDER BY id DESC LIMIT 300", [mesa_nome], (err, rows) => {
+  withTenant(req, () => {
+    db.all("SELECT id, userName, productName, quantity, total, createdAt, localName, status FROM pedidos WHERE localName = ? ORDER BY id DESC LIMIT 300", [mesa_nome], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
 
     let clientes_recentes = [];
@@ -6769,22 +7206,20 @@ app.get('/api/mesa-perfil/:mesa_nome', (req, res) => {
       aberta_em: abertaEm,
       clientes_detalhe
     });
+    });
   });
 });
 
 // ── SUGESTÕES DE PROMOÇÕES (INTELIGÊNCIA DE VENDAS) ────────────
 app.get('/api/sugestoes-promocao', (req, res) => {
-  // Pega os itens dos últimos 7 dias
-  db.all("SELECT itens_json FROM pedidos WHERE data_pedido >= datetime('now', '-7 days')", (err, pedidos) => {
+  withTenant(req, () => {
+    // Pega os itens dos últimos 7 dias
+    db.all(`SELECT productName, SUM(quantity) as qty FROM pedidos WHERE createdAt >= datetime('now', '-7 days') GROUP BY productName`, (err, vendidos) => {
     if (err) return res.status(500).json({ error: err.message });
 
     let vended = {};
-    pedidos.forEach(p => {
-      let itens = [];
-      try { itens = JSON.parse(p.itens_json); } catch (e) { }
-      itens.forEach(item => {
-        vended[item.nome] = (vended[item.nome] || 0) + (item.quantidade || 1);
-      });
+    (vendidos || []).forEach(r => {
+      if (r.productName) vended[r.productName] = (vended[r.productName] || 0) + (parseInt(r.qty) || 1);
     });
 
     // Obter todos os produtos cadastrados para descobrir os obsoletos (não vendidos)
@@ -6847,6 +7282,7 @@ app.get('/api/sugestoes-promocao', (req, res) => {
         tendencias,
         sugestoes
       });
+    });
     });
   });
 });
@@ -7160,8 +7596,19 @@ io.on('connection', (socket) => {
     } catch (e) { }
   }
 
+  // Tenants sem token (ex.: cliente que escaneou o QR do cardápio) usam o
+  // restaurante_id informado na própria URL/query do socket.
+  if (!socket.auth) {
+    const qrid = parseInt(socket.handshake.query.restaurante_id, 10);
+    if (Number.isFinite(qrid) && qrid > 0) socketTenantId = qrid;
+  }
+
   socket.restaurante_id = socketTenantId;
   socket.join(`restaurante_${socketTenantId}`);
+
+  // Contagem de sockets por tenant (o guard evita dupla contagem com o bloco principal)
+  metricAddSocket(socket);
+  if (!socket.features) socket.features = getTenantFeaturesSync(socketTenantId);
 
   // Wrap all socket events in tenant context!
   const originalOn = socket.on.bind(socket);
@@ -7326,37 +7773,99 @@ setInterval(runIAVerificacao, IA_CONFIG.intervaloVerificacao);
 
 // --- SAAS: ROTAS DE AUTENTICACAO ---
 app.post('/api/auth/registro', async (req, res) => {
-  const { restauranteNome, nome, email, senha } = req.body;
+  const { restauranteNome, nome, email, telefone, senha } = req.body;
   if (!restauranteNome || !nome || !email || !senha) {
-    return res.status(400).json({ success: false, error: 'Preencha todos os campos.' });
+    return res.status(400).json({ success: false, error: 'Preencha todos os campos obrigatórios.' });
   }
+
+  const telFormatado = (telefone || '').trim();
 
   try {
     const hash = await bcrypt.hash(senha, 10);
 
-    // Criar restaurante trial de 7 dias
-    masterDb.run(`INSERT INTO restaurantes (nome, licenca, ativo) VALUES (?, 'trial', 1)`, [restauranteNome], function (err) {
-      if (err) return res.status(500).json({ success: false, error: 'Erro ao criar restaurante.' });
+    // Criar restaurante trial de 7 dias com dados do dono e telefone
+    masterDb.run(
+      `INSERT INTO restaurantes (nome, licenca, ativo, telefone, dono_nome, dono_telefone, dono_email) VALUES (?, 'trial', 1, ?, ?, ?, ?)`,
+      [restauranteNome, telFormatado, nome, telFormatado, email],
+      function (err) {
+        if (err) return res.status(500).json({ success: false, error: 'Erro ao criar restaurante.' });
 
-      const restauranteId = this.lastID;
+        const restauranteId = this.lastID;
 
-      // Criar usuário admin do restaurante
-      masterDb.run(`INSERT INTO usuarios (restaurante_id, username, password_hash, role) VALUES (?, ?, ?, 'admin')`,
-        [restauranteId, email, hash], function (errUser) {
-          if (errUser) {
-            // Rollback simple se falhar
-            masterDb.run(`DELETE FROM restaurantes WHERE id = ?`, [restauranteId]);
-            return res.status(500).json({ success: false, error: 'E-mail já cadastrado.' });
+        // Criar usuário admin do restaurante
+        masterDb.run(
+          `INSERT INTO usuarios (restaurante_id, username, password_hash, role, nome, telefone) VALUES (?, ?, ?, 'admin', ?, ?)`,
+          [restauranteId, email, hash, nome, telFormatado],
+          function (errUser) {
+            if (errUser) {
+              // Rollback se falhar
+              masterDb.run(`DELETE FROM restaurantes WHERE id = ?`, [restauranteId]);
+              return res.status(500).json({ success: false, error: 'E-mail já cadastrado.' });
+            }
+
+            // Notificar o Super Admin em tempo real via Socket.IO
+            try {
+              const cadastroNotif = {
+                restaurante_id: restauranteId,
+                restauranteNome: restauranteNome,
+                nome: nome,
+                email: email,
+                telefone: telFormatado,
+                data: getLocalTimestamp()
+              };
+              io.emit('novo_cadastro_saas', cadastroNotif);
+              console.log(`🔔 [SaaS Onboarding] Novo cadastro em andamento: Restaurante #${restauranteId} "${restauranteNome}" | Dono: ${nome} | Tel: ${telFormatado} | Email: ${email}`);
+            } catch (eNotif) {
+              console.error('Erro ao emitir notificacao de novo cadastro saas:', eNotif);
+            }
+
+            // Gerar JWT inicial
+            const token = jwt.sign({ id: this.lastID, restaurante_id: restauranteId, role: 'admin' }, JWT_SECRET, { expiresIn: '12h' });
+            res.json({ success: true, token, restaurante_id: restauranteId });
           }
-
-          // Gerar JWT inicial
-          const token = jwt.sign({ id: this.lastID, restaurante_id: restauranteId, role: 'admin' }, JWT_SECRET, { expiresIn: '12h' });
-          res.json({ success: true, token, restaurante_id: restauranteId });
-        });
-    });
+        );
+      }
+    );
   } catch (error) {
     res.status(500).json({ success: false, error: 'Erro interno.' });
   }
+});
+
+// ── Onboarding de equipe apos registro ──
+app.post('/api/auth/equipe-onboarding', verificarToken, async (req, res) => {
+  const { equipe } = req.body;
+  const restauranteId = req.restaurante_id;
+  if (!restauranteId) return res.status(400).json({ success: false, error: 'Restaurante invalido.' });
+  if (!Array.isArray(equipe) || equipe.length === 0) return res.status(400).json({ success: false, error: 'Envie pelo menos um funcionario.' });
+
+  const dbPath = path.join(__dirname, `database_${restauranteId}.sqlite`);
+  if (!fsSync.existsSync(dbPath)) return res.status(404).json({ success: false, error: 'Banco do restaurante nao encontrado.' });
+
+  const tenantDb = new sqlite3.Database(dbPath);
+  let criados = 0;
+  let erros = 0;
+
+  const criarFuncionario = (f) => new Promise((resolve) => {
+    const hash = bcrypt.hashSync(f.senha, 10);
+    tenantDb.run(
+      `INSERT INTO funcionarios (nome, usuario, senha, cargo, valor_hora, status, restaurante_id) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [f.nome, f.usuario, hash, f.cargo || 'Garcom', f.valor_hora || 0, f.status || 'Pendente', restauranteId],
+      function(err) {
+        if (err) { erros++; } else { criados++; }
+        resolve();
+      }
+    );
+  });
+
+  for (const f of equipe) {
+    if (f.nome && f.usuario && f.senha) {
+      await criarFuncionario(f);
+    }
+  }
+
+  tenantDb.close(() => {
+    res.json({ success: true, criados, erros });
+  });
 });
 
 app.post('/api/auth/login', async (req, res) => {
@@ -7383,6 +7892,27 @@ app.post('/api/auth/login', async (req, res) => {
 
     const token = jwt.sign({ id: user.id, restaurante_id: user.restaurante_id, role: user.role }, JWT_SECRET, { expiresIn: '12h' });
     res.json({ success: true, token, restaurante_id: user.restaurante_id, role: user.role });
+  });
+});
+
+// ── Deslogar Restaurante do Sistema ──
+app.post('/api/auth/deslogar-restaurante', verificarToken, async (req, res) => {
+  const { senha, restaurante_id } = req.body;
+  const adminId = req.restaurante_id;
+  if (!senha) return res.status(400).json({ success: false, error: 'Senha obrigatoria.' });
+
+  masterDb.get(`SELECT * FROM usuarios WHERE restaurante_id = ? AND role = 'admin' AND ativo = 1`, [adminId], async (err, user) => {
+    if (err || !user) return res.status(404).json({ success: false, error: 'Admin nao encontrado.' });
+    const match = await bcrypt.compare(senha, user.password_hash);
+    if (!match) return res.status(401).json({ success: false, error: 'Senha incorreta.' });
+
+    masterDb.run(`UPDATE restaurantes SET ativo = 0 WHERE id = ?`, [adminId], function (errUp) {
+      if (errUp) return res.status(500).json({ success: false, error: 'Erro ao desativar.' });
+
+      masterDb.run(`UPDATE usuarios SET ativo = 0 WHERE restaurante_id = ?`, [adminId], () => {
+        res.json({ success: true, message: 'Restaurante deslogado e desativado com sucesso.' });
+      });
+    });
   });
 });
 

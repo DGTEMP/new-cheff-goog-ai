@@ -993,8 +993,14 @@ masterDb.serialize(async () => {
   )`);
 
   // Colunas de domínio para tenants (subdomínio + domínio próprio)
-  masterDb.run(`ALTER TABLE restaurantes ADD COLUMN slug TEXT`);
-  masterDb.run(`ALTER TABLE restaurantes ADD COLUMN custom_domain TEXT`);
+  masterDb.run(`ALTER TABLE restaurantes ADD COLUMN slug TEXT`, (e) => {});
+  masterDb.run(`ALTER TABLE restaurantes ADD COLUMN custom_domain TEXT`, (e) => {});
+  masterDb.run(`ALTER TABLE restaurantes ADD COLUMN telefone TEXT`, (e) => {});
+  masterDb.run(`ALTER TABLE restaurantes ADD COLUMN dono_nome TEXT`, (e) => {});
+  masterDb.run(`ALTER TABLE restaurantes ADD COLUMN dono_telefone TEXT`, (e) => {});
+  masterDb.run(`ALTER TABLE restaurantes ADD COLUMN dono_email TEXT`, (e) => {});
+  masterDb.run(`ALTER TABLE usuarios ADD COLUMN nome TEXT`, (e) => {});
+  masterDb.run(`ALTER TABLE usuarios ADD COLUMN telefone TEXT`, (e) => {});
   try { masterDb.run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_restaurantes_slug ON restaurantes(slug) WHERE slug IS NOT NULL AND slug != ''`); } catch(e) {}
   try { masterDb.run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_restaurantes_custom_domain ON restaurantes(custom_domain) WHERE custom_domain IS NOT NULL AND custom_domain != ''`); } catch(e) {}
 
@@ -2530,16 +2536,19 @@ function broadcastProdutos(targetSocket = io) {
 
 function broadcastPedidos() {
   if (pedidosDebounceTimeout) clearTimeout(pedidosDebounceTimeout);
+  const tid = tenantContext.getStore();
   pedidosDebounceTimeout = setTimeout(() => {
-    db.all(`SELECT * FROM pedidos WHERE status NOT IN ('Finalizado','Cancelado') ORDER BY createdAt ASC`, [], (err, rows) => {
-      if (!err) {
-        const rowsAll = rows || [];
-        const rowsAbertos = rowsAll.filter(r => r.status !== 'Pago' && r.status !== 'Fracionado');
-        io.emit('pedidos_atualizados', rowsAbertos);
-        io.emit('initial_data', rowsAbertos);
-        io.emit('pedidos_pdv_atualizados', rowsAll);
-        io.emit('initial_pdv_data', rowsAll);
-      }
+    tenantContext.run(tid || 1, () => {
+      db.all(`SELECT * FROM pedidos WHERE status NOT IN ('Finalizado','Cancelado') ORDER BY createdAt ASC`, [], (err, rows) => {
+        if (!err) {
+          const rowsAll = rows || [];
+          const rowsAbertos = rowsAll.filter(r => r.status !== 'Pago' && r.status !== 'Fracionado');
+          io.emit('pedidos_atualizados', rowsAbertos);
+          io.emit('initial_data', rowsAbertos);
+          io.emit('pedidos_pdv_atualizados', rowsAll);
+          io.emit('initial_pdv_data', rowsAll);
+        }
+      });
     });
   }, 300);
 }
@@ -8024,34 +8033,59 @@ setInterval(runIAVerificacao, IA_CONFIG.intervaloVerificacao);
 
 // --- SAAS: ROTAS DE AUTENTICACAO ---
 app.post('/api/auth/registro', async (req, res) => {
-  const { restauranteNome, nome, email, senha } = req.body;
+  const { restauranteNome, nome, email, telefone, senha } = req.body;
   if (!restauranteNome || !nome || !email || !senha) {
-    return res.status(400).json({ success: false, error: 'Preencha todos os campos.' });
+    return res.status(400).json({ success: false, error: 'Preencha todos os campos obrigatórios.' });
   }
+
+  const telFormatado = (telefone || '').trim();
 
   try {
     const hash = await bcrypt.hash(senha, 10);
 
-    // Criar restaurante trial de 7 dias
-    masterDb.run(`INSERT INTO restaurantes (nome, licenca, ativo) VALUES (?, 'trial', 1)`, [restauranteNome], function (err) {
-      if (err) return res.status(500).json({ success: false, error: 'Erro ao criar restaurante.' });
+    // Criar restaurante trial de 7 dias com dados do dono e telefone
+    masterDb.run(
+      `INSERT INTO restaurantes (nome, licenca, ativo, telefone, dono_nome, dono_telefone, dono_email) VALUES (?, 'trial', 1, ?, ?, ?, ?)`,
+      [restauranteNome, telFormatado, nome, telFormatado, email],
+      function (err) {
+        if (err) return res.status(500).json({ success: false, error: 'Erro ao criar restaurante.' });
 
-      const restauranteId = this.lastID;
+        const restauranteId = this.lastID;
 
-      // Criar usuário admin do restaurante
-      masterDb.run(`INSERT INTO usuarios (restaurante_id, username, password_hash, role) VALUES (?, ?, ?, 'admin')`,
-        [restauranteId, email, hash], function (errUser) {
-          if (errUser) {
-            // Rollback simple se falhar
-            masterDb.run(`DELETE FROM restaurantes WHERE id = ?`, [restauranteId]);
-            return res.status(500).json({ success: false, error: 'E-mail já cadastrado.' });
+        // Criar usuário admin do restaurante
+        masterDb.run(
+          `INSERT INTO usuarios (restaurante_id, username, password_hash, role, nome, telefone) VALUES (?, ?, ?, 'admin', ?, ?)`,
+          [restauranteId, email, hash, nome, telFormatado],
+          function (errUser) {
+            if (errUser) {
+              // Rollback se falhar
+              masterDb.run(`DELETE FROM restaurantes WHERE id = ?`, [restauranteId]);
+              return res.status(500).json({ success: false, error: 'E-mail já cadastrado.' });
+            }
+
+            // Notificar o Super Admin em tempo real via Socket.IO
+            try {
+              const cadastroNotif = {
+                restaurante_id: restauranteId,
+                restauranteNome: restauranteNome,
+                nome: nome,
+                email: email,
+                telefone: telFormatado,
+                data: getLocalTimestamp()
+              };
+              io.emit('novo_cadastro_saas', cadastroNotif);
+              console.log(`🔔 [SaaS Onboarding] Novo cadastro em andamento: Restaurante #${restauranteId} "${restauranteNome}" | Dono: ${nome} | Tel: ${telFormatado} | Email: ${email}`);
+            } catch (eNotif) {
+              console.error('Erro ao emitir notificacao de novo cadastro saas:', eNotif);
+            }
+
+            // Gerar JWT inicial
+            const token = jwt.sign({ id: this.lastID, restaurante_id: restauranteId, role: 'admin' }, JWT_SECRET, { expiresIn: '12h' });
+            res.json({ success: true, token, restaurante_id: restauranteId });
           }
-
-          // Gerar JWT inicial
-          const token = jwt.sign({ id: this.lastID, restaurante_id: restauranteId, role: 'admin' }, JWT_SECRET, { expiresIn: '12h' });
-          res.json({ success: true, token, restaurante_id: restauranteId });
-        });
-    });
+        );
+      }
+    );
   } catch (error) {
     res.status(500).json({ success: false, error: 'Erro interno.' });
   }

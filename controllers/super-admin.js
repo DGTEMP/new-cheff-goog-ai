@@ -166,6 +166,10 @@ module.exports = function (app, masterDb, sqlite3, options) {
       const mapped = lista.map(r => ({
         id: String(r.id),
         restaurante: r.nome,
+        telefone: r.telefone || r.dono_telefone || '',
+        dono_nome: r.dono_nome || '',
+        dono_telefone: r.dono_telefone || r.telefone || '',
+        dono_email: r.dono_email || '',
         status: r.ativo ? (r.licenca || 'ativo') : 'bloqueado',
         plano: r.licenca === 'premium' ? 'Premium' : (r.licenca === 'trial' ? 'Trial' : (r.licenca || 'Ativo')),
         login_mode: r.login_mode || 'multi',

@@ -4,6 +4,9 @@ const socket = io({ query: { token: localStorage.getItem('chef_token'), restaura
 socket.on('tenant_atualizado', (data) => {
   if (data && data.restaurante_id) localStorage.setItem('restaurante_id', data.restaurante_id);
   if (data && data.token) localStorage.setItem('chef_token', data.token);
+  socket.disconnect();
+  socket.io.opts.query = { token: data.token, restaurante_id: String(data.restaurante_id) };
+  socket.connect();
 });
 
 // (Segurança) Escapa valor para conteúdo HTML.

@@ -170,6 +170,93 @@ function entrarNoPainel() {
   switchTab('sec-dash');
   carregarDashboard();
   startInactivityMonitor();
+  initSuperAdminSockets();
+}
+
+var _superAdminSocket = null;
+function initSuperAdminSockets() {
+  if (typeof io === 'undefined') return;
+  if (_superAdminSocket) return; // já inicializado
+  try {
+    _superAdminSocket = io();
+    _superAdminSocket.on('novo_cadastro_saas', function(data) {
+      console.log('🔔 [SuperAdmin] Novo cadastro SaaS recebido em tempo real:', data);
+      tocarNotificacaoSom();
+      exibirAlertaNovoCadastro(data);
+      
+      // Se estiver na aba de restaurantes ou dashboard, atualiza imediatamente
+      var secRest = document.getElementById('sec-restaurantes');
+      var secDash = document.getElementById('sec-dash');
+      if (secRest && secRest.classList.contains('active')) {
+        carregarRestaurantes();
+      }
+      if (secDash && secDash.classList.contains('active')) {
+        carregarDashboard();
+      }
+    });
+  } catch (e) {
+    console.error('Erro ao conectar socket super-admin:', e);
+  }
+}
+
+function tocarNotificacaoSom() {
+  try {
+    var ctx = new (window.AudioContext || window.webkitAudioContext)();
+    var osc = ctx.createOscillator();
+    var gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+    osc.frequency.setValueAtTime(880, ctx.currentTime + 0.12); // A5
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.4);
+  } catch(e) {}
+}
+
+function exibirAlertaNovoCadastro(data) {
+  var alertBox = document.getElementById('saas-live-alert');
+  if (!alertBox) {
+    alertBox = document.createElement('div');
+    alertBox.id = 'saas-live-alert';
+    alertBox.style.cssText = 'position:fixed;top:20px;right:20px;z-index:999999;max-width:380px;background:rgba(15,23,42,0.95);border:2px solid #fc4b15;border-radius:16px;box-shadow:0 20px 40px rgba(0,0,0,0.6);backdrop-filter:blur(12px);padding:18px 20px;color:#f8fafc;font-family:inherit;animation:slideInRight 0.4s ease;';
+    document.body.appendChild(alertBox);
+  }
+
+  var restNome = esc(data.restauranteNome || 'Novo Restaurante');
+  var dono = esc(data.nome || 'Não informado');
+  var tel = esc(data.telefone || 'Não informado');
+  var email = esc(data.email || 'Não informado');
+
+  alertBox.innerHTML = 
+    '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px;">' +
+      '<div style="display:flex;align-items:center;gap:10px;">' +
+        '<div style="width:36px;height:36px;border-radius:10px;background:rgba(252,75,21,0.2);color:#fc4b15;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">' +
+          '<i class="fa-solid fa-bell"></i>' +
+        '</div>' +
+        '<div>' +
+          '<div style="font-weight:700;font-size:14px;color:#fff;">Novo Cadastro Iniciado!</div>' +
+          '<div style="font-size:12px;color:#94a3b8;">Etapa 2 (Equipe) em andamento</div>' +
+        '</div>' +
+      '</div>' +
+      '<button onclick="this.closest(\'#saas-live-alert\').style.display=\'none\'" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:16px;padding:0;"><i class="fa-solid fa-xmark"></i></button>' +
+    '</div>' +
+    '<div style="background:rgba(255,255,255,0.04);border-radius:10px;padding:10px 12px;font-size:13px;display:flex;flex-direction:column;gap:6px;">' +
+      '<div><strong style="color:#fdba74;">🏪 Restaurante:</strong> ' + restNome + '</div>' +
+      '<div><strong style="color:#93c5fd;">👤 Dono:</strong> ' + dono + '</div>' +
+      '<div><strong style="color:#86efac;">📱 WhatsApp:</strong> ' + tel + '</div>' +
+      '<div><strong style="color:#cbd5e1;">✉️ E-mail:</strong> ' + email + '</div>' +
+    '</div>' +
+    '<div style="display:flex;gap:8px;margin-top:12px;">' +
+      '<button onclick="switchTab(\'sec-restaurantes\');document.getElementById(\'saas-live-alert\').style.display=\'none\';" style="flex:1;padding:8px 12px;background:#fc4b15;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">Ver Restaurantes</button>' +
+      '<button onclick="document.getElementById(\'saas-live-alert\').style.display=\'none\';" style="padding:8px 12px;background:rgba(255,255,255,0.1);color:#fff;border:none;border-radius:8px;font-size:12px;cursor:pointer;">Fechar</button>' +
+    '</div>';
+
+  alertBox.style.display = 'block';
+
+  showToast('🔔 Novo cadastro: ' + restNome + ' (' + dono + ')', 'info');
 }
 
 function logout() {
@@ -565,7 +652,7 @@ function renderRestaurantes() {
   var filtered = [];
   for (var i = 0; i < restaurantesData.length; i++) {
     var r = restaurantesData[i];
-    if (search && r.restaurante.toLowerCase().indexOf(search) === -1 && String(r.id).indexOf(search) === -1) continue;
+    if (search && r.restaurante.toLowerCase().indexOf(search) === -1 && String(r.id).indexOf(search) === -1 && (r.dono_nome || '').toLowerCase().indexOf(search) === -1 && (r.telefone || '').indexOf(search) === -1) continue;
     if (filter && r.status !== filter) continue;
     filtered.push(r);
   }
@@ -577,9 +664,18 @@ function renderRestaurantes() {
   var html = '';
   for (var j = 0; j < filtered.length; j++) {
     var r2 = filtered[j];
+    var donoInfo = '';
+    if (r2.dono_nome || r2.telefone || r2.dono_email) {
+      donoInfo = '<div style="margin-top:4px;font-size:0.78rem;color:var(--text-muted);display:flex;flex-direction:column;gap:2px;">' +
+        (r2.dono_nome ? '<span><i class="fa-solid fa-user" style="color:var(--primary);width:14px;"></i> ' + esc(r2.dono_nome) + '</span>' : '') +
+        (r2.telefone ? '<span><i class="fa-solid fa-phone" style="color:#10b981;width:14px;"></i> ' + esc(r2.telefone) + '</span>' : '') +
+        (r2.dono_email ? '<span><i class="fa-solid fa-envelope" style="color:#60a5fa;width:14px;"></i> ' + esc(r2.dono_email) + '</span>' : '') +
+        '</div>';
+    }
+
     html += '<tr>';
     html += '<td><small style="font-family:monospace;">#' + r2.id + '</small></td>';
-    html += '<td><div style="font-weight:600;color:white;">' + esc(r2.restaurante) + '</div>' + (r2.login_mode === 'single' ? '<div><span class="badge badge-plano" style="background:#7c3aed;color:#fff;">login único</span></div>' : '') + '</td>';
+    html += '<td><div style="font-weight:600;color:white;">' + esc(r2.restaurante) + '</div>' + donoInfo + (r2.login_mode === 'single' ? '<div><span class="badge badge-plano" style="background:#7c3aed;color:#fff;">login único</span></div>' : '') + '</td>';
     html += '<td><span class="badge badge-plano">' + esc(r2.plano) + '</span></td>';
     html += '<td><span class="badge badge-' + r2.status + '">' + r2.status + '</span></td>';
     html += '<td style="text-align:center;">';
