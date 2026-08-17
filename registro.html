@@ -323,5 +323,145 @@
   
 <script src="/fullscreen.js"></script>
 
+<script>
+(function() {
+  const passo1 = document.getElementById('passo1');
+  const passoEquipe = document.getElementById('passoEquipe');
+  const errorMsg = document.getElementById('errorMsg');
+  const equipeError = document.getElementById('equipeError');
+
+  // ── Passo 1: Criar conta ──
+  document.getElementById('registroForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const restauranteNome = document.getElementById('restauranteNome').value;
+    const nome = document.getElementById('nome').value;
+    const email = document.getElementById('email').value;
+    const senha = document.getElementById('senha').value;
+    errorMsg.style.display = 'none';
+    const btn = e.target.querySelector('button[type="submit"]');
+    btn.textContent = 'Criando ambiente...';
+    btn.disabled = true;
+    try {
+      const res = await fetch('/api/auth/registro', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ restauranteNome, nome, email, senha })
+      });
+      const data = await res.json();
+      if (data.success) {
+        localStorage.setItem('chef_token', data.token);
+        localStorage.setItem('restaurante_id', data.restaurante_id);
+        localStorage.setItem('chef_credentials', JSON.stringify({ cargo: 'admin' }));
+        iniciarOnboardingEquipe(nome);
+      } else {
+        errorMsg.textContent = data.error || 'Erro ao criar conta.';
+        errorMsg.style.display = 'block';
+      }
+    } catch (err) {
+      errorMsg.textContent = 'Erro de conexao com o servidor.';
+      errorMsg.style.display = 'block';
+    }
+    btn.textContent = 'Comecar Trial Gratuito';
+    btn.disabled = false;
+  });
+
+  // ── Passo 2: Onboarding equipe ──
+  function iniciarOnboardingEquipe(nomeDono) {
+    passo1.style.display = 'none';
+    passoEquipe.style.display = 'flex';
+    document.getElementById('contaCriadaBanner').classList.add('visible');
+    document.getElementById('eqDonoNome').value = nomeDono || '';
+  }
+
+  let extraCount = 0;
+
+  document.getElementById('btnAddColab').addEventListener('click', () => {
+    extraCount++;
+    const id = extraCount;
+    const card = document.createElement('div');
+    card.className = 'equipe-card';
+    card.id = 'extra-' + id;
+    card.innerHTML = '<div class="equipe-card-header"><span class="badge">COLAB.</span><strong>Colaborador</strong></div>' +
+      '<div class="form-group"><label>Nome completo</label><input type="text" class="eq-extra-nome" placeholder="Nome"></div>' +
+      '<div class="form-group"><label>Usuario (login)</label><input type="text" class="eq-extra-user" placeholder="usuario"></div>' +
+      '<div class="form-group"><label>Senha</label><input type="password" class="eq-extra-pass" placeholder="Senha"></div>' +
+      '<div class="form-group"><label>Cargo</label><input type="text" class="eq-extra-cargo" value="Garcom"></div>' +
+      '<div class="form-group"><label>Valor/hora (R$)</label><input type="number" class="eq-extra-valor" value="0" step="0.5"></div>';
+    document.getElementById('eqExtras').appendChild(card);
+  });
+
+  document.getElementById('btnSalvarEquipe').addEventListener('click', async () => {
+    equipeError.style.display = 'none';
+    const token = localStorage.getItem('chef_token');
+    const restauranteId = localStorage.getItem('restaurante_id');
+    if (!token) { equipeError.textContent = 'Sessao expirada. Volte e faca login.'; equipeError.style.display = 'block'; return; }
+
+    const equipe = [];
+
+    // Dono (obrigatorio)
+    const dNome = document.getElementById('eqDonoNome').value.trim();
+    const dUser = document.getElementById('eqDonoUser').value.trim();
+    const dPass = document.getElementById('eqDonoPass').value.trim();
+    if (dNome && dUser && dPass) {
+      equipe.push({ nome: dNome, usuario: dUser, senha: dPass, cargo: 'Admin', status: 'Ativo' });
+    }
+
+    // Gerente (obrigatorio)
+    const gNome = document.getElementById('eqGerenNome').value.trim();
+    const gUser = document.getElementById('eqGerenUser').value.trim();
+    const gPass = document.getElementById('eqGerenPass').value.trim();
+    if (gNome && gUser && gPass) {
+      equipe.push({ nome: gNome, usuario: gUser, senha: gPass, cargo: 'Gerente', status: 'Ativo' });
+    }
+
+    // Extras
+    document.querySelectorAll('#eqExtras .equipe-card').forEach(card => {
+      const n = card.querySelector('.eq-extra-nome').value.trim();
+      const u = card.querySelector('.eq-extra-user').value.trim();
+      const p = card.querySelector('.eq-extra-pass').value.trim();
+      const c = card.querySelector('.eq-extra-cargo').value.trim() || 'Garcom';
+      const v = parseFloat(card.querySelector('.eq-extra-valor').value) || 0;
+      if (n && u && p) {
+        equipe.push({ nome: n, usuario: u, senha: p, cargo: c, valor_hora: v, status: 'Pendente' });
+      }
+    });
+
+    if (equipe.length === 0) {
+      equipeError.textContent = 'Cadastre pelo menos o Dono ou Gerente.';
+      equipeError.style.display = 'block';
+      return;
+    }
+
+    const btn = document.getElementById('btnSalvarEquipe');
+    btn.textContent = 'Salvando...';
+    btn.disabled = true;
+    try {
+      const res = await fetch('/api/auth/equipe-onboarding', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ restaurante_id: restauranteId, equipe })
+      });
+      const data = await res.json();
+      if (data.success) {
+        window.location.href = '/index.html';
+      } else {
+        equipeError.textContent = data.error || 'Erro ao salvar equipe.';
+        equipeError.style.display = 'block';
+      }
+    } catch (err) {
+      equipeError.textContent = 'Erro de conexao.';
+      equipeError.style.display = 'block';
+    }
+    btn.textContent = 'Salvar equipe e comecar';
+    btn.disabled = false;
+  });
+
+  document.getElementById('linkPular').addEventListener('click', (e) => {
+    e.preventDefault();
+    window.location.href = '/index.html';
+  });
+})();
+</script>
+
 </body>
 </html>

@@ -3603,8 +3603,10 @@ io.on('connection', (socket) => {
 
   socket.on('add_funcionario', (f) => {
     const valor_hora = f.valor_hora || 0;
-    db.run(`INSERT INTO funcionarios (nome, usuario, senha, cargo, valor_hora) VALUES (?, ?, ?, ?, ?)`,
-      [f.nome, f.usuario, f.senha, f.cargo, valor_hora], () => {
+    const hash = bcrypt.hashSync(f.senha || '123', 10);
+    const restauranteId = socketTenantId || tenantContext.getStore() || 1;
+    db.run(`INSERT INTO funcionarios (nome, usuario, senha, cargo, valor_hora, status, restaurante_id) VALUES (?, ?, ?, ?, ?, 'Pendente', ?)`,
+      [f.nome, f.usuario, hash, f.cargo || 'Garcom', valor_hora, restauranteId], () => {
         db.all(`SELECT * FROM funcionarios`, (e, r) => io.emit('funcionarios_atualizados', r || []));
       });
   });
@@ -3994,10 +3996,11 @@ io.on('connection', (socket) => {
     const s = trimStr(f.senha, 200);
     if (!s) return socket.emit('cadastro_erro', 'Informe uma senha.');
     const hash = bcrypt.hashSync(s, 10);
-    db.run(`INSERT INTO funcionarios (nome, usuario, senha, cargo, status) VALUES (?, ?, ?, 'Garçom', 'Pendente')`,
-      [f.nome, f.usuario, hash], (err) => {
+    const restauranteId = socketTenantId || tenantContext.getStore() || 1;
+    db.run(`INSERT INTO funcionarios (nome, usuario, senha, cargo, status, restaurante_id) VALUES (?, ?, ?, 'Garcom', 'Pendente', ?)`,
+      [f.nome, f.usuario, hash, restauranteId], (err) => {
         if (err) {
-          socket.emit('cadastro_erro', 'Erro ao cadastrar. Usuário pode já existir.');
+          socket.emit('cadastro_erro', 'Erro ao cadastrar. Usuario pode ja existir.');
         } else {
           socket.emit('cadastro_sucesso');
           db.all(`SELECT * FROM funcionarios`, (e, r) => io.emit('funcionarios_atualizados', (r || []).map(funcionarioPublico)));
@@ -7686,6 +7689,43 @@ app.post('/api/auth/registro', async (req, res) => {
   } catch (error) {
     res.status(500).json({ success: false, error: 'Erro interno.' });
   }
+});
+
+// ── Onboarding de equipe apos registro ──
+app.post('/api/auth/equipe-onboarding', verificarToken, async (req, res) => {
+  const { equipe } = req.body;
+  const restauranteId = req.restaurante_id;
+  if (!restauranteId) return res.status(400).json({ success: false, error: 'Restaurante invalido.' });
+  if (!Array.isArray(equipe) || equipe.length === 0) return res.status(400).json({ success: false, error: 'Envie pelo menos um funcionario.' });
+
+  const dbPath = path.join(__dirname, `database_${restauranteId}.sqlite`);
+  if (!fsSync.existsSync(dbPath)) return res.status(404).json({ success: false, error: 'Banco do restaurante nao encontrado.' });
+
+  const tenantDb = new sqlite3.Database(dbPath);
+  let criados = 0;
+  let erros = 0;
+
+  const criarFuncionario = (f) => new Promise((resolve) => {
+    const hash = bcrypt.hashSync(f.senha, 10);
+    tenantDb.run(
+      `INSERT INTO funcionarios (nome, usuario, senha, cargo, valor_hora, status, restaurante_id) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [f.nome, f.usuario, hash, f.cargo || 'Garcom', f.valor_hora || 0, f.status || 'Pendente', restauranteId],
+      function(err) {
+        if (err) { erros++; } else { criados++; }
+        resolve();
+      }
+    );
+  });
+
+  for (const f of equipe) {
+    if (f.nome && f.usuario && f.senha) {
+      await criarFuncionario(f);
+    }
+  }
+
+  tenantDb.close(() => {
+    res.json({ success: true, criados, erros });
+  });
 });
 
 app.post('/api/auth/login', async (req, res) => {

@@ -349,7 +349,41 @@ module.exports = function (app, masterDb, sqlite3, options) {
         }
       }
 
-      // 8) Aplicar features do plano
+      // 8) Salvar overrides de features (se fornecidos)
+      const features = body.features || null;
+      if (features && typeof features === 'object') {
+        try {
+          const featurePlans = options.featurePlans;
+          if (featurePlans) {
+            // Calcula diffs em relação ao plano base
+            const overrides = {};
+            const basePlan = featurePlans.getPlanDefaults(licencaVal);
+            let hasOverrides = false;
+            for (const f of featurePlans.FEATURES) {
+              const baseVal = !!basePlan[f.chave];
+              const desired = !!features[f.chave];
+              if (desired !== baseVal) {
+                overrides[f.chave] = desired;
+                hasOverrides = true;
+              }
+            }
+            if (hasOverrides) {
+              await new Promise((resolve) => {
+                masterDb.run(
+                  `INSERT INTO tenant_features (restaurante_id, overrides_json, updated_at) VALUES (?, ?, datetime('now','localtime'))
+                   ON CONFLICT(restaurante_id) DO UPDATE SET overrides_json = excluded.overrides_json, updated_at = excluded.updated_at`,
+                  [newId, JSON.stringify(overrides)],
+                  () => resolve()
+                );
+              });
+            }
+          }
+        } catch (eFeat) {
+          alertas.push('Erro ao salvar módulos: ' + eFeat.message);
+        }
+      }
+
+      // 9) Recarregar caches
       if (typeof options.reloadDomainMaps === 'function') {
         await options.reloadDomainMaps();
       }

@@ -629,44 +629,57 @@ function excluirRestaurante(id, nome) {
   });
 }
 
+/* ═══ WIZARD SETUP INICIAL ═══ */
+var _wizardFeatures = [];
+var _wizardPlanFeatures = {};
+
 function criarRestauranteCompleto() {
   var nome = document.getElementById('new-rest-nome').value.trim();
-  if (!nome) { showToast('Informe o nome do restaurante!', 'warning'); return; }
+  if (!nome) { showToast('Informe o nome do restaurante!', 'warning'); mostrarPassoWizard(2); return; }
   
-  var licenca = document.getElementById('new-rest-licenca').value;
-  var ativo = document.getElementById('new-rest-ativo').value === '1';
   var email = document.getElementById('new-rest-email').value.trim();
   var senha = document.getElementById('new-rest-senha').value;
   var adminNome = document.getElementById('new-rest-admin-nome').value.trim();
-  var telefone = document.getElementById('new-rest-telefone').value.trim();
-  var endereco = document.getElementById('new-rest-endereco').value.trim();
-  var cnpj = document.getElementById('new-rest-cnpj').value.trim();
   
-  if (email && (!senha || senha.length < 4)) { showToast('Senha do admin deve ter no mínimo 4 caracteres!', 'warning'); return; }
+  if (email && (!senha || senha.length < 4)) { showToast('Senha do admin deve ter no mínimo 4 caracteres!', 'warning'); mostrarPassoWizard(3); return; }
+  
+  // Plano selecionado
+  var planoRadio = document.querySelector('input[name="new-rest-plano"]:checked');
+  var licenca = planoRadio ? planoRadio.value : 'premium';
+  
+  // Chave de ativação
+  var chave = document.getElementById('new-rest-chave').value.trim();
+  
+  // Módulos selecionados
+  var modulosSelecionados = {};
+  var checkboxes = document.querySelectorAll('.module-toggle');
+  for (var i = 0; i < checkboxes.length; i++) {
+    if (checkboxes[i].checked) {
+      modulosSelecionados[checkboxes[i].getAttribute('data-feature')] = true;
+    }
+  }
   
   // Configurações iniciais
   var config_iniciais = {};
   var taxaEntrega = parseFloat(document.getElementById('new-rest-taxa-entrega').value);
-  if (!isNaN(taxaEntrega)) config_iniciais.taxa_entrega = taxaEntrega;
+  if (!isNaN(taxaEntrega) && taxaEntrega > 0) config_iniciais.taxa_entrega = taxaEntrega;
   var whatsapp = document.getElementById('new-rest-whatsapp').value.trim();
   if (whatsapp) config_iniciais.whatsapp = whatsapp;
   var abertura = document.getElementById('new-rest-abertura').value;
   var fechamento = document.getElementById('new-rest-fechamento').value;
   if (abertura) config_iniciais.horario_abertura = abertura;
   if (fechamento) config_iniciais.horario_fechamento = fechamento;
-  var observacoes = document.getElementById('new-rest-observacoes').value.trim();
-  if (observacoes) config_iniciais.observacoes = observacoes;
   
   // Equipe inicial
   var funcionarios_iniciais = [];
   var rows = document.querySelectorAll('.initial-team-row');
-  for (var i = 0; i < rows.length; i++) {
-    var nomeF = rows[i].querySelector('.team-nome').value.trim();
-    if (nomeF) {
+  for (var j = 0; j < rows.length; j++) {
+    var fNome = rows[j].querySelector('.team-nome').value.trim();
+    if (fNome) {
       funcionarios_iniciais.push({
-        nome: nomeF,
-        cargo: rows[i].querySelector('.team-cargo').value.trim() || 'Garçom',
-        valor_hora: parseFloat(rows[i].querySelector('.team-valor').value) || 0
+        nome: fNome,
+        cargo: rows[j].querySelector('.team-cargo').value || 'garcom',
+        valor_hora: parseFloat(rows[j].querySelector('.team-valor').value) || 0
       });
     }
   }
@@ -674,53 +687,80 @@ function criarRestauranteCompleto() {
   var payload = {
     nome: nome,
     licenca: licenca,
-    ativo: ativo,
+    ativo: true,
+    chave_ativacao: chave || undefined,
     email: email || undefined,
     senha: senha || undefined,
     admin_nome: adminNome || undefined,
-    telefone: telefone || undefined,
-    endereco: endereco || undefined,
-    cnpj: cnpj || undefined,
+    telefone: document.getElementById('new-rest-telefone').value.trim() || undefined,
+    endereco: document.getElementById('new-rest-endereco').value.trim() || undefined,
+    cnpj: document.getElementById('new-rest-cnpj').value.trim() || undefined,
     config_iniciais: Object.keys(config_iniciais).length > 0 ? config_iniciais : undefined,
-    funcionarios_iniciais: funcionarios_iniciais.length > 0 ? funcionarios_iniciais : undefined
+    funcionarios_iniciais: funcionarios_iniciais.length > 0 ? funcionarios_iniciais : undefined,
+    features: Object.keys(modulosSelecionados).length > 0 ? modulosSelecionados : undefined
   };
   
+  // Desabilitar botão
+  var btnCriar = document.getElementById('btn-criar-restaurante-completo');
+  if (btnCriar) { btnCriar.disabled = true; btnCriar.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Criando...'; }
+  
   apiPost('/api/super/criar-restaurante-completo', payload, function(err, data) {
+    if (btnCriar) { btnCriar.disabled = false; btnCriar.innerHTML = '<i class="fa-solid fa-rocket"></i> Criar Restaurante'; }
     if (err || !data || !data.ok) { showToast('Erro: ' + (data ? data.erro : 'desconhecido'), 'danger'); return; }
-    var msg = 'Restaurante criado com sucesso!';
-    if (data.alertas && data.alertas.length > 0) msg += ' (' + data.alertas.join('; ') + ')';
+    var msg = data.mensagem || 'Restaurante criado com sucesso!';
+    if (data.alertas && data.alertas.length > 0) msg += '\n' + data.alertas.join(' | ');
     showToast(msg, 'success');
     document.getElementById('modal-novo-rest').classList.remove('active');
-    // Limpar campos
-    document.getElementById('new-rest-nome').value = '';
-    document.getElementById('new-rest-cnpj').value = '';
-    document.getElementById('new-rest-telefone').value = '';
-    document.getElementById('new-rest-endereco').value = '';
-    document.getElementById('new-rest-email').value = '';
-    document.getElementById('new-rest-senha').value = '';
-    document.getElementById('new-rest-admin-nome').value = '';
-    document.getElementById('new-rest-taxa-entrega').value = '0';
-    document.getElementById('new-rest-whatsapp').value = '';
-    document.getElementById('new-rest-observacoes').value = '';
-    document.getElementById('new-rest-abertura').value = '08:00';
-    document.getElementById('new-rest-fechamento').value = '22:00';
-    // Reset team list
-    var teamContainer = document.getElementById('initial-team-list');
-    teamContainer.innerHTML = '<div class="initial-team-row" style="display:flex;gap:0.5rem;margin-bottom:0.5rem;align-items:end;">' +
-      '<div style="flex:2;"><input type="text" class="team-nome" placeholder="Nome" style="width:100%;padding:0.5rem 0.7rem;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:6px;color:var(--text-primary);font-size:0.85rem;"></div>' +
-      '<div style="flex:1;"><input type="text" class="team-cargo" placeholder="Cargo" value="Garçom" style="width:100%;padding:0.5rem 0.7rem;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:6px;color:var(--text-primary);font-size:0.85rem;"></div>' +
-      '<div style="flex:1;"><input type="number" class="team-valor" placeholder="Valor hora" value="0" step="0.50" style="width:100%;padding:0.5rem 0.7rem;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:6px;color:var(--text-primary);font-size:0.85rem;"></div>' +
-      '<button class="btn-row-action remove-team-row" style="flex-shrink:0;" title="Remover"><i class="fa-solid fa-xmark"></i></button>' +
-      '</div>';
-    // Reset wizard to step 1
+    limparWizard();
     mostrarPassoWizard(1);
     carregarRestaurantes();
   });
 }
 
+function limparWizard() {
+  document.getElementById('new-rest-nome').value = '';
+  document.getElementById('new-rest-cnpj').value = '';
+  document.getElementById('new-rest-telefone').value = '';
+  document.getElementById('new-rest-endereco').value = '';
+  document.getElementById('new-rest-email').value = '';
+  document.getElementById('new-rest-senha').value = '';
+  document.getElementById('new-rest-admin-nome').value = '';
+  document.getElementById('new-rest-chave').value = '';
+  document.getElementById('new-rest-taxa-entrega').value = '0';
+  document.getElementById('new-rest-whatsapp').value = '';
+  document.getElementById('new-rest-abertura').value = '08:00';
+  document.getElementById('new-rest-fechamento').value = '22:00';
+  var cs = document.getElementById('chave-status');
+  if (cs) cs.style.display = 'none';
+  // Reset plano to premium
+  var radios = document.querySelectorAll('input[name="new-rest-plano"]');
+  for (var i = 0; i < radios.length; i++) {
+    radios[i].checked = radios[i].value === 'premium';
+    var card = radios[i].nextElementSibling;
+    if (card) {
+      if (radios[i].value === 'premium') {
+        card.style.borderColor = '#c084fc';
+        card.style.background = 'rgba(139,92,246,0.08)';
+      } else {
+        card.style.borderColor = 'var(--border-color)';
+        card.style.background = 'transparent';
+      }
+    }
+  }
+  // Reset team list
+  var teamContainer = document.getElementById('initial-team-list');
+  if (teamContainer) {
+    teamContainer.innerHTML = '<div class="initial-team-row" style="display:flex;gap:0.5rem;margin-bottom:0.5rem;align-items:end;">' +
+      '<div style="flex:2;"><input type="text" class="team-nome" placeholder="Nome do funcionário" style="width:100%;padding:0.5rem 0.7rem;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:6px;color:var(--text-primary);font-size:0.85rem;"></div>' +
+      '<div style="flex:1;"><select class="team-cargo" style="width:100%;padding:0.5rem 0.7rem;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:6px;color:var(--text-primary);font-size:0.85rem;"><option value="garcom">Garçom</option><option value="cozinha">Cozinha</option><option value="caixa">Caixa</option><option value="admin">Gerente/Admin</option></select></div>' +
+      '<div style="flex:1;"><input type="number" class="team-valor" placeholder="Valor/hora" value="0" step="0.50" style="width:100%;padding:0.5rem 0.7rem;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:6px;color:var(--text-primary);font-size:0.85rem;"></div>' +
+      '<button class="btn-row-action remove-team-row" style="flex-shrink:0;" title="Remover"><i class="fa-solid fa-xmark"></i></button></div>';
+  }
+}
+
 // Wizard navigation
 var _wizardStep = 1;
-var _wizardTotal = 4;
+var _wizardTotal = 5;
 
 function mostrarPassoWizard(passo) {
   _wizardStep = passo;
@@ -733,6 +773,10 @@ function mostrarPassoWizard(passo) {
       s.style.background = 'rgba(252,75,21,0.15)';
       s.style.color = '#fc4b15';
       s.style.fontWeight = '600';
+    } else if (stepNum < passo) {
+      s.style.background = 'rgba(16,185,129,0.08)';
+      s.style.color = '#34d399';
+      s.style.fontWeight = '500';
     } else {
       s.style.background = 'transparent';
       s.style.color = '#888';
@@ -753,14 +797,113 @@ function mostrarPassoWizard(passo) {
     document.getElementById('btn-wizard-next').style.display = 'none';
     document.getElementById('btn-criar-restaurante-completo').style.display = 'inline-flex';
   }
+  // Load modules on step 4
+  if (passo === 4) carregarModulosWizard();
 }
 
 function proximoPassoWizard() {
+  // Validate step 2 (nome obrigatório)
+  if (_wizardStep === 2) {
+    var nome = document.getElementById('new-rest-nome').value.trim();
+    if (!nome) { showToast('Informe o nome do restaurante!', 'warning'); return; }
+  }
   if (_wizardStep < _wizardTotal) mostrarPassoWizard(_wizardStep + 1);
 }
 
 function passoAnteriorWizard() {
   if (_wizardStep > 1) mostrarPassoWizard(_wizardStep - 1);
+}
+
+function carregarModulosWizard() {
+  var grid = document.getElementById('modules-grid');
+  if (!grid) return;
+  
+  // Features definitions
+  var features = [
+    { chave: 'tempo_real', nome: 'Tempo Real (Sockets)', desc: 'Dashboards, cozinha e fila em tempo real', icon: 'fa-bolt', color: '#f59e0b' },
+    { chave: 'ifood', nome: 'Integração iFood', desc: 'Poller de pedidos do iFood', icon: 'fa-truck', color: '#ef4444' },
+    { chave: 'cardapio', nome: 'Cardápio QR', desc: 'Cardápio digital por QR code', icon: 'fa-qrcode', color: '#10b981' },
+    { chave: 'bi', nome: 'BI / Financeiro', desc: 'Relatórios e indicadores', icon: 'fa-chart-line', color: '#3b82f6' },
+    { chave: 'delivery', nome: 'Delivery / Entregas', desc: 'Gestão de entregas', icon: 'fa-motorcycle', color: '#8b5cf6' },
+    { chave: 'fidelidade', nome: 'Fidelidade / Pontos', desc: 'Programa de pontos', icon: 'fa-star', color: '#f59e0b' },
+    { chave: 'nfce', nome: 'NFC-e', desc: 'Nota fiscal eletrônica', icon: 'fa-file-invoice', color: '#06b6d4' },
+    { chave: 'telemetria', nome: 'Telemetria / Hub', desc: 'Sincronização com hub', icon: 'fa-satellite-dish', color: '#8b5cf6' }
+  ];
+  
+  // Get current plan
+  var planoRadio = document.querySelector('input[name="new-rest-plano"]:checked');
+  var plano = planoRadio ? planoRadio.value : 'premium';
+  
+  var planDefaults = {
+    trial: { tempo_real: false, ifood: false, cardapio: true, bi: false, delivery: false, fidelidade: false, nfce: false, telemetria: false },
+    pro: { tempo_real: true, ifood: true, cardapio: true, bi: true, delivery: true, fidelidade: false, nfce: true, telemetria: true },
+    premium: { tempo_real: true, ifood: true, cardapio: true, bi: true, delivery: true, fidelidade: true, nfce: true, telemetria: true }
+  };
+  var defaults = planDefaults[plano] || planDefaults.premium;
+  
+  var html = '';
+  for (var i = 0; i < features.length; i++) {
+    var f = features[i];
+    var available = defaults[f.chave];
+    var checked = available;
+    html += '<label style="cursor:pointer;display:block;">' +
+      '<input type="checkbox" class="module-toggle" data-feature="' + f.chave + '" ' + (checked ? 'checked' : '') + ' ' + (!available ? 'disabled' : '') + ' style="display:none;">' +
+      '<div class="module-card" style="padding:0.8rem;border:1px solid ' + (available ? 'var(--border-color)' : 'rgba(239,68,68,0.15)') + ';border-radius:10px;transition:all 0.2s;' + (!available ? 'opacity:0.5;' : 'cursor:pointer;') + '" ' + (available ? 'onmouseover="this.style.borderColor=\'' + f.color + '\'" onmouseout="this.style.borderColor=\'var(--border-color)\'"' : '') + '>' +
+        '<div style="display:flex;align-items:center;gap:0.6rem;">' +
+          '<div style="width:32px;height:32px;border-radius:8px;background:' + f.color + '15;display:flex;align-items:center;justify-content:center;">' +
+            '<i class="fa-solid ' + f.icon + '" style="color:' + f.color + ';font-size:0.85rem;"></i>' +
+          '</div>' +
+          '<div style="flex:1;">' +
+            '<div style="font-weight:600;color:white;font-size:0.85rem;">' + f.nome + '</div>' +
+            '<div style="font-size:0.72rem;color:var(--text-muted);">' + f.desc + '</div>' +
+          '</div>' +
+          '<div style="width:18px;height:18px;border:2px solid ' + (available ? f.color : '#666') + ';border-radius:4px;display:flex;align-items:center;justify-content:center;transition:all 0.2s;" class="module-check" data-feature="' + f.chave + '">' +
+            (checked ? '<i class="fa-solid fa-check" style="font-size:10px;color:white;"></i>' : '') +
+          '</div>' +
+        '</div>' +
+        (!available ? '<div style="font-size:0.68rem;color:var(--danger);margin-top:0.4rem;"><i class="fa-solid fa-lock"></i> Indisponível no plano ' + plano.toUpperCase() + '</div>' : '') +
+      '</div>' +
+    '</label>';
+  }
+  grid.innerHTML = html;
+  
+  // Toggle check marks
+  var toggles = grid.querySelectorAll('.module-toggle');
+  for (var t = 0; t < toggles.length; t++) {
+    toggles[t].addEventListener('change', function() {
+      var feature = this.getAttribute('data-feature');
+      var checkDiv = grid.querySelector('.module-check[data-feature="' + feature + '"]');
+      var card = this.nextElementSibling;
+      if (this.checked) {
+        if (checkDiv) checkDiv.innerHTML = '<i class="fa-solid fa-check" style="font-size:10px;color:white;"></i>';
+        if (card) card.style.borderColor = 'var(--success)';
+      } else {
+        if (checkDiv) checkDiv.innerHTML = '';
+        if (card) card.style.borderColor = 'var(--border-color)';
+      }
+    });
+  }
+  
+  // Plano radio change → reload modules
+  var radios = document.querySelectorAll('input[name="new-rest-plano"]');
+  for (var r = 0; r < radios.length; r++) {
+    radios[r].addEventListener('change', function() {
+      // Update card styles
+      var allCards = document.querySelectorAll('.plano-card');
+      for (var c = 0; c < allCards.length; c++) {
+        allCards[c].style.borderColor = 'var(--border-color)';
+        allCards[c].style.background = 'transparent';
+      }
+      var selectedCard = this.nextElementSibling;
+      if (selectedCard) {
+        var colors = { trial: 'var(--warning)', pro: 'var(--info)', premium: '#c084fc' };
+        selectedCard.style.borderColor = colors[this.value] || 'var(--primary)';
+        selectedCard.style.background = (colors[this.value] || 'var(--primary)') + '11';
+      }
+      // If on step 4, reload modules
+      if (_wizardStep === 4) carregarModulosWizard();
+    });
+  }
 }
 
 /* ═══ EQUIPE / FUNCIONÁRIOS ═══ */
