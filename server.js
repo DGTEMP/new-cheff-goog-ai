@@ -699,7 +699,6 @@ const _ioEmitGlobal = io.emit.bind(io);
 io.emit = function (event, ...args) {
   const tid = tenantContext.getStore();
   if (typeof tid === 'number' && tid > 0) {
-    if (!isTenantFeatureEnabled(tid, 'tempo_real')) return;
     return io.to(`restaurante_${tid}`).emit(event, ...args);
   }
   return _ioEmitGlobal(event, ...args);
@@ -1181,6 +1180,7 @@ require('./controllers/super-admin')(app, masterDb, sqlite3, {
   ifoodApi,
   baseDomain: BASE_DOMAIN,
   reloadDomainMaps: loadDomainMaps,
+  createFreshTenantDb,
   ifoodDeps: {
     io,
     masterDb,
@@ -1192,18 +1192,56 @@ require('./controllers/super-admin')(app, masterDb, sqlite3, {
 });
 const tenantDbs = new Map();
 
+// Cria dados iniciais para um banco de tenant novo (mesas, config, formas_pagamento)
+function seedTenantDb(db, restauranteNome, done) {
+  const onErr = (e) => { if (e) console.error('[Seed] Erro:', e.message); };
+  db.serialize(() => {
+    for (let i = 1; i <= 6; i++) {
+      db.run(`INSERT OR IGNORE INTO mesas (nome, status, observacao) VALUES (?, 'Disponível', NULL)`, ['Mesa ' + i], onErr);
+    }
+    if (restauranteNome) {
+      db.run(`INSERT OR REPLACE INTO configuracoes (chave, valor) VALUES ('nome_restaurante', ?)`, [restauranteNome], onErr);
+    }
+    const defaultMethods = [
+      ['Dinheiro', 'dinheiro', 0.0, 0, 1, 'ph-currency-dollar', 1],
+      ['Cartão de Crédito', 'credito', 2.5, 30, 1, 'ph-credit-card', 2],
+      ['Cartão de Débito', 'debito', 1.2, 1, 1, 'ph-credit-card', 3],
+      ['PIX', 'pix', 0.0, 0, 1, 'ph-qr-code', 4]
+    ];
+    db.get('SELECT COUNT(*) as c FROM formas_pagamento', [], (e, r) => {
+      if (!e && r && r.c === 0) {
+        const q = 'INSERT INTO formas_pagamento (nome, tipo, taxa, prazo_dias, ativo, icone, ordem) VALUES (?, ?, ?, ?, ?, ?, ?)';
+        defaultMethods.forEach(m => db.run(q, m, onErr));
+      }
+    });
+  }, done || (() => {}));
+}
+
+// Cria um banco de tenant novo com schema vazio + dados iniciais (sem copiar database_1.sqlite)
+function createFreshTenantDb(dbPath, restauranteNome) {
+  return new Promise((resolve) => {
+    const newDb = new sqlite3.Database(dbPath, (err) => {
+      if (err) { console.error('[Tenant] Erro ao criar banco:', err.message); return resolve(newDb); }
+      newDb.run('PRAGMA journal_mode = WAL;');
+      newDb.run('PRAGMA synchronous = NORMAL;');
+      newDb.run('PRAGMA busy_timeout = 5000;');
+      const refPath = path.join(__dirname, 'database_1.sqlite');
+      if (fsSync.existsSync(refPath)) {
+        syncTenantSchema(newDb, refPath, () => {
+          seedTenantDb(newDb, restauranteNome, () => resolve(newDb));
+        });
+      } else {
+        seedTenantDb(newDb, restauranteNome, () => resolve(newDb));
+      }
+    });
+  });
+}
+
 function getTenantDb() {
   const tenantId = tenantContext.getStore() || 1;
   if (!tenantDbs.has(tenantId)) {
     const dbPath = path.join(__dirname, `database_${tenantId}.sqlite`);
-
-    // Se o banco no existir, copia do template vazio ou do banco 1
-    if (!fsSync.existsSync(dbPath)) {
-      if (fsSync.existsSync(path.join(__dirname, 'database_1.sqlite'))) {
-        fsSync.copyFileSync(path.join(__dirname, 'database_1.sqlite'), dbPath);
-      }
-    }
-
+    const isNew = !fsSync.existsSync(dbPath);
     const newDb = new sqlite3.Database(dbPath, (err) => {
       if (err) console.error(`Erro ao abrir banco do tenant ${tenantId}:`, err);
     });
@@ -1215,6 +1253,15 @@ function getTenantDb() {
     newDb.run('PRAGMA cache_size = -20000;');
     newDb.run('PRAGMA temp_store = MEMORY;');
     tenantDbs.set(tenantId, newDb);
+
+    if (isNew && tenantId !== 1) {
+      const refPath = path.join(__dirname, 'database_1.sqlite');
+      if (fsSync.existsSync(refPath)) {
+        syncTenantSchema(newDb, refPath, () => {
+          seedTenantDb(newDb, null, () => {});
+        });
+      }
+    }
   }
   return tenantDbs.get(tenantId);
 }
@@ -2379,6 +2426,14 @@ db.serialize(() => {
   db.run('CREATE INDEX IF NOT EXISTS idx_pedidos_local_status ON pedidos(localName, status);', () => {
     // Sincroniza o schema dos bancos de tenants existentes após as migrações do tenant 1
     syncAllTenantSchemas();
+
+    // Checkpoint WAL do database_1.sqlite para liberar locks
+    const refDb = new sqlite3.Database(path.join(__dirname, 'database_1.sqlite'), (err) => {
+      if (err) return;
+      refDb.run('PRAGMA wal_checkpoint(TRUNCATE);', () => {
+        refDb.close();
+      });
+    });
   });
 });
 
@@ -2539,6 +2594,7 @@ function broadcastPedidos() {
   const tid = tenantContext.getStore();
   pedidosDebounceTimeout = setTimeout(() => {
     tenantContext.run(tid || 1, () => {
+      if (!isTenantFeatureEnabled(tid || 1, 'tempo_real')) return;
       db.all(`SELECT * FROM pedidos WHERE status NOT IN ('Finalizado','Cancelado') ORDER BY createdAt ASC`, [], (err, rows) => {
         if (!err) {
           const rowsAll = rows || [];
@@ -2629,13 +2685,15 @@ io.on('connection', (socket) => {
       }
     } catch (e) { }
 
-    db.run(
-      `INSERT INTO api_logs (operador, ip, metodo, endpoint, detalhes, status_code) VALUES (?, ?, 'SOCKET', ?, ?, 200)`,
-      [operador, ip, `socket://${event}`, payload || '{}'],
-      (err) => {
-        if (err) console.error("Erro ao registrar log de socket:", err);
-      }
-    );
+    tenantContext.run(socketTenantId, () => {
+      db.run(
+        `INSERT INTO api_logs (operador, ip, metodo, endpoint, detalhes, status_code) VALUES (?, ?, 'SOCKET', ?, ?, 200)`,
+        [operador, ip, `socket://${event}`, payload || '{}'],
+        (err) => {
+          if (err) console.error("Erro ao registrar log de socket:", err);
+        }
+      );
+    });
   });
 
   // --- AUDITORIA DE ACESSO E NAVEGAÇÃO DE PÁGINAS ---
@@ -2987,8 +3045,8 @@ io.on('connection', (socket) => {
   });
 
   // Fetch all active orders and send to the new client (always, regardless of IA config)
-  // Poupando servidor: se o tenant tiver a feature tempo_real desligada, pula o envio inicial.
-  if (!socket.features || socket.features.tempo_real) {
+  // Dados iniciais SEMPRE sao enviados — sem isso o caixa desktop nao mostra pedidos.
+  tenantContext.run(socketTenantId, () => {
     db.all(`SELECT * FROM pedidos WHERE status NOT IN ('Finalizado','Cancelado') ORDER BY createdAt ASC`, [], (err, rows) => {
       if (err) {
         console.error(err);
@@ -2998,7 +3056,7 @@ io.on('connection', (socket) => {
       socket.emit('initial_data', rowsAll.filter(r => r.status !== 'Pago'));
       socket.emit('initial_pdv_data', rowsAll);
     });
-  }
+  });
 
 
   socket.on('validar_cupom', ({ mesaName, codigo, userName }) => {
@@ -3562,6 +3620,11 @@ io.on('connection', (socket) => {
     db.get(`SELECT * FROM qr_pedidos_pendentes WHERE id = ?`, [id], (err, pendingOrder) => {
       if (err || !pendingOrder) {
         socket.emit('aprovar_pedido_qr_resposta', { success: false, error: 'Pedido pendente não encontrado.' });
+        return;
+      }
+
+      if (pendingOrder.status !== 'Pendente') {
+        socket.emit('aprovar_pedido_qr_resposta', { success: true });
         return;
       }
 
@@ -8183,13 +8246,15 @@ app.post('/api/auth/equipe-onboarding', verificarToken, async (req, res) => {
 
   if (!Array.isArray(equipe) || equipe.length === 0) return res.status(400).json({ success: false, error: 'Envie pelo menos um funcionario.' });
 
+  const restauranteNome = await new Promise((resolve) => {
+    masterDb.get(`SELECT nome FROM restaurantes WHERE id = ?`, [restauranteId], (e, r) => resolve(r ? r.nome : null));
+  });
+
   const dbPath = path.join(__dirname, `database_${restauranteId}.sqlite`);
   if (!fsSync.existsSync(dbPath)) {
-    const templatePath = path.join(__dirname, 'database_1.sqlite');
-    if (fsSync.existsSync(templatePath)) {
-      try { fsSync.copyFileSync(templatePath, dbPath); } catch (e) {}
-    }
+    await createFreshTenantDb(dbPath, restauranteNome);
   }
+  if (!fsSync.existsSync(dbPath)) return res.status(500).json({ success: false, error: 'Erro ao criar banco do restaurante.' });
 
   const tenantDb = new sqlite3.Database(dbPath);
   let criados = 0;

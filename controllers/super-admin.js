@@ -44,6 +44,15 @@ module.exports = function (app, masterDb, sqlite3, options) {
     return typeof v === 'string' ? v.trim().substring(0, maxLen) : '';
   }
 
+  function openTenantReadOnly(dbPath) {
+    return new Promise((resolve, reject) => {
+      const db = new sqlite3.Database(dbPath, sqlite3.OPEN_READONLY, (err) => {
+        if (err) return reject(err);
+        db.run('PRAGMA busy_timeout = 5000;', () => resolve(db));
+      });
+    });
+  }
+
   function safeInt(v, min = 0, max = Infinity) {
     const n = parseInt(v, 10);
     return isNaN(n) ? min : Math.max(min, Math.min(max, n));
@@ -196,18 +205,16 @@ module.exports = function (app, masterDb, sqlite3, options) {
           if (pendentes <= 0) finalizar();
           return;
         }
-        const tDb = new sqlite3.Database(tenantDbPath, sqlite3.OPEN_READONLY, errOpen => {
-          if (errOpen) {
-            pendentes--;
-            if (pendentes <= 0) finalizar();
-            return;
-          }
+        openTenantReadOnly(tenantDbPath).then(tDb => {
           tDb.get("SELECT COUNT(*) as c FROM funcionarios WHERE status = 'Ativo'", [], (errCount, rowCount) => {
             if (!errCount && rowCount) item.total_funcionarios = rowCount.c;
             tDb.close();
             pendentes--;
             if (pendentes <= 0) finalizar();
           });
+        }).catch(() => {
+          pendentes--;
+          if (pendentes <= 0) finalizar();
         });
       });
     });
@@ -265,13 +272,14 @@ module.exports = function (app, masterDb, sqlite3, options) {
         );
       });
 
-      // 3) Copiar template do banco do tenant
+      // 3) Criar banco do tenant vazio + schema + dados iniciais
       const tenantDbPath = path.join(__dirname, '..', `database_${newId}.sqlite`);
       if (!fsSync.existsSync(tenantDbPath)) {
-        const templateDb = path.join(__dirname, '..', 'database_1.sqlite');
-        if (fsSync.existsSync(templateDb)) {
-          try { fsSync.copyFileSync(templateDb, tenantDbPath); } catch (e) { }
-        }
+        try {
+          if (typeof options.createFreshTenantDb === 'function') {
+            await options.createFreshTenantDb(tenantDbPath, nome);
+          }
+        } catch (eDb) { alertas.push('Erro ao criar banco: ' + eDb.message); }
       }
 
       // 4) Marcar chave como usada
@@ -427,10 +435,11 @@ module.exports = function (app, masterDb, sqlite3, options) {
           const newId = this.lastID;
           const tenantDbPath = getTenantDbPath(newId);
           if (!fsSync.existsSync(tenantDbPath)) {
-            const templateDb = getTenantDbPath(1);
-            if (fsSync.existsSync(templateDb)) {
-              try { fsSync.copyFileSync(templateDb, tenantDbPath); } catch (e) { }
-            }
+            try {
+              if (typeof options.createFreshTenantDb === 'function') {
+                options.createFreshTenantDb(tenantDbPath, nome).then(() => {});
+              }
+            } catch (e) { }
           }
           res.json({ ok: true, mensagem: 'Restaurante criado com sucesso!', id: newId });
         }
@@ -514,22 +523,21 @@ module.exports = function (app, masterDb, sqlite3, options) {
       try {
         const dbFiles = listarBancosTenant();
         for (const dbPath of dbFiles) {
-          const sales = await new Promise((resolve) => {
-            const tenantDb = new sqlite3.Database(dbPath, sqlite3.OPEN_READONLY, (err) => {
-              if (err) return resolve(0);
-            });
-            tenantDb.get("SELECT name FROM sqlite_master WHERE type='table' AND name='pedidos'", [], (errTable, tableRow) => {
-              if (errTable || !tableRow) {
-                try { tenantDb.close(); } catch (e) { }
-                return resolve(0);
-              }
-              tenantDb.get("SELECT SUM(CAST(REPLACE(COALESCE(total,'0'), ',', '.') AS REAL)) as total_sales FROM pedidos WHERE status IN ('Finalizado', 'Pago')", [], (errQuery, rowQuery) => {
-                try { tenantDb.close(); } catch (e) { }
-                if (errQuery || !rowQuery) resolve(0);
-                else resolve(rowQuery.total_sales || 0);
+          const sales = await openTenantReadOnly(dbPath).then(tenantDb => {
+            return new Promise((resolve) => {
+              tenantDb.get("SELECT name FROM sqlite_master WHERE type='table' AND name='pedidos'", [], (errTable, tableRow) => {
+                if (errTable || !tableRow) {
+                  try { tenantDb.close(); } catch (e) { }
+                  return resolve(0);
+                }
+                tenantDb.get("SELECT SUM(CAST(REPLACE(COALESCE(total,'0'), ',', '.') AS REAL)) as total_sales FROM pedidos WHERE status IN ('Finalizado', 'Pago')", [], (errQuery, rowQuery) => {
+                  try { tenantDb.close(); } catch (e) { }
+                  if (errQuery || !rowQuery) resolve(0);
+                  else resolve(rowQuery.total_sales || 0);
+                });
               });
             });
-          });
+          }).catch(() => 0);
           totalSales += sales;
         }
       } catch (e) {
@@ -576,58 +584,57 @@ module.exports = function (app, masterDb, sqlite3, options) {
         const restId = idMatch ? idMatch[1] : '1';
         const nome = (restId && restNames[restId]) || ('Restaurante #' + restId);
 
-        await new Promise((resolveOpen) => {
-          const tDb = new sqlite3.Database(dbPath, sqlite3.OPEN_READONLY, (errOpen) => {
-            if (errOpen) return resolveOpen();
-          });
-          tDb.get("SELECT name FROM sqlite_master WHERE type='table' AND name='pedidos'", [], (errTable, tableRow) => {
-            if (errTable || !tableRow) { try { tDb.close(); } catch (e) { } return resolveOpen(); }
-            const SQL_TOTAL = `CAST(REPLACE(CAST(total AS TEXT), ',', '.') AS REAL)`;
-            tDb.all(
-              `SELECT substr(createdAt,1,10) as dia, SUM(${SQL_TOTAL}) as total, COUNT(*) as qtd
-               FROM pedidos WHERE status IN ('Finalizado','Pago') AND substr(createdAt,1,10) BETWEEN ? AND ?
-               GROUP BY dia ORDER BY dia`,
-              [de, ate], (errDias, diasRows) => {
-                const vendas_por_dia = (diasRows || []).map(r => ({ dia: r.dia, total: parseFloat(r.total || 0).toFixed(2) }));
-                const total = (diasRows || []).reduce((a, r) => a + (parseFloat(r.total) || 0), 0);
-                const qtd = (diasRows || []).reduce((a, r) => a + (r.qtd || 0), 0);
+        await openTenantReadOnly(dbPath).then(tDb => {
+          return new Promise((resolveOpen) => {
+            tDb.get("SELECT name FROM sqlite_master WHERE type='table' AND name='pedidos'", [], (errTable, tableRow) => {
+              if (errTable || !tableRow) { try { tDb.close(); } catch (e) { } return resolveOpen(); }
+              const SQL_TOTAL = `CAST(REPLACE(CAST(total AS TEXT), ',', '.') AS REAL)`;
+              tDb.all(
+                `SELECT substr(createdAt,1,10) as dia, SUM(${SQL_TOTAL}) as total, COUNT(*) as qtd
+                 FROM pedidos WHERE status IN ('Finalizado','Pago') AND substr(createdAt,1,10) BETWEEN ? AND ?
+                 GROUP BY dia ORDER BY dia`,
+                [de, ate], (errDias, diasRows) => {
+                  const vendas_por_dia = (diasRows || []).map(r => ({ dia: r.dia, total: parseFloat(r.total || 0).toFixed(2) }));
+                  const total = (diasRows || []).reduce((a, r) => a + (parseFloat(r.total) || 0), 0);
+                  const qtd = (diasRows || []).reduce((a, r) => a + (r.qtd || 0), 0);
 
-                tDb.all(
-                  `SELECT productName, SUM(quantity) as qty, SUM(${SQL_TOTAL}) as total
-                   FROM pedidos
-                   WHERE status IN ('Finalizado','Pago') AND substr(createdAt,1,10) BETWEEN ? AND ?
-                     AND productName NOT LIKE 'Pgto %'
-                   GROUP BY productName ORDER BY total DESC LIMIT 5`,
-                  [de, ate], (errTop, topRows) => {
-                    const top_produtos = (topRows || []).map(r => ({ nome: r.productName, qtd: r.qty || 0, total: parseFloat(r.total || 0).toFixed(2) }));
-                    tDb.all(
-                      `SELECT sector, SUM(${SQL_TOTAL}) as total FROM pedidos
-                       WHERE status IN ('Finalizado','Pago') AND substr(createdAt,1,10) BETWEEN ? AND ?
-                         AND productName NOT LIKE 'Pgto %'
-                       GROUP BY sector ORDER BY total DESC`,
-                      [de, ate], (errSet, setRows) => {
-                        try { tDb.close(); } catch (e) { }
-                        restaurantes.push({
-                          id: restId,
-                          nome,
-                          total_vendas: parseFloat(total.toFixed(2)),
-                          pedidos: qtd,
-                          ticket_medio: qtd > 0 ? parseFloat((total / qtd).toFixed(2)) : 0,
-                          vendas_por_dia,
-                          top_produtos,
-                          setores: (setRows || []).map(s => ({ setor: s.sector || 'Geral', total: parseFloat(s.total || 0).toFixed(2) }))
-                        });
-                        totalVendas += total;
-                        totalPedidos += qtd;
-                        resolveOpen();
-                      }
-                    );
-                  }
-                );
-              }
-            );
+                  tDb.all(
+                    `SELECT productName, SUM(quantity) as qty, SUM(${SQL_TOTAL}) as total
+                     FROM pedidos
+                     WHERE status IN ('Finalizado','Pago') AND substr(createdAt,1,10) BETWEEN ? AND ?
+                       AND productName NOT LIKE 'Pgto %'
+                     GROUP BY productName ORDER BY total DESC LIMIT 5`,
+                    [de, ate], (errTop, topRows) => {
+                      const top_produtos = (topRows || []).map(r => ({ nome: r.productName, qtd: r.qty || 0, total: parseFloat(r.total || 0).toFixed(2) }));
+                      tDb.all(
+                        `SELECT sector, SUM(${SQL_TOTAL}) as total FROM pedidos
+                         WHERE status IN ('Finalizado','Pago') AND substr(createdAt,1,10) BETWEEN ? AND ?
+                           AND productName NOT LIKE 'Pgto %'
+                         GROUP BY sector ORDER BY total DESC`,
+                        [de, ate], (errSet, setRows) => {
+                          try { tDb.close(); } catch (e) { }
+                          restaurantes.push({
+                            id: restId,
+                            nome,
+                            total_vendas: parseFloat(total.toFixed(2)),
+                            pedidos: qtd,
+                            ticket_medio: qtd > 0 ? parseFloat((total / qtd).toFixed(2)) : 0,
+                            vendas_por_dia,
+                            top_produtos,
+                            setores: (setRows || []).map(s => ({ setor: s.sector || 'Geral', total: parseFloat(s.total || 0).toFixed(2) }))
+                          });
+                          totalVendas += total;
+                          totalPedidos += qtd;
+                          resolveOpen();
+                        }
+                      );
+                    }
+                  );
+                }
+              );
+            });
           });
-        });
+        }).catch(() => {});
       }
 
       const ranking = restaurantes.slice().sort((a, b) => b.total_vendas - a.total_vendas);
@@ -712,9 +719,7 @@ module.exports = function (app, masterDb, sqlite3, options) {
     const limit = Math.min(200, parseInt(req.query.limit) || 50);
     const offset = Math.max(0, parseInt(req.query.offset) || 0);
 
-    const tDb = new sqlite3.Database(getTenantDbPath(1), sqlite3.OPEN_READONLY, (errOpen) => {
-      if (errOpen) return res.json({ ok: true, rows: [], total: 0 });
-
+    openTenantReadOnly(getTenantDbPath(1)).then(tDb => {
       let query = `SELECT * FROM auditoria`;
       const params = [];
       if (search) {
@@ -730,6 +735,8 @@ module.exports = function (app, masterDb, sqlite3, options) {
         if (err) return res.json({ ok: true, rows: [], total: 0 });
         res.json({ ok: true, rows: rows || [], total: (rows || []).length });
       });
+    }).catch(() => {
+      res.json({ ok: true, rows: [], total: 0 });
     });
   });
 
@@ -838,13 +845,7 @@ module.exports = function (app, masterDb, sqlite3, options) {
           return;
         }
 
-        const tDb = new sqlite3.Database(tenantDbPath, sqlite3.OPEN_READONLY, errOpen => {
-          if (errOpen) {
-            pendentes--;
-            if (pendentes <= 0) finalizar();
-            return;
-          }
-
+        openTenantReadOnly(tenantDbPath).then(tDb => {
           tDb.all(`SELECT * FROM clientes ORDER BY nome`, [], (errC, rows) => {
             const clientes = (!errC && rows) || [];
             if (clientes.length === 0) {
@@ -879,6 +880,9 @@ module.exports = function (app, masterDb, sqlite3, options) {
               });
             });
           });
+        }).catch(() => {
+          pendentes--;
+          if (pendentes <= 0) finalizar();
         });
       });
     });
@@ -893,9 +897,7 @@ module.exports = function (app, masterDb, sqlite3, options) {
       return res.json({ ok: true, funcionarios: [], restaurante_id: restauranteId });
     }
 
-    const tDb = new sqlite3.Database(tenantDbPath, sqlite3.OPEN_READONLY, (errOpen) => {
-      if (errOpen) return res.json({ ok: false, erro: 'Erro ao abrir banco.' });
-
+    openTenantReadOnly(tenantDbPath).then(tDb => {
       tDb.all(`SELECT * FROM funcionarios ORDER BY nome`, [], (err, rows) => {
         try { tDb.close(); } catch (e) { }
         if (err) return res.json({ ok: false, erro: err.message });
@@ -919,6 +921,8 @@ module.exports = function (app, masterDb, sqlite3, options) {
 
         res.json({ ok: true, funcionarios: seguros, restaurante_id: restauranteId });
       });
+    }).catch(() => {
+      res.json({ ok: false, erro: 'Erro ao abrir banco.' });
     });
   });
 

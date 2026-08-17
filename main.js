@@ -6674,7 +6674,7 @@ function renderQrPedidosPendentesList() {
         </div>
         
         <div style="display: flex; gap: 8px; margin-top: 6px;">
-          <button onclick="window.aprovarPedidoQr(${order.id})" style="flex: 1; padding: 10px; background: #3ab55b; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 6px; transition: background 0.15s; outline:none;" onmouseover="this.style.background='#2f9e4f'" onmouseout="this.style.background='#3ab55b'">
+          <button id="btn-qr-approve-${order.id}" onclick="window.aprovarPedidoQr(${order.id})" style="flex: 1; padding: 10px; background: #3ab55b; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 6px; transition: background 0.15s; outline:none;" onmouseover="this.style.background='#2f9e4f'" onmouseout="this.style.background='#3ab55b'">
             <i class="ph ph-check"></i> Aceitar / Enviar p/ Cozinha
           </button>
           <button onclick="window.recusarPedidoQr(${order.id})" style="padding: 10px 14px; background: #fff0f0; color: #c92a2a; border: 1px solid #ffc9c9; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.15s; outline:none;" onmouseover="this.style.background='#ffe3e3'" onmouseout="this.style.background='#fff0f0'">
@@ -6686,7 +6686,19 @@ function renderQrPedidosPendentesList() {
   }).join('');
 }
 
+const approvingQrIds = new Set();
+
 window.aprovarPedidoQr = (id) => {
+  if (approvingQrIds.has(id)) return;
+  approvingQrIds.add(id);
+
+  const btn = document.getElementById('btn-qr-approve-' + id);
+  if (btn) {
+    btn.disabled = true;
+    btn.style.opacity = '0.5';
+    btn.style.cursor = 'not-allowed';
+    btn.innerHTML = '<i class="ph ph-spinner"></i> Enviando...';
+  }
   socket.emit('aprovar_pedido_qr', { id });
 };
 
@@ -6698,6 +6710,11 @@ window.recusarPedidoQr = (id) => {
 socket.on('aprovar_pedido_qr_resposta', (res) => {
   if (res && !res.success) {
     alert(res.error || 'Erro ao aprovar pedido QR.');
+    approvingQrIds.clear();
+  } else if (res && res.success) {
+    const modal = document.getElementById('modal-qr-pedidos-pendentes');
+    if (modal) modal.style.display = 'none';
+    approvingQrIds.clear();
   }
 });
 
