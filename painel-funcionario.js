@@ -864,7 +864,14 @@ window.filtrarCardapio = function(valor) {
   document.querySelectorAll('.cardapio-item').forEach(el => {
     const nomeEl = el.querySelector('.cardapio-item-nome');
     const nome = nomeEl ? nomeEl.innerText : '';
-    const show = !termo || window.FuzzySearch.matchScore(termo, nome) > 0;
+    let show = true;
+    if (termo) {
+      if (window.FuzzySearch) {
+        show = window.FuzzySearch.matchScore(termo, nome) > 0;
+      } else {
+        show = nome.toLowerCase().includes(termo.toLowerCase());
+      }
+    }
     el.style.display = show ? 'flex' : 'none';
   });
 };
@@ -2109,7 +2116,12 @@ window.renderEstoqueAtual = function(filtro) {
     estoqueProdutosCache = prods || [];
     let list = prods || [];
     if (filtro) {
-      list = window.FuzzySearch.filter(list, filtro.trim(), (p) => [p.nome || '', p.categoria || '']);
+      if (window.FuzzySearch) {
+        list = window.FuzzySearch.filter(list, filtro.trim(), (p) => [p.nome || '', p.categoria || '']);
+      } else {
+        const f = filtro.toLowerCase();
+        list = list.filter(p => (p.nome || '').toLowerCase().includes(f) || (p.categoria || '').toLowerCase().includes(f));
+      }
     }
     if (!list.length) {
       el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);">Nenhum produto encontrado.</div>';

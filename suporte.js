@@ -284,10 +284,18 @@ function renderProdutos() {
   var catFiltro = (document.getElementById('prod-categoria-filtro').value || '').trim();
   var filtered = _produtosCache;
   if (search) {
-    filtered = window.FuzzySearch.filter(filtered, search, function(p) { return [p.nome || '']; });
+    if (window.FuzzySearch) {
+      filtered = window.FuzzySearch.filter(filtered, search, function(p) { return [p.nome || '']; });
+    } else {
+      filtered = filtered.filter(function(p) { return (p.nome || '').toLowerCase().includes(search.toLowerCase()); });
+    }
   }
   if (catFiltro) {
-    filtered = window.FuzzySearch.filter(filtered, catFiltro, function(p) { return [p.categoria || '']; });
+    if (window.FuzzySearch) {
+      filtered = window.FuzzySearch.filter(filtered, catFiltro, function(p) { return [p.categoria || '']; });
+    } else {
+      filtered = filtered.filter(function(p) { return (p.categoria || '').toLowerCase().includes(catFiltro.toLowerCase()); });
+    }
   }
   if (filtered.length === 0) {
     container.innerHTML = '<div class="empty-state"><i class="fa-solid fa-utensils"></i><p>Nenhum item no cardápio.</p><button class="btn btn-primary btn-sm" style="margin-top:0.5rem;" onclick="abrirModalProduto(null)"><i class="fa-solid fa-plus"></i> Adicionar Primeiro Item</button></div>';

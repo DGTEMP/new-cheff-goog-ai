@@ -1,6 +1,5 @@
 /* fuzzy-search.js - Smart product search with fuzzy matching */
 window.FuzzySearch = (function() {
-  const DIACRITICS = { 'á':'a','à':'a','ã':'a','â':'a','ä':'a','å':'a','æ':'ae','ç':'c','é':'e','è':'e','ê':'e','ë':'e','í':'i','ì':'i','î':'i','ï':'i','ñ':'n','ó':'o','ò':'o','õ':'o','ô':'o','ö':'o','ø':'o','ú':'u','ù':'u','û':'u','ü':'u','ý':'y','ÿ':'y','ß':'ss','đ':'d' };
 
   function normalize(s) {
     return String(s || '').toLowerCase()
