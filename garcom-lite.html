@@ -432,6 +432,7 @@ body.light .conta-total-row { border-top-color: #ccc; }
 <div class="toast" id="toast"></div>
 
 <script src="/socket.io.min.js"></script>
+<script src="/fuzzy-search.js"></script>
 <script>
   var socket = null;
   var CONFIRMADO = true;
@@ -763,18 +764,20 @@ body.light .conta-total-row { border-top-color: #ccc; }
     h += '</div>';
 
     // Product list with search filter
-    var termo = SEARCH_TERM.toLowerCase().trim();
+    var termo = SEARCH_TERM.trim();
     h += '<div class="prod-list" id="prod-list">';
     var count = 0;
-    for (var i = 0; i < PRODUTOS.length; i++) {
-      var p = PRODUTOS[i];
-      if (termo) {
-        // Search mode: show matching from all categories
-        if (p.nome.toLowerCase().indexOf(termo) === -1 && (p.categoria || '').toLowerCase().indexOf(termo) === -1) continue;
-      } else {
-        // Normal mode: filter by category
-        if (p.categoria !== CAT_ATUAL) continue;
+    var displayProds;
+    if (termo) {
+      displayProds = window.FuzzySearch.filter(PRODUTOS, termo, function(p) { return [p.nome, p.categoria || '']; });
+    } else {
+      displayProds = [];
+      for (var i = 0; i < PRODUTOS.length; i++) {
+        if (PRODUTOS[i].categoria === CAT_ATUAL) displayProds.push(PRODUTOS[i]);
       }
+    }
+    for (var i = 0; i < displayProds.length; i++) {
+      var p = displayProds[i];
       var preco = 'R$ ' + p.preco.toFixed(2).replace('.', ',');
       h += '<div class="prod-item" onclick="abrirProduto(' + p.id + ')">';
       h += '<div class="emoji">' + p.emoji + '</div>';
@@ -810,6 +813,18 @@ body.light .conta-total-row { border-top-color: #ccc; }
   window.selecionarCategoria = function(cat) {
     CAT_ATUAL = cat;
     renderMenu();
+    setTimeout(function() {
+      var wrap = document.querySelector('.cat-wrap');
+      if (wrap) {
+        var active = wrap.querySelector('.cat-btn.active');
+        if (active) {
+          var cw = wrap.clientWidth;
+          var ol = active.offsetLeft;
+          var ow = active.offsetWidth;
+          wrap.scrollTo({ left: Math.max(0, ol - cw / 2 + ow / 2), behavior: 'smooth' });
+        }
+      }
+    }, 30);
   };
 
   window.voltarMesas = function() {

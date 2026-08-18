@@ -564,6 +564,15 @@ function renderCategorias() {
       activeCategoria = chip.getAttribute('data-categoria');
       renderCategorias();
       renderProdutos();
+      setTimeout(() => {
+        const active = container.querySelector('.filter-chip.active');
+        if (active) {
+          const cw = container.clientWidth;
+          const ol = active.offsetLeft;
+          const ow = active.offsetWidth;
+          container.scrollTo({ left: Math.max(0, ol - cw / 2 + ow / 2), behavior: 'smooth' });
+        }
+      }, 30);
     });
   });
 }
@@ -587,10 +596,7 @@ function renderProdutos() {
     filtered = filtered.filter(p => p.categoria === activeCategoria);
   }
   if (searchQuery) {
-    filtered = filtered.filter(p =>
-      p.nome.toLowerCase().includes(searchQuery) ||
-      (p.codigo && String(p.codigo).toLowerCase().includes(searchQuery))
-    );
+    filtered = window.FuzzySearch.filter(filtered, searchQuery.trim(), (p) => [p.nome, String(p.codigo || '')]);
   }
 
   if (filtered.length === 0) {

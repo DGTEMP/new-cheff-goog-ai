@@ -280,13 +280,15 @@ function carregarProdutos() {
 
 function renderProdutos() {
   var container = document.getElementById('produtos-list');
-  var search = (document.getElementById('prod-search').value || '').toLowerCase();
-  var catFiltro = (document.getElementById('prod-categoria-filtro').value || '').toLowerCase();
-  var filtered = _produtosCache.filter(function(p) {
-    if (search && p.nome.toLowerCase().indexOf(search) === -1) return false;
-    if (catFiltro && (p.categoria || '').toLowerCase().indexOf(catFiltro) === -1) return false;
-    return true;
-  });
+  var search = (document.getElementById('prod-search').value || '').trim();
+  var catFiltro = (document.getElementById('prod-categoria-filtro').value || '').trim();
+  var filtered = _produtosCache;
+  if (search) {
+    filtered = window.FuzzySearch.filter(filtered, search, function(p) { return [p.nome || '']; });
+  }
+  if (catFiltro) {
+    filtered = window.FuzzySearch.filter(filtered, catFiltro, function(p) { return [p.categoria || '']; });
+  }
   if (filtered.length === 0) {
     container.innerHTML = '<div class="empty-state"><i class="fa-solid fa-utensils"></i><p>Nenhum item no cardápio.</p><button class="btn btn-primary btn-sm" style="margin-top:0.5rem;" onclick="abrirModalProduto(null)"><i class="fa-solid fa-plus"></i> Adicionar Primeiro Item</button></div>';
     return;

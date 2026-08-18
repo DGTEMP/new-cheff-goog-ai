@@ -2596,16 +2596,10 @@ document.addEventListener('DOMContentLoaded', () => {
     `).join('');
 
     const normCat = (s) => String(s || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-    const query = (window.pdvSearchQuery || '').trim().toLowerCase();
+    const query = (window.pdvSearchQuery || '').trim();
     let filteredProds = [];
     if (query !== '') {
-      const qNorm = normCat(query);
-      filteredProds = window.allProducts.filter(p =>
-        normCat(p.nome).includes(qNorm) ||
-        (p.categoria && normCat(p.categoria).includes(qNorm)) ||
-        (p.codigo && String(p.codigo).toLowerCase().includes(query)) ||
-        (p.id && String(p.id) === query)
-      );
+      filteredProds = window.FuzzySearch.filter(window.allProducts, query, (p) => [p.nome, p.categoria, String(p.codigo || ''), String(p.id || '')]);
     } else {
       filteredProds = window.pdvCurrentCategory === 'Todas' ? window.allProducts : window.allProducts.filter(p => normCat(p.categoria) === normCat(window.pdvCurrentCategory));
     }

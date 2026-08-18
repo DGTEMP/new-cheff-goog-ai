@@ -1378,6 +1378,7 @@
   </style>
 
   <script src="/socket.io.min.js"></script>
+  <script src="/fuzzy-search.js"></script>
 
   <script>
     // Parse URL params to read table name and restaurante id
@@ -1706,6 +1707,18 @@
       activeCategory = cat;
       renderTabs();
       renderMenu();
+      const container = document.getElementById('categories-tabs');
+      if (container) {
+        setTimeout(() => {
+          const active = container.querySelector('.category-tab.active');
+          if (active) {
+            const cw = container.clientWidth;
+            const ol = active.offsetLeft;
+            const ow = active.offsetWidth;
+            container.scrollTo({ left: Math.max(0, ol - cw / 2 + ow / 2), behavior: 'smooth' });
+          }
+        }, 30);
+      }
     };
 
     function renderMenu() {
@@ -1717,8 +1730,8 @@
       }
 
       if (searchFilter.trim() !== '') {
-        const q = searchFilter.toLowerCase();
-        filtered = filtered.filter(p => p.nome.toLowerCase().includes(q));
+        const q = searchFilter.trim();
+        filtered = window.FuzzySearch.filter(filtered, q, (p) => [p.nome, p.categoria || '']);
       }
 
       if (filtered.length === 0) {

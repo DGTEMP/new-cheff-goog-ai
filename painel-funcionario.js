@@ -860,11 +860,12 @@ window.buscarProdutoBarcodeConsumo = function() {
 };
 
 window.filtrarCardapio = function(valor) {
-  const termo = valor.toLowerCase();
+  const termo = (valor || '').trim();
   document.querySelectorAll('.cardapio-item').forEach(el => {
     const nomeEl = el.querySelector('.cardapio-item-nome');
-    const nome = nomeEl ? nomeEl.innerText.toLowerCase() : '';
-    el.style.display = nome.includes(termo) ? 'flex' : 'none';
+    const nome = nomeEl ? nomeEl.innerText : '';
+    const show = !termo || window.FuzzySearch.matchScore(termo, nome) > 0;
+    el.style.display = show ? 'flex' : 'none';
   });
 };
 
@@ -2108,8 +2109,7 @@ window.renderEstoqueAtual = function(filtro) {
     estoqueProdutosCache = prods || [];
     let list = prods || [];
     if (filtro) {
-      const f = filtro.toLowerCase();
-      list = list.filter(p => p.nome?.toLowerCase().includes(f) || p.categoria?.toLowerCase().includes(f));
+      list = window.FuzzySearch.filter(list, filtro.trim(), (p) => [p.nome || '', p.categoria || '']);
     }
     if (!list.length) {
       el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);">Nenhum produto encontrado.</div>';

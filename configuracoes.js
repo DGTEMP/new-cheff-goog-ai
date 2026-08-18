@@ -3221,11 +3221,12 @@ function renderFilaItens() {
 }
 
 window.filtrarItensFila = function() {
-  const q = (document.getElementById('fila-itens-busca').value || '').toLowerCase().trim();
+  const q = (document.getElementById('fila-itens-busca').value || '').trim();
   document.querySelectorAll('#fila-itens-list label').forEach(label => {
     const nome = label.getAttribute('data-fila-item-label') || '';
     const cat = label.getAttribute('data-fila-item-cat') || '';
-    label.style.display = (!q || nome.includes(q) || cat.includes(q)) ? '' : 'none';
+    const show = !q || window.FuzzySearch.matchScore(q, nome) > 0 || window.FuzzySearch.matchScore(q, cat) > 0;
+    label.style.display = show ? '' : 'none';
   });
 };
 

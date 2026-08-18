@@ -1509,7 +1509,7 @@ window.renderMenu = function renderMenu() {
   const query = window.garcomSearchQuery || '';
   let filtered = [];
   if (query.trim() !== '') {
-    filtered = MENU.filter(m => m.name.toLowerCase().includes(query) || (m.category && m.category.toLowerCase().includes(query)));
+    filtered = window.FuzzySearch.filter(MENU, query.trim(), (m) => [m.name, m.category || '']);
   } else {
     filtered = MENU.filter(m => m.category === currentTab);
   }
