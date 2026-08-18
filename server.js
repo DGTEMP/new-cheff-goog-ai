@@ -2084,6 +2084,8 @@ db.serialize(() => {
   db.run(`ALTER TABLE hub_pedidos ADD COLUMN canal_ref TEXT`, (err) => { });
   db.run(`ALTER TABLE hub_pedidos ADD COLUMN merchant_id TEXT`, (err) => { });
   db.run(`ALTER TABLE hub_pedidos ADD COLUMN ifood_json TEXT`, (err) => { });
+  db.run(`ALTER TABLE hub_pedidos ADD COLUMN enviado_cozinha INTEGER DEFAULT 0`, (err) => { });
+  db.run(`ALTER TABLE hub_pedidos ADD COLUMN pedido_link_ids TEXT DEFAULT '[]'`, (err) => { });
 
   db.run(`
     CREATE TABLE IF NOT EXISTS ifood_connections (
@@ -3346,6 +3348,31 @@ io.on('connection', (socket) => {
         io.emit('status_atualizado', row);
         io.emit('pedidos_atualizados');
 
+        // --- HUB DELIVERY SYNC: quando pedido Delivery muda status, atualiza hub ---
+        if (row.sector === 'Delivery' && row.mesa_comanda && row.mesa_comanda.startsWith('Hub #')) {
+          const hubMatch = String(row.mesa_comanda).replace('Hub #', '');
+          db.get(`SELECT * FROM hub_pedidos WHERE id = ? OR codigo = ?`, [hubMatch, hubMatch], (errHub, hubRow) => {
+            if (!hubRow) return;
+            let linkIds = [];
+            try { linkIds = JSON.parse(hubRow.pedido_link_ids || '[]'); } catch (e) { linkIds = []; }
+            if (!linkIds.length) return;
+
+            if (status === 'Pronto') {
+              const placeholders = linkIds.map(() => '?').join(',');
+              db.all(`SELECT status FROM pedidos WHERE id IN (${placeholders})`, linkIds, (errAll, rows) => {
+                const todosProntos = rows && rows.every(r => r.status === 'Pronto');
+                if (todosProntos) {
+                  db.run(`UPDATE hub_pedidos SET status = 'Pronto', atualizado_em = datetime('now','localtime') WHERE id = ?`, [hubRow.id], () => broadcastHubPedidos());
+                }
+              });
+            } else if (status === 'Em preparo') {
+              if (hubRow.status === 'Recebido' || hubRow.status === 'Pronto') {
+                db.run(`UPDATE hub_pedidos SET status = 'Em preparo', atualizado_em = datetime('now','localtime') WHERE id = ?`, [hubRow.id], () => broadcastHubPedidos());
+              }
+            }
+          });
+        }
+
         // Notify customer about order status
         if (row.localName) {
           io.to(`mesa_${row.localName}`).emit('pedido_status_cliente', {
@@ -4044,12 +4071,43 @@ io.on('connection', (socket) => {
             .then(() => console.log(`[iFood] Status "${novoStatus}" enviado para o pedido ${row.canal_ref}`))
             .catch(e => console.error('[iFood] Falha ao sincronizar status:', e.message || e));
         }
+        // --- HUB DELIVERY SYNC: quando hub reverso status, atualiza pedidos vinculados ---
+        if (row && row.enviado_cozinha && row.pedido_link_ids) {
+          let linkIds = [];
+          try { linkIds = JSON.parse(row.pedido_link_ids || '[]'); } catch (e) { linkIds = []; }
+          if (linkIds.length) {
+            let pedidoStatus;
+            if (novoStatus === 'Recebido' || novoStatus === 'Cancelado') pedidoStatus = 'Cancelado';
+            else if (novoStatus === 'Em preparo') pedidoStatus = 'Em preparo';
+            else if (novoStatus === 'Pronto') pedidoStatus = 'Pronto';
+            if (pedidoStatus) {
+              const placeholders = linkIds.map(() => '?').join(',');
+              db.run(`UPDATE pedidos SET status = ? WHERE id IN (${placeholders})`, [pedidoStatus, ...linkIds], () => broadcastPedidos());
+            }
+          }
+        }
       });
     });
   });
 
   socket.on('hub_deletar_pedido', (id) => {
-    db.run(`DELETE FROM hub_pedidos WHERE id=?`, [id], () => broadcastHubPedidos());
+    db.get(`SELECT pedido_link_ids, enviado_cozinha FROM hub_pedidos WHERE id=?`, [id], (err, row) => {
+      if (row && row.enviado_cozinha && row.pedido_link_ids) {
+        let linkIds = [];
+        try { linkIds = JSON.parse(row.pedido_link_ids || '[]'); } catch (e) { linkIds = []; }
+        if (linkIds.length) {
+          const placeholders = linkIds.map(() => '?').join(',');
+          db.run(`UPDATE pedidos SET status = 'Cancelado' WHERE id IN (${placeholders})`, linkIds, () => {
+            db.run(`DELETE FROM hub_pedidos WHERE id=?`, [id], () => {
+              broadcastHubPedidos();
+              broadcastPedidos();
+            });
+          });
+          return;
+        }
+      }
+      db.run(`DELETE FROM hub_pedidos WHERE id=?`, [id], () => broadcastHubPedidos());
+    });
   });
 
   socket.on('hub_get_config', () => {
@@ -4066,6 +4124,108 @@ io.on('connection', (socket) => {
     });
     db.run(`INSERT INTO configuracoes (chave, valor) VALUES ('hub_delivery_config', ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor`, [valor], () => {
       lerHubConfig((c) => io.emit('hub_config_atualizada', c));
+    });
+  });
+
+  // --- HUB DELIVERY → COZINHA: Enviar pedido para fila de preparo ---
+  socket.on('hub_enviar_para_cozinha', (hubPedidoId) => {
+    if (!socket.auth) return;
+    const idNum = parseInt(hubPedidoId, 10);
+    if (isNaN(idNum)) return;
+
+    db.get(`SELECT * FROM hub_pedidos WHERE id = ?`, [idNum], (err, hub) => {
+      if (!hub) return socket.emit('hub_erro', 'Pedido não encontrado.');
+      if (hub.enviado_cozinha) return socket.emit('hub_erro', 'Este pedido já foi enviado para a cozinha.');
+
+      let itens = [];
+      try { itens = typeof hub.itens === 'string' ? JSON.parse(hub.itens || '[]') : (hub.itens || []); } catch (e) { itens = []; }
+      if (!itens.length) return socket.emit('hub_erro', 'Pedido sem itens.');
+
+      const canal = hub.canal || 'Próprio';
+      const localName = 'Delivery - ' + canal;
+      const comandaNome = 'Hub #' + (hub.codigo || hub.id);
+      const clienteNome = hub.cliente || '';
+      const obsParts = [];
+      if (hub.obs) obsParts.push(hub.obs);
+      if (hub.endereco) obsParts.push('Endereço: ' + hub.endereco + (hub.referencia ? ' (ref: ' + hub.referencia + ')' : ''));
+      if (hub.telefone) obsParts.push('Tel: ' + hub.telefone);
+      const observations = obsParts.join(' | ');
+
+      const insertStmt = `INSERT INTO pedidos (productName, productEmoji, quantity, time, localName, userName, total, status, sector, paymentMethod, observations, mesa_comanda, createdAt)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'Pendente', 'Delivery', ?, ?, ?, datetime('now','localtime'))`;
+
+      let insertsDone = 0;
+      let insertsFailed = 0;
+      const pedidoIds = [];
+
+      itens.forEach((item) => {
+        const qtd = parseInt(item.qtd) || 1;
+        const precoUnit = parseFloat(item.preco) || 0;
+        const itemTotal = (precoUnit * qtd).toFixed(2);
+        const emoji = item.emoji || '🍽️';
+
+        db.run(insertStmt, [
+          item.nome || 'Item',
+          emoji,
+          qtd,
+          new Date().toISOString(),
+          localName,
+          clienteNome,
+          itemTotal,
+          hub.pagamento || '',
+          observations,
+          comandaNome
+        ], function (insErr) {
+          if (insErr) {
+            insertsFailed++;
+            console.error('[Hub→Cozinha] Erro ao inserir item:', insErr.message);
+          } else {
+            pedidoIds.push(this.lastID);
+            insertsDone++;
+          }
+          if (insertsDone + insertsFailed === itens.length) {
+            const idsJson = JSON.stringify(pedidoIds);
+            db.run(`UPDATE hub_pedidos SET enviado_cozinha = 1, pedido_link_ids = ?, status = 'Em preparo', atualizado_em = datetime('now','localtime') WHERE id = ?`,
+              [idsJson, idNum], () => {
+                broadcastHubPedidos();
+                broadcastPedidos();
+                socket.emit('hub_pedido_enviado_cozinha', { hubId: idNum, pedidoIds, comanda: comandaNome });
+                sendPush('garcom', '🍽️ Novo Delivery!', `${canal} — ${clienteNome} — ${itens.length} item(ns)`, 'hub-' + idNum, '/fila-pedidos.html');
+              });
+          }
+        });
+      });
+    });
+  });
+
+  socket.on('hub_desfazer_cozinha', (hubPedidoId) => {
+    if (!socket.auth) return;
+    const idNum = parseInt(hubPedidoId, 10);
+    if (isNaN(idNum)) return;
+
+    db.get(`SELECT * FROM hub_pedidos WHERE id = ?`, [idNum], (err, hub) => {
+      if (!hub || !hub.enviado_cozinha) return;
+
+      let pedidoIds = [];
+      try { pedidoIds = JSON.parse(hub.pedido_link_ids || '[]'); } catch (e) { pedidoIds = []; }
+
+      if (pedidoIds.length) {
+        const placeholders = pedidoIds.map(() => '?').join(',');
+        db.run(`UPDATE pedidos SET status = 'Cancelado' WHERE id IN (${placeholders})`, pedidoIds, () => {
+          db.run(`UPDATE hub_pedidos SET enviado_cozinha = 0, pedido_link_ids = '[]', status = 'Recebido', atualizado_em = datetime('now','localtime') WHERE id = ?`,
+            [idNum], () => {
+              broadcastHubPedidos();
+              broadcastPedidos();
+              socket.emit('hub_pedido_desfeito_cozinha', { hubId: idNum });
+            });
+        });
+      } else {
+        db.run(`UPDATE hub_pedidos SET enviado_cozinha = 0, pedido_link_ids = '[]', status = 'Recebido', atualizado_em = datetime('now','localtime') WHERE id = ?`,
+          [idNum], () => {
+            broadcastHubPedidos();
+            socket.emit('hub_pedido_desfeito_cozinha', { hubId: idNum });
+          });
+      }
     });
   });
 

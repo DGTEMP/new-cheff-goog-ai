@@ -156,6 +156,26 @@
     .ifood-actions .btn { flex: 1; min-width: 140px; justify-content: center; }
     .ifood-link { color: #4ade80; font-weight: 700; word-break: break-all; }
     button.btn.danger { background: rgba(239,68,68,.15); color: #f87171; border-color: rgba(239,68,68,.4); }
+
+    /* --- HUB → COZINHA --- */
+    .badge-cozinha { background: rgba(251,146,60,.18) !important; color: #fb923c !important; border: 1px solid rgba(251,146,60,.4) !important; animation: pulseCozinha 2s infinite; }
+    @keyframes pulseCozinha { 0%,100% { opacity: 1; } 50% { opacity: .7; } }
+    .card.em-cozinha { border: 1px solid rgba(251,146,60,.3); }
+    .card-cozinha-actions { padding: 10px 14px 6px; border-top: 1px solid rgba(255,255,255,.06); }
+    .btn-cozinha {
+      display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%;
+      padding: 10px 14px; border-radius: 8px; font-family: 'Inter', sans-serif; font-size: 13px;
+      font-weight: 700; cursor: pointer; border: none; transition: .15s;
+    }
+    .btn-cozinha.enviar {
+      background: linear-gradient(135deg, #f97316, #ea580c); color: #fff;
+    }
+    .btn-cozinha.enviar:hover { filter: brightness(1.15); transform: translateY(-1px); }
+    .btn-cozinha.desfazer {
+      background: rgba(255,255,255,.06); color: #8b95ad; border: 1px solid rgba(255,255,255,.1);
+    }
+    .btn-cozinha.desfazer:hover { background: rgba(239,68,68,.12); color: #f87171; border-color: rgba(239,68,68,.3); }
+
     @media (max-width: 900px) {
       main { flex-direction: column; align-items: stretch; }
       .col { max-width: none; }
@@ -467,9 +487,20 @@
         return '<div class="item"><span><span class="qty">' + (parseInt(it.qtd) || 1) + 'x</span> ' + esc(it.nome || '') + '</span><span>' + fmtR(it.preco ? (parseFloat(it.preco) * (parseInt(it.qtd) || 1)) : (it.total || 0)) + '</span></div>';
       }).join('');
       var statusOpts = FLUXO.map(function (s) { return '<option' + (p.status === s ? ' selected' : '') + '>' + s + '</option>'; }).join('');
-      return '<div class="card' + (atr ? ' atrasado' : '') + '" data-id="' + p.id + '">' +
+
+      var cozinhaBadge = '';
+      var cozinhaBtn = '';
+      if (p.enviado_cozinha) {
+        cozinhaBadge = '<span class="badge badge-cozinha"><i class="ph ph-fire"></i> Na Cozinha</span>';
+        cozinhaBtn = '<button class="btn-cozinha desfazer" data-desfazer="' + p.id + '" title="Desfazer — voltar para o hub"><i class="ph ph-arrow-u-up-left"></i> Desfazer</button>';
+      } else {
+        cozinhaBtn = '<button class="btn-cozinha enviar" data-enviar="' + p.id + '" title="Enviar para a fila de preparo da cozinha"><i class="ph ph-fire"></i> Enviar para Cozinha</button>';
+      }
+
+      return '<div class="card' + (atr ? ' atrasado' : '') + (p.enviado_cozinha ? ' em-cozinha' : '') + '" data-id="' + p.id + '">' +
         '<div class="card-top">' +
         '<span class="badge ' + badgeCls(p.canal) + '">' + esc(p.canal || 'Próprio') + '</span>' +
+        cozinhaBadge +
         (p.codigo ? '<span class="codigo">' + esc(p.codigo) + '</span>' : '') +
         '<span class="tempo' + (atr ? ' atrasado' : '') + '"><i class="ph ph-clock-bold"></i> ' + tempoTexto(p.criado_em) + '</span>' +
         '</div>' +
@@ -488,7 +519,9 @@
         '<button class="step" data-prev title="Anterior"><i class="ph ph-minus-bold"></i></button>' +
         '<button class="step" data-next title="Próximo"><i class="ph ph-plus-bold"></i></button>' +
         '<button class="step danger" data-del title="Excluir"><i class="ph ph-trash-bold"></i></button>' +
-        '</div></div>';
+        '</div>' +
+        '<div class="card-cozinha-actions">' + cozinhaBtn + '</div>' +
+        '</div>';
     }
 
     function render() {
@@ -666,10 +699,28 @@
     // ---- EVENT DELEGATION ----
     document.addEventListener('click', function (e) {
       var t = e.target;
+      var enviarBtn = t.closest('[data-enviar]');
+      if (enviarBtn) {
+        var id = parseInt(enviarBtn.getAttribute('data-enviar'), 10);
+        if (confirm('Enviar este pedido para a fila de preparo da cozinha?')) {
+          socket.emit('hub_enviar_para_cozinha', id);
+          enviarBtn.disabled = true;
+          enviarBtn.innerHTML = '<i class="ph ph-spinner"></i> Enviando...';
+        }
+        return;
+      }
+      var desfazerBtn = t.closest('[data-desfazer]');
+      if (desfazerBtn) {
+        var id2 = parseInt(desfazerBtn.getAttribute('data-desfazer'), 10);
+        if (confirm('Desfazer envio? Os pedidos na cozinha serão cancelados.')) {
+          socket.emit('hub_desfazer_cozinha', id2);
+        }
+        return;
+      }
       var del = t.closest('[data-del]');
       if (del) {
-        var id = del.closest('[data-id]').getAttribute('data-id');
-        if (confirm('Excluir este pedido?')) socket.emit('hub_deletar_pedido', id);
+        var id3 = del.closest('[data-id]').getAttribute('data-id');
+        if (confirm('Excluir este pedido?')) socket.emit('hub_deletar_pedido', id3);
         return;
       }
       var prev = t.closest('[data-prev]');
@@ -801,6 +852,13 @@
     // ---- SOCKET ----
     socket.on('hub_pedidos_atualizados', function (lista) { state.pedidos = lista || []; render(); });
     socket.on('hub_config_atualizada', function (cfg) { if (cfg) state.config = cfg; renderBanner(); });
+    socket.on('hub_erro', function (msg) { toast(msg || 'Erro ao processar.', 'err'); });
+    socket.on('hub_pedido_enviado_cozinha', function (data) {
+      if (data && data.comanda) toast('Enviado para cozinha! Comanda: ' + data.comanda, 'ok');
+    });
+    socket.on('hub_pedido_desfeito_cozinha', function (data) {
+      if (data) toast('Envio para cozinha desfeito.', 'ok');
+    });
     socket.on('funcionarios_atualizados', function (funcs) {
       state.funcionarios = funcs || [];
       var sel = $id('np-entregador');
