@@ -17,9 +17,9 @@ document.addEventListener('click', () => {
 
 document.getElementById('menu-abrir-caixa').onclick = () => document.getElementById('btn-abrir-caixa').click();
 document.getElementById('menu-fechar-caixa').onclick = () => document.getElementById('btn-fechar-caixa').click();
-document.getElementById('menu-cadastro').onclick = () => { document.getElementById('admin-overlay').style.display='flex'; };
-document.getElementById('menu-configuracoes').onclick = () => { document.getElementById('admin-overlay').style.display='flex'; };
-document.getElementById('menu-ajuda').onclick = () => alert('Sistema GrandChef Cozinha\nVersão 1.0\nAtalhos:\nF5 - Atualizar\nObrigado por usar!');
+document.getElementById('menu-cadastro').onclick = () => { document.getElementById('admin-overlay').style.display = 'flex'; };
+document.getElementById('menu-configuracoes').onclick = () => { document.getElementById('admin-overlay').style.display = 'flex'; };
+document.getElementById('menu-ajuda').onclick = () => alert('Sistema Chef Cozinha\nVersão 1.2\nAtalhos:\nF5 - Atualizar\nObrigado por usar!');
 
 // --- RELATORIOS OVERLAY ---
 const relatoriosOverlay = document.getElementById('relatorios-overlay');
@@ -55,7 +55,7 @@ document.getElementById('btn-fechar-financeiro').onclick = () => financeiroOverl
 document.getElementById('btn-financeiro-add-despesa').onclick = () => {
   const desc = document.getElementById('financeiro-despesa-desc').value;
   const val = parseFloat(document.getElementById('financeiro-despesa-valor').value);
-  if(!desc || !val) return alert('Preencha descrição e valor!');
+  if (!desc || !val) return alert('Preencha descrição e valor!');
   socket.emit('add_despesa', { valor: val, descricao: desc });
   document.getElementById('financeiro-despesa-desc').value = '';
   document.getElementById('financeiro-despesa-valor').value = '';
@@ -68,6 +68,6 @@ socket.on('financeiro_atualizado', (rows) => {
       <td style="padding: 10px;">${r.tipo === 'Entrada' ? '<span style="color:#3ab55b; font-weight:bold;">Entrada</span>' : '<span style="color:#eb5757; font-weight:bold;">Saída</span>'}</td>
       <td style="padding: 10px;">${r.descricao}</td>
       <td style="padding: 10px;">${r.forma_pagamento}</td>
-      <td style="padding: 10px; text-align: right; font-weight:bold; color: ${r.tipo === 'Entrada' ? '#3ab55b' : '#eb5757'}">R$ ${(r.valor||0).toFixed(2).replace('.', ',')}</td>
+      <td style="padding: 10px; text-align: right; font-weight:bold; color: ${r.tipo === 'Entrada' ? '#3ab55b' : '#eb5757'}">R$ ${(r.valor || 0).toFixed(2).replace('.', ',')}</td>
     </tr>`).join('');
 });
