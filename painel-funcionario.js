@@ -293,6 +293,16 @@ window.addEventListener('pageshow', () => {
 // ==========================================
 // SOCKET EVENT LISTENERS
 // ==========================================
+
+// Re-fetch all data after socket reconnects (e.g. after tenant_atualizado)
+socket.on('connect', () => {
+  if (currentUser && currentUser.id) {
+    socket.emit('get_metricas_funcionario', currentUser.id);
+    socket.emit('get_restaurante_config');
+    socket.emit('get_meu_consumo', currentUser.id);
+  }
+});
+
 socket.on('login_error', (msg) => {
   resetLoginBtn();
   localStorage.removeItem('chef_credentials');

@@ -3581,6 +3581,7 @@ io.on('connection', (socket) => {
     checkCaixa,
     activePaymentLocks,
     broadcastPedidos,
+    broadcastMesaClientes,
     mesasFechando,
     licenseManager,
     verificarSenhaAdmin,

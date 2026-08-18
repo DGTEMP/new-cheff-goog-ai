@@ -1,5 +1,5 @@
 module.exports = function(socket, io, db, helpers) {
-  const { checkCaixa, activePaymentLocks, broadcastPedidos, mesasFechando, licenseManager, verificarSenhaAdmin, verificarPinOuSenha, verificarSenhaFuncionario, getLocalTimestamp } = helpers;
+  const { checkCaixa, activePaymentLocks, broadcastPedidos, broadcastMesaClientes, mesasFechando, licenseManager, verificarSenhaAdmin, verificarPinOuSenha, verificarSenhaFuncionario, getLocalTimestamp } = helpers;
 
   function fidelidadeNivel(totalGasto, cfg) {
     const prata = parseFloat(cfg.fidelidade_nivel_prata) || 500;
