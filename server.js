@@ -1520,6 +1520,7 @@ db.serialize(() => {
   db.run(`ALTER TABLE clientes ADD COLUMN pontos INTEGER DEFAULT 0`, (err) => { });
   db.run(`ALTER TABLE clientes ADD COLUMN total_gasto REAL DEFAULT 0`, (err) => { });
   db.run(`ALTER TABLE clientes ADD COLUMN nivel TEXT DEFAULT 'Bronze'`, (err) => { });
+  db.run(`ALTER TABLE fila_espera ADD COLUMN mesa_ofertada TEXT`, (err) => { });
 
   db.run(`
     CREATE TABLE IF NOT EXISTS cliente_visitas (
@@ -1575,6 +1576,7 @@ db.serialize(() => {
       mesa_preferida TEXT,
       observacao TEXT,
       status TEXT DEFAULT 'Esperando',
+      mesa_ofertada TEXT,
       mesa_acomodado TEXT,
       criado_em DATETIME DEFAULT (datetime('now', 'localtime')),
       atualizado_em DATETIME
@@ -1855,6 +1857,7 @@ db.serialize(() => {
       mesa_preferida TEXT,
       observacao TEXT,
       status TEXT DEFAULT 'Esperando',
+      mesa_ofertada TEXT,
       mesa_acomodado TEXT,
       criado_em DATETIME DEFAULT (datetime('now', 'localtime')),
       atualizado_em DATETIME
@@ -3604,32 +3607,62 @@ io.on('connection', (socket) => {
   });
 
   socket.on('criar_pedido_qr', (data) => {
-    // data: { mesa, cliente_nome, itens, valor_total, pago_pix, chave_pix, cliente_id, comanda_nome }
-    const { mesa, cliente_nome, itens, valor_total, pago_pix, chave_pix, cliente_id, comanda_nome } = data;
-    const itensStr = JSON.stringify(itens);
-    const isPaid = pago_pix ? 1 : 0;
+    // data: { mesa, cliente_nome, itens, valor_total, pago_pix, chave_pix, cliente_id, comanda_nome, is_fila }
+    const { mesa, cliente_nome, itens, valor_total, pago_pix, chave_pix, cliente_id, comanda_nome, is_fila } = data;
 
-    db.run(
-      `INSERT INTO qr_pedidos_pendentes (mesa, cliente_nome, itens_json, valor_total, pago_pix, chave_pix, status, cliente_id, comanda_nome) VALUES (?, ?, ?, ?, ?, ?, 'Pendente', ?, ?)`,
-      [mesa, cliente_nome, itensStr, parseFloat(valor_total) || 0, isPaid, chave_pix || '', cliente_id || null, comanda_nome || ''],
-      function (err) {
-        if (err) {
-          console.error('[QR Order] Erro ao criar pedido pendente:', err);
-          socket.emit('criar_pedido_qr_resposta', { success: false, error: 'Erro ao registrar pedido pendente.' });
-          return;
-        }
-
-        const pedidoId = this.lastID;
-        socket.emit('criar_pedido_qr_resposta', { success: true, id: pedidoId });
-
-        // Notify all cashiers
-        db.all(`SELECT * FROM qr_pedidos_pendentes WHERE status = 'Pendente' ORDER BY createdAt DESC`, [], (errList, rows) => {
-          if (!errList) {
-            io.emit('qr_pedidos_pendentes_list', rows || []);
+    function insertPedido() {
+      const itensStr = JSON.stringify(itens);
+      const isPaid = pago_pix ? 1 : 0;
+      db.run(
+        `INSERT INTO qr_pedidos_pendentes (mesa, cliente_nome, itens_json, valor_total, pago_pix, chave_pix, status, cliente_id, comanda_nome) VALUES (?, ?, ?, ?, ?, ?, 'Pendente', ?, ?)`,
+        [mesa, cliente_nome, itensStr, parseFloat(valor_total) || 0, isPaid, chave_pix || '', cliente_id || null, comanda_nome || ''],
+        function (err) {
+          if (err) {
+            console.error('[QR Order] Erro ao criar pedido pendente:', err);
+            socket.emit('criar_pedido_qr_resposta', { success: false, error: 'Erro ao registrar pedido pendente.' });
+            return;
           }
+          const pedidoId = this.lastID;
+          socket.emit('criar_pedido_qr_resposta', { success: true, id: pedidoId });
+          db.all(`SELECT * FROM qr_pedidos_pendentes WHERE status = 'Pendente' ORDER BY createdAt DESC`, [], (errList, rows) => {
+            if (!errList) io.emit('qr_pedidos_pendentes_list', rows || []);
+          });
+        }
+      );
+    }
+
+    if (is_fila) {
+      db.all(`SELECT chave, valor FROM configuracoes WHERE chave IN ('fila_restricao_habilitada','fila_restricao_tipo','fila_categorias_liberadas','fila_itens_liberados')`, [], (eCfg, cfgRows) => {
+        const cfg = {};
+        if (cfgRows) cfgRows.forEach(r => cfg[r.chave] = r.valor);
+        if (cfg.fila_restricao_habilitada !== 'true') return insertPedido();
+        const tipo = cfg.fila_restricao_tipo || 'nenhum';
+        if (tipo === 'nenhum') return insertPedido();
+        const itemIds = (itens || []).map(i => i.productName);
+        db.all(`SELECT id, nome, categoria FROM produtos`, [], (eProds, prods) => {
+          const restricted = [];
+          (itens || []).forEach(item => {
+            const prod = (prods || []).find(p => p.id === item.id || p.nome === item.productName);
+            if (!prod) return;
+            let allowed = true;
+            if (tipo === 'categorias') {
+              let cats = []; try { cats = JSON.parse(cfg.fila_categorias_liberadas || '[]'); } catch(e) {}
+              allowed = cats.includes(prod.categoria);
+            } else if (tipo === 'itens') {
+              let ids = []; try { ids = JSON.parse(cfg.fila_itens_liberados || '[]'); } catch(e) {}
+              allowed = ids.includes(prod.id);
+            }
+            if (!allowed) restricted.push(prod.nome);
+          });
+          if (restricted.length > 0) {
+            return socket.emit('criar_pedido_qr_resposta', { success: false, error: 'Itens restritos na fila: ' + restricted.join(', ') + '. Aguarde a liberacao da mesa para pedir estes itens.' });
+          }
+          insertPedido();
         });
-      }
-    );
+      });
+    } else {
+      insertPedido();
+    }
   });
 
   socket.on('aprovar_pedido_qr', ({ id }) => {

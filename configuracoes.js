@@ -459,6 +459,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (typeof window.initResolucaoTab === 'function') window.initResolucaoTab();
     if (typeof window.initMaquininhasTab === 'function') window.initMaquininhasTab();
     if (typeof window.initSoundTab === 'function') window.initSoundTab();
+    initFilaEsperaTab();
   }).catch(err => {
     console.error('Erro ao carregar configs:', err);
     initGeraisTab();
@@ -3151,6 +3152,125 @@ window.editarOfertaFidelidade = (id) => {
 
 window.deleteOfertaFidelidade = (id) => {
   if (confirm('Excluir esta oferta?')) socket.emit('delete_oferta_fidelidade', id);
+};
+
+// --- FILA DE ESPERA: CONFIGURACAO DE RESTRICAO DE PRODUTOS ---
+let filaProdutosCache = [];
+let filaCategoriasCache = [];
+
+function initFilaEsperaTab() {
+  const chk = document.getElementById('fila-habilitada');
+  const msg = document.getElementById('fila-mensagem-restricao');
+  if (chk) chk.checked = (configs.fila_restricao_habilitada === 'true');
+  if (msg) msg.value = configs.fila_mensagem_restricao || 'Este item somente estara disponivel apos a liberacao da sua mesa. Aproveite para pedir bebidas e porcoes!';
+
+  const tipo = configs.fila_restricao_tipo || 'nenhum';
+  const radios = document.querySelectorAll('input[name="fila-restricao-tipo"]');
+  radios.forEach(r => {
+    r.checked = (r.value === tipo);
+    r.addEventListener('change', () => toggleFilaRestricaoTipo(r.value));
+  });
+  toggleFilaRestricaoTipo(tipo);
+
+  socket.emit('get_produtos');
+  socket.once('produtos_atualizados', (prods) => {
+    filaProdutosCache = (prods || []).filter(p => p.status !== 'inativo');
+    filaCategoriasCache = [...new Set(filaProdutosCache.map(p => p.categoria))];
+    renderFilaCategorias();
+    renderFilaItens();
+  });
+}
+
+function toggleFilaRestricaoTipo(tipo) {
+  const catWrap = document.getElementById('fila-categorias-wrap');
+  const itensWrap = document.getElementById('fila-itens-wrap');
+  if (catWrap) catWrap.style.display = (tipo === 'categorias') ? 'block' : 'none';
+  if (itensWrap) itensWrap.style.display = (tipo === 'itens') ? 'block' : 'none';
+
+  document.querySelectorAll('input[name="fila-restricao-tipo"]').forEach(r => {
+    const label = r.closest('label');
+    if (label) label.style.borderColor = r.checked ? '#d97706' : '#e5e7eb';
+  });
+}
+
+function renderFilaCategorias() {
+  const container = document.getElementById('fila-categorias-list');
+  if (!container) return;
+  const liberadas = (typeof configs.fila_categorias_liberadas === 'string') ? JSON.parse(configs.fila_categorias_liberadas || '[]') : (configs.fila_categorias_liberadas || []);
+  container.innerHTML = filaCategoriasCache.map(cat => {
+    const checked = liberadas.includes(cat) ? 'checked' : '';
+    return '<label style="display:flex; align-items:center; gap:8px; background:white; padding:10px 14px; border-radius:8px; border:1px solid #e5e7eb; cursor:pointer; transition:border 0.2s;">' +
+      '<input type="checkbox" data-fila-cat="' + escHtml(cat) + '" ' + checked + ' style="width:16px; height:16px; accent-color:#d97706;">' +
+      '<span style="font-size:13px; font-weight:600; color:#374151;">' + escHtml(cat) + '</span>' +
+      '</label>';
+  }).join('');
+}
+
+function renderFilaItens() {
+  const container = document.getElementById('fila-itens-list');
+  if (!container) return;
+  const liberados = (typeof configs.fila_itens_liberados === 'string') ? JSON.parse(configs.fila_itens_liberados || '[]') : (configs.fila_itens_liberados || []);
+  container.innerHTML = filaProdutosCache.map(p => {
+    const checked = liberados.includes(p.id) ? 'checked' : '';
+    return '<label style="display:flex; align-items:center; gap:8px; background:white; padding:8px 12px; border-radius:8px; border:1px solid #e5e7eb; cursor:pointer; font-size:12px;" data-fila-item-label="' + escHtml(p.nome.toLowerCase()) + '" data-fila-item-cat="' + escHtml((p.categoria || '').toLowerCase()) + '">' +
+      '<input type="checkbox" data-fila-item-id="' + p.id + '" ' + checked + ' style="width:16px; height:16px; accent-color:#d97706;">' +
+      '<span style="flex:1; min-width:0;"><strong style="color:#374151;">' + escHtml(p.nome) + '</strong> <span style="color:#9ca3af;">(' + escHtml(p.categoria || '') + ')</span></span>' +
+      '<span style="font-weight:700; color:#d97706;">R$ ' + (parseFloat(p.preco) || 0).toFixed(2).replace('.', ',') + '</span>' +
+      '</label>';
+  }).join('');
+}
+
+window.filtrarItensFila = function() {
+  const q = (document.getElementById('fila-itens-busca').value || '').toLowerCase().trim();
+  document.querySelectorAll('#fila-itens-list label').forEach(label => {
+    const nome = label.getAttribute('data-fila-item-label') || '';
+    const cat = label.getAttribute('data-fila-item-cat') || '';
+    label.style.display = (!q || nome.includes(q) || cat.includes(q)) ? '' : 'none';
+  });
+};
+
+function escHtml(t) { return String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+
+window.salvarFilaEsperaConfig = function() {
+  const habilitada = document.getElementById('fila-habilitada').checked;
+  const tipo = (document.querySelector('input[name="fila-restricao-tipo"]:checked') || {}).value || 'nenhum';
+  const mensagem = (document.getElementById('fila-mensagem-restricao').value || '').trim();
+
+  const categoriasLiberadas = [];
+  document.querySelectorAll('#fila-categorias-list input[type="checkbox"]:checked').forEach(cb => {
+    categoriasLiberadas.push(cb.getAttribute('data-fila-cat'));
+  });
+
+  const itensLiberados = [];
+  document.querySelectorAll('#fila-itens-list input[type="checkbox"]:checked').forEach(cb => {
+    const id = parseInt(cb.getAttribute('data-fila-item-id'));
+    if (id) itensLiberados.push(id);
+  });
+
+  configs.fila_restricao_habilitada = habilitada ? 'true' : 'false';
+  configs.fila_restricao_tipo = tipo;
+  configs.fila_categorias_liberadas = JSON.stringify(categoriasLiberadas);
+  configs.fila_itens_liberados = JSON.stringify(itensLiberados);
+  configs.fila_mensagem_restricao = mensagem;
+
+  fetch('/api/config', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('chef_token') || ''), 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      fila_restricao_habilitada: configs.fila_restricao_habilitada,
+      fila_restricao_tipo: tipo,
+      fila_categorias_liberadas: configs.fila_categorias_liberadas,
+      fila_itens_liberados: configs.fila_itens_liberados,
+      fila_mensagem_restricao: mensagem
+    })
+  }).then(r => r.json()).then(res => {
+    if (res.success) {
+      socket.emit('admin_configs_updated');
+      alert('Configuracoes da Fila de Espera salvas com sucesso!');
+    } else {
+      alert('Erro ao salvar configuracoes.');
+    }
+  }).catch(() => alert('Erro ao salvar configuracoes.'));
 };
 
 // Backup

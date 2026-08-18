@@ -1094,6 +1094,16 @@
       <input type="text" class="search-input" id="search-input" placeholder="Buscar produtos no cardápio...">
     </div>
 
+    <!-- AVISO DE RESTRICAO NA FILA -->
+    <div id="fila-restricao-aviso" style="display:none; background:linear-gradient(135deg,#fef3c7,#fde68a); border:1px solid #f59e0b; border-radius:12px; padding:12px 16px; margin-bottom:14px; display:none; align-items:center; gap:10px;">
+      <div style="flex:0 0 32px; height:32px; border-radius:8px; background:#f59e0b; display:flex; align-items:center; justify-content:center;">
+        <i class="ph ph-info" style="color:white; font-size:16px;"></i>
+      </div>
+      <div style="flex:1;">
+        <p style="margin:0; font-size:13px; font-weight:700; color:#92400e;" id="fila-restricao-aviso-texto">Alguns itens estao disponiveis somente apos a liberacao da sua mesa.</p>
+      </div>
+    </div>
+
     <!-- Tour Banner -->
     <div class="tour-banner" id="tour-banner">
       <div class="tour-step" id="tour-step-label">Bem-vindo</div>
@@ -1589,6 +1599,13 @@
             </div>
           `;
         }
+
+        if (MODO_FILA && CONFIGS.fila_restricao_habilitada === 'true') {
+          const avisoEl = document.getElementById('fila-restricao-aviso');
+          const avisoTxt = document.getElementById('fila-restricao-aviso-texto');
+          if (avisoEl) avisoEl.style.display = 'flex';
+          if (avisoTxt) avisoTxt.textContent = CONFIGS.fila_mensagem_restricao || 'Alguns itens estao disponiveis somente apos a liberacao da sua mesa.';
+        }
       })
       .catch(e => console.error('Error fetching configs:', e));
 
@@ -1599,6 +1616,19 @@
     socket.emit('get_produtos');
     socket.on('produtos_atualizados', (prods) => {
       MENU = (prods || []).filter(p => (p.categoria !== 'Mais Pedidos' || p.originalId) && (p.visibilidade === 'todos' || p.visibilidade === undefined || p.visibilidade === null));
+
+      if (MODO_FILA && CONFIGS.fila_restricao_habilitada === 'true') {
+        const tipo = CONFIGS.fila_restricao_tipo || 'nenhum';
+        if (tipo === 'categorias') {
+          let liberadas = [];
+          try { liberadas = JSON.parse(CONFIGS.fila_categorias_liberadas || '[]'); } catch(e) {}
+          MENU = MENU.filter(p => liberadas.includes(p.categoria));
+        } else if (tipo === 'itens') {
+          let liberados = [];
+          try { liberados = JSON.parse(CONFIGS.fila_itens_liberados || '[]'); } catch(e) {}
+          MENU = MENU.filter(p => liberados.includes(p.id));
+        }
+      }
 
       document.getElementById('menu-skeletons').style.display = 'none';
       document.getElementById('menu-items').style.display = 'grid';
@@ -2014,6 +2044,7 @@
 
     function submitPendingOrder(name, total, paidViaPix, pixKey = '') {
       const emitItens = CART.map(item => ({
+        id: item.id,
         productName: item.productName,
         productEmoji: item.productEmoji,
         quantity: item.quantity,
@@ -2029,7 +2060,8 @@
         pago_pix: paidViaPix,
         chave_pix: pixKey,
         cliente_id: crmPerfil ? crmPerfil.id : null,
-        cliente_telefone: crmPerfil ? crmPerfil.telefone : ''
+        cliente_telefone: crmPerfil ? crmPerfil.telefone : '',
+        is_fila: MODO_FILA ? true : false
       });
     }
 

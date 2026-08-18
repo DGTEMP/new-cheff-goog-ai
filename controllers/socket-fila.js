@@ -59,23 +59,32 @@ module.exports = function(socket, io, db, helpers) {
     if (!pid) return;
     const mesaName = String(d.mesaName || '').trim();
 
-    if (!mesaName || d.autoOffer) {
-      // Busca primeira mesa disponível no restaurante
-      db.get(`SELECT nome, id FROM mesas WHERE status = 'Disponível' OR status = 'Livre' ORDER BY id ASC LIMIT 1`, [], (errM, freeTable) => {
-        const foundMesa = (freeTable && (freeTable.nome || freeTable.id)) ? (freeTable.nome || freeTable.id) : null;
-        if (foundMesa) {
-          db.run(
-            `UPDATE fila_espera SET status = 'Mesa Ofertada', mesa_ofertada = ?, atualizado_em = datetime('now', 'localtime') WHERE id = ?`,
-            [foundMesa, pid],
-            (err) => { if (!err) emitirFila('broadcast'); }
-          );
-        } else if (mesaName) {
-          executarAcomodacaoDireta(pid, mesaName);
-        } else {
-          socket.emit('fila_erro', 'Nenhuma mesa livre disponível no momento.');
-        }
-      });
+    if (d.autoOffer) {
+      // MODO AUTOMATICO: sempre oferta ao cliente
+      const offerMesa = mesaName || null;
+      if (!offerMesa) {
+        // Se nao veio mesa, busca primeira disponivel
+        db.get(`SELECT nome, id FROM mesas WHERE status = 'Disponível' OR status = 'Livre' ORDER BY id ASC LIMIT 1`, [], (errM, freeTable) => {
+          const foundMesa = (freeTable && (freeTable.nome || freeTable.id)) ? (freeTable.nome || freeTable.id) : null;
+          if (foundMesa) {
+            db.run(
+              `UPDATE fila_espera SET status = 'Mesa Ofertada', mesa_ofertada = ?, atualizado_em = datetime('now', 'localtime') WHERE id = ?`,
+              [foundMesa, pid],
+              (err) => { if (!err) emitirFila('broadcast'); }
+            );
+          } else {
+            socket.emit('fila_erro', 'Nenhuma mesa livre disponivel no momento.');
+          }
+        });
+      } else {
+        db.run(
+          `UPDATE fila_espera SET status = 'Mesa Ofertada', mesa_ofertada = ?, atualizado_em = datetime('now', 'localtime') WHERE id = ?`,
+          [offerMesa, pid],
+          (err) => { if (!err) emitirFila('broadcast'); }
+        );
+      }
     } else {
+      // MODO MANUAL SEM AUTO: acomodacao direta (caixa escolheu a mesa)
       executarAcomodacaoDireta(pid, mesaName);
     }
   });
