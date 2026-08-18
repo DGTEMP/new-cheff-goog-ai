@@ -428,7 +428,9 @@ function showActionPopup(actions, x, y) {
   if (!popup || !content) return;
 
   content.innerHTML = actions.map(a =>
-    `<button class="action-popup-btn ${a.cls || ''}" data-action="${a.id}"><i class="ph ${a.icon}"></i>${a.label}</button>`
+    a.sep
+      ? '<div class="action-popup-sep"></div>'
+      : `<button class="action-popup-btn ${a.cls || ''}" data-action="${a.id}"><i class="ph ${a.icon}"></i>${a.label}</button>`
   ).join('');
 
   popup.classList.add('show');
@@ -513,8 +515,11 @@ function showActionPopup(actions, x, y) {
           actions.push({ id: 'parcial', icon: 'ph-currency-dollar', label: 'Pagamento Parcial', cls: 'success', fn: () => { card.click(); setTimeout(() => { const b = document.getElementById('btn-movimento-parcial'); if (b) b.click(); }, 200); } });
           actions.push({ id: 'fechar', icon: 'ph-check-circle', label: 'Fechar Conta', cls: '', fn: () => { card.click(); setTimeout(() => { const b = document.getElementById('btn-movimento-concluir'); if (b) b.click(); }, 200); } });
           actions.push({ id: 'qr', icon: 'ph-qr-code', label: 'QR Code Mesa', cls: '', fn: () => { card.click(); setTimeout(() => { const b = document.getElementById('btn-qr-mesa'); if (b) b.click(); }, 200); } });
+          actions.push({ id: 'sep1', sep: true });
+          actions.push({ id: 'cancelar', icon: 'ph-x-circle', label: 'Cancelar Mesa', cls: 'danger', fn: () => { card.click(); setTimeout(() => { const b = document.getElementById('btn-cancelar-mesa-direct'); if (b) b.click(); }, 200); } });
         } else {
-          actions.push({ id: 'lancar', icon: 'ph-plus-circle', label: 'Lançar Itens', cls: 'primary', fn: () => { card.click(); setTimeout(() => { const b = document.getElementById('btn-adicionar-produtos'); if (b) b.click(); }, 200); } });
+          actions.push({ id: 'reservar', icon: 'ph-bookmark-simple', label: 'Reservar Mesa', cls: 'purple', fn: () => { card.click(); setTimeout(() => { const b = document.getElementById('btn-reservar-mesa'); if (b) b.click(); }, 200); } });
+          actions.push({ id: 'qr', icon: 'ph-qr-code', label: 'QR Code', cls: 'primary', fn: () => { card.click(); setTimeout(() => { const b = document.getElementById('btn-qr-mesa'); if (b) b.click(); }, 200); } });
         }
         const rect = card.getBoundingClientRect();
         showActionPopup(actions, rect.left + rect.width / 2, rect.top + rect.height / 2);
@@ -1191,18 +1196,21 @@ function renderOrders() {
     card.addEventListener('contextmenu', (e) => {
       e.preventDefault();
       const nomeMesa = item.isGroup ? item.mesaName : item.nome;
-      if (!item.isGroup && !item.totalPedidos) {
+      const isOcupada = item.status === 'Ocupada' || (item.totalPedidos && item.totalPedidos > 0);
+      if (!item.isGroup && !isOcupada) {
         showActionPopup([
-          { id: 'reservar', icon: 'ph-bookmark-simple', label: 'Reservar Mesa', fn: () => { card.click(); setTimeout(() => { const b = document.getElementById('btn-reservar-mesa'); if (b) b.click(); }, 100); } }
+          { id: 'reservar', icon: 'ph-bookmark-simple', label: 'Reservar Mesa', cls: 'purple', fn: () => { card.click(); setTimeout(() => { const b = document.getElementById('btn-reservar-mesa'); if (b) b.click(); }, 100); } },
+          { id: 'qr', icon: 'ph-qr-code', label: 'QR Code', cls: 'primary', fn: () => { card.click(); setTimeout(() => { const b = document.getElementById('btn-qr-mesa'); if (b) b.click(); }, 100); } }
         ], e.clientX, e.clientY);
         return;
       }
       showActionPopup([
-        { id: 'lancar', icon: 'ph-plus-circle', label: 'Lançar Itens', fn: () => { card.click(); setTimeout(() => { const b = document.getElementById('btn-adicionar-produtos'); if (b) b.click(); }, 150); } },
-        { id: 'parcial', icon: 'ph-currency-dollar', label: 'Pagamento Parcial', fn: () => { card.click(); setTimeout(() => { const b = document.getElementById('btn-movimento-pagamento-parcial'); if (b) b.click(); }, 150); } },
-        { id: 'fechar', icon: 'ph-check-circle', label: 'Fechar Conta', fn: () => { card.click(); setTimeout(() => { const b = document.getElementById('btn-movimento-concluir'); if (b) b.click(); }, 150); } },
+        { id: 'lancar', icon: 'ph-plus-circle', label: 'Lançar Itens', cls: 'primary', fn: () => { card.click(); setTimeout(() => { const b = document.getElementById('btn-adicionar-produtos'); if (b) b.click(); }, 150); } },
+        { id: 'parcial', icon: 'ph-currency-dollar', label: 'Pagamento Parcial', cls: 'success', fn: () => { card.click(); setTimeout(() => { const b = document.getElementById('btn-movimento-pagamento-parcial'); if (b) b.click(); }, 150); } },
+        { id: 'fechar', icon: 'ph-check-circle', label: 'Fechar Conta', cls: '', fn: () => { card.click(); setTimeout(() => { const b = document.getElementById('btn-movimento-concluir'); if (b) b.click(); }, 150); } },
+        { id: 'sep1', sep: true },
         {
-          id: 'cancelar', icon: 'ph-x-circle', label: 'Cancelar Mesa', cls: 'action-popup-btn-danger', fn: () => {
+          id: 'cancelar', icon: 'ph-x-circle', label: 'Cancelar Mesa', cls: 'danger', fn: () => {
             window.solicitarAutorizacaoAdmin(
               'Cancelar Mesa',
               `Deseja cancelar todos os pedidos da mesa ${nomeMesa}? Esta ação irá marcar todos os pedidos como Cancelado e liberar a mesa.`,

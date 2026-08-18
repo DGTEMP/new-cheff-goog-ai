@@ -1144,69 +1144,106 @@ to {
   position: fixed;
   z-index: 10003;
   inset: 0;
-  background: rgba(0,0,0,0.3);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
-  align-items: center;
+  background: rgba(0,0,0,0.4);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  align-items: flex-start;
   justify-content: center;
+  padding-top: 40vh;
 }
 .mobile-action-popup.show {
   display: flex;
 }
 
 .action-popup-content {
-  background: white;
+  background: #1a1a2e;
+  border: 1px solid rgba(255,255,255,0.08);
   border-radius: 16px;
-  padding: 8px;
-  min-width: 200px;
-  max-width: 260px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
-  animation: popIn 0.2s ease;
+  padding: 6px;
+  min-width: 220px;
+  max-width: 280px;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05) inset;
+  animation: popIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 @keyframes popIn {
-  from { transform: scale(0.8); opacity: 0; }
-  to { transform: scale(1); opacity: 1; }
+  from { transform: scale(0.9) translateY(-8px); opacity: 0; }
+  to { transform: scale(1) translateY(0); opacity: 1; }
 }
 
 .action-popup-btn {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   width: 100%;
-  padding: 14px 16px;
+  padding: 12px 14px;
   border: none;
-  background: none;
-  font-size: 14px;
-  font-weight: 600;
-  color: #374151;
+  background: transparent;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: #e2e8f0;
   cursor: pointer;
   border-radius: 10px;
-  transition: background 0.1s;
+  transition: all 0.15s ease;
+  text-align: left;
+}
+
+.action-popup-btn:hover {
+  background: rgba(255,255,255,0.07);
 }
 
 .action-popup-btn:active {
-  background: #f3f4f6;
-}
-.action-popup-btn-danger {
-  color: #dc2626;
-}
-.action-popup-btn-danger:active {
-  background: #fef2f2;
+  background: rgba(255,255,255,0.12);
+  transform: scale(0.98);
 }
 
 .action-popup-btn i {
   font-size: 18px;
-  width: 24px;
-  text-align: center;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.06);
+  flex-shrink: 0;
+  transition: background 0.15s;
 }
 
-.action-popup-btn.danger { color: #dc2626; }
-.action-popup-btn.danger i { color: #dc2626; }
-.action-popup-btn.success { color: #16a34a; }
-.action-popup-btn.success i { color: #16a34a; }
-.action-popup-btn.primary { color: #2563eb; }
-.action-popup-btn.primary i { color: #2563eb; }
+.action-popup-btn:hover i {
+  background: rgba(255,255,255,0.1);
+}
+
+.action-popup-btn.danger { color: #fca5a5; }
+.action-popup-btn.danger i { background: rgba(220,38,38,0.15); color: #ef4444; }
+.action-popup-btn.danger:hover { background: rgba(220,38,38,0.1); }
+.action-popup-btn.danger:active { background: rgba(220,38,38,0.18); }
+
+.action-popup-btn.success { color: #86efac; }
+.action-popup-btn.success i { background: rgba(22,163,74,0.15); color: #22c55e; }
+.action-popup-btn.success:hover { background: rgba(22,163,74,0.1); }
+.action-popup-btn.success:active { background: rgba(22,163,74,0.18); }
+
+.action-popup-btn.primary { color: #93c5fd; }
+.action-popup-btn.primary i { background: rgba(37,99,235,0.15); color: #3b82f6; }
+.action-popup-btn.primary:hover { background: rgba(37,99,235,0.1); }
+.action-popup-btn.primary:active { background: rgba(37,99,235,0.18); }
+
+.action-popup-btn.warning { color: #fde68a; }
+.action-popup-btn.warning i { background: rgba(234,179,8,0.15); color: #eab308; }
+.action-popup-btn.warning:hover { background: rgba(234,179,8,0.1); }
+.action-popup-btn.warning:active { background: rgba(234,179,8,0.18); }
+
+.action-popup-btn.purple { color: #c4b5fd; }
+.action-popup-btn.purple i { background: rgba(124,58,237,0.15); color: #8b5cf6; }
+.action-popup-btn.purple:hover { background: rgba(124,58,237,0.1); }
+.action-popup-btn.purple:active { background: rgba(124,58,237,0.18); }
+
+.action-popup-sep {
+  height: 1px;
+  background: rgba(255,255,255,0.06);
+  margin: 4px 10px;
+}
 
 .mobile-only-colaborador-btn {
   display: inline-flex !important;

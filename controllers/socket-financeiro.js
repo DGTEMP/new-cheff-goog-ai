@@ -497,12 +497,20 @@ module.exports = function(socket, io, db, helpers) {
     if (!finalName.toLowerCase().includes('comanda')) {
       finalName = `Comanda - ${finalName}`;
     }
+    const cliNome = (nome || '').trim();
     db.get(`SELECT * FROM mesas WHERE nome = ?`, [finalName], (err, row) => {
       if (!row) {
         db.run(`INSERT INTO mesas (nome, status, observacao) VALUES (?, 'Disponível', ?)`, [finalName, telefone || ''], (err) => {
           if (!err) {
+            if (cliNome) {
+              db.run(
+                `INSERT INTO mesa_clientes (mesa, cliente_id, cliente_nome, cliente_telefone, updated_at)
+                 VALUES (?, NULL, ?, ?, datetime('now','localtime'))`,
+                [finalName, cliNome, telefone || '']);
+            }
             db.all(`SELECT * FROM mesas`, (err, rows) => {
               io.emit('mesas_atualizadas', rows || []);
+              if (cliNome) broadcastMesaClientes();
               socket.emit('comanda_criada_sucesso', { nomeMesa: finalName });
             });
           }
@@ -561,6 +569,15 @@ module.exports = function(socket, io, db, helpers) {
               mesasFechando.delete(mesaName);
               io.emit('sync_mesas_fechando', Array.from(mesasFechando));
               db.all(`SELECT * FROM mesas`, (e, r) => io.emit('mesas_atualizadas', r || []));
+              if (mesaName && mesaName.includes(' + ')) {
+                const nomes = mesaName.split(/\s*\+\s*/).map(s => s.trim()).filter(Boolean);
+                if (nomes.length > 0) {
+                  const ph = nomes.map(() => '?').join(',');
+                  db.run(`DELETE FROM mesa_clientes WHERE mesa IN (${ph})`, nomes, () => broadcastMesaClientes());
+                }
+              } else if (mesaName) {
+                db.run(`DELETE FROM mesa_clientes WHERE mesa = ?`, [mesaName], () => broadcastMesaClientes());
+              }
             };
             if (mesaName && mesaName.includes(' + ')) {
               const nomes = mesaName.split(/\s*\+\s*/).map(s => s.trim()).filter(Boolean);

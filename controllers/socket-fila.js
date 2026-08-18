@@ -2,6 +2,15 @@
 module.exports = function(socket, io, db, helpers) {
   const ATIVOS = "status != 'Acomodado' AND status != 'Concluido' AND status != 'Cancelado'";
 
+  function broadcastMesaClientes() {
+    db.all(`SELECT * FROM mesa_clientes`, [], (err, rows) => {
+      if (!err) io.emit('mesa_clientes_atualizados', rows || []);
+    });
+  }
+  function broadcastMesas() {
+    db.all(`SELECT * FROM mesas`, [], (e, rows) => io.emit('mesas_atualizadas', rows || []));
+  }
+
   function emitirFila(alvo) {
     const q = `SELECT * FROM fila_espera WHERE ${ATIVOS} ORDER BY criado_em ASC, id ASC`;
     db.all(q, (err, rows) => {
@@ -90,25 +99,56 @@ module.exports = function(socket, io, db, helpers) {
   });
 
   function executarAcomodacaoDireta(pid, mesaName) {
-    db.run(
-      `UPDATE fila_espera SET status = 'Acomodado', mesa_acomodado = ?, atualizado_em = datetime('now', 'localtime') WHERE id = ?`,
-      [mesaName, pid],
-      (err) => {
-        if (!err) {
-          emitirFila('broadcast');
-          if (mesaName) {
-            db.run(`UPDATE mesas SET status = 'Ocupada' WHERE nome = ? OR id = ?`, [mesaName, mesaName], (errMesa) => {
-              if (!errMesa) {
-                io.emit('status_mesa_alterado', { nome: mesaName, status: 'Ocupada' });
-                db.all('SELECT * FROM mesas', [], (errAll, allMesas) => {
-                  if (!errAll && allMesas) io.emit('mesas_atualizadas', allMesas);
+    db.get(`SELECT cliente_nome, cliente_telefone FROM fila_espera WHERE id = ?`, [pid], (eFila, filaRow) => {
+      db.run(
+        `UPDATE fila_espera SET status = 'Acomodado', mesa_acomodado = ?, atualizado_em = datetime('now', 'localtime') WHERE id = ?`,
+        [mesaName, pid],
+        (err) => {
+          if (!err) {
+            emitirFila('broadcast');
+            if (mesaName) {
+              const cliNome = (filaRow && filaRow.cliente_nome) ? filaRow.cliente_nome : '';
+              const cliTel = (filaRow && filaRow.cliente_telefone) ? filaRow.cliente_telefone : '';
+
+              function updateMesaAndClient() {
+                db.run(`UPDATE mesas SET status = 'Ocupada' WHERE nome = ? OR id = ?`, [mesaName, mesaName], (errMesa) => {
+                  if (!errMesa) {
+                    io.emit('status_mesa_alterado', { nome: mesaName, status: 'Ocupada' });
+                    if (cliNome) {
+                      db.get(`SELECT id FROM clientes WHERE telefone = ?`, [cliTel], (eCli, cliRow) => {
+                        const cliId = (cliRow && cliRow.id) ? cliRow.id : null;
+                        db.run(
+                          `INSERT INTO mesa_clientes (mesa, cliente_id, cliente_nome, cliente_telefone, updated_at)
+                           VALUES (?, ?, ?, ?, datetime('now','localtime'))
+                           ON CONFLICT(mesa) DO UPDATE SET
+                             cliente_id = COALESCE(excluded.cliente_id, cliente_id),
+                             cliente_nome = excluded.cliente_nome,
+                             cliente_telefone = excluded.cliente_telefone,
+                             updated_at = datetime('now','localtime')`,
+                          [mesaName, cliId, cliNome, cliTel], () => {
+                            broadcastMesaClientes();
+                            broadcastMesas();
+                          });
+                      });
+                    } else {
+                      broadcastMesas();
+                    }
+                  }
                 });
               }
-            });
+
+              if (mesaName.includes(' + ')) {
+                const nomes = mesaName.split(/\s*\+\s*/).map(s => s.trim()).filter(Boolean);
+                const placeholders = nomes.map(() => '?').join(',');
+                db.run(`UPDATE mesas SET status = 'Ocupada' WHERE nome IN (${placeholders})`, nomes, updateMesaAndClient);
+              } else {
+                updateMesaAndClient();
+              }
+            }
           }
         }
-      }
-    );
+      );
+    });
   }
 
   // Cliente aceitou a oferta de mesa no celular

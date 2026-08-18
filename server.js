@@ -3784,6 +3784,18 @@ io.on('connection', (socket) => {
 
           if (!mesaName.includes('Delivery') && !mesaName.includes('Balcão')) {
             db.run(`UPDATE mesas SET status = 'Ocupada' WHERE nome = ?`, [mesaName]);
+            if (pendingOrder.cliente_nome) {
+              db.run(
+                `INSERT INTO mesa_clientes (mesa, cliente_id, cliente_nome, cliente_telefone, updated_at)
+                 VALUES (?, ?, ?, ?, datetime('now','localtime'))
+                 ON CONFLICT(mesa) DO UPDATE SET
+                   cliente_id = COALESCE(excluded.cliente_id, cliente_id),
+                   cliente_nome = excluded.cliente_nome,
+                   cliente_telefone = COALESCE(NULLIF(excluded.cliente_telefone,''), cliente_telefone),
+                   updated_at = datetime('now','localtime')`,
+                [mesaName, pendingOrder.cliente_id || null, pendingOrder.cliente_nome, '']
+              );
+            }
           }
 
           if (comandaNome) {
@@ -5353,9 +5365,21 @@ io.on('connection', (socket) => {
   socket.on('reservar_mesa', ({ mesaName, observacao, cliente, telefone }) => {
     db.run(`UPDATE mesas SET status = 'Reservada', observacao = ? WHERE nome = ?`, [observacao, mesaName], () => {
       const finalizar = () => {
-        db.all(`SELECT * FROM mesas`, (err, rows) => {
-          io.emit('mesas_atualizadas', rows || []);
-        });
+        if (cliente) {
+          db.run(
+            `INSERT INTO mesa_clientes (mesa, cliente_id, cliente_nome, cliente_telefone, updated_at)
+             VALUES (?, NULL, ?, ?, datetime('now','localtime'))
+             ON CONFLICT(mesa) DO UPDATE SET
+               cliente_nome = excluded.cliente_nome,
+               cliente_telefone = COALESCE(NULLIF(excluded.cliente_telefone,''), cliente_telefone),
+               updated_at = datetime('now','localtime')`,
+            [mesaName, cliente, telefone || ''], () => {
+              broadcastMesaClientes();
+              db.all(`SELECT * FROM mesas`, (err, rows) => io.emit('mesas_atualizadas', rows || []));
+            });
+        } else {
+          db.all(`SELECT * FROM mesas`, (err, rows) => io.emit('mesas_atualizadas', rows || []));
+        }
       };
       if (cliente && telefone) {
         db.get(`SELECT id FROM clientes WHERE telefone = ?`, [telefone], (err, row) => {
@@ -5383,9 +5407,8 @@ io.on('connection', (socket) => {
 
   socket.on('cancelar_reserva', ({ mesaName }) => {
     db.run(`UPDATE mesas SET status = 'Disponível', observacao = '' WHERE nome = ?`, [mesaName], () => {
-      db.all(`SELECT * FROM mesas`, (err, rows) => {
-        io.emit('mesas_atualizadas', rows || []);
-      });
+      db.run(`DELETE FROM mesa_clientes WHERE mesa = ?`, [mesaName], () => broadcastMesaClientes());
+      db.all(`SELECT * FROM mesas`, (err, rows) => io.emit('mesas_atualizadas', rows || []));
     });
   });
 
