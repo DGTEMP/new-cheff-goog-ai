@@ -6365,6 +6365,49 @@ app.get('/api/pedidos', verificarToken, (req, res) => {
   });
 });
 
+// GET /api/metricas/garcons — métricas de eficiência dos garçons (admin do restaurante)
+app.get('/api/metricas/garcons', verificarToken, (req, res) => {
+  db.all(`SELECT * FROM funcionarios WHERE status = 'Ativo' ORDER BY nome`, [], (errFunc, funcionarios) => {
+    if (errFunc) return res.json({ ok: false, erro: 'Erro ao consultar funcionários.' });
+    db.all(`SELECT * FROM pedidos ORDER BY id`, [], (errPed, pedidos) => {
+      if (errPed) return res.json({ ok: false, erro: 'Erro ao consultar pedidos.' });
+      const metricas = (funcionarios || []).map(f => {
+        const fPedidos = (pedidos || []).filter(p => p.userName === f.nome || p.userName === f.usuario);
+        const total = fPedidos.length;
+        const entregues = fPedidos.filter(p => p.status === 'Entregue' || p.status === 'Finalizado' || p.status === 'Pago').length;
+        const emAndamento = fPedidos.filter(p => p.status !== 'Entregue' && p.status !== 'Finalizado' && p.status !== 'Pago' && p.status !== 'Cancelado').length;
+        let somaMin = 0, countMin = 0;
+        fPedidos.forEach(p => {
+          if (p.entregueEm && p.createdAt) {
+            const criado = new Date(p.createdAt).getTime();
+            const entregue = new Date(p.entregueEm).getTime();
+            if (!isNaN(criado) && !isNaN(entregue) && entregue > criado) {
+              somaMin += (entregue - criado) / 60000;
+              countMin++;
+            }
+          }
+        });
+        const tempoMedio = countMin > 0 ? Math.round(somaMin / countMin) : null;
+        let totalGasto = 0;
+        fPedidos.forEach(p => { const val = parseFloat(p.total); if (!isNaN(val)) totalGasto += val; });
+        const hoje = new Date();
+        const hojeStr = hoje.toISOString().slice(0, 10);
+        const pedidosHoje = fPedidos.filter(p => p.createdAt && p.createdAt.slice(0, 10) === hojeStr).length;
+        return {
+          id: f.id, nome: f.nome, usuario: f.usuario,
+          total, entregues, emAndamento,
+          taxaEficiencia: total > 0 ? Math.round((entregues / total) * 100) : 0,
+          tempoMedioEntrega: tempoMedio,
+          totalGasto: Math.round(totalGasto * 100) / 100,
+          pedidosHoje
+        };
+      });
+      metricas.sort((a, b) => b.total - a.total);
+      res.json({ ok: true, metricas });
+    });
+  });
+});
+
 // --- ROTA REST: ATUALIZAR STATUS DO PEDIDO (para fila-lite) ---
 app.post('/api/pedidos/:id/status', verificarToken, (req, res) => {
   const { id } = req.params;

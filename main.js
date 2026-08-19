@@ -615,6 +615,7 @@ socket.on('tenant_atualizado', (data) => {
 });
 
 let serverIp = HOST;
+let restCustomDomain = '';
 let qrConfig = { qr_protocol: '', qr_port: '' };
 fetch('/api/config', { headers: authHeaders() }).then(r => r.json()).then(c => { qrConfig = c || {}; }).catch(() => {});
 
@@ -622,11 +623,13 @@ function buildAppUrl(page, mesaNome) {
   const proto = (qrConfig.qr_protocol === 'https' || qrConfig.qr_protocol === 'http')
     ? qrConfig.qr_protocol
     : (window.location.protocol === 'https:' ? 'https' : 'http');
-  const isDomain = serverIp.indexOf('.') !== -1 && !serverIp.match(/^\d+\.\d+\.\d+\.\d+$/);
+  /* Preferir custom_domain sobre IP do servidor */
+  const host = (restCustomDomain && restCustomDomain.trim()) || serverIp || window.location.hostname;
+  const isDomain = host.indexOf('.') !== -1 && !host.match(/^\d+\.\d+\.\d+\.\d+$/);
   const port = isDomain ? '' : (String(qrConfig.qr_port || '').trim() || window.location.port);
   const q = mesaNome ? `?mesa=${encodeURIComponent(mesaNome)}` : '';
   const tenantId = encodeURIComponent(localStorage.getItem('restaurante_id') || '1');
-  const url = `${proto}://${serverIp}${port ? ':' + port : ''}/${page}${q}`;
+  const url = `${proto}://${host}${port ? ':' + port : ''}/${page}${q}`;
   return url + (url.indexOf('?') !== -1 ? '&' : '?') + 'restaurante_id=' + tenantId;
 }
 
@@ -645,6 +648,9 @@ function updateQrCode() {
 socket.on('server_ip', (ip) => {
   if (ip && ip !== 'localhost') {
     serverIp = ip;
+    /* Se o servidor enviou um domínio (não-IP), armazenar como restCustomDomain */
+    const _isIp = /^\d+\.\d+\.\d+\.\d+$/.test(ip);
+    if (!_isIp && ip.indexOf('.') !== -1) restCustomDomain = ip;
     updateQrCode();
     const qrFilaModal = document.getElementById('modal-qr-fila-espera');
     if (qrFilaModal && qrFilaModal.style.display !== 'none') window.abrirQrFilaEsperaModal();

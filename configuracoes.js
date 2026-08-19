@@ -3270,9 +3270,12 @@ socket.on('fidelidade_config_salvo', (res) => {
 window.gerarQrCheckin = () => {
   const protocol = window.location.protocol;
   const port = window.location.port;
-  const ip = (typeof _serverIpReal !== 'undefined' && _serverIpReal) || window.location.hostname;
+  /* Preferir custom_domain sobre IP */
+  const host = (restCustomDomain && restCustomDomain.trim()) || ((typeof _serverIpReal !== 'undefined' && _serverIpReal) || window.location.hostname);
+  const isDomain = host.indexOf('.') !== -1 && !host.match(/^\d+\.\d+\.\d+\.\d+$/);
+  const portPart = isDomain ? '' : (port ? ':' + port : '');
   const tenantId = encodeURIComponent(localStorage.getItem('restaurante_id') || '1');
-  const appUrl = `${protocol}//${ip}${port ? ':' + port : ''}/area-cliente.html?checkin=1&restaurante_id=${tenantId}`;
+  const appUrl = `${protocol}//${host}${portPart}/area-cliente.html?checkin=1&restaurante_id=${tenantId}`;
   const img = document.getElementById('fid-checkin-qr-img');
   if (img) img.src = (window.location.origin || '') + '/api/qr?size=140&data=' + encodeURIComponent(appUrl);
   window._checkinQrUrl = appUrl;
@@ -3476,13 +3479,17 @@ window.uploadRestore = (event) => {
 // --- QR CODE CONVITE FUNCIONÁRIOS ---
 let _serverIpReal = window.location.hostname; // Começa com o host atual como fallback
 
-function updateQrCodeConvite(ip) {
+function updateQrCodeConvite() {
   const qrImg = document.getElementById('qr-code-img');
   if (!qrImg) return;
   const protocol = window.location.protocol;
   const port = window.location.port;
   const tenantId = encodeURIComponent(localStorage.getItem('restaurante_id') || '1');
-  const appUrl = `${protocol}//${ip}${port ? ':' + port : ''}/cadastro.html?restaurante_id=${tenantId}`;
+  /* Preferir custom_domain sobre IP */
+  const host = (restCustomDomain && restCustomDomain.trim()) || _serverIpReal;
+  const isDomain = host.indexOf('.') !== -1 && !host.match(/^\d+\.\d+\.\d+\.\d+$/);
+  const portPart = isDomain ? '' : (port ? ':' + port : '');
+  const appUrl = `${protocol}//${host}${portPart}/cadastro.html?restaurante_id=${tenantId}`;
   if (typeof window.qrImg === 'function') {
     window.qrImg(qrImg, appUrl, 140);
   } else {
@@ -3495,11 +3502,13 @@ function updateQrCodeConvite(ip) {
 socket.on('server_ip', (ip) => {
   if (ip && ip !== 'localhost' && ip !== '127.0.0.1') {
     _serverIpReal = ip;
-    updateQrCodeConvite(ip);
+    const _isIp = /^\d+\.\d+\.\d+\.\d+$/.test(ip);
+    if (!_isIp && ip.indexOf('.') !== -1) restCustomDomain = ip;
+    updateQrCodeConvite();
   }
 });
 
-document.addEventListener('DOMContentLoaded', () => updateQrCodeConvite(_serverIpReal));
+document.addEventListener('DOMContentLoaded', () => updateQrCodeConvite());
 
 // ═══════════════════════════════════════════════════════════
 //  LICENCIAMENTO — Ativação e configuração do Apps Script
@@ -5850,6 +5859,8 @@ socket.on('consumo_config_saved', () => {
 socket.on('restaurante_config', (cfg) => {
   /* Armazenar custom_domain para uso em QR URLs */
   restCustomDomain = cfg['rest_custom_domain'] || '';
+  /* Re-renderizar QR codes com domínio atualizado */
+  updateQrCodeConvite();
   if (document.getElementById('rest-nome')) {
     document.getElementById('rest-nome').value = cfg['rest_nome'] || '';
     document.getElementById('rest-cnpj').value = cfg['rest_cnpj'] || '';
