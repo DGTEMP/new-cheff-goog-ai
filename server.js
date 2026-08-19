@@ -799,6 +799,804 @@ app.delete('/api/super/certs/:file', superAdminAuth, (req, res) => {
   }
 });
 
+// ── SUPER ADMIN: HELPER FUNCTIONS ─────────────────────────────────────
+const { exec } = require('child_process');
+
+function getTenantDbPath(tenantId) {
+  return path.join(__dirname, `database_${tenantId}.sqlite`);
+}
+
+function listarBancosTenant() {
+  try {
+    return fsSync.readdirSync(__dirname)
+      .filter(f => /^database_(\d+)\.sqlite$/.test(f))
+      .map(f => path.join(__dirname, f))
+      .filter(p => fsSync.existsSync(p));
+  } catch (e) { return []; }
+}
+
+function safeInt(v, min = 0, max = 2147483647) { const n = parseInt(v, 10); return isNaN(n) ? min : Math.max(min, Math.min(max, n)); }
+
+function getClientIp(req) { return (req.headers['x-forwarded-for'] || req.connection.remoteAddress || '').split(',')[0].trim(); }
+
+const _rateLimitMap = new Map();
+function checkRestRateLimit(ip, max = 10, windowMs = 600000) {
+  const now = Date.now();
+  const entry = _rateLimitMap.get(ip);
+  if (!entry || now - entry.start > windowMs) { _rateLimitMap.set(ip, { start: now, count: 1 }); return true; }
+  entry.count++;
+  return entry.count <= max;
+}
+
+function gerarChaveAtivacao() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const part = (len) => { let s = ''; for (let i = 0; i < len; i++) s += chars.charAt(Math.floor(Math.random() * chars.length)); return s; };
+  return `CHEF-${part(4)}-${part(4)}-${part(4)}`;
+}
+
+function registrarTelemetria(t) {
+  const ip = trimStr(t.ip, 60);
+  const agora = new Date().toLocaleString();
+  masterDb.get(`SELECT id FROM telemetria WHERE install_id = ?`, [t.install_id || ''], (err, row) => {
+    if (err) return;
+    if (row) {
+      masterDb.run(`UPDATE telemetria SET restaurante_id = ?, nome_restaurante = ?, versao = ?, ip = ?, plataforma = ?, online = 1, ultima_atividade = ?, tempo_uso_min = ?, pedidos_total = ?, vendas_total = ?, vendas_hoje = ?, comandas_abertas = ?, funcionarios_ativos = ?, garcons_online = ?, produtos_total = ?, setores_json = ?, mesas_total = ?, dispositivos = ?, funcoes_json = ?, erros_json = ?, custo_total = ?, folha_mes = ?, despesas_mes = ?, lucro = ?, disco_mb = ?, updated_at = ? WHERE install_id = ?`,
+        [t.restaurante_id || null, trimStr(t.nome_restaurante, 120), trimStr(t.versao, 20), ip, trimStr(t.plataforma, 30), agora,
+          t.tempo_uso_min || 0, t.pedidos_total || 0, t.vendas_total || 0, t.vendas_hoje || 0,
+          t.comandas_abertas || 0, t.funcionarios_ativos || 0, t.garcons_online || 0, t.produtos_total || 0,
+          t.setores_json || null, t.mesas_total || 0, t.dispositivos || 0, t.funcoes_json || null,
+          t.erros_json || null, t.custo_total || 0, t.folha_mes || 0, t.despesas_mes || 0, t.lucro || 0,
+          t.disco_mb || 0, agora, t.install_id || ''], () => {});
+    } else {
+      masterDb.run(`INSERT INTO telemetria (restaurante_id, install_id, nome_restaurante, versao, ip, plataforma, online, ultima_atividade, tempo_uso_min, pedidos_total, vendas_total, vendas_hoje, comandas_abertas, funcionarios_ativos, garcons_online, produtos_total, setores_json, mesas_total, dispositivos, funcoes_json, erros_json, custo_total, folha_mes, despesas_mes, lucro, disco_mb, updated_at) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [t.restaurante_id || null, t.install_id || '', trimStr(t.nome_restaurante, 120), trimStr(t.versao, 20), ip, trimStr(t.plataforma, 30), agora,
+          t.tempo_uso_min || 0, t.pedidos_total || 0, t.vendas_total || 0, t.vendas_hoje || 0,
+          t.comandas_abertas || 0, t.funcionarios_ativos || 0, t.garcons_online || 0, t.produtos_total || 0,
+          t.setores_json || null, t.mesas_total || 0, t.dispositivos || 0, t.funcoes_json || null,
+          t.erros_json || null, t.custo_total || 0, t.folha_mes || 0, t.despesas_mes || 0, t.lucro || 0,
+          t.disco_mb || 0, agora], () => {});
+    }
+  });
+}
+
+const TELEMETRIA_VERSION = '1.0.0';
+
+function coletarTelemetriaLocal() {
+  try {
+    const dbFiles = listarBancosTenant();
+    dbFiles.forEach(dbPath => {
+      const idMatch = dbPath.match(/database_(\d+)\.sqlite$/);
+      const id = idMatch ? parseInt(idMatch[1]) : 0;
+      if (!id) return;
+      const tenantDb = new sqlite3.Database(dbPath, sqlite3.OPEN_READONLY, (err) => { if (err) return; });
+      const hojeStr = new Date().toISOString().slice(0, 10);
+      const mesStr = hojeStr.slice(0, 7);
+      const queries = [
+        { key: 'pedidos_total', sql: `SELECT COUNT(*) c FROM pedidos` },
+        { key: 'vendas_total', sql: `SELECT COALESCE(SUM(CAST(total AS REAL)),0) c FROM pedidos WHERE status IN ('Finalizado','Pago')` },
+        { key: 'vendas_hoje', sql: `SELECT COALESCE(SUM(CAST(total AS REAL)),0) c FROM pedidos WHERE status IN ('Finalizado','Pago') AND substr(createdAt,1,10) = ?`, params: [hojeStr] },
+        { key: 'funcionarios_ativos', sql: `SELECT COUNT(*) c FROM funcionarios WHERE status = 'Ativo'` },
+        { key: 'produtos_total', sql: `SELECT COUNT(*) c FROM produtos WHERE status = 'ativo'` },
+        { key: 'mesas_total', sql: `SELECT COUNT(*) c FROM mesas` },
+      ];
+      const acc = {};
+      let pending = queries.length;
+      const finalizar = () => {
+        pending--;
+        if (pending > 0) return;
+        tenantDb.all(`SELECT DISTINCT setor FROM produtos WHERE setor IS NOT NULL AND setor != ''`, [], (errSet, setores) => {
+          let discoMb = 0;
+          try { discoMb = fsSync.statSync(dbPath).size / (1024 * 1024); } catch (e) {}
+          masterDb.get(`SELECT nome FROM restaurantes WHERE id = ?`, [id], (eNome, rNome) => {
+            const vendas = parseFloat(acc.vendas_total || 0);
+            const custo = parseFloat(acc.custo_total || 0);
+            registrarTelemetria({
+              restaurante_id: id, install_id: `local-${id}`,
+              nome_restaurante: (rNome && rNome.nome) || `Estabelecimento ${id}`,
+              versao: TELEMETRIA_VERSION, plataforma: 'servidor-central', online: 1,
+              ultima_atividade: new Date().toLocaleString(),
+              pedidos_total: acc.pedidos_total || 0, vendas_total: vendas,
+              vendas_hoje: parseFloat(acc.vendas_hoje || 0),
+              funcionarios_ativos: acc.funcionarios_ativos || 0, produtos_total: acc.produtos_total || 0,
+              setores_json: JSON.stringify((setores || []).map(s => s.setor)), mesas_total: acc.mesas_total || 0,
+              lucro: Math.round((vendas - custo) * 100) / 100, disco_mb: Math.round(discoMb * 100) / 100
+            });
+            tenantDb.close();
+          });
+        });
+      };
+      queries.forEach(q => {
+        tenantDb.get(q.sql, q.params || [], (errRow, row) => { acc[q.key] = errRow ? 0 : (row ? row.c : 0); finalizar(); });
+      });
+    });
+  } catch (e) { console.error('[Telemetria] coleta local:', e.message); }
+}
+setTimeout(() => { coletarTelemetriaLocal(); }, 3000);
+setInterval(() => { coletarTelemetriaLocal(); }, 5 * 60 * 1000);
+
+// ── SUPER ADMIN: ROTAS DE USUÁRIOS ──────────────────────────────────
+app.get('/api/super/usuarios', superAdminAuth, (req, res) => {
+  masterDb.all(`SELECT id, restaurante_id, username, role, ativo, data_cadastro FROM usuarios ORDER BY id`, [], (err, rows) => {
+    if (err) return res.json({ ok: false, erro: err.message });
+    res.json({ ok: true, usuarios: rows || [] });
+  });
+});
+
+app.post('/api/super/reset-credenciais', superAdminAuth, async (req, res) => {
+  try {
+    const { userId, novoEmail, novaSenha } = req.body;
+    if (!userId) return res.json({ ok: false, erro: 'ID do usuário é obrigatório.' });
+    if (!novoEmail && !novaSenha) return res.json({ ok: false, erro: 'Informe pelo menos o novo email ou a nova senha.' });
+    const updates = []; const params = [];
+    if (novoEmail) {
+      const emailTrimmed = novoEmail.trim().toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrimmed)) return res.json({ ok: false, erro: 'Formato de email inválido.' });
+      updates.push('username = ?'); params.push(emailTrimmed);
+    }
+    if (novaSenha) {
+      if (novaSenha.length < 4) return res.json({ ok: false, erro: 'A senha deve ter no mínimo 4 caracteres.' });
+      const hash = await bcrypt.hash(novaSenha, 10);
+      updates.push('password_hash = ?'); params.push(hash);
+    }
+    params.push(parseInt(userId));
+    masterDb.run(`UPDATE usuarios SET ${updates.join(', ')} WHERE id = ?`, params, function(err) {
+      if (err) return res.json({ ok: false, erro: err.message });
+      if (this.changes === 0) return res.json({ ok: false, erro: 'Usuário não encontrado.' });
+      res.json({ ok: true, mensagem: 'Credenciais atualizadas com sucesso!' });
+    });
+  } catch (e) { res.json({ ok: false, erro: e.message }); }
+});
+
+app.post('/api/super/criar-usuario', superAdminAuth, async (req, res) => {
+  try {
+    const { email, senha, restauranteId } = req.body;
+    if (!email || !senha) return res.json({ ok: false, erro: 'Email e senha são obrigatórios.' });
+    const emailTrimmed = email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrimmed)) return res.json({ ok: false, erro: 'Formato de email inválido.' });
+    if (senha.length < 4) return res.json({ ok: false, erro: 'A senha deve ter no mínimo 4 caracteres.' });
+    const hash = await bcrypt.hash(senha, 10);
+    const rid = parseInt(restauranteId) || 1;
+    const agora = new Date().toISOString().replace('T', ' ').substring(0, 19);
+    masterDb.run(`INSERT INTO usuarios (restaurante_id, username, password_hash, role, ativo, data_cadastro) VALUES (?, ?, ?, 'admin', 1, ?)`,
+      [rid, emailTrimmed, hash, agora], function(err) {
+        if (err) {
+          if (err.message.includes('UNIQUE')) return res.json({ ok: false, erro: 'Este email já está cadastrado.' });
+          return res.json({ ok: false, erro: err.message });
+        }
+        res.json({ ok: true, mensagem: 'Usuário criado com sucesso!', id: this.lastID });
+      });
+  } catch (e) { res.json({ ok: false, erro: e.message }); }
+});
+
+app.delete('/api/super/usuario/:id', superAdminAuth, (req, res) => {
+  const id = parseInt(req.params.id);
+  if (!id) return res.json({ ok: false, erro: 'ID inválido.' });
+  masterDb.run(`UPDATE usuarios SET ativo = 0 WHERE id = ?`, [id], function(err) {
+    if (err) return res.json({ ok: false, erro: err.message });
+    if (this.changes === 0) return res.json({ ok: false, erro: 'Usuário não encontrado.' });
+    res.json({ ok: true, mensagem: 'Usuário desativado com sucesso.' });
+  });
+});
+
+// ── SUPER ADMIN: RESTAURANTES ───────────────────────────────────────
+app.get('/api/super/restaurantes', superAdminAuth, (req, res) => {
+  masterDb.all(`SELECT * FROM restaurantes ORDER BY id DESC`, [], (err, rows) => {
+    if (err) return res.json({ ok: false, erro: err.message });
+    const lista = rows || [];
+    if (lista.length === 0) return res.json({ ok: true, clients: [] });
+    let pendentes = lista.length;
+    const mapped = lista.map(r => ({
+      id: String(r.id), restaurante: r.nome, status: r.ativo ? r.licenca : 'bloqueado',
+      plano: r.licenca === 'premium' ? 'Premium' : (r.licenca === 'trial' ? 'Trial' : r.licenca),
+      login_mode: r.login_mode || 'multi', chave: 'LOCAL_' + String(r.id).padStart(4, '0'),
+      validade: null, maxDisp: 0, ultimaVer: r.data_cadastro, versao: 'Local-1.0',
+      ip: '127.0.0.1', regiao: 'Local Server', total_funcionarios: 0, slug: r.slug || '', custom_domain: r.custom_domain || ''
+    }));
+    function finalizar() { res.json({ ok: true, clients: mapped }); }
+    mapped.forEach(item => {
+      const restId = parseInt(item.id);
+      const tenantDbPath = getTenantDbPath(restId);
+      if (!fsSync.existsSync(tenantDbPath)) { pendentes--; if (pendentes <= 0) finalizar(); return; }
+      const tDb = new sqlite3.Database(tenantDbPath, sqlite3.OPEN_READONLY, errOpen => {
+        if (errOpen) { pendentes--; if (pendentes <= 0) finalizar(); return; }
+        tDb.get("SELECT COUNT(*) as count FROM funcionarios", [], (errCount, row) => {
+          item.total_funcionarios = (!errCount && row) ? row.count : 0;
+          tDb.close(); pendentes--; if (pendentes <= 0) finalizar();
+        });
+      });
+    });
+  });
+});
+
+app.post('/api/super/criar-restaurante', superAdminAuth, async (req, res) => {
+  try {
+    const { nome, licenca, ativo, email, senha } = req.body;
+    if (!nome) return res.json({ ok: false, erro: 'Nome do restaurante é obrigatório.' });
+    const activeVal = ativo !== undefined ? (ativo ? 1 : 0) : 1;
+    const licencaVal = licenca || 'trial';
+    masterDb.run(`INSERT INTO restaurantes (nome, licenca, ativo, data_cadastro) VALUES (?, ?, ?, datetime('now', 'localtime'))`,
+      [nome, licencaVal, activeVal], function(err) {
+        if (err) return res.json({ ok: false, erro: err.message });
+        const restauranteId = this.lastID;
+        if (email && senha) {
+          bcrypt.hash(senha, 10).then(hash => {
+            masterDb.run(`INSERT INTO usuarios (restaurante_id, username, password_hash, role, ativo, data_cadastro) VALUES (?, ?, ?, 'admin', 1, datetime('now', 'localtime'))`,
+              [restauranteId, email.trim().toLowerCase(), hash], function(errUser) {
+                if (errUser) return res.json({ ok: true, restauranteId, alerta: 'Restaurante criado, mas falhou ao registrar usuário administrador.' });
+                res.json({ ok: true, restauranteId, mensagem: 'Restaurante e administrador criados com sucesso!' });
+              });
+          }).catch(() => { res.json({ ok: true, restauranteId, alerta: 'Restaurante criado, mas falhou ao gerar senha.' }); });
+        } else { res.json({ ok: true, restauranteId, mensagem: 'Restaurante criado com sucesso!' }); }
+      });
+  } catch (e) { res.json({ ok: false, erro: e.message }); }
+});
+
+app.post('/api/super/atualizar-restaurante', superAdminAuth, async (req, res) => {
+  try {
+    const { id, fields } = req.body;
+    if (!id || !fields) return res.json({ ok: false, erro: 'ID e campos são obrigatórios.' });
+    const updates = []; const params = [];
+    if (fields.restaurante !== undefined) { updates.push('nome = ?'); params.push(fields.restaurante); }
+    if (fields.status !== undefined) { updates.push('licenca = ?'); params.push(fields.status); updates.push('ativo = ?'); params.push(fields.status === 'bloqueado' ? 0 : 1); }
+    if (fields.plano !== undefined) { updates.push('licenca = ?'); params.push(fields.plano); }
+    if (fields.ativo !== undefined) { updates.push('ativo = ?'); params.push(fields.ativo ? 1 : 0); }
+    if (fields.login_mode !== undefined) { updates.push('login_mode = ?'); params.push(fields.login_mode === 'single' ? 'single' : 'multi'); }
+    if (updates.length === 0) return res.json({ ok: false, erro: 'Nenhum campo informado.' });
+    params.push(parseInt(id));
+    masterDb.run(`UPDATE restaurantes SET ${updates.join(', ')} WHERE id = ?`, params, function(err) {
+      if (err) return res.json({ ok: false, erro: err.message });
+      res.json({ ok: true, mensagem: 'Restaurante atualizado com sucesso!' });
+    });
+  } catch (e) { res.json({ ok: false, erro: e.message }); }
+});
+
+app.delete('/api/super/restaurante/:id', superAdminAuth, (req, res) => {
+  const id = parseInt(req.params.id);
+  if (!id) return res.json({ ok: false, erro: 'ID inválido.' });
+  masterDb.run(`DELETE FROM restaurantes WHERE id = ?`, [id], function(err) {
+    if (err) return res.json({ ok: false, erro: err.message });
+    masterDb.run(`DELETE FROM usuarios WHERE restaurante_id = ?`, [id], () => {
+      res.json({ ok: true, mensagem: 'Restaurante e usuários excluídos com sucesso.' });
+    });
+  });
+});
+
+// ── SUPER ADMIN: DASHBOARD STATS ────────────────────────────────────
+app.get('/api/super/dashboard-stats', superAdminAuth, async (req, res) => {
+  try {
+    const counts = await new Promise((resolve) => {
+      masterDb.all(`SELECT licenca, ativo FROM restaurantes`, [], (err, rows) => {
+        const stats = { ativas: 0, trials: 0, expiradas: 0, bloqueadas: 0 };
+        if (err || !rows) return resolve(stats);
+        rows.forEach(r => {
+          if (!r.ativo) stats.bloqueadas++;
+          else if (r.licenca === 'trial') stats.trials++;
+          else if (r.licenca === 'premium' || r.licenca === 'ativo') stats.ativas++;
+          else if (r.licenca === 'expirado') stats.expiradas++;
+          else stats.ativas++;
+        });
+        resolve(stats);
+      });
+    });
+    const userCount = await new Promise((resolve) => {
+      masterDb.get(`SELECT COUNT(*) as count FROM usuarios WHERE ativo = 1`, [], (err, row) => { resolve(row ? row.count : 0); });
+    });
+    let totalSales = 0;
+    try {
+      const dbFiles = listarBancosTenant();
+      for (const dbPath of dbFiles) {
+        const sales = await new Promise((resolve) => {
+          const tenantDb = new sqlite3.Database(dbPath, sqlite3.OPEN_READONLY, (err) => { if (err) return resolve(0); });
+          tenantDb.get("SELECT name FROM sqlite_master WHERE type='table' AND name='pedidos'", [], (errTable, tableRow) => {
+            if (errTable || !tableRow) { tenantDb.close(); return resolve(0); }
+            tenantDb.get("SELECT SUM(CAST(total AS REAL)) as total_sales FROM pedidos WHERE status IN ('Finalizado', 'Pago')", [], (errQ, rowQ) => {
+              tenantDb.close(); resolve((errQ || !rowQ) ? 0 : (rowQ.total_sales || 0));
+            });
+          });
+        });
+        totalSales += sales;
+      }
+    } catch (e) { console.error('[Dashboard-Stats] Erro ao calcular vendas:', e); }
+    res.json({ ok: true, stats: { ativas: counts.ativas, trials: counts.trials, expiradas: counts.expiradas, bloqueadas: counts.bloqueadas, usuarios: userCount, totalSales: parseFloat(totalSales.toFixed(2)) } });
+  } catch (e) { res.json({ ok: false, erro: e.message }); }
+});
+
+// ── SUPER ADMIN: BI / FRANQUIAS ─────────────────────────────────────
+// (Rota completa em controllers/super-admin.js — inclui setores)
+
+// ── SUPER ADMIN: LICENÇAS ───────────────────────────────────────────
+app.get('/api/super/licencas', superAdminAuth, (req, res) => {
+  masterDb.all(`SELECT * FROM licencas ORDER BY id DESC`, [], (err, rows) => {
+    if (err) return res.json({ ok: false, erro: err.message });
+    res.json({ ok: true, licencas: rows || [] });
+  });
+});
+
+app.post('/api/super/licencas/gerar', superAdminAuth, (req, res) => {
+  const { restaurante_nome, dias, plano, max_dispositivos, obs } = req.body || {};
+  const nome = trimStr(restaurante_nome, 120) || 'Restaurante';
+  const qtdDias = safeInt(dias, 30, 3650) || 365;
+  const planoVal = ['premium', 'pro', 'plus'].includes(plano) ? plano : 'premium';
+  const maxDisp = safeInt(max_dispositivos, 0, 1000) || 0;
+  const validade = new Date(Date.now() + qtdDias * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  let chave = gerarChaveAtivacao();
+  masterDb.get(`SELECT id FROM licencas WHERE chave = ?`, [chave], (errChave) => {
+    if (errChave) return res.json({ ok: false, erro: 'Conflito ao gerar chave. Tente novamente.' });
+    masterDb.run(`INSERT INTO licencas (chave, restaurante_nome, plano, dias, validade, max_dispositivos, obs) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [chave, nome, planoVal, qtdDias, validade, maxDisp, trimStr(obs, 300) || ''], function(err) {
+        if (err) return res.json({ ok: false, erro: err.message });
+        res.json({ ok: true, licenca: { id: this.lastID, chave, restaurante_nome: nome, plano: planoVal, dias: qtdDias, validade, max_dispositivos: maxDisp, obs: trimStr(obs, 300) || '', status: 'disponivel' } });
+      });
+  });
+});
+
+app.post('/api/super/licencas/:id/revogar', superAdminAuth, (req, res) => {
+  const id = parseInt(req.params.id);
+  if (!id) return res.json({ ok: false, erro: 'ID inválido.' });
+  masterDb.run(`UPDATE licencas SET status = 'revogada' WHERE id = ?`, [id], (err) => {
+    if (err) return res.json({ ok: false, erro: err.message });
+    res.json({ ok: true });
+  });
+});
+
+// ── SUPER ADMIN: TELEMETRIA ─────────────────────────────────────────
+app.get('/api/super/telemetria', superAdminAuth, (req, res) => {
+  masterDb.all(`SELECT t.*, r.nome as rest_nome FROM telemetria t LEFT JOIN restaurantes r ON r.id = t.restaurante_id ORDER BY t.ultima_atividade DESC`, [], (err, rows) => {
+    if (err) return res.json({ ok: false, erro: err.message });
+    res.json({ ok: true, telemetria: rows || [] });
+  });
+});
+
+// ── SUPER ADMIN: MÉTRICAS GARÇONS ───────────────────────────────────
+app.get('/api/super/metricas/garcons', superAdminAuth, (req, res) => {
+  const restauranteId = parseInt(req.query.restaurante_id) || null;
+  function calcularMetricas(funcionarios, pedidos, restId, restNome) {
+    return funcionarios.map(f => {
+      const fPedidos = pedidos.filter(p => p.userName === f.nome || p.userName === f.usuario);
+      const total = fPedidos.length;
+      const entregues = fPedidos.filter(p => p.status === 'Entregue' || p.status === 'Finalizado' || p.status === 'Pago').length;
+      const emAndamento = fPedidos.filter(p => p.status !== 'Entregue' && p.status !== 'Finalizado' && p.status !== 'Pago' && p.status !== 'Cancelado').length;
+      let somaMin = 0, countMin = 0;
+      fPedidos.forEach(p => {
+        if (p.entregueEm && p.createdAt) {
+          const criado = new Date(p.createdAt).getTime();
+          const entregue = new Date(p.entregueEm).getTime();
+          if (!isNaN(criado) && !isNaN(entregue) && entregue > criado) { somaMin += (entregue - criado) / 60000; countMin++; }
+        }
+      });
+      const tempoMedio = countMin > 0 ? Math.round(somaMin / countMin) : null;
+      let totalGasto = 0;
+      fPedidos.forEach(p => { const val = parseFloat(p.total); if (!isNaN(val)) totalGasto += val; });
+      const hoje = new Date(); const hojeStr = hoje.toISOString().slice(0, 10);
+      const pedidosHoje = fPedidos.filter(p => p.createdAt && p.createdAt.slice(0, 10) === hojeStr).length;
+      return { id: f.id, nome: f.nome, usuario: f.usuario, total, entregues, emAndamento, taxaEficiencia: total > 0 ? Math.round((entregues / total) * 100) : 0, tempoMedioEntrega: tempoMedio, totalGasto: Math.round(totalGasto * 100) / 100, pedidosHoje, ...(restId ? { restaurante_id: restId, restaurante_nome: restNome } : {}) };
+    });
+  }
+  if (restauranteId) {
+    const dbPath = getTenantDbPath(restauranteId);
+    if (!fsSync.existsSync(dbPath)) return res.json({ ok: true, metricas: [] });
+    const tDb = new sqlite3.Database(dbPath, sqlite3.OPEN_READONLY, (err) => {
+      if (err) return res.json({ ok: false, erro: 'Erro ao abrir banco' });
+      tDb.all(`SELECT * FROM funcionarios WHERE status = 'Ativo' ORDER BY nome`, [], (errFunc, funcionarios) => {
+        if (errFunc) { tDb.close(); return res.json({ ok: false, erro: 'Erro' }); }
+        tDb.all(`SELECT * FROM pedidos ORDER BY id`, [], (errPed, pedidos) => {
+          tDb.close();
+          if (errPed) return res.json({ ok: false, erro: 'Erro' });
+          const metricas = calcularMetricas(funcionarios || [], pedidos || []);
+          metricas.sort((a, b) => b.total - a.total);
+          res.json({ ok: true, metricas });
+        });
+      });
+    });
+  } else {
+    masterDb.all(`SELECT id, nome FROM restaurantes ORDER BY id`, [], (err, rows) => {
+      if (err) return res.json({ ok: false, erro: err.message });
+      const todos = rows || [];
+      if (todos.length === 0) return res.json({ ok: true, metricas: [] });
+      let pendentes = todos.length; let todasMetricas = [];
+      function finalizar() { todasMetricas.sort((a, b) => b.total - a.total); res.json({ ok: true, metricas: todasMetricas }); }
+      todos.forEach(r => {
+        const dbPath = getTenantDbPath(r.id);
+        if (!fsSync.existsSync(dbPath)) { pendentes--; if (pendentes <= 0) finalizar(); return; }
+        const tDb = new sqlite3.Database(dbPath, sqlite3.OPEN_READONLY, errOpen => {
+          if (errOpen) { pendentes--; if (pendentes <= 0) finalizar(); return; }
+          tDb.all(`SELECT * FROM funcionarios WHERE status = 'Ativo' ORDER BY nome`, [], (errFunc, funcionarios) => {
+            if (errFunc) { tDb.close(); pendentes--; if (pendentes <= 0) finalizar(); return; }
+            tDb.all(`SELECT * FROM pedidos ORDER BY id`, [], (errPed, pedidos) => {
+              tDb.close();
+              if (!errPed) todasMetricas = todasMetricas.concat(calcularMetricas(funcionarios || [], pedidos || [], r.id, r.nome));
+              pendentes--; if (pendentes <= 0) finalizar();
+            });
+          });
+        });
+      });
+    });
+  }
+});
+
+// ── SUPER ADMIN: LOGS ──────────────────────────────────────────────
+app.get('/api/super/logs-sistema', superAdminAuth, (req, res) => {
+  const tipo = req.query.tipo === 'auditoria' ? 'auditoria' : 'api_logs';
+  const search = req.query.search || '';
+  const limit = Math.min(200, parseInt(req.query.limit) || 50);
+  const offset = Math.max(0, parseInt(req.query.offset) || 0);
+  let query = `SELECT * FROM ${tipo}`; const params = [];
+  if (search) {
+    const cols = tipo === 'api_logs' ? ['operador', 'ip', 'endpoint', 'detalhes'] : ['operador', 'acao', 'detalhes', 'motivo'];
+    query += ` WHERE ${cols.map(c => c + ' LIKE ?').join(' OR ')}`;
+    cols.forEach(() => params.push(`%${search}%`));
+  }
+  query += ` ORDER BY id DESC LIMIT ? OFFSET ?`; params.push(limit, offset);
+  masterDb.all(query, params, (err, rows) => {
+    if (err) return res.json({ ok: false, erro: err.message });
+    let countQuery = `SELECT COUNT(*) as count FROM ${tipo}`;
+    const countParams = [];
+    if (search) {
+      const cols = tipo === 'api_logs' ? ['operador', 'ip', 'endpoint', 'detalhes'] : ['operador', 'acao', 'detalhes', 'motivo'];
+      countQuery += ` WHERE ${cols.map(c => c + ' LIKE ?').join(' OR ')}`;
+      cols.forEach(() => countParams.push(`%${search}%`));
+    }
+    masterDb.get(countQuery, countParams, (errCount, rowCount) => {
+      res.json({ ok: true, rows: rows || [], total: rowCount ? rowCount.count : 0 });
+    });
+  });
+});
+
+// ── SUPER ADMIN: SERVER STATUS ──────────────────────────────────────
+app.get('/api/super/server-status', superAdminAuth, (req, res) => {
+  const uptime = process.uptime();
+  const mem = process.memoryUsage();
+  const dbFiles = listarBancosTenant();
+  let totalDbSize = 0;
+  dbFiles.forEach(f => { try { totalDbSize += fsSync.statSync(f).size; } catch(e) {} });
+  try { totalDbSize += fsSync.statSync(path.join(__dirname, 'master.sqlite')).size; } catch(e) {}
+  res.json({ ok: true, status: { uptime: Math.floor(uptime), memoria: { rss: mem.rss, heapUsed: mem.heapUsed, heapTotal: mem.heapTotal }, disco: { arquivos_banco: dbFiles.length + 1, tamanho_total: totalDbSize }, node: process.version, plataforma: process.platform, pid: process.pid, dataHora: new Date().toISOString() } });
+});
+
+// ── SUPER ADMIN: BACKUP ─────────────────────────────────────────────
+app.post('/api/super/backup', superAdminAuth, (req, res) => {
+  try {
+    const backupDir = path.join(__dirname, 'backups');
+    if (!fsSync.existsSync(backupDir)) fsSync.mkdirSync(backupDir, { recursive: true });
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const files = listarBancosTenant();
+    files.push(path.join(__dirname, 'master.sqlite'));
+    const copied = [];
+    files.forEach(src => {
+      const f = path.basename(src);
+      const dst = path.join(backupDir, f.replace(/\.sqlite$/, '_backup_' + timestamp + '.sqlite'));
+      try { fsSync.copyFileSync(src, dst); copied.push(path.relative(__dirname, src)); } catch(e) {}
+    });
+    res.json({ ok: true, mensagem: 'Backup criado com sucesso!', arquivos: copied, timestamp });
+  } catch (e) { res.json({ ok: false, erro: e.message }); }
+});
+
+// ── SUPER ADMIN: CONFIG GLOBAL ──────────────────────────────────────
+app.get('/api/super/config-global', superAdminAuth, (req, res) => {
+  masterDb.all("SELECT chave, valor FROM configuracoes_global", [], (err, rows) => {
+    if (err) return res.json({ ok: true, configs: {} });
+    const cfgs = {}; (rows || []).forEach(r => { cfgs[r.chave] = r.valor; });
+    res.json({ ok: true, configs: cfgs });
+  });
+});
+
+app.post('/api/super/config-global', superAdminAuth, (req, res) => {
+  const configs = req.body || {};
+  if (!Object.keys(configs).length) return res.json({ ok: false, erro: 'Nenhuma configuração informada.' });
+  masterDb.serialize(() => {
+    Object.keys(configs).forEach(chave => {
+      const valor = typeof configs[chave] === 'object' ? JSON.stringify(configs[chave]) : String(configs[chave]);
+      masterDb.run("INSERT INTO configuracoes_global (chave, valor) VALUES (?, ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor", [chave, valor]);
+    });
+  });
+  res.json({ ok: true, mensagem: 'Configurações salvas com sucesso!' });
+});
+
+// ── SUPER ADMIN: MENSAGENS / BROADCAST ──────────────────────────────
+app.get('/api/super/mensagens', superAdminAuth, (req, res) => {
+  masterDb.all("SELECT * FROM mensagens ORDER BY criado_em DESC LIMIT 200", [], (err, rows) => {
+    if (err) return res.json({ ok: false, erro: err.message });
+    res.json({ ok: true, mensagens: rows || [] });
+  });
+});
+
+app.post('/api/super/mensagens', superAdminAuth, (req, res) => {
+  const { titulo, corpo, tipo } = req.body;
+  if (!titulo || !corpo) return res.json({ ok: false, erro: 'Título e corpo são obrigatórios.' });
+  const tipoValido = ['aviso', 'atualizacao', 'manutencao', 'urgente'].includes(tipo) ? tipo : 'aviso';
+  masterDb.run("INSERT INTO mensagens (titulo, corpo, tipo) VALUES (?, ?, ?)", [titulo, corpo, tipoValido], function(err) {
+    if (err) return res.json({ ok: false, erro: err.message });
+    io.emit('mensagem_broadcast', { id: this.lastID, titulo, corpo, tipo: tipoValido, criado_em: new Date().toISOString() });
+    res.json({ ok: true, id: this.lastID, mensagem: 'Mensagem enviada!' });
+  });
+});
+
+app.delete('/api/super/mensagens/:id', superAdminAuth, (req, res) => {
+  masterDb.run("DELETE FROM mensagens WHERE id = ?", [req.params.id], function(err) {
+    if (err) return res.json({ ok: false, erro: err.message });
+    res.json({ ok: true, mensagem: 'Mensagem removida.' });
+  });
+});
+
+app.post('/api/super/mensagens/:id/reenviar', superAdminAuth, (req, res) => {
+  masterDb.get("SELECT * FROM mensagens WHERE id = ?", [req.params.id], (err, row) => {
+    if (err || !row) return res.json({ ok: false, erro: 'Mensagem não encontrada.' });
+    io.emit('mensagem_broadcast', { id: row.id, titulo: row.titulo, corpo: row.corpo, tipo: row.tipo, criado_em: row.criado_em });
+    res.json({ ok: true, mensagem: 'Mensagem reenviada!' });
+  });
+});
+
+// ── MENSAGENS PÚBLICAS ──────────────────────────────────────────────
+app.get('/api/mensagens', (req, res) => {
+  masterDb.all("SELECT id, titulo, corpo, tipo, criado_em FROM mensagens ORDER BY criado_em DESC LIMIT 50", [], (err, rows) => {
+    if (err) return res.json({ ok: true, mensagens: [] });
+    res.json({ ok: true, mensagens: rows || [] });
+  });
+});
+
+app.post('/api/mensagens/:id/lida', (req, res) => {
+  const { restaurante_id } = req.body;
+  if (!restaurante_id) return res.json({ ok: false, erro: 'restaurante_id obrigatório.' });
+  masterDb.get("SELECT lida_por FROM mensagens WHERE id = ?", [req.params.id], (err, row) => {
+    if (err || !row) return res.json({ ok: false, erro: 'Mensagem não encontrada.' });
+    const lidas = (row.lida_por || '').split(',').filter(Boolean);
+    if (!lidas.includes(String(restaurante_id))) { lidas.push(String(restaurante_id)); masterDb.run("UPDATE mensagens SET lida_por = ? WHERE id = ?", [lidas.join(','), req.params.id]); }
+    res.json({ ok: true });
+  });
+});
+
+// ── TELEMETRIA PÚBLICA ──────────────────────────────────────────────
+app.post('/api/telemetria', (req, res) => {
+  const body = req.body || {};
+  const install = body.install_id || body.installId || '';
+  if (!install) return res.status(400).json({ ok: false, error: 'install_id obrigatório.' });
+  registrarTelemetria(body);
+  res.json({ ok: true });
+});
+
+// ── LICENÇA PÚBLICA ────────────────────────────────────────────────
+app.post('/api/licenca/ativar', async (req, res) => {
+  const { chave, install_id, nome_restaurante } = req.body || {};
+  if (!chave) return res.status(400).json({ ok: false, error: 'Chave obrigatória.' });
+  masterDb.get(`SELECT * FROM licencas WHERE chave = ?`, [trimStr(chave, 30).toUpperCase()], (err, lic) => {
+    if (err || !lic) return res.status(400).json({ ok: false, error: 'Chave inválida.' });
+    if (lic.status === 'revogada') return res.status(403).json({ ok: false, error: 'Chave revogada.' });
+    const hoje = new Date().toISOString().split('T')[0];
+    if (lic.validade && lic.validade < hoje) { masterDb.run(`UPDATE licencas SET status = 'expirada' WHERE id = ?`, [lic.id], () => {}); return res.status(403).json({ ok: false, error: 'Chave expirada.' }); }
+    if (lic.status === 'usada' && lic.install_id && lic.install_id !== (install_id || '')) return res.status(403).json({ ok: false, error: 'Chave já utilizada em outra instalação.' });
+    const agora = new Date().toLocaleString();
+    masterDb.run(`UPDATE licencas SET status = 'usada', usada_em = ?, usada_por = ?, install_id = ? WHERE id = ?`,
+      [agora, trimStr(nome_restaurante, 120) || lic.restaurante_nome, install_id || '', lic.id], () => {
+        registrarTelemetria({ install_id: install_id || '', nome_restaurante: trimStr(nome_restaurante, 120) || lic.restaurante_nome, online: 1, ultima_atividade: agora });
+        res.json({ ok: true, status: 'ativo', plano: lic.plano, validade: lic.validade, maxDispositivos: lic.max_dispositivos });
+      });
+  });
+});
+
+app.get('/api/licenca/estado', (req, res) => {
+  const { chave, install_id } = req.query;
+  if (!chave) return res.json({ ok: false, error: 'Chave obrigatória.' });
+  masterDb.get(`SELECT * FROM licencas WHERE chave = ?`, [String(chave).toUpperCase()], (err, lic) => {
+    if (err || !lic) return res.json({ ok: false, error: 'Chave inválida.' });
+    if (lic.status === 'revogada') return res.json({ ok: false, status: 'bloqueado', error: 'Chave revogada.' });
+    if (lic.status === 'usada' && lic.install_id && install_id && lic.install_id !== install_id) return res.json({ ok: false, status: 'bloqueado', error: 'Chave em uso por outra instalação.' });
+    const hoje = new Date().toISOString().split('T')[0];
+    if (lic.validade && lic.validade < hoje) return res.json({ ok: false, status: 'expirado', error: 'Licença expirada.' });
+    res.json({ ok: true, status: 'ativo', plano: lic.plano, validade: lic.validade, maxDispositivos: lic.max_dispositivos });
+  });
+});
+
+// ── SUPER ADMIN: CLIENTES ───────────────────────────────────────────
+app.get('/api/super/clientes', superAdminAuth, (req, res) => {
+  masterDb.all(`SELECT id, nome FROM restaurantes ORDER BY id`, [], (err, restaurantes) => {
+    if (err) return res.json({ ok: false, erro: err.message });
+    const restList = restaurantes || [];
+    if (restList.length === 0) return res.json({ ok: true, clientes: [] });
+    let todosClientes = []; let pendentes = restList.length;
+    function finalizar() { todosClientes.sort((a, b) => a.restaurante_id - b.restaurante_id || a.nome.localeCompare(b.nome)); res.json({ ok: true, clientes: todosClientes }); }
+    restList.forEach(r => {
+      const tenantDbPath = getTenantDbPath(r.id);
+      if (!fsSync.existsSync(tenantDbPath)) { pendentes--; if (pendentes <= 0) finalizar(); return; }
+      const tDb = new sqlite3.Database(tenantDbPath, sqlite3.OPEN_READONLY, errOpen => {
+        if (errOpen) { pendentes--; if (pendentes <= 0) finalizar(); return; }
+        tDb.all(`SELECT * FROM clientes ORDER BY nome`, [], (errC, rows) => {
+          const clientes = (!errC && rows) || [];
+          if (clientes.length === 0) { tDb.close(); pendentes--; if (pendentes <= 0) finalizar(); return; }
+          let subPendentes = clientes.length;
+          clientes.forEach(c => {
+            tDb.get(`SELECT COUNT(*) as total_pedidos, COALESCE(SUM(CAST(REPLACE(COALESCE(total,'0'), ',', '.') AS REAL)), 0) as total_gasto FROM pedidos WHERE cliente_id = ? AND status IN ('Finalizado','Pago','Entregue')`, [c.id], (errP, stats) => {
+              todosClientes.push({ id: c.id, restaurante_id: r.id, restaurante_nome: r.nome, nome: c.nome, telefone: c.telefone, endereco: c.endereco, data_nascimento: c.data_nascimento, observacao: c.observacao || c.observacoes || '', pontos: c.pontos || 0, total_pedidos: stats ? stats.total_pedidos || 0 : 0, total_gasto: stats ? stats.total_gasto || 0 : 0 });
+              subPendentes--;
+              if (subPendentes <= 0) { tDb.close(); pendentes--; if (pendentes <= 0) finalizar(); }
+            });
+          });
+        });
+      });
+    });
+  });
+});
+
+app.get('/api/super/clientes/:id', superAdminAuth, (req, res) => {
+  const clienteId = parseInt(req.params.id);
+  const restauranteId = parseInt(req.query.restaurante_id) || 1;
+  const tenantDbPath = getTenantDbPath(restauranteId);
+  if (!fsSync.existsSync(tenantDbPath)) return res.json({ ok: false, erro: 'Banco do restaurante não encontrado.' });
+  const tDb = new sqlite3.Database(tenantDbPath, sqlite3.OPEN_READONLY, (errOpen) => {
+    if (errOpen) return res.json({ ok: false, erro: 'Erro ao abrir banco.' });
+    tDb.get(`SELECT * FROM clientes WHERE id = ?`, [clienteId], (err, cliente) => {
+      if (err || !cliente) { tDb.close(); return res.json({ ok: false, erro: 'Cliente não encontrado.' }); }
+      tDb.all(`SELECT * FROM pedidos WHERE cliente_id = ? ORDER BY createdAt DESC LIMIT 100`, [clienteId], (errPed, pedidos) => {
+        tDb.close();
+        const totalGasto = (pedidos || []).reduce((sum, p) => sum + (parseFloat(String(p.total).replace(',', '.')) || 0), 0);
+        res.json({ ok: true, cliente: { id: cliente.id, nome: cliente.nome, telefone: cliente.telefone, endereco: cliente.endereco, data_nascimento: cliente.data_nascimento, observacao: cliente.observacao || cliente.observacoes || '', pontos: cliente.pontos || 0, total_gasto: totalGasto, total_pedidos: (pedidos || []).length, ultima_visita: pedidos && pedidos.length > 0 ? pedidos[0].createdAt : null, pedidos: (pedidos || []).map(p => ({ id: p.id, productName: p.productName, quantity: p.quantity, total: p.total, status: p.status, localName: p.localName, createdAt: p.createdAt })) } });
+      });
+    });
+  });
+});
+
+// ── SUPER ADMIN: FUNCIONÁRIOS POR RESTAURANTE ───────────────────────
+app.get('/api/super/restaurantes/:id/funcionarios', superAdminAuth, (req, res) => {
+  const restauranteId = parseInt(req.params.id);
+  const tenantDbPath = getTenantDbPath(restauranteId);
+  if (!fsSync.existsSync(tenantDbPath)) return res.json({ ok: false, erro: 'Banco do restaurante não encontrado.', funcionarios: [] });
+  const tDb = new sqlite3.Database(tenantDbPath, sqlite3.OPEN_READONLY, (errOpen) => {
+    if (errOpen) return res.json({ ok: false, erro: 'Erro ao abrir banco.' });
+    tDb.all(`SELECT * FROM funcionarios ORDER BY nome`, [], (err, rows) => {
+      tDb.close();
+      if (err) return res.json({ ok: false, erro: err.message });
+      const seguros = (rows || []).map(f => ({ id: f.id, nome: f.nome, usuario: f.usuario, cargo: f.cargo, status: f.status || 'Ativo', valor_hora: f.valor_hora || 0, tipo_remuneracao: f.tipo_remuneracao || 'hora' }));
+      res.json({ ok: true, funcionarios: seguros, restaurante_id: restauranteId });
+    });
+  });
+});
+
+// ── SUPER ADMIN: EXEC ───────────────────────────────────────────────
+app.post('/api/super/exec', superAdminAuth, (req, res) => {
+  const { command } = req.body;
+  if (!command || typeof command !== 'string') return res.json({ ok: false, erro: 'Comando é obrigatório.' });
+  if (command.length > 500) return res.json({ ok: false, erro: 'Comando muito longo.' });
+  console.log(`[Super Admin Exec] Command: ${command.substring(0, 200)}`);
+  exec(command, { cwd: __dirname, timeout: 30000 }, (error, stdout, stderr) => {
+    res.json({ ok: !error, stdout: stdout || '', stderr: stderr || '', exitCode: error ? (error.code || 1) : 0, command: command.substring(0, 500) });
+  });
+});
+
+// ── SUPER ADMIN: EQUIPE DE SUPORTE CRUD ─────────────────────────────
+app.get('/api/super/equipe', superAdminAuth, (req, res) => {
+  masterDb.all(`SELECT id, nome, email, telefone, cargo, especialidade, status, data_cadastro FROM equipe_suporte ORDER BY nome`, [], (err, rows) => {
+    if (err) return res.json({ ok: false, erro: err.message });
+    res.json({ ok: true, equipe: rows || [] });
+  });
+});
+
+app.post('/api/super/equipe', superAdminAuth, (req, res) => {
+  try {
+    const { nome, email, telefone, senha, cargo, especialidade } = req.body;
+    if (!nome || !email || !senha) return res.json({ ok: false, erro: 'Nome, email e senha são obrigatórios.' });
+    bcrypt.hash(senha, 10).then(hash => {
+      masterDb.run(`INSERT INTO equipe_suporte (nome, email, telefone, password_hash, cargo, especialidade) VALUES (?, ?, ?, ?, ?, ?)`,
+        [nome, email.trim().toLowerCase(), telefone || '', hash, cargo || 'Suporte', especialidade || 'Remoto'],
+        function(err) { if (err) return res.json({ ok: false, erro: err.message }); res.json({ ok: true, id: this.lastID, mensagem: 'Membro cadastrado!' }); }
+      );
+    });
+  } catch (e) { res.json({ ok: false, erro: e.message }); }
+});
+
+app.put('/api/super/equipe/:id', superAdminAuth, (req, res) => {
+  try {
+    const { nome, email, telefone, senha, cargo, especialidade, status } = req.body;
+    const id = parseInt(req.params.id);
+    if (!id) return res.json({ ok: false, erro: 'ID inválido.' });
+    const updates = []; const params = [];
+    if (nome !== undefined) { updates.push('nome = ?'); params.push(nome); }
+    if (email !== undefined) { updates.push('email = ?'); params.push(email.trim().toLowerCase()); }
+    if (telefone !== undefined) { updates.push('telefone = ?'); params.push(telefone); }
+    if (cargo !== undefined) { updates.push('cargo = ?'); params.push(cargo); }
+    if (especialidade !== undefined) { updates.push('especialidade = ?'); params.push(especialidade); }
+    if (status !== undefined) { updates.push('status = ?'); params.push(status); }
+    if (senha) { updates.push('password_hash = ?'); params.push(bcrypt.hashSync(senha, 10)); }
+    if (updates.length === 0) return res.json({ ok: false, erro: 'Nenhum campo para atualizar.' });
+    params.push(id);
+    masterDb.run(`UPDATE equipe_suporte SET ${updates.join(', ')} WHERE id = ?`, params, function(err) {
+      if (err) return res.json({ ok: false, erro: err.message });
+      res.json({ ok: true, mensagem: 'Membro atualizado!' });
+    });
+  } catch (e) { res.json({ ok: false, erro: e.message }); }
+});
+
+app.delete('/api/super/equipe/:id', superAdminAuth, (req, res) => {
+  const id = parseInt(req.params.id);
+  if (!id) return res.json({ ok: false, erro: 'ID inválido.' });
+  masterDb.run(`DELETE FROM suporte_restaurantes WHERE suporte_id = ?`, [id], () => {
+    masterDb.run(`DELETE FROM equipe_suporte WHERE id = ?`, [id], function(err) {
+      if (err) return res.json({ ok: false, erro: err.message });
+      res.json({ ok: true, mensagem: 'Membro removido!' });
+    });
+  });
+});
+
+app.get('/api/super/equipe/:id/restaurantes', superAdminAuth, (req, res) => {
+  const id = parseInt(req.params.id);
+  masterDb.all(`SELECT sr.*, r.nome as restaurante_nome FROM suporte_restaurantes sr LEFT JOIN restaurantes r ON sr.restaurante_id = r.id WHERE sr.suporte_id = ? ORDER BY r.nome`, [id], (err, rows) => {
+    if (err) return res.json({ ok: false, erro: err.message });
+    res.json({ ok: true, atribuicoes: rows || [] });
+  });
+});
+
+app.post('/api/super/equipe/:id/restaurantes', superAdminAuth, (req, res) => {
+  const suporteId = parseInt(req.params.id);
+  const { restaurante_ids, tipo_suporte } = req.body;
+  if (!restaurante_ids || !Array.isArray(restaurante_ids) || restaurante_ids.length === 0) return res.json({ ok: false, erro: 'Lista de restaurantes é obrigatória.' });
+  const tipo = tipo_suporte || 'remoto';
+  let pendentes = restaurante_ids.length; let erros = [];
+  restaurante_ids.forEach(rid => {
+    masterDb.run(`INSERT OR IGNORE INTO suporte_restaurantes (suporte_id, restaurante_id, tipo_suporte) VALUES (?, ?, ?)`,
+      [suporteId, rid, tipo], function(err) {
+        if (err) erros.push(err.message);
+        pendentes--;
+        if (pendentes <= 0) res.json({ ok: erros.length === 0, mensagem: `${restaurante_ids.length - erros.length} restaurante(s) atribuído(s).` });
+      });
+  });
+});
+
+app.delete('/api/super/equipe/:id/restaurantes/:restId', superAdminAuth, (req, res) => {
+  masterDb.run(`DELETE FROM suporte_restaurantes WHERE suporte_id = ? AND restaurante_id = ?`,
+    [parseInt(req.params.id), parseInt(req.params.restId)], function(err) {
+      if (err) return res.json({ ok: false, erro: err.message });
+      res.json({ ok: true, mensagem: 'Atribuição removida.' });
+    });
+});
+
+// ── SUPER ADMIN: CRIAR RESTAURANTE COMPLETO ─────────────────────────
+app.post('/api/super/criar-restaurante-completo', superAdminAuth, async (req, res) => {
+  try {
+    const { nome, licenca, ativo, email, senha } = req.body;
+    if (!nome) return res.json({ ok: false, erro: 'Nome do restaurante é obrigatório.' });
+    const activeVal = ativo !== undefined ? (ativo ? 1 : 0) : 1;
+    const licencaVal = licenca || 'trial';
+    masterDb.run(`INSERT INTO restaurantes (nome, licenca, ativo, data_cadastro) VALUES (?, ?, ?, datetime('now','localtime'))`,
+      [nome, licencaVal, activeVal], async function(err) {
+        if (err) return res.json({ ok: false, erro: err.message });
+        const restauranteId = this.lastID;
+        let resultados = { restauranteId, alertas: [] };
+        if (email && senha) {
+          try {
+            const hash = await bcrypt.hash(senha, 10);
+            await new Promise((resolve) => {
+              masterDb.run(`INSERT INTO usuarios (restaurante_id, username, password_hash, role, ativo, data_cadastro) VALUES (?, ?, ?, 'admin', 1, datetime('now','localtime'))`,
+                [restauranteId, email.trim().toLowerCase(), hash], function(errU) { if (errU) resultados.alertas.push('Falha ao criar admin: ' + errU.message); resolve(); });
+            });
+          } catch (e) { resultados.alertas.push('Erro ao gerar hash'); }
+        }
+        const tenantDbPath = getTenantDbPath(restauranteId);
+        if (!fsSync.existsSync(tenantDbPath) && fsSync.existsSync(getTenantDbPath(1))) {
+          fsSync.copyFileSync(getTenantDbPath(1), tenantDbPath);
+        }
+        res.json({ ok: true, ...resultados, mensagem: 'Restaurante criado com sucesso!' });
+      });
+  } catch (e) { res.json({ ok: false, erro: e.message }); }
+});
+
+// ── SUPER ADMIN: DOMÍNIOS ──────────────────────────────────────────
+app.get('/api/super/dominios', superAdminAuth, (req, res) => {
+  masterDb.all(`SELECT id, nome, slug, custom_domain FROM restaurantes ORDER BY id`, [], (err, rows) => {
+    if (err) return res.json({ ok: false, erro: err.message });
+    const tenants = (rows || []).map(r => ({ id: r.id, nome: r.nome, slug: r.slug || '', custom_domain: r.custom_domain || '' }));
+    res.json({ ok: true, tenants });
+  });
+});
+
+app.post('/api/super/dominios', superAdminAuth, (req, res) => {
+  const { restaurante_id, slug, custom_domain } = req.body;
+  if (!restaurante_id) return res.json({ ok: false, erro: 'Selecione um restaurante.' });
+  masterDb.run(`UPDATE restaurantes SET slug = ?, custom_domain = ? WHERE id = ?`,
+    [slug || null, custom_domain || null, restaurante_id], function(err) {
+      if (err) return res.json({ ok: false, erro: err.message });
+      if (typeof loadDomainMaps === 'function') loadDomainMaps();
+      res.json({ ok: true, mensagem: 'Domínios atualizados!' });
+    });
+});
+
 let pedidosDebounceTimeout = null;
 
 // Mercado Pago payment tracking (per-connection state would be ideal, but currently global)
@@ -982,6 +1780,43 @@ masterDb.serialize(async () => {
     usada_em DATETIME,
     usada_por TEXT,
     install_id TEXT
+  )`);
+
+  masterDb.run(`CREATE TABLE IF NOT EXISTS mensagens (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    titulo TEXT, corpo TEXT, tipo TEXT DEFAULT 'aviso',
+    criado_em DATETIME DEFAULT (datetime('now','localtime')),
+    lida_por TEXT DEFAULT ''
+  )`);
+  masterDb.run(`CREATE TABLE IF NOT EXISTS equipe_suporte (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nome TEXT, email TEXT UNIQUE, telefone TEXT,
+    password_hash TEXT, cargo TEXT, especialidade TEXT,
+    status TEXT DEFAULT 'disponivel', xp INTEGER DEFAULT 0, nivel INTEGER DEFAULT 1,
+    data_cadastro DATETIME DEFAULT (datetime('now','localtime'))
+  )`);
+  masterDb.run(`CREATE TABLE IF NOT EXISTS suporte_restaurantes (
+    suporte_id INTEGER, restaurante_id INTEGER, tipo_suporte TEXT DEFAULT 'remoto',
+    UNIQUE(suporte_id, restaurante_id)
+  )`);
+  masterDb.run(`CREATE TABLE IF NOT EXISTS telemetria (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    install_id TEXT UNIQUE, restaurante_id INTEGER,
+    nome_restaurante TEXT, versao TEXT, ip TEXT, plataforma TEXT,
+    admin_login TEXT, chave_ativacao TEXT, online INTEGER DEFAULT 0,
+    ultima_atividade TEXT, tempo_uso_min INTEGER DEFAULT 0,
+    pedidos_total INTEGER DEFAULT 0, vendas_total REAL DEFAULT 0,
+    vendas_hoje REAL DEFAULT 0, comandas_abertas INTEGER DEFAULT 0,
+    funcionarios_ativos INTEGER DEFAULT 0, garcons_online INTEGER DEFAULT 0,
+    produtos_total INTEGER DEFAULT 0, setores_json TEXT,
+    mesas_total INTEGER DEFAULT 0, dispositivos INTEGER DEFAULT 0,
+    funcoes_json TEXT, erros_json TEXT, custo_total REAL DEFAULT 0,
+    folha_mes REAL DEFAULT 0, despesas_mes REAL DEFAULT 0,
+    lucro REAL DEFAULT 0, disco_mb REAL DEFAULT 0,
+    updated_at TEXT
+  )`);
+  masterDb.run(`CREATE TABLE IF NOT EXISTS configuracoes_global (
+    chave TEXT PRIMARY KEY, valor TEXT
   )`);
 
   // Overrides de features por tenant (features = liga/desliga por tenant ou plano)
@@ -6306,7 +7141,21 @@ io.on('connection', (socket) => {
     db.all(`SELECT chave, valor FROM configuracoes WHERE chave LIKE 'rest_%'`, [], (err, rows) => {
       const config = {};
       (rows || []).forEach(r => { config[r.chave] = r.valor; });
-      socket.emit('restaurante_config', config);
+      // Include slug and custom_domain from master DB
+      const restId = socket.restaurante_id || 0;
+      if (restId > 0) {
+        masterDb.get(`SELECT slug, custom_domain FROM restaurantes WHERE id = ?`, [restId], (errM, row) => {
+          if (row) {
+            config['rest_slug'] = row.slug || '';
+            config['rest_custom_domain'] = row.custom_domain || '';
+          }
+          config['rest_base_domain'] = BASE_DOMAIN;
+          socket.emit('restaurante_config', config);
+        });
+      } else {
+        config['rest_base_domain'] = BASE_DOMAIN;
+        socket.emit('restaurante_config', config);
+      }
     });
   });
 
@@ -8508,6 +9357,58 @@ app.post('/api/auth/definir-slug', verificarToken, (req, res) => {
       if (errUp) return res.status(500).json({ success: false, error: 'Erro ao salvar link.' });
       if (typeof loadDomainMaps === 'function') loadDomainMaps();
       res.json({ success: true, slug, url: `https://${slug}.${BASE_DOMAIN}` });
+    });
+  });
+});
+
+// ── Verificar disponibilidade de domínio personalizado ──
+app.get('/api/auth/check-dominio', verificarToken, (req, res) => {
+  const raw = req.query.domain || '';
+  const currentRestId = req.restaurante_id || 0;
+  const domain = String(raw).trim().toLowerCase().replace(/[^a-z0-9.\-]/g, '').replace(/\.$/, '');
+
+  if (!domain || !domain.includes('.')) {
+    return res.json({ available: false, domain, error: 'Domínio inválido. Exemplo: meuhotel.com.br' });
+  }
+
+  const query = currentRestId > 0
+    ? `SELECT id FROM restaurantes WHERE custom_domain = ? AND id != ?`
+    : `SELECT id FROM restaurantes WHERE custom_domain = ?`;
+  const params = currentRestId > 0 ? [domain, currentRestId] : [domain];
+
+  masterDb.get(query, params, (err, row) => {
+    if (err) return res.status(500).json({ available: false, domain, error: 'Erro de validação no servidor.' });
+    if (row) return res.json({ available: false, domain, error: 'Este domínio já está em uso por outro restaurante.' });
+    res.json({ available: true, domain, previewUrl: `https://${domain}` });
+  });
+});
+
+// ── Definir domínio personalizado ──
+app.post('/api/auth/definir-dominio', verificarToken, (req, res) => {
+  const restauranteId = req.restaurante_id;
+  const raw = (req.body && req.body.domain) || '';
+  const domain = String(raw).trim().toLowerCase().replace(/[^a-z0-9.\-]/g, '').replace(/\.$/, '');
+
+  if (!domain) {
+    masterDb.run(`UPDATE restaurantes SET custom_domain = NULL WHERE id = ?`, [restauranteId], () => {
+      if (typeof loadDomainMaps === 'function') loadDomainMaps();
+      return res.json({ success: true, domain: null });
+    });
+    return;
+  }
+
+  if (!domain.includes('.') || domain.length < 4 || domain.length > 253) {
+    return res.status(400).json({ success: false, error: 'Domínio inválido. Exemplo: meuhotel.com.br' });
+  }
+
+  masterDb.get(`SELECT id FROM restaurantes WHERE custom_domain = ? AND id != ?`, [domain, restauranteId], (err, row) => {
+    if (err) return res.status(500).json({ success: false, error: 'Erro no servidor.' });
+    if (row) return res.status(400).json({ success: false, error: 'Este domínio já está em uso.' });
+
+    masterDb.run(`UPDATE restaurantes SET custom_domain = ? WHERE id = ?`, [domain, restauranteId], function(errUp) {
+      if (errUp) return res.status(500).json({ success: false, error: 'Erro ao salvar domínio.' });
+      if (typeof loadDomainMaps === 'function') loadDomainMaps();
+      res.json({ success: true, domain, url: `https://${domain}` });
     });
   });
 });

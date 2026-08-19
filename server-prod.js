@@ -5714,7 +5714,20 @@ io.on('connection', (socket) => {
     db.all(`SELECT chave, valor FROM configuracoes WHERE chave LIKE 'rest_%'`, [], (err, rows) => {
       const config = {};
       (rows || []).forEach(r => { config[r.chave] = r.valor; });
-      socket.emit('restaurante_config', config);
+      const restId = socket.restaurante_id || 0;
+      if (restId > 0 && typeof masterDb !== 'undefined') {
+        masterDb.get(`SELECT slug, custom_domain FROM restaurantes WHERE id = ?`, [restId], (errM, row) => {
+          if (row) {
+            config['rest_slug'] = row.slug || '';
+            config['rest_custom_domain'] = row.custom_domain || '';
+          }
+          if (typeof BASE_DOMAIN !== 'undefined') config['rest_base_domain'] = BASE_DOMAIN;
+          socket.emit('restaurante_config', config);
+        });
+      } else {
+        if (typeof BASE_DOMAIN !== 'undefined') config['rest_base_domain'] = BASE_DOMAIN;
+        socket.emit('restaurante_config', config);
+      }
     });
   });
 
@@ -7858,6 +7871,110 @@ app.post('/api/auth/registro', async (req, res) => {
   } catch (error) {
     res.status(500).json({ success: false, error: 'Erro interno.' });
   }
+});
+
+// ── Verificar disponibilidade de slug ──
+app.get('/api/auth/check-slug', (req, res) => {
+  if (typeof masterDb === 'undefined') return res.status(500).json({ available: false, error: 'Master DB não disponível' });
+  const raw = req.query.slug || '';
+  const currentRestId = req.query.restaurante_id ? parseInt(req.query.restaurante_id, 10) : 0;
+  const slug = String(raw).trim().toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9-]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+  if (!slug || slug.length < 2 || slug.length > 40) {
+    return res.json({ available: false, slug, error: 'O link deve ter entre 2 e 40 caracteres (apenas letras, números e hífen).' });
+  }
+  const query = currentRestId > 0
+    ? `SELECT id FROM restaurantes WHERE slug = ? AND id != ?`
+    : `SELECT id FROM restaurantes WHERE slug = ?`;
+  const params = currentRestId > 0 ? [slug, currentRestId] : [slug];
+  masterDb.get(query, params, (err, row) => {
+    if (err) return res.status(500).json({ available: false, slug, error: 'Erro de validação no servidor.' });
+    if (row) return res.json({ available: false, slug, error: 'Este link já está em uso por outro restaurante.' });
+    const baseDom = (typeof BASE_DOMAIN !== 'undefined') ? BASE_DOMAIN : 'chefcozinha.com.br';
+    res.json({ available: true, slug, baseDomain: baseDom, previewUrl: `https://${slug}.${baseDom}` });
+  });
+});
+
+// ── Definir Slug individualmente ──
+app.post('/api/auth/definir-slug', verificarToken, (req, res) => {
+  if (typeof masterDb === 'undefined') return res.status(500).json({ success: false, error: 'Master DB não disponível' });
+  const restauranteId = req.restaurante_id;
+  const raw = (req.body && req.body.slug) || '';
+  const slug = String(raw).trim().toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9-]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+  if (!slug) {
+    masterDb.run(`UPDATE restaurantes SET slug = NULL WHERE id = ?`, [restauranteId], () => {
+      if (typeof loadDomainMaps === 'function') loadDomainMaps();
+      return res.json({ success: true, slug: null });
+    });
+    return;
+  }
+  if (slug.length < 2 || slug.length > 40) {
+    return res.status(400).json({ success: false, error: 'Slug deve ter entre 2 e 40 caracteres.' });
+  }
+  masterDb.get(`SELECT id FROM restaurantes WHERE slug = ? AND id != ?`, [slug, restauranteId], (err, row) => {
+    if (err) return res.status(500).json({ success: false, error: 'Erro no servidor.' });
+    if (row) return res.status(400).json({ success: false, error: 'Este link já está em uso.' });
+    masterDb.run(`UPDATE restaurantes SET slug = ? WHERE id = ?`, [slug, restauranteId], function(errUp) {
+      if (errUp) return res.status(500).json({ success: false, error: 'Erro ao salvar link.' });
+      if (typeof loadDomainMaps === 'function') loadDomainMaps();
+      const baseDom = (typeof BASE_DOMAIN !== 'undefined') ? BASE_DOMAIN : 'chefcozinha.com.br';
+      res.json({ success: true, slug, url: `https://${slug}.${baseDom}` });
+    });
+  });
+});
+
+// ── Verificar disponibilidade de domínio personalizado ──
+app.get('/api/auth/check-dominio', verificarToken, (req, res) => {
+  if (typeof masterDb === 'undefined') return res.status(500).json({ available: false, error: 'Master DB não disponível' });
+  const raw = req.query.domain || '';
+  const currentRestId = req.restaurante_id || 0;
+  const domain = String(raw).trim().toLowerCase().replace(/[^a-z0-9.\-]/g, '').replace(/\.$/, '');
+  if (!domain || !domain.includes('.')) {
+    return res.json({ available: false, domain, error: 'Domínio inválido. Exemplo: meuhotel.com.br' });
+  }
+  const query = currentRestId > 0
+    ? `SELECT id FROM restaurantes WHERE custom_domain = ? AND id != ?`
+    : `SELECT id FROM restaurantes WHERE custom_domain = ?`;
+  const params = currentRestId > 0 ? [domain, currentRestId] : [domain];
+  masterDb.get(query, params, (err, row) => {
+    if (err) return res.status(500).json({ available: false, domain, error: 'Erro de validação no servidor.' });
+    if (row) return res.json({ available: false, domain, error: 'Este domínio já está em uso por outro restaurante.' });
+    res.json({ available: true, domain, previewUrl: `https://${domain}` });
+  });
+});
+
+// ── Definir domínio personalizado ──
+app.post('/api/auth/definir-dominio', verificarToken, (req, res) => {
+  if (typeof masterDb === 'undefined') return res.status(500).json({ success: false, error: 'Master DB não disponível' });
+  const restauranteId = req.restaurante_id;
+  const raw = (req.body && req.body.domain) || '';
+  const domain = String(raw).trim().toLowerCase().replace(/[^a-z0-9.\-]/g, '').replace(/\.$/, '');
+  if (!domain) {
+    masterDb.run(`UPDATE restaurantes SET custom_domain = NULL WHERE id = ?`, [restauranteId], () => {
+      if (typeof loadDomainMaps === 'function') loadDomainMaps();
+      return res.json({ success: true, domain: null });
+    });
+    return;
+  }
+  if (!domain.includes('.') || domain.length < 4 || domain.length > 253) {
+    return res.status(400).json({ success: false, error: 'Domínio inválido. Exemplo: meuhotel.com.br' });
+  }
+  masterDb.get(`SELECT id FROM restaurantes WHERE custom_domain = ? AND id != ?`, [domain, restauranteId], (err, row) => {
+    if (err) return res.status(500).json({ success: false, error: 'Erro no servidor.' });
+    if (row) return res.status(400).json({ success: false, error: 'Este domínio já está em uso.' });
+    masterDb.run(`UPDATE restaurantes SET custom_domain = ? WHERE id = ?`, [domain, restauranteId], function(errUp) {
+      if (errUp) return res.status(500).json({ success: false, error: 'Erro ao salvar domínio.' });
+      if (typeof loadDomainMaps === 'function') loadDomainMaps();
+      res.json({ success: true, domain, url: `https://${domain}` });
+    });
+  });
 });
 
 // ── Onboarding de equipe apos registro ──

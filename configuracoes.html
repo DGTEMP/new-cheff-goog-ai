@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
 
 <head>
@@ -765,12 +765,13 @@
   <script src="/locales.js"></script>
   <script src="/broadcast.js"></script>
   <script src="/i18n.js"></script>
-<link rel="manifest" href="/manifest.json">
+<link rel="icon" href="/icons/icon.ico">
+  <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#fc4b15">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Chef Cozinha">
-<link rel="apple-touch-icon" href="/icons/icon-192.svg">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
 </head>
 
 <body>
@@ -2772,6 +2773,39 @@
             <label style="font-size:12px; font-weight:600; color:#475569;">Nome do Restaurante</label>
             <input type="text" id="rest-nome" style="padding:10px; border:1px solid #d1d5db; border-radius:8px; font-size:14px;">
           </div>
+
+          <div style="grid-column: span 3; background:linear-gradient(135deg, #eff6ff, #e0e7ff); border:1px solid #c7d2fe; border-radius:12px; padding:18px; margin-bottom:4px;">
+            <h4 style="margin:0 0 12px; font-size:14px; color:#3730a3; display:flex; align-items:center; gap:8px;"><i class="ph ph-link" style="font-size:18px;"></i> Link e Domínio do Restaurante</h4>
+            <p style="margin:0 0 14px; font-size:12px; color:#6366f1;">Configure o endereço web do seu cardápio online. Seus clientes acessarão por este link.</p>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+              <div>
+                <label style="font-size:12px; font-weight:600; color:#475569;">Slug (permalink)</label>
+                <div style="display:flex; align-items:center; gap:0;">
+                  <span id="rest-slug-prefix" style="padding:10px 8px; background:#f1f5f9; border:1px solid #d1d5db; border-right:none; border-radius:8px 0 0 8px; font-size:13px; color:#64748b; white-space:nowrap;">https://</span>
+                  <input type="text" id="rest-slug" style="flex:1; padding:10px; border:1px solid #d1d5db; border-radius:0; font-size:14px; font-weight:600;" placeholder="meu-restaurante" maxlength="40">
+                  <span id="rest-suffix-domain" style="padding:10px 8px; background:#f1f5f9; border:1px solid #d1d5db; border-left:none; border-radius:0 8px 8px 0; font-size:13px; color:#64748b; white-space:nowrap;">.chefcozinha.com.br</span>
+                </div>
+                <div id="rest-slug-status" style="margin-top:6px; font-size:12px; min-height:18px;"></div>
+              </div>
+              <div>
+                <label style="font-size:12px; font-weight:600; color:#475569;">Domínio Próprio (opcional)</label>
+                <input type="text" id="rest-custom-domain" style="padding:10px; border:1px solid #d1d5db; border-radius:8px; font-size:14px;" placeholder="meusite.com.br" maxlength="253">
+                <div id="rest-domain-status" style="margin-top:6px; font-size:12px; min-height:18px;"></div>
+              </div>
+            </div>
+            <div id="rest-url-preview" style="margin-top:12px; padding:10px 14px; background:white; border:1px solid #e0e7ff; border-radius:8px; font-size:13px; color:#1e1b4b;">
+              <i class="ph ph-eye" style="margin-right:6px;"></i>
+              <span id="rest-url-preview-text">—</span>
+            </div>
+            <div style="margin-top:10px; display:flex; gap:8px;">
+              <button id="btn-rest-salvar-slug" style="padding:8px 16px; background:#6366f1; color:white; border:none; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:6px;">
+                <i class="ph ph-check"></i> Salvar Link
+              </button>
+              <button id="btn-rest-salvar-dominio" style="padding:8px 16px; background:#8b5cf6; color:white; border:none; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:6px;">
+                <i class="ph ph-globe"></i> Salvar Domínio
+              </button>
+            </div>
+          </div>
           <div style="display:flex; flex-direction:column; gap:4px;">
             <label style="font-size:12px; font-weight:600; color:#475569;">CNPJ</label>
             <input type="text" id="rest-cnpj" style="padding:10px; border:1px solid #d1d5db; border-radius:8px; font-size:14px;" placeholder="00.000.000/0000-00">
@@ -4426,6 +4460,7 @@ if ('serviceWorker' in navigator) {
 </body>
 
 </html>
+
 
 
 

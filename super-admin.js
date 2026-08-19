@@ -133,6 +133,7 @@ function escapeHtml(s) {
   if (!s) return '';
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
+var escHtml = escapeHtml;
 
 /* ═══ LOGIN ═══ */
 function loginLocal() {
@@ -1858,12 +1859,11 @@ document.addEventListener('DOMContentLoaded', function() {
   if (savedToken) {
     localToken = savedToken;
     entrarNoPainel();
-    return;
   }
 
   /* Login */
   var btnLogin = document.getElementById('btn-entrar-local');
-  if (btnLogin) btnLogin.addEventListener('click', loginLocal);
+  if (btnLogin && !savedToken) btnLogin.addEventListener('click', loginLocal);
 
   /* Logout */
   var btnSair = document.getElementById('btn-sair');
@@ -2401,16 +2401,14 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   };
 
-  document.addEventListener('DOMContentLoaded', function() {
-    var funcSearch = document.getElementById('func-search');
-    if (funcSearch) {
-      funcSearch.addEventListener('input', function() { renderFuncoes(); });
-    }
-    var btnRefreshFunc = document.getElementById('btn-refresh-func');
-    if (btnRefreshFunc) {
-      btnRefreshFunc.addEventListener('click', function() { renderFuncoes(); });
-    }
-  });
+  var funcSearch = document.getElementById('func-search');
+  if (funcSearch) {
+    funcSearch.addEventListener('input', function() { renderFuncoes(); });
+  }
+  var btnRefreshFunc = document.getElementById('btn-refresh-func');
+  if (btnRefreshFunc) {
+    btnRefreshFunc.addEventListener('click', function() { renderFuncoes(); });
+  }
 
   /* ═══ RENDER CAPACIDADE ═══ */
   window.renderCapacidade = function() {
@@ -2523,12 +2521,10 @@ document.addEventListener('DOMContentLoaded', function() {
     if (el) el.textContent = text;
   }
 
-  document.addEventListener('DOMContentLoaded', function() {
-    var btnRefreshCap = document.getElementById('btn-refresh-cap');
-    if (btnRefreshCap) {
-      btnRefreshCap.addEventListener('click', function() { renderCapacidade(); });
-    }
-  });
+  var btnRefreshCap = document.getElementById('btn-refresh-cap');
+  if (btnRefreshCap) {
+    btnRefreshCap.addEventListener('click', function() { renderCapacidade(); });
+  }
 
   /* ═══ RENDER DOMÍNIOS ═══ */
   var _baseDomain = 'chefcozinha.com.br';
@@ -2637,67 +2633,65 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   };
 
-  document.addEventListener('DOMContentLoaded', function() {
-    var btnSalvarDom = document.getElementById('btn-salvar-dom');
-    if (btnSalvarDom) {
-      btnSalvarDom.addEventListener('click', function() {
-        var select = document.getElementById('dom-tenant-select');
-        var slugInput = document.getElementById('dom-slug');
-        var customInput = document.getElementById('dom-custom');
-        var tenantId = select ? parseInt(select.value, 10) : 0;
-        if (!tenantId) {
-          showToast('Selecione um restaurante.', 'warning');
+  var btnSalvarDom = document.getElementById('btn-salvar-dom');
+  if (btnSalvarDom) {
+    btnSalvarDom.addEventListener('click', function() {
+      var select = document.getElementById('dom-tenant-select');
+      var slugInput = document.getElementById('dom-slug');
+      var customInput = document.getElementById('dom-custom');
+      var tenantId = select ? parseInt(select.value, 10) : 0;
+      if (!tenantId) {
+        showToast('Selecione um restaurante.', 'warning');
+        return;
+      }
+      var payload = {
+        restaurante_id: tenantId,
+        slug: slugInput ? slugInput.value : '',
+        custom_domain: customInput ? customInput.value : ''
+      };
+      apiPost('/api/super/dominios', payload, function(err, data) {
+        if (err || !data || !data.ok) {
+          showToast('Erro ao salvar domínio: ' + (err ? err.message : (data ? data.erro : 'Falha')), 'danger');
           return;
         }
-        var payload = {
-          restaurante_id: tenantId,
-          slug: slugInput ? slugInput.value : '',
-          custom_domain: customInput ? customInput.value : ''
-        };
-        apiPost('/api/super/dominios', payload, function(err, data) {
-          if (err || !data || !data.ok) {
-            showToast('Erro ao salvar domínio: ' + (err ? err.message : (data ? data.erro : 'Falha')), 'danger');
-            return;
-          }
-          showToast('Domínio salvo com sucesso!', 'success');
-          renderDominios();
-        });
+        showToast('Domínio salvo com sucesso!', 'success');
+        renderDominios();
       });
-    }
-    var btnRefreshDom = document.getElementById('btn-refresh-dom');
-    if (btnRefreshDom) {
-      btnRefreshDom.addEventListener('click', function() { renderDominios(); });
-    }
-    var domSearch = document.getElementById('dom-search');
-    if (domSearch) {
-      domSearch.addEventListener('input', function() { renderDominios(); });
-    }
-    var domTenantSelect = document.getElementById('dom-tenant-select');
-    if (domTenantSelect) {
-      domTenantSelect.addEventListener('change', function() {
-        var tenants = [];
-        // Find tenant data from the table to prefill
-        apiGet('/api/super/dominios', function(err, data) {
-          if (err || !data || !data.ok) return;
-          var found = (data.tenants || []).find(function(t) { return t.id === parseInt(domTenantSelect.value, 10); });
-          if (found) {
-            var slugInput = document.getElementById('dom-slug');
-            var customInput = document.getElementById('dom-custom');
-            if (slugInput) slugInput.value = found.slug || '';
-            if (customInput) customInput.value = found.custom_domain || '';
-          }
-        });
+    });
+  }
+  var btnRefreshDom = document.getElementById('btn-refresh-dom');
+  if (btnRefreshDom) {
+    btnRefreshDom.addEventListener('click', function() { renderDominios(); });
+  }
+  var domSearch = document.getElementById('dom-search');
+  if (domSearch) {
+    domSearch.addEventListener('input', function() { renderDominios(); });
+  }
+  var domTenantSelect = document.getElementById('dom-tenant-select');
+  if (domTenantSelect) {
+    domTenantSelect.addEventListener('change', function() {
+      var tenants = [];
+      // Find tenant data from the table to prefill
+      apiGet('/api/super/dominios', function(err, data) {
+        if (err || !data || !data.ok) return;
+        var found = (data.tenants || []).find(function(t) { return t.id === parseInt(domTenantSelect.value, 10); });
+        if (found) {
+          var slugInput = document.getElementById('dom-slug');
+          var customInput = document.getElementById('dom-custom');
+          if (slugInput) slugInput.value = found.slug || '';
+          if (customInput) customInput.value = found.custom_domain || '';
+        }
       });
-    }
-  });
+    });
+  }
 
   /* ═══ INSTÂNCIAS ON-PREMISE ═══ */
-  function carregarInstancias() {
+  window.carregarInstancias = function() {
     apiGet('/api/super/instances', function(err, data) {
       if (err || !data || !data.ok) return;
       renderInstancias(data.instances || []);
     });
-  }
+  };
 
   function renderInstancias(instances) {
     var total = instances.length;

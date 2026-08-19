@@ -5745,6 +5745,179 @@ socket.on('restaurante_config_salvo', () => {
   alert('Perfil salvo com sucesso!');
 });
 
+// === SLUG & DOMÍNIO PERSONALIZADO ===
+(function() {
+  let baseDomain = 'chefcozinha.com.br';
+  let slugDebounce = null;
+
+  function updateSlugPreview() {
+    const slug = (document.getElementById('rest-slug') || {}).value || '';
+    const customDomain = (document.getElementById('rest-custom-domain') || {}).value || '';
+    const preview = document.getElementById('rest-url-preview-text');
+    if (customDomain) {
+      if (preview) preview.textContent = `https://${customDomain}`;
+    } else if (slug) {
+      if (preview) preview.textContent = `https://${slug}.${baseDomain}`;
+    } else {
+      if (preview) preview.textContent = '—';
+    }
+  }
+
+  function setSlugStatus(html, color) {
+    const el = document.getElementById('rest-slug-status');
+    if (!el) return;
+    el.innerHTML = html;
+    el.style.color = color;
+  }
+
+  function setDomainStatus(html, color) {
+    const el = document.getElementById('rest-domain-status');
+    if (!el) return;
+    el.innerHTML = html;
+    el.style.color = color;
+  }
+
+  // On restaurante_config load, fill slug/domain fields
+  const origConfigHandler = socket._listeners && socket._listeners['restaurante_config'];
+  socket.on('restaurante_config', (cfg) => {
+    if (cfg['rest_base_domain']) baseDomain = cfg['rest_base_domain'];
+    const suffix = document.getElementById('rest-suffix-domain');
+    if (suffix) suffix.textContent = `.${baseDomain}`;
+    const slugInput = document.getElementById('rest-slug');
+    const domainInput = document.getElementById('rest-custom-domain');
+    if (slugInput && cfg['rest_slug'] !== undefined) slugInput.value = cfg['rest_slug'] || '';
+    if (domainInput && cfg['rest_custom_domain'] !== undefined) domainInput.value = cfg['rest_custom_domain'] || '';
+    updateSlugPreview();
+  });
+
+  // Debounced slug check
+  const slugInput = document.getElementById('rest-slug');
+  if (slugInput) {
+    slugInput.addEventListener('input', () => {
+      const raw = slugInput.value.trim().toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9-]/g, '')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '');
+      slugInput.value = raw;
+      updateSlugPreview();
+
+      clearTimeout(slugDebounce);
+      if (raw.length < 2) {
+        setSlugStatus('', '#64748b');
+        return;
+      }
+      setSlugStatus('<i class="ph ph-spinner" style="animation:spin 1s linear infinite;"></i> Verificando...', '#64748b');
+      slugDebounce = setTimeout(() => {
+        fetch(`/api/auth/check-slug?slug=${encodeURIComponent(raw)}`, { headers: authHeaders() })
+          .then(r => r.json())
+          .then(data => {
+            if (data.available) {
+              setSlugStatus(`<i class="ph ph-check-circle"></i> Disponível! <a href="${data.previewUrl}" target="_blank" style="text-decoration:underline;">${data.previewUrl}</a>`, '#16a34a');
+            } else {
+              setSlugStatus(`<i class="ph ph-x-circle"></i> ${data.error || 'Indisponível'}`, '#dc2626');
+            }
+          })
+          .catch(() => setSlugStatus('<i class="ph ph-warning"></i> Erro ao verificar', '#f59e0b'));
+      }, 500);
+    });
+  }
+
+  // Domain check on input
+  const domainInput = document.getElementById('rest-custom-domain');
+  if (domainInput) {
+    let domainDebounce = null;
+    domainInput.addEventListener('input', () => {
+      updateSlugPreview();
+      clearTimeout(domainDebounce);
+      const raw = domainInput.value.trim();
+      if (!raw || raw.length < 4) {
+        setDomainStatus('', '#64748b');
+        return;
+      }
+      setDomainStatus('<i class="ph ph-spinner" style="animation:spin 1s linear infinite;"></i> Verificando...', '#64748b');
+      domainDebounce = setTimeout(() => {
+        fetch(`/api/auth/check-dominio?domain=${encodeURIComponent(raw)}`, { headers: authHeaders() })
+          .then(r => r.json())
+          .then(data => {
+            if (data.available) {
+              setDomainStatus(`<i class="ph ph-check-circle"></i> Domínio disponível!`, '#16a34a');
+            } else {
+              setDomainStatus(`<i class="ph ph-x-circle"></i> ${data.error || 'Indisponível'}`, '#dc2626');
+            }
+          })
+          .catch(() => setDomainStatus('<i class="ph ph-warning"></i> Erro ao verificar', '#f59e0b'));
+      }, 500);
+    });
+  }
+
+  // Save slug button
+  const btnSalvarSlug = document.getElementById('btn-rest-salvar-slug');
+  if (btnSalvarSlug) {
+    btnSalvarSlug.onclick = () => {
+      const slug = (document.getElementById('rest-slug') || {}).value || '';
+      btnSalvarSlug.disabled = true;
+      btnSalvarSlug.innerHTML = '<i class="ph ph-spinner" style="animation:spin 1s linear infinite;"></i> Salvando...';
+      fetch('/api/auth/definir-slug', {
+        method: 'POST',
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug })
+      }).then(r => r.json()).then(data => {
+        btnSalvarSlug.disabled = false;
+        if (data.success) {
+          btnSalvarSlug.innerHTML = '<i class="ph ph-check"></i> Salvo!';
+          btnSalvarSlug.style.background = '#16a34a';
+          updateSlugPreview();
+          setTimeout(() => { btnSalvarSlug.innerHTML = '<i class="ph ph-check"></i> Salvar Link'; btnSalvarSlug.style.background = '#6366f1'; }, 2000);
+        } else {
+          btnSalvarSlug.innerHTML = '<i class="ph ph-x"></i> Erro';
+          btnSalvarSlug.style.background = '#dc2626';
+          alert(data.error || 'Erro ao salvar slug.');
+          setTimeout(() => { btnSalvarSlug.innerHTML = '<i class="ph ph-check"></i> Salvar Link'; btnSalvarSlug.style.background = '#6366f1'; }, 2000);
+        }
+      }).catch(err => {
+        btnSalvarSlug.disabled = false;
+        btnSalvarSlug.innerHTML = '<i class="ph ph-check"></i> Salvar Link';
+        btnSalvarSlug.style.background = '#6366f1';
+        alert('Erro ao salvar: ' + err.message);
+      });
+    };
+  }
+
+  // Save domain button
+  const btnSalvarDominio = document.getElementById('btn-rest-salvar-dominio');
+  if (btnSalvarDominio) {
+    btnSalvarDominio.onclick = () => {
+      const domain = (document.getElementById('rest-custom-domain') || {}).value || '';
+      btnSalvarDominio.disabled = true;
+      btnSalvarDominio.innerHTML = '<i class="ph ph-spinner" style="animation:spin 1s linear infinite;"></i> Salvando...';
+      fetch('/api/auth/definir-dominio', {
+        method: 'POST',
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ domain })
+      }).then(r => r.json()).then(data => {
+        btnSalvarDominio.disabled = false;
+        if (data.success) {
+          btnSalvarDominio.innerHTML = '<i class="ph ph-check"></i> Salvo!';
+          btnSalvarDominio.style.background = '#16a34a';
+          updateSlugPreview();
+          setTimeout(() => { btnSalvarDominio.innerHTML = '<i class="ph ph-globe"></i> Salvar Domínio'; btnSalvarDominio.style.background = '#8b5cf6'; }, 2000);
+        } else {
+          btnSalvarDominio.innerHTML = '<i class="ph ph-x"></i> Erro';
+          btnSalvarDominio.style.background = '#dc2626';
+          alert(data.error || 'Erro ao salvar domínio.');
+          setTimeout(() => { btnSalvarDominio.innerHTML = '<i class="ph ph-globe"></i> Salvar Domínio'; btnSalvarDominio.style.background = '#8b5cf6'; }, 2000);
+        }
+      }).catch(err => {
+        btnSalvarDominio.disabled = false;
+        btnSalvarDominio.innerHTML = '<i class="ph ph-globe"></i> Salvar Domínio';
+        btnSalvarDominio.style.background = '#8b5cf6';
+        alert('Erro ao salvar: ' + err.message);
+      });
+    };
+  }
+})();
+
 // Load perfil data when tab is clicked
 document.querySelector('.admin-tab-btn[data-tab="perfil"]').addEventListener('click', () => {
   socket.emit('get_restaurante_config');
