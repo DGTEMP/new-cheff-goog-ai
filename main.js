@@ -6741,6 +6741,15 @@ socket.on('qr_pedidos_pendentes_list', (list) => {
   renderQrPedidosPendentesList();
 });
 
+socket.on('validacao_pedido_necessaria', ({ id, mesa, mesa_origem, cliente_nome }) => {
+  const toast = document.createElement('div');
+  toast.style.cssText = 'position:fixed;top:20px;right:20px;z-index:99999;background:#fffbeb;border:1.5px solid #f59e0b;border-radius:12px;padding:16px 20px;box-shadow:0 8px 30px rgba(0,0,0,0.12);display:flex;align-items:center;gap:12px;animation:slideInRight .4s ease;max-width:400px;font-family:system-ui,-apple-system,sans-serif;';
+  toast.innerHTML = '<i class="ph ph-warning" style="color:#d97706;font-size:24px;"></i><div><strong style="color:#92400e;font-size:14px;">⚠️ Validação Necessária</strong><div style="color:#a16207;font-size:13px;margin-top:2px;">' + escHtml(cliente_nome || 'Cliente') + ' trocou de mesa (' + escHtml(mesa_origem || '?') + ' → ' + escHtml(mesa) + '). Garçom deve confirmar no local.</div></div>';
+  document.body.appendChild(toast);
+  setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.5s'; }, 6000);
+  setTimeout(() => toast.remove(), 6500);
+});
+
 window.abrirModalQrPendentes = () => {
   const modal = document.getElementById('modal-qr-pedidos-pendentes');
   if (modal) {
@@ -6775,8 +6784,28 @@ function renderQrPedidosPendentesList() {
       ? '<span style="background: #e6fcf5; color: #0ca678; padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: bold; display: inline-flex; align-items: center; gap: 4px;"><i class="ph ph-check-circle"></i> Pago via Pix (Aguardando Verificação)</span>'
       : '<span style="background: #fff0f0; color: #c92a2a; padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: bold;">Pagar no Caixa ao fechar conta</span>';
 
+    const needsValidation = order.requires_validacao === 1;
+    const validationBanner = needsValidation
+      ? `<div style="background: #fffbeb; border: 1.5px solid #f59e0b; border-radius: 8px; padding: 10px 12px; display: flex; align-items: center; gap: 8px;">
+           <i class="ph ph-warning" style="color: #d97706; font-size: 20px;"></i>
+           <div style="flex:1;">
+             <strong style="color: #92400e; font-size: 12px;">⚠️ VALIDAÇÃO NECESSÁRIA</strong>
+             <div style="font-size: 12px; color: #a16207; margin-top: 2px;">Cliente trocou de mesa${order.mesa_origem ? ' (' + order.mesa_origem + ' → ' + order.mesa + ')' : ''}. Um garçom deve confirmar no local.</div>
+           </div>
+         </div>`
+      : '';
+
+    const approveButton = needsValidation
+      ? `<button id="btn-qr-approve-${order.id}" onclick="window.aprovarPedidoQr(${order.id})" style="flex: 1; padding: 10px; background: #f59e0b; color: #1e293b; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 6px; transition: background 0.15s; outline:none;" onmouseover="this.style.background='#d97706'" onmouseout="this.style.background='#f59e0b'">
+            <i class="ph ph-check"></i> Validado pelo Garçom / Enviar p/ Cozinha
+          </button>`
+      : `<button id="btn-qr-approve-${order.id}" onclick="window.aprovarPedidoQr(${order.id})" style="flex: 1; padding: 10px; background: #3ab55b; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 6px; transition: background 0.15s; outline:none;" onmouseover="this.style.background='#2f9e4f'" onmouseout="this.style.background='#3ab55b'">
+            <i class="ph ph-check"></i> Aceitar / Enviar p/ Cozinha
+          </button>`;
+
     return `
-      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; margin-bottom: 12px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.02);">
+      <div style="background: #f8fafc; border: 1px solid ${needsValidation ? '#f59e0b' : '#e2e8f0'}; border-radius: 12px; padding: 16px; margin-bottom: 12px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.02);">
+        ${validationBanner}
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed #e2e8f0; padding-bottom: 8px;">
           <div>
             <strong style="color: #0f172a; font-size: 15px;">${order.mesa}</strong>
@@ -6800,9 +6829,7 @@ function renderQrPedidosPendentesList() {
         </div>
         
         <div style="display: flex; gap: 8px; margin-top: 6px;">
-          <button id="btn-qr-approve-${order.id}" onclick="window.aprovarPedidoQr(${order.id})" style="flex: 1; padding: 10px; background: #3ab55b; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 6px; transition: background 0.15s; outline:none;" onmouseover="this.style.background='#2f9e4f'" onmouseout="this.style.background='#3ab55b'">
-            <i class="ph ph-check"></i> Aceitar / Enviar p/ Cozinha
-          </button>
+          ${approveButton}
           <button onclick="window.recusarPedidoQr(${order.id})" style="padding: 10px 14px; background: #fff0f0; color: #c92a2a; border: 1px solid #ffc9c9; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.15s; outline:none;" onmouseover="this.style.background='#ffe3e3'" onmouseout="this.style.background='#fff0f0'">
             <i class="ph ph-trash"></i> Recusar
           </button>

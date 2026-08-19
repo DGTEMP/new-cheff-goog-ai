@@ -2287,6 +2287,8 @@ db.serialize(() => {
   `);
   db.run(`ALTER TABLE qr_pedidos_pendentes ADD COLUMN cliente_id INTEGER`, (err) => { });
   db.run(`ALTER TABLE qr_pedidos_pendentes ADD COLUMN comanda_nome TEXT`, (err) => { });
+  db.run(`ALTER TABLE qr_pedidos_pendentes ADD COLUMN requires_validacao INTEGER DEFAULT 0`, (err) => { });
+  db.run(`ALTER TABLE qr_pedidos_pendentes ADD COLUMN mesa_origem TEXT`, (err) => { });
 
   // Cliente identificado por mesa via QR (usado pelo PDV p/ exibir "mesa aberta" com nome)
   db.run(`
@@ -4351,6 +4353,16 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('verificar_mesa_conflict', ({ mesa, clienteId }, cb) => {
+    if (!mesa) return cb && cb({ conflict: false });
+    db.get(`SELECT cliente_nome, cliente_id FROM mesa_clientes WHERE mesa = ?`, [mesa], (err, row) => {
+      if (err || !row) return cb && cb({ conflict: false });
+      if (row.cliente_id && clienteId && row.cliente_id === clienteId) return cb && cb({ conflict: false });
+      if (row.cliente_nome) return cb && cb({ conflict: true, ocupadoPor: row.cliente_nome });
+      cb && cb({ conflict: false });
+    });
+  });
+
   // Cliente identificado pelo QR: associa cliente à mesa, abre a mesa no PDV
   socket.on('cliente_entrou_mesa', ({ mesa, cliente }) => {
     if (!mesa || !cliente || !cliente.nome) return;
@@ -4500,15 +4512,16 @@ io.on('connection', (socket) => {
   });
 
   socket.on('criar_pedido_qr', (data) => {
-    // data: { mesa, cliente_nome, itens, valor_total, pago_pix, chave_pix, cliente_id, comanda_nome, is_fila }
-    const { mesa, cliente_nome, itens, valor_total, pago_pix, chave_pix, cliente_id, comanda_nome, is_fila } = data;
+    // data: { mesa, cliente_nome, itens, valor_total, pago_pix, chave_pix, cliente_id, comanda_nome, is_fila, requires_validacao, mesa_origem }
+    const { mesa, cliente_nome, itens, valor_total, pago_pix, chave_pix, cliente_id, comanda_nome, is_fila, requires_validacao, mesa_origem } = data;
+    const needsValidation = requires_validacao ? 1 : 0;
 
     function insertPedido() {
       const itensStr = JSON.stringify(itens);
       const isPaid = pago_pix ? 1 : 0;
       db.run(
-        `INSERT INTO qr_pedidos_pendentes (mesa, cliente_nome, itens_json, valor_total, pago_pix, chave_pix, status, cliente_id, comanda_nome) VALUES (?, ?, ?, ?, ?, ?, 'Pendente', ?, ?)`,
-        [mesa, cliente_nome, itensStr, parseFloat(valor_total) || 0, isPaid, chave_pix || '', cliente_id || null, comanda_nome || ''],
+        `INSERT INTO qr_pedidos_pendentes (mesa, cliente_nome, itens_json, valor_total, pago_pix, chave_pix, status, cliente_id, comanda_nome, requires_validacao, mesa_origem) VALUES (?, ?, ?, ?, ?, ?, 'Pendente', ?, ?, ?, ?)`,
+        [mesa, cliente_nome, itensStr, parseFloat(valor_total) || 0, isPaid, chave_pix || '', cliente_id || null, comanda_nome || '', needsValidation, mesa_origem || null],
         function (err) {
           if (err) {
             console.error('[QR Order] Erro ao criar pedido pendente:', err);
@@ -4516,7 +4529,10 @@ io.on('connection', (socket) => {
             return;
           }
           const pedidoId = this.lastID;
-          socket.emit('criar_pedido_qr_resposta', { success: true, id: pedidoId });
+          socket.emit('criar_pedido_qr_resposta', { success: true, id: pedidoId, requires_validacao: needsValidation });
+          if (needsValidation) {
+            io.emit('validacao_pedido_necessaria', { id: pedidoId, mesa, mesa_origem, cliente_nome });
+          }
           db.all(`SELECT * FROM qr_pedidos_pendentes WHERE status = 'Pendente' ORDER BY createdAt DESC`, [], (errList, rows) => {
             if (!errList) io.emit('qr_pedidos_pendentes_list', rows || []);
           });

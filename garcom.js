@@ -2124,6 +2124,12 @@ socket.on('status_atualizado', () => {
   }
 });
 
+socket.on('validacao_pedido_necessaria', ({ id, mesa, mesa_origem, cliente_nome }) => {
+  playDing();
+  showToast(`⚠️ Validação: ${cliente_nome} trocou de mesa (${mesa_origem || '?'} → ${mesa}). Verifique!`, '#f59e0b');
+  if (loggedUser) socket.emit('get_esteira', loggedUser.nome);
+});
+
 // --- ÁUDIO E VIBRAÇÃO ---
 let audioCtx = null;
 

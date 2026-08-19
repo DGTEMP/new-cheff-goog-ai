@@ -1385,6 +1385,8 @@
     // Parse URL params to read table name and restaurante id
     const urlParams = new URLSearchParams(window.location.search);
     let mesaNome = urlParams.get('mesa') || 'Mesa';
+    const mesaOrigem = mesaNome;
+    let pendingRequiresValidation = false;
     document.getElementById('mesa-badge').innerText = mesaNome;
     const restauranteId = urlParams.get('restaurante_id') || localStorage.getItem('restaurante_id') || '1';
 
@@ -1973,7 +1975,51 @@
 
     window.confirmMesaYes = () => {
       const select = document.getElementById('select-confirm-mesa');
-      if (document.getElementById('box-change-mesa').style.display === 'flex' && select) {
+      const isChanging = document.getElementById('box-change-mesa').style.display === 'flex' && select;
+      const novaMesa = isChanging ? select.value : mesaNome;
+      const mudouMesa = isChanging && novaMesa !== mesaOrigem;
+
+      if (mudouMesa) {
+        socket.emit('verificar_mesa_conflict', { mesa: novaMesa, clienteId: crmPerfil ? crmPerfil.id : null }, (result) => {
+          if (result && result.conflict) {
+            pendingRequiresValidation = true;
+            mesaNome = novaMesa;
+            document.getElementById('mesa-badge').innerText = mesaNome;
+            socket.emit('cliente_na_mesa', mesaNome);
+            associarClienteMesa();
+            document.getElementById('modal-confirm-mesa').style.display = 'none';
+
+            const avisoHtml = `
+              <div class="modal-overlay" id="modal-aviso-validacao" style="display:flex; z-index:100002;">
+                <div class="modal-content" style="max-width:400px; text-align:center; gap:16px;">
+                  <div style="font-size:48px; color:#f59e0b;"><i class="ph ph-warning"></i></div>
+                  <div>
+                    <h3 style="font-size:18px; font-weight:800; color:var(--text);">Mesa já ocupada</h3>
+                    <p style="font-size:13.5px; color:var(--text-muted); line-height:1.5; margin-top:8px;">
+                      A mesa <strong>${novaMesa}</strong> já está ocupada por <strong>${result.ocupadoPor}</strong>.
+                      Um garçom será enviado para validar o seu pedido antes de enviá-lo à cozinha.
+                    </p>
+                  </div>
+                  <button class="btn-submit" onclick="document.getElementById('modal-aviso-validacao').remove(); proceedToCheckout();" style="width:100%;">
+                    Entendi, vou aguardar validação
+                  </button>
+                </div>
+              </div>`;
+            document.body.insertAdjacentHTML('beforeend', avisoHtml);
+          } else {
+            pendingRequiresValidation = false;
+            mesaNome = novaMesa;
+            document.getElementById('mesa-badge').innerText = mesaNome;
+            socket.emit('cliente_na_mesa', mesaNome);
+            associarClienteMesa();
+            document.getElementById('modal-confirm-mesa').style.display = 'none';
+            proceedToCheckout();
+          }
+        });
+        return;
+      }
+
+      if (isChanging) {
         mesaNome = select.value;
         document.getElementById('mesa-badge').innerText = mesaNome;
         socket.emit('cliente_na_mesa', mesaNome);
@@ -2075,13 +2121,19 @@
         chave_pix: pixKey,
         cliente_id: crmPerfil ? crmPerfil.id : null,
         cliente_telefone: crmPerfil ? crmPerfil.telefone : '',
-        is_fila: MODO_FILA ? true : false
+        is_fila: MODO_FILA ? true : false,
+        requires_validacao: pendingRequiresValidation,
+        mesa_origem: pendingRequiresValidation ? mesaOrigem : null
       });
     }
 
     socket.on('criar_pedido_qr_resposta', (res) => {
       if (res && res.success) {
         currentPendingOrderId = res.id;
+        if (res.requires_validacao) {
+          const desc = document.getElementById('checkout-status-desc');
+          if (desc) desc.innerText = 'Pedido enviado! Aguardando validação do garçom...';
+        }
       } else {
         alert(res.error || 'Erro ao registrar pedido QR.');
         window.fecharStatusModal();

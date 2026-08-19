@@ -676,6 +676,16 @@ socket.on('garcom_buscando', ({ pedidoId, garcomNome, localName, productName }) 
   setTimeout(() => toast.remove(), 4500);
 });
 
+socket.on('validacao_pedido_necessaria', ({ id, mesa, mesa_origem, cliente_nome }) => {
+  if (typeof initAudio === 'function') initAudio();
+  const toast = document.createElement('div');
+  toast.style.cssText = 'position:fixed;top:16px;right:16px;background:#f59e0b;color:#1e293b;padding:12px 18px;border-radius:10px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,0.2);max-width:300px;';
+  toast.innerHTML = `⚠️ Validação: <strong>${escHtml(cliente_nome || '?')}</strong> trocou de mesa (${escHtml(mesa_origem || '?')} → ${escHtml(mesa)}). Verifique!`;
+  document.body.appendChild(toast);
+  setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.3s'; }, 6000);
+  setTimeout(() => toast.remove(), 6500);
+});
+
 
 
 window.filtrarFila = function(statusText) {
