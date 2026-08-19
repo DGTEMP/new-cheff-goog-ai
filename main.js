@@ -738,6 +738,37 @@ window.getPrecoAtivo = (productName, originalPrice) => {
   return originalPrice;
 };
 
+window.getDescontoAtivo = (subtotal) => {
+  const promocoesList = window.PROMOCOES || [];
+  const now = new Date();
+  const dayOfWeek = now.getDay();
+  const currentTime = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+  let bestDesconto = 0;
+  let bestTipo = null;
+
+  for (const p of promocoesList) {
+    if (!p.ativo) continue;
+    let cfg = {};
+    try { cfg = JSON.parse(p.config || '{}'); } catch (e) { }
+
+    if (cfg.dias_semana && cfg.dias_semana.length > 0 && !cfg.dias_semana.includes(dayOfWeek)) continue;
+    if (cfg.horario_inicio && currentTime < cfg.horario_inicio) continue;
+    if (cfg.horario_fim && currentTime > cfg.horario_fim) continue;
+
+    if (cfg.tipo_promocao === 'desconto_fixo' && (cfg.desconto || 0) > bestDesconto) {
+      bestDesconto = cfg.desconto;
+      bestTipo = 'fixo';
+    } else if (cfg.tipo_promocao === 'desconto_pct' && (cfg.desconto_pct || 0) > 0) {
+      const valorDesconto = subtotal * (cfg.desconto_pct / 100);
+      if (valorDesconto > bestDesconto) {
+        bestDesconto = valorDesconto;
+        bestTipo = 'pct';
+      }
+    }
+  }
+  return { valor: bestDesconto, tipo: bestTipo };
+};
+
 const contasSolicitadas = new Set();
 socket.on('sync_mesas_fechando', (list) => {
   contasSolicitadas.clear();
@@ -2059,6 +2090,7 @@ document.addEventListener('DOMContentLoaded', () => {
   socket.emit('get_estado_caixa');
   socket.emit('get_produtos');
   socket.emit('get_funcionarios');
+  socket.emit('get_promocoes');
 
   const btnAbrir = document.getElementById('btn-abrir-caixa');
   if (btnAbrir) {
@@ -2629,7 +2661,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const inCartItems = (window.pdvCart || []).filter(item => item.id === p.id);
       const totalQty = inCartItems.reduce((acc, item) => acc + (item.quantity || 1), 0);
       const isSelected = totalQty > 0;
-      const currentPrice = inCartItems.length > 0 ? inCartItems[0].preco : (p.preco || 0);
+      const currentPrice = inCartItems.length > 0 ? inCartItems[0].preco : window.getPrecoAtivo(p.nome, p.preco || 0);
+      const hasPromo = currentPrice < (p.preco || 0);
+      const promoBadge = hasPromo ? `<span style="background:#fef3c7; color:#92400e; padding:1px 5px; border-radius:4px; font-size:9px; font-weight:700; margin-left:4px;">PROMO</span>` : '';
 
       const cardBg = isSelected ? '#f0fdf4' : (isSearchFocus ? '#fff5f2' : '#ffffff');
       const cardBorder = isSelected ? '2px solid #22c55e' : (isSearchFocus ? '2px solid #fc4b15' : '1px solid #cbd5e1');
@@ -2652,15 +2686,16 @@ document.addEventListener('DOMContentLoaded', () => {
              
              <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;">
                <span style="font-size: 20px; flex-shrink: 0;">${p.emoji || '🍽️'}</span>
-               <span style="font-weight: 700; font-size: 14.5px; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escHtml(p.nome)} ${badge}</span>
+                <span style="font-weight: 700; font-size: 14.5px; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escHtml(p.nome)} ${badge} ${promoBadge}</span>
                ${isSelected ? `<span style="background: #22c55e; color: white; padding: 2px 8px; border-radius: 12px; font-weight: 800; font-size: 11.5px; flex-shrink: 0;"><i class="ph ph-check"></i> ${totalQty}x</span>` : ''}
              </div>
 
              <div style="display: flex; align-items: center; gap: 14px; flex-shrink: 0;">
-               <div onclick="${canEditPrice ? `event.stopPropagation(); window.pdvEditPriceInline(${p.id});` : ''}" title="${canEditPrice ? 'Clique para alterar o valor' : ''}">
-                 <span style="color: ${priceColor}; font-size: 14.5px; font-weight: 800;">R$ ${Number(currentPrice).toFixed(2).replace('.', ',')}</span>
-                 ${canEditPrice ? `<i class="ph ph-pencil-simple" style="font-size: 11px; color: #64748b; margin-left: 2px;"></i>` : ''}
-               </div>
+                <div onclick="${canEditPrice ? `event.stopPropagation(); window.pdvEditPriceInline(${p.id});` : ''}" title="${canEditPrice ? 'Clique para alterar o valor' : ''}">
+                  ${hasPromo ? `<span style="color:#94a3b8; font-size:11px; text-decoration:line-through; margin-right:4px;">R$ ${Number(p.preco || 0).toFixed(2).replace('.', ',')}</span>` : ''}
+                  <span style="color: ${hasPromo ? '#dc2626' : priceColor}; font-size: 14.5px; font-weight: 800;">R$ ${Number(currentPrice).toFixed(2).replace('.', ',')}</span>
+                  ${canEditPrice ? `<i class="ph ph-pencil-simple" style="font-size: 11px; color: #64748b; margin-left: 2px;"></i>` : ''}
+                </div>
 
                ${isSelected ? `
                  <div style="display: flex; align-items: center; gap: 4px;" onclick="event.stopPropagation();">
@@ -2688,7 +2723,7 @@ document.addEventListener('DOMContentLoaded', () => {
              
              <div style="font-weight: 700; font-size: 11.5px; color: #0f172a; line-height: 1.15; margin: 2px 0; max-height: 26px; overflow: hidden; word-break: break-word;">${escHtml(p.nome)}</div>
 
-             <div style="color: ${priceColor}; font-size: 11.5px; font-weight: 800;">R$ ${Number(currentPrice).toFixed(2).replace('.', ',')}</div>
+             <div style="color: ${hasPromo ? '#dc2626' : priceColor}; font-size: 11.5px; font-weight: 800;">${hasPromo ? `<span style="color:#94a3b8;text-decoration:line-through;font-size:9px;font-weight:400;">R$ ${Number(p.preco || 0).toFixed(2).replace('.', ',')} </span>` : ''}R$ ${Number(currentPrice).toFixed(2).replace('.', ',')}${promoBadge}</div>
 
              ${isSelected ? `
                <div style="display: flex; align-items: center; gap: 4px; margin-top: 4px;" onclick="event.stopPropagation();">
@@ -2708,15 +2743,16 @@ document.addEventListener('DOMContentLoaded', () => {
              style="padding: 12px 14px; border-radius: 12px; cursor: pointer; text-align: left; transition: all 0.15s; position: relative; background: ${cardBg}; border: ${cardBorder}; ${cardShadow} display: flex; flex-direction: column; justify-content: space-between; min-height: 100px; user-select: none;">
            
            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 6px;">
-             <span style="font-weight: 700; font-size: 14px; color: #0f172a; line-height: 1.25;">${p.emoji || ''} ${escHtml(p.nome)} ${badge}</span>
+              <span style="font-weight: 700; font-size: 14px; color: #0f172a; line-height: 1.25;">${p.emoji || ''} ${escHtml(p.nome)} ${badge} ${promoBadge}</span>
              ${isSelected ? `<span style="background: #22c55e; color: white; padding: 2px 8px; border-radius: 12px; font-weight: 800; font-size: 12px; flex-shrink: 0;"><i class="ph ph-check"></i> ${totalQty}x</span>` : ''}
            </div>
 
-           <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px;">
-             <div style="display: flex; align-items: center; gap: 4px;" onclick="${canEditPrice ? `event.stopPropagation(); window.pdvEditPriceInline(${p.id});` : ''}" title="${canEditPrice ? 'Clique para alterar o valor' : ''}">
-               <span style="color: ${priceColor}; font-size: 14px; font-weight: 800;">R$ ${Number(currentPrice).toFixed(2).replace('.', ',')}</span>
-               ${canEditPrice ? `<i class="ph ph-pencil-simple" style="font-size: 11px; color: #64748b; margin-left: 2px;"></i>` : ''}
-             </div>
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px;">
+              <div style="display: flex; align-items: center; gap: 4px;" onclick="${canEditPrice ? `event.stopPropagation(); window.pdvEditPriceInline(${p.id});` : ''}" title="${canEditPrice ? 'Clique para alterar o valor' : ''}">
+                ${hasPromo ? `<span style="color:#94a3b8; font-size:11px; text-decoration:line-through;">R$ ${Number(p.preco || 0).toFixed(2).replace('.', ',')}</span>` : ''}
+                <span style="color: ${hasPromo ? '#dc2626' : priceColor}; font-size: 14px; font-weight: 800;">R$ ${Number(currentPrice).toFixed(2).replace('.', ',')}</span>
+                ${canEditPrice ? `<i class="ph ph-pencil-simple" style="font-size: 11px; color: #64748b; margin-left: 2px;"></i>` : ''}
+              </div>
 
              ${isSelected ? `
                <div style="display: flex; align-items: center; gap: 6px;" onclick="event.stopPropagation();">
@@ -2796,6 +2832,7 @@ document.addEventListener('DOMContentLoaded', () => {
       existing.quantity += 1;
     } else {
       let precoUnit = Number(prod.preco) || 0;
+      precoUnit = window.getPrecoAtivo(prod.nome, precoUnit);
       if (prod.visibilidade === 'caixa') {
         const custom = prompt(`Defina o valor de "${prod.nome}" (R$):`, precoUnit ? precoUnit.toFixed(2) : '');
         if (custom === null) return;
@@ -2906,7 +2943,11 @@ document.addEventListener('DOMContentLoaded', () => {
       totalItemsCount += (item.quantity || 1);
     });
 
-    if (totalPrice) totalPrice.innerText = `R$ ${total.toFixed(2).replace('.', ',')}`;
+    const descontoInfo = (typeof window.getDescontoAtivo === 'function') ? window.getDescontoAtivo(total) : { valor: 0 };
+    const descontoValor = descontoInfo.valor || 0;
+    const totalComDesconto = Math.max(0, total - descontoValor);
+
+    if (totalPrice) totalPrice.innerText = `R$ ${totalComDesconto.toFixed(2).replace('.', ',')}`;
     if (cartCountBadge) cartCountBadge.innerText = `${totalItemsCount} item${totalItemsCount === 1 ? '' : 's'} selecionado${totalItemsCount === 1 ? '' : 's'}`;
 
     if (cartList) {

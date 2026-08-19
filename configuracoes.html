@@ -171,7 +171,8 @@
       flex: 1 !important;
       min-height: 0 !important;
       height: 100% !important;
-      overflow: hidden !important;
+      overflow-x: hidden !important;
+      overflow-y: auto !important;
       animation: tabFadeIn 0.15s ease;
     }
 
@@ -483,7 +484,7 @@
       .main-workspace {
         padding: 14px !important;
         flex: 1 !important;
-        overflow-y: auto !important;
+        overflow: hidden !important;
         display: flex !important;
         flex-direction: column !important;
       }
@@ -653,13 +654,13 @@
       min-height: 0 !important;
       display: flex !important;
       flex-direction: column !important;
-      /* Se a aba não tiver tabela, ela mesma rola */
       overflow-y: auto !important;
     }
     
-    /* Se a aba tem uma tabela de scroll, ela NÃO ROLA, só a tabela rola */
+    /* Abas com tabela interna: a tabela rola, o container NÃO */
     .admin-tab-content.active:has(.tab-table-scroll) {
       overflow: hidden !important;
+      overflow-y: hidden !important;
     }
     
     .tab-table-scroll {
@@ -728,7 +729,7 @@
       .main-workspace {
         height: 100% !important;
         min-height: 0 !important;
-        overflow-y: auto !important;
+        overflow: hidden !important;
         display: flex !important;
         flex-direction: column !important;
         padding: 14px !important;
@@ -1997,7 +1998,7 @@
       </div>
 
       <!-- TAB PROMOÇÕES -->
-      <div id="admin-tab-promocoes" class="admin-tab-content">
+      <div id="admin-tab-promocoes" class="admin-tab-content" style="overflow-y: auto;">
 
         <!-- CARD 1: GERADOR DE CUPOM QR AVANÇADO -->
         <div class="promo-card">
@@ -2183,6 +2184,43 @@
             <div id="promo-fields-livre" style="display:none; margin-top:14px;">
               <label class="promo-label" for="admin-promo-obs">Observação / Regra Livre</label>
               <input type="text" id="admin-promo-obs" class="promo-input" placeholder="Descreva a promoção...">
+            </div>
+
+            <div style="margin-top:18px; padding-top:16px; border-top:1px solid #eef2f6;">
+              <label class="promo-label">Dias da Semana (se vazio = todos)</label>
+              <div id="admin-promo-dias" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:14px;">
+                <label style="display:flex; align-items:center; gap:4px; background:#f1f5f9; padding:6px 10px; border-radius:6px; cursor:pointer; font-size:12px; font-weight:600;">
+                  <input type="checkbox" value="0"> Dom
+                </label>
+                <label style="display:flex; align-items:center; gap:4px; background:#f1f5f9; padding:6px 10px; border-radius:6px; cursor:pointer; font-size:12px; font-weight:600;">
+                  <input type="checkbox" value="1"> Seg
+                </label>
+                <label style="display:flex; align-items:center; gap:4px; background:#f1f5f9; padding:6px 10px; border-radius:6px; cursor:pointer; font-size:12px; font-weight:600;">
+                  <input type="checkbox" value="2"> Ter
+                </label>
+                <label style="display:flex; align-items:center; gap:4px; background:#f1f5f9; padding:6px 10px; border-radius:6px; cursor:pointer; font-size:12px; font-weight:600;">
+                  <input type="checkbox" value="3"> Qua
+                </label>
+                <label style="display:flex; align-items:center; gap:4px; background:#f1f5f9; padding:6px 10px; border-radius:6px; cursor:pointer; font-size:12px; font-weight:600;">
+                  <input type="checkbox" value="4"> Qui
+                </label>
+                <label style="display:flex; align-items:center; gap:4px; background:#f1f5f9; padding:6px 10px; border-radius:6px; cursor:pointer; font-size:12px; font-weight:600;">
+                  <input type="checkbox" value="5"> Sex
+                </label>
+                <label style="display:flex; align-items:center; gap:4px; background:#f1f5f9; padding:6px 10px; border-radius:6px; cursor:pointer; font-size:12px; font-weight:600;">
+                  <input type="checkbox" value="6"> Sáb
+                </label>
+              </div>
+              <div class="promo-grid-2" style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+                <div>
+                  <label class="promo-label" for="admin-promo-inicio">Horário de Início (opcional)</label>
+                  <input type="time" id="admin-promo-inicio" class="promo-input">
+                </div>
+                <div>
+                  <label class="promo-label" for="admin-promo-fim">Horário de Fim (opcional)</label>
+                  <input type="time" id="admin-promo-fim" class="promo-input">
+                </div>
+              </div>
             </div>
 
             <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap; border-top:1px solid #eef2f6; padding-top:16px; margin-top:18px;">
@@ -3184,7 +3222,7 @@
             </select>
           </div>
 
-          <div class="tab-table-scroll" style="background: white; border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden;">
+          <div class="tab-table-scroll" style="background: white; border-radius: 8px; border: 1px solid #e2e8f0;">
             <table style="width: 100%; border-collapse: collapse; text-align: left;">
               <thead>
                 <tr style="background: #f1f5f9; border-bottom: 2px solid #eee; position: sticky; top: 0; z-index: 10; color: #475569;">
@@ -3219,7 +3257,7 @@
             </select>
           </div>
 
-          <div class="tab-table-scroll" style="background: white; border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden;">
+          <div class="tab-table-scroll" style="background: white; border-radius: 8px; border: 1px solid #e2e8f0;">
             <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
               <thead>
                 <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0; color: #475569;">
@@ -3457,7 +3495,7 @@
             </div>
           </div>
           
-          <div class="tab-table-scroll" style="background: white; border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden; flex: 1;">
+          <div class="tab-table-scroll" style="background: white; border-radius: 8px; border: 1px solid #e2e8f0; flex: 1;">
             <table id="table-todas-nfce" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
               <thead>
                 <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0; color: #475569;">

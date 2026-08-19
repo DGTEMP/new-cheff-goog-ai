@@ -2942,7 +2942,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const tipo = document.getElementById('admin-promo-tipo').value;
     if (!nome) return alert('Preencha o nome da promoção.');
 
-    const config = { tipo_promocao: tipo, dias_semana: [], horario_inicio: null, horario_fim: null };
+    const config = { tipo_promocao: tipo, dias_semana: Array.from(document.querySelectorAll('#admin-promo-dias input:checked')).map(cb => parseInt(cb.value)), horario_inicio: document.getElementById('admin-promo-inicio').value || null, horario_fim: document.getElementById('admin-promo-fim').value || null };
 
     if (tipo === 'desconto_fixo') {
       config.desconto = parseFloat(document.getElementById('admin-promo-valor').value) || 0;
@@ -2967,6 +2967,9 @@ document.addEventListener('DOMContentLoaded', () => {
       socket.emit('add_promocao', { nome, regra: tipo, desconto: config.desconto || 0, ativo: true, config: JSON.stringify(config) });
     }
     document.getElementById('admin-promo-nome').value = '';
+    document.querySelectorAll('#admin-promo-dias input').forEach(cb => cb.checked = false);
+    document.getElementById('admin-promo-inicio').value = '';
+    document.getElementById('admin-promo-fim').value = '';
   };
 
   window.editarPromocao = function(id) {
@@ -2991,6 +2994,11 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if (cfg.tipo_promocao === 'livre') {
       document.getElementById('admin-promo-obs').value = cfg.observacao || '';
     }
+    document.querySelectorAll('#admin-promo-dias input').forEach(cb => {
+      cb.checked = Array.isArray(cfg.dias_semana) && cfg.dias_semana.includes(parseInt(cb.value));
+    });
+    document.getElementById('admin-promo-inicio').value = cfg.horario_inicio || '';
+    document.getElementById('admin-promo-fim').value = cfg.horario_fim || '';
     editandoPromoId = id;
     addPromoBtn.innerHTML = '<i class="ph ph-check"></i> Salvar alterações';
     document.getElementById('admin-promo-nome').focus();

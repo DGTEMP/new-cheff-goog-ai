@@ -3218,6 +3218,35 @@ io.on('connection', (socket) => {
 
         const livrePromos = activePromos.filter(p => p.config.tipo_promocao === 'livre');
         const comboPromos = activePromos.filter(p => p.config.tipo_promocao === 'combo');
+        const precoFixoPromos = activePromos.filter(p => p.config.tipo_promocao === 'preco_fixo');
+        const descontoFixoPromos = activePromos.filter(p => p.config.tipo_promocao === 'desconto_fixo');
+        const descontoPctPromos = activePromos.filter(p => p.config.tipo_promocao === 'desconto_pct');
+
+        // preco_fixo: override product price server-side
+        const matchingPrecoFixo = precoFixoPromos.find(p => p.config.produto_alvo_nome === pedido.productName);
+        if (matchingPrecoFixo && matchingPrecoFixo.config.novo_preco > 0) {
+          const qty = parseInt(pedido.quantity) || 1;
+          pedido.total = (matchingPrecoFixo.config.novo_preco * qty).toFixed(2);
+          pedido.promocao_id = matchingPrecoFixo.id;
+        }
+
+        // desconto_fixo: apply fixed R$ discount to subtotal
+        if (descontoFixoPromos.length > 0 && !matchingPrecoFixo) {
+          const descontoMax = Math.max(...descontoFixoPromos.map(p => p.config.desconto || 0));
+          const currentTotal = parseFloat(String(pedido.total).replace(',', '.')) || 0;
+          const novoTotal = Math.max(0, currentTotal - descontoMax);
+          pedido.total = novoTotal.toFixed(2);
+          pedido.promocao_id = descontoFixoPromos.find(p => (p.config.desconto || 0) === descontoMax).id;
+        }
+
+        // desconto_pct: apply % discount to subtotal
+        if (descontoPctPromos.length > 0 && !matchingPrecoFixo && descontoFixoPromos.length === 0) {
+          const pctMax = Math.max(...descontoPctPromos.map(p => p.config.desconto_pct || 0));
+          const currentTotal = parseFloat(String(pedido.total).replace(',', '.')) || 0;
+          const novoTotal = currentTotal * (1 - pctMax / 100);
+          pedido.total = Math.max(0, novoTotal).toFixed(2);
+          pedido.promocao_id = descontoPctPromos.find(p => (p.config.desconto_pct || 0) === pctMax).id;
+        }
 
         const matchingCombo = comboPromos.find(p => p.config.produto_alvo_nome === pedido.productName);
         if (matchingCombo) {
@@ -4750,6 +4779,9 @@ io.on('connection', (socket) => {
     db.all(`SELECT * FROM promocoes`, (err, rows) => socket.emit('promocoes_atualizadas', rows || []));
   });
   socket.on('add_promocao', (p) => db.run(`INSERT INTO promocoes (nome, regra, desconto, ativo, config) VALUES (?, ?, ?, ?, ?)`, [p.nome, p.regra, p.desconto, p.ativo !== undefined ? p.ativo : 1, p.config], () => {
+    db.all(`SELECT * FROM promocoes`, (e, r) => io.emit('promocoes_atualizadas', r || []));
+  }));
+  socket.on('update_promocao', (p) => db.run(`UPDATE promocoes SET nome = ?, regra = ?, desconto = ?, ativo = ?, config = ? WHERE id = ?`, [p.nome, p.regra, p.desconto || 0, p.ativo !== undefined ? p.ativo : 1, p.config, p.id], () => {
     db.all(`SELECT * FROM promocoes`, (e, r) => io.emit('promocoes_atualizadas', r || []));
   }));
   socket.on('delete_promocao', (id) => db.run(`DELETE FROM promocoes WHERE id = ?`, [id], () => {
