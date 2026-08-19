@@ -4451,7 +4451,7 @@ function obterSoundKeys() {
     });
   });
   ['sound-geral-espera', 'sound-geral-preparo', 'sound-geral-pronto',
-    'sound-esteira-mobile', 'delay-alarm-sound'
+    'sound-esteira-mobile', 'delay-alarm-sound', 'esteira-som-escopo'
   ].forEach(k => keys.push(k));
   return keys;
 }

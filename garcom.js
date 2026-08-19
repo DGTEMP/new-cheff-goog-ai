@@ -1850,6 +1850,19 @@ socket.on('esteira_atualizada', (pedidos) => {
         </div>
         <div style="color: ${subTextColor}; font-size: 15px; font-weight: 600;">${p.quantity}x ${escHtml(p.productEmoji || '')} ${escHtml(p.productName)}</div>
         ${tempoPronto ? `<div style="color: ${isCalled ? '#fbbf24' : (isChamada ? '#c2410c' : '#15803d')}; font-size: 12px; font-weight: 700; margin-top: 4px; display: flex; align-items: center; gap: 4px;"><i class="ph ph-clock"></i> Pronto há ${tempoPronto}</div>` : ''}
+        ${(() => {
+          if (p.prontoEm && p.createdAt) {
+            const prepSec = Math.floor((new Date(p.prontoEm).getTime() - new Date(p.createdAt).getTime()) / 1000);
+            if (prepSec > 0) {
+              let tempoPrep = '';
+              if (prepSec < 60) tempoPrep = `${prepSec}s`;
+              else if (prepSec < 3600) tempoPrep = `${Math.floor(prepSec / 60)}min${prepSec % 60 ? ' ' + (prepSec % 60) + 's' : ''}`;
+              else tempoPrep = `${Math.floor(prepSec / 3600)}h${Math.floor((prepSec % 3600) / 60)}min`;
+              return `<div style="color: ${isCalled ? '#e9d5ff' : (isPdv ? '#c2410c' : '#1d4ed8')}; font-size: 11px; font-weight: 600; margin-top: 2px; display: flex; align-items: center; gap: 4px;"><i class="ph ph-stopwatch"></i> Preparo: ${tempoPrep}</div>`;
+            }
+          }
+          return '';
+        })()}
       </div>
       ${btnHtml}
     </div>
@@ -1962,14 +1975,21 @@ socket.on('cupom_invalido', (data) => {
 
 socket.on('pedido_pronto', (pedido) => {
   if (loggedUser) {
+    const escopo = localStorage.getItem('esteira-som-escopo') || (CONFIGS && CONFIGS['esteira-som-escopo']) || 'todos';
+    const isOwnOrder = pedido.userName === loggedUser.nome;
+    const shouldPlaySound = (escopo === 'todos') || isOwnOrder;
+
     const comandaLabel = pedido.mesa_comanda ? ` - (${pedido.mesa_comanda})` : '';
-    showToast(`🔔 PEDIDO PRONTO! ${pedido.quantity || 1}x ${pedido.productName || 'Item'} (${pedido.localName}${comandaLabel})`, '#22c55e');
-    if (typeof playChamarGarcom === 'function') playChamarGarcom();
-    if (typeof playDing === 'function') playDing();
+
+    if (shouldPlaySound) {
+      showToast(`🔔 PEDIDO PRONTO! ${pedido.quantity || 1}x ${pedido.productName || 'Item'} (${pedido.localName}${comandaLabel})`, '#22c55e');
+      if (typeof playChamarGarcom === 'function') playChamarGarcom();
+      if (typeof playDing === 'function') playDing();
+    }
     socket.emit('get_esteira', loggedUser.nome);
 
     const bellBtn = document.getElementById('nav-esteira');
-    if (bellBtn) {
+    if (bellBtn && shouldPlaySound) {
       const bellIcon = bellBtn.querySelector('i');
       if (bellIcon) {
         bellIcon.classList.remove('bell-shake');
@@ -1987,7 +2007,7 @@ socket.on('pedido_pronto', (pedido) => {
       badge.addEventListener('animationend', () => badge.classList.remove('badge-glow'), { once: true });
     }
 
-    if ('Notification' in window && Notification.permission === 'granted') {
+    if (shouldPlaySound && 'Notification' in window && Notification.permission === 'granted') {
       new Notification('🔔 Pedido Pronto!', {
         body: `${pedido.quantity || 1}x ${pedido.productName} - ${pedido.localName}${comandaLabel}`,
         tag: `pronto-${pedido.id}`,

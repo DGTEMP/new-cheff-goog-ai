@@ -110,6 +110,25 @@ module.exports = function(socket, io, db, helpers) {
               const cliNome = (filaRow && filaRow.cliente_nome) ? filaRow.cliente_nome : '';
               const cliTel = (filaRow && filaRow.cliente_telefone) ? filaRow.cliente_telefone : '';
 
+              // --- MOVER PEDIDOS DO CLIENTE PARA A MESA NOVA ---
+              if (cliNome) {
+                // 1. Atualizar qr_pedidos_pendentes: mudar mesa para a mesa nova
+                db.run(
+                  `UPDATE qr_pedidos_pendentes SET mesa = ? WHERE cliente_nome = ? AND (status = 'Pendente' OR status = 'Aprovado')`,
+                  [mesaName, cliNome], () => {}
+                );
+                // 2. Atualizar pedidos em preparo/fila: mudar localName e mesa_comanda
+                db.run(
+                  `UPDATE pedidos SET localName = ?, mesa_comanda = ? WHERE userName = 'QR Code' AND localName LIKE 'Comanda - ?' AND (status = 'Em espera' OR status = 'Pendente' OR status = 'Em preparo')`,
+                  [mesaName, 'Comanda - ' + cliNome, cliNome], () => {}
+                );
+                // 3. Atualizar pedidos que tinham localName genérico 'Mesa' (fila sem mesa definida)
+                db.run(
+                  `UPDATE pedidos SET localName = ?, userName = ? WHERE userName = 'QR Code' AND localName = 'Mesa' AND (status = 'Em espera' OR status = 'Pendente' OR status = 'Em preparo')`,
+                  [mesaName, cliNome], () => {}
+                );
+              }
+
               function updateMesaAndClient() {
                 db.run(`UPDATE mesas SET status = 'Ocupada' WHERE nome = ? OR id = ?`, [mesaName, mesaName], (errMesa) => {
                   if (!errMesa) {
@@ -128,6 +147,7 @@ module.exports = function(socket, io, db, helpers) {
                           [mesaName, cliId, cliNome, cliTel], () => {
                             broadcastMesaClientes();
                             broadcastMesas();
+                            io.emit('pedidos_atualizados');
                           });
                       });
                     } else {
@@ -185,5 +205,40 @@ module.exports = function(socket, io, db, helpers) {
         }
       }
     });
+  });
+
+  // --- CAIXA ENVIA AVISO/AVISO PARA CLIENTE NA FILA ---
+  socket.on('fila_enviar_aviso', (d) => {
+    if (!d) return;
+    const filaId = parseInt(d.fila_id);
+    const mensagem = String(d.mensagem || '').trim();
+    if (!filaId || !mensagem) return;
+
+    db.get(`SELECT * FROM fila_espera WHERE id = ?`, [filaId], (err, filaRow) => {
+      if (err || !filaRow) return socket.emit('fila_erro', 'Cliente não encontrado na fila.');
+
+      // Notifica via socket se o cliente estiver conectado (room fila_cliente_{id})
+      io.to(`fila_cliente_${filaId}`).emit('fila_aviso_cliente', {
+        fila_id: filaId,
+        mensagem: mensagem,
+        de: 'Caixa',
+        criado_em: new Date().toISOString()
+      });
+
+      // Atualiza status para Notificado
+      db.run(
+        `UPDATE fila_espera SET status = 'Notificado', atualizado_em = datetime('now', 'localtime') WHERE id = ? AND status = 'Esperando'`,
+        [filaId], () => emitirFila('broadcast')
+      );
+
+      socket.emit('fila_aviso_enviado', { fila_id: filaId, cliente: filaRow.cliente_nome });
+    });
+  });
+
+  // Cliente da fila entra na sala de socket para receber avisos
+  socket.on('fila_cliente_join', (filaId) => {
+    const pid = parseInt(filaId);
+    if (!pid) return;
+    socket.join(`fila_cliente_${pid}`);
   });
 };

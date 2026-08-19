@@ -6497,6 +6497,26 @@ window.chamarClienteWhatsapp = function (id, nome, telefone, pessoas) {
   }
 };
 
+window.filaEnviarAviso = function (id, nomeCliente) {
+  const mensagem = prompt(`Enviar aviso para ${nomeCliente}:`, '');
+  if (mensagem === null || !mensagem.trim()) return;
+  if (typeof socket !== 'undefined' && socket) {
+    socket.emit('fila_enviar_aviso', { fila_id: id, mensagem: mensagem.trim() });
+  }
+};
+
+// Resposta do envio de aviso
+if (typeof socket !== 'undefined' && socket) {
+  socket.on('fila_aviso_enviado', (d) => {
+    if (d && d.cliente) {
+      showToastIA(`Aviso enviado para ${d.cliente}!`, '#7c3aed');
+    }
+  });
+  socket.on('fila_erro', (msg) => {
+    if (msg) showToastIA(String(msg), '#dc2626');
+  });
+}
+
 window.acomodarClienteFilaPrompt = function (id, nomeCliente) {
   const isAuto = window.pdvConfigs && window.pdvConfigs.rest_fila_alocacao_auto === 'auto';
   const mesasLivres = (window.allMesas || []).filter(m => m.status === 'Disponível' || m.status === 'Livre').map(m => m.nome || m.mesaName);
@@ -6577,10 +6597,15 @@ function renderFilaEsperaTabela(rows) {
         <td style="padding: 12px 10px;">${statusTag}</td>
         <td style="padding: 12px 10px; font-size: 12px; color: #475569;">${escHtml(prefObs)}</td>
         <td style="padding: 12px 10px; text-align: center;">
-          <div style="display: flex; gap: 6px; justify-content: center;">
+          <div style="display: flex; gap: 6px; justify-content: center; flex-wrap: wrap;">
             <button onclick="window.acomodarClienteFilaPrompt(${r.id}, '${escHtml(r.cliente_nome).replace(/'/g, "\\'")}')" title="Acomodar na Mesa" style="background: #10b981; color: white; border: none; padding: 6px 10px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 11.5px; display: flex; align-items: center; gap: 4px; transition: 0.15s;">
               <i class="ph ph-armchair"></i> Sentar
             </button>
+            ${r.status !== 'Acomodado' && r.status !== 'Cancelado' && r.status !== 'Concluido' ? `
+            <button onclick="window.filaEnviarAviso(${r.id}, '${escHtml(r.cliente_nome).replace(/'/g, "\\'")}')" title="Enviar aviso para o cliente" style="background: #7c3aed; color: white; border: none; padding: 6px 10px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 11.5px; display: flex; align-items: center; gap: 4px; transition: 0.15s;">
+              <i class="ph ph-megaphone"></i> Avisar
+            </button>
+            ` : ''}
             ${r.cliente_telefone ? `
               <button onclick="window.chamarClienteWhatsapp(${r.id}, '${escHtml(r.cliente_nome).replace(/'/g, "\\'")}', '${r.cliente_telefone}', ${r.pessoas || 2})" title="Chamar no WhatsApp" style="background: #25d366; color: white; border: none; padding: 6px 10px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 11.5px; display: flex; align-items: center; gap: 4px; transition: 0.15s;">
                 <i class="ph ph-whatsapp-logo"></i> Chamar

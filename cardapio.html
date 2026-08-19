@@ -2488,6 +2488,56 @@
       if (MODO_FILA) {
         socket.emit('get_fila_espera');
       }
+
+      // --- AVISO DO CAIXA PARA CLIENTE NA FILA ---
+      let currentFilaId = null;
+      socket.on('fila_aviso_cliente', (data) => {
+        const msg = data && data.mensagem ? data.mensagem : '';
+        if (!msg) return;
+        const overlay = document.createElement('div');
+        overlay.id = 'fila-aviso-overlay';
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);font-family:Inter,sans-serif;';
+        overlay.innerHTML =
+          '<div style="background:white;border-radius:20px;padding:32px 28px;max-width:380px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.3);animation:slideUp .3s ease;">' +
+          '<div style="font-size:42px;margin-bottom:10px;">📢</div>' +
+          '<h2 style="margin:0 0 8px;color:#1e293b;font-size:18px;">Aviso do Caixa</h2>' +
+          '<p style="margin:0 0 20px;color:#475569;font-size:15px;line-height:1.5;">' + escFila(msg) + '</p>' +
+          '<button onclick="this.closest(\'#fila-aviso-overlay\').remove()" style="padding:12px 32px;background:#6c5ce7;color:white;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;">Entendi</button>' +
+          '</div>';
+        document.body.appendChild(overlay);
+        // Vibra se suportado
+        if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+      });
+
+      // Junta sala de fila quando o cliente é identificado
+      function joinFilaRoom(filaId) {
+        if (filaId && filaId !== currentFilaId) {
+          currentFilaId = filaId;
+          socket.emit('fila_cliente_join', filaId);
+        }
+      }
+
+      // Hook no atualizarFilaEsperaCliente para capturar o fila_id
+      const _origAtualizar = atualizarFilaEsperaCliente;
+      atualizarFilaEsperaCliente = function(rows) {
+        _origAtualizar(rows);
+        if (!MODO_FILA) return;
+        const perfil = perfilClienteAtual();
+        if (!perfil || !rows) return;
+        const telCliente = String(perfil.telefone || '').replace(/\D/g, '');
+        const nomeCliente = String(perfil.nome || '').toLowerCase().trim();
+        for (let i = 0; i < rows.length; i++) {
+          const r = rows[i];
+          const telRow = String(r.cliente_telefone || '').replace(/\D/g, '');
+          const nomeRow = String(r.cliente_nome || '').toLowerCase().trim();
+          if ((telCliente && telRow && telRow === telCliente) || (nomeCliente && nomeRow && nomeRow === nomeCliente)) {
+            joinFilaRoom(r.id);
+            break;
+          }
+        }
+      };
+      socket.removeListener('fila_espera_atualizada', _origAtualizar);
+      socket.on('fila_espera_atualizada', atualizarFilaEsperaCliente);
     }
   </script>
 

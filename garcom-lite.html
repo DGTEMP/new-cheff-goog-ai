@@ -1525,7 +1525,7 @@ body.light .conta-total-row { border-top-color: #ccc; }
         else if (isNew) extraClasses += ' is-new';
         var tempo = '';
         if (p.prontoEm) {
-          var diff = Math.floor((Date.now() - new Date(p.prontoEm + 'Z').getTime()) / 60000);
+          var diff = Math.floor((Date.now() - new Date(p.prontoEm).getTime()) / 60000);
           if (diff < 1) tempo = 'agora';
           else if (diff < 60) tempo = diff + 'min';
           else tempo = Math.floor(diff / 60) + 'h' + (diff % 60) + 'm';

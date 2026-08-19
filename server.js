@@ -3339,7 +3339,8 @@ io.on('connection', (socket) => {
     const idNum = parseInt(id, 10);
     if (isNaN(idNum)) return;
     id = idNum;
-    db.run(`UPDATE pedidos SET status = ?, prontoEm = CURRENT_TIMESTAMP WHERE id = ?`, [status, id], function (err) {
+    const prontoUpdate = (status === 'Pronto') ? ", prontoEm = datetime('now', 'localtime')" : '';
+    db.run(`UPDATE pedidos SET status = ?${prontoUpdate} WHERE id = ?`, [status, id], function (err) {
       if (err) return console.error(err);
 
       db.get(`SELECT * FROM pedidos WHERE id = ?`, [id], (err, row) => {

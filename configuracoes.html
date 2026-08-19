@@ -1326,6 +1326,14 @@
               style="padding:10px 16px; background:#fc4b15; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold; display:flex; align-items:center; gap:6px;"
               title="Ouvir som"><i class="ph ph-play"></i> Testar</button>
           </div>
+          <div style="display:flex; flex-direction:column; gap:6px; max-width:420px; margin-top:14px;">
+            <label for="esteira-som-escopo" style="font-size:13px; font-weight:600; color:#333;">Quem ouve o alerta quando um pedido fica pronto?</label>
+            <select id="esteira-som-escopo" style="padding:10px; border:1px solid #ccc; border-radius:6px; font-size:14px;">
+              <option value="todos">Todos os garçons conectados</option>
+              <option value="garcom">Somente o garçom que fez o pedido</option>
+            </select>
+            <span style="font-size:12px; color:#888;">Se escolher "Somente o garçom", apenas o garçom que lanço o pedido recebera o som e vibration na esteira.</span>
+          </div>
         </div>
 
         <!-- Alerta de Atraso Crítico na Cozinha -->
