@@ -269,7 +269,7 @@ app.use('/api', (req, res, next) => {
 });
 
 // --- DOMÍNIO POR TENANT (subdomínio + domínio próprio) ---
-const BASE_DOMAIN = (process.env.BASE_DOMAIN || 'chefcozinha.com.br').toLowerCase();
+let BASE_DOMAIN = (process.env.BASE_DOMAIN || 'chefcozinha.com.br').toLowerCase();
 const domainMap = new Map(); // custom_domain → tenant_id
 const slugMap = new Map();   // slug → tenant_id
 let domainMapLoaded = false;
@@ -1358,6 +1358,29 @@ app.get('/api/super/server-status', superAdminAuth, (req, res) => {
   res.json({ ok: true, status: { uptime: Math.floor(uptime), memoria: { rss: mem.rss, heapUsed: mem.heapUsed, heapTotal: mem.heapTotal }, disco: { arquivos_banco: dbFiles.length + 1, tamanho_total: totalDbSize }, node: process.version, plataforma: process.platform, pid: process.pid, dataHora: new Date().toISOString() } });
 });
 
+// ── SUPER ADMIN: CONFIG (base_domain etc) ──────────────────────────
+app.get('/api/super/config', superAdminAuth, (req, res) => {
+  masterDb.all(`SELECT key, value FROM super_config`, [], (err, rows) => {
+    const config = {};
+    (rows || []).forEach(r => { config[r.key] = r.value; });
+    config.base_domain = config.base_domain || BASE_DOMAIN;
+    res.json({ ok: true, config });
+  });
+});
+
+app.post('/api/super/config', superAdminAuth, (req, res) => {
+  const { base_domain } = req.body || {};
+  if (base_domain !== undefined) {
+    const val = String(base_domain || '').toLowerCase().trim();
+    masterDb.run(`INSERT OR REPLACE INTO super_config (key, value) VALUES ('base_domain', ?)`, [val], () => {
+      if (val) BASE_DOMAIN = val;
+      res.json({ ok: true, base_domain: BASE_DOMAIN });
+    });
+  } else {
+    res.json({ ok: true });
+  }
+});
+
 // ── SUPER ADMIN: BACKUP ─────────────────────────────────────────────
 app.post('/api/super/backup', superAdminAuth, (req, res) => {
   try {
@@ -1862,6 +1885,13 @@ masterDb.serialize(async () => {
     custom_domain TEXT UNIQUE,
     data_cadastro DATETIME DEFAULT (datetime('now', 'localtime'))
   )`);
+  masterDb.run(`CREATE TABLE IF NOT EXISTS super_config (
+    key TEXT PRIMARY KEY,
+    value TEXT
+  )`);
+  masterDb.get(`SELECT value FROM super_config WHERE key = 'base_domain'`, [], (err, row) => {
+    if (!err && row && row.value) BASE_DOMAIN = row.value.toLowerCase();
+  });
   masterDb.run(`CREATE TABLE IF NOT EXISTS usuarios (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     restaurante_id INTEGER DEFAULT 1,
@@ -3875,9 +3905,17 @@ io.on('connection', (socket) => {
   const _emitPontoUrl = (socketRef, tid) => {
     const ipLocal = getLocalIp();
     const base = `painel-funcionario.html?t=${pontoToken}&restaurante_id=${tid}`;
-    masterDb.get(`SELECT custom_domain FROM restaurantes WHERE id = ?`, [tid], (eM, row) => {
-      const domain = (row && row.custom_domain && row.custom_domain.trim()) || ipLocal;
-      const hostPort = domain === ipLocal ? `${domain}:${PORT}` : domain;
+    masterDb.get(`SELECT custom_domain, slug FROM restaurantes WHERE id = ?`, [tid], (eM, row) => {
+      let domain, usePort = false;
+      if (row && row.custom_domain && row.custom_domain.trim()) {
+        domain = row.custom_domain.trim();
+      } else if (row && row.slug && BASE_DOMAIN) {
+        domain = `${row.slug}.${BASE_DOMAIN}`;
+      } else {
+        domain = ipLocal;
+        usePort = true;
+      }
+      const hostPort = usePort ? `${domain}:${PORT}` : domain;
       socketRef.emit('update_ponto_token', { url: `https://${hostPort}/${base}` });
       socketRef.emit('server_ip', domain);
     });
@@ -8307,9 +8345,17 @@ setInterval(() => {
   for (const s of io.sockets.sockets.values()) {
     const tid = s.restaurante_id || 1;
     const base = `painel-funcionario.html?t=${pontoToken}&restaurante_id=${tid}`;
-    masterDb.get(`SELECT custom_domain FROM restaurantes WHERE id = ?`, [tid], (eM, row) => {
-      const domain = (row && row.custom_domain && row.custom_domain.trim()) || ipLocal;
-      const hostPort = domain === ipLocal ? `${domain}:${PORT}` : domain;
+    masterDb.get(`SELECT custom_domain, slug FROM restaurantes WHERE id = ?`, [tid], (eM, row) => {
+      let domain, usePort = false;
+      if (row && row.custom_domain && row.custom_domain.trim()) {
+        domain = row.custom_domain.trim();
+      } else if (row && row.slug && BASE_DOMAIN) {
+        domain = `${row.slug}.${BASE_DOMAIN}`;
+      } else {
+        domain = ipLocal;
+        usePort = true;
+      }
+      const hostPort = usePort ? `${domain}:${PORT}` : domain;
       s.emit('update_ponto_token', { url: `https://${hostPort}/${base}` });
     });
   }

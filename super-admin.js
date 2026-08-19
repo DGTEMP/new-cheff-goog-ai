@@ -448,6 +448,15 @@ function switchTab(targetId) {
     sections[j].className = sections[j].id === targetId ? 'content-section active' : 'content-section';
   }
 
+  /* Persistir aba atual */
+  try { localStorage.setItem('super_admin_tab', targetId); } catch(e) {}
+
+  /* Fechar sidebar no mobile */
+  var sidebar = document.querySelector('.sidebar');
+  var overlay = document.getElementById('sidebar-overlay');
+  if (sidebar) sidebar.classList.remove('open');
+  if (overlay) overlay.classList.remove('open');
+
   var t = titles[targetId] || ['', ''];
   document.getElementById('panel-title').textContent = t[0];
   document.getElementById('panel-subtitle').textContent = t[1];
@@ -1276,6 +1285,16 @@ function carregarServidor() {
     extra += ' | Heap Total: ' + formatBytes(s.memoria.heapTotal);
     setText('srv-info-extra', extra);
   });
+  carregarBaseDomain();
+}
+
+function carregarBaseDomain() {
+  apiGet('/api/super/config', function(err, data) {
+    if (!err && data && data.ok && data.config) {
+      var el = document.getElementById('super-base-domain');
+      if (el) el.value = data.config.base_domain || '';
+    }
+  });
 }
 
 function criarBackup() {
@@ -1879,6 +1898,29 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 
+  /* Hamburger menu (mobile) */
+  var btnHamburger = document.getElementById('btn-hamburger');
+  var sidebar = document.querySelector('.sidebar');
+  var sidebarOverlay = document.getElementById('sidebar-overlay');
+  if (btnHamburger && sidebar) {
+    btnHamburger.addEventListener('click', function() {
+      sidebar.classList.toggle('open');
+      if (sidebarOverlay) sidebarOverlay.classList.toggle('open');
+    });
+  }
+  if (sidebarOverlay) {
+    sidebarOverlay.addEventListener('click', function() {
+      if (sidebar) sidebar.classList.remove('open');
+      sidebarOverlay.classList.remove('open');
+    });
+  }
+
+  /* Restaurar aba salva */
+  var savedTab = localStorage.getItem('super_admin_tab');
+  if (savedTab && document.getElementById(savedTab)) {
+    switchTab(savedTab);
+  }
+
   /* Refresh / Sync */
   var btnRefresh = document.getElementById('btn-refresh-data');
   if (btnRefresh) btnRefresh.addEventListener('click', function() { switchTab('sec-dash'); });
@@ -1951,6 +1993,27 @@ document.addEventListener('DOMContentLoaded', function() {
   if (btnRefreshServer) btnRefreshServer.addEventListener('click', carregarServidor);
   var btnBackup = document.getElementById('btn-backup');
   if (btnBackup) btnBackup.addEventListener('click', criarBackup);
+
+  /* BASE_DOMAIN save */
+  var btnSaveDomain = document.getElementById('btn-save-base-domain');
+  if (btnSaveDomain) btnSaveDomain.addEventListener('click', function() {
+    var val = (document.getElementById('super-base-domain').value || '').trim();
+    var statusEl = document.getElementById('base-domain-status');
+    apiPost('/api/super/config', { base_domain: val }, function(err, data) {
+      if (!statusEl) return;
+      statusEl.style.display = 'block';
+      if (err || !data || !data.ok) {
+        statusEl.style.background = 'rgba(239,68,68,0.15)';
+        statusEl.style.color = '#ef4444';
+        statusEl.textContent = 'Erro ao salvar.';
+      } else {
+        statusEl.style.background = 'rgba(16,185,129,0.15)';
+        statusEl.style.color = '#34d399';
+        statusEl.textContent = 'Domínio base salvo com sucesso!';
+      }
+      setTimeout(function() { statusEl.style.display = 'none'; }, 4000);
+    });
+  });
 
   /* Logs */
   var btnRefreshLogs = document.getElementById('btn-refresh-logs');
