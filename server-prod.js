@@ -1489,6 +1489,18 @@ db.serialize(() => {
   db.run("ALTER TABLE cupons ADD COLUMN valor_tipo TEXT", () => { });
   db.run("ALTER TABLE cupons ADD COLUMN valor REAL", () => { });
   db.run("ALTER TABLE cupons ADD COLUMN limite_usos INTEGER DEFAULT 1", () => { });
+  db.run("ALTER TABLE cupons ADD COLUMN titulo TEXT", () => { });
+
+  db.run(`CREATE TABLE IF NOT EXISTS cupons_usos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    cupom_codigo TEXT NOT NULL,
+    mesa TEXT,
+    garcom TEXT,
+    cliente_nome TEXT,
+    itens_resgatados TEXT,
+    data_uso DATETIME DEFAULT (datetime('now', 'localtime')),
+    FOREIGN KEY (cupom_codigo) REFERENCES cupons(codigo)
+  )`, () => { });
 
   db.run(`ALTER TABLE clientes ADD COLUMN endereco TEXT`, (err) => { });
   db.run(`ALTER TABLE clientes ADD COLUMN data_nascimento TEXT`, (err) => { });
@@ -1729,6 +1741,18 @@ db.serialize(() => {
   db.run("ALTER TABLE cupons ADD COLUMN valor_tipo TEXT", () => { });
   db.run("ALTER TABLE cupons ADD COLUMN valor REAL", () => { });
   db.run("ALTER TABLE cupons ADD COLUMN limite_usos INTEGER DEFAULT 1", () => { });
+  db.run("ALTER TABLE cupons ADD COLUMN titulo TEXT", () => { });
+
+  db.run(`CREATE TABLE IF NOT EXISTS cupons_usos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    cupom_codigo TEXT NOT NULL,
+    mesa TEXT,
+    garcom TEXT,
+    cliente_nome TEXT,
+    itens_resgatados TEXT,
+    data_uso DATETIME DEFAULT (datetime('now', 'localtime')),
+    FOREIGN KEY (cupom_codigo) REFERENCES cupons(codigo)
+  )`, () => { });
 
   db.run(`
     CREATE TABLE IF NOT EXISTS configuracoes (
@@ -2553,14 +2577,15 @@ io.on('connection', (socket) => {
   socket.on('criar_cupom', (data) => {
     const itensStr = JSON.stringify(data.itens);
     const limiteUsos = parseInt(data.limite_usos) || 1;
+    const titulo = data.titulo || data.codigo || 'CUPOM';
     db.run(
-      "INSERT INTO cupons (codigo, itens_json, usado, validade, dias_horarios_json, valor_tipo, valor, limite_usos) VALUES (?, ?, 0, ?, ?, ?, ?, ?)",
-      [data.codigo, itensStr, data.validade, JSON.stringify(data.dias_horarios), data.valor_tipo, data.valor, limiteUsos],
+      "INSERT INTO cupons (codigo, itens_json, usado, validade, dias_horarios_json, valor_tipo, valor, limite_usos, titulo) VALUES (?, ?, 0, ?, ?, ?, ?, ?, ?)",
+      [data.codigo, itensStr, data.validade, JSON.stringify(data.dias_horarios), data.valor_tipo, data.valor, limiteUsos, titulo],
       function (err) {
         if (err) {
           socket.emit('cupom_criado_error', 'Código já existe ou erro no banco.');
         } else {
-          socket.emit('cupom_criado_sucesso', { codigo: data.codigo, titulo: data.titulo });
+          socket.emit('cupom_criado_sucesso', { codigo: data.codigo, titulo: titulo });
           io.emit('cupons_atualizados');
         }
       });
@@ -2787,6 +2812,12 @@ io.on('connection', (socket) => {
         try {
           const itens = JSON.parse(cupom.itens_json);
           const timeStr = agora.getHours().toString().padStart(2, '0') + ':' + agora.getMinutes().toString().padStart(2, '0');
+
+          /* Logar uso individual no cupons_usos */
+          db.run(
+            `INSERT INTO cupons_usos (cupom_codigo, mesa, garcom, cliente_nome, itens_resgatados) VALUES (?, ?, ?, ?, ?)`,
+            [codigo, mesaName, userName || 'Garçom', null, JSON.stringify(itens.map(i => i.nome + ' x' + (i.quantity || 1)))]
+          );
 
           let hasInserted = false;
 
@@ -5134,10 +5165,22 @@ io.on('connection', (socket) => {
     });
   });
 
+  socket.on('get_cupom_detalhes', ({ codigo }, cb) => {
+    if (!codigo) return cb && cb(null);
+    db.get(`SELECT * FROM cupons WHERE codigo = ?`, [codigo], (err, cupom) => {
+      if (err || !cupom) return cb && cb(null);
+      db.all(`SELECT * FROM cupons_usos WHERE cupom_codigo = ? ORDER BY data_uso DESC`, [codigo], (errUsos, usos) => {
+        cb && cb({ cupom, usos: usos || [] });
+      });
+    });
+  });
+
   socket.on('delete_cupom', (data) => {
     const codigo = typeof data === 'object' ? data.codigo : data;
-    db.run(`DELETE FROM cupons WHERE codigo = ?`, [codigo], (err) => {
-      if (!err) io.emit('cupons_atualizados');
+    db.run(`DELETE FROM cupons_usos WHERE cupom_codigo = ?`, [codigo], () => {
+      db.run(`DELETE FROM cupons WHERE codigo = ?`, [codigo], (err) => {
+        if (!err) io.emit('cupons_atualizados');
+      });
     });
   });
 

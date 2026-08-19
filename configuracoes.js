@@ -8,6 +8,20 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 });
+
+/* Toast notification - non-blocking replacement for alert() */
+window.showToast = function(msg, type, duration) {
+  const colors = { success: '#16a34a', warning: '#d97706', error: '#dc2626', info: '#2563eb' };
+  const bg = colors[type] || colors.info;
+  const icons = { success: 'ph-check-circle', warning: 'ph-warning', error: 'ph-x-circle', info: 'ph-info' };
+  const icon = icons[type] || icons.info;
+  const toast = document.createElement('div');
+  toast.style.cssText = 'position:fixed;top:20px;right:20px;z-index:999999;background:#fff;border-left:4px solid ' + bg + ';border-radius:10px;padding:14px 18px;box-shadow:0 8px 30px rgba(0,0,0,0.12);display:flex;align-items:center;gap:10px;animation:slideInRight .3s ease;max-width:380px;font-family:system-ui,-apple-system,sans-serif;font-size:13px;color:#1e293b;';
+  toast.innerHTML = '<i class="ph ' + icon + '" style="color:' + bg + ';font-size:20px;flex-shrink:0;"></i><span style="flex:1;">' + msg + '</span>';
+  document.body.appendChild(toast);
+  setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.4s'; }, duration || 4000);
+  setTimeout(() => toast.remove(), (duration || 4000) + 500);
+};
 let currentMesas = [];
 const socket = window.socket || (typeof io === 'function' ? io({ query: { token: localStorage.getItem('chef_token'), restaurante_id: localStorage.getItem('restaurante_id') || '1' } }) : {
   emit: () => { },
@@ -1236,14 +1250,14 @@ function initDiasGrid() {
   grid.innerHTML = h;
 }
 // Call it when script loads
-setTimeout(initDiasGrid, 500);
+/* initDiasGrid is now deferred until promocoes tab is activated */
 
 window.addCupomItem = () => {
   const sel = document.getElementById('admin-cupom-produto-sel');
   const qtd = parseInt(document.getElementById('admin-cupom-qtd').value);
 
-  if (!sel.value) return alert('Selecione um produto.');
-  if (isNaN(qtd) || qtd < 1) return alert('Quantidade inválida.');
+  if (!sel.value) return window.showToast && window.showToast('Selecione um produto.', 'warning');
+  if (isNaN(qtd) || qtd < 1) return window.showToast && window.showToast('Quantidade inválida.', 'warning');
 
   const opt = sel.selectedOptions[0];
 
@@ -1297,7 +1311,8 @@ window.gerarCupomQrAvancado = () => {
   }
 
   if (window.cupomItensBuilder.length === 0 && valorTipo === 'preco_fixo') {
-    return alert("Você precisa adicionar itens no combo se quiser cobrar um preço fixo por ele.");
+    window.showToast && window.showToast('Você precisa adicionar itens no combo se quiser cobrar um preço fixo por ele.', 'warning');
+    return;
   }
 
   const dias = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'];
@@ -1358,6 +1373,30 @@ window.printCupomAvancado = () => {
   setTimeout(() => { w.print(); }, 1000);
 };
 
+window.printCupomDetalhe = () => {
+  const titulo = document.getElementById('det-cupom-titulo').textContent;
+  const cod = document.getElementById('det-cupom-codigo').textContent;
+  const imgSrc = document.getElementById('det-cupom-qr').src;
+
+  const w = window.open('', '_blank', 'width=400,height=600');
+  w.document.write(`
+    <html><head><style>
+      body { font-family: monospace; text-align: center; margin: 0; padding: 20px; }
+      .bold { font-weight: bold; }
+    </style></head><body>
+      <div class="bold" style="font-size:20px; margin-bottom:10px;">CHEF COZINHA</div>
+      <div style="font-size:16px; margin-bottom:15px;">VOUCHER / COMBO PROMOCIONAL</div>
+      <div class="bold" style="font-size:18px; margin-bottom:20px;">${titulo}</div>
+      <img src="${imgSrc}" style="width: 200px; height: 200px; margin-bottom: 10px;">
+      <div style="font-size:24px; font-weight:bold; margin-bottom:20px;">${cod}</div>
+      <div style="font-size:12px; margin-top:30px;">Apresente este QR Code para o garçom.</div>
+      <div style="font-size:10px; margin-top:5px; color:#666;">Sujeito a restrições de horários e validade.</div>
+    </body></html>
+  `);
+  w.document.close();
+  setTimeout(() => { w.print(); }, 1000);
+};
+
 
 
 socket.on('cupom_criado_sucesso', (data) => {
@@ -1368,18 +1407,31 @@ socket.on('cupom_criado_sucesso', (data) => {
     document.getElementById('cupom-qr-code-text').innerText = data.codigo;
 
     const imgCupom = document.getElementById('cupom-qr-image');
-    if (typeof window.qrImg === 'function') {
-      window.qrImg(imgCupom, data.codigo, 200);
-    } else {
-      imgCupom.src = (window.location.origin || '') + '/api/qr?size=200&data=' + encodeURIComponent(data.codigo);
+    if (imgCupom) {
+      imgCupom.style.display = 'none';
+      if (typeof window.qrImg === 'function') {
+        try {
+          window.qrImg(imgCupom, data.codigo, 200);
+          setTimeout(() => { imgCupom.style.display = 'block'; }, 150);
+        } catch (e) {
+          console.error('[Cupom QR] Erro ao gerar QR:', e);
+          imgCupom.style.display = 'block';
+        }
+      } else {
+        imgCupom.src = (window.location.origin || '') + '/api/qr?size=200&data=' + encodeURIComponent(data.codigo);
+        imgCupom.style.display = 'block';
+      }
     }
 
-    alert('Cupom criado no banco! Você já pode imprimir o QR Code.');
+    /* Scroll to QR result */
+    setTimeout(() => {
+      resDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 200);
   }
 });
 
 socket.on('cupom_criado_error', (msg) => {
-  alert('Erro ao criar cupom: ' + msg);
+  window.showToast('Erro ao criar cupom: ' + msg, 'error');
 });
 
 // ==================== HISTÓRICO DE CUPONS ====================
@@ -1394,7 +1446,6 @@ function renderCuponsList(cupons) {
   }
 
   tbody.innerHTML = cupons.map(c => {
-    // DB fields: codigo, itens_json, usado, data_criacao, validade, valor_tipo, valor
     const criado = c.data_criacao ? new Date(c.data_criacao).toLocaleDateString('pt-BR') : '-';
     const validade = c.validade ? new Date(c.validade + 'T00:00:00').toLocaleDateString('pt-BR') : 'Sem validade';
 
@@ -1423,10 +1474,10 @@ function renderCuponsList(cupons) {
 
     const podeExcluir = totalUsados === 0;
     const btnExcluir = podeExcluir
-      ? `<button onclick="window.deleteCupom('${c.codigo}')" style="background:none; border:none; cursor:pointer; color:#ef4444;" title="Excluir cupom"><i class="ph ph-trash" style="font-size:16px;"></i></button>`
+      ? `<button onclick="event.stopPropagation(); window.deleteCupom('${c.codigo}')" style="background:none; border:none; cursor:pointer; color:#ef4444;" title="Excluir cupom"><i class="ph ph-trash" style="font-size:16px;"></i></button>`
       : '';
 
-    return `<tr>
+    return `<tr onclick="window.verDetalhesCupom('${c.codigo}')" style="cursor:pointer; transition:background 0.15s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''">
       <td style="font-weight:bold; font-family:monospace; letter-spacing:1px; padding:10px 8px;">${c.codigo}</td>
       <td style="padding:10px 8px;">${criado}</td>
       <td style="padding:10px 8px;">${validade}</td>
@@ -1437,6 +1488,103 @@ function renderCuponsList(cupons) {
   }).join('');
 }
 
+window.verDetalhesCupom = (codigo) => {
+  socket.emit('get_cupom_detalhes', { codigo }, (data) => {
+    if (!data || !data.cupom) return window.showToast && window.showToast('Cupom não encontrado.', 'error');
+    const c = data.cupom;
+    const usos = data.usos || [];
+
+    document.getElementById('det-cupom-titulo').textContent = c.titulo || c.codigo || 'CUPOM';
+    document.getElementById('det-cupom-codigo').textContent = c.codigo;
+
+    /* Status badge */
+    const limiteUsos = c.limite_usos || 1;
+    const totalUsados = c.usado || 0;
+    let statusText = '', statusColor = '';
+    if (totalUsados >= limiteUsos) { statusText = 'Esgotado'; statusColor = '#3b82f6'; }
+    else if (totalUsados > 0) { statusText = 'Parcialmente Usado'; statusColor = '#f97316'; }
+    else { statusText = 'Disponível'; statusColor = '#22c55e'; }
+    document.getElementById('det-cupom-status').innerHTML = `<span style="color:${statusColor}; font-size:13px;">● ${statusText} (${totalUsados}/${limiteUsos})</span>`;
+
+    /* Benefício */
+    let beneficio = '-';
+    if (c.valor_tipo === 'gratuito') beneficio = '🎁 100% Gratuito';
+    else if (c.valor_tipo === 'desconto_fixo') beneficio = `💰 Desconto de R$ ${parseFloat(c.valor || 0).toFixed(2)}`;
+    else if (c.valor_tipo === 'preco_fixo') beneficio = `💲 Preço fixo: R$ ${parseFloat(c.valor || 0).toFixed(2)}`;
+    document.getElementById('det-cupom-beneficio').textContent = beneficio;
+
+    /* Datas */
+    document.getElementById('det-cupom-criado').textContent = c.data_criacao ? new Date(c.data_criacao).toLocaleString('pt-BR') : '-';
+    document.getElementById('det-cupom-validade').textContent = c.validade ? new Date(c.validade + 'T23:59:59').toLocaleString('pt-BR') : 'Sem validade';
+
+    /* Usos */
+    document.getElementById('det-cupom-usos').textContent = `${totalUsados} uso(s) de ${limiteUsos} limite(s)`;
+
+    /* Itens */
+    let itensHtml = '<span style="color:#94a3b8; font-style:italic;">Nenhum item.</span>';
+    if (c.itens_json) {
+      try {
+        const itens = JSON.parse(c.itens_json);
+        if (itens.length > 0) {
+          itensHtml = itens.map(i => `<div style="padding:3px 0; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between;">
+            <span>${i.emoji || '🍽️'} ${i.nome}</span>
+            <span style="color:#64748b;">x${i.quantity || 1}</span>
+          </div>`).join('');
+        }
+      } catch (e) { }
+    }
+    document.getElementById('det-cupom-itens').innerHTML = itensHtml;
+
+    /* Restrições */
+    let restrHtml = '<span style="color:#94a3b8; font-style:italic;">Sem restrições de dia/horário.</span>';
+    if (c.dias_horarios_json) {
+      try {
+        const dh = JSON.parse(c.dias_horarios_json);
+        const diasPt = { domingo: 'Dom', segunda: 'Seg', terca: 'Ter', quarta: 'Qua', quinta: 'Qui', sexta: 'Sex', sabado: 'Sáb' };
+        const rows = Object.keys(dh).map(dia => {
+          const cfg = dh[dia];
+          const ativo = cfg && cfg.ativo;
+          const horario = (cfg && cfg.inicio && cfg.fim) ? `${cfg.inicio}–${cfg.fim}` : (ativo ? 'Dia todo' : '');
+          return `<div style="display:flex; justify-content:space-between; padding:3px 0; border-bottom:1px solid #e2e8f0;">
+            <span style="font-weight:${ativo ? 'bold' : 'normal'}; color:${ativo ? '#166534' : '#94a3b8'};">${diasPt[dia] || dia}</span>
+            <span style="color:${ativo ? '#334155' : '#cbd5e1'};">${ativo ? (horario || 'Ativo') : '—'}</span>
+          </div>`;
+        });
+        restrHtml = rows.join('');
+      } catch (e) { }
+    }
+    document.getElementById('det-cupom-restricoes').innerHTML = restrHtml;
+
+    /* Histórico de usos */
+    if (usos.length === 0) {
+      document.getElementById('det-cupom-historico').innerHTML = '<span style="color:#94a3b8; font-style:italic;">Nenhum uso registrado.</span>';
+    } else {
+      const usosHtml = usos.map(u => {
+        const data = u.data_uso ? new Date(u.data_uso).toLocaleString('pt-BR') : '-';
+        let itensResgatados = '';
+        if (u.itens_resgatados) {
+          try { itensResgatados = JSON.parse(u.itens_resgatados).join(', '); } catch (e) { itensResgatados = u.itens_resgatados; }
+        }
+        return `<div style="display:flex; gap:8px; padding:6px 0; border-bottom:1px solid #e2e8f0; font-size:12px;">
+          <span style="color:#64748b; white-space:nowrap; min-width:120px;">${data}</span>
+          <span style="min-width:70px; font-weight:bold;">Mesa ${escHtml(u.mesa || '-')}</span>
+          <span style="color:#64748b;">por ${escHtml(u.garcom || '-')}</span>
+          ${itensResgatados ? `<span style="color:#94a3b8; margin-left:auto; max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escHtml(itensResgatados)}">${escHtml(itensResgatados)}</span>` : ''}
+        </div>`;
+      });
+      document.getElementById('det-cupom-historico').innerHTML = usosHtml.join('');
+    }
+
+    /* QR code */
+    const imgDet = document.getElementById('det-cupom-qr');
+    if (imgDet && typeof window.qrImg === 'function') {
+      try { window.qrImg(imgDet, c.codigo, 200); } catch (e) { imgDet.alt = c.codigo; }
+    }
+
+    document.getElementById('modal-cupom-detalhes').style.display = 'flex';
+  });
+};
+
 window.deleteCupom = (codigo) => {
   if (!confirm(`Excluir cupom "${codigo}"? Esta ação não pode ser desfeita.`)) return;
   socket.emit('delete_cupom', { codigo });
@@ -1446,8 +1594,12 @@ socket.on('cupons_list', (cupons) => {
   renderCuponsList(cupons);
 });
 
+let _cupomAtualizadoTimer = null;
 socket.on('cupons_atualizados', () => {
-  socket.emit('get_cupons_list');
+  if (_cupomAtualizadoTimer) clearTimeout(_cupomAtualizadoTimer);
+  _cupomAtualizadoTimer = setTimeout(() => {
+    socket.emit('get_cupons_list');
+  }, 300);
 });
 
 // Pedir lista ao abrir a aba promoções
@@ -1542,10 +1694,21 @@ socket.on('ia_estado_atualizado', (data) => {
 });
 
 document.addEventListener('DOMContentLoaded', () => {
+  /* Debounced cupom list fetch - prevents rapid re-emissions */
+  let _cupomFetchTimer = null;
+  function debouncedGetCupons() {
+    if (_cupomFetchTimer) clearTimeout(_cupomFetchTimer);
+    _cupomFetchTimer = setTimeout(() => {
+      socket.emit('get_cupons_list');
+    }, 200);
+  }
+
+  let _diasGridInit = false;
   document.querySelectorAll('.admin-tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       if (btn.getAttribute('data-tab') === 'promocoes') {
-        socket.emit('get_cupons_list');
+        debouncedGetCupons();
+        if (!_diasGridInit) { _diasGridInit = true; initDiasGrid(); }
       }
       if (btn.getAttribute('data-tab') === 'inteligencia') {
         socket.emit('ia_get_config');
@@ -1555,8 +1718,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Pedir config IA ao carregar
   socket.emit('ia_get_config');
-  // Pedir ao carregar
-  socket.emit('get_cupons_list');
 });
 
 
