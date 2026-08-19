@@ -622,7 +622,8 @@ function buildAppUrl(page, mesaNome) {
   const proto = (qrConfig.qr_protocol === 'https' || qrConfig.qr_protocol === 'http')
     ? qrConfig.qr_protocol
     : (window.location.protocol === 'https:' ? 'https' : 'http');
-  const port = String(qrConfig.qr_port || '').trim() || window.location.port;
+  const isDomain = serverIp.indexOf('.') !== -1 && !serverIp.match(/^\d+\.\d+\.\d+\.\d+$/);
+  const port = isDomain ? '' : (String(qrConfig.qr_port || '').trim() || window.location.port);
   const q = mesaNome ? `?mesa=${encodeURIComponent(mesaNome)}` : '';
   const tenantId = encodeURIComponent(localStorage.getItem('restaurante_id') || '1');
   const url = `${proto}://${serverIp}${port ? ':' + port : ''}/${page}${q}`;

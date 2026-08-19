@@ -3764,8 +3764,18 @@ io.on('connection', (socket) => {
       });
   });
 
-  socket.emit('update_ponto_token', { url: `https://${getLocalIp()}:${PORT}/painel-funcionario.html?t=${pontoToken}&restaurante_id=${socket.restaurante_id || 1}` });
-  socket.emit('server_ip', getLocalIp());
+  /* Emitir URL do ponto usando custom_domain se disponível */
+  const _emitPontoUrl = (socketRef, tid) => {
+    const ipLocal = getLocalIp();
+    const base = `painel-funcionario.html?t=${pontoToken}&restaurante_id=${tid}`;
+    masterDb.get(`SELECT custom_domain FROM restaurantes WHERE id = ?`, [tid], (eM, row) => {
+      const domain = (row && row.custom_domain && row.custom_domain.trim()) || ipLocal;
+      const hostPort = domain === ipLocal ? `${domain}:${PORT}` : domain;
+      socketRef.emit('update_ponto_token', { url: `https://${hostPort}/${base}` });
+      socketRef.emit('server_ip', domain);
+    });
+  };
+  _emitPontoUrl(socket, socket.restaurante_id || 1);
   console.log('Cliente conectado:', socket.id);
 
   // ── LICENÇA: ativação ──────────────────────────────────
@@ -8065,10 +8075,15 @@ function getLocalIp() {
 let pontoToken = Math.random().toString(36).substring(2, 10);
 setInterval(() => {
   pontoToken = Math.random().toString(36).substring(2, 10);
-  // Emite por socket para que cada tenant receba a URL com o seu restaurante_id
+  const ipLocal = getLocalIp();
   for (const s of io.sockets.sockets.values()) {
     const tid = s.restaurante_id || 1;
-    s.emit('update_ponto_token', { url: `https://${getLocalIp()}:${PORT}/painel-funcionario.html?t=${pontoToken}&restaurante_id=${tid}` });
+    const base = `painel-funcionario.html?t=${pontoToken}&restaurante_id=${tid}`;
+    masterDb.get(`SELECT custom_domain FROM restaurantes WHERE id = ?`, [tid], (eM, row) => {
+      const domain = (row && row.custom_domain && row.custom_domain.trim()) || ipLocal;
+      const hostPort = domain === ipLocal ? `${domain}:${PORT}` : domain;
+      s.emit('update_ponto_token', { url: `https://${hostPort}/${base}` });
+    });
   }
 }, 30000);
 

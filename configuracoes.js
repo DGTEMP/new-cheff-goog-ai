@@ -340,6 +340,7 @@ let configs = {
 let serverIp = window.location.hostname;
 let serverProtocol = window.location.protocol;
 let serverPort = window.location.port;
+let restCustomDomain = ''; /* custom_domain do restaurante, quando disponível */
 
 function normalizeProtocol(p) {
   if (!p) return 'http:';
@@ -350,9 +351,11 @@ function normalizeProtocol(p) {
 function buildCardapioUrl(mesaNome) {
   const customProto = String(configs.qr_protocol || '').trim().toLowerCase();
   const proto = normalizeProtocol((customProto === 'https' || customProto === 'http') ? customProto : (serverProtocol || 'http'));
-  let host = serverIp || window.location.hostname;
+  /* Preferir custom_domain sobre IP do servidor */
+  let host = (restCustomDomain && restCustomDomain.trim()) || serverIp || window.location.hostname;
+  const isDomain = host.indexOf('.') !== -1 && !host.match(/^\d+\.\d+\.\d+\.\d+$/);
   const customPort = String(configs.qr_port || '').trim();
-  const portPart = customPort ? ':' + customPort : (serverPort ? ':' + serverPort : '');
+  const portPart = isDomain ? '' : (customPort ? ':' + customPort : (serverPort ? ':' + serverPort : ''));
   const tenantId = encodeURIComponent(localStorage.getItem('restaurante_id') || '1');
   return `${proto}//${host}${portPart}/cardapio.html?mesa=${encodeURIComponent(mesaNome)}&restaurante_id=${tenantId}`;
 }
@@ -5845,6 +5848,8 @@ socket.on('consumo_config_saved', () => {
 
 // === PERFIL RESTAURANTE ===
 socket.on('restaurante_config', (cfg) => {
+  /* Armazenar custom_domain para uso em QR URLs */
+  restCustomDomain = cfg['rest_custom_domain'] || '';
   if (document.getElementById('rest-nome')) {
     document.getElementById('rest-nome').value = cfg['rest_nome'] || '';
     document.getElementById('rest-cnpj').value = cfg['rest_cnpj'] || '';
