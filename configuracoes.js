@@ -474,56 +474,61 @@ document.addEventListener('DOMContentLoaded', () => {
   socket.emit('get_promocoes');
 
   // Aba control
+  const STORAGE_KEY = 'config_active_tab';
+
+  function activateTab(tabId, skipSave) {
+    if (!tabId) return;
+    const btn = document.querySelector('.admin-tab-btn[data-tab="' + tabId + '"]');
+    const content = document.getElementById('admin-tab-' + tabId);
+    if (!btn || !content) return;
+
+    document.querySelectorAll('.admin-tab-btn').forEach(b => {
+      b.classList.remove('active');
+      b.style.fontWeight = 'normal';
+    });
+    btn.classList.add('active');
+    btn.style.fontWeight = 'bold';
+
+    document.querySelectorAll('.admin-tab-content').forEach(c => {
+      c.classList.remove('active');
+      c.style.display = 'none';
+    });
+
+    content.classList.add('active');
+    content.style.display = 'flex';
+
+    // Auto-scroll sidebar button into view (mobile horizontal scroll)
+    btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+
+    // Persist state
+    if (!skipSave) {
+      try { localStorage.setItem(STORAGE_KEY, tabId); } catch (e) {}
+      if (window.location.hash !== '#' + tabId) {
+        history.replaceState(null, '', '#' + tabId);
+      }
+    }
+
+    // Lazy-load specific tab data on demand
+    if (tabId === 'dispositivos') window.carregarGerenciadorDispositivos();
+    if (tabId === 'metricas') window.carregarMetricasGarcons();
+    if (tabId === 'formas-pagamento' && window.carregarFormasPagamento) window.carregarFormasPagamento();
+    if (tabId === 'pins') socket.emit('listar_pins_temporarios');
+
+    // Update title
+    const elTitulo = document.getElementById('titulo-aba');
+    if (elTitulo) elTitulo.innerText = btn.innerText.trim();
+  }
+
   document.querySelectorAll('.admin-tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.admin-tab-btn').forEach(b => {
-        b.classList.remove('active');
-        b.style.fontWeight = 'normal';
-      });
-      btn.classList.add('active');
-      btn.style.fontWeight = 'bold';
-
-      const tabId = btn.getAttribute('data-tab');
-      document.querySelectorAll('.admin-tab-content').forEach(c => {
-        c.classList.remove('active');
-        c.style.display = 'none';
-      });
-
-      const content = document.getElementById('admin-tab-' + tabId);
-      if (content) {
-        content.classList.add('active');
-        content.style.display = 'flex';
-      }
-
-      if (tabId === 'dispositivos') {
-        window.carregarGerenciadorDispositivos();
-      }
-      if (tabId === 'metricas') {
-        window.carregarMetricasGarcons();
-      }
-      if (tabId === 'formas-pagamento') {
-        // Sempre buscar via fetch para garantir dados atualizados
-        if (window.carregarFormasPagamento) window.carregarFormasPagamento();
-      }
-      if (tabId === 'pins') {
-        socket.emit('listar_pins_temporarios');
-      }
-
-      // Muda titulo
-      const elTitulo = document.getElementById('titulo-aba');
-      if (elTitulo) elTitulo.innerText = btn.innerText.trim();
+      activateTab(btn.getAttribute('data-tab'));
     });
   });
 
-  // URL Tab auto-select
+  // Tab priority: URL param > hash > localStorage (current + legacy) > default
   const urlParams = new URLSearchParams(window.location.search);
-  const targetTab = urlParams.get('tab');
-  if (targetTab) {
-    const targetBtn = document.querySelector(`.admin-tab-btn[data-tab="${targetTab}"]`);
-    if (targetBtn) {
-      setTimeout(() => targetBtn.click(), 100);
-    }
-  }
+  const targetTab = urlParams.get('tab') || window.location.hash.replace('#', '') || localStorage.getItem(STORAGE_KEY) || localStorage.getItem('admin_active_tab') || 'gerais';
+  activateTab(targetTab, true);
 
 });
 
@@ -5416,11 +5421,7 @@ document.addEventListener('DOMContentLoaded', () => {
   
   const params = new URLSearchParams(window.location.search);
   if(params.get('tab') === 'gerenciar-notas') {
-    setTimeout(() => {
-      const btn = document.querySelector('.admin-tab-btn[data-tab="gerenciar-notas"]');
-      if (btn) btn.click();
-      window.carregarTodasNotasNfce(1);
-    }, 500);
+    setTimeout(() => { window.carregarTodasNotasNfce(1); }, 500);
   }
   
   document.querySelectorAll('.admin-tab-btn').forEach(btn => {

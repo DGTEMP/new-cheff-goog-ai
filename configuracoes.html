@@ -172,6 +172,12 @@
       min-height: 0 !important;
       height: 100% !important;
       overflow: hidden !important;
+      animation: tabFadeIn 0.15s ease;
+    }
+
+    @keyframes tabFadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
     }
 
     .tab-form-header {
@@ -788,7 +794,7 @@
     <aside class="config-sidebar">
       <div class="action-group">
         <div class="group-title">Sistema</div>
-        <button class="admin-tab-btn active" data-tab="gerais">
+        <button class="admin-tab-btn" data-tab="gerais">
           <i class="ph ph-sliders"></i> Sistema &amp; Cardápio
         </button>
         <button class="admin-tab-btn" data-tab="resolucao">
@@ -1082,7 +1088,7 @@
       </div>
 
       <!-- TAB GERAIS -->
-      <div id="admin-tab-gerais" class="admin-tab-content" style="display:flex; flex-direction:column; overflow-y:auto; padding-right: 8px;">
+      <div id="admin-tab-gerais" class="admin-tab-content" style="display:none; flex-direction:column; overflow-y:auto; padding-right: 8px;">
 
         <div style="background: #f9f9f9; padding: 20px; border-radius: 12px; border: 1px solid #eee; margin-bottom: 20px;">
           <h3 style="margin-top:0; color: #fc4b15;"><i class="ph ph-globe"></i> Idioma do Sistema</h3>
