@@ -226,10 +226,10 @@ socket.on('login_success', (user) => {
   loggedUser = user;
   if (user.restaurante_id) localStorage.setItem('restaurante_id', user.restaurante_id);
   if (typeof initTracking === 'function') initTracking(user.id);
-  const isAdmin = (user.cargo || user.funcao || '') !== 'Garçom';
-  if(document.getElementById('btn-home')) document.getElementById('btn-home').style.display = isAdmin ? 'block' : 'none';
-  if(document.getElementById('btn-colaborador')) document.getElementById('btn-colaborador').style.display = isAdmin ? 'block' : 'none';
-  if(document.getElementById('btn-logout')) document.getElementById('btn-logout').style.display = isAdmin ? 'block' : 'none';
+  /* Home, Colaborador e Logout sempre visíveis para todos os cargos */
+  if(document.getElementById('btn-home')) document.getElementById('btn-home').style.display = 'block';
+  if(document.getElementById('btn-colaborador')) document.getElementById('btn-colaborador').style.display = 'block';
+  if(document.getElementById('btn-logout')) document.getElementById('btn-logout').style.display = 'block';
   document.getElementById('btn-fullscreen').style.display = 'block';
   showToast(`Bem vindo, ${user.nome}!`);
   showView('tables', 'Comanda Mobile');
@@ -2401,23 +2401,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const themeToggleBtn = document.getElementById('btn-theme-toggle');
   if (!themeToggleBtn) return;
   
-  const savedTheme = localStorage.getItem('chef_garcom_theme');
-  if (savedTheme === 'dark') {
-    document.body.classList.add('dark-mode');
-    themeToggleBtn.innerHTML = '<i class="ph ph-sun"></i>';
-  } else {
-    document.body.classList.remove('dark-mode');
-    themeToggleBtn.innerHTML = '<i class="ph ph-moon"></i>';
-  }
+  /* Sempre iniciar em modo claro */
+  document.body.classList.remove('dark-mode');
+  themeToggleBtn.innerHTML = '<i class="ph ph-moon"></i>';
   
   themeToggleBtn.addEventListener('click', () => {
     document.body.classList.toggle('dark-mode');
     const isDark = document.body.classList.contains('dark-mode');
     if (isDark) {
-      localStorage.setItem('chef_garcom_theme', 'dark');
       themeToggleBtn.innerHTML = '<i class="ph ph-sun"></i>';
     } else {
-      localStorage.setItem('chef_garcom_theme', 'light');
       themeToggleBtn.innerHTML = '<i class="ph ph-moon"></i>';
     }
   });
