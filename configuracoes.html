@@ -593,6 +593,11 @@
         padding: 14px !important;
       }
 
+      /* PINs stats grid */
+      #admin-tab-pins [style*="grid-template-columns: repeat(4"] {
+        grid-template-columns: repeat(2, 1fr) !important;
+      }
+
       /* Tab RH Form */
       #admin-tab-rh .tab-form-header {
         max-height: none !important;
@@ -673,6 +678,7 @@
       display: flex !important;
       flex-direction: column !important;
       overflow-y: auto !important;
+      -webkit-overflow-scrolling: touch;
     }
     
     /* Abas com tabela interna: a tabela rola, o container NÃO */
@@ -755,6 +761,7 @@
 
       .admin-tab-content.active {
         overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch;
       }
       .admin-tab-content.active:has(.tab-table-scroll) {
         overflow: hidden !important;
@@ -1665,7 +1672,7 @@
           </div>
         </div>
 
-        <div style="background:white; border-radius:12px; border:1px solid #e5e7eb; overflow:hidden;">
+        <div class="tab-table-scroll" style="background:white; border-radius:12px; border:1px solid #e5e7eb; overflow:hidden;">
           <table style="width:100%; border-collapse:collapse; text-align:left;">
             <thead>
               <tr style="background:#f9fafb; border-bottom:2px solid #e5e7eb;">

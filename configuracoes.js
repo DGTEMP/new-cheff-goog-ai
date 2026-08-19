@@ -527,6 +527,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (tabId === 'metricas') window.carregarMetricasGarcons();
     if (tabId === 'formas-pagamento' && window.carregarFormasPagamento) window.carregarFormasPagamento();
     if (tabId === 'pins') socket.emit('listar_pins_temporarios');
+    if (tabId === 'promocoes') {
+      socket.emit('get_cupons_list');
+      if (typeof initDiasGrid === 'function' && !_diasGridInit) { _diasGridInit = true; initDiasGrid(); }
+    }
 
     // Update title
     const elTitulo = document.getElementById('titulo-aba');
@@ -1216,6 +1220,7 @@ emitGetRhData();
 
 
 window.cupomItensBuilder = [];
+let _diasGridInit = false;
 
 // Init UI Dias
 function initDiasGrid() {
@@ -1703,7 +1708,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 200);
   }
 
-  let _diasGridInit = false;
   document.querySelectorAll('.admin-tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       if (btn.getAttribute('data-tab') === 'promocoes') {
