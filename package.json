@@ -41,7 +41,8 @@
         "socket.io-client": "^4.8.3",
         "sqlite3": "^6.0.1",
         "web-push": "^3.6.7",
-        "whatwg-fetch": "^3.6.20"
+        "whatwg-fetch": "^3.6.20",
+        "xlsx": "^0.18.5"
     },
     "pkg": {
         "assets": [

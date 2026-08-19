@@ -2499,6 +2499,7 @@ db.serialize(() => {
   db.run(`ALTER TABLE produtos ADD COLUMN unidade TEXT DEFAULT 'UN'`, (err) => { });
   db.run(`ALTER TABLE produtos ADD COLUMN fornecedor TEXT`, (err) => { });
   db.run(`ALTER TABLE produtos ADD COLUMN descricao TEXT`, (err) => { });
+  db.run(`ALTER TABLE produtos ADD COLUMN visibilidade TEXT DEFAULT 'todos'`, (err) => { });
 
   db.run(`
     CREATE TABLE IF NOT EXISTS notas_compra (
@@ -2792,6 +2793,7 @@ db.serialize(() => {
   db.run(`ALTER TABLE produtos ADD COLUMN unidade TEXT DEFAULT 'UN'`, (err) => { });
   db.run(`ALTER TABLE produtos ADD COLUMN fornecedor TEXT`, (err) => { });
   db.run(`ALTER TABLE produtos ADD COLUMN descricao TEXT`, (err) => { });
+  db.run(`ALTER TABLE produtos ADD COLUMN visibilidade TEXT DEFAULT 'todos'`, (err) => { });
 
   db.run(`
     CREATE TABLE IF NOT EXISTS notas_compra (
@@ -4869,8 +4871,8 @@ io.on('connection', (socket) => {
     db.all(`SELECT * FROM mesas`, (e, r) => io.emit('mesas_atualizadas', r || []));
   }));
 
-  socket.on('add_produto', (p) => db.run(`INSERT INTO produtos (categoria, nome, preco, emoji, hasAddons, setor, status_inicial, status, categoria_fiscal, descricao) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [p.categoria, p.nome, p.preco, p.emoji, p.hasAddons, p.setor || 'Cozinha 1', p.status_inicial || 'Em espera', p.status || 'ativo', p.categoria_fiscal || 'Alimentacao', p.descricao || ''], (err) => {
+  socket.on('add_produto', (p) => db.run(`INSERT INTO produtos (categoria, nome, preco, emoji, hasAddons, setor, status_inicial, status, categoria_fiscal, descricao, codigo_barras, visibilidade) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [p.categoria, p.nome, p.preco, p.emoji, p.hasAddons, p.setor || 'Cozinha 1', p.status_inicial || 'Em espera', p.status || 'ativo', p.categoria_fiscal || 'Alimentacao', p.descricao || '', p.codigo_barras || null, p.visibilidade || 'todos'], (err) => {
       if (err) {
         console.error(err);
         socket.emit('erro_servidor', 'Falha ao adicionar o produto.');
@@ -4880,8 +4882,8 @@ io.on('connection', (socket) => {
     }));
 
   socket.on('edit_produto', (p) => {
-    db.run(`UPDATE produtos SET categoria=?, nome=?, preco=?, emoji=?, setor=?, status_inicial=?, status=?, categoria_fiscal=?, descricao=? WHERE id=?`,
-      [p.categoria, p.nome, p.preco, p.emoji, p.setor || 'Cozinha 1', p.status_inicial || 'Em espera', p.status || 'ativo', p.categoria_fiscal || 'Alimentacao', p.descricao || '', p.id], () => {
+    db.run(`UPDATE produtos SET categoria=?, nome=?, preco=?, emoji=?, setor=?, status_inicial=?, status=?, categoria_fiscal=?, descricao=?, codigo_barras=?, visibilidade=? WHERE id=?`,
+      [p.categoria, p.nome, p.preco, p.emoji, p.setor || 'Cozinha 1', p.status_inicial || 'Em espera', p.status || 'ativo', p.categoria_fiscal || 'Alimentacao', p.descricao || '', p.codigo_barras || null, p.visibilidade || 'todos', p.id], () => {
         global.registrarAuditoria(p.operador || 'Admin', 'EDITAR_PRODUTO', `Produto editado: ${p.nome} (ID: ${p.id})`, 'Atualização de Cardápio', 'MEDIO');
         broadcastProdutos();
       });
@@ -7821,6 +7823,84 @@ app.get('/api/metricas/garcons', verificarToken, (req, res) => {
       res.json({ ok: true, metricas });
     });
   });
+});
+
+// --- TEMPLATE + IMPORTAÇÃO DE PRODUTOS ---
+const XLSX = require('xlsx');
+
+app.get('/api/template-produtos', (req, res) => {
+  const headers = ['Categoria', 'Nome', 'Preço', 'Emoji', 'Setor', 'Status Inicial', 'Categoria Fiscal', 'Código de Barras', 'Descrição', 'Preço Custo', 'Unidade', 'Fornecedor', 'Visibilidade'];
+  const exemplos = [
+    ['Lanches', 'X-Burger', '28.90', '🍔', 'Cozinha 1', 'Em preparo', 'Alimentacao', '', 'Hamburger artesanal', '12.50', 'UN', '', 'todos'],
+    ['Bebidas', 'Coca-Cola Lata', '8.00', '🥤', 'Bar', 'Em espera', 'Bebida_Nao_Alcoolica', '7891234567890', 'Refrigerante 350ml', '3.20', 'UN', 'Coca-Cola', 'todos'],
+    ['Sobremesas', 'Pudim', '12.00', '🍮', 'Cozinha 1', 'Em preparo', 'Alimentacao', '', 'Pudim de leite', '4.00', 'UN', '', 'todos'],
+  ];
+  const sheetData = [headers, ...exemplos];
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(sheetData);
+  ws['!cols'] = headers.map(() => ({ wch: 20 }));
+  XLSX.utils.book_append_sheet(wb, ws, 'Produtos');
+  const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+  res.setHeader('Content-Disposition', 'attachment; filename=template-produtos.xlsx');
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.send(Buffer.from(buf));
+});
+
+app.post('/api/importar-produtos', verificarToken, upload.single('file'), (req, res) => {
+  if (!req.file) return res.status(400).json({ ok: false, erro: 'Nenhum arquivo enviado.' });
+  try {
+    const wb = XLSX.readFile(req.file.path);
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+    if (!rows.length) return res.json({ ok: false, erro: 'Planilha vazia ou formato inválido.' });
+    const COL_MAP = {
+      'categoria': 'categoria', 'nome': 'nome', 'preço': 'preco', 'preco': 'preco',
+      'emoji': 'emoji', 'setor': 'setor', 'status inicial': 'status_inicial', 'status_inicial': 'status_inicial',
+      'categoria fiscal': 'categoria_fiscal', 'categoria_fiscal': 'categoria_fiscal',
+      'código de barras': 'codigo_barras', 'codigo_barras': 'codigo_barras', 'codigo_barras': 'codigo_barras',
+      'descrição': 'descricao', 'descricao': 'descricao',
+      'preço custo': 'preco_custo', 'preco_custo': 'preco_custo',
+      'unidade': 'unidade', 'fornecedor': 'fornecedor', 'visibilidade': 'visibilidade'
+    };
+    const mapped = rows.map(r => {
+      const out = {};
+      Object.keys(r).forEach(k => {
+        const key = COL_MAP[k.toLowerCase().trim()];
+        if (key) out[key] = r[k];
+      });
+      return out;
+    }).filter(r => r.nome && String(r.nome).trim());
+    if (!mapped.length) return res.json({ ok: false, erro: 'Nenhum produto com nome encontrado na planilha.' });
+    let inseridos = 0, erros = 0;
+    const insertNext = (i) => {
+      if (i >= mapped.length) {
+        require('fs').unlinkSync(req.file.path);
+        broadcastProdutos();
+        return res.json({ ok: true, inseridos, erros, total: mapped.length });
+      }
+      const p = mapped[i];
+      const nome = String(p.nome || '').trim();
+      const categoria = String(p.categoria || 'Sem Categoria').trim();
+      const preco = parseFloat(String(p.preco || '0').replace(',', '.')) || 0;
+      const emoji = String(p.emoji || '').trim();
+      const setor = String(p.setor || 'Cozinha 1').trim();
+      const status_inicial = String(p.status_inicial || 'Em espera').trim();
+      const categoria_fiscal = String(p.categoria_fiscal || 'Alimentacao').trim();
+      const codigo_barras = String(p.codigo_barras || '').trim() || null;
+      const descricao = String(p.descricao || '').trim();
+      const preco_custo = parseFloat(String(p.preco_custo || '0').replace(',', '.')) || 0;
+      const unidade = String(p.unidade || 'UN').trim();
+      const fornecedor = String(p.fornecedor || '').trim() || null;
+      const visibilidade = String(p.visibilidade || 'todos').trim();
+      db.run(`INSERT INTO produtos (categoria, nome, preco, emoji, hasAddons, setor, status_inicial, status, categoria_fiscal, descricao, codigo_barras, preco_custo, unidade, fornecedor, visibilidade) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [categoria, nome, preco, emoji, false, setor, status_inicial, 'ativo', categoria_fiscal, descricao, codigo_barras, preco_custo, unidade, fornecedor, visibilidade],
+        (err) => { if (err) { erros++; } else { inseridos++; } insertNext(i + 1); });
+    };
+    insertNext(0);
+  } catch (e) {
+    require('fs').unlinkSync(req.file.path);
+    return res.status(500).json({ ok: false, erro: 'Erro ao processar arquivo: ' + e.message });
+  }
 });
 
 // --- ROTA REST: ATUALIZAR STATUS DO PEDIDO (para fila-lite) ---

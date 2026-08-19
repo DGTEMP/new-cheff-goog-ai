@@ -609,6 +609,45 @@ window.carregarMetricasGarcons = function() {
     });
 };
 
+// --- IMPORTAÇÃO DE PRODUTOS VIA PLANILHA ---
+document.addEventListener('DOMContentLoaded', () => {
+  const inputImport = document.getElementById('input-importar-produtos');
+  if (!inputImport) return;
+  inputImport.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const statusEl = document.getElementById('import-produtos-status');
+    if (!statusEl) return;
+    statusEl.style.display = 'block';
+    statusEl.style.background = '#fef3c7';
+    statusEl.style.color = '#92400e';
+    statusEl.textContent = 'Enviando arquivo...';
+    const formData = new FormData();
+    formData.append('file', file);
+    fetch('/api/importar-produtos', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: formData
+    }).then(r => r.json()).then(data => {
+      if (data.ok) {
+        statusEl.style.background = '#dcfce7';
+        statusEl.style.color = '#166534';
+        statusEl.textContent = `Importação concluída! ${data.inseridos} produto(s) inserido(s)` + (data.erros ? `, ${data.erros} erro(s)` : '') + ` de ${data.total} total.`;
+        socket.emit('get_produtos');
+      } else {
+        statusEl.style.background = '#fee2e2';
+        statusEl.style.color = '#991b1b';
+        statusEl.textContent = 'Erro: ' + (data.erro || 'Falha ao importar.');
+      }
+    }).catch(() => {
+      statusEl.style.background = '#fee2e2';
+      statusEl.style.color = '#991b1b';
+      statusEl.textContent = 'Erro de conexão ao enviar arquivo.';
+    });
+    inputImport.value = '';
+  });
+});
+
 // --- GERENCIADOR DE DISPOSITIVOS & TERMINAIS ---
 window.carregarGerenciadorDispositivos = function () {
   if (typeof socket !== 'undefined' && socket.emit) socket.emit('get_connected_devices');
