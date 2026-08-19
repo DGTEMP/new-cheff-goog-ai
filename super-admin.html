@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -1529,6 +1529,10 @@
             <span>Instâncias On-Premise</span>
             <span class="menu-badge" id="offline-count-badge" style="display:none;">0</span>
           </div>
+          <div class="menu-item" data-target="sec-site-vendas">
+            <i class="fa-solid fa-bullseye"></i>
+            <span>Site de Vendas</span>
+          </div>
           <div class="menu-item" data-target="sec-terminal">
             <i class="fa-solid fa-terminal"></i>
             <span>Terminal</span>
@@ -2676,6 +2680,82 @@
                   <tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text-muted);">Carregando instâncias...</td></tr>
                 </tbody>
               </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ SEÇÃO: SITE DE VENDAS (CMS) ═══ -->
+        <div class="content-section" id="sec-site-vendas">
+          <div style="padding: 20px;">
+            <h2 style="margin-bottom:6px;"><i class="fa-solid fa-bullseye"></i> Site de Vendas — CMS</h2>
+            <p style="color:#999;font-size:13px;margin-bottom:20px;">Edite todo o conteúdo da landing page, planos, gateways de pagamento e dados do consultor.</p>
+
+            <div style="display:flex;gap:6px;margin-bottom:24px;background:rgba(0,0,0,0.2);padding:5px;border-radius:12px;flex-wrap:wrap;">
+              <button class="sv-tab-btn active" data-sv-tab="sv-tab-conteudo" onclick="renderSiteVendasTab('sv-tab-conteudo')" style="flex:1;min-width:120px;padding:10px 16px;border-radius:8px;border:none;background:var(--primary);color:#fff;font-weight:600;font-size:13px;cursor:pointer;"><i class="fa-solid fa-pen-to-square"></i> Conteúdos</button>
+              <button class="sv-tab-btn" data-sv-tab="sv-tab-planos" onclick="renderSiteVendasTab('sv-tab-planos')" style="flex:1;min-width:120px;padding:10px 16px;border-radius:8px;border:none;background:transparent;color:var(--text-muted);font-weight:600;font-size:13px;cursor:pointer;"><i class="fa-solid fa-tags"></i> Planos</button>
+              <button class="sv-tab-btn" data-sv-tab="sv-tab-gateways" onclick="renderSiteVendasTab('sv-tab-gateways')" style="flex:1;min-width:120px;padding:10px 16px;border-radius:8px;border:none;background:transparent;color:var(--text-muted);font-weight:600;font-size:13px;cursor:pointer;"><i class="fa-solid fa-credit-card"></i> Gateways</button>
+              <button class="sv-tab-btn" data-sv-tab="sv-tab-consultor" onclick="renderSiteVendasTab('sv-tab-consultor')" style="flex:1;min-width:120px;padding:10px 16px;border-radius:8px;border:none;background:transparent;color:var(--text-muted);font-weight:600;font-size:13px;cursor:pointer;"><i class="fa-brands fa-whatsapp"></i> Consultor</button>
+            </div>
+
+            <!-- CONTEÚDOS -->
+            <div class="sv-tab-panel" id="sv-tab-conteudo">
+              <div style="padding:24px;background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;margin-bottom:20px;">
+                <h3 style="margin-bottom:16px;font-size:16px;"><i class="fa-solid fa-wand-magic-sparkles" style="color:var(--primary);"></i> Hero Section</h3>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;"><div><label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Título Principal</label><input id="sv-hero-titulo" placeholder="O Sistema para Restaurantes..." style="width:100%;padding:10px 14px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:10px;color:#fff;font-size:13px;outline:none;"></div><div><label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Parte Destacada (laranja)</label><input id="sv-hero-destaque" placeholder="Mais Rápido e Antifraude" style="width:100%;padding:10px 14px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:10px;color:#fff;font-size:13px;outline:none;"></div></div>
+                <div style="margin-bottom:12px;"><label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Subtítulo</label><textarea id="sv-hero-subtitulo" rows="2" style="width:100%;padding:10px 14px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:10px;color:#fff;font-size:13px;outline:none;resize:vertical;"></textarea></div>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;"><div><label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Badge</label><input id="sv-hero-badge" style="width:100%;padding:10px 14px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:10px;color:#fff;font-size:13px;outline:none;"></div><div><label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">CTA Principal</label><input id="sv-cta-principal" style="width:100%;padding:10px 14px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:10px;color:#fff;font-size:13px;outline:none;"></div><div><label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">CTA Secundário</label><input id="sv-cta-secundario" style="width:100%;padding:10px 14px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:10px;color:#fff;font-size:13px;outline:none;"></div></div>
+              </div>
+              <div style="padding:24px;background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;margin-bottom:20px;">
+                <h3 style="margin-bottom:16px;font-size:16px;"><i class="fa-solid fa-bullhorn" style="color:var(--warning);"></i> Banner &amp; Footer</h3>
+                <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:12px;"><div><label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Banner Texto</label><input id="sv-banner-texto" style="width:100%;padding:10px 14px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:10px;color:#fff;font-size:13px;outline:none;"></div><div><label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Banner Link</label><input id="sv-banner-link" style="width:100%;padding:10px 14px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:10px;color:#fff;font-size:13px;outline:none;"></div></div>
+                <div><label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Footer</label><input id="sv-footer-texto" style="width:100%;padding:10px 14px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:10px;color:#fff;font-size:13px;outline:none;"></div>
+              </div>
+              <div style="padding:24px;background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;margin-bottom:20px;">
+                <h3 style="margin-bottom:16px;font-size:16px;"><i class="fa-solid fa-chart-simple" style="color:var(--success);"></i> Stats do Hero</h3>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div style="display:flex;gap:8px;"><input id="sv-stat-valor-0" placeholder="Valor" style="flex:0.4;padding:8px 12px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:#fff;font-size:13px;outline:none;"><input id="sv-stat-label-0" placeholder="Label" style="flex:0.6;padding:8px 12px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:#fff;font-size:13px;outline:none;"></div><div style="display:flex;gap:8px;"><input id="sv-stat-valor-1" placeholder="Valor" style="flex:0.4;padding:8px 12px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:#fff;font-size:13px;outline:none;"><input id="sv-stat-label-1" placeholder="Label" style="flex:0.6;padding:8px 12px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:#fff;font-size:13px;outline:none;"></div><div style="display:flex;gap:8px;"><input id="sv-stat-valor-2" placeholder="Valor" style="flex:0.4;padding:8px 12px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:#fff;font-size:13px;outline:none;"><input id="sv-stat-label-2" placeholder="Label" style="flex:0.6;padding:8px 12px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:#fff;font-size:13px;outline:none;"></div><div style="display:flex;gap:8px;"><input id="sv-stat-valor-3" placeholder="Valor" style="flex:0.4;padding:8px 12px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:#fff;font-size:13px;outline:none;"><input id="sv-stat-label-3" placeholder="Label" style="flex:0.6;padding:8px 12px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:#fff;font-size:13px;outline:none;"></div></div>
+              </div>
+              <div style="padding:24px;background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;margin-bottom:20px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;"><h3 style="font-size:16px;"><i class="fa-solid fa-circle-question" style="color:var(--info);"></i> FAQ</h3><button onclick="adicionarFaq()" style="background:var(--primary);color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;"><i class="fa-solid fa-plus"></i> Adicionar</button></div>
+                <div id="sv-faq-container"></div>
+              </div>
+              <button onclick="salvarSiteConteudo()" style="background:linear-gradient(135deg,var(--primary),#e64a19);color:#fff;border:none;border-radius:12px;padding:14px 32px;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px var(--primary-glow);display:flex;align-items:center;gap:8px;"><i class="fa-solid fa-floppy-disk"></i> Salvar Conteúdo</button>
+            </div>
+
+            <!-- PLANOS -->
+            <div class="sv-tab-panel" id="sv-tab-planos" style="display:none;">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;"><p style="color:var(--text-muted);font-size:13px;">Crie, edite e reordene os planos.</p><button onclick="adicionarPlano()" style="background:var(--primary);color:#fff;border:none;border-radius:10px;padding:10px 20px;font-size:13px;font-weight:600;cursor:pointer;"><i class="fa-solid fa-plus"></i> Novo Plano</button></div>
+              <div id="sv-planos-container"></div>
+              <button onclick="salvarSitePlanos()" style="background:linear-gradient(135deg,var(--primary),#e64a19);color:#fff;border:none;border-radius:12px;padding:14px 32px;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px var(--primary-glow);display:flex;align-items:center;gap:8px;margin-top:10px;"><i class="fa-solid fa-floppy-disk"></i> Salvar Planos</button>
+            </div>
+
+            <!-- GATEWAYS -->
+            <div class="sv-tab-panel" id="sv-tab-gateways" style="display:none;">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+                <div style="padding:24px;background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;">
+                  <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;"><div style="width:40px;height:40px;background:rgba(16,185,129,0.15);border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--success);font-size:18px;"><i class="fa-solid fa-building-columns"></i></div><div><strong>Asaas</strong><br><small style="color:var(--text-muted);">Boleto, PIX, Cartão</small></div></div>
+                  <div style="margin-bottom:12px;"><label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">API Key</label><input id="sv-gw-asaas-key" type="password" placeholder="$aact_..." style="width:100%;padding:10px 14px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:10px;color:#fff;font-size:13px;outline:none;"></div>
+                  <div style="margin-bottom:12px;"><label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Tipo Cobrança</label><select id="sv-gw-asaas-tipo" style="width:100%;padding:10px 14px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:10px;color:#fff;font-size:13px;outline:none;"><option value="PIX">PIX</option><option value="BOLETO">Boleto</option><option value="CREDIT_CARD">Cartão</option></select></div>
+                  <div style="display:flex;gap:20px;"><label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-muted);cursor:pointer;"><input type="checkbox" id="sv-gw-asaas-ativo" style="accent-color:var(--success);"> Ativo</label><label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-muted);cursor:pointer;"><input type="checkbox" id="sv-gw-asaas-sandbox" style="accent-color:var(--warning);"> Sandbox</label></div>
+                </div>
+                <div style="padding:24px;background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;">
+                  <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;"><div style="width:40px;height:40px;background:rgba(59,130,246,0.15);border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--info);font-size:18px;"><i class="fa-solid fa-coins"></i></div><div><strong>MercadoPago</strong><br><small style="color:var(--text-muted);">PIX, Cartão, Boleto</small></div></div>
+                  <div style="margin-bottom:12px;"><label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Access Token</label><input id="sv-gw-mp-token" type="password" placeholder="APP_USR-..." style="width:100%;padding:10px 14px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:10px;color:#fff;font-size:13px;outline:none;"></div>
+                  <div style="margin-bottom:12px;"><label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Public Key</label><input id="sv-gw-mp-public" type="password" placeholder="APP_USR-..." style="width:100%;padding:10px 14px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:10px;color:#fff;font-size:13px;outline:none;"></div>
+                  <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-muted);cursor:pointer;"><input type="checkbox" id="sv-gw-mp-ativo" style="accent-color:var(--info);"> Ativo</label>
+                </div>
+              </div>
+              <div style="margin-top:16px;"><label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Gateway Padrão</label><select id="sv-gw-padrao" style="width:200px;padding:10px 14px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:10px;color:#fff;font-size:13px;outline:none;"><option value="asaas">Asaas</option><option value="mercadopago">MercadoPago</option></select></div>
+              <button onclick="salvarSiteGateways()" style="background:linear-gradient(135deg,var(--primary),#e64a19);color:#fff;border:none;border-radius:12px;padding:14px 32px;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px var(--primary-glow);display:flex;align-items:center;gap:8px;margin-top:20px;"><i class="fa-solid fa-floppy-disk"></i> Salvar Gateways</button>
+            </div>
+
+            <!-- CONSULTOR -->
+            <div class="sv-tab-panel" id="sv-tab-consultor" style="display:none;">
+              <div style="padding:24px;background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;max-width:600px;">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;"><div style="width:48px;height:48px;background:rgba(37,211,102,0.15);border-radius:14px;display:flex;align-items:center;justify-content:center;color:#25d366;font-size:24px;"><i class="fa-brands fa-whatsapp"></i></div><div><strong style="font-size:16px;">Consultor WhatsApp</strong><br><small style="color:var(--text-muted);">Número usado no botão "Falar com Consultor"</small></div></div>
+                <div style="margin-bottom:14px;"><label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Número WhatsApp (com DDD)</label><input id="sv-consultor-whatsapp" placeholder="11999998888" style="width:100%;padding:12px 16px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:10px;color:#fff;font-size:14px;outline:none;"></div>
+                <div style="margin-bottom:14px;"><label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Mensagem Pré-definida</label><textarea id="sv-consultor-mensagem" rows="3" style="width:100%;padding:12px 16px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:10px;color:#fff;font-size:14px;outline:none;resize:vertical;"></textarea></div>
+                <button onclick="salvarSiteConsultor()" style="background:linear-gradient(135deg,#25d366,#128c7e);color:#fff;border:none;border-radius:12px;padding:14px 32px;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(37,211,102,0.3);display:flex;align-items:center;gap:8px;"><i class="fa-solid fa-floppy-disk"></i> Salvar Consultor</button>
+              </div>
             </div>
           </div>
         </div>

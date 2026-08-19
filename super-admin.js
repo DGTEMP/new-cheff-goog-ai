@@ -437,7 +437,8 @@ function switchTab(targetId) {
     'sec-clientes': ['Clientes', 'Perfil completo de todos os clientes da plataforma'],
     'sec-suporte': ['Equipe de Suporte', 'Funcionários que prestam suporte aos restaurantes'],
     'sec-terminal': ['Terminal', 'Execute comandos no servidor local'],
-    'sec-instancias': ['Instâncias On-Premise', 'Gerencie instalações locais conectadas ao servidor']
+    'sec-instancias': ['Instâncias On-Premise', 'Gerencie instalações locais conectadas ao servidor'],
+    'sec-site-vendas': ['Site de Vendas', 'Edite conteúdo, planos, gateways e configurações da landing page']
   };
 
   for (var i = 0; i < items.length; i++) {
@@ -467,6 +468,7 @@ function switchTab(targetId) {
    else if (targetId === 'sec-capacidade') renderCapacidade();
    else if (targetId === 'sec-terminal') { resetInactivityTimer(); }
    else if (targetId === 'sec-instancias') carregarInstancias();
+   else if (targetId === 'sec-site-vendas') carregarSiteVendas();
 }
 
 /* ═══ DASHBOARD ═══ */
@@ -2871,3 +2873,280 @@ document.addEventListener('DOMContentLoaded', function() {
 
 });
 
+
+/* ═══════════════════════════════════════════════════════════════════════ */
+/* ═══ SITE DE VENDAS — CMS COMPLETO ═══════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════════════ */
+
+var siteVendasConfigs = {};
+
+function carregarSiteVendas() {
+  apiGet('/api/super/config-global', function(err, data) {
+    if (err || !data || !data.ok) return showToast('Erro ao carregar configurações do site.', 'danger');
+    siteVendasConfigs = {};
+    var cfgs = data.configs || {};
+    Object.keys(cfgs).forEach(function(k) {
+      if (k.indexOf('site_') === 0) {
+        try { siteVendasConfigs[k] = JSON.parse(cfgs[k]); } catch(e) { siteVendasConfigs[k] = cfgs[k]; }
+      }
+    });
+    renderSiteVendasTab('sv-tab-conteudo');
+  });
+}
+
+function renderSiteVendasTab(tabId) {
+  var tabs = document.querySelectorAll('.sv-tab-btn');
+  var panels = document.querySelectorAll('.sv-tab-panel');
+  for (var i = 0; i < tabs.length; i++) {
+    tabs[i].classList.toggle('active', tabs[i].getAttribute('data-sv-tab') === tabId);
+  }
+  for (var j = 0; j < panels.length; j++) {
+    panels[j].style.display = panels[j].id === tabId ? 'block' : 'none';
+  }
+  if (tabId === 'sv-tab-conteudo') populateSiteConteudo();
+  else if (tabId === 'sv-tab-planos') populateSitePlanos();
+  else if (tabId === 'sv-tab-gateways') populateSiteGateways();
+  else if (tabId === 'sv-tab-consultor') populateSiteConsultor();
+}
+
+/* ── CONTEÚDO ──────────────────────────────────── */
+function populateSiteConteudo() {
+  var c = siteVendasConfigs;
+  setVal('sv-hero-titulo', c.site_hero_titulo || '');
+  setVal('sv-hero-destaque', c.site_hero_destaque || '');
+  setVal('sv-hero-subtitulo', c.site_hero_subtitulo || '');
+  setVal('sv-hero-badge', c.site_hero_badge || '');
+  setVal('sv-banner-texto', c.site_banner_texto || '');
+  setVal('sv-banner-link', c.site_banner_link_texto || '');
+  setVal('sv-cta-principal', c.site_cta_principal || '');
+  setVal('sv-cta-secundario', c.site_cta_secundario || '');
+  setVal('sv-footer-texto', c.site_footer_texto || '');
+
+  // Stats
+  var stats = c.site_stats || [{valor:'+40%',label:'Rapidez no Giro de Mesas'},{valor:'0',label:'Erros de Pagamento no Caixa'},{valor:'100%',label:'Atalhos F1-F12 Personalizáveis'},{valor:'Offline',label:'Não Para se a Internet Cair'}];
+  for (var i = 0; i < 4; i++) {
+    var s = stats[i] || {valor:'',label:''};
+    setVal('sv-stat-valor-' + i, s.valor || '');
+    setVal('sv-stat-label-' + i, s.label || '');
+  }
+
+  // FAQ
+  var faq = c.site_faq || [];
+  renderFaqEditor(faq);
+}
+
+function setVal(id, v) {
+  var el = document.getElementById(id);
+  if (el) el.value = v;
+}
+
+function salvarSiteConteudo() {
+  var configs = {};
+  configs.site_hero_titulo = document.getElementById('sv-hero-titulo').value;
+  configs.site_hero_destaque = document.getElementById('sv-hero-destaque').value;
+  configs.site_hero_subtitulo = document.getElementById('sv-hero-subtitulo').value;
+  configs.site_hero_badge = document.getElementById('sv-hero-badge').value;
+  configs.site_banner_texto = document.getElementById('sv-banner-texto').value;
+  configs.site_banner_link_texto = document.getElementById('sv-banner-link').value;
+  configs.site_cta_principal = document.getElementById('sv-cta-principal').value;
+  configs.site_cta_secundario = document.getElementById('sv-cta-secundario').value;
+  configs.site_footer_texto = document.getElementById('sv-footer-texto').value;
+
+  // Stats
+  var stats = [];
+  for (var i = 0; i < 4; i++) {
+    stats.push({
+      valor: document.getElementById('sv-stat-valor-' + i).value,
+      label: document.getElementById('sv-stat-label-' + i).value
+    });
+  }
+  configs.site_stats = JSON.stringify(stats);
+
+  // FAQ
+  var faqItems = document.querySelectorAll('.sv-faq-item');
+  var faq = [];
+  for (var j = 0; j < faqItems.length; j++) {
+    var pergunta = faqItems[j].querySelector('.sv-faq-pergunta').value.trim();
+    var resposta = faqItems[j].querySelector('.sv-faq-resposta').value.trim();
+    if (pergunta) faq.push({ pergunta: pergunta, resposta: resposta });
+  }
+  configs.site_faq = JSON.stringify(faq);
+
+  apiPost('/api/super/config-global', configs, function(err, data) {
+    if (err || !data || !data.ok) return showToast('Erro ao salvar conteúdo.', 'danger');
+    showToast('Conteúdo do site atualizado!', 'success');
+    // Atualiza cache local
+    Object.keys(configs).forEach(function(k) {
+      try { siteVendasConfigs[k] = JSON.parse(configs[k]); } catch(e) { siteVendasConfigs[k] = configs[k]; }
+    });
+  });
+}
+
+function renderFaqEditor(faqList) {
+  var container = document.getElementById('sv-faq-container');
+  if (!container) return;
+  container.innerHTML = '';
+  (faqList || []).forEach(function(item, idx) {
+    container.innerHTML += '<div class="sv-faq-item" style="background:rgba(0,0,0,0.2);border:1px solid var(--border-color);border-radius:12px;padding:14px;margin-bottom:10px;">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><strong style="font-size:13px;color:var(--text-muted);">FAQ #' + (idx + 1) + '</strong>' +
+      '<button type="button" onclick="this.closest(\'.sv-faq-item\').remove()" style="background:rgba(239,68,68,0.15);color:#ef4444;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px;"><i class="fa-solid fa-trash"></i></button></div>' +
+      '<input class="sv-faq-pergunta" value="' + escHtml(item.pergunta || '') + '" placeholder="Pergunta" style="width:100%;padding:8px 12px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:#fff;font-size:13px;margin-bottom:6px;outline:none;">' +
+      '<textarea class="sv-faq-resposta" placeholder="Resposta" rows="2" style="width:100%;padding:8px 12px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:#fff;font-size:13px;resize:vertical;outline:none;">' + escHtml(item.resposta || '') + '</textarea>' +
+      '</div>';
+  });
+}
+
+function adicionarFaq() {
+  var container = document.getElementById('sv-faq-container');
+  if (!container) return;
+  var idx = container.querySelectorAll('.sv-faq-item').length;
+  var div = document.createElement('div');
+  div.className = 'sv-faq-item';
+  div.style.cssText = 'background:rgba(0,0,0,0.2);border:1px solid var(--border-color);border-radius:12px;padding:14px;margin-bottom:10px;';
+  div.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><strong style="font-size:13px;color:var(--text-muted);">FAQ #' + (idx + 1) + '</strong>' +
+    '<button type="button" onclick="this.closest(\'.sv-faq-item\').remove()" style="background:rgba(239,68,68,0.15);color:#ef4444;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px;"><i class="fa-solid fa-trash"></i></button></div>' +
+    '<input class="sv-faq-pergunta" value="" placeholder="Pergunta" style="width:100%;padding:8px 12px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:#fff;font-size:13px;margin-bottom:6px;outline:none;">' +
+    '<textarea class="sv-faq-resposta" placeholder="Resposta" rows="2" style="width:100%;padding:8px 12px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:#fff;font-size:13px;resize:vertical;outline:none;"></textarea>';
+  container.appendChild(div);
+}
+
+/* ── PLANOS ──────────────────────────────────── */
+function populateSitePlanos() {
+  var planos = siteVendasConfigs.site_planos || [
+    { id: 'starter', nome: 'Starter / Lanchonete', desc: 'Ideal para pequenos estabelecimentos e balcão.', preco: 89, features: ['1 Ponto de Caixa (PDV)', 'Módulo Balcão e Delivery', 'Atalhos Teclado F1-F12', 'Trava de Segurança no Caixa'], popular: false, cta: 'Assinar Plano Starter', ativo: true },
+    { id: 'profissional', nome: 'Profissional', desc: 'Para restaurantes, bares e pizzarias completas.', preco: 149, features: ['Tudo do plano Starter', 'Fila da Cozinha Dinâmica (KDS)', 'Garçom Mobile (Ilimitados)', 'Ponto Digital via QR Code', 'Relatórios Antifraude & Auditoria'], popular: true, cta: 'Começar 14 Dias Grátis', ativo: true },
+    { id: 'enterprise', nome: 'Enterprise / Redes', desc: 'Para grandes operações e redes de restaurantes.', preco: 299, features: ['Tudo do plano Profissional', 'Múltiplas Lojas / Unidades', 'Suporte Prioritário 24/7 VIP', 'Treinamento da Equipe incluso'], popular: false, cta: 'Falar com Consultor B2B', ativo: true }
+  ];
+  renderPlanosEditor(planos);
+}
+
+function renderPlanosEditor(planos) {
+  var container = document.getElementById('sv-planos-container');
+  if (!container) return;
+  container.innerHTML = '';
+  (planos || []).forEach(function(plano, idx) {
+    var featuresStr = (plano.features || []).join('\n');
+    container.innerHTML += '<div class="sv-plano-item" data-plano-idx="' + idx + '" style="background:rgba(0,0,0,0.2);border:1px solid ' + (plano.popular ? 'var(--primary)' : 'var(--border-color)') + ';border-radius:16px;padding:20px;margin-bottom:16px;">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">' +
+        '<div style="display:flex;align-items:center;gap:10px;">' +
+          (plano.popular ? '<span style="background:var(--primary);color:#fff;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:700;">POPULAR</span>' : '') +
+          '<strong style="font-size:16px;">' + escHtml(plano.nome || 'Novo Plano') + '</strong>' +
+        '</div>' +
+        '<div style="display:flex;gap:6px;">' +
+          '<button type="button" onclick="removerPlano(' + idx + ')" style="background:rgba(239,68,68,0.15);color:#ef4444;border:none;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:12px;"><i class="fa-solid fa-trash"></i></button>' +
+        '</div>' +
+      '</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">' +
+        '<div><label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">ID (slug)</label><input class="sv-plano-id" value="' + escHtml(plano.id || '') + '" style="width:100%;padding:8px 12px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:#fff;font-size:13px;outline:none;"></div>' +
+        '<div><label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Nome</label><input class="sv-plano-nome" value="' + escHtml(plano.nome || '') + '" style="width:100%;padding:8px 12px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:#fff;font-size:13px;outline:none;"></div>' +
+      '</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;">' +
+        '<div><label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Preço (R$)</label><input type="number" class="sv-plano-preco" value="' + (plano.preco || 0) + '" style="width:100%;padding:8px 12px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:#fff;font-size:13px;outline:none;"></div>' +
+        '<div><label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Popular?</label><select class="sv-plano-popular" style="width:100%;padding:8px 12px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:#fff;font-size:13px;outline:none;"><option value="false"' + (!plano.popular ? ' selected' : '') + '>Não</option><option value="true"' + (plano.popular ? ' selected' : '') + '>Sim</option></select></div>' +
+        '<div><label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Ativo?</label><select class="sv-plano-ativo" style="width:100%;padding:8px 12px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:#fff;font-size:13px;outline:none;"><option value="true"' + (plano.ativo !== false ? ' selected' : '') + '>Sim</option><option value="false"' + (plano.ativo === false ? ' selected' : '') + '>Não</option></select></div>' +
+      '</div>' +
+      '<div style="margin-bottom:10px;"><label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Descrição</label><input class="sv-plano-desc" value="' + escHtml(plano.desc || '') + '" style="width:100%;padding:8px 12px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:#fff;font-size:13px;outline:none;"></div>' +
+      '<div style="margin-bottom:10px;"><label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Texto do Botão CTA</label><input class="sv-plano-cta" value="' + escHtml(plano.cta || '') + '" style="width:100%;padding:8px 12px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:#fff;font-size:13px;outline:none;"></div>' +
+      '<div><label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Features (1 por linha)</label><textarea class="sv-plano-features" rows="4" style="width:100%;padding:8px 12px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:#fff;font-size:13px;resize:vertical;outline:none;">' + escHtml(featuresStr) + '</textarea></div>' +
+      '</div>';
+  });
+}
+
+function adicionarPlano() {
+  var container = document.getElementById('sv-planos-container');
+  if (!container) return;
+  var planos = coletarPlanos();
+  planos.push({ id: 'novo-plano-' + Date.now(), nome: 'Novo Plano', desc: '', preco: 99, features: ['Feature 1'], popular: false, cta: 'Assinar Plano', ativo: true });
+  renderPlanosEditor(planos);
+}
+
+function removerPlano(idx) {
+  var planos = coletarPlanos();
+  planos.splice(idx, 1);
+  renderPlanosEditor(planos);
+}
+
+function coletarPlanos() {
+  var items = document.querySelectorAll('.sv-plano-item');
+  var planos = [];
+  for (var i = 0; i < items.length; i++) {
+    planos.push({
+      id: items[i].querySelector('.sv-plano-id').value.trim(),
+      nome: items[i].querySelector('.sv-plano-nome').value.trim(),
+      desc: items[i].querySelector('.sv-plano-desc').value.trim(),
+      preco: parseFloat(items[i].querySelector('.sv-plano-preco').value) || 0,
+      features: items[i].querySelector('.sv-plano-features').value.split('\n').map(function(l) { return l.trim(); }).filter(Boolean),
+      popular: items[i].querySelector('.sv-plano-popular').value === 'true',
+      cta: items[i].querySelector('.sv-plano-cta').value.trim(),
+      ativo: items[i].querySelector('.sv-plano-ativo').value !== 'false'
+    });
+  }
+  return planos;
+}
+
+function salvarSitePlanos() {
+  var planos = coletarPlanos();
+  var configs = { site_planos: JSON.stringify(planos) };
+  apiPost('/api/super/config-global', configs, function(err, data) {
+    if (err || !data || !data.ok) return showToast('Erro ao salvar planos.', 'danger');
+    siteVendasConfigs.site_planos = planos;
+    showToast('Planos atualizados com sucesso!', 'success');
+  });
+}
+
+/* ── GATEWAYS ──────────────────────────────────── */
+function populateSiteGateways() {
+  var gw = siteVendasConfigs.site_gateways || {};
+  setVal('sv-gw-asaas-key', gw.asaas_api_key || '');
+  setVal('sv-gw-asaas-tipo', gw.asaas_tipo_cobranca || 'PIX');
+  var asaasSandbox = document.getElementById('sv-gw-asaas-sandbox');
+  if (asaasSandbox) asaasSandbox.checked = !!gw.asaas_sandbox;
+  var asaasAtivo = document.getElementById('sv-gw-asaas-ativo');
+  if (asaasAtivo) asaasAtivo.checked = !!gw.asaas_ativo;
+
+  setVal('sv-gw-mp-token', gw.mp_access_token || '');
+  setVal('sv-gw-mp-public', gw.mp_public_key || '');
+  var mpAtivo = document.getElementById('sv-gw-mp-ativo');
+  if (mpAtivo) mpAtivo.checked = !!gw.mp_ativo;
+
+  setVal('sv-gw-padrao', gw.gateway_padrao || 'asaas');
+}
+
+function salvarSiteGateways() {
+  var gw = {
+    asaas_api_key: document.getElementById('sv-gw-asaas-key').value.trim(),
+    asaas_tipo_cobranca: document.getElementById('sv-gw-asaas-tipo').value,
+    asaas_sandbox: document.getElementById('sv-gw-asaas-sandbox').checked,
+    asaas_ativo: document.getElementById('sv-gw-asaas-ativo').checked,
+    mp_access_token: document.getElementById('sv-gw-mp-token').value.trim(),
+    mp_public_key: document.getElementById('sv-gw-mp-public').value.trim(),
+    mp_ativo: document.getElementById('sv-gw-mp-ativo').checked,
+    gateway_padrao: document.getElementById('sv-gw-padrao').value
+  };
+  var configs = { site_gateways: JSON.stringify(gw) };
+  apiPost('/api/super/config-global', configs, function(err, data) {
+    if (err || !data || !data.ok) return showToast('Erro ao salvar gateways.', 'danger');
+    siteVendasConfigs.site_gateways = gw;
+    showToast('Gateways de pagamento salvos!', 'success');
+  });
+}
+
+/* ── CONSULTOR ──────────────────────────────────── */
+function populateSiteConsultor() {
+  var c = siteVendasConfigs;
+  setVal('sv-consultor-whatsapp', c.site_consultor_whatsapp || '');
+  setVal('sv-consultor-mensagem', c.site_consultor_mensagem || 'Olá! Gostaria de saber mais sobre o Chef Cozinha.');
+}
+
+function salvarSiteConsultor() {
+  var configs = {
+    site_consultor_whatsapp: document.getElementById('sv-consultor-whatsapp').value.trim(),
+    site_consultor_mensagem: document.getElementById('sv-consultor-mensagem').value.trim()
+  };
+  apiPost('/api/super/config-global', configs, function(err, data) {
+    if (err || !data || !data.ok) return showToast('Erro ao salvar dados do consultor.', 'danger');
+    siteVendasConfigs.site_consultor_whatsapp = configs.site_consultor_whatsapp;
+    siteVendasConfigs.site_consultor_mensagem = configs.site_consultor_mensagem;
+    showToast('Dados do consultor atualizados!', 'success');
+  });
+}

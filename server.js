@@ -522,6 +522,111 @@ app.get('/vendas', (req, res) => {
   }
 });
 
+// ── PUBLIC API: Site Config (sem autenticação) ───────────────────────────
+app.get('/api/public/site-config', (req, res) => {
+  masterDb.all("SELECT chave, valor FROM configuracoes_global WHERE chave LIKE 'site_%'", [], (err, rows) => {
+    if (err) return res.json({ ok: true, configs: {} });
+    const cfgs = {};
+    (rows || []).forEach(r => {
+      // Tenta parsear JSON automaticamente
+      try { cfgs[r.chave] = JSON.parse(r.valor); } catch(e) { cfgs[r.chave] = r.valor; }
+    });
+    res.json({ ok: true, configs: cfgs });
+  });
+});
+
+// ── PUBLIC API: Checkout (Asaas / MercadoPago) ───────────────────────────
+app.post('/api/public/checkout', async (req, res) => {
+  const { plano, nome, email, telefone, cpfCnpj, gateway } = req.body || {};
+  if (!plano || !nome || !email) return res.status(400).json({ ok: false, erro: 'Dados obrigatórios: plano, nome, email.' });
+
+  // Ler config do gateway
+  const gwConfig = await new Promise((resolve) => {
+    masterDb.get("SELECT valor FROM configuracoes_global WHERE chave = 'site_gateways'", [], (err, row) => {
+      if (err || !row) return resolve(null);
+      try { resolve(JSON.parse(row.valor)); } catch(e) { resolve(null); }
+    });
+  });
+
+  if (!gwConfig) return res.status(500).json({ ok: false, erro: 'Gateways de pagamento não configurados.' });
+
+  // Ler plano
+  const planosRaw = await new Promise((resolve) => {
+    masterDb.get("SELECT valor FROM configuracoes_global WHERE chave = 'site_planos'", [], (err, row) => {
+      if (err || !row) return resolve(null);
+      try { resolve(JSON.parse(row.valor)); } catch(e) { resolve(null); }
+    });
+  });
+
+  const planoData = (planosRaw || []).find(p => p.id === plano || p.nome === plano);
+  if (!planoData) return res.status(400).json({ ok: false, erro: 'Plano não encontrado.' });
+
+  const gwPreferido = gateway || gwConfig.gateway_padrao || 'asaas';
+
+  try {
+    if (gwPreferido === 'asaas' && gwConfig.asaas_ativo && gwConfig.asaas_api_key) {
+      // Asaas: criar cliente + cobrança
+      const baseUrl = gwConfig.asaas_sandbox ? 'https://sandbox.asaas.com/api/v3' : 'https://api.asaas.com/v3';
+      const headers = { 'Content-Type': 'application/json', 'access_token': gwConfig.asaas_api_key };
+
+      // Criar/buscar cliente
+      const custRes = await fetch(`${baseUrl}/customers`, {
+        method: 'POST', headers,
+        body: JSON.stringify({ name: nome, email, phone: telefone, cpfCnpj: cpfCnpj || undefined })
+      });
+      const custData = await custRes.json();
+      const customerId = custData.id || (custData.errors ? null : custData.id);
+
+      if (!customerId) return res.json({ ok: false, erro: 'Erro ao criar cliente no Asaas.', detalhes: custData });
+
+      // Criar cobrança
+      const chargeRes = await fetch(`${baseUrl}/payments`, {
+        method: 'POST', headers,
+        body: JSON.stringify({
+          customer: customerId,
+          billingType: (gwConfig.asaas_tipo_cobranca || 'PIX').toUpperCase(),
+          value: planoData.preco,
+          dueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          description: `Chef Cozinha - Plano ${planoData.nome}`,
+          externalReference: `chef_${Date.now()}`
+        })
+      });
+      const chargeData = await chargeRes.json();
+      return res.json({ ok: true, gateway: 'asaas', payment: chargeData });
+
+    } else if (gwPreferido === 'mercadopago' && gwConfig.mp_ativo && gwConfig.mp_access_token) {
+      // MercadoPago: criar preferência
+      const mpRes = await fetch('https://api.mercadopago.com/checkout/preferences', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gwConfig.mp_access_token}` },
+        body: JSON.stringify({
+          items: [{
+            title: `Chef Cozinha - Plano ${planoData.nome}`,
+            quantity: 1,
+            unit_price: planoData.preco,
+            currency_id: 'BRL'
+          }],
+          payer: { name: nome, email },
+          back_urls: {
+            success: `${req.protocol}://${req.get('host')}/registro.html?plano=${encodeURIComponent(planoData.id || planoData.nome)}&pago=1`,
+            failure: `${req.protocol}://${req.get('host')}/site`,
+            pending: `${req.protocol}://${req.get('host')}/site`
+          },
+          auto_return: 'approved'
+        })
+      });
+      const mpData = await mpRes.json();
+      return res.json({ ok: true, gateway: 'mercadopago', payment: mpData });
+
+    } else {
+      return res.json({ ok: false, erro: 'Nenhum gateway ativo configurado.' });
+    }
+  } catch (e) {
+    console.error('[Checkout] Erro:', e);
+    return res.status(500).json({ ok: false, erro: 'Erro ao processar pagamento.', detalhes: e.message });
+  }
+});
+
 app.get('/fidelidade', (req, res) => {
   const distPath = path.join(__dirname, 'dist', 'area-cliente.html');
   if (fs.existsSync(distPath)) {
