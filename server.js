@@ -271,12 +271,42 @@ app.use((req, res, next) => {
   const rawIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || req.ip || '127.0.0.1';
   const ip = rawIp.replace('::ffff:', '');
 
+  // Mensagens engraçadas por Nível de Ataque (Zoações Inteligentes)
+  const ZOACIONAL_NIVEIS = {
+    blacklist: [
+      "🚫 NÍVEL MAXIMO: Calma lá, Hacker de Lanchonete! Seu IP tomou um BAN permanente. Vai tomar um café!",
+      "⛔ ERRO 403: Você foi bloqueado pelo Chef! Nem com tempero secreto seu IP entra aqui de novo.",
+      "🚫 ACESSO NEGADO: Detectamos que você é o hacker da NASA de fundo de quintal. IP na Blacklist!"
+    ],
+    sqli_xss: [
+      "🧙‍♂️ NÍVEL 2: Tentando SQL Injection em 2026? Meu banco de dados deu risada e mandou um abraço!",
+      "🕵️‍♂️ NÍVEL 2: Achou que ia mandar um <script>alert('hacked')</script> e virar o Mr. Robot? Tenta no Paint!",
+      "🤡 NÍVEL 2: 'DROP TABLE'? A única coisa que vai cair aqui é a sua autoestima. Injeção bloqueada!"
+    ],
+    rate_limit: [
+      "🏎️ NÍVEL 1: Ei, Ligeirinho! Mandou requisição demais e fundiu o motor. Respira 1 minuto!",
+      "🐢 NÍVEL 1: Calma, afobado! 300 requisições num minuto? Nem robô de entrega é tão rápido. Espera aí um pouco!",
+      "🚦 NÍVEL 1: Freia esse flood! O servidor é forte, mas sua apressação levou um Red Card temporário."
+    ],
+    path_traversal: [
+      "📂 NÍVEL 3: Tentando '..//..//etc/passwd'? O máximo que você vai achar aqui é a receita de pão de alho da vovó!",
+      "🛑 NÍVEL 3: Navegação de diretórios? Esse caminho não leva ao tesouro, só a um 403 bem bonito!"
+    ]
+  };
+
+  function pegarZoacao(nivel) {
+    const arr = ZOACIONAL_NIVEIS[nivel] || ["Acesso negado pela segurança do Chef!"];
+    return arr[Math.floor(Math.random() * arr.length)];
+  }
+
   // 1. Verificar Lista Negra (Blacklist de IPs)
   if (Array.isArray(wafConfig.blacklist_ips) && wafConfig.blacklist_ips.includes(ip)) {
     console.warn(`⛔ [WAF Anti-DDoS] Acesso negado para IP na Blacklist: ${ip}`);
+    const msg = pegarZoacao('blacklist');
     wafAttackLogs.unshift({ data: new Date().toISOString(), ip, metodo: req.method, endpoint: req.originalUrl, motivo: 'IP em Lista Negra (Blacklist)' });
     if (wafAttackLogs.length > 100) wafAttackLogs.pop();
-    return res.status(403).json({ success: false, error: 'Acesso negado. Endereço IP bloqueado.' });
+    res.setHeader('X-Troll-Security', 'Nice-Try-Hacker');
+    return res.status(403).json({ success: false, error: 'Acesso Negado (IP Banido)', zombaria: msg, dica: 'Tente novamente em outra encarnação ☕' });
   }
 
   // 2. Security Headers (Anti-Clickjacking, Anti-XSS, No-Sniff)
@@ -290,11 +320,13 @@ app.use((req, res, next) => {
   // 3. Filtro Básico Anti-SQLi / Anti-XSS na URL e Body
   if (wafConfig.block_sqli_xss) {
     const urlCheck = (req.originalUrl || '').toLowerCase();
-    if (urlCheck.includes('<script>') || urlCheck.includes('union select') || urlCheck.includes('drop table')) {
+    if (urlCheck.includes('<script>') || urlCheck.includes('union select') || urlCheck.includes('drop table') || urlCheck.includes('or 1=1') || urlCheck.includes('eval(')) {
       console.warn(`⚠️ [WAF Anti-XSS/SQLi] Tentativa de injeção bloqueada de ${ip}`);
+      const msg = pegarZoacao('sqli_xss');
       wafAttackLogs.unshift({ data: new Date().toISOString(), ip, metodo: req.method, endpoint: req.originalUrl, motivo: 'Tentativa de Injeção SQL/XSS' });
       if (wafAttackLogs.length > 100) wafAttackLogs.pop();
-      return res.status(400).json({ success: false, error: 'Requisição inválida (Filtro de Segurança WAF).' });
+      res.setHeader('X-Troll-Security', 'SQLi-XSS-Blocked-Lol');
+      return res.status(400).json({ success: false, error: 'Injeção Detectada', zombaria: msg, conselho: 'Troque o ataque por um curso de programação 🤓' });
     }
   }
 
@@ -310,9 +342,11 @@ app.use((req, res, next) => {
     record.count++;
     if (record.count > maxReqs) {
       console.warn(`⚠️ [Anti-DDoS] IP bloqueado por limite de taxa (${record.count} reqs/min): ${ip}`);
+      const msg = pegarZoacao('rate_limit');
       wafAttackLogs.unshift({ data: new Date().toISOString(), ip, metodo: req.method, endpoint: req.originalUrl, motivo: `Limite Rate Limit excedido (${record.count}/${maxReqs})` });
       if (wafAttackLogs.length > 100) wafAttackLogs.pop();
-      return res.status(429).json({ success: false, error: 'Limite de requisições excedido. Aguarde 1 minuto.' });
+      res.setHeader('X-Troll-Security', 'Too-Fast-Too-Furious');
+      return res.status(429).json({ success: false, error: 'Muitas Requisições', zombaria: msg, tempo_espera: 'Aguarde 60 segundos ⏳' });
     }
   }
 
@@ -437,9 +471,17 @@ app.use((req, res, next) => {
   if (urlPath.startsWith('/api') || urlPath.startsWith('/socket.io') || urlPath.startsWith('/super-admin')) return next();
   let decoded = '';
   try { decoded = decodeURIComponent(req.path || '/').toLowerCase(); } catch (e) { decoded = urlPath; }
-  if (decoded.includes('..')) return res.status(403).send('Acesso negado.');
-  if (BLOCKED_STATIC_PREFIXES.some(b => decoded.includes(b))) return res.status(403).send('Acesso negado.');
-  if (BLOCKED_STATIC_EXTS.some(b => decoded.endsWith(b))) return res.status(403).send('Acesso negado.');
+
+  const TROLL_BLOCKED_RESP = '<div style="font-family:sans-serif;text-align:center;padding:50px;background:#111;color:#ff5722;min-height:100vh;">' +
+    '<h1>🕵️‍♂️ Tentando espiar arquivos do Servidor?</h1>' +
+    '<p style="font-size:18px;color:#eee;">Acesso Negado! O máximo que você vai encontrar aqui é o segredo do nosso molho especial. 🍕</p>' +
+    '<small style="color:#777;">(Seu IP foi gravado nos logs de auditoria para fins de diversão da equipe)</small>' +
+  '</div>';
+
+  if (decoded.includes('..') || BLOCKED_STATIC_PREFIXES.some(b => decoded.includes(b)) || BLOCKED_STATIC_EXTS.some(b => decoded.endsWith(b))) {
+    res.setHeader('X-Troll-Security', 'File-Access-Denied-Lol');
+    return res.status(403).send(TROLL_BLOCKED_RESP);
+  }
   next();
 });
 
