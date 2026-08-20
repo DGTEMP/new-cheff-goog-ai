@@ -7268,6 +7268,38 @@ if (btnPrintQr) {
 
 window.socket.on('erro_servidor', (msg) => alert('Erro no Servidor: ' + msg));
 
+// ── Controle Remoto pelo Dono: Navegar para outra página ──
+socket.on('navegar_para', function(data) {
+  var destino = data && data.destino;
+  var solicitadoPor = data && data.solicitadoPor;
+  if (!destino) return;
+  console.log('[Controle Remoto] Navegando para ' + destino + ' (por ' + (solicitadoPor || 'Dono') + ')');
+  var banner = document.createElement('div');
+  banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#f59e0b;color:#000;padding:20px 24px;font-size:20px;font-weight:800;text-align:center;box-shadow:0 4px 16px rgba(0,0,0,0.3);';
+  banner.textContent = '📡 ' + (solicitadoPor || 'Dono') + ' redirecionou este terminal para ' + destino + '...';
+  document.body.appendChild(banner);
+  setTimeout(function() { window.location.href = '/' + destino; }, 2000);
+});
+
+// ── Aviso Urgente do Dono para a Equipe ──
+socket.on('aviso_dono', function(data) {
+  var texto = data && data.texto;
+  var hora = data && data.hora;
+  if (!texto) return;
+  var avisoEl = document.getElementById('aviso-dono-banner');
+  if (!avisoEl) {
+    avisoEl = document.createElement('div');
+    avisoEl.id = 'aviso-dono-banner';
+    avisoEl.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:99998;background:#7c3aed;color:white;padding:18px 28px;border-radius:18px;font-size:18px;font-weight:700;box-shadow:0 8px 24px rgba(0,0,0,0.4);max-width:90vw;text-align:center;transition:opacity 0.4s;';
+    document.body.appendChild(avisoEl);
+  }
+  avisoEl.innerHTML = '📢 <strong>Aviso do Dono:</strong> ' + texto + (hora ? '<span style=\'opacity:0.7;font-size:14px;display:block;margin-top:4px;\'>' + hora + '</span>' : '');
+  avisoEl.style.opacity = '1';
+  if (avisoEl._timeout) clearTimeout(avisoEl._timeout);
+  avisoEl._timeout = setTimeout(function() { avisoEl.style.opacity = '0'; }, 8000);
+});
+
+
 
 // Registrar sessão do dispositivo com usuário logado
 if (typeof socket !== 'undefined' && socket.emit) {

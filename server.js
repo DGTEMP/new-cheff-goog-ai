@@ -11287,6 +11287,87 @@ io.on('connection', (socket) => {
 });
 
 
+// ═══════════════════════════════════════════════════════════════
+// PAINEL DO DONO — SOCKET HANDLERS (Controle Remoto & RH)
+// ═══════════════════════════════════════════════════════════════
+io.on('connection', (socket) => {
+  const _donoToken = socket.handshake.query.token;
+  let _donoTenantId = parseInt(socket.handshake.query.restaurante_id, 10) || 1;
+  if (_donoToken && typeof _donoToken === 'string') {
+    try {
+      const decoded = jwt.verify(_donoToken, JWT_SECRET);
+      if (decoded.restaurante_id) _donoTenantId = decoded.restaurante_id;
+    } catch (e) { }
+  }
+
+  // ── Controle Remoto: Navegar Caixa para uma tela específica ──
+  socket.on('comando_navegar_caixa', (data) => {
+    const { destino, solicitadoPor } = data || {};
+    if (!destino) return;
+    console.log(`[Dono Remoto] Navegação → ${destino} (por ${solicitadoPor || '?'})`);
+    io.to(`restaurante_${_donoTenantId}`).emit('navegar_para', { destino, solicitadoPor });
+    socket.emit('dono_acao_concluida', { mensagem: `✅ Caixa direcionado para: ${destino}` });
+  });
+
+  // ── RH: Registrar pagamento para colaborador ──
+  socket.on('dono_registrar_pagamento', (data) => {
+    const { funcionario_id, valor, forma_pagamento, observacao, operador } = data || {};
+    if (!funcionario_id || !valor) return socket.emit('dono_acao_erro', { mensagem: 'Dados de pagamento inválidos.' });
+    const db = getTenantDb(_donoTenantId);
+    db.run(
+      `INSERT INTO funcionarios_pagamentos (funcionario_id, valor, forma_pagamento, observacao, data_pagamento, operador) VALUES (?, ?, ?, ?, datetime('now','localtime'), ?)`,
+      [funcionario_id, valor, forma_pagamento || 'Dinheiro', observacao || '', operador || 'Dono'],
+      function(err) {
+        if (err) return socket.emit('dono_acao_erro', { mensagem: 'Erro ao salvar pagamento.' });
+        socket.emit('dono_acao_concluida', { mensagem: `✅ Pagamento de R$ ${parseFloat(valor).toFixed(2).replace('.', ',')} registrado!` });
+        io.to(`restaurante_${_donoTenantId}`).emit('rh_update');
+      }
+    );
+  });
+
+  // ── RH: Abonar falta de colaborador ──
+  socket.on('dono_abonar_falta', (data) => {
+    const { funcionario_id, data_falta, justificativa, remunerado, operador } = data || {};
+    if (!funcionario_id || !data_falta) return socket.emit('dono_acao_erro', { mensagem: 'Dados de falta inválidos.' });
+    const db = getTenantDb(_donoTenantId);
+    const inserirFalta = () => db.run(
+      `INSERT INTO faltas_funcionarios (funcionario_id, data_falta, justificativa, remunerado, registrado_por, created_at) VALUES (?, ?, ?, ?, ?, datetime('now','localtime'))`,
+      [funcionario_id, data_falta, justificativa || '', remunerado ? 1 : 0, operador || 'Dono'],
+      (err) => {
+        if (err) return socket.emit('dono_acao_erro', { mensagem: 'Erro ao registrar falta.' });
+        socket.emit('dono_acao_concluida', { mensagem: '✅ Falta registrada com sucesso!' });
+        io.to(`restaurante_${_donoTenantId}`).emit('rh_update');
+      }
+    );
+    db.run(`CREATE TABLE IF NOT EXISTS faltas_funcionarios (id INTEGER PRIMARY KEY AUTOINCREMENT, funcionario_id INTEGER, data_falta TEXT, justificativa TEXT, remunerado INTEGER DEFAULT 0, registrado_por TEXT, created_at TEXT)`, inserirFalta);
+  });
+
+  // ── RH: Conceder folga para colaborador ──
+  socket.on('dono_conceder_folga', (data) => {
+    const { funcionario_id, data_inicio, data_fim, tipo_folga, observacao, operador } = data || {};
+    if (!funcionario_id || !data_inicio) return socket.emit('dono_acao_erro', { mensagem: 'Dados de folga inválidos.' });
+    const db = getTenantDb(_donoTenantId);
+    const inserirFolga = () => db.run(
+      `INSERT INTO folgas_funcionarios (funcionario_id, data_inicio, data_fim, tipo, observacao, registrado_por, created_at) VALUES (?, ?, ?, ?, ?, ?, datetime('now','localtime'))`,
+      [funcionario_id, data_inicio, data_fim || data_inicio, tipo_folga || 'Escala', observacao || '', operador || 'Dono'],
+      (err) => {
+        if (err) return socket.emit('dono_acao_erro', { mensagem: 'Erro ao conceder folga.' });
+        socket.emit('dono_acao_concluida', { mensagem: '✅ Folga concedida com sucesso!' });
+        io.to(`restaurante_${_donoTenantId}`).emit('rh_update');
+      }
+    );
+    db.run(`CREATE TABLE IF NOT EXISTS folgas_funcionarios (id INTEGER PRIMARY KEY AUTOINCREMENT, funcionario_id INTEGER, data_inicio TEXT, data_fim TEXT, tipo TEXT, observacao TEXT, registrado_por TEXT, created_at TEXT)`, inserirFolga);
+  });
+
+  // ── Notificar toda a equipe com aviso do dono ──
+  socket.on('enviar_notificacao_equipe', (data) => {
+    const { texto } = data || {};
+    if (!texto) return;
+    io.to(`restaurante_${_donoTenantId}`).emit('aviso_dono', { texto, hora: new Date().toLocaleTimeString('pt-BR') });
+    socket.emit('dono_acao_concluida', { mensagem: '✅ Aviso enviado para toda a equipe!' });
+    console.log(`[Dono Remoto] Aviso ao restaurante #${_donoTenantId}: "${texto}"`);
+  });
+});
 
 // Iniciar verificação periódica da IA
 setInterval(runIAVerificacao, IA_CONFIG.intervaloVerificacao);

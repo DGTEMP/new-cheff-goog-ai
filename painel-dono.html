@@ -2,585 +2,594 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
   <title>Painel do Dono - Chef Cozinha</title>
-  
-  <!-- Font Outfit for premium looks -->
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <!-- Phosphor Icons -->
-  <link rel="stylesheet" href="/vendor/phosphor/src/regular/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/vendor/phosphor/src/bold/style.css">
   <link rel="stylesheet" href="/vendor/phosphor/src/fill/style.css">
-  <!-- Socket.io -->
   <script src="/socket.io/socket.io.js"></script>
 
   <style>
     :root {
-      --bg-primary: #0f172a;
-      --bg-card: #1e293b;
-      --text-main: #f8fafc;
-      --text-sub: #94a3b8;
+      --bg: #0a0f1e;
+      --card: #111827;
+      --card2: #1a2235;
+      --border: rgba(255,255,255,0.09);
       --primary: #fc4b15;
-      --primary-hover: #e03e0d;
-      --accent-green: #10b981;
-      --accent-purple: #8b5cf6;
-      --accent-blue: #3b82f6;
-      --glass-border: rgba(255, 255, 255, 0.08);
-      --font-outfit: 'Outfit', sans-serif;
+      --primary-light: rgba(252,75,21,0.15);
+      --green: #10b981;
+      --green-light: rgba(16,185,129,0.15);
+      --red: #f43f5e;
+      --red-light: rgba(244,63,94,0.15);
+      --blue: #3b82f6;
+      --blue-light: rgba(59,130,246,0.15);
+      --purple: #8b5cf6;
+      --purple-light: rgba(139,92,246,0.15);
+      --yellow: #f59e0b;
+      --text: #f1f5f9;
+      --text-sub: #64748b;
+      --font: 'Outfit', sans-serif;
+      /* Tamanhos de fonte para público 60+ */
+      --fs-xs: 14px;
+      --fs-sm: 16px;
+      --fs-md: 18px;
+      --fs-lg: 22px;
+      --fs-xl: 28px;
+      --fs-kpi: 42px;
+      --radius: 20px;
+      --radius-lg: 28px;
     }
 
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: var(--font-outfit);
-      -webkit-tap-highlight-color: transparent;
-    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: var(--font); -webkit-tap-highlight-color: transparent; }
 
     body {
-      background: var(--bg-primary);
-      color: var(--text-main);
-      padding: 0;
+      background: var(--bg);
+      color: var(--text);
       min-height: 100vh;
       display: flex;
       flex-direction: column;
       overflow-x: hidden;
     }
 
-    /* Pull to refresh / Loading state styles */
+    /* ── Loader ── */
     .loader-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(15, 23, 42, 0.9);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      z-index: 9999;
-      transition: opacity 0.3s ease;
+      position: fixed; inset: 0;
+      background: rgba(10,15,30,0.92);
+      display: flex; justify-content: center; align-items: center;
+      z-index: 9999; transition: opacity 0.3s;
     }
-    .loader-overlay.hidden {
-      opacity: 0;
-      pointer-events: none;
-    }
+    .loader-overlay.hidden { opacity: 0; pointer-events: none; }
     .spinner {
-      width: 50px;
-      height: 50px;
-      border: 5px solid rgba(252, 75, 21, 0.1);
+      width: 56px; height: 56px;
+      border: 5px solid rgba(252,75,21,0.15);
       border-top-color: var(--primary);
       border-radius: 50%;
-      animation: spin 1s infinite linear;
+      animation: spin 0.9s infinite linear;
     }
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
+    @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* Header styling */
-    header.header {
-      background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-      padding: 20px 24px;
-      border-bottom: 1px solid var(--glass-border);
+    /* ── Header ── */
+    header {
+      background: linear-gradient(135deg, #111827 0%, #0a0f1e 100%);
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--border);
       display: flex;
       justify-content: space-between;
       align-items: center;
-      position: sticky;
-      top: 0;
-      z-index: 100;
+      position: sticky; top: 0; z-index: 100;
       backdrop-filter: blur(12px);
     }
-    .header-info {
-      display: flex;
-      align-items: center;
-      gap: 12px;
+    .header-left { display: flex; align-items: center; gap: 14px; }
+    .logo-box {
+      width: 52px; height: 52px;
+      background: linear-gradient(135deg, var(--primary) 0%, #ff8c42 100%);
+      border-radius: 16px;
+      display: flex; justify-content: center; align-items: center;
+      box-shadow: 0 4px 18px rgba(252,75,21,0.35);
     }
-    .logo-container {
-      width: 44px;
-      height: 44px;
-      background: linear-gradient(135deg, var(--primary) 0%, #ff7e5f 100%);
-      border-radius: 14px;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      box-shadow: 0 4px 15px rgba(252, 75, 21, 0.3);
-    }
-    .logo-container i {
-      font-size: 24px;
-      color: white;
-    }
-    .title-area h1 {
-      font-size: 18px;
-      font-weight: 800;
-      letter-spacing: -0.5px;
-    }
-    .title-area span {
-      font-size: 12px;
-      color: var(--text-sub);
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-    .status-badge {
-      padding: 4px 8px;
-      border-radius: 20px;
-      font-size: 10px;
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-    }
-    .status-badge.open {
-      background: rgba(16, 185, 129, 0.15);
-      color: var(--accent-green);
-    }
-    .status-badge.closed {
-      background: rgba(244, 63, 94, 0.15);
-      color: #f43f5e;
-    }
-    .logout-btn {
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid var(--glass-border);
-      color: var(--text-main);
-      padding: 10px;
-      border-radius: 12px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: all 0.2s;
-    }
-    .logout-btn:hover {
-      background: rgba(255, 255, 255, 0.1);
-      color: var(--primary);
-    }
+    .logo-box i { font-size: 26px; color: white; }
+    .header-title { font-size: var(--fs-lg); font-weight: 900; letter-spacing: -0.5px; }
+    .header-sub { font-size: var(--fs-sm); color: var(--text-sub); display: flex; align-items: center; gap: 8px; margin-top: 2px; }
 
-    /* Main Area layout */
-    main.main-content {
-      padding: 20px 16px 40px;
-      max-width: 600px;
+    .status-pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 5px 12px; border-radius: 20px;
+      font-size: var(--fs-xs); font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .status-pill.open { background: var(--green-light); color: var(--green); }
+    .status-pill.closed { background: var(--red-light); color: var(--red); }
+    .status-pill .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; animation: pulse-dot 2s infinite; }
+    @keyframes pulse-dot { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+    .btn-logout {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 14px;
+      border-radius: 14px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.2s;
+      font-size: 22px;
+    }
+    .btn-logout:active { background: var(--red-light); color: var(--red); }
+
+    /* ── Main layout ── */
+    main {
+      padding: 20px 16px 60px;
+      max-width: 620px;
       margin: 0 auto;
       width: 100%;
+      display: flex; flex-direction: column; gap: 24px;
+    }
+
+    /* ── Section title ── */
+    .sec-title {
+      font-size: var(--fs-md);
+      font-weight: 800;
+      color: var(--text);
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 12px;
+    }
+    .sec-title i { color: var(--primary); font-size: 22px; }
+
+    /* ── Period filter pills ── */
+    .periodo-row {
+      display: flex; gap: 10px; overflow-x: auto;
+      padding-bottom: 4px; scrollbar-width: none;
+    }
+    .btn-periodo {
+      background: rgba(255,255,255,0.05);
+      border: 1.5px solid var(--border);
+      color: var(--text-sub);
+      padding: 12px 20px;
+      border-radius: 14px;
+      font-size: var(--fs-sm);
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+      display: inline-flex; align-items: center; gap: 8px;
+      transition: all 0.2s;
+      outline: none;
+    }
+    .btn-periodo.active { background: var(--primary); color: white; border-color: var(--primary); box-shadow: 0 4px 14px rgba(252,75,21,0.3); }
+
+    #container-datas-custom {
+      display: none;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
+      gap: 12px;
+    }
+
+    /* ── KPI Cards ── */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+    .kpi-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 22px 20px;
+      display: flex; flex-direction: column;
+      position: relative; overflow: hidden;
+      transition: transform 0.15s;
+    }
+    .kpi-card:active { transform: scale(0.98); }
+    .kpi-card.full { grid-column: span 2; }
+
+    .kpi-label {
+      font-size: var(--fs-xs);
+      font-weight: 700;
+      color: var(--text-sub);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 10px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .kpi-icon {
+      width: 38px; height: 38px;
+      border-radius: 12px;
+      display: flex; justify-content: center; align-items: center;
+      font-size: 20px;
+    }
+    .kpi-icon.orange { background: var(--primary-light); color: var(--primary); }
+    .kpi-icon.green  { background: var(--green-light);   color: var(--green);   }
+    .kpi-icon.blue   { background: var(--blue-light);    color: var(--blue);    }
+    .kpi-icon.purple { background: var(--purple-light);  color: var(--purple);  }
+
+    .kpi-value {
+      font-size: var(--fs-kpi);
+      font-weight: 900;
+      line-height: 1.05;
+      letter-spacing: -1px;
+      margin-bottom: 6px;
+    }
+    .kpi-sub {
+      font-size: var(--fs-xs);
+      color: var(--text-sub);
+      font-weight: 600;
+    }
+
+    /* Progress bar */
+    .progress-wrap { margin-top: 16px; }
+    .progress-labels { display: flex; justify-content: space-between; font-size: var(--fs-xs); color: var(--text-sub); margin-bottom: 8px; font-weight: 700; }
+    .progress-bg { height: 10px; background: rgba(255,255,255,0.06); border-radius: 20px; overflow: hidden; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, var(--primary) 0%, #ff8c00 100%); width: 0%; border-radius: 20px; transition: width 0.8s ease-out; }
+
+    /* ── Big Action Buttons — controle remoto ── */
+    .remote-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+    .remote-btn {
+      background: var(--card);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 24px 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+      color: var(--text);
+      outline: none;
+      position: relative;
+      overflow: hidden;
+    }
+    .remote-btn:active { transform: scale(0.96); }
+    .remote-btn .rb-icon {
+      width: 64px; height: 64px;
+      border-radius: 20px;
+      display: flex; justify-content: center; align-items: center;
+      font-size: 30px;
+      transition: transform 0.2s;
+    }
+    .remote-btn:active .rb-icon { transform: scale(0.92); }
+    .remote-btn .rb-label {
+      font-size: var(--fs-md);
+      font-weight: 800;
+      line-height: 1.2;
+    }
+    .remote-btn .rb-sub {
+      font-size: var(--fs-xs);
+      color: var(--text-sub);
+      line-height: 1.3;
+    }
+    .remote-btn.blue-btn  { border-color: rgba(59,130,246,0.3); }
+    .remote-btn.blue-btn:active  { background: var(--blue-light); border-color: var(--blue); }
+    .remote-btn.green-btn { border-color: rgba(16,185,129,0.3); }
+    .remote-btn.green-btn:active { background: var(--green-light); border-color: var(--green); }
+    .remote-btn.orange-btn { border-color: rgba(252,75,21,0.3); }
+    .remote-btn.orange-btn:active { background: var(--primary-light); border-color: var(--primary); }
+    .remote-btn.purple-btn { border-color: rgba(139,92,246,0.3); }
+    .remote-btn.purple-btn:active { background: var(--purple-light); border-color: var(--purple); }
+    .remote-btn.full { grid-column: span 2; flex-direction: row; padding: 22px 24px; justify-content: flex-start; gap: 20px; text-align: left; }
+    .remote-btn.full .rb-icon { flex-shrink: 0; }
+    .remote-btn.full .rb-text { display: flex; flex-direction: column; gap: 4px; }
+
+    /* ── Caixa control card ── */
+    .caixa-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 24px;
       display: flex;
       flex-direction: column;
       gap: 20px;
     }
-
-    /* KPI Grid Layout */
-    .kpi-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 12px;
-    }
-
-    .kpi-card {
-      background: var(--bg-card);
-      border: 1px solid var(--glass-border);
-      border-radius: 24px;
-      padding: 20px;
-      display: flex;
-      flex-direction: column;
-      position: relative;
-      overflow: hidden;
-      transition: transform 0.2s, box-shadow 0.2s;
-    }
-    .kpi-card:active {
-      transform: scale(0.98);
-    }
-    .kpi-card.full-width {
-      grid-column: span 2;
-    }
-    .kpi-header {
+    .caixa-status-row {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 12px;
-    }
-    .kpi-title {
-      font-size: 13px;
-      font-weight: 700;
-      color: var(--text-sub);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    .kpi-icon-wrap {
-      width: 32px;
-      height: 32px;
-      border-radius: 10px;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-    }
-    .kpi-icon-wrap.orange { background: rgba(252, 75, 21, 0.15); color: var(--primary); }
-    .kpi-icon-wrap.green { background: rgba(16, 185, 129, 0.15); color: var(--accent-green); }
-    .kpi-icon-wrap.blue { background: rgba(59, 85, 246, 0.15); color: var(--accent-blue); }
-    .kpi-icon-wrap.purple { background: rgba(139, 92, 246, 0.15); color: var(--accent-purple); }
-
-    .kpi-value {
-      font-size: 28px;
-      font-weight: 800;
-      color: var(--text-main);
-      line-height: 1.1;
-      margin-bottom: 4px;
-      letter-spacing: -0.5px;
-    }
-    .kpi-sub {
-      font-size: 11px;
-      color: var(--text-sub);
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-
-    /* Goal progress bar in faturamento card */
-    .kpi-progress-container {
-      margin-top: 14px;
-    }
-    .kpi-progress-labels {
-      display: flex;
-      justify-content: space-between;
-      font-size: 11px;
-      color: var(--text-sub);
-      margin-bottom: 6px;
-    }
-    .kpi-progress-bar-bg {
-      height: 8px;
-      background: rgba(255, 255, 255, 0.08);
-      border-radius: 10px;
-      overflow: hidden;
-    }
-    .kpi-progress-bar-fill {
-      height: 100%;
-      background: linear-gradient(90deg, var(--primary) 0%, #ff8c00 100%);
-      width: 0%;
-      border-radius: 10px;
-      transition: width 0.8s ease-out;
-    }
-
-    /* Quick action buttons & cards */
-    .section-title {
-      font-size: 15px;
-      font-weight: 800;
-      color: var(--text-main);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 8px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .section-title i {
-      color: var(--primary);
-    }
-
-    .action-card {
-      background: var(--bg-card);
-      border: 1px solid var(--glass-border);
-      border-radius: 24px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
       padding: 20px;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
     }
+    .caixa-info-label { font-size: var(--fs-lg); font-weight: 800; margin-bottom: 4px; }
+    .caixa-info-sub { font-size: var(--fs-sm); color: var(--text-sub); }
 
-    .form-group {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
+    .btn-caixa {
+      border: none;
+      padding: 18px 28px;
+      border-radius: 16px;
+      font-size: var(--fs-lg);
+      font-weight: 800;
+      cursor: pointer;
+      display: flex; align-items: center; gap: 10px;
+      color: white;
+      transition: all 0.2s;
+      white-space: nowrap;
+      flex-shrink: 0;
     }
-    .form-group label {
-      font-size: 12px;
-      font-weight: 700;
-      color: var(--text-sub);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
+    .btn-caixa:active { transform: scale(0.96); }
+    .btn-caixa.open  { background: var(--green); box-shadow: 0 4px 18px rgba(16,185,129,0.35); }
+    .btn-caixa.close { background: var(--red);   box-shadow: 0 4px 18px rgba(244,63,94,0.35); }
+
+    /* ── Meta de vendas ── */
+    .form-group { display: flex; flex-direction: column; gap: 8px; }
+    .form-label {
+      font-size: var(--fs-sm); font-weight: 800; color: var(--text-sub);
+      text-transform: uppercase; letter-spacing: 0.5px;
     }
-    .form-control-row {
-      display: flex;
-      gap: 8px;
-    }
-    .form-control {
+    .form-row { display: flex; gap: 12px; align-items: stretch; }
+    .form-input {
       flex: 1;
-      background: rgba(15, 23, 42, 0.6);
-      border: 1px solid var(--glass-border);
-      color: var(--text-main);
-      padding: 12px 16px;
-      border-radius: 12px;
-      font-size: 14px;
+      background: rgba(255,255,255,0.04);
+      border: 1.5px solid var(--border);
+      color: var(--text);
+      padding: 18px 20px;
+      border-radius: 16px;
+      font-size: var(--fs-md);
       font-weight: 600;
       outline: none;
       transition: border-color 0.2s;
     }
-    .form-control:focus {
-      border-color: var(--primary);
-    }
-
-    .btn {
+    .form-input:focus { border-color: var(--primary); }
+    .btn-primary {
       background: var(--primary);
-      color: white;
-      border: none;
-      padding: 12px 18px;
-      border-radius: 12px;
-      font-weight: 700;
-      font-size: 14px;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      transition: all 0.2s;
-      outline: none;
-    }
-    .btn:active {
-      transform: scale(0.97);
-    }
-    .btn-secondary {
-      background: rgba(255,255,255,0.06);
-      border: 1px solid var(--glass-border);
-    }
-    .btn-secondary:hover {
-      background: rgba(255,255,255,0.1);
-    }
-
-    /* Cashier Control UI inside action card */
-    .cashier-status-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: rgba(15, 23, 42, 0.4);
-      padding: 14px 18px;
+      color: white; border: none;
+      padding: 18px 24px;
       border-radius: 16px;
-      border: 1px solid var(--glass-border);
-    }
-    .cashier-status-text h4 {
-      font-size: 14px;
-      font-weight: 700;
-    }
-    .cashier-status-text p {
-      font-size: 12px;
-      color: var(--text-sub);
-    }
-
-    /* Accordion style details */
-    .accordion-toggle {
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid var(--glass-border);
-      border-radius: 16px;
-      padding: 14px 18px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      cursor: pointer;
-      font-size: 14px;
-      font-weight: 700;
-      transition: background 0.2s;
-    }
-    .accordion-toggle:active {
-      background: rgba(255, 255, 255, 0.08);
-    }
-    .accordion-content {
-      background: rgba(15, 23, 42, 0.2);
-      border-radius: 0 0 16px 16px;
-      padding: 0 18px;
-      max-height: 0;
-      overflow: hidden;
-      transition: max-height 0.3s ease-out, padding 0.3s ease-out;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-    .accordion-content.open {
-      padding: 14px 18px;
-      max-height: 500px;
-      border: 1px solid var(--glass-border);
-      border-top: none;
-    }
-    .accordion-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 13px;
-      padding: 6px 0;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-    }
-    .accordion-item:last-child {
-      border-bottom: none;
-    }
-    .accordion-item span.label {
-      color: var(--text-sub);
-      font-weight: 600;
-    }
-    .accordion-item span.val {
+      font-size: var(--fs-md);
       font-weight: 800;
+      cursor: pointer;
+      display: inline-flex; align-items: center; gap: 8px;
+      transition: all 0.2s; white-space: nowrap;
     }
+    .btn-primary:active { transform: scale(0.96); background: var(--primary-hover, #e03e0d); }
 
-    /* Recent Live Feed */
-    .feed-container {
-      background: var(--bg-card);
-      border: 1px solid var(--glass-border);
-      border-radius: 24px;
+    /* ── Aviso urgente ── */
+    .aviso-area {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      display: flex; flex-direction: column; gap: 16px;
+    }
+    textarea.form-input {
+      resize: none;
+      min-height: 100px;
+      font-family: var(--font);
+      line-height: 1.5;
+    }
+    .btn-aviso {
+      background: linear-gradient(135deg, var(--purple) 0%, #a855f7 100%);
+      color: white; border: none;
       padding: 20px;
-      max-height: 250px;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
+      border-radius: 16px;
+      font-size: var(--fs-lg);
+      font-weight: 800;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 12px;
+      transition: all 0.2s;
+      width: 100%;
+      box-shadow: 0 4px 18px rgba(139,92,246,0.35);
+    }
+    .btn-aviso:active { transform: scale(0.97); }
+
+    /* ── Equipe card ── */
+    .equipe-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      display: flex; justify-content: space-between; align-items: center; gap: 16px;
+    }
+    .equipe-info { display: flex; flex-direction: column; gap: 6px; }
+    .equipe-count { font-size: 56px; font-weight: 900; letter-spacing: -2px; color: var(--purple); }
+    .equipe-label { font-size: var(--fs-md); font-weight: 700; }
+    .equipe-sub { font-size: var(--fs-sm); color: var(--text-sub); }
+    .btn-equipe {
+      background: var(--purple-light);
+      border: 1.5px solid rgba(139,92,246,0.3);
+      color: var(--purple);
+      padding: 20px 24px;
+      border-radius: 16px;
+      font-size: var(--fs-md);
+      font-weight: 800;
+      cursor: pointer;
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+      transition: all 0.2s;
+    }
+    .btn-equipe i { font-size: 28px; }
+    .btn-equipe:active { background: var(--purple); color: white; }
+
+    /* ── Ranking de produtos ── */
+    .ranking-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+    .ranking-header {
+      padding: 20px 24px;
+      display: flex; justify-content: space-between; align-items: center;
+      cursor: pointer;
+      user-select: none;
+    }
+    .ranking-header-left { display: flex; align-items: center; gap: 12px; }
+    .ranking-header-left i { font-size: 24px; color: var(--green); }
+    .ranking-header-left span { font-size: var(--fs-md); font-weight: 800; }
+    .ranking-chevron { font-size: 22px; color: var(--text-sub); transition: transform 0.3s; }
+    .ranking-chevron.open { transform: rotate(180deg); }
+    .ranking-body {
+      max-height: 0; overflow: hidden;
+      transition: max-height 0.35s ease-out;
+      border-top: 1px solid transparent;
+    }
+    .ranking-body.open {
+      max-height: 600px;
+      border-top-color: var(--border);
+    }
+    .ranking-item {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 16px 24px;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      font-size: var(--fs-sm);
+    }
+    .ranking-item:last-child { border-bottom: none; }
+    .ranking-item .rk-name { font-weight: 700; color: var(--text); }
+    .ranking-item .rk-val  { font-weight: 800; color: var(--green); }
+    .ranking-pos { font-size: var(--fs-lg); font-weight: 900; color: var(--text-sub); min-width: 32px; }
+
+    /* ── Feed de atividade ── */
+    .feed-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      max-height: 280px; overflow-y: auto;
+      display: flex; flex-direction: column; gap: 14px;
     }
     .feed-item {
-      display: flex;
-      gap: 12px;
-      align-items: flex-start;
-      padding-bottom: 10px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      display: flex; gap: 14px; align-items: flex-start;
+      padding-bottom: 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
     }
-    .feed-item:last-child {
-      border-bottom: none;
-      padding-bottom: 0;
-    }
+    .feed-item:last-child { border-bottom: none; padding-bottom: 0; }
     .feed-icon {
-      width: 28px;
-      height: 28px;
-      border-radius: 8px;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      font-size: 14px;
-      flex-shrink: 0;
+      width: 38px; height: 38px; border-radius: 12px;
+      display: flex; justify-content: center; align-items: center;
+      font-size: 18px; flex-shrink: 0;
     }
-    .feed-icon.blue { background: rgba(59, 130, 246, 0.15); color: var(--accent-blue); }
-    .feed-icon.green { background: rgba(16, 185, 129, 0.15); color: var(--accent-green); }
-    .feed-icon.purple { background: rgba(139, 92, 246, 0.15); color: var(--accent-purple); }
-    .feed-body {
-      flex: 1;
-    }
-    .feed-text {
-      font-size: 13px;
-      font-weight: 600;
-      line-height: 1.3;
-    }
-    .feed-time {
-      font-size: 10px;
-      color: var(--text-sub);
-      margin-top: 2px;
-    }
+    .feed-icon.blue   { background: var(--blue-light);   color: var(--blue); }
+    .feed-icon.green  { background: var(--green-light);  color: var(--green); }
+    .feed-icon.purple { background: var(--purple-light); color: var(--purple); }
+    .feed-icon.orange { background: var(--primary-light);color: var(--primary); }
+    .feed-text { font-size: var(--fs-sm); font-weight: 600; line-height: 1.4; }
+    .feed-time { font-size: var(--fs-xs); color: var(--text-sub); margin-top: 4px; }
 
-    /* Toast system */
+    /* ── Toast ── */
     .toast {
       position: fixed;
-      bottom: 24px;
-      left: 50%;
-      transform: translateX(-50%) translateY(100px);
+      bottom: 28px; left: 50%;
+      transform: translateX(-50%) translateY(120px);
       background: #1e293b;
-      border: 1px solid var(--glass-border);
+      border: 1px solid var(--border);
       color: white;
-      padding: 12px 24px;
-      border-radius: 16px;
-      font-size: 13px;
+      padding: 18px 28px;
+      border-radius: 20px;
+      font-size: var(--fs-md);
       font-weight: 700;
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+      box-shadow: 0 12px 30px rgba(0,0,0,0.4);
       z-index: 10000;
-      transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-      display: flex;
-      align-items: center;
-      gap: 8px;
+      transition: transform 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      display: flex; align-items: center; gap: 12px;
       pointer-events: none;
+      max-width: 90vw;
     }
-    .toast.show {
-      transform: translateX(-50%) translateY(0);
+    .toast.show { transform: translateX(-50%) translateY(0); }
+    .toast i { font-size: 24px; flex-shrink: 0; }
+    .toast.success { border-color: rgba(16,185,129,0.4); }
+    .toast.error { border-color: rgba(244,63,94,0.4); }
+
+    /* ── Modal genérico ── */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(10,15,30,0.88);
+      backdrop-filter: blur(10px);
+      display: flex; justify-content: center; align-items: flex-end;
+      z-index: 1000;
+      transition: opacity 0.3s;
     }
-    .toast i {
-      font-size: 18px;
+    .modal-overlay.hidden { opacity: 0; pointer-events: none; }
+    .modal-sheet {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 28px 28px 0 0;
+      width: 100%; max-width: 620px;
+      padding: 28px 24px 40px;
+      display: flex; flex-direction: column; gap: 20px;
+      box-shadow: 0 -20px 50px rgba(0,0,0,0.5);
+      transform: translateY(0);
+      transition: transform 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      max-height: 92vh; overflow-y: auto;
+    }
+    .modal-overlay.hidden .modal-sheet { transform: translateY(100%); }
+    .modal-drag { width: 40px; height: 4px; background: rgba(255,255,255,0.15); border-radius: 4px; margin: 0 auto -8px; }
+    .modal-title-row { display: flex; justify-content: space-between; align-items: center; }
+    .modal-title { font-size: var(--fs-xl); font-weight: 900; }
+    .modal-close {
+      background: rgba(255,255,255,0.06); border: 1px solid var(--border);
+      color: var(--text); border-radius: 12px; padding: 12px;
+      cursor: pointer; font-size: 22px; display: flex;
     }
 
-    /* Period filtering buttons */
-    .btn-periodo {
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid var(--glass-border);
-      color: var(--text-sub);
-      padding: 8px 16px;
-      border-radius: 12px;
-      font-size: 13px;
+    /* ── Modal Caixa (abrir/fechar) ── */
+    .caixa-modal-icon {
+      width: 72px; height: 72px; border-radius: 22px;
+      display: flex; justify-content: center; align-items: center;
+      margin: 0 auto;
+      font-size: 36px;
+    }
+    .caixa-modal-icon.open  { background: var(--green-light); color: var(--green); }
+    .caixa-modal-icon.close { background: var(--red-light); color: var(--red); }
+    .caixa-modal-desc { font-size: var(--fs-md); color: var(--text-sub); text-align: center; line-height: 1.5; }
+
+    /* ── Modal RH — abas ── */
+    .rh-tabs { display: flex; gap: 8px; border-bottom: 1px solid var(--border); padding-bottom: 16px; }
+    .rh-tab {
+      flex: 1; padding: 14px 8px;
+      background: rgba(255,255,255,0.04); border: 1.5px solid var(--border);
+      border-radius: 14px; color: var(--text-sub);
+      font-size: var(--fs-sm); font-weight: 700;
+      cursor: pointer; text-align: center; transition: all 0.2s;
+    }
+    .rh-tab.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+    /* ── Confirm buttons ── */
+    .confirm-row { display: flex; gap: 12px; }
+    .btn-cancel {
+      flex: 1;
+      background: rgba(255,255,255,0.06);
+      border: 1.5px solid var(--border);
+      color: var(--text);
+      padding: 20px;
+      border-radius: 16px;
+      font-size: var(--fs-md);
       font-weight: 700;
       cursor: pointer;
       transition: all 0.2s;
-      white-space: nowrap;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      outline: none;
     }
-    .btn-periodo:hover {
-      background: rgba(255, 255, 255, 0.08);
-      color: var(--text-main);
+    .btn-confirm {
+      flex: 2;
+      background: var(--green);
+      color: white; border: none;
+      padding: 20px;
+      border-radius: 16px;
+      font-size: var(--fs-md);
+      font-weight: 800;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex; align-items: center; justify-content: center; gap: 10px;
     }
-    .btn-periodo.active {
-      background: var(--primary);
-      color: white;
-      border-color: var(--primary);
-      box-shadow: 0 4px 12px rgba(252, 75, 21, 0.2);
+    .btn-confirm.red { background: var(--red); }
+    .btn-confirm:active, .btn-cancel:active { transform: scale(0.97); }
+
+    select.form-input {
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%2364748b' viewBox='0 0 256 256'%3E%3Cpath d='M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z'%3E%3C/path%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 16px center;
+      padding-right: 44px;
     }
 
-    /* RH Modal System */
-    .modal-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(15, 23, 42, 0.85);
-      backdrop-filter: blur(8px);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      z-index: 1000;
-      opacity: 1;
-      transition: opacity 0.3s ease;
-    }
-    .modal-overlay.hidden {
-      opacity: 0;
-      pointer-events: none;
-    }
-    .modal-card {
-      background: var(--bg-card);
-      border: 1px solid var(--glass-border);
-      border-radius: 28px;
-      width: 90%;
-      max-width: 480px;
+    /* Meta input wrapper */
+    .meta-input-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
       padding: 24px;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
-      transform: scale(1);
-      transition: transform 0.3s ease;
-    }
-    .modal-overlay.hidden .modal-card {
-      transform: scale(0.9);
-    }
-    .modal-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 1px solid var(--glass-border);
-      padding-bottom: 12px;
-    }
-    .modal-title {
-      font-size: 16px;
-      font-weight: 800;
-      color: var(--text-main);
-    }
-    .modal-close {
-      background: none;
-      border: none;
-      color: var(--text-sub);
-      cursor: pointer;
-      font-size: 20px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      display: flex; flex-direction: column; gap: 16px;
     }
   </style>
 </head>
@@ -592,35 +601,38 @@
   </div>
 
   <!-- Header -->
-  <header class="header">
-    <div class="header-info">
-      <div class="logo-container">
+  <header>
+    <div class="header-left">
+      <div class="logo-box">
         <i class="ph-bold ph-chart-line-up"></i>
       </div>
-      <div class="title-area">
-        <h1>Painel do Dono</h1>
-        <span>
-          <span id="caixa-badge" class="status-badge closed">Fechado</span>
+      <div>
+        <div class="header-title">Meu Painel</div>
+        <div class="header-sub">
+          <span id="caixa-badge" class="status-pill closed">
+            <span class="dot"></span>
+            <span id="caixa-badge-txt">Fechado</span>
+          </span>
           <span id="header-time">--:--</span>
-        </span>
+        </div>
       </div>
     </div>
-    <button class="logout-btn" onclick="efetuarLogout()" title="Sair do Painel">
-      <i class="ph-bold ph-sign-out" style="font-size: 20px;"></i>
+    <button class="btn-logout" onclick="efetuarLogout()" title="Sair do Painel">
+      <i class="ph-bold ph-sign-out"></i>
     </button>
   </header>
 
-  <!-- Content Container -->
-  <main class="main-content">
+  <main>
 
     <!-- Filtros de Período -->
-    <div style="margin-bottom: 8px;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-        <span style="font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--text-sub); letter-spacing: 0.5px;">Visualizando: <span id="periodo-rotulo-exibicao" style="color: var(--accent-green);">Hoje</span></span>
+    <div>
+      <div class="sec-title">
+        <i class="ph-bold ph-calendar"></i>
+        <span>Período: <span id="periodo-rotulo-exibicao" style="color: var(--green);">Hoje</span></span>
       </div>
-      <div style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px; scrollbar-width: none;">
+      <div class="periodo-row">
         <button class="btn-periodo active" onclick="selecionarPeriodoDono('hoje', this)">
-          <i class="ph-bold ph-calendar"></i> Hoje
+          <i class="ph-bold ph-sun"></i> Hoje
         </button>
         <button class="btn-periodo" onclick="selecionarPeriodoDono('semana', this)">
           <i class="ph-bold ph-calendar-blank"></i> Semana
@@ -629,266 +641,364 @@
           <i class="ph-bold ph-calendar-plus"></i> Mês
         </button>
         <button class="btn-periodo" onclick="togglePeriodoCustomDono(this)">
-          <i class="ph-bold ph-funnel"></i> Outro Período
+          <i class="ph-bold ph-funnel"></i> Outro
         </button>
       </div>
-    </div>
 
-    <!-- Container Datas Customizadas -->
-    <div id="container-datas-custom" style="display: none; grid-template-columns: 1fr 1fr auto; gap: 8px; align-items: end; background: var(--bg-card); padding: 14px; border-radius: 20px; border: 1px solid var(--glass-border); margin-bottom: 12px;">
-      <div class="form-group" style="margin:0;">
-        <label for="dono-data-inicio" style="font-size: 10px;">Início</label>
-        <input type="date" id="dono-data-inicio" class="form-control" style="padding: 8px 12px; font-size:12px;">
+      <div id="container-datas-custom" style="display:none; flex-direction:column; gap:12px; margin-top:12px; background:var(--card); padding:20px; border-radius:var(--radius-lg); border:1px solid var(--border);">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <div class="form-group">
+            <label class="form-label" for="dono-data-inicio">Data Início</label>
+            <input type="date" id="dono-data-inicio" class="form-input">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="dono-data-fim">Data Fim</label>
+            <input type="date" id="dono-data-fim" class="form-input">
+          </div>
+        </div>
+        <button class="btn-primary" onclick="aplicarDatasCustomDono()" style="width:100%; justify-content:center; font-size:var(--fs-lg); padding:20px;">
+          <i class="ph-bold ph-funnel"></i> Filtrar
+        </button>
       </div>
-      <div class="form-group" style="margin:0;">
-        <label for="dono-data-fim" style="font-size: 10px;">Fim</label>
-        <input type="date" id="dono-data-fim" class="form-control" style="padding: 8px 12px; font-size:12px;">
-      </div>
-      <button class="btn" onclick="aplicarDatasCustomDono()" style="padding: 10px 14px;"><i class="ph-bold ph-funnel"></i></button>
     </div>
 
     <!-- KPI Grid -->
-    <div class="kpi-grid">
-      
-      <!-- Faturamento do Dia -->
-      <div class="kpi-card full-width">
-        <div class="kpi-header">
-          <span id="kpi-title-faturamento" class="kpi-title">Faturamento Hoje</span>
-          <div class="kpi-icon-wrap green">
-            <i class="ph-fill ph-currency-dollar"></i>
-          </div>
-        </div>
-        <div id="kpi-faturamento" class="kpi-value">R$ 0,00</div>
-        <div id="kpi-sub-total-pedidos" class="kpi-sub">
-          <i class="ph-bold ph-trend-up" style="color: var(--accent-green);"></i>
-          <span>Em relação à meta diária</span>
-        </div>
-        
-        <!-- Progress bar matching customizable goal -->
-        <div class="kpi-progress-container">
-          <div class="kpi-progress-labels">
-            <span id="goal-percent">0% atingido</span>
-            <span id="goal-target-label">Meta: R$ 0,00</span>
-          </div>
-          <div class="kpi-progress-bar-bg">
-            <div id="kpi-progress-fill" class="kpi-progress-bar-fill"></div>
-          </div>
-        </div>
+    <div>
+      <div class="sec-title">
+        <i class="ph-bold ph-chart-bar"></i>
+        <span>Resumo do Dia</span>
       </div>
+      <div class="kpi-grid">
 
-      <!-- Mesas Ativas -->
-      <div class="kpi-card">
-        <div class="kpi-header">
-          <span class="kpi-title">Mesas Ativas</span>
-          <div class="kpi-icon-wrap orange">
-            <i class="ph-fill ph-house-line"></i>
+        <!-- Faturamento -->
+        <div class="kpi-card full">
+          <div class="kpi-label">
+            <span id="kpi-title-faturamento">💰 Faturamento Hoje</span>
+            <div class="kpi-icon green"><i class="ph-fill ph-currency-dollar"></i></div>
+          </div>
+          <div id="kpi-faturamento" class="kpi-value" style="color: var(--green);">R$ 0,00</div>
+          <div id="kpi-sub-total-pedidos" class="kpi-sub">0 pedidos finalizados</div>
+          <div class="progress-wrap">
+            <div class="progress-labels">
+              <span id="goal-percent">0% da meta</span>
+              <span id="goal-target-label">Meta: R$ 0,00</span>
+            </div>
+            <div class="progress-bg">
+              <div id="kpi-progress-fill" class="progress-fill"></div>
+            </div>
           </div>
         </div>
-        <div id="kpi-mesas" class="kpi-value">0</div>
-        <div class="kpi-sub">Comandas em aberto</div>
-      </div>
 
-      <!-- Ticket Médio -->
-      <div class="kpi-card">
-        <div class="kpi-header">
-          <span class="kpi-title">Ticket Médio</span>
-          <div class="kpi-icon-wrap blue">
-            <i class="ph-fill ph-trend-up"></i>
+        <!-- Mesas -->
+        <div class="kpi-card">
+          <div class="kpi-label">
+            <span>🍽️ Mesas</span>
+            <div class="kpi-icon orange"><i class="ph-fill ph-house-line"></i></div>
           </div>
+          <div id="kpi-mesas" class="kpi-value" style="color: var(--primary);">0</div>
+          <div class="kpi-sub">Em atendimento</div>
         </div>
-        <div id="kpi-ticket" class="kpi-value">R$ 0,00</div>
-        <div class="kpi-sub">Por pedido finalizado</div>
-      </div>
 
-      <!-- Equipe Ativa -->
-      <div class="kpi-card full-width">
-        <div class="kpi-header">
-          <span class="kpi-title">Colaboradores Ativos</span>
-          <div class="kpi-icon-wrap purple">
-            <i class="ph-fill ph-users"></i>
+        <!-- Ticket médio -->
+        <div class="kpi-card">
+          <div class="kpi-label">
+            <span>📊 Ticket</span>
+            <div class="kpi-icon blue"><i class="ph-fill ph-trend-up"></i></div>
           </div>
+          <div id="kpi-ticket" class="kpi-value" style="color: var(--blue);">R$ 0,00</div>
+          <div class="kpi-sub">Por pedido</div>
         </div>
-        <div id="kpi-equipe" class="kpi-value">0</div>
-        <div class="kpi-sub">Funcionários com ponto aberto neste turno</div>
-        <button class="btn btn-secondary" onclick="abrirModalRhDono()" style="margin-top: 14px; width: 100%; font-size: 13px; padding: 10px;">
-          <i class="ph-bold ph-users-three"></i> Gerenciar Equipe / RH
-        </button>
-      </div>
 
+      </div>
     </div>
 
-    <!-- Actions Area -->
-    <div>
-      <div class="section-title">
-        <i class="ph-bold ph-lightning"></i>
-        <span>Ações Rápidas & Controles</span>
+    <!-- Equipe -->
+    <div class="equipe-card">
+      <div class="equipe-info">
+        <div class="equipe-count" id="kpi-equipe">0</div>
+        <div class="equipe-label">Colaboradores Ativos</div>
+        <div class="equipe-sub">Com ponto aberto agora</div>
       </div>
-      <div class="action-card">
-        
-        <!-- Cashier Status & Toggle -->
-        <div class="cashier-status-row">
-          <div class="cashier-status-text">
-            <h4 id="cashier-control-title">Carregando caixa...</h4>
-            <p id="cashier-control-subtitle">Verificando status...</p>
+      <button class="btn-equipe" onclick="abrirModalRhDono()">
+        <i class="ph-bold ph-users-three"></i>
+        <span style="font-size:var(--fs-xs);">Gerenciar<br>Equipe</span>
+      </button>
+    </div>
+
+    <!-- CAIXA — Abrir / Fechar -->
+    <div>
+      <div class="sec-title">
+        <i class="ph-bold ph-cash-register"></i>
+        <span>Controle do Caixa</span>
+      </div>
+      <div class="caixa-card">
+        <div class="caixa-status-row">
+          <div>
+            <div class="caixa-info-label" id="cashier-control-title">Verificando...</div>
+            <div class="caixa-info-sub" id="cashier-control-subtitle">Aguarde...</div>
           </div>
-          <button id="cashier-toggle-btn" class="btn" style="padding: 10px 14px;">
-            <i class="ph-bold ph-lock"></i> <span id="cashier-btn-text">Carregando</span>
+          <button id="cashier-toggle-btn" class="btn-caixa open" onclick="abrirCaixaFluxo()">
+            <i class="ph-bold ph-lock-open" id="cashier-btn-icon"></i>
+            <span id="cashier-btn-text">Abrir</span>
           </button>
         </div>
+      </div>
+    </div>
 
-        <!-- Remote screen redirection -->
-        <button class="btn btn-secondary" onclick="comandarNavegacaoCaixaFinanceiro()" style="width: 100%; font-size: 13px; padding: 12px; gap: 8px;">
-          <i class="ph-bold ph-desktop"></i> Direcionar Caixa para Financeiro
+    <!-- CONTROLE REMOTO -->
+    <div>
+      <div class="sec-title">
+        <i class="ph-bold ph-desktop"></i>
+        <span>Controle Remoto do Caixa</span>
+      </div>
+      <div class="remote-grid">
+        <button class="remote-btn blue-btn" onclick="comandarNavegacao('financeiro.html')">
+          <div class="rb-icon" style="background: var(--blue-light); color: var(--blue);">
+            <i class="ph-bold ph-money"></i>
+          </div>
+          <span class="rb-label">Ir para<br>Financeiro</span>
+          <span class="rb-sub">Abre tela de caixa no computador</span>
         </button>
 
-        <!-- Goal configuration -->
-        <div class="form-group">
-          <label for="meta-input">Definir Meta de Vendas (R$)</label>
-          <div class="form-control-row">
-            <input type="number" id="meta-input" class="form-control" placeholder="Meta diária (ex: 5000)">
-            <button class="btn" onclick="salvarMeta()">Salvar</button>
+        <button class="remote-btn green-btn" onclick="comandarNavegacao('cardapio.html')">
+          <div class="rb-icon" style="background: var(--green-light); color: var(--green);">
+            <i class="ph-bold ph-book-open"></i>
           </div>
-        </div>
+          <span class="rb-label">Ir para<br>Cardápio</span>
+          <span class="rb-sub">Exibe o cardápio no caixa</span>
+        </button>
 
-        <!-- Notify team -->
-        <div class="form-group">
-          <label for="notif-input">Notificar Toda a Equipe</label>
-          <div class="form-control-row">
-            <input type="text" id="notif-input" class="form-control" placeholder="Digite um aviso urgente...">
-            <button class="btn" onclick="notificarEquipe()">
-              <i class="ph-bold ph-paper-plane-tilt"></i>
-            </button>
+        <button class="remote-btn orange-btn" onclick="comandarNavegacao('configuracoes.html')">
+          <div class="rb-icon" style="background: var(--primary-light); color: var(--primary);">
+            <i class="ph-bold ph-gear"></i>
           </div>
-        </div>
+          <span class="rb-label">Ir para<br>Config.</span>
+          <span class="rb-sub">Abre configurações no caixa</span>
+        </button>
 
+        <button class="remote-btn purple-btn" onclick="comandarNavegacao('dashboard.html')">
+          <div class="rb-icon" style="background: var(--purple-light); color: var(--purple);">
+            <i class="ph-bold ph-squares-four"></i>
+          </div>
+          <span class="rb-label">Ir para<br>Dashboard</span>
+          <span class="rb-sub">Volta para tela principal</span>
+        </button>
       </div>
     </div>
 
-    <!-- Accordion detailed billing -->
-    <div>
-      <div id="accordion-btn" class="accordion-toggle">
-        <div style="display:flex;align-items:center;gap:8px;">
-          <i class="ph-bold ph-money" style="color:var(--accent-green);font-size:18px;"></i>
-          <span>Visualizar Ranking de Produtos</span>
-        </div>
-        <i id="accordion-chevron" class="ph-bold ph-caret-down"></i>
+    <!-- Meta de vendas -->
+    <div class="meta-input-card">
+      <div class="sec-title" style="margin-bottom:0;">
+        <i class="ph-bold ph-target"></i>
+        <span>Meta de Vendas Diária</span>
       </div>
-      <div id="accordion-panel" class="accordion-content">
-        <div id="ranking-list">
-          <div style="text-align:center;color:var(--text-sub);padding:10px;">Nenhuma venda realizada hoje.</div>
+      <div class="form-group">
+        <label class="form-label" for="meta-input">Valor da Meta (R$)</label>
+        <div class="form-row">
+          <input type="number" id="meta-input" class="form-input" placeholder="Ex: 5000" inputmode="numeric">
+          <button class="btn-primary" onclick="salvarMeta()">
+            <i class="ph-bold ph-check"></i> Salvar
+          </button>
         </div>
       </div>
     </div>
 
-    <!-- Live activity feed -->
+    <!-- Aviso urgente para equipe -->
+    <div class="aviso-area">
+      <div class="sec-title" style="margin-bottom:0;">
+        <i class="ph-bold ph-megaphone"></i>
+        <span>Enviar Aviso Urgente</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="notif-input">Digite o aviso</label>
+        <textarea id="notif-input" class="form-input" placeholder="Ex: Pessoal, vamos abrir 30 minutos mais cedo hoje!"></textarea>
+      </div>
+      <button class="btn-aviso" onclick="notificarEquipe()">
+        <i class="ph-bold ph-paper-plane-tilt"></i>
+        Enviar para Toda a Equipe
+      </button>
+    </div>
+
+    <!-- Ranking de produtos -->
+    <div class="ranking-card">
+      <div class="ranking-header" onclick="toggleRanking()">
+        <div class="ranking-header-left">
+          <i class="ph-bold ph-trophy"></i>
+          <span>Produtos Mais Vendidos</span>
+        </div>
+        <i class="ph-bold ph-caret-down ranking-chevron" id="ranking-chevron"></i>
+      </div>
+      <div class="ranking-body" id="ranking-body">
+        <div id="ranking-list" style="padding:8px 0;">
+          <div style="text-align:center; color:var(--text-sub); padding:24px; font-size:var(--fs-md);">Nenhuma venda registrada.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Feed de Atividade -->
     <div>
-      <div class="section-title">
+      <div class="sec-title">
         <i class="ph-bold ph-activity"></i>
-        <span>Atividade Recente (Tempo Real)</span>
+        <span>Atividade em Tempo Real</span>
       </div>
-      <div id="activity-feed" class="feed-container">
-        <div style="text-align:center;color:var(--text-sub);padding:10px;">Aguardando atividades do sistema...</div>
+      <div id="activity-feed" class="feed-card">
+        <div style="text-align:center; color:var(--text-sub); font-size:var(--fs-md); padding:12px;">Aguardando atividades...</div>
       </div>
     </div>
 
   </main>
 
-  <!-- RH Management Modal -->
-  <div id="modal-rh-dono" class="modal-overlay hidden">
-    <div class="modal-card">
-      <div class="modal-header">
-        <h3 class="modal-title"><i class="ph-bold ph-users-three" style="color:var(--accent-purple);"></i> Gerenciar Equipe</h3>
-        <button class="modal-close" onclick="document.getElementById('modal-rh-dono').classList.add('hidden')">
-          <i class="ph-bold ph-x"></i>
-        </button>
-      </div>
+  <!-- Toast -->
+  <div id="toast" class="toast">
+    <i class="ph-bold ph-info" id="toast-icon"></i>
+    <span id="toast-text">Notificação</span>
+  </div>
 
+  <!-- Modal: Abrir Caixa -->
+  <div id="modal-abrir-caixa" class="modal-overlay hidden">
+    <div class="modal-sheet">
+      <div class="modal-drag"></div>
+      <div style="text-align:center;">
+        <div class="caixa-modal-icon open"><i class="ph-bold ph-lock-open"></i></div>
+      </div>
+      <div class="modal-title-row">
+        <span class="modal-title">Abrir o Caixa</span>
+        <button class="modal-close" onclick="fecharModal('modal-abrir-caixa')"><i class="ph-bold ph-x"></i></button>
+      </div>
+      <p class="caixa-modal-desc">Digite o valor em dinheiro que está no caixa agora (fundo de troco).</p>
       <div class="form-group">
-        <label for="select-rh-funcionario">Colaborador</label>
-        <select id="select-rh-funcionario" class="form-control">
-          <option value="">Carregando funcionários...</option>
-        </select>
+        <label class="form-label" for="fundo-troco-input">💵 Valor do Fundo de Troco (R$)</label>
+        <input type="number" id="fundo-troco-input" class="form-input" placeholder="Ex: 200,00" inputmode="decimal" style="font-size:28px; font-weight:900; text-align:center; padding:24px;">
       </div>
-
-      <div style="display: flex; gap: 6px; margin-top: 8px; border-bottom: 1px solid var(--glass-border); padding-bottom: 8px; overflow-x: auto; scrollbar-width: none;">
-        <button id="tab-rh-btn-pagamento" class="btn-periodo active" onclick="alternarAbaRhDono('pagamento')" style="padding: 6px 12px; font-size:12px;">Pagamento</button>
-        <button id="tab-rh-btn-falta" class="btn-periodo" onclick="alternarAbaRhDono('falta')" style="padding: 6px 12px; font-size:12px;">Faltas</button>
-        <button id="tab-rh-btn-folga" class="btn-periodo" onclick="alternarAbaRhDono('folga')" style="padding: 6px 12px; font-size:12px;">Folgas</button>
-      </div>
-
-      <!-- Aba Pagamento -->
-      <div id="aba-rh-pagamento" style="display: block;">
-        <div class="form-group" style="margin-bottom: 12px;">
-          <label for="rh-pagamento-valor">Valor do Pagamento (R$)</label>
-          <input type="number" step="0.01" id="rh-pagamento-valor" class="form-control" placeholder="Ex: 120.00">
-        </div>
-        <div class="form-group" style="margin-bottom: 12px;">
-          <label for="rh-pagamento-forma">Forma de Pagamento</label>
-          <select id="rh-pagamento-forma" class="form-control">
-            <option value="Dinheiro">Dinheiro</option>
-            <option value="Pix">Pix</option>
-            <option value="Transferência">Transferência</option>
-          </select>
-        </div>
-        <div class="form-group" style="margin-bottom: 16px;">
-          <label for="rh-pagamento-obs">Observação / Descrição</label>
-          <input type="text" id="rh-pagamento-obs" class="form-control" placeholder="Ex: Diária de freelancer">
-        </div>
-        <button class="btn" onclick="salvarPagamentoDono()" style="width: 100%;">Salvar Pagamento</button>
-      </div>
-
-      <!-- Aba Falta -->
-      <div id="aba-rh-falta" style="display: none;">
-        <div class="form-group" style="margin-bottom: 12px;">
-          <label for="rh-falta-data">Data da Falta</label>
-          <input type="date" id="rh-falta-data" class="form-control">
-        </div>
-        <div class="form-group" style="margin-bottom: 12px;">
-          <label for="rh-falta-justificativa">Justificativa / Motivo</label>
-          <input type="text" id="rh-falta-justificativa" class="form-control" placeholder="Ex: Atestado médico">
-        </div>
-        <div class="form-group" style="margin-bottom: 16px; flex-direction: row; align-items: center; gap: 8px;">
-          <input type="checkbox" id="rh-falta-remunerada" style="width:16px; height:16px;">
-          <label for="rh-falta-remunerada" style="text-transform:none; font-weight:600; cursor:pointer;">Falta Remunerada (não descontar do saldo)</label>
-        </div>
-        <button class="btn" onclick="salvarAbonoFaltaDono()" style="width: 100%;">Registrar Falta</button>
-      </div>
-
-      <!-- Aba Folga -->
-      <div id="aba-rh-folga" style="display: none;">
-        <div class="form-group" style="margin-bottom: 12px;">
-          <label for="rh-folga-inicio">Data Início</label>
-          <input type="date" id="rh-folga-inicio" class="form-control">
-        </div>
-        <div class="form-group" style="margin-bottom: 12px;">
-          <label for="rh-folga-fim">Data Fim (opcional)</label>
-          <input type="date" id="rh-folga-fim" class="form-control" placeholder="Deixe em branco se for 1 dia">
-        </div>
-        <div class="form-group" style="margin-bottom: 12px;">
-          <label for="rh-folga-tipo">Tipo de Folga</label>
-          <select id="rh-folga-tipo" class="form-control">
-            <option value="Escala">Folga da Escala</option>
-            <option value="Feriado">Feriado compensado</option>
-            <option value="Outro">Outro motivo</option>
-          </select>
-        </div>
-        <div class="form-group" style="margin-bottom: 16px;">
-          <label for="rh-folga-obs">Observações</label>
-          <input type="text" id="rh-folga-obs" class="form-control" placeholder="Ex: Compensação de hora extra">
-        </div>
-        <button class="btn" onclick="salvarFolgaDono()" style="width: 100%;">Conceder Folga</button>
+      <div class="confirm-row">
+        <button class="btn-cancel" onclick="fecharModal('modal-abrir-caixa')">Cancelar</button>
+        <button class="btn-confirm" onclick="confirmarAbrirCaixa()">
+          <i class="ph-bold ph-lock-open"></i> Abrir Caixa
+        </button>
       </div>
     </div>
   </div>
 
-  <!-- Toast notification element -->
-  <div id="toast" class="toast">
-    <i class="ph-bold ph-info"></i>
-    <span id="toast-text">Notificação</span>
+  <!-- Modal: Fechar Caixa -->
+  <div id="modal-fechar-caixa" class="modal-overlay hidden">
+    <div class="modal-sheet">
+      <div class="modal-drag"></div>
+      <div style="text-align:center;">
+        <div class="caixa-modal-icon close"><i class="ph-bold ph-lock"></i></div>
+      </div>
+      <div class="modal-title-row">
+        <span class="modal-title">Fechar o Caixa</span>
+        <button class="modal-close" onclick="fecharModal('modal-fechar-caixa')"><i class="ph-bold ph-x"></i></button>
+      </div>
+      <p class="caixa-modal-desc">Conte o dinheiro que está no caixa e digite o valor total encontrado.</p>
+      <div class="form-group">
+        <label class="form-label" for="saldo-final-input">💵 Total em Dinheiro no Caixa (R$)</label>
+        <input type="number" id="saldo-final-input" class="form-input" placeholder="Ex: 350,00" inputmode="decimal" style="font-size:28px; font-weight:900; text-align:center; padding:24px;">
+      </div>
+      <div class="confirm-row">
+        <button class="btn-cancel" onclick="fecharModal('modal-fechar-caixa')">Cancelar</button>
+        <button class="btn-confirm red" onclick="confirmarFecharCaixa()">
+          <i class="ph-bold ph-lock"></i> Fechar Caixa
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: RH Equipe -->
+  <div id="modal-rh-dono" class="modal-overlay hidden">
+    <div class="modal-sheet">
+      <div class="modal-drag"></div>
+      <div class="modal-title-row">
+        <span class="modal-title"><i class="ph-bold ph-users-three" style="color:var(--purple);"></i> Gerenciar Equipe</span>
+        <button class="modal-close" onclick="fecharModal('modal-rh-dono')"><i class="ph-bold ph-x"></i></button>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="select-rh-funcionario">👤 Selecionar Colaborador</label>
+        <select id="select-rh-funcionario" class="form-input" style="font-size:var(--fs-md);">
+          <option value="">Carregando...</option>
+        </select>
+      </div>
+
+      <div class="rh-tabs">
+        <button id="tab-rh-btn-pagamento" class="rh-tab active" onclick="alternarAbaRhDono('pagamento')">💰 Pagar</button>
+        <button id="tab-rh-btn-falta"     class="rh-tab"        onclick="alternarAbaRhDono('falta')">📋 Falta</button>
+        <button id="tab-rh-btn-folga"     class="rh-tab"        onclick="alternarAbaRhDono('folga')">🌴 Folga</button>
+      </div>
+
+      <!-- Aba Pagamento -->
+      <div id="aba-rh-pagamento">
+        <div class="form-group" style="margin-bottom:16px;">
+          <label class="form-label" for="rh-pagamento-valor">Valor a Pagar (R$)</label>
+          <input type="number" step="0.01" id="rh-pagamento-valor" class="form-input" placeholder="Ex: 120,00" inputmode="decimal">
+        </div>
+        <div class="form-group" style="margin-bottom:16px;">
+          <label class="form-label" for="rh-pagamento-forma">Forma de Pagamento</label>
+          <select id="rh-pagamento-forma" class="form-input">
+            <option value="Dinheiro">💵 Dinheiro</option>
+            <option value="Pix">📱 Pix</option>
+            <option value="Transferência">🏦 Transferência</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom:20px;">
+          <label class="form-label" for="rh-pagamento-obs">Observação (opcional)</label>
+          <input type="text" id="rh-pagamento-obs" class="form-input" placeholder="Ex: Diária, adiantamento...">
+        </div>
+        <button class="btn-confirm" onclick="salvarPagamentoDono()" style="width:100%; font-size:var(--fs-lg); padding:22px; border-radius:16px;">
+          <i class="ph-bold ph-check"></i> Registrar Pagamento
+        </button>
+      </div>
+
+      <!-- Aba Falta -->
+      <div id="aba-rh-falta" style="display:none;">
+        <div class="form-group" style="margin-bottom:16px;">
+          <label class="form-label" for="rh-falta-data">Data da Falta</label>
+          <input type="date" id="rh-falta-data" class="form-input">
+        </div>
+        <div class="form-group" style="margin-bottom:16px;">
+          <label class="form-label" for="rh-falta-justificativa">Motivo da Falta</label>
+          <input type="text" id="rh-falta-justificativa" class="form-input" placeholder="Ex: Atestado médico">
+        </div>
+        <div style="display:flex; align-items:center; gap:14px; background:rgba(255,255,255,0.04); padding:18px; border-radius:14px; border:1px solid var(--border); margin-bottom:20px; cursor:pointer;" onclick="document.getElementById('rh-falta-remunerada').click()">
+          <input type="checkbox" id="rh-falta-remunerada" style="width:22px; height:22px; cursor:pointer; accent-color:var(--green);">
+          <label for="rh-falta-remunerada" style="font-size:var(--fs-md); font-weight:700; cursor:pointer;">Falta remunerada (não descontar)</label>
+        </div>
+        <button class="btn-confirm" onclick="salvarAbonoFaltaDono()" style="width:100%; font-size:var(--fs-lg); padding:22px; border-radius:16px;">
+          <i class="ph-bold ph-check"></i> Registrar Falta
+        </button>
+      </div>
+
+      <!-- Aba Folga -->
+      <div id="aba-rh-folga" style="display:none;">
+        <div class="form-group" style="margin-bottom:16px;">
+          <label class="form-label" for="rh-folga-inicio">Data da Folga</label>
+          <input type="date" id="rh-folga-inicio" class="form-input">
+        </div>
+        <div class="form-group" style="margin-bottom:16px;">
+          <label class="form-label" for="rh-folga-fim">Data Final (deixe em branco se for 1 dia)</label>
+          <input type="date" id="rh-folga-fim" class="form-input">
+        </div>
+        <div class="form-group" style="margin-bottom:16px;">
+          <label class="form-label" for="rh-folga-tipo">Tipo de Folga</label>
+          <select id="rh-folga-tipo" class="form-input">
+            <option value="Escala">📅 Folga da Escala</option>
+            <option value="Feriado">🎉 Feriado compensado</option>
+            <option value="Outro">📝 Outro motivo</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom:20px;">
+          <label class="form-label" for="rh-folga-obs">Observação</label>
+          <input type="text" id="rh-folga-obs" class="form-input" placeholder="Ex: Compensação de hora extra">
+        </div>
+        <button class="btn-confirm" onclick="salvarFolgaDono()" style="width:100%; font-size:var(--fs-lg); padding:22px; border-radius:16px; background: var(--purple);">
+          <i class="ph-bold ph-check"></i> Conceder Folga
+        </button>
+      </div>
+
+    </div>
   </div>
 
   <script src="/socket.io.min.js"></script>
   <script src="/painel-dono.js"></script>
 </body>
 </html>
-

@@ -1,14 +1,15 @@
-// painel-dono.js - Owner Mobile Dashboard Logic
+// painel-dono.js - Owner Mobile Dashboard Logic (v2 - 60+ Acessível)
 
 // (Segurança) Escapa valor para conteúdo HTML.
 function escHtml(v) {
-  return (v === null || v === undefined) ? '' : String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  return (v === null || v === undefined) ? '' : String(v)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 // 1. Auth check
 const token = localStorage.getItem('chef_token');
 const loggedUser = localStorage.getItem('logged_user');
-const userCargo = localStorage.getItem('cargoLogado');
 
 if (!token) {
   alert('Faça login primeiro para acessar esta página.');
@@ -27,105 +28,93 @@ const socket = (typeof io === 'function') ? io({
 }) : { on: () => {}, emit: () => {}, disconnect: () => {}, connect: () => {} };
 
 socket.on('tenant_atualizado', (data) => {
-  if (data && data.restaurante_id) {
-    localStorage.setItem('restaurante_id', data.restaurante_id);
-  }
-  if (data && data.token) {
-    localStorage.setItem('chef_token', data.token);
-  }
+  if (data && data.restaurante_id) localStorage.setItem('restaurante_id', data.restaurante_id);
+  if (data && data.token) localStorage.setItem('chef_token', data.token);
   socket.disconnect();
   socket.io.opts.query = { token: data.token, restaurante_id: String(data.restaurante_id) };
   socket.connect();
 });
 
-// Cache DOM elements
-const loader = document.getElementById('loader');
-const faturamentoEl = document.getElementById('kpi-faturamento');
-const mesasEl = document.getElementById('kpi-mesas');
-const ticketEl = document.getElementById('kpi-ticket');
-const equipeEl = document.getElementById('kpi-equipe');
-const goalPercentEl = document.getElementById('goal-percent');
-const goalLabelEl = document.getElementById('goal-target-label');
-const progressFillEl = document.getElementById('kpi-progress-fill');
-const headerTimeEl = document.getElementById('header-time');
-const caixaBadgeEl = document.getElementById('caixa-badge');
+// ─── Cache DOM elements ───────────────────────────────────────
+const loader           = document.getElementById('loader');
+const faturamentoEl    = document.getElementById('kpi-faturamento');
+const mesasEl          = document.getElementById('kpi-mesas');
+const ticketEl         = document.getElementById('kpi-ticket');
+const equipeEl         = document.getElementById('kpi-equipe');
+const goalPercentEl    = document.getElementById('goal-percent');
+const goalLabelEl      = document.getElementById('goal-target-label');
+const progressFillEl   = document.getElementById('kpi-progress-fill');
+const headerTimeEl     = document.getElementById('header-time');
+const caixaBadgeEl     = document.getElementById('caixa-badge');
+const caixaBadgeTxtEl  = document.getElementById('caixa-badge-txt');
 
-const cashierControlTitle = document.getElementById('cashier-control-title');
+const cashierControlTitle    = document.getElementById('cashier-control-title');
 const cashierControlSubtitle = document.getElementById('cashier-control-subtitle');
-const cashierToggleBtn = document.getElementById('cashier-toggle-btn');
-const cashierBtnText = document.getElementById('cashier-btn-text');
+const cashierToggleBtn       = document.getElementById('cashier-toggle-btn');
+const cashierBtnText         = document.getElementById('cashier-btn-text');
+const cashierBtnIcon         = document.getElementById('cashier-btn-icon');
 
-const metaInput = document.getElementById('meta-input');
-const notifInput = document.getElementById('notif-input');
-const rankingList = document.getElementById('ranking-list');
+const metaInput    = document.getElementById('meta-input');
+const notifInput   = document.getElementById('notif-input');
+const rankingList  = document.getElementById('ranking-list');
 const activityFeed = document.getElementById('activity-feed');
 
-const accordionBtn = document.getElementById('accordion-btn');
-const accordionPanel = document.getElementById('accordion-panel');
-const accordionChevron = document.getElementById('accordion-chevron');
-
-// Helper - Formatar moeda
+// ─── Helpers ─────────────────────────────────────────────────
 function formatCurrency(val) {
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
 }
 
-// Show/Hide Loader
 function setLoader(show) {
   if (show) loader.classList.remove('hidden');
   else loader.classList.add('hidden');
 }
 
-// Toast Notification
-function showToast(text, iconClass = 'ph-info') {
-  const toast = document.getElementById('toast');
+// ─── Toast ───────────────────────────────────────────────────
+function showToast(text, iconClass = 'ph-info', type = '') {
+  const toast     = document.getElementById('toast');
   const toastText = document.getElementById('toast-text');
-  const toastIcon = toast.querySelector('i');
-  
+  const toastIcon = document.getElementById('toast-icon');
+
   toastText.innerText = text;
   toastIcon.className = `ph-bold ${iconClass}`;
-  
-  toast.classList.add('show');
-  setTimeout(() => {
-    toast.classList.remove('show');
-  }, 3500);
+  toast.className = `toast show ${type}`;
+
+  clearTimeout(toast._timer);
+  toast._timer = setTimeout(() => toast.classList.remove('show'), 4500);
 }
 
-// Time clock in header
+// ─── Modal helpers ───────────────────────────────────────────
+window.fecharModal = function(id) {
+  document.getElementById(id).classList.add('hidden');
+};
+
+function abrirModal(id) {
+  document.getElementById(id).classList.remove('hidden');
+}
+
+// Fechar modal ao clicar no overlay
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) overlay.classList.add('hidden');
+  });
+});
+
+// ─── Clock ───────────────────────────────────────────────────
 function startClock() {
   const update = () => {
     const d = new Date();
-    headerTimeEl.innerText = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    if (headerTimeEl) headerTimeEl.innerText = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
   };
   update();
   setInterval(update, 60000);
 }
 
-// Socket listener para atualização em tempo real
-socket.on('atualizacao_caixa', () => {
-  if(window.periodoAtual === 'hoje') {
-    console.log('[Painel Dono] Recebido sinal de atualização em tempo real (atualizacao_caixa)!');
-    carregarMetricas();
-  }
-});
-socket.on('financeiro_atualizado', () => {
-  if(window.periodoAtual === 'hoje') {
-    carregarMetricas();
-  }
-});
-
-// Load on start
-window.onload = () => {
-  startClock();
-  carregarMetricas();
-  // ... resto da inicialização
-};
-
-// Global period state
-window.periodoAtual = 'hoje';
+// ─── Global period state ──────────────────────────────────────
+window.periodoAtual    = 'hoje';
 window.dataInicioCustom = '';
-window.dataFimCustom = '';
+window.dataFimCustom   = '';
 
-// Fetch stats from custom Owner API
+// ─── Carregar métricas via API ────────────────────────────────
 async function carregarMetricas() {
   setLoader(true);
   try {
@@ -134,11 +123,7 @@ async function carregarMetricas() {
       url += `&data_inicio=${window.dataInicioCustom}&data_fim=${window.dataFimCustom}`;
     }
 
-    const res = await fetch(url, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
+    const res = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
 
     if (res.status === 403 || res.status === 401) {
       alert('Sessão expirada ou sem permissão de administrador.');
@@ -150,72 +135,84 @@ async function carregarMetricas() {
     if (result.success && result.data) {
       const data = result.data;
 
-      // Update period labels
+      // Period label
       const rotuloEl = document.getElementById('periodo-rotulo-exibicao');
       if (rotuloEl) rotuloEl.innerText = data.rotuloPeriodo || 'Hoje';
 
       const titleFat = document.getElementById('kpi-title-faturamento');
-      if (titleFat) titleFat.innerText = `Faturamento (${data.rotuloPeriodo || 'Hoje'})`;
+      if (titleFat) titleFat.innerText = `💰 Faturamento (${data.rotuloPeriodo || 'Hoje'})`;
 
       const subPed = document.getElementById('kpi-sub-total-pedidos');
       if (subPed) subPed.innerText = `${data.totalPedidos || 0} pedidos finalizados`;
 
-      // Update KPIs
-      faturamentoEl.innerText = formatCurrency(data.faturamentoHoje);
-      mesasEl.innerText = data.mesasAtivas;
-      ticketEl.innerText = formatCurrency(data.ticketMedio);
-      equipeEl.innerText = data.colaboradoresAtivos;
+      // KPIs
+      if (faturamentoEl) faturamentoEl.innerText = formatCurrency(data.faturamentoHoje);
+      if (mesasEl)       mesasEl.innerText = data.mesasAtivas || '0';
+      if (ticketEl)      ticketEl.innerText = formatCurrency(data.ticketMedio);
+      if (equipeEl)      equipeEl.innerText = data.colaboradoresAtivos || '0';
 
-      // Update goal target labels & input value
-      metaInput.value = metaVendas;
-      goalLabelEl.innerText = `Meta: ${formatCurrency(metaVendas)}`;
+      // Meta
+      if (metaInput) metaInput.value = metaVendas;
+      if (goalLabelEl) goalLabelEl.innerText = `Meta: ${formatCurrency(metaVendas)}`;
 
-      // Calculate progress
-      const percent = metaVendas > 0 ? Math.min(100, Math.round((data.faturamentoHoje / metaVendas) * 100)) : 0;
-      goalPercentEl.innerText = `${percent}% atingido`;
-      progressFillEl.style.width = `${percent}%`;
+      const percent = metaVendas > 0
+        ? Math.min(100, Math.round((data.faturamentoHoje / metaVendas) * 100))
+        : 0;
+      if (goalPercentEl)  goalPercentEl.innerText = `${percent}% da meta`;
+      if (progressFillEl) progressFillEl.style.width = `${percent}%`;
 
-      // Update Cashier State cards
+      // Caixa status
       const isOpen = data.caixaStatus === 'Aberto';
-      caixaBadgeEl.innerText = data.caixaStatus;
-      caixaBadgeEl.className = `status-badge ${isOpen ? 'open' : 'closed'}`;
 
-      if (isOpen) {
-        cashierControlTitle.innerText = 'Caixa está Aberto';
-        cashierControlSubtitle.innerText = `Fundo de troco: ${formatCurrency(data.caixaSaldo)}`;
-        cashierToggleBtn.style.background = '#f43f5e';
-        cashierBtnText.innerText = 'Fechar';
-        cashierToggleBtn.onclick = fecharCaixaFluxo;
-      } else {
-        cashierControlTitle.innerText = 'Caixa está Fechado';
-        cashierControlSubtitle.innerText = 'Inicie o caixa para aceitar vendas.';
-        cashierToggleBtn.style.background = 'var(--accent-green)';
-        cashierBtnText.innerText = 'Abrir';
-        cashierToggleBtn.onclick = abrirCaixaFluxo;
+      if (caixaBadgeEl) {
+        caixaBadgeEl.className = `status-pill ${isOpen ? 'open' : 'closed'}`;
+        caixaBadgeEl.innerHTML = `<span class="dot"></span><span id="caixa-badge-txt">${escHtml(data.caixaStatus)}</span>`;
       }
 
-      // Update product ranking list
-      if (data.topProdutos && data.topProdutos.length > 0) {
-        rankingList.innerHTML = data.topProdutos.map((p, idx) => `
-          <div class="accordion-item">
-            <span class="label">${idx + 1}º ${escHtml(p.productEmoji || '🍽️')} ${escHtml(p.productName)}</span>
-            <span class="val">${p.quantidade}x (${formatCurrency(p.total)})</span>
-          </div>
-        `).join('');
-      } else {
-        rankingList.innerHTML = `<div style="text-align:center;color:var(--text-sub);padding:10px;">Nenhuma venda realizada (${escHtml(data.rotuloPeriodo)}).</div>`;
+      if (cashierControlTitle)    cashierControlTitle.innerText  = isOpen ? 'Caixa está Aberto ✅' : 'Caixa está Fechado 🔒';
+      if (cashierControlSubtitle) cashierControlSubtitle.innerText = isOpen
+        ? `Fundo de troco: ${formatCurrency(data.caixaSaldo)}`
+        : 'Toque em "Abrir" para iniciar as vendas.';
+
+      if (cashierToggleBtn) {
+        if (isOpen) {
+          cashierToggleBtn.className = 'btn-caixa close';
+          if (cashierBtnText) cashierBtnText.innerText = 'Fechar';
+          if (cashierBtnIcon) cashierBtnIcon.className = 'ph-bold ph-lock';
+          cashierToggleBtn.onclick = fecharCaixaFluxo;
+        } else {
+          cashierToggleBtn.className = 'btn-caixa open';
+          if (cashierBtnText) cashierBtnText.innerText = 'Abrir';
+          if (cashierBtnIcon) cashierBtnIcon.className = 'ph-bold ph-lock-open';
+          cashierToggleBtn.onclick = abrirCaixaFluxo;
+        }
+      }
+
+      // Ranking de produtos
+      if (rankingList) {
+        if (data.topProdutos && data.topProdutos.length > 0) {
+          rankingList.innerHTML = data.topProdutos.map((p, idx) => `
+            <div class="ranking-item">
+              <span class="ranking-pos">${idx + 1}º</span>
+              <span class="rk-name">${escHtml(p.productEmoji || '🍽️')} ${escHtml(p.productName)}</span>
+              <span class="rk-val">${p.quantidade}x</span>
+            </div>
+          `).join('');
+        } else {
+          rankingList.innerHTML = `<div style="text-align:center;color:var(--text-sub);padding:24px;font-size:var(--fs-md);">Nenhuma venda (${escHtml(data.rotuloPeriodo || 'período')}).</div>`;
+        }
       }
     }
   } catch (error) {
     console.error('Erro ao carregar métricas:', error);
-    showToast('Erro de conexão ao atualizar métricas', 'ph-wifi-high-slash');
+    showToast('Erro de conexão ao atualizar métricas', 'ph-wifi-slash', 'error');
   } finally {
     setLoader(false);
   }
 }
 
-// Period Filters handlers
-window.selecionarPeriodoDono = function (periodo, btnEl) {
+// ─── Period Filters ───────────────────────────────────────────
+window.selecionarPeriodoDono = function(periodo, btnEl) {
   window.periodoAtual = periodo;
   document.querySelectorAll('.btn-periodo').forEach(b => b.classList.remove('active'));
   if (btnEl) btnEl.classList.add('active');
@@ -224,252 +221,243 @@ window.selecionarPeriodoDono = function (periodo, btnEl) {
   carregarMetricas();
 };
 
-window.togglePeriodoCustomDono = function (btnEl) {
+window.togglePeriodoCustomDono = function(btnEl) {
   document.querySelectorAll('.btn-periodo').forEach(b => b.classList.remove('active'));
   if (btnEl) btnEl.classList.add('active');
   const container = document.getElementById('container-datas-custom');
-  if (container) container.style.display = container.style.display === 'none' ? 'grid' : 'none';
+  if (container) container.style.display = container.style.display === 'none' ? 'flex' : 'none';
 };
 
-window.aplicarDatasCustomDono = function () {
+window.aplicarDatasCustomDono = function() {
   const ini = document.getElementById('dono-data-inicio').value;
   const fim = document.getElementById('dono-data-fim').value;
-  if (!ini || !fim) {
-    return alert('Selecione a data inicial e final.');
-  }
-  window.periodoAtual = 'custom';
+  if (!ini || !fim) return showToast('Selecione a data inicial e final.', 'ph-warning');
+  window.periodoAtual    = 'custom';
   window.dataInicioCustom = ini;
-  window.dataFimCustom = fim;
+  window.dataFimCustom   = fim;
   carregarMetricas();
 };
 
-// Remote Cashier Navigation
-window.comandarNavegacaoCaixaFinanceiro = function () {
-  if (!confirm('Deseja enviar o computador do caixa para a tela Financeiro agora?')) return;
+// ─── Controle Remoto — Navegação ─────────────────────────────
+window.comandarNavegacao = function(destino) {
   socket.emit('comando_navegar_caixa', {
-    destino: 'financeiro.html',
+    destino: destino,
     solicitadoPor: loggedUser || 'Dono'
   });
-  showToast('Comando de navegação enviado ao caixa!', 'ph-paper-plane');
-  adicionarAoFeed('aviso', 'Você solicitou a abertura da tela Financeiro no caixa.');
+  showToast(`Enviando caixa para ${destino}...`, 'ph-paper-plane');
+  adicionarAoFeed('aviso', `Você direcionou o caixa para: ${destino}`);
 };
 
-// RH Management Modal handlers
-window.carregarFuncionariosRhDono = async function () {
+// ─── Caixa Abrir / Fechar — com modais ───────────────────────
+function abrirCaixaFluxo() {
+  const input = document.getElementById('fundo-troco-input');
+  if (input) input.value = '';
+  abrirModal('modal-abrir-caixa');
+}
+
+function fecharCaixaFluxo() {
+  const input = document.getElementById('saldo-final-input');
+  if (input) input.value = '';
+  abrirModal('modal-fechar-caixa');
+}
+
+window.confirmarAbrirCaixa = function() {
+  const input = document.getElementById('fundo-troco-input');
+  const fundo = parseFloat(input ? input.value : '');
+  if (isNaN(fundo) || fundo < 0) {
+    showToast('Digite um valor válido para o fundo de troco.', 'ph-warning', 'error');
+    return;
+  }
+  fecharModal('modal-abrir-caixa');
+  setLoader(true);
+  socket.emit('abrir_caixa', {
+    operador: loggedUser || 'Dono',
+    fundo_troco: fundo
+  });
+};
+
+window.confirmarFecharCaixa = function() {
+  const input = document.getElementById('saldo-final-input');
+  const saldo = parseFloat(input ? input.value : '');
+  if (isNaN(saldo) || saldo < 0) {
+    showToast('Digite o valor total encontrado no caixa.', 'ph-warning', 'error');
+    return;
+  }
+  fecharModal('modal-fechar-caixa');
+  setLoader(true);
+  socket.emit('fechar_caixa', {
+    operador: loggedUser || 'Dono',
+    saldo_final: saldo
+  });
+};
+
+// ─── RH: Gerenciar equipe ─────────────────────────────────────
+window.carregarFuncionariosRhDono = async function() {
   const select = document.getElementById('select-rh-funcionario');
   if (!select) return;
   try {
-    const res = await fetch('/api/funcionarios', {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
+    const res  = await fetch('/api/funcionarios', { headers: { 'Authorization': `Bearer ${token}` } });
     const funcs = await res.json();
     if (Array.isArray(funcs) && funcs.length > 0) {
-      select.innerHTML = funcs.map(f => `<option value="${f.id}">${escHtml(f.nome)} (${escHtml(f.cargo || 'Colaborador')})</option>`).join('');
+      select.innerHTML = funcs.map(f =>
+        `<option value="${f.id}">${escHtml(f.nome)} (${escHtml(f.cargo || 'Colaborador')})</option>`
+      ).join('');
     } else {
       select.innerHTML = `<option value="">Nenhum funcionário encontrado</option>`;
     }
   } catch (e) {
-    select.innerHTML = `<option value="">Erro ao carregar funcionários</option>`;
+    select.innerHTML = `<option value="">Erro ao carregar</option>`;
   }
 };
 
-window.abrirModalRhDono = function () {
+window.abrirModalRhDono = function() {
   window.carregarFuncionariosRhDono();
-  document.getElementById('modal-rh-dono').classList.remove('hidden');
+  alternarAbaRhDono('pagamento');
+  abrirModal('modal-rh-dono');
 };
 
-window.alternarAbaRhDono = function (aba) {
-  document.getElementById('tab-rh-btn-pagamento').className = `btn-periodo ${aba === 'pagamento' ? 'active' : ''}`;
-  document.getElementById('tab-rh-btn-falta').className = `btn-periodo ${aba === 'falta' ? 'active' : ''}`;
-  document.getElementById('tab-rh-btn-folga').className = `btn-periodo ${aba === 'folga' ? 'active' : ''}`;
-
-  document.getElementById('aba-rh-pagamento').style.display = aba === 'pagamento' ? 'block' : 'none';
-  document.getElementById('aba-rh-falta').style.display = aba === 'falta' ? 'block' : 'none';
-  document.getElementById('aba-rh-folga').style.display = aba === 'folga' ? 'block' : 'none';
+window.alternarAbaRhDono = function(aba) {
+  ['pagamento', 'falta', 'folga'].forEach(a => {
+    const btn = document.getElementById(`tab-rh-btn-${a}`);
+    const panel = document.getElementById(`aba-rh-${a}`);
+    if (btn) btn.className = `rh-tab ${a === aba ? 'active' : ''}`;
+    if (panel) panel.style.display = a === aba ? 'block' : 'none';
+  });
 };
 
-window.salvarPagamentoDono = function () {
+window.salvarPagamentoDono = function() {
   const funcId = document.getElementById('select-rh-funcionario').value;
-  const val = parseFloat(document.getElementById('rh-pagamento-valor').value);
-  const forma = document.getElementById('rh-pagamento-forma').value;
-  const obs = document.getElementById('rh-pagamento-obs').value;
+  const val    = parseFloat(document.getElementById('rh-pagamento-valor').value);
+  const forma  = document.getElementById('rh-pagamento-forma').value;
+  const obs    = document.getElementById('rh-pagamento-obs').value;
 
   if (!funcId || isNaN(val) || val <= 0) {
-    return alert('Selecione o colaborador e informe um valor de pagamento válido.');
+    showToast('Selecione o colaborador e informe um valor válido.', 'ph-warning', 'error');
+    return;
   }
 
   socket.emit('dono_registrar_pagamento', {
-    funcionario_id: funcId,
-    valor: val,
-    forma_pagamento: forma,
-    observacao: obs,
+    funcionario_id: funcId, valor: val,
+    forma_pagamento: forma, observacao: obs,
     operador: loggedUser || 'Dono'
   });
 
-  document.getElementById('modal-rh-dono').classList.add('hidden');
+  fecharModal('modal-rh-dono');
   document.getElementById('rh-pagamento-valor').value = '';
+  showToast('Pagamento enviado, aguarde confirmação...', 'ph-hourglass');
 };
 
-window.salvarAbonoFaltaDono = function () {
-  const funcId = document.getElementById('select-rh-funcionario').value;
+window.salvarAbonoFaltaDono = function() {
+  const funcId    = document.getElementById('select-rh-funcionario').value;
   const dataFalta = document.getElementById('rh-falta-data').value;
-  const justif = document.getElementById('rh-falta-justificativa').value;
-  const remun = document.getElementById('rh-falta-remunerada').checked;
+  const justif    = document.getElementById('rh-falta-justificativa').value;
+  const remun     = document.getElementById('rh-falta-remunerada').checked;
 
   if (!funcId || !dataFalta || !justif) {
-    return alert('Preencha a data da falta e a justificativa.');
+    showToast('Preencha a data da falta e o motivo.', 'ph-warning', 'error');
+    return;
   }
 
   socket.emit('dono_abonar_falta', {
-    funcionario_id: funcId,
-    data_falta: dataFalta,
-    justificativa: justif,
-    remunerado: remun,
+    funcionario_id: funcId, data_falta: dataFalta,
+    justificativa: justif, remunerado: remun,
     operador: loggedUser || 'Dono'
   });
 
-  document.getElementById('modal-rh-dono').classList.add('hidden');
+  fecharModal('modal-rh-dono');
   document.getElementById('rh-falta-data').value = '';
   document.getElementById('rh-falta-justificativa').value = '';
+  showToast('Falta enviada, aguarde confirmação...', 'ph-hourglass');
 };
 
-window.salvarFolgaDono = function () {
+window.salvarFolgaDono = function() {
   const funcId = document.getElementById('select-rh-funcionario').value;
-  const ini = document.getElementById('rh-folga-inicio').value;
-  const fim = document.getElementById('rh-folga-fim').value;
-  const tipo = document.getElementById('rh-folga-tipo').value;
-  const obs = document.getElementById('rh-folga-obs').value;
+  const ini    = document.getElementById('rh-folga-inicio').value;
+  const fim    = document.getElementById('rh-folga-fim').value;
+  const tipo   = document.getElementById('rh-folga-tipo').value;
+  const obs    = document.getElementById('rh-folga-obs').value;
 
   if (!funcId || !ini) {
-    return alert('Selecione o colaborador e a data inicial da folga.');
+    showToast('Selecione o colaborador e a data da folga.', 'ph-warning', 'error');
+    return;
   }
 
   socket.emit('dono_conceder_folga', {
-    funcionario_id: funcId,
-    data_inicio: ini,
-    data_fim: fim || ini,
-    tipo_folga: tipo,
-    observacao: obs,
-    operador: loggedUser || 'Dono'
+    funcionario_id: funcId, data_inicio: ini,
+    data_fim: fim || ini, tipo_folga: tipo,
+    observacao: obs, operador: loggedUser || 'Dono'
   });
 
-  document.getElementById('modal-rh-dono').classList.add('hidden');
+  fecharModal('modal-rh-dono');
   document.getElementById('rh-folga-inicio').value = '';
+  showToast('Folga enviada, aguarde confirmação...', 'ph-hourglass');
 };
 
-// Save Daily Goal
+// ─── Meta de vendas ───────────────────────────────────────────
 window.salvarMeta = function() {
   const val = parseFloat(metaInput.value);
   if (isNaN(val) || val <= 0) {
-    showToast('Insira um valor de meta válido.', 'ph-warning');
+    showToast('Insira um valor de meta válido.', 'ph-warning', 'error');
     return;
   }
   metaVendas = val;
   localStorage.setItem('meta_dono_vendas', val);
   carregarMetricas();
-  showToast('Meta diária salva com sucesso!', 'ph-check-circle');
+  showToast('Meta diária salva com sucesso!', 'ph-check-circle', 'success');
 };
 
-// Send notification message to all staff
+// ─── Enviar aviso para equipe ─────────────────────────────────
 window.notificarEquipe = function() {
   const text = notifInput.value.trim();
   if (!text) {
-    showToast('Insira um aviso para enviar.', 'ph-warning');
+    showToast('Digite o aviso antes de enviar.', 'ph-warning', 'error');
     return;
   }
-  
   socket.emit('enviar_notificacao_equipe', { texto: text });
   notifInput.value = '';
-  showToast('Aviso enviado para a equipe!', 'ph-paper-plane');
-  
-  // Add to local feed
-  adicionarAoFeed('aviso', `Você enviou um aviso: "${text}"`);
+  showToast('Aviso enviado para a equipe!', 'ph-paper-plane', 'success');
+  adicionarAoFeed('aviso', `Você enviou: "${text}"`);
 };
 
-// Add card item to Live Feed
+// ─── Feed de Atividade ────────────────────────────────────────
 function adicionarAoFeed(tipo, texto) {
   const now = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  
-  let icon = 'ph-info';
-  let colorClass = 'blue';
-  
-  if (tipo === 'venda') {
-    icon = 'ph-currency-dollar';
-    colorClass = 'green';
-  } else if (tipo === 'aviso') {
-    icon = 'ph-megaphone';
-    colorClass = 'purple';
-  } else if (tipo === 'ponto') {
-    icon = 'ph-user-check';
-    colorClass = 'blue';
-  }
-  
-  // Remove default empty state text
-  if (activityFeed.innerText.includes('Aguardando atividades')) {
+
+  let icon = 'ph-info', colorClass = 'blue';
+  if (tipo === 'venda')  { icon = 'ph-currency-dollar'; colorClass = 'green'; }
+  else if (tipo === 'aviso') { icon = 'ph-megaphone';   colorClass = 'purple'; }
+  else if (tipo === 'ponto') { icon = 'ph-user-check';  colorClass = 'blue'; }
+
+  if (activityFeed && activityFeed.innerText.includes('Aguardando atividades')) {
     activityFeed.innerHTML = '';
   }
-  
+
   const item = document.createElement('div');
   item.className = 'feed-item';
   item.innerHTML = `
     <div class="feed-icon ${colorClass}">
       <i class="ph-fill ${icon}"></i>
     </div>
-    <div class="feed-body">
+    <div>
       <div class="feed-text">${texto}</div>
       <div class="feed-time">${now}</div>
     </div>
   `;
-  
-  activityFeed.prepend(item);
-  
-  // Keep only latest 15 elements
-  while (activityFeed.children.length > 15) {
-    activityFeed.lastChild.remove();
-  }
+
+  if (activityFeed) activityFeed.prepend(item);
+  while (activityFeed && activityFeed.children.length > 15) activityFeed.lastChild.remove();
 }
 
-// Cashier controls flow - Close Caixa
-function fecharCaixaFluxo() {
-  const valor = prompt('Digite o saldo final em dinheiro para fechar o caixa (ex: 350.50):');
-  if (valor === null) return;
-  
-  const saldo = parseFloat(valor);
-  if (isNaN(saldo) || saldo < 0) {
-    alert('Valor de fechamento inválido.');
-    return;
-  }
-  
-  if (!confirm('Deseja realmente encerrar o caixa com saldo final de R$ ' + saldo.toFixed(2).replace('.', ',') + '?')) return;
-  
-  setLoader(true);
-  socket.emit('fechar_caixa', {
-    operador: loggedUser || 'Dono',
-    saldo_final: saldo
-  });
-}
+// ─── Ranking accordion ───────────────────────────────────────
+window.toggleRanking = function() {
+  const body    = document.getElementById('ranking-body');
+  const chevron = document.getElementById('ranking-chevron');
+  if (!body) return;
+  const isOpen = body.classList.toggle('open');
+  if (chevron) chevron.classList.toggle('open', isOpen);
+};
 
-// Cashier controls flow - Open Caixa
-function abrirCaixaFluxo() {
-  const valor = prompt('Digite o valor do fundo de troco para abrir o caixa (ex: 200.00):');
-  if (valor === null) return;
-  
-  const fundo = parseFloat(valor);
-  if (isNaN(fundo) || fundo < 0) {
-    alert('Valor de fundo inválido.');
-    return;
-  }
-  
-  if (!confirm('Deseja abrir o caixa com fundo de troco de R$ ' + fundo.toFixed(2).replace('.', ',') + '?')) return;
-  
-  setLoader(true);
-  socket.emit('abrir_caixa', {
-    operador: loggedUser || 'Dono',
-    fundo_troco: fundo
-  });
-}
-
-// Logout panel
+// ─── Logout ───────────────────────────────────────────────────
 window.efetuarLogout = function() {
   if (confirm('Deseja sair do painel do dono?')) {
     localStorage.removeItem('chef_token');
@@ -478,78 +466,67 @@ window.efetuarLogout = function() {
   }
 };
 
-// Accordion toggle behavior
-accordionBtn.addEventListener('click', () => {
-  const isOpen = accordionPanel.classList.toggle('open');
-  if (isOpen) {
-    accordionChevron.className = 'ph-bold ph-caret-up';
-  } else {
-    accordionChevron.className = 'ph-bold ph-caret-down';
-  }
-});
-
-// Socket listeners setup
+// ─── Socket listeners ────────────────────────────────────────
 socket.on('connect', () => {
-  adicionarAoFeed('feed', 'Painel do Dono conectado ao servidor principal');
+  adicionarAoFeed('feed', 'Painel do Dono conectado ao servidor');
 });
 
-socket.on('estado_caixa', (turno) => {
-  showToast(`Status do caixa alterado para: ${turno.status}`, 'ph-lock-open');
-  carregarMetricas();
-});
-
+socket.on('estado_caixa', () => carregarMetricas());
 socket.on('caixa_aberto_sucesso', () => {
-  showToast('Caixa aberto com sucesso!', 'ph-check');
+  showToast('✅ Caixa aberto com sucesso!', 'ph-lock-open', 'success');
   carregarMetricas();
 });
-
 socket.on('erro_caixa', (msg) => {
   setLoader(false);
-  alert(`Erro ao abrir caixa: ${msg}`);
+  showToast(`Erro ao abrir caixa: ${msg}`, 'ph-warning', 'error');
 });
-
 socket.on('erro_fechar_caixa', (data) => {
   setLoader(false);
-  alert(`Erro ao fechar caixa: ${data.msg}`);
+  showToast(`Erro ao fechar caixa: ${data && data.msg || data}`, 'ph-warning', 'error');
 });
-
-// Real-time metrics triggers
+socket.on('atualizacao_caixa', () => {
+  if (window.periodoAtual === 'hoje') carregarMetricas();
+});
+socket.on('financeiro_atualizado', () => {
+  if (window.periodoAtual === 'hoje') carregarMetricas();
+});
 socket.on('pedido_novo', (pedido) => {
   carregarMetricas();
-  adicionarAoFeed('venda', `Novo pedido recebido de ${pedido.userName} (${pedido.localName}): ${pedido.productName}`);
+  adicionarAoFeed('venda', `Novo pedido de ${pedido.userName} (${pedido.localName}): ${pedido.productName}`);
 });
-
 socket.on('pedido_adicionado', (pedido) => {
   carregarMetricas();
-  adicionarAoFeed('venda', `Item adicionado: ${pedido.quantity}x ${pedido.productName} na ${pedido.localName}`);
+  adicionarAoFeed('venda', `${pedido.quantity}x ${pedido.productName} na ${pedido.localName}`);
 });
-
 socket.on('status_atualizado', (pedido) => {
   carregarMetricas();
-  adicionarAoFeed('venda', `Pedido de ${pedido.productName} na ${pedido.localName} mudou para: ${pedido.status}`);
+  adicionarAoFeed('venda', `${pedido.productName} (${pedido.localName}) → ${pedido.status}`);
 });
-
-socket.on('atualizacao_caixa', () => {
-  carregarMetricas();
-});
-
 socket.on('rh_update', () => {
   carregarMetricas();
-  adicionarAoFeed('ponto', 'Informações de RH / Colaboradores atualizadas!');
+  adicionarAoFeed('ponto', 'Informações de colaboradores atualizadas!');
 });
-
 socket.on('alerta_desconto_financeiro', (data) => {
   carregarMetricas();
   if (data && data.valor) {
-    adicionarAoFeed('venda', `⚠️ Desconto de R$ ${parseFloat(data.valor).toFixed(2)} por ${data.operador} em ${data.localName}`);
+    adicionarAoFeed('venda', `⚠️ Desconto R$${parseFloat(data.valor).toFixed(2)} por ${data.operador} em ${data.localName}`);
   }
 });
 
+// Confirmações de ações do dono
 socket.on('dono_acao_concluida', (data) => {
-  showToast(data.mensagem || 'Ação registrada com sucesso!', 'ph-check-circle');
+  showToast(data.mensagem || 'Ação registrada com sucesso!', 'ph-check-circle', 'success');
   carregarMetricas();
+  adicionarAoFeed('aviso', data.mensagem || 'Ação registrada com sucesso!');
+});
+socket.on('dono_acao_erro', (data) => {
+  showToast(data.mensagem || 'Erro ao executar ação.', 'ph-warning', 'error');
 });
 
-// Start initialization
+// ─── Inicialização ────────────────────────────────────────────
+window.onload = () => {
+  startClock();
+  carregarMetricas();
+};
 startClock();
 carregarMetricas();
