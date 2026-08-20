@@ -3824,12 +3824,48 @@ window.carregarSuporte = function() {
         '<td style="padding:10px 12px;text-align:center;color:#888;">' + esc(m.especialidade || 'Geral') + '</td>' +
         '<td style="padding:10px 12px;text-align:center;"><span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;background:' + stColor + '22;color:' + stColor + ';border:1px solid ' + stColor + '44;">' + esc((m.status || 'disponivel').toUpperCase()) + '</span></td>' +
         '<td style="padding:10px 12px;text-align:center;color:#888;font-size:11px;">' + (m.data_cadastro ? new Date(m.data_cadastro).toLocaleDateString('pt-BR') : '—') + '</td>' +
+        '<td style="padding:10px 12px;text-align:center;">' +
+          '<button class="btn-action" style="padding:4px 8px;font-size:11px;background:#22c55e;color:white;" onclick="abrirModalMetaComissao(' + m.id + ',\'' + escapeHtml(m.nome) + '\',' + (m.comissao_padrao || 10) + ',' + (m.meta_vendas_mes || 5) + ',' + (m.bonificacao_meta || 200) + ')"><i class="fa-solid fa-sliders"></i> Metas / Comissões</button>' +
+        '</td>' +
         '</tr>';
     });
     tbody.innerHTML = html;
   });
 
   carregarMetricasComerciaisSuporte();
+};
+
+window.abrirModalMetaComissao = function(id, nome, comissao, meta, bonus) {
+  document.getElementById('edit-vendedor-id').value = id;
+  document.getElementById('edit-vendedor-nome').textContent = nome;
+  document.getElementById('edit-vendedor-comissao').value = comissao || 10;
+  document.getElementById('edit-vendedor-meta').value = meta || 5;
+  document.getElementById('edit-vendedor-bonus').value = bonus || 200;
+  document.getElementById('modal-editar-meta-comissao').classList.add('active');
+};
+
+window.fecharModalMetaComissao = function() {
+  document.getElementById('modal-editar-meta-comissao').classList.remove('active');
+};
+
+window.salvarMetasComissaoVendedor = function() {
+  var id = parseInt(document.getElementById('edit-vendedor-id').value);
+  var comissao = parseFloat(document.getElementById('edit-vendedor-comissao').value);
+  var meta = parseInt(document.getElementById('edit-vendedor-meta').value);
+  var bonus = parseFloat(document.getElementById('edit-vendedor-bonus').value);
+
+  if (!id) return;
+
+  apiPut('/api/super/suporte/' + id + '/metas-comissao', {
+    comissao_padrao: comissao,
+    meta_vendas_mes: meta,
+    bonificacao_meta: bonus
+  }, function(err, data) {
+    if (err || !data || !data.ok) return showToast('Erro ao atualizar metas e comissões.', 'danger');
+    showToast(data.mensagem || 'Metas e comissão atualizadas com sucesso!', 'success');
+    fecharModalMetaComissao();
+    carregarSuporte();
+  });
 };
 
 window.carregarMetricasComerciaisSuporte = function() {

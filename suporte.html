@@ -418,20 +418,53 @@
           </div>
         </div>
 
-        <!-- Minhas Vendas & Onboarding -->
+        <!-- Minhas Vendas, Comissões & Onboarding -->
         <div class="content-section" id="sec-vendas">
           <div class="card-header">
             <div>
-              <h2 style="font-family:'Outfit',sans-serif;"><i class="fa-solid fa-key" style="color:var(--warning);"></i> Minhas Vendas & Onboarding</h2>
-              <p style="color:var(--text-muted);font-size:0.85rem;">Venda o sistema Chef Cozinha para estabelecimentos e gerencie o onboarding inicial dos seus clientes.</p>
+              <h2 style="font-family:'Outfit',sans-serif;"><i class="fa-solid fa-hand-holding-dollar" style="color:var(--warning);"></i> Minhas Vendas, Comissões & Onboarding</h2>
+              <p style="color:var(--text-muted);font-size:0.85rem;">Acompanhe suas vendas, comissões acumuladas, saldo para saque, metas do mês e eficiência de conversão.</p>
             </div>
-            <button class="btn btn-primary" onclick="abrirModalNovaVenda()"><i class="fa-solid fa-cart-plus"></i> Registrar Nova Venda</button>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+              <button class="btn" style="background:#8b5cf6;color:white;" onclick="abrirModalAdiantamento()"><i class="fa-solid fa-piggy-bank"></i> Solicitar Adiantamento</button>
+              <button class="btn btn-primary" onclick="abrirModalNovaVenda()"><i class="fa-solid fa-cart-plus"></i> Registrar Nova Venda</button>
+            </div>
+          </div>
+
+          <!-- CARDS FINANCEIROS & METAS DO VENDEDOR -->
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-top:1rem;margin-bottom:1rem;" id="vendor-finance-cards">
+            <div class="card" style="padding:1rem;">
+              <div style="font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;font-weight:600;">Saldo Disponível</div>
+              <div style="font-size:1.6rem;font-weight:800;color:var(--success);margin-top:4px;" id="v-saldo-liquido">R$ 0,00</div>
+              <small style="color:var(--text-muted);font-size:0.7rem;">Comissões + Bônus - Adiantamentos</small>
+            </div>
+
+            <div class="card" style="padding:1rem;">
+              <div style="font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;font-weight:600;">Comissões Acumuladas</div>
+              <div style="font-size:1.6rem;font-weight:800;color:var(--warning);margin-top:4px;" id="v-total-comissoes">R$ 0,00</div>
+              <small style="color:var(--text-muted);font-size:0.7rem;" id="v-total-vendas-valor">Em R$ 0,00 em vendas</small>
+            </div>
+
+            <div class="card" style="padding:1rem;">
+              <div style="font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;font-weight:600;">Meta de Vendas (Mês)</div>
+              <div style="font-size:1.4rem;font-weight:800;color:white;margin-top:4px;" id="v-meta-status">0 / 5</div>
+              <div style="background:rgba(255,255,255,0.1);height:6px;border-radius:10px;margin-top:6px;overflow:hidden;">
+                <div id="v-meta-progress-bar" style="background:var(--accent);height:100%;width:0%;"></div>
+              </div>
+              <small style="color:var(--text-muted);font-size:0.7rem;" id="v-bonificacao-label">Bônus Meta: R$ 200,00</small>
+            </div>
+
+            <div class="card" style="padding:1rem;">
+              <div style="font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;font-weight:600;">Eficiência de Conversão</div>
+              <div style="font-size:1.6rem;font-weight:800;color:#3b82f6;margin-top:4px;" id="v-eficiencia">0%</div>
+              <small style="color:var(--text-muted);font-size:0.7rem;" id="v-conversao-detalhe">Fechados vs Contatos</small>
+            </div>
           </div>
 
           <div class="card" style="padding:0;overflow:hidden;margin-top:1rem;">
             <div style="padding:1rem;background:rgba(255,255,255,0.03);border-bottom:1px solid var(--border-color);display:flex;justify-content:space-between;align-items:center;">
-              <h4 style="margin:0;"><i class="fa-solid fa-list"></i> Histórico de Restaurantes Vendidos & Atribuídos</h4>
-              <button class="btn btn-sm" onclick="carregarMinhasVendas()"><i class="fa-solid fa-rotate"></i> Atualizar</button>
+              <h4 style="margin:0;"><i class="fa-solid fa-list"></i> Histórico de Vendas & Comissões Atribuídas</h4>
+              <button class="btn btn-sm" onclick="carregarFinanceiroSuporte()"><i class="fa-solid fa-rotate"></i> Atualizar</button>
             </div>
             <div class="table-container">
               <table>
@@ -439,10 +472,10 @@
                   <tr>
                     <th>Chave Emitida</th>
                     <th>Restaurante</th>
-                    <th>Contato / Resp</th>
                     <th>Plano / Valor</th>
-                    <th>Fator de Decisão</th>
-                    <th>Objeção Superada / Ajudas</th>
+                    <th>Comissão (%)</th>
+                    <th>Comissão (R$)</th>
+                    <th>Fator / Objeção</th>
                     <th>Data</th>
                   </tr>
                 </thead>
@@ -596,6 +629,30 @@
       <div class="modal-footer" style="padding:1rem 1.2rem;">
         <button class="btn" onclick="fecharModalNovaVenda()">Cancelar</button>
         <button class="btn btn-primary" onclick="salvarVendaSuporte()"><i class="fa-solid fa-check"></i> Emitir Chave & Atribuir Onboarding</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: SOLICITAR ADIANTAMENTO -->
+  <div class="modal-overlay" id="modal-adiantamento">
+    <div class="modal-content" style="max-width:420px;">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-piggy-bank" style="color:#8b5cf6;"></i> Solicitar Adiantamento / Vale</h3>
+        <button class="btn btn-sm" onclick="fecharModalAdiantamento()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body" style="padding:1.2rem;">
+        <div class="form-group">
+          <label>Valor do Adiantamento (R$)</label>
+          <input type="number" id="adiantamento-valor" placeholder="Ex: 100.00" step="10">
+        </div>
+        <div class="form-group">
+          <label>Motivo / Observação</label>
+          <input type="text" id="adiantamento-desc" placeholder="Ex: Adiantamento de comissão de vendas">
+        </div>
+      </div>
+      <div class="modal-footer" style="padding:1rem 1.2rem;">
+        <button class="btn" onclick="fecharModalAdiantamento()">Cancelar</button>
+        <button class="btn" style="background:#8b5cf6;color:white;" onclick="confirmarSolicitarAdiantamento()"><i class="fa-solid fa-check"></i> Confirmar Adiantamento</button>
       </div>
     </div>
   </div>

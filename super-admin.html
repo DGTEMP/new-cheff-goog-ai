@@ -3915,6 +3915,36 @@
         <button class="btn-action" style="background:#f59e0b;color:white;" onclick="enviarAvisoSuporte()"><i class="fa-solid fa-bullhorn"></i> Transmitir Aviso</button>
       </div>
     </div>
+  <!-- MODAL: EDITAR METAS E COMISSÃO DO VENDEDOR / AFILIADO -->
+  <div class="modal-overlay" id="modal-editar-meta-comissao">
+    <div class="modal-content" style="max-width:480px; width:92%;">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-sliders" style="color:#22c55e;"></i> Ajustar Metas e Comissão do Vendedor</h3>
+        <button class="modal-close" onclick="fecharModalMetaComissao()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="edit-vendedor-id">
+        <div style="background:#11131f;padding:12px;border-radius:10px;margin-bottom:15px;color:white;font-weight:bold;" id="edit-vendedor-nome">
+          Colaborador
+        </div>
+        <div class="form-group">
+          <label>Taxa de Comissão Padrão por Venda (%)</label>
+          <input type="number" id="edit-vendedor-comissao" placeholder="Ex: 10" step="0.5" value="10">
+        </div>
+        <div class="form-group">
+          <label>Meta de Vendas Mensais (Quantidade)</label>
+          <input type="number" id="edit-vendedor-meta" placeholder="Ex: 5" step="1" value="5">
+        </div>
+        <div class="form-group">
+          <label>Bônus em R$ ao Atingir a Meta (R$)</label>
+          <input type="number" id="edit-vendedor-bonus" placeholder="Ex: 200.00" step="10" value="200">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-action" onclick="fecharModalMetaComissao()">Cancelar</button>
+        <button class="btn-action" style="background:#22c55e;color:white;" onclick="salvarMetasComissaoVendedor()"><i class="fa-solid fa-floppy-disk"></i> Salvar Alterações</button>
+      </div>
+    </div>
   </div>
 
 </body>

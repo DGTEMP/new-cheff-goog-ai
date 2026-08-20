@@ -113,7 +113,7 @@ function switchTabSuporte(targetId) {
     sections[j].className = sections[j].id === targetId ? 'content-section active' : 'content-section';
   }
   if (targetId === 'sec-dashboard') carregarDashboardSuporte();
-  else if (targetId === 'sec-vendas') carregarMinhasVendas();
+  else if (targetId === 'sec-vendas') carregarFinanceiroSuporte();
   else if (targetId === 'sec-restaurantes') carregarRestaurantesSuporte();
   else if (targetId === 'sec-cardapio') { if (_restauranteAtual) carregarProdutos(); }
   else if (targetId === 'sec-tarefas') carregarAtividades();
@@ -563,8 +563,99 @@ function salvarVendaSuporte() {
     }
     alert(data.mensagem || 'Venda realizada com sucesso!');
     fecharModalNovaVenda();
-    carregarMinhasVendas();
+    carregarFinanceiroSuporte();
     carregarRestaurantesSuporte();
+  });
+}
+
+function carregarFinanceiroSuporte() {
+  apiGet('/api/suporte/financeiro', function(err, data) {
+    if (err || !data || !data.ok) { carregarMinhasVendas(); return; }
+
+    var f = data.financeiro || {};
+    if (document.getElementById('v-saldo-liquido')) {
+      document.getElementById('v-saldo-liquido').textContent = 'R$ ' + parseFloat(f.saldoLiquido || 0).toFixed(2);
+    }
+    if (document.getElementById('v-total-comissoes')) {
+      document.getElementById('v-total-comissoes').textContent = 'R$ ' + parseFloat(f.totalComissoes || 0).toFixed(2);
+    }
+    if (document.getElementById('v-total-vendas-valor')) {
+      document.getElementById('v-total-vendas-valor').textContent = 'Em R$ ' + parseFloat(f.totalVendasValor || 0).toFixed(2) + ' em vendas';
+    }
+    if (document.getElementById('v-meta-status')) {
+      document.getElementById('v-meta-status').textContent = (f.vendasFechadasCount || 0) + ' / ' + (f.metaVendas || 5);
+    }
+    if (document.getElementById('v-meta-progress-bar')) {
+      document.getElementById('v-meta-progress-bar').style.width = (f.progressoMetaPct || 0) + '%';
+    }
+    if (document.getElementById('v-bonificacao-label')) {
+      document.getElementById('v-bonificacao-label').textContent = f.atingiuMeta ? '🎉 Bônus de R$ ' + parseFloat(f.bonificacaoMeta || 200).toFixed(2) + ' CONQUISTADO!' : 'Bônus Meta: R$ ' + parseFloat(f.bonificacaoMeta || 200).toFixed(2);
+    }
+    if (document.getElementById('v-eficiencia')) {
+      document.getElementById('v-eficiencia').textContent = f.eficienciaConversao || '0%';
+    }
+
+    // Renderizar tabela de vendas com comissões
+    var tbody = document.getElementById('minhas-vendas-body');
+    if (!tbody) return;
+    var vendas = data.vendas || [];
+    if (vendas.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);">Nenhuma venda registrada ainda. Clique em "Registrar Nova Venda" para começar.</td></tr>';
+      return;
+    }
+
+    var h = '';
+    var fatoresLabels = {
+      facilidade_interface: 'Interface / Facilidade',
+      pedido_qrcode: 'Cardápio QR Code',
+      controle_financeiro: 'Controle Financeiro',
+      integracao_ifood: 'Integração iFood',
+      suporte_humanizado: 'Suporte Humanizado',
+      preco_competitivo: 'Custo-Benefício',
+      estabilidade_offline: 'Modo Offline',
+      outro: 'Outro'
+    };
+    for (var i = 0; i < vendas.length; i++) {
+      var v = vendas[i];
+      var stColor = v.status_venda === 'fechado' ? 'var(--success)' : (v.status_venda === 'negociacao' ? 'var(--warning)' : 'var(--danger)');
+      h += '<tr>' +
+        '<td><code style="color:var(--accent);font-weight:bold;">' + esc(v.chave_ativacao) + '</code></td>' +
+        '<td><strong style="color:white;">' + esc(v.restaurante_nome) + '</strong><br><small style="color:var(--text-muted);">#' + (v.restaurante_id || '—') + '</small></td>' +
+        '<td><span style="color:var(--warning);font-weight:bold;">' + esc(v.plano.toUpperCase()) + '</span><br><small>R$ ' + parseFloat(v.valor_venda || 0).toFixed(2) + '</small></td>' +
+        '<td><span class="level-badge" style="font-size:0.75rem;">' + (v.comissao_percentual || 10) + '%</span></td>' +
+        '<td><strong style="color:var(--success);">R$ ' + parseFloat(v.comissao_valor || 0).toFixed(2) + '</strong></td>' +
+        '<td><small style="color:var(--text-muted);">Fator: ' + esc(fatoresLabels[v.fator_decisao] || v.fator_decisao || '—') + '<br>Objeção: ' + esc(v.objeção_nao_fecho || 'Nenhuma') + '</small></td>' +
+        '<td><small>' + (v.data_venda ? new Date(v.data_venda).toLocaleDateString('pt-BR') : '—') + '</small></td>' +
+        '</tr>';
+    }
+    tbody.innerHTML = h;
+  });
+}
+
+function abrirModalAdiantamento() {
+  document.getElementById('adiantamento-valor').value = '';
+  document.getElementById('adiantamento-desc').value = '';
+  document.getElementById('modal-adiantamento').classList.add('active');
+}
+
+function fecharModalAdiantamento() {
+  document.getElementById('modal-adiantamento').classList.remove('active');
+}
+
+function confirmarSolicitarAdiantamento() {
+  var val = parseFloat(document.getElementById('adiantamento-valor').value);
+  var desc = document.getElementById('adiantamento-desc').value.trim();
+
+  if (!val || val <= 0) { alert('Informe um valor válido para o adiantamento.'); return; }
+
+  apiPost('/api/suporte/adiantamentos', { valor: val, descricao: desc }, function(err, data) {
+    if (err || !data || !data.ok) {
+      alert(err || (data && data.erro) || 'Erro ao solicitar adiantamento.');
+      return;
+    }
+    alert(data.mensagem || 'Adiantamento registrado!');
+    fecharModalAdiantamento();
+    carregarFinanceiroSuporte();
   });
 }
 /* ═══ SIDEBAR EVENTS ═══ */

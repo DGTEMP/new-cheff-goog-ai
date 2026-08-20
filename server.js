@@ -2274,45 +2274,52 @@ app.post('/api/suporte/vendas', suporteAuth, async (req, res) => {
   const valorVal = parseFloat(valor_venda) || (planoVal === 'premium' ? 299 : (planoVal === 'pro' ? 199 : 149));
   const stVenda = status_venda || 'fechado';
 
-  // Gerar chave de ativação única (ex: CHEF-VNDA-8821-9923)
-  const partes = Array.from({ length: 3 }, () => Math.random().toString(36).substring(2, 6).toUpperCase());
-  const chave = `CHEF-${partes.join('-')}`;
+  // Buscar percentual de comissão padrão do vendedor
+  masterDb.get(`SELECT comissao_padrao FROM equipe_suporte WHERE id = ?`, [req.suporteId], (errM, rowM) => {
+    const comissaoPct = rowM && rowM.comissao_padrao ? parseFloat(rowM.comissao_padrao) : 10;
+    const comissaoValor = stVenda === 'fechado' ? (valorVal * comissaoPct / 100) : 0;
 
-  try {
-    // 1. Criar restaurante no sistema
-    masterDb.run(`INSERT INTO restaurantes (nome, licenca, ativo, chave_ativacao, data_cadastro) VALUES (?, ?, 1, ?, datetime('now','localtime'))`,
-      [restaurante_nome.trim(), 'ativo', chave], function(errR) {
-        if (errR) return res.json({ ok: false, erro: errR.message });
-        const restauranteId = this.lastID;
+    // Gerar chave de ativação única (ex: CHEF-VNDA-8821-9923)
+    const partes = Array.from({ length: 3 }, () => Math.random().toString(36).substring(2, 6).toUpperCase());
+    const chave = `CHEF-${partes.join('-')}`;
 
-        // 2. Registrar no catálogo de licenças
-        masterDb.run(`INSERT INTO licencas (chave, restaurante_nome, plano, dias, validade, obs, status, usada_em, usada_por) VALUES (?, ?, ?, 365, datetime('now','+365 days','localtime'), ?, 'usada', datetime('now','localtime'), ?)`,
-          [chave, restaurante_nome.trim(), planoVal, `Venda efetuada pelo Suporte #${req.suporteId}`, restaurante_nome.trim()]);
+    try {
+      // 1. Criar restaurante no sistema
+      masterDb.run(`INSERT INTO restaurantes (nome, licenca, ativo, chave_ativacao, data_cadastro) VALUES (?, ?, 1, ?, datetime('now','localtime'))`,
+        [restaurante_nome.trim(), 'ativo', chave], function(errR) {
+          if (errR) return res.json({ ok: false, erro: errR.message });
+          const restauranteId = this.lastID;
 
-        // 3. Atribuir IMEDIATAMENTE o restaurante ao suporte (para onboarding e apoio)
-        masterDb.run(`INSERT OR IGNORE INTO suporte_restaurantes (suporte_id, restaurante_id, tipo_suporte) VALUES (?, ?, 'comercial_onboarding')`,
-          [req.suporteId, restauranteId]);
+          // 2. Registrar no catálogo de licenças
+          masterDb.run(`INSERT INTO licencas (chave, restaurante_nome, plano, dias, validade, obs, status, usada_em, usada_por) VALUES (?, ?, ?, 365, datetime('now','+365 days','localtime'), ?, 'usada', datetime('now','localtime'), ?)`,
+            [chave, restaurante_nome.trim(), planoVal, `Venda efetuada pelo Suporte #${req.suporteId}`, restaurante_nome.trim()]);
 
-        // 4. Registrar a venda com as métricas estratégicas
-        masterDb.run(`INSERT INTO suporte_vendas (suporte_id, chave_ativacao, restaurante_nome, restaurante_id, contato_nome, contato_telefone, plano, valor_venda, fator_decisao, objeção_nao_fecho, ajudas_usabilidade, status_venda) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [req.suporteId, chave, restaurante_nome.trim(), restauranteId, contato_nome || '', contato_telefone || '', planoVal, valorVal, fator_decisao || '', objecao_nao_fecho || '', ajudas_usabilidade || '', stVenda],
-          function(errV) {
-            if (errV) return res.json({ ok: false, erro: errV.message });
+          // 3. Atribuir IMEDIATAMENTE o restaurante ao suporte (para onboarding e apoio)
+          masterDb.run(`INSERT OR IGNORE INTO suporte_restaurantes (suporte_id, restaurante_id, tipo_suporte) VALUES (?, ?, 'comercial_onboarding')`,
+            [req.suporteId, restauranteId]);
 
-            // Creditar XP pela venda
-            gerarXP(req.suporteId, 50, 'venda_restaurante', `Vendeu o plano ${planoVal.toUpperCase()} para o restaurante "${restaurante_nome}"`, restauranteId);
+          // 4. Registrar a venda com comissão calculada
+          masterDb.run(`INSERT INTO suporte_vendas (suporte_id, chave_ativacao, restaurante_nome, restaurante_id, contato_nome, contato_telefone, plano, valor_venda, fator_decisao, objeção_nao_fecho, ajudas_usabilidade, status_venda, comissao_percentual, comissao_valor) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [req.suporteId, chave, restaurante_nome.trim(), restauranteId, contato_nome || '', contato_telefone || '', planoVal, valorVal, fator_decisao || '', objecao_nao_fecho || '', ajudas_usabilidade || '', stVenda, comissaoPct, comissaoValor],
+            function(errV) {
+              if (errV) return res.json({ ok: false, erro: errV.message });
 
-            res.json({
-              ok: true,
-              chave,
-              restauranteId,
-              mensagem: `Venda registrada! Chave ${chave} emitida e restaurante #${restauranteId} atribuído a você para onboarding.`
-            });
-          }
-        );
-      }
-    );
-  } catch (e) { res.json({ ok: false, erro: e.message }); }
+              // Creditar XP pela venda
+              gerarXP(req.suporteId, 50, 'venda_restaurante', `Vendeu o plano ${planoVal.toUpperCase()} para o restaurante "${restaurante_nome}"`, restauranteId);
+
+              res.json({
+                ok: true,
+                chave,
+                restauranteId,
+                comissaoValor,
+                mensagem: `Venda registrada! Chave ${chave} emitida. Comissão de R$ ${comissaoValor.toFixed(2)} atribuída.`
+              });
+            }
+          );
+        }
+      );
+    } catch (e) { res.json({ ok: false, erro: e.message }); }
+  });
 });
 
 // GET /api/super/suporte/metricas-vendas — Dashboard Estratégico de Vendas e Objeções para o Super Admin
@@ -2387,6 +2394,103 @@ app.get('/api/super/suporte/metricas-vendas', superAdminAuth, (req, res) => {
       vendas
     });
   });
+});
+
+// GET /api/suporte/financeiro — Extrato financeiro, comissões, saldo, metas e eficiência do vendedor logado
+app.get('/api/suporte/financeiro', suporteAuth, (req, res) => {
+  const suporteId = req.suporteId;
+  masterDb.get(`SELECT * FROM equipe_suporte WHERE id = ?`, [suporteId], (err, vendedor) => {
+    if (err || !vendedor) return res.json({ ok: false, erro: 'Vendedor não encontrado.' });
+
+    // Vendas e Comissões
+    masterDb.all(`SELECT * FROM suporte_vendas WHERE suporte_id = ? ORDER BY data_venda DESC`, [suporteId], (errV, vendas) => {
+      // Adiantamentos
+      masterDb.all(`SELECT * FROM suporte_adiantamentos WHERE suporte_id = ? ORDER BY data_solicitacao DESC`, [suporteId], (errA, adiantamentos) => {
+        const listaVendas = vendas || [];
+        const listaAdiantamentos = adiantamentos || [];
+
+        let totalVendasValor = 0;
+        let totalComissoes = 0;
+        let vendasFechadasCount = 0;
+        let vendasPerdidasCount = 0;
+
+        listaVendas.forEach(v => {
+          if (v.status_venda === 'fechado') {
+            vendasFechadasCount++;
+            totalVendasValor += parseFloat(v.valor_venda || 0);
+            totalComissoes += parseFloat(v.comissao_valor || 0);
+          } else {
+            vendasPerdidasCount++;
+          }
+        });
+
+        let totalAdiantamentos = 0;
+        listaAdiantamentos.forEach(a => {
+          if (a.status === 'aprovado' || a.status === 'pago') {
+            totalAdiantamentos += parseFloat(a.valor || 0);
+          }
+        });
+
+        const metaVendas = vendedor.meta_vendas_mes || 5;
+        const bonificacaoMeta = vendedor.bonificacao_meta || 200;
+        const atingiuMeta = vendasFechadasCount >= metaVendas;
+        const valorBonificacao = atingiuMeta ? bonificacaoMeta : 0;
+
+        const saldoLiquido = (totalComissoes + valorBonificacao) - totalAdiantamentos;
+
+        const totalContatos = listaVendas.length;
+        const eficienciaConversao = totalContatos > 0 ? ((vendasFechadasCount / totalContatos) * 100).toFixed(1) : 0;
+
+        res.json({
+          ok: true,
+          financeiro: {
+            totalVendasValor,
+            totalComissoes,
+            totalAdiantamentos,
+            valorBonificacao,
+            saldoLiquido,
+            metaVendas,
+            vendasFechadasCount,
+            vendasPerdidasCount,
+            atingiuMeta,
+            bonificacaoMeta,
+            eficienciaConversao: `${eficienciaConversao}%`,
+            progressoMetaPct: Math.min(100, Math.round(vendasFechadasCount / metaVendas * 100))
+          },
+          vendas: listaVendas,
+          adiantamentos: listaAdiantamentos
+        });
+      });
+    });
+  });
+});
+
+// POST /api/suporte/adiantamentos — Solicitar adiantamento de comissão
+app.post('/api/suporte/adiantamentos', suporteAuth, (req, res) => {
+  const { valor, descricao } = req.body || {};
+  const val = parseFloat(valor);
+  if (!val || val <= 0) return res.json({ ok: false, erro: 'Valor inválido.' });
+
+  masterDb.run(`INSERT INTO suporte_adiantamentos (suporte_id, valor, descricao, status) VALUES (?, ?, ?, 'aprovado')`,
+    [req.suporteId, val, descricao || 'Adiantamento de Comissão'], function(err) {
+      if (err) return res.json({ ok: false, erro: err.message });
+      res.json({ ok: true, mensagem: `Adiantamento de R$ ${val.toFixed(2)} registrado com sucesso!` });
+    }
+  );
+});
+
+// PUT /api/super/suporte/:id/metas-comissao — Super Admin ajustar metas e comissão de um vendedor
+app.put('/api/super/suporte/:id/metas-comissao', superAdminAuth, (req, res) => {
+  const suporteId = parseInt(req.params.id);
+  const { meta_vendas_mes, comissao_padrao, bonificacao_meta } = req.body || {};
+
+  masterDb.run(`UPDATE equipe_suporte SET meta_vendas_mes = ?, comissao_padrao = ?, bonificacao_meta = ? WHERE id = ?`,
+    [parseInt(meta_vendas_mes) || 5, parseFloat(comissao_padrao) || 10, parseFloat(bonificacao_meta) || 200, suporteId],
+    function(err) {
+      if (err) return res.json({ ok: false, erro: err.message });
+      res.json({ ok: true, mensagem: 'Metas e comissões do vendedor atualizadas!' });
+    }
+  );
 });
 
 // POST /api/suporte/atualizar-status — Alterar status do atendente
@@ -2685,7 +2789,24 @@ masterDb.serialize(async () => {
     objeção_nao_fecho TEXT,
     ajudas_usabilidade TEXT,
     status_venda TEXT DEFAULT 'fechado',
+    comissao_percentual REAL DEFAULT 10,
+    comissao_valor REAL DEFAULT 0,
     data_venda DATETIME DEFAULT (datetime('now','localtime'))
+  )`);
+  masterDb.run(`ALTER TABLE suporte_vendas ADD COLUMN comissao_percentual REAL DEFAULT 10`, (err) => { });
+  masterDb.run(`ALTER TABLE suporte_vendas ADD COLUMN comissao_valor REAL DEFAULT 0`, (err) => { });
+
+  masterDb.run(`ALTER TABLE equipe_suporte ADD COLUMN meta_vendas_mes INTEGER DEFAULT 5`, (err) => { });
+  masterDb.run(`ALTER TABLE equipe_suporte ADD COLUMN comissao_padrao REAL DEFAULT 10`, (err) => { });
+  masterDb.run(`ALTER TABLE equipe_suporte ADD COLUMN bonificacao_meta REAL DEFAULT 200`, (err) => { });
+
+  masterDb.run(`CREATE TABLE IF NOT EXISTS suporte_adiantamentos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    suporte_id INTEGER,
+    valor REAL DEFAULT 0,
+    descricao TEXT,
+    status TEXT DEFAULT 'aprovado',
+    data_solicitacao DATETIME DEFAULT (datetime('now','localtime'))
   )`);
   masterDb.run(`CREATE TABLE IF NOT EXISTS telemetria (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
