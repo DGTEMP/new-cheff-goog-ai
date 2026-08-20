@@ -1,5 +1,4 @@
 // painel-dono.js - Owner Mobile Dashboard Logic
-import { io } from 'socket.io-client';
 
 // (Segurança) Escapa valor para conteúdo HTML.
 function escHtml(v) {
@@ -20,12 +19,12 @@ if (!token) {
 let metaVendas = parseFloat(localStorage.getItem('meta_dono_vendas')) || 5000;
 
 // Initialize socket
-const socket = io({
+const socket = (typeof io === 'function') ? io({
   query: {
     token: token,
     restaurante_id: localStorage.getItem('restaurante_id') || '1'
   }
-});
+}) : { on: () => {}, emit: () => {}, disconnect: () => {}, connect: () => {} };
 
 socket.on('tenant_atualizado', (data) => {
   if (data && data.restaurante_id) {
