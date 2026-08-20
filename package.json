@@ -5,6 +5,7 @@
     "bin": "server-prod.js",
     "scripts": {
         "start": "concurrently \"node server.js\" \"vite --host\"",
+        "start:watchdog": "node watchdog.js",
         "dev": "vite --host",
         "build": "vite build",
         "postbuild": "node copy-super-admin.js",
