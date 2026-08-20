@@ -2158,9 +2158,17 @@
                 <h2 style="margin-bottom:6px;"><i class="fa-solid fa-headset"></i> Equipe de Suporte</h2>
                 <p style="color:#999;font-size:13px;">Gerencie os funcionários que prestam suporte aos restaurantes contratados.</p>
               </div>
-              <button class="btn-action btn-primary-action" id="btn-novo-suporte">
-                <i class="fa-solid fa-plus"></i> Novo Membro
-              </button>
+              <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                <button class="btn-action" style="background:#3b82f6;color:white;" onclick="abrirModalNovaTaskSuporte()">
+                  <i class="fa-solid fa-list-check"></i> Nova Task
+                </button>
+                <button class="btn-action" style="background:#f59e0b;color:white;" onclick="abrirModalEnviarAvisoSuporte()">
+                  <i class="fa-solid fa-bullhorn"></i> Enviar Aviso
+                </button>
+                <button class="btn-action btn-primary-action" id="btn-novo-suporte">
+                  <i class="fa-solid fa-plus"></i> Novo Membro
+                </button>
+              </div>
             </div>
 
             <div class="table-controls">
@@ -3737,6 +3745,91 @@
       </div>
       <div class="modal-footer">
         <button class="btn-action" onclick="fecharModalAfiliadoDetalhes()">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: CRIAR TASK PARA SUPORTE -->
+  <div class="modal-overlay" id="modal-nova-task-suporte">
+    <div class="modal-content" style="max-width:540px; width:92%;">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-list-check" style="color:#3b82f6;"></i> Atribuir Task para Suporte</h3>
+        <button class="modal-close" onclick="fecharModalNovaTaskSuporte()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Atribuir Para *</label>
+          <select id="task-suporte-id">
+            <option value="">Selecione o atendente de suporte...</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Restaurante Vinculado (Opcional)</label>
+          <select id="task-restaurante-id">
+            <option value="">Nenhum / Geral</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Título / Tipo da Task *</label>
+          <input type="text" id="task-tipo" placeholder="Ex: Configurar Cardápio de Bebidas, Treinamento WhatsApp...">
+        </div>
+        <div class="form-group">
+          <label>Descrição detalhada *</label>
+          <textarea id="task-descricao" rows="3" placeholder="Descreva o que o suporte precisa fazer..." style="width:100%;padding:10px;background:#111;border:1px solid #333;color:white;border-radius:6px;font-size:13px;"></textarea>
+        </div>
+        <div class="form-group">
+          <label>Recompensa (Pontos XP ao Concluir)</label>
+          <input type="number" id="task-pontos" value="10" min="1" max="500">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-action" onclick="fecharModalNovaTaskSuporte()">Cancelar</button>
+        <button class="btn-action" style="background:#3b82f6;color:white;" onclick="salvarTaskSuporte()"><i class="fa-solid fa-paper-plane"></i> Criar & Enviar Task</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: ENVIAR AVISO PARA SUPORTE -->
+  <div class="modal-overlay" id="modal-enviar-aviso-suporte">
+    <div class="modal-content" style="max-width:540px; width:92%;">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-bullhorn" style="color:#f59e0b;"></i> Enviar Aviso para Suporte</h3>
+        <button class="modal-close" onclick="fecharModalEnviarAvisoSuporte()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Destinatários *</label>
+          <select id="aviso-destino-tipo" onchange="toggleSelecaoSuporteAviso()">
+            <option value="todos">📢 Todos os Atendentes de Suporte</option>
+            <option value="selecionados">🎯 Atendentes Selecionados Especificamente</option>
+          </select>
+        </div>
+        <div class="form-group" id="container-selecao-suporte" style="display:none;">
+          <label>Selecione os Atendentes *</label>
+          <div id="lista-checkbox-suporte" style="max-height:150px;overflow-y:auto;background:#111;padding:10px;border-radius:8px;border:1px solid #333;display:flex;flex-direction:column;gap:8px;">
+            <!-- Injetado por JS -->
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Título do Aviso *</label>
+          <input type="text" id="aviso-titulo" placeholder="Ex: Atualização do Sistema, Reunião de Alinhamento...">
+        </div>
+        <div class="form-group">
+          <label>Tipo do Alerta</label>
+          <select id="aviso-tipo">
+            <option value="aviso">ℹ️ Informação / Geral</option>
+            <option value="importante">⚠️ Importante / Alerta</option>
+            <option value="urgente">🚨 Urgente / Prioridade</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Mensagem do Aviso *</label>
+          <textarea id="aviso-corpo" rows="4" placeholder="Escreva a mensagem completa..." style="width:100%;padding:10px;background:#111;border:1px solid #333;color:white;border-radius:6px;font-size:13px;"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-action" onclick="fecharModalEnviarAvisoSuporte()">Cancelar</button>
+        <button class="btn-action" style="background:#f59e0b;color:white;" onclick="enviarAvisoSuporte()"><i class="fa-solid fa-bullhorn"></i> Transmitir Aviso</button>
       </div>
     </div>
   </div>

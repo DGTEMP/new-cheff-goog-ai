@@ -1962,6 +1962,53 @@ app.delete('/api/super/equipe/:id/restaurantes/:restId', superAdminAuth, (req, r
     });
 });
 
+// POST /api/super/equipe/tasks — Super Admin atribui nova task para membro do suporte
+app.post('/api/super/equipe/tasks', superAdminAuth, (req, res) => {
+  const { suporte_id, tipo, descricao, restaurante_id, pontos } = req.body || {};
+  if (!suporte_id || !tipo || !descricao) return res.json({ ok: false, erro: 'Atendante de suporte, título e descrição são obrigatórios.' });
+  
+  const xpPontos = parseInt(pontos) || 10;
+  masterDb.run(`INSERT INTO tarefas_suporte (suporte_id, tipo, descricao, restaurante_id, pontos, status, criada_em) VALUES (?, ?, ?, ?, ?, 'pendente', datetime('now','localtime'))`,
+    [parseInt(suporte_id), tipo, descricao, restaurante_id ? parseInt(restaurante_id) : null, xpPontos],
+    function(err) {
+      if (err) return res.json({ ok: false, erro: err.message });
+      res.json({ ok: true, id: this.lastID, mensagem: 'Task criada e atribuída com sucesso ao atendente!' });
+    }
+  );
+});
+
+// POST /api/super/equipe/avisos — Super Admin envia aviso para todos ou atendentes selecionados
+app.post('/api/super/equipe/avisos', superAdminAuth, (req, res) => {
+  const { destino, suporte_ids, titulo, tipo, corpo } = req.body || {};
+  if (!titulo || !corpo) return res.json({ ok: false, erro: 'Título e mensagem do aviso são obrigatórios.' });
+  
+  const tipoAviso = tipo || 'aviso';
+  const prefix = tipoAviso === 'urgente' ? '🚨 [URGENTE SUPORTE] ' : (tipoAviso === 'importante' ? '⚠️ [ALERTA SUPORTE] ' : '📢 [AVISO SUPORTE] ');
+  const tituloFinal = prefix + titulo;
+
+  if (destino === 'selecionados' && Array.isArray(suporte_ids) && suporte_ids.length > 0) {
+    // Aviso para suportes selecionados especificamente (cria task/aviso individual)
+    let pendentes = suporte_ids.length; let erros = [];
+    suporte_ids.forEach(sid => {
+      masterDb.run(`INSERT INTO tarefas_suporte (suporte_id, tipo, descricao, pontos, status, criada_em) VALUES (?, ?, ?, 0, 'aviso', datetime('now','localtime'))`,
+        [sid, 'aviso_super', `${tituloFinal}: ${corpo}`], function(err) {
+          if (err) erros.push(err.message);
+          pendentes--;
+          if (pendentes <= 0) res.json({ ok: erros.length === 0, mensagem: `Aviso transmitido para ${suporte_ids.length - erros.length} atendente(s) selecionado(s)!` });
+        }
+      );
+    });
+  } else {
+    // Transmissão global (Broadcast para toda a equipe de suporte e mural do sistema)
+    masterDb.run(`INSERT INTO mensagens (titulo, corpo, tipo) VALUES (?, ?, ?)`,
+      [tituloFinal, corpo, tipoAviso], function(err) {
+        if (err) return res.json({ ok: false, erro: err.message });
+        res.json({ ok: true, mensagem: 'Aviso transmitido com sucesso para toda a equipe de suporte!' });
+      }
+    );
+  }
+});
+
 // ═══════════════════════════════════════════
 // PAINEL DE SUPORTE — AUTH, GESTÃO & GAMIFICAÇÃO
 // ═══════════════════════════════════════════
