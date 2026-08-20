@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -122,6 +122,16 @@
     </div>
     <h1>Bem-vindo de volta!</h1>
     <p class="subtitle">Faça login para acessar o sistema.</p>
+    
+    <!-- Seletor de Destino do Login -->
+    <div style="display:flex;background:#f1f5f9;padding:4px;border-radius:12px;margin-bottom:20px;">
+      <button id="tab-login-sistema" type="button" onclick="setDestinoLogin('sistema')" style="flex:1;padding:10px;border:none;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;background:var(--primary);color:white;transition:all 0.2s;">
+        <i class="ph ph-desktop"></i> Sistema Operacional
+      </button>
+      <button id="tab-login-dono" type="button" onclick="setDestinoLogin('dono')" style="flex:1;padding:10px;border:none;border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;background:transparent;color:var(--text-muted);transition:all 0.2s;">
+        <i class="ph ph-chart-line-up"></i> Painel do Dono
+      </button>
+    </div>
     
     <div class="input-group">
       <label>Usuário (E-mail)</label>

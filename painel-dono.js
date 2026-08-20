@@ -472,7 +472,9 @@ function abrirCaixaFluxo() {
 // Logout panel
 window.efetuarLogout = function() {
   if (confirm('Deseja sair do painel do dono?')) {
-    window.location.href = '/dashboard.html';
+    localStorage.removeItem('chef_token');
+    localStorage.removeItem('chef_credentials');
+    window.location.href = '/login.html';
   }
 };
 
