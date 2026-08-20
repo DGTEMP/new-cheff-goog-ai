@@ -11591,10 +11591,11 @@ function shutdown(signal) {
 process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 
-// Inicializar licença e depois subir o servidor com Dashboard Arch/Neofetch ────────────
+// Inicializar licença e depois subir o servidor com Animação Visualizer / Matrix ────────────
 licenseManager.initLicense().then((licState) => {
   server.listen(PORT, HOST, () => {
     const ip = getLocalIp();
+
     const banner = `
 ${ANSI.cyan}${ANSI.bright}  ╭─────────────────────────── System Fetch ───────────────────────────╮${ANSI.reset}
 ${ANSI.cyan}  │${ANSI.reset}   ${ANSI.magenta}󰣇 System:${ANSI.reset}     Chef Cozinha SaaS Kernel v1.0.0
@@ -11605,8 +11606,33 @@ ${ANSI.cyan}  │${ANSI.reset}   ${ANSI.blue}📱 Network:${ANSI.reset}    https
 ${ANSI.cyan}  │${ANSI.reset}   ${ANSI.magenta}🔑 License:${ANSI.reset}    ${licState.status.toUpperCase()} (${licState.restaurante || 'Dev Mode'})
 ${ANSI.cyan}  │${ANSI.reset}   ${ANSI.yellow}📊 Health:${ANSI.reset}     ${getEfficiencyStars()}
 ${ANSI.cyan}  ╰────────────────────────────────────────────────────────────────────╯${ANSI.reset}
-${ANSI.dim}────────────────────────────────────────────────────────────────────────${ANSI.reset}\n`;
+${ANSI.dim}────────────────────────────────────────────────────────────────────────${ANSI.reset}
+`;
     originalLog.apply(console, [banner]);
+
+    // Animação inicial de Matrix Rain & Equalizador por 2.5 segundos (Inspirada no Rice Arch Linux)
+    const katakana = "ｦｱｳｴｵｶｷｹｺｻｼｽｾｿﾀﾂﾃﾅﾆﾇﾈﾊﾋﾎﾏﾐﾑﾒﾓﾔﾕﾗﾘﾜ1234567890";
+    let animFrames = 0;
+    const animInterval = setInterval(() => {
+      animFrames++;
+      let line = '  ';
+      for (let i = 0; i < 48; i++) {
+        if (Math.random() > 0.4) {
+          const char = katakana[Math.floor(Math.random() * katakana.length)];
+          const col = Math.random() > 0.7 ? ANSI.green : (Math.random() > 0.85 ? ANSI.bright + ANSI.white : ANSI.dim + ANSI.green);
+          line += col + char + ANSI.reset;
+        } else {
+          line += ' ';
+        }
+      }
+      process.stdout.write(`\r${line}`);
+
+      if (animFrames >= 25) {
+        clearInterval(animInterval);
+        process.stdout.write('\r\x1b[K');
+        originalLog.apply(console, [`${ANSI.green}✨ [Visualizer Engine] Matrix & Audio Pipes Prontos! Aguardando Conexões...${ANSI.reset}\n`]);
+      }
+    }, 100);
   });
 });
 
