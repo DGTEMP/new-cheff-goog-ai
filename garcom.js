@@ -36,6 +36,11 @@ let tableGroupCache = {};
 let longPressTimer = null; // Used in UI for tables
 let isHomePressFired = false;
 let homePressTimeout = null;
+/* Restaura mesa ativa e carrinho da última sessão */
+try {
+  const lastMesa = localStorage.getItem('chef_last_mesa');
+  if (lastMesa) { currentTable = lastMesa; cart = JSON.parse(localStorage.getItem('chef_cart_' + lastMesa) || '[]'); if (!Array.isArray(cart)) cart = []; }
+} catch(e) { cart = []; }
 
 document.addEventListener('DOMContentLoaded', () => {
   const btnHome = document.getElementById('btn-home');
@@ -652,6 +657,7 @@ window.openTableContextMenu = (mesa, x, y) => {
     callback: () => {
       window.pendingShowBill = true;
       currentTable = mesa.nome;
+      localStorage.setItem('chef_last_mesa', currentTable);
       socket.emit('get_itens_mesa', mesa.nome);
     }
   });
@@ -913,12 +919,16 @@ document.addEventListener('DOMContentLoaded', () => {
 // --- Tables Logic ---
 function renderTables() {
   const grid = document.getElementById('tables-grid');
+  const empty = document.getElementById('tables-empty');
   grid.innerHTML = '';
   
   if (MESAS.length === 0) {
-    grid.innerHTML = '<div style="grid-column: span 3; text-align: center; color: #888;">Nenhuma mesa cadastrada.</div>';
+    grid.style.display = 'none';
+    if (empty) empty.style.display = 'block';
     return;
   }
+  grid.style.display = '';
+  if (empty) empty.style.display = 'none';
   
   MESAS.forEach(mesa => {
     const card = document.createElement('div');
@@ -952,6 +962,7 @@ function renderTables() {
     card.onclick = () => {
       if (garcomWasLongPress()) return;
       currentTable = mesa.nome;
+      localStorage.setItem('chef_last_mesa', currentTable);
       if (mesa.status === 'Ocupada' || mesa.status === 'Reservada') {
         openTableOptions(mesa);
       } else {
@@ -985,6 +996,7 @@ function saveCart(mesaName) {
 
 window.openTableOptions = (mesa) => {
   currentTable = mesa.nome;
+  localStorage.setItem('chef_last_mesa', currentTable);
   window.pendingShowBill = false;
   socket.emit('get_itens_mesa', mesa.nome);
   document.getElementById('options-table-name').innerText = mesa.nome;
@@ -1506,6 +1518,7 @@ window.renderMenu = function renderMenu() {
   window.scrollToActiveTab();
 
   const listContainer = document.getElementById('menu-list');
+  const emptyMenu = document.getElementById('menu-empty');
   const query = window.garcomSearchQuery || '';
   let filtered = [];
   if (query.trim() !== '') {
@@ -1515,9 +1528,11 @@ window.renderMenu = function renderMenu() {
   }
   
   if (filtered.length === 0) {
-    listContainer.innerHTML = '<div style="text-align: center; color: #888; padding: 20px;">Nenhum produto nesta categoria.</div>';
+    listContainer.innerHTML = '';
+    if (emptyMenu) emptyMenu.style.display = 'block';
     return;
   }
+  if (emptyMenu) emptyMenu.style.display = 'none';
   
   listContainer.innerHTML = filtered.map(item => `
     <div class="menu-item" data-menu-id="${item.id}" onclick="if(!garcomWasLongPress()) openDetails(${item.id})">

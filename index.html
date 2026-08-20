@@ -326,6 +326,38 @@
         display: none !important;
       }
     }
+
+    /* ═══ MODAL CONFIRM/PROMPT CUSTOM ═══ */
+    .chef-modal-overlay {
+      position: fixed; inset: 0; background: rgba(15,23,42,0.85); backdrop-filter: blur(6px);
+      display: flex; justify-content: center; align-items: center; z-index: 99999;
+      opacity: 0; transition: opacity 0.2s; font-family: 'Outfit', sans-serif;
+    }
+    .chef-modal-overlay.show { opacity: 1; }
+    .chef-modal-box {
+      background: #1e293b; border: 1px solid rgba(255,255,255,0.08); border-radius: 20px;
+      width: 90%; max-width: 420px; padding: 24px; display: flex; flex-direction: column; gap: 16px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.5); transform: scale(0.95); transition: transform 0.2s;
+    }
+    .chef-modal-overlay.show .chef-modal-box { transform: scale(1); }
+    .chef-modal-title { font-size: 16px; font-weight: 700; color: #f8fafc; }
+    .chef-modal-msg { font-size: 14px; color: #94a3b8; line-height: 1.5; white-space: pre-wrap; }
+    .chef-modal-input {
+      width: 100%; padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.05); color: #f8fafc; font-size: 14px; outline: none; box-sizing: border-box;
+    }
+    .chef-modal-input:focus { border-color: #fc4b15; }
+    .chef-modal-btns { display: flex; gap: 10px; justify-content: flex-end; }
+    .chef-modal-btn {
+      padding: 10px 20px; border-radius: 12px; border: none; font-size: 14px; font-weight: 600;
+      cursor: pointer; transition: all 0.15s; min-height: 42px;
+    }
+    .chef-modal-btn-cancel { background: rgba(255,255,255,0.06); color: #94a3b8; border: 1px solid rgba(255,255,255,0.08); }
+    .chef-modal-btn-cancel:hover { background: rgba(255,255,255,0.1); color: #f8fafc; }
+    .chef-modal-btn-ok { background: #fc4b15; color: white; }
+    .chef-modal-btn-ok:hover { background: #e03e0d; }
+    .chef-modal-btn-danger { background: #ef4444; color: white; }
+    .chef-modal-btn-danger:hover { background: #dc2626; }
   </style>
 
   <script src="/locales.js"></script>
@@ -3121,6 +3153,84 @@
       }
       initSocketCaixa();
     });
+  </script>
+
+  <!-- MODAL CONFIRM/PROMPT CUSTOM -->
+  <div id="chef-modal" class="chef-modal-overlay" style="display:none;">
+    <div class="chef-modal-box">
+      <div id="chef-modal-title" class="chef-modal-title"></div>
+      <div id="chef-modal-msg" class="chef-modal-msg"></div>
+      <input id="chef-modal-input" class="chef-modal-input" style="display:none;" />
+      <div class="chef-modal-btns">
+        <button id="chef-modal-cancel" class="chef-modal-btn chef-modal-btn-cancel" onclick="window._chefModalResolve(false)">Cancelar</button>
+        <button id="chef-modal-ok" class="chef-modal-btn chef-modal-btn-ok" onclick="window._chefModalResolve(true)">Confirmar</button>
+      </div>
+    </div>
+  </div>
+  <script>
+  /* ═══ CONFIRM/PROMPT CUSTOM — substitui alert/confirm/prompt nativos ═══ */
+  (function() {
+    const overlay = document.getElementById('chef-modal');
+    const titleEl = document.getElementById('chef-modal-title');
+    const msgEl = document.getElementById('chef-modal-msg');
+    const inputEl = document.getElementById('chef-modal-input');
+    const cancelBtn = document.getElementById('chef-modal-cancel');
+    const okBtn = document.getElementById('chef-modal-ok');
+
+    function showModal(title, msg, opts) {
+      return new Promise(resolve => {
+        window._chefModalResolve = function(val) {
+          overlay.style.display = 'none';
+          overlay.classList.remove('show');
+          resolve(val);
+        };
+        titleEl.textContent = title || '';
+        msgEl.textContent = msg || '';
+        msgEl.style.display = msg ? 'block' : 'none';
+
+        if (opts && opts.input) {
+          inputEl.style.display = 'block';
+          inputEl.value = opts.inputDefault || '';
+          inputEl.type = opts.inputType || 'text';
+          inputEl.placeholder = opts.inputPlaceholder || '';
+          setTimeout(() => inputEl.focus(), 100);
+        } else {
+          inputEl.style.display = 'none';
+        }
+
+        if (opts && opts.danger) {
+          okBtn.className = 'chef-modal-btn chef-modal-btn-danger';
+          okBtn.textContent = opts.okText || 'Confirmar';
+        } else {
+          okBtn.className = 'chef-modal-btn chef-modal-btn-ok';
+          okBtn.textContent = opts && opts.okText ? opts.okText : 'Confirmar';
+        }
+        if (opts && opts.cancelText) cancelBtn.textContent = opts.cancelText;
+        else cancelBtn.textContent = 'Cancelar';
+        if (opts && opts.hideCancel) cancelBtn.style.display = 'none';
+        else cancelBtn.style.display = '';
+
+        overlay.style.display = 'flex';
+        requestAnimationFrame(() => overlay.classList.add('show'));
+
+        if (opts && opts.input) {
+          inputEl.onkeydown = (e) => {
+            if (e.key === 'Enter') window._chefModalResolve(inputEl.value);
+            if (e.key === 'Escape') window._chefModalResolve(null);
+          };
+        } else {
+          overlay.onkeydown = (e) => {
+            if (e.key === 'Escape') window._chefModalResolve(false);
+          };
+        }
+      });
+    }
+
+    window.chefConfirm = function(title, msg, opts) { return showModal(title, msg, opts); };
+    window.chefPrompt = function(title, msg, defaultVal, opts) {
+      return showModal(title, msg, Object.assign({ input: true, inputDefault: defaultVal || '' }, opts || {})).then(val => val === null ? null : val);
+    };
+  })();
   </script>
 </body>
 

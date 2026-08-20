@@ -690,7 +690,7 @@ document.addEventListener('DOMContentLoaded', updateQrCode);
 
 let ordersData = [];
 
-window.onDropMesa = (e, targetMesa) => {
+window.onDropMesa = async (e, targetMesa) => {
   e.preventDefault();
 
   const type = e.dataTransfer.getData('type');
@@ -705,20 +705,20 @@ window.onDropMesa = (e, targetMesa) => {
 
     if (isOccupied) {
       const operador = window.crmPerfil ? window.crmPerfil.nome : 'Desconhecido';
-      const choice = prompt('Juntar mesas:\n1 = Mover itens (mesa origem fica livre)\n2 = Unir mesas (ambas ficam ocupadas)\n\nDigite 1 ou 2:');
+      const choice = await chefPrompt('Juntar mesas', '1 = Mover itens (mesa origem fica livre)\n2 = Unir mesas (ambas ficam ocupadas)', '1');
       if (choice === '1') {
         socket.emit('transferir_mesas_itens', { mesaA: draggedMesa, mesaB: targetMesa, operador });
       } else if (choice === '2') {
         socket.emit('juntar_mesas', { mesaA: draggedMesa, mesaB: targetMesa, operador });
       }
     } else {
-      if (confirm('Deseja realmente TRANSFERIR a ' + draggedMesa + ' para a ' + targetMesa + '?')) {
+      if (await chefConfirm('Transferir mesa', 'Mover ' + draggedMesa + ' para ' + targetMesa + '?')) {
         socket.emit('transferir_mesa', { mesaAtual: draggedMesa, novaMesa: targetMesa, operador: window.crmPerfil ? window.crmPerfil.nome : 'Desconhecido' });
       }
     }
   } else if (type === 'item') {
     const itemId = e.dataTransfer.getData('itemId');
-    if (confirm('Deseja realmente transferir este item para a ' + targetMesa + '?')) {
+    if (await chefConfirm('Transferir item', 'Mover este item para ' + targetMesa + '?')) {
       socket.emit('transferir_item', { itemId: itemId, novaMesa: targetMesa, operador: window.crmPerfil ? window.crmPerfil.nome : 'Desconhecido' });
     }
   }
@@ -1895,7 +1895,7 @@ window.removerPagamento = (paymentId) => {
       }
     );
   } else {
-    if (confirm(`Deseja realmente estornar/cancelar ${infoTxt}?`)) {
+    if (await chefConfirm('Estornar item', `Deseja estornar ${infoTxt}?`, { danger: true, okText: 'Estornar' })) {
       executeEstorno('Confirmação simples');
     }
   }
@@ -3656,8 +3656,8 @@ socket.on('funcionarios_atualizados', (funcs) => {
 });
 
 // Global functions for inline onclicks
-window.deleteMesa = (id) => { if (confirm('Excluir mesa?')) socket.emit('delete_mesa', id); };
-window.deleteProduto = (id) => { if (confirm('Excluir produto?')) socket.emit('delete_produto', id); };
+window.deleteMesa = async (id) => { if (await chefConfirm('Excluir mesa?', 'Esta ação não pode ser desfeita.', { danger: true, okText: 'Excluir' })) socket.emit('delete_mesa', id); };
+window.deleteProduto = async (id) => { if (await chefConfirm('Excluir produto?', 'Esta ação não pode ser desfeita.', { danger: true, okText: 'Excluir' })) socket.emit('delete_produto', id); };
 
 window.editProduto = (id, categoria, nome, preco, emoji, setor, status_inicial) => {
   document.getElementById('admin-prod-id').value = id;
@@ -3672,7 +3672,7 @@ window.editProduto = (id, categoria, nome, preco, emoji, setor, status_inicial) 
   if (btn) btn.innerHTML = '<i class="ph ph-check"></i> Salvar';
 };
 
-window.deleteFuncionario = (id) => { if (confirm('Excluir funcionário?')) socket.emit('delete_funcionario', id); };
+window.deleteFuncionario = async (id) => { if (await chefConfirm('Excluir funcionário?', 'Esta ação não pode ser desfeita.', { danger: true, okText: 'Excluir' })) socket.emit('delete_funcionario', id); };
 window.aprovarFuncionario = (id) => {
   solicitarAutorizacaoAdmin('Aprovar Colaborador', (senha) => {
     let cargoSelect = document.getElementById('cargo-pendente-' + id);
@@ -3680,7 +3680,7 @@ window.aprovarFuncionario = (id) => {
     socket.emit('aprovar_funcionario', { id: id, cargo: cargo, valor_hora: valor_hora, senha });
   });
 };
-window.recusarFuncionario = (id) => { if (confirm('Recusar este colaborador?')) socket.emit('recusar_funcionario', id); };
+window.recusarFuncionario = async (id) => { if (await chefConfirm('Recusar colaborador?', 'O colaborador será removido do sistema.', { danger: true, okText: 'Recusar' })) socket.emit('recusar_funcionario', id); };
 
 // Add Listeners
 const addMesaBtn = document.getElementById('btn-admin-add-mesa');
@@ -3795,8 +3795,8 @@ socket.on('promocoes_atualizadas', (lista) => {
   }).join('');
 });
 
-window.deleteCliente = (id) => { if (confirm('Excluir cliente?')) socket.emit('delete_cliente', id); };
-window.deletePromocao = (id) => { if (confirm('Excluir promoção?')) socket.emit('delete_promocao', id); };
+window.deleteCliente = async (id) => { if (await chefConfirm('Excluir cliente?', 'Dados do cliente serão removidos.', { danger: true, okText: 'Excluir' })) socket.emit('delete_cliente', id); };
+window.deletePromocao = async (id) => { if (await chefConfirm('Excluir promoção?', 'Esta promoção será removida permanentemente.', { danger: true, okText: 'Excluir' })) socket.emit('delete_promocao', id); };
 
 const addCliBtn = document.getElementById('btn-admin-add-cli');
 if (addCliBtn) addCliBtn.onclick = () => {
