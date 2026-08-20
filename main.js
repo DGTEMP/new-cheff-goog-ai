@@ -2607,67 +2607,101 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!menu) {
       menu = document.createElement('div');
       menu.id = 'pdv-quick-context-menu';
-      menu.style.cssText = 'display: none; position: fixed; z-index: 10005; background: #ffffff; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.22); border: 1px solid #cbd5e1; width: 240px; overflow: hidden; padding: 6px 0; user-select: none; font-family: inherit;';
+      menu.style.cssText = 'display: none; position: fixed; z-index: 10005; background: #ffffff; border-radius: 16px; box-shadow: 0 16px 40px rgba(0,0,0,0.22), 0 2px 8px rgba(0,0,0,0.08); border: 1px solid rgba(0,0,0,0.08); width: 260px; overflow: hidden; padding: 6px; user-select: none; font-family: inherit; transition: opacity 0.15s ease, transform 0.15s ease; cubic-bezier(0.16, 1, 0.3, 1);';
       document.body.appendChild(menu);
+    }
+
+    const isDark = document.body.classList.contains('dark-mode');
+    if (isDark) {
+      menu.style.background = '#1a1f2e';
+      menu.style.borderColor = 'rgba(255,255,255,0.12)';
+      menu.style.color = '#f8fafc';
+    } else {
+      menu.style.background = '#ffffff';
+      menu.style.borderColor = '#e2e8f0';
+      menu.style.color = '#0f172a';
     }
 
     const inCart = (window.pdvCart || []).find(i => i.id === prodId);
     const totalQty = inCart ? inCart.quantity : 0;
     const canEditPrice = window.podeEditarPrecoPdv();
 
-    const menuWidth = 240;
-    const menuHeight = 230;
-    let finalX = Math.min(posX, window.innerWidth - menuWidth - 10);
-    let finalY = Math.min(posY, window.innerHeight - menuHeight - 10);
-    finalX = Math.max(10, finalX);
-    finalY = Math.max(10, finalY);
+    const menuWidth = 260;
+    const menuHeight = 360;
+    let finalX = Math.min(posX, window.innerWidth - menuWidth - 12);
+    let finalY = Math.min(posY, window.innerHeight - menuHeight - 12);
+    finalX = Math.max(12, finalX);
+    finalY = Math.max(12, finalY);
 
     menu.style.left = `${finalX}px`;
     menu.style.top = `${finalY}px`;
     menu.style.display = 'block';
 
+    const bgHeader = isDark ? '#252b3b' : '#f8fafc';
+    const borderSub = isDark ? 'rgba(255,255,255,0.08)' : '#e2e8f0';
+    const textColor = isDark ? '#f8fafc' : '#0f172a';
+    const textMuted = isDark ? '#94a3b8' : '#64748b';
+    const hoverBg = isDark ? 'rgba(255,255,255,0.08)' : '#f1f5f9';
+
     menu.innerHTML = `
-      <div style="padding: 8px 14px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; margin-bottom: 4px;">
-        <div style="font-weight: 800; font-size: 13.5px; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-          ${prod.emoji || '🍽️'} ${escHtml(prod.nome)}
+      <div style="padding: 10px 12px; background: ${bgHeader}; border-radius: 12px; border: 1px solid ${borderSub}; margin-bottom: 6px;">
+        <div style="font-weight: 800; font-size: 14px; color: ${textColor}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 6px;">
+          <span>${prod.emoji || '🍽️'}</span> <span style="overflow:hidden; text-overflow:ellipsis;">${escHtml(prod.nome)}</span>
         </div>
-        <div style="font-size: 11.5px; color: #64748b; margin-top: 2px;">
-          ${totalQty > 0 ? `<span style="color: #22c55e; font-weight: 800;">${totalQty}x no pedido</span>` : 'Não adicionado'} • R$ ${(inCart ? inCart.preco : (prod.preco || 0)).toFixed(2).replace('.', ',')}
+        <div style="font-size: 11.5px; color: ${textMuted}; margin-top: 3px; display: flex; justify-content: space-between; align-items: center;">
+          <span>${totalQty > 0 ? `<strong style="color: #10b981;">${totalQty}x no pedido</strong>` : 'Não adicionado'}</span>
+          <strong style="color: #fc4b15; font-size: 12.5px;">R$ ${(inCart ? inCart.preco : (prod.preco || 0)).toFixed(2).replace('.', ',')}</strong>
         </div>
       </div>
 
+      <!-- Atalhos Rápidos de Quantidade -->
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 2px 0 6px 0; border-bottom: 1px solid ${borderSub}; margin-bottom: 6px;">
+        <button onclick="window.pdvQuickAddQty(${prodId}, 1); window.fecharPdvContextMenu();" title="Adicionar +1"
+                style="padding: 6px 0; background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.25); border-radius: 8px; font-weight: 800; font-size: 12px; color: #10b981; cursor: pointer; transition: 0.15s;"
+                onmouseenter="this.style.background='rgba(16,185,129,0.25)'" onmouseleave="this.style.background='rgba(16,185,129,0.12)'">+1</button>
+        <button onclick="window.pdvQuickAddQty(${prodId}, 2); window.fecharPdvContextMenu();" title="Adicionar +2"
+                style="padding: 6px 0; background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.25); border-radius: 8px; font-weight: 800; font-size: 12px; color: #10b981; cursor: pointer; transition: 0.15s;"
+                onmouseenter="this.style.background='rgba(16,185,129,0.25)'" onmouseleave="this.style.background='rgba(16,185,129,0.12)'">+2</button>
+        <button onclick="window.pdvQuickAddQty(${prodId}, 5); window.fecharPdvContextMenu();" title="Adicionar +5"
+                style="padding: 6px 0; background: rgba(59,130,246,0.12); border: 1px solid rgba(59,130,246,0.25); border-radius: 8px; font-weight: 800; font-size: 12px; color: #3b82f6; cursor: pointer; transition: 0.15s;"
+                onmouseenter="this.style.background='rgba(59,130,246,0.25)'" onmouseleave="this.style.background='rgba(59,130,246,0.12)'">+5</button>
+        <button onclick="window.pdvQuickSubQty(${prodId}); window.fecharPdvContextMenu();" title="Subtrair -1"
+                style="padding: 6px 0; background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.25); border-radius: 8px; font-weight: 800; font-size: 12px; color: #ef4444; cursor: pointer; transition: 0.15s; ${totalQty <= 0 ? 'opacity:0.4; pointer-events:none;' : ''}"
+                onmouseenter="this.style.background='rgba(239,68,68,0.25)'" onmouseleave="this.style.background='rgba(239,68,68,0.12)'">-1</button>
+      </div>
+
       <button onclick="window.pdvSetObsPrompt(${prodId}); window.fecharPdvContextMenu();" 
-              style="width: 100%; text-align: left; padding: 9px 14px; background: none; border: none; font-size: 13px; font-weight: 600; color: #334155; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: 0.15s;"
-              onmouseenter="this.style.background='#f1f5f9'" onmouseleave="this.style.background='none'">
-        <i class="ph ph-pencil-line" style="color: #3b82f6; font-size: 16px;"></i> Adicionar Observação
+              style="width: 100%; text-align: left; padding: 8px 10px; background: none; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; color: ${textColor}; cursor: pointer; display: flex; align-items: center; gap: 10px; transition: 0.15s; margin-bottom: 2px;"
+              onmouseenter="this.style.background='${hoverBg}'" onmouseleave="this.style.background='none'">
+        <i class="ph ph-pencil-line" style="color: #3b82f6; font-size: 17px;"></i> Observação / Detalhes
       </button>
 
       <button onclick="window.pdvSetQtyPrompt(${prodId}); window.fecharPdvContextMenu();" 
-              style="width: 100%; text-align: left; padding: 9px 14px; background: none; border: none; font-size: 13px; font-weight: 600; color: #334155; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: 0.15s;"
-              onmouseenter="this.style.background='#f1f5f9'" onmouseleave="this.style.background='none'">
-        <i class="ph ph-hash" style="color: #8b5cf6; font-size: 16px;"></i> Digitar Quantidade Exacta
+              style="width: 100%; text-align: left; padding: 8px 10px; background: none; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; color: ${textColor}; cursor: pointer; display: flex; align-items: center; gap: 10px; transition: 0.15s; margin-bottom: 2px;"
+              onmouseenter="this.style.background='${hoverBg}'" onmouseleave="this.style.background='none'">
+        <i class="ph ph-hash" style="color: #8b5cf6; font-size: 17px;"></i> Digitar Quantidade Exata
       </button>
 
       <button onclick="window.pdvSetCortesia(${prodId}); window.fecharPdvContextMenu();" 
-              style="width: 100%; text-align: left; padding: 9px 14px; background: none; border: none; font-size: 13px; font-weight: 600; color: #334155; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: 0.15s;"
-              onmouseenter="this.style.background='#f1f5f9'" onmouseleave="this.style.background='none'">
-        <i class="ph ph-gift" style="color: #ec4899; font-size: 16px;"></i> Cortesia (R$ 0,00)
+              style="width: 100%; text-align: left; padding: 8px 10px; background: none; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; color: ${textColor}; cursor: pointer; display: flex; align-items: center; gap: 10px; transition: 0.15s; margin-bottom: 2px;"
+              onmouseenter="this.style.background='${hoverBg}'" onmouseleave="this.style.background='none'">
+        <i class="ph ph-gift" style="color: #ec4899; font-size: 17px;"></i> Aplicar Cortesia (R$ 0,00)
       </button>
 
       ${canEditPrice ? `
         <button onclick="window.pdvEditPriceInline(${prodId}); window.fecharPdvContextMenu();" 
-                style="width: 100%; text-align: left; padding: 9px 14px; background: none; border: none; font-size: 13px; font-weight: 600; color: #334155; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: 0.15s;"
-                onmouseenter="this.style.background='#f1f5f9'" onmouseleave="this.style.background='none'">
-          <i class="ph ph-currency-dollar" style="color: #10b981; font-size: 16px;"></i> Alterar Valor (Admin)
+                style="width: 100%; text-align: left; padding: 8px 10px; background: none; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; color: ${textColor}; cursor: pointer; display: flex; align-items: center; gap: 10px; transition: 0.15s; margin-bottom: 2px;"
+                onmouseenter="this.style.background='${hoverBg}'" onmouseleave="this.style.background='none'">
+          <i class="ph ph-currency-dollar" style="color: #10b981; font-size: 17px;"></i> Preço Personalizado (Admin)
         </button>
       ` : ''}
 
       ${totalQty > 0 ? `
-        <div style="border-top: 1px solid #f1f5f9; margin-top: 4px; padding-top: 4px;">
+        <div style="border-top: 1px solid ${borderSub}; margin-top: 4px; padding-top: 4px;">
           <button onclick="window.pdvRemoveAllDirect(${prodId}); window.fecharPdvContextMenu();" 
-                  style="width: 100%; text-align: left; padding: 9px 14px; background: none; border: none; font-size: 13px; font-weight: 700; color: #ef4444; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: 0.15s;"
-                  onmouseenter="this.style.background='#fef2f2'" onmouseleave="this.style.background='none'">
-            <i class="ph ph-trash" style="color: #ef4444; font-size: 16px;"></i> Remover do Pedido
+                  style="width: 100%; text-align: left; padding: 8px 10px; background: rgba(239,68,68,0.08); border: none; border-radius: 8px; font-size: 13px; font-weight: 700; color: #ef4444; cursor: pointer; display: flex; align-items: center; gap: 10px; transition: 0.15s;"
+                  onmouseenter="this.style.background='rgba(239,68,68,0.18)'" onmouseleave="this.style.background='rgba(239,68,68,0.08)'">
+            <i class="ph ph-trash" style="color: #ef4444; font-size: 17px;"></i> Remover do Pedido
           </button>
         </div>
       ` : ''}

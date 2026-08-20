@@ -501,18 +501,26 @@ function showGarcomContextMenu(x, y, items) {
   if (!menu) {
     menu = document.createElement('div');
     menu.id = 'garcom-context-menu';
-    menu.style.cssText = 'display:none; position:fixed; z-index:10050; background:#ffffff; border-radius:14px; box-shadow:0 12px 32px rgba(0,0,0,0.25); border:1px solid #e2e8f0; min-width:220px; max-width:280px; overflow:hidden; padding:6px 0; user-select:none; font-family:inherit;';
     document.body.appendChild(menu);
   }
+
+  const isDark = document.body.classList.contains('dark-mode');
+  menu.style.cssText = `display:none; position:fixed; z-index:10050; background:${isDark ? '#1a1f2e' : '#ffffff'}; border-radius:16px; box-shadow:0 16px 40px rgba(0,0,0,0.28), 0 2px 8px rgba(0,0,0,0.1); border:1px solid ${isDark ? 'rgba(255,255,255,0.12)' : '#e2e8f0'}; min-width:240px; max-width:300px; overflow:hidden; padding:6px; user-select:none; font-family:inherit; color:${isDark ? '#f8fafc' : '#0f172a'};`;
+
+  const borderSub = isDark ? 'rgba(255,255,255,0.08)' : '#f1f5f9';
+  const textMuted = isDark ? '#94a3b8' : '#334155';
+  const hoverBg = isDark ? 'rgba(255,255,255,0.08)' : '#f1f5f9';
+
   menu.innerHTML = items.map((it, i) => {
-    if (it.sep) return '<div style="border-top:1px solid #f1f5f9; margin:4px 0;"></div>';
-    return `<button data-idx="${i}" style="width:100%; text-align:left; padding:12px 16px; background:none; border:none; font-size:14px; font-weight:600; color:${it.color || '#334155'}; cursor:pointer; display:flex; align-items:center; gap:10px;">
-      <i class="ph ${it.icon || 'ph-circle'}" style="color:${it.color || '#64748b'}; font-size:18px;"></i> ${it.label}
+    if (it.sep) return `<div style="border-top:1px solid ${borderSub}; margin:4px 0;"></div>`;
+    return `<button data-idx="${i}" style="width:100%; text-align:left; padding:10px 12px; background:none; border:none; border-radius:8px; font-size:13.5px; font-weight:600; color:${it.color || textMuted}; cursor:pointer; display:flex; align-items:center; gap:10px; transition:0.15s;"
+                    onmouseenter="this.style.background='${hoverBg}'" onmouseleave="this.style.background='none'">
+      <i class="ph ${it.icon || 'ph-circle'}" style="color:${it.color || textMuted}; font-size:18px;"></i> ${it.label}
     </button>`;
   }).join('');
 
-  const menuW = 240;
-  const menuH = Math.min(items.length, 12) * 48 + 12;
+  const menuW = 260;
+  const menuH = Math.min(items.length, 12) * 44 + 12;
   menu.style.left = Math.max(8, Math.min(x, window.innerWidth - menuW - 8)) + 'px';
   menu.style.top = Math.max(8, Math.min(y, window.innerHeight - menuH - 8)) + 'px';
   menu.style.display = 'block';
