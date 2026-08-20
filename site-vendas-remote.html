@@ -106,20 +106,6 @@
     /* ═══ ANIMATIONS ═══ */
     @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-12px); } }
     @keyframes pulse-glow { 0%, 100% { box-shadow: 0 0 20px var(--primary-glow); } 50% { box-shadow: 0 0 40px var(--primary-glow), 0 0 60px rgba(252, 75, 21, 0.15); } }
-    @keyframes epic-spin-pulse { 
-        0% { transform: scale(1) rotate(0deg); box-shadow: 0 0 10px var(--primary-glow); } 
-        40% { transform: scale(1.15) rotate(180deg); box-shadow: 0 0 50px var(--primary-glow); } 
-        80% { transform: scale(1) rotate(360deg); box-shadow: 0 0 20px var(--primary-glow); } 
-        100% { transform: scale(1) rotate(360deg); box-shadow: 0 0 20px var(--primary-glow); } 
-    }
-    @keyframes logo-expand {
-        0% { transform: scale(1) rotate(0deg); }
-        30% { transform: scale(0.7) rotate(-15deg); border-radius: 50%; }
-        100% { transform: scale(60) rotate(90deg); border-radius: 50%; opacity: 1; }
-    }
-    .logo-expand-exit { animation: logo-expand 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards !important; }
-    .fade-out-fast { opacity: 0 !important; transition: opacity 0.2s ease !important; }
-
     @keyframes gradient-shift { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
     @keyframes slideUp { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: translateY(0); } }
     @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
@@ -159,14 +145,13 @@
     /* ═══ HERO ═══ */
     .hero { padding: 100px 5% 80px; max-width: 1280px; margin: 0 auto; text-align: center; position: relative; overflow: hidden; }
     .hero::before { content: ''; position: absolute; top: -200px; left: 50%; transform: translateX(-50%); width: 800px; height: 800px; background: radial-gradient(circle, rgba(252, 75, 21, 0.08) 0%, transparent 60%); pointer-events: none; }
-    .hero-badge { display: inline-flex; align-items: center; gap: 8px; background: rgba(252, 75, 21, 0.08); border: 1px solid rgba(252, 75, 21, 0.2); color: var(--primary); padding: 8px 20px; border-radius: 30px; font-size: 13px; font-weight: 700; margin-bottom: 28px; opacity: 0; }
-    .hero h1 { font-size: clamp(36px, 5vw, 60px); line-height: 1.1; font-weight: 900; margin-bottom: 24px; background: linear-gradient(180deg, #ffffff 20%, #b0c4de 100%); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .hero-badge { display: inline-flex; align-items: center; gap: 8px; background: rgba(252, 75, 21, 0.08); border: 1px solid rgba(252, 75, 21, 0.2); color: var(--primary); padding: 8px 20px; border-radius: 30px; font-size: 13px; font-weight: 700; margin-bottom: 28px; animation: slideUp 0.6s ease; }
+    .hero h1 { font-size: clamp(36px, 5vw, 60px); line-height: 1.1; font-weight: 900; margin-bottom: 24px; background: linear-gradient(180deg, #ffffff 20%, #b0c4de 100%); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: slideUp 0.6s ease 0.1s both; }
     .hero h1 span { background: linear-gradient(90deg, #fc4b15, #ff9100, #fc4b15); background-size: 200% 100%; animation: gradient-shift 3s ease infinite; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-    .hero-char { display: inline-block; position: relative; } /* For GSAP Split explosion */
-    .hero p { font-size: 18px; color: var(--text-muted); max-width: 780px; margin: 0 auto 40px; opacity: 0; }
+    .hero p { font-size: 18px; color: var(--text-muted); max-width: 780px; margin: 0 auto 40px; animation: slideUp 0.6s ease 0.2s both; }
 
     /* ═══ CTA BUTTONS ═══ */
-    .hero-actions { display: flex; justify-content: center; align-items: center; gap: 16px; margin-bottom: 60px; flex-wrap: wrap; opacity: 0; }
+    .hero-actions { display: flex; justify-content: center; align-items: center; gap: 16px; margin-bottom: 60px; flex-wrap: wrap; animation: slideUp 0.6s ease 0.3s both; }
     .btn-cta-primary { padding: 18px 40px; background: linear-gradient(135deg, var(--primary), #e03e0b); color: #ffffff; border-radius: 16px; font-size: 17px; font-weight: 800; border: none; cursor: pointer; position: relative; overflow: hidden; box-shadow: 0 10px 30px var(--primary-glow); transition: all 0.3s ease; display: inline-flex; align-items: center; gap: 10px; }
     .btn-cta-primary::before { content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent); animation: shimmer 3s infinite; }
     .btn-cta-primary:hover { transform: translateY(-3px) scale(1.02); box-shadow: 0 16px 40px rgba(252, 75, 21, 0.5); }
@@ -174,7 +159,7 @@
     .btn-cta-secondary:hover { background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.2); transform: translateY(-2px); }
 
     /* ═══ STATS ═══ */
-    .hero-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; max-width: 1000px; margin: 0 auto; opacity: 0; }
+    .hero-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; max-width: 1000px; margin: 0 auto; animation: slideUp 0.6s ease 0.4s both; }
     .stat-card { background: var(--card-bg); border: 1px solid var(--card-border); padding: 24px 16px; border-radius: 20px; text-align: center; backdrop-filter: blur(12px); transition: all 0.3s; }
     .stat-card:hover { transform: translateY(-4px); border-color: rgba(252, 75, 21, 0.3); }
     .stat-number { font-size: 34px; font-weight: 800; color: #ffffff; font-family: 'Outfit'; }
@@ -375,7 +360,7 @@
   <noscript><style>.no-js .animate-on-scroll{opacity:1!important;transform:none!important}</style></noscript>
 
   <!-- Preloader Elegante -->
-    <div id="site-preloader" style="position:fixed;top:0;left:0;width:100%;height:100%;background-color:var(--dark-bg);z-index:999999;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1);">
+    <div id="site-preloader" style="position:fixed;top:0;left:0;width:100%;height:100%;background-color:var(--dark-bg);z-index:999999;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity 0.8s ease;">
       <div class="logo-icon" style="width:160px;height:160px;margin-bottom:30px;animation:epic-spin-pulse 2s cubic-bezier(0.4, 0, 0.2, 1) infinite; border-radius:30px;"><img src="/icons/icon-192.png" alt="Chef Cozinha" style="width:120px;height:120px;border-radius:24px;"></div>
       <div style="color:var(--text-main);font-family:'Outfit';font-size:32px;font-weight:900;letter-spacing:4px;margin-bottom:12px; text-shadow: 0px 4px 20px rgba(252,75,21,0.4);">CHEF COZINHA</div>
       <div style="color:var(--primary);font-size:16px;font-weight:700;letter-spacing:2px;text-transform:uppercase; animation:float 2s ease infinite;">Preparando a Cozinha...</div>
@@ -822,32 +807,6 @@
     }
 
     // ═══ GSAP & ANIMATIONS ═══
-    function splitToSpans(el) {
-      const chars = [];
-      function process(node) {
-        if (node.nodeType === 3) {
-          const text = node.nodeValue;
-          const frag = document.createDocumentFragment();
-          for (let i = 0; i < text.length; i++) {
-            if (text[i] === ' ') {
-              frag.appendChild(document.createTextNode(' '));
-            } else {
-              const span = document.createElement('span');
-              span.className = 'hero-char';
-              span.textContent = text[i];
-              frag.appendChild(span);
-              chars.push(span);
-            }
-          }
-          node.parentNode.replaceChild(frag, node);
-        } else if (node.nodeType === 1) {
-          Array.from(node.childNodes).forEach(process);
-        }
-      }
-      process(el);
-      return chars;
-    }
-
     function initAnimations() {
       // Carrega GSAP dinamicamente APENAS se tiver 4GB de RAM ou mais.
       let mem = navigator.deviceMemory;
@@ -857,105 +816,45 @@
           var gsapS = document.createElement('script');
           gsapS.src = "https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js";
           document.head.appendChild(gsapS);
+          var scrollS = document.createElement('script');
+          scrollS.src = "https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js";
+          document.head.appendChild(scrollS);
           
-          gsapS.onload = function() {
-            var scrollS = document.createElement('script');
-            scrollS.src = "https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js";
-            document.head.appendChild(scrollS);
+          scrollS.onload = function() {
+            gsap.registerPlugin(ScrollTrigger);
             
-            scrollS.onload = function() {
-              gsap.registerPlugin(ScrollTrigger);
-              
-              // Forçamos a visibilidade do CSS base antes da animação
-              document.body.classList.add('gsap-active');
-              
-              // ── 1. Particionar título em Spans ──
-              const heroTitle = document.getElementById('hero-titulo');
-              const heroChars = splitToSpans(heroTitle);
-              
-              // ── 2. Timeline GSAP: Explosão em Pixels + Montagem Um a Um ──
-              const tl = gsap.timeline();
+            // Forçamos a visibilidade do CSS base antes da animação, caso o script carregue mais tarde
+            document.body.classList.add('gsap-active');
+            
+            // Hero Animations (muito mais evidentes agora)
+            gsap.fromTo("#hero-titulo", { opacity: 0, scale: 0.8, y: 50 }, { opacity: 1, scale: 1, y: 0, duration: 1.2, ease: "elastic.out(1, 0.5)" });
+            gsap.fromTo("#hero-subtitulo", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 1, delay: 0.2, ease: "power3.out" });
+            
+            gsap.fromTo(".hero-stats .stat-card", 
+              { y: 60, opacity: 0, rotationX: 45 }, 
+              { y: 0, opacity: 1, rotationX: 0, duration: 0.8, stagger: 0.15, ease: "back.out(1.7)" }
+            );
 
-              // Etapa A: Explosão do centro da tela para pixels aleatórios visíveis na resolução atual
-              tl.fromTo(heroChars, 
-                { 
-                  opacity: 0, 
-                  scale: 0.1, 
-                  x: function(index, target) {
-                     const rect = target.getBoundingClientRect();
-                     return (window.innerWidth / 2) - (rect.left + rect.width / 2);
-                  },
-                  y: function(index, target) {
-                     const rect = target.getBoundingClientRect();
-                     return (window.innerHeight / 2) - (rect.top + rect.height / 2);
-                  },
-                  rotationZ: () => Math.random() * 720 - 360
-                }, 
-                { 
-                  opacity: 1, 
-                  scale: () => Math.random() * 0.4 + 0.8, 
-                  x: function(index, target) {
-                     const rect = target.getBoundingClientRect();
-                     const randomScreenX = Math.random() * (window.innerWidth - 120) + 60;
-                     return randomScreenX - (rect.left + rect.width / 2);
-                  },
-                  y: function(index, target) {
-                     const rect = target.getBoundingClientRect();
-                     const randomScreenY = Math.random() * (window.innerHeight - 120) + 60;
-                     return randomScreenY - (rect.top + rect.height / 2);
-                  },
-                  rotationZ: () => Math.random() * 360 - 180,
-                  duration: 0.6, 
-                  stagger: 0.015, 
-                  ease: "power3.out"
-                }
-              )
-              // Etapa B: Reorganização "um a um" mais lenta até o local correto formando a frase
-              .to(heroChars, {
-                x: 0,
-                y: 0,
-                scale: 1,
-                rotationZ: 0,
-                duration: 1.2,
-                stagger: {
-                  amount: 2.0,
-                  from: "start"
-                },
-                ease: "power2.out"
-              }, "+=0.15")
-              
-              // Etapa C: Surgimento dos outros elementos do Hero (inicia JUNTO com a montagem das letras)
-              .to(".hero-badge, #hero-subtitulo, .hero-actions, .hero-stats", {
-                opacity: 1,
-                y: 0,
-                duration: 1.0,
-                stagger: 0.12,
-                ease: "power3.out"
-              }, "<+=0.2");
-
-              // Scroll Animations para as seções de baixo
-              gsap.utils.toArray('.animate-on-scroll').forEach(function(el) {
-                gsap.fromTo(el, 
-                  { y: 80, opacity: 0 },
-                  { y: 0, opacity: 1, duration: 1, ease: "power4.out", scrollTrigger: { trigger: el, start: "top 85%" } }
-                );
-              });
-              
-              // Features stagger
-              gsap.fromTo(".feature-card", 
-                { y: 50, opacity: 0, scale: 0.9 },
-                { y: 0, opacity: 1, scale: 1, duration: 0.7, stagger: 0.15, scrollTrigger: { trigger: ".features-grid", start: "top 75%" } }
+            // Scroll Animations for sections with parallax
+            gsap.utils.toArray('.animate-on-scroll').forEach(function(el) {
+              gsap.fromTo(el, 
+                { y: 80, opacity: 0 },
+                { y: 0, opacity: 1, duration: 1, ease: "power4.out", scrollTrigger: { trigger: el, start: "top 85%" } }
               );
-              
-              // Parallax no divisor
-              gsap.to(".wave-divider svg", {
-                yPercent: 30,
-                ease: "none",
-                scrollTrigger: { trigger: ".wave-divider", start: "top bottom", end: "bottom top", scrub: true }
-              });
-              
-              setTimeout(() => { ScrollTrigger.refresh(); }, 200);
-            };
+            });
+            
+            // Features stagger with zoom
+            gsap.fromTo(".feature-card", 
+              { y: 50, opacity: 0, scale: 0.9 },
+              { y: 0, opacity: 1, scale: 1, duration: 0.7, stagger: 0.15, scrollTrigger: { trigger: ".features-grid", start: "top 75%" } }
+            );
+            
+            // Parallax no divisor
+            gsap.to(".wave-divider svg", {
+              yPercent: 30,
+              ease: "none",
+              scrollTrigger: { trigger: ".wave-divider", start: "top bottom", end: "bottom top", scrub: true }
+            });
           };
         }
       } else {
@@ -973,51 +872,25 @@
     }
 
     document.addEventListener('DOMContentLoaded', function() {
+      
+      // Fix for GSAP ScrollTrigger on refresh
       if ('scrollRestoration' in history) {
         history.scrollRestoration = 'manual';
       }
-      
+
+      initAnimations();
+      setTimeout(() => { if (window.ScrollTrigger) ScrollTrigger.refresh(); }, 1000);
+      setTimeout(() => { if (window.ScrollTrigger) ScrollTrigger.refresh(); }, 3000);
       updateCalculator();
       loadSetupDraft();
-    });
-
-    // Usar window.onload garante que fontes, CSS e imagens estejam totalmente carregados
-    window.addEventListener('load', function() {
-      window.scrollTo(0, 0); // Garante que começa no topo após tudo carregar
       
-      const pl = document.getElementById('site-preloader');
-      if (pl) {
-        const logoIcon = pl.querySelector('.logo-icon');
-        const texts = pl.querySelectorAll('div:not(.logo-icon)');
-
-        setTimeout(() => {
-          // 1. Textos e imagem interna somem rapidamente
-          texts.forEach(t => t.classList.add('fade-out-fast'));
-          
-          // 2. A cor de fundo da logo expande para cobrir a tela inteira com a cor primária (duração: 0.8s)
-          if (logoIcon) logoIcon.classList.add('logo-expand-exit');
-          
-          // 3. Após a expansão da logo (0.75s), dispara o fade-out do preloader
-          setTimeout(() => {
-            pl.style.opacity = '0';
-            
-            // 4. Quase imediatamente (100ms), dispara a explosão do GSAP!
-            setTimeout(() => {
-              initAnimations();
-            }, 100);
-            
-            // 5. Remove o preloader do DOM após o fade-out (450ms)
-            setTimeout(() => {
-              pl.remove();
-              setTimeout(() => { if (window.ScrollTrigger) ScrollTrigger.refresh(); }, 100);
-              setTimeout(() => { if (window.ScrollTrigger) ScrollTrigger.refresh(); }, 1000);
-            }, 450);
-          }, 750); // tempo de expansão da logo ajustado para 0.8s
-        }, 1200);
-      } else {
-        initAnimations();
-        setTimeout(() => { if (window.ScrollTrigger) ScrollTrigger.refresh(); }, 500);
-      }
+      setTimeout(() => {
+        const pl = document.getElementById('site-preloader');
+        if (pl) {
+          pl.style.opacity = '0';
+          setTimeout(() => pl.remove(), 600);
+        }
+      }, 500);
     });
 
     // ═══ SETUP MODAL LOGIC ═══
