@@ -34,25 +34,36 @@ console.log = function (...args) {
   const timeStr = new Date().toLocaleTimeString('pt-BR');
   let formatted = line;
 
-  if (/^\[Socket\]/.test(line)) {
-    formatted = `${ANSI.cyan}⚡ [${timeStr}] [Socket]${ANSI.reset} ${line.replace(/^\[Socket\]/, '').trim()}`;
-  } else if (/^\[Cli-Click\]/.test(line)) {
-    formatted = `${ANSI.magenta}🖱️ [${timeStr}] [Ação do Usuário]${ANSI.reset} ${line.replace(/^\[Cli-Click\]/, '').trim()}`;
+  if (/^\[Cli-Click\]/.test(line)) {
+    const content = line.replace(/^\[Cli-Click\]/, '').trim();
+    formatted = `\n${ANSI.magenta}┌── 🖱️  AÇÃO DO USUÁRIO  ───────────────────────────────────────────┐${ANSI.reset}\n` +
+                `${ANSI.magenta}│${ANSI.reset} 🕒 Hora: ${timeStr}\n` +
+                `${ANSI.magenta}│${ANSI.reset} ${content}\n` +
+                `${ANSI.magenta}└──────────────────────────────────────────────────────────────────┘${ANSI.reset}\n`;
+  } else if (/^\[Socket\]/.test(line)) {
+    const content = line.replace(/^\[Socket\]/, '').trim();
+    formatted = `${ANSI.cyan}┌── ⚡ EVENTO SOCKET ─────────────────────────────────────────────┐${ANSI.reset}\n` +
+                `${ANSI.cyan}│${ANSI.reset} 🕒 Hora: ${timeStr}\n` +
+                `${ANSI.cyan}│${ANSI.reset} ${content}\n` +
+                `${ANSI.cyan}└──────────────────────────────────────────────────────────────────┘${ANSI.reset}\n`;
   } else if (/^\[iFood/.test(line)) {
-    formatted = `${ANSI.red}🛵 [${timeStr}] [iFood]${ANSI.reset} ${line.replace(/^\[iFood[^\]]*\]/, '').trim()}`;
+    const content = line.replace(/^\[iFood[^\]]*\]/, '').trim();
+    formatted = `${ANSI.red}🛵 [${timeStr}] [iFood]${ANSI.reset} ${content}`;
   } else if (/^\[Lazy DB Pool\]/.test(line)) {
-    formatted = `${ANSI.green}💾 [${timeStr}] [Lazy DB Pool]${ANSI.reset} ${line.replace(/^\[Lazy DB Pool\]/, '').trim()}`;
+    const content = line.replace(/^\[Lazy DB Pool\]/, '').trim();
+    formatted = `${ANSI.green}💾 [${timeStr}] [Lazy DB Pool]${ANSI.reset} ${content}`;
   } else if (/^\[Deploy\]/.test(line)) {
-    formatted = `${ANSI.magenta}🚀 [${timeStr}] [Deploy]${ANSI.reset} ${line.replace(/^\[Deploy\]/, '').trim()}`;
+    const content = line.replace(/^\[Deploy\]/, '').trim();
+    formatted = `${ANSI.magenta}🚀 [${timeStr}] [Deploy]${ANSI.reset} ${content}`;
   } else if (/^\[Sync/.test(line)) {
-    formatted = `${ANSI.yellow}🔄 [${timeStr}] [Sync]${ANSI.reset} ${line.replace(/^\[Sync[^\]]*\]/, '').trim()}`;
+    const content = line.replace(/^\[Sync[^\]]*\]/, '').trim();
+    formatted = `${ANSI.yellow}🔄 [${timeStr}] [Sync]${ANSI.reset} ${content}`;
   } else if (/^\[Licença\]/.test(line)) {
-    formatted = `${ANSI.yellow}🔑 [${timeStr}] [Licença]${ANSI.reset} ${line.replace(/^\[Licença\]/, '').trim()}`;
+    const content = line.replace(/^\[Licença\]/, '').trim();
+    formatted = `${ANSI.yellow}🔑 [${timeStr}] [Licença]${ANSI.reset} ${content}`;
   } else if (/^Cliente conectado:/.test(line)) {
-    formatted = `${ANSI.green}🟢 [${timeStr}] [Novo Cliente]${ANSI.reset} ${line.replace(/^Cliente conectado:/, '').trim()}`;
-  } else if (line.includes('Escutando na porta')) {
-    const uptimeSec = Math.floor((Date.now() - serverStartTime) / 1000);
-    formatted = `${line}\n${ANSI.yellow}📊 Desempenho: ${getEfficiencyStars()} | Servidor Up há ${uptimeSec}s${ANSI.reset}`;
+    const content = line.replace(/^Cliente conectado:/, '').trim();
+    formatted = `${ANSI.green}🟢 [${timeStr}] [Novo Dispositivo] Socket ID: ${content}${ANSI.reset}`;
   }
 
   originalLog.apply(console, [formatted]);
@@ -11577,12 +11588,28 @@ process.on('SIGTERM', () => shutdown('SIGTERM'));
 licenseManager.initLicense().then((licState) => {
   server.listen(PORT, HOST, () => {
     const ip = getLocalIp();
-    console.log('=========================================');
-    console.log(`🚀 Servidor Backend Rodando com SQLite!`);
-    console.log(`📡 Escutando na porta ${PORT}`);
-    console.log(`📱 Para conectar outros dispositivos, use o IP: https://${ip}:5173`);
-    console.log(`🔑 Licença: ${licState.status} | ${licState.restaurante || '(não configurado)'}`);
-    console.log('=========================================');
+    const banner = `
+${ANSI.cyan}${ANSI.bright}  ╔════════════════════════════════════════════════════════════════════╗
+  ║                                                                    ║
+  ║    ██████╗██╗  ██╗███████╗███████╗    ██████╗███████╗███████╗      ║
+  ║   ██╔════╝██║  ██║██╔════╝██╔════╝   ██╔════╝██╔════╝██╔════╝      ║
+  ║   ██║     ███████║█████╗  █████╗     ██║     ███████╗███████╗      ║
+  ║   ██║     ██╔══██║██╔══╝  ██╔══╝     ██║     ╚════██║╚════██║      ║
+  ║   ╚██████╗██║  ██║███████╗██║        ╚██████╗███████║███████║      ║
+  ║    ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝         ╚═════╝╚══════╝╚══════╝      ║
+  ║                                                                    ║
+  ║              ⚡ CHEF COZINHA HIGH PERFORMANCE SaaS v1.0             ║
+  ╚════════════════════════════════════════════════════════════════════╝${ANSI.reset}
+
+  ${ANSI.green}🟢 STATUS DO SISTEMA:${ANSI.reset} Online & Operacional
+  ${ANSI.yellow}📡 ENDEREÇO DA API:${ANSI.reset}   http://localhost:${PORT}
+  ${ANSI.cyan}📱 CONEXÃO LOCAL:${ANSI.reset}     https://${ip}:5173
+  ${ANSI.magenta}🔑 LICENÇA ATIVA:${ANSI.reset}     ${licState.status.toUpperCase()} (${licState.restaurante || 'Dev Mode'})
+  ${ANSI.blue}📊 SAÚDE DO SERVIDOR:${ANSI.reset} ${getEfficiencyStars()}
+
+${ANSI.dim}────────────────────────────────────────────────────────────────────────${ANSI.reset}
+`;
+    console.log(banner);
   });
 });
 
