@@ -15,17 +15,18 @@ const ANSI = {
   blue: "\x1b[34m",
   bgBlue: "\x1b[44m\x1b[37m",
   bgMagenta: "\x1b[45m\x1b[37m",
+  bgCyan: "\x1b[46m\x1b[30m",
   bgGreen: "\x1b[42m\x1b[30m"
 };
 
 const envPath = path.join(__dirname, '.env');
 const portTxtPath = path.join(__dirname, 'port.txt');
 
-// Utilitário para ler arquivo .env como objeto
 function getEnvConfig() {
   const config = {
     PORT: '3114',
     DEPLOY_MODE: 'cloud',
+    APP_URL: 'https://appchef.up.railway.app',
     CORS_ORIGIN: '',
     JWT_SECRET: '',
     AUTO_START_INTEGRATIONS: 'true'
@@ -48,19 +49,13 @@ function getEnvConfig() {
   return config;
 }
 
-// Salvar novos valores no .env e port.txt
 function saveEnvConfig(newConfig) {
   try {
     if (newConfig.PORT) {
-      fs.writeFileSync(portTxtPath, newConfig.PORT.trim(), 'utf8');
+      fs.writeFileSync(portTxtPath, String(newConfig.PORT).trim(), 'utf8');
     }
 
-    let envContent = '';
-    if (fs.existsSync(envPath)) {
-      envContent = fs.readFileSync(envPath, 'utf8');
-    } else {
-      envContent = `# CHEF COZINHA - SERVIDOR CONFIGURADO VIA SETUP INTERATIVO\n`;
-    }
+    let envContent = fs.existsSync(envPath) ? fs.readFileSync(envPath, 'utf8') : `# CHEF COZINHA - SERVIDOR CONFIGURADO VIA SETUP INTERATIVO\n`;
 
     Object.keys(newConfig).forEach(key => {
       if (key === 'PORT') return;
@@ -73,7 +68,7 @@ function saveEnvConfig(newConfig) {
     });
 
     fs.writeFileSync(envPath, envContent, 'utf8');
-    console.log(`\n${ANSI.green}✅ Configurações salvas com sucesso no arquivo .env e port.txt!${ANSI.reset}\n`);
+    console.log(`\n${ANSI.green}✅ Configurações salvas no arquivo .env e port.txt! Rotas configuradas para: ${newConfig.APP_URL || 'Local'}${ANSI.reset}\n`);
   } catch (e) {
     console.error(`${ANSI.red}❌ Erro ao salvar configurações: ${e.message}${ANSI.reset}`);
   }
@@ -87,7 +82,7 @@ ${ANSI.cyan}${ANSI.bright}  ┌────────────────�
   │     ⚙️   CHEF COZINHA SaaS - SETUP & QUIZ DE CONFIGURAÇÃO        │
   │                                                                  │
   └──────────────────────────────────────────────────────────────────┘${ANSI.reset}
-  ${ANSI.dim}Responda às perguntas abaixo para personalizar seu servidor local ou nuvem.${ANSI.reset}
+  ${ANSI.dim}Responda às perguntas abaixo para personalizar a URL pública e rotas do seu servidor.${ANSI.reset}
 `);
 
   const rl = readline.createInterface({
@@ -98,24 +93,24 @@ ${ANSI.cyan}${ANSI.bright}  ┌────────────────�
   const current = getEnvConfig();
   const questions = [
     {
+      key: 'APP_URL',
+      text: `1. Domínio/URL Pública da Aplicação (ex: https://appchef.up.railway.app ou https://pizzaria.com.br) [Atual: ${current.APP_URL || 'https://appchef.up.railway.app'}]: `,
+      default: current.APP_URL || 'https://appchef.up.railway.app'
+    },
+    {
       key: 'PORT',
-      text: `1. Qual porta HTTP o backend deve utilizar? [Atual: ${current.PORT}]: `,
+      text: `2. Qual porta HTTP o backend deve utilizar? [Atual: ${current.PORT}]: `,
       default: current.PORT
     },
     {
       key: 'DEPLOY_MODE',
-      text: `2. Modo de Operação [cloud / on-premise] (cloud = Multi-Tenant Cloud, on-premise = Local com Sync) [Atual: ${current.DEPLOY_MODE}]: `,
+      text: `3. Modo de Operação [cloud / on-premise] (cloud = SaaS Nuvem Multi-Tenant, on-premise = Local) [Atual: ${current.DEPLOY_MODE}]: `,
       default: current.DEPLOY_MODE
     },
     {
       key: 'CORS_ORIGIN',
-      text: `3. Domínio CORS Autorizado (Deixe em branco para permitir todos) [Atual: ${current.CORS_ORIGIN || '*'}] : `,
+      text: `4. Origem CORS Autorizada (Deixe em branco para aceitar a URL da aplicação e locais) [Atual: ${current.CORS_ORIGIN || '*'}] : `,
       default: current.CORS_ORIGIN || ''
-    },
-    {
-      key: 'AUTO_START_INTEGRATIONS',
-      text: `4. Ativar Integrações Externas (iFood, NF-e) On-Demand? [true / false] [Atual: ${current.AUTO_START_INTEGRATIONS || 'true'}]: `,
-      default: current.AUTO_START_INTEGRATIONS || 'true'
     }
   ];
 
@@ -132,7 +127,10 @@ ${ANSI.cyan}${ANSI.bright}  ┌────────────────�
 
     const q = questions[qIdx];
     rl.question(`${ANSI.yellow}${q.text}${ANSI.reset}`, (ans) => {
-      const val = ans.trim() || q.default;
+      let val = ans.trim() || q.default;
+      if (q.key === 'APP_URL' && val && !/^https?:\/\//i.test(val)) {
+        val = 'https://' + val;
+      }
       answers[q.key] = val;
       qIdx++;
       askNext();
@@ -155,51 +153,86 @@ function startServices() {
 }
 
 function main() {
-  console.clear();
-  console.log(`
+  const options = [
+    { label: "🚀 Iniciar Servidor Diretamente (Modo Rápido)", action: startServices },
+    { label: "⚙️  Configurar Servidor & Domínio (Setup Guiado / Quiz Interativo)", action: runInteractiveSetup },
+    { label: "❌ Sair", action: () => { console.log("Encerrado pelo usuário."); process.exit(0); } }
+  ];
+
+  let selectedIndex = 0;
+  let countdown = 5;
+  let timer = null;
+
+  function renderMenu() {
+    console.clear();
+    console.log(`
 ${ANSI.cyan}${ANSI.bright}  ╔════════════════════════════════════════════════════════════════════╗
   ║                                                                    ║
   ║         ⚡ CHEF COZINHA HIGH PERFORMANCE SaaS - STACK BOOT         ║
   ║                                                                    ║
   ╚════════════════════════════════════════════════════════════════════╝${ANSI.reset}
 
-  ${ANSI.bright}Escolha como deseja iniciar o sistema:${ANSI.reset}
+  ${ANSI.bright}Escolha como deseja iniciar o sistema usando as setas [↑ / ↓] e [ENTER]:${ANSI.reset}\n`);
 
-  ${ANSI.green} [1] 🚀 Iniciar Servidor Diretamente (Modo Rápido)${ANSI.reset}
-  ${ANSI.yellow} [2] ⚙️  Configurar Servidor Manualmente (Setup Guiado / Quiz Interativo)${ANSI.reset}
-  ${ANSI.red} [3] ❌ Sair${ANSI.reset}
-`);
+    options.forEach((opt, idx) => {
+      if (idx === selectedIndex) {
+        console.log(`  ${ANSI.bgCyan}${ANSI.bright} ➔ ${idx + 1}. ${opt.label} ${ANSI.reset}`);
+      } else {
+        console.log(`     ${ANSI.dim}${idx + 1}. ${opt.label}${ANSI.reset}`);
+      }
+    });
 
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout
-  });
+    console.log(`\n  ${ANSI.yellow}⏱️  Iniciando automaticamente o modo selecionado em ${countdown}s... (Pressione uma tecla para pausar)${ANSI.reset}\n`);
+  }
 
-  let hasAnswered = false;
+  readline.emitKeypressEvents(process.stdin);
+  if (process.stdin.isTTY) {
+    process.stdin.setRawMode(true);
+  }
 
-  const timer = setTimeout(() => {
-    if (!hasAnswered) {
-      hasAnswered = true;
-      try { rl.close(); } catch (e) {}
-      console.log(`\n${ANSI.yellow}⏱️  Tempo limite de escolha atingido (5s). Iniciando servidor automaticamente (Opção 1)...${ANSI.reset}\n`);
-      startServices();
-    }
-  }, 5000);
+  renderMenu();
 
-  rl.question(`${ANSI.cyan}${ANSI.bright}👉 Digite sua opção [1, 2 ou 3] (Padrão: 1 em 5 segs): ${ANSI.reset}`, (choice) => {
-    if (hasAnswered) return;
-    hasAnswered = true;
-    clearTimeout(timer);
-    rl.close();
-
-    const cleanChoice = choice.trim();
-    if (cleanChoice === '2') {
-      runInteractiveSetup();
-    } else if (cleanChoice === '3') {
-      console.log('Encerrado pelo usuário.');
-      process.exit(0);
+  timer = setInterval(() => {
+    countdown--;
+    if (countdown <= 0) {
+      clearInterval(timer);
+      cleanupAndRun(options[selectedIndex].action);
     } else {
-      startServices();
+      renderMenu();
+    }
+  }, 1000);
+
+  function cleanupAndRun(action) {
+    clearInterval(timer);
+    if (process.stdin.isTTY) {
+      process.stdin.setRawMode(false);
+    }
+    process.stdin.removeAllListeners('keypress');
+    action();
+  }
+
+  process.stdin.on('keypress', (str, key) => {
+    if (timer) {
+      clearInterval(timer);
+      timer = null;
+    }
+
+    if (key.name === 'up') {
+      selectedIndex = (selectedIndex - 1 + options.length) % options.length;
+      renderMenu();
+    } else if (key.name === 'down') {
+      selectedIndex = (selectedIndex + 1) % options.length;
+      renderMenu();
+    } else if (key.name === 'return' || key.name === 'enter') {
+      cleanupAndRun(options[selectedIndex].action);
+    } else if (str === '1' || str === '2' || str === '3') {
+      const idx = parseInt(str, 10) - 1;
+      if (idx >= 0 && idx < options.length) {
+        selectedIndex = idx;
+        cleanupAndRun(options[selectedIndex].action);
+      }
+    } else if (key.ctrl && key.name === 'c') {
+      process.exit(0);
     }
   });
 }
