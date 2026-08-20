@@ -439,7 +439,8 @@ function switchTab(targetId) {
     'sec-terminal': ['Terminal', 'Execute comandos no servidor local'],
     'sec-instancias': ['Instâncias On-Premise', 'Gerencie instalações locais conectadas ao servidor'],
     'sec-site-vendas': ['Site de Vendas', 'Edite conteúdo, planos, gateways e configurações da landing page'],
-    'sec-afiliados': ['Afiliados & Parceiros', 'Gerenciamento completo da rede de revenda, cadastros e comissões']
+    'sec-afiliados': ['Afiliados & Parceiros', 'Gerenciamento completo da rede de revenda, cadastros e comissões'],
+    'sec-seguranca-waf': ['Segurança & WAF', 'Firewall, proteção Anti-DDoS, Rate Limiter e bloqueio de IPs']
   };
 
   for (var i = 0; i < items.length; i++) {
@@ -480,6 +481,7 @@ function switchTab(targetId) {
    else if (targetId === 'sec-instancias') carregarInstancias();
    else if (targetId === 'sec-site-vendas') carregarSiteVendas();
    else if (targetId === 'sec-afiliados') carregarAfiliados();
+   else if (targetId === 'sec-seguranca-waf') carregarConfigSeguranca();
 }
 
 /* ═══ DASHBOARD ═══ */
@@ -3528,5 +3530,144 @@ function verMetricasAfiliado(id) {
 
 function fecharModalAfiliadoDetalhes() {
   document.getElementById('modal-afiliado-detalhes').classList.remove('active');
+}
+
+/* ═══════════════════════════════════════════════════════════════════════ */
+/* ═══ CENTRAL DE SEGURANÇA, WAF & ANTI-DDOS ═══════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════════════ */
+
+var wafCurrentConfig = {
+  enabled: true,
+  max_reqs_per_minute: 300,
+  block_sqli_xss: true,
+  headers_enabled: true,
+  blacklist_ips: []
+};
+
+function carregarConfigSeguranca() {
+  apiGet('/api/super/waf-config', function(err, data) {
+    if (err || !data || !data.ok) return showToast('Erro ao carregar regras de segurança.', 'danger');
+    wafCurrentConfig = data.config || wafCurrentConfig;
+    
+    var enabledEl = document.getElementById('waf-enabled');
+    if (enabledEl) enabledEl.checked = !!wafCurrentConfig.enabled;
+
+    var maxReqsEl = document.getElementById('waf-max-reqs');
+    if (maxReqsEl) maxReqsEl.value = wafCurrentConfig.max_reqs_per_minute || 300;
+
+    var sqliEl = document.getElementById('waf-block-sql-xss');
+    if (sqliEl) sqliEl.checked = !!wafCurrentConfig.block_sqli_xss;
+
+    var headersEl = document.getElementById('waf-headers-enabled');
+    if (headersEl) headersEl.checked = !!wafCurrentConfig.headers_enabled;
+
+    var statusEl = document.getElementById('waf-stat-status');
+    if (statusEl) {
+      statusEl.textContent = wafCurrentConfig.enabled ? 'ATIVO' : 'DESATIVADO';
+      statusEl.style.color = wafCurrentConfig.enabled ? 'var(--success)' : '#ef4444';
+    }
+
+    var limitEl = document.getElementById('waf-stat-limit');
+    if (limitEl) limitEl.textContent = (wafCurrentConfig.max_reqs_per_minute || 300) + ' / min';
+
+    renderBlacklistUI(wafCurrentConfig.blacklist_ips || []);
+    carregarWafLogs();
+  });
+}
+
+function renderBlacklistUI(ips) {
+  var container = document.getElementById('waf-blacklist-container');
+  var countEl = document.getElementById('waf-stat-blocked');
+  if (countEl) countEl.textContent = ips.length;
+
+  if (!container) return;
+  if (!ips || ips.length === 0) {
+    container.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding:10px;">Nenhum IP bloqueado manualmente.</div>';
+    return;
+  }
+
+  var html = '';
+  ips.forEach(function(ip) {
+    html += '<div style="display:flex; justify-content:space-between; align-items:center; padding:4px 8px; border-bottom:1px solid rgba(255,255,255,0.05);">' +
+      '<span style="color:#ef4444; font-weight:700;">' + esc(ip) + '</span>' +
+      '<button onclick="removerIpBlacklist(\'' + esc(ip) + '\')" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:12px;" title="Remover Bloqueio"><i class="fa-solid fa-trash"></i></button>' +
+    '</div>';
+  });
+  container.innerHTML = html;
+}
+
+function salvarConfigSeguranca() {
+  var enabled = document.getElementById('waf-enabled').checked;
+  var maxReqs = parseInt(document.getElementById('waf-max-reqs').value) || 300;
+  var sqli = document.getElementById('waf-block-sql-xss').checked;
+  var headers = document.getElementById('waf-headers-enabled').checked;
+
+  wafCurrentConfig.enabled = enabled;
+  wafCurrentConfig.max_reqs_per_minute = maxReqs;
+  wafCurrentConfig.block_sqli_xss = sqli;
+  wafCurrentConfig.headers_enabled = headers;
+
+  apiPost('/api/super/waf-config', wafCurrentConfig, function(err, data) {
+    if (err || !data || !data.ok) return showToast('Erro ao salvar regras WAF.', 'danger');
+    showToast('Configurações de segurança e WAF atualizadas!', 'success');
+    carregarConfigSeguranca();
+  });
+}
+
+function adicionarIpBlacklist() {
+  var input = document.getElementById('waf-new-ip');
+  var ip = (input.value || '').trim();
+  if (!ip) return showToast('Digite um endereço IP válido.', 'warning');
+
+  if (!wafCurrentConfig.blacklist_ips) wafCurrentConfig.blacklist_ips = [];
+  if (wafCurrentConfig.blacklist_ips.indexOf(ip) !== -1) {
+    return showToast('Este IP já está na lista negra.', 'warning');
+  }
+
+  wafCurrentConfig.blacklist_ips.push(ip);
+  input.value = '';
+
+  apiPost('/api/super/waf-config', wafCurrentConfig, function(err, data) {
+    if (err || !data || !data.ok) return showToast('Erro ao adicionar IP.', 'danger');
+    showToast('IP ' + ip + ' bloqueado com sucesso!', 'success');
+    carregarConfigSeguranca();
+  });
+}
+
+function removerIpBlacklist(ip) {
+  if (!confirm('Desbloquear o IP ' + ip + '?')) return;
+  if (!wafCurrentConfig.blacklist_ips) return;
+  
+  wafCurrentConfig.blacklist_ips = wafCurrentConfig.blacklist_ips.filter(function(i) { return i !== ip; });
+
+  apiPost('/api/super/waf-config', wafCurrentConfig, function(err, data) {
+    if (err || !data || !data.ok) return showToast('Erro ao remover IP.', 'danger');
+    showToast('IP ' + ip + ' desbloqueado!', 'success');
+    carregarConfigSeguranca();
+  });
+}
+
+function carregarWafLogs() {
+  apiGet('/api/super/waf-logs', function(err, data) {
+    var tbody = document.getElementById('waf-logs-tbody');
+    if (!tbody) return;
+    if (err || !data || !data.ok || !data.logs || data.logs.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px; color:var(--text-muted);">Nenhum ataque ou bloqueio registrado recentemente.</td></tr>';
+      return;
+    }
+
+    var html = '';
+    data.logs.forEach(function(l) {
+      var d = l.data ? new Date(l.data).toLocaleTimeString('pt-BR') : '—';
+      html += '<tr>' +
+        '<td>' + d + '</td>' +
+        '<td style="color:#ef4444; font-weight:bold; font-family:monospace;">' + esc(l.ip) + '</td>' +
+        '<td><span class="badge badge-plano">' + esc(l.metodo) + '</span></td>' +
+        '<td style="color:#fff; font-size:12px;">' + esc(l.endpoint) + '</td>' +
+        '<td style="color:var(--warning); font-size:12px; font-weight:600;">' + esc(l.motivo) + '</td>' +
+      '</tr>';
+    });
+    tbody.innerHTML = html;
+  });
 }
 

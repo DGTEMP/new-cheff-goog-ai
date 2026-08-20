@@ -243,22 +243,65 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// ── SEGURANÇA WAF & RATE LIMITER (Proteção contra Ataques & Anti-DDoS) ──
+// ── SEGURANÇA WAF, ANTI-DDOS & RATE LIMITER DINÂMICO ──
 const rateLimitMap = new Map();
+const wafAttackLogs = [];
+
+let wafConfig = {
+  enabled: true,
+  max_reqs_per_minute: 300,
+  block_sqli_xss: true,
+  headers_enabled: true,
+  blacklist_ips: []
+};
+
+// Carregar configs salvas do WAF no banco de dados
+function loadWafConfig() {
+  masterDb.get("SELECT valor FROM configuracoes_global WHERE chave = 'waf_config'", [], (err, row) => {
+    if (!err && row && row.valor) {
+      try { wafConfig = Object.assign(wafConfig, JSON.parse(row.valor)); } catch (e) { }
+    }
+  });
+}
+setTimeout(loadWafConfig, 2000);
 
 app.use((req, res, next) => {
-  // 1. Security Headers (Anti-Clickjacking, Anti-XSS, No-Sniff)
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
-  res.setHeader('X-XSS-Protection', '1; mode=block');
-  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  if (!wafConfig.enabled) return next();
 
-  // 2. Rate Limiter (Anti-DDoS: máx 300 requisições/min por IP)
   const rawIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || req.ip || '127.0.0.1';
   const ip = rawIp.replace('::ffff:', '');
+
+  // 1. Verificar Lista Negra (Blacklist de IPs)
+  if (Array.isArray(wafConfig.blacklist_ips) && wafConfig.blacklist_ips.includes(ip)) {
+    console.warn(`⛔ [WAF Anti-DDoS] Acesso negado para IP na Blacklist: ${ip}`);
+    wafAttackLogs.unshift({ data: new Date().toISOString(), ip, metodo: req.method, endpoint: req.originalUrl, motivo: 'IP em Lista Negra (Blacklist)' });
+    if (wafAttackLogs.length > 100) wafAttackLogs.pop();
+    return res.status(403).json({ success: false, error: 'Acesso negado. Endereço IP bloqueado.' });
+  }
+
+  // 2. Security Headers (Anti-Clickjacking, Anti-XSS, No-Sniff)
+  if (wafConfig.headers_enabled) {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+    res.setHeader('X-XSS-Protection', '1; mode=block');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  }
+
+  // 3. Filtro Básico Anti-SQLi / Anti-XSS na URL e Body
+  if (wafConfig.block_sqli_xss) {
+    const urlCheck = (req.originalUrl || '').toLowerCase();
+    if (urlCheck.includes('<script>') || urlCheck.includes('union select') || urlCheck.includes('drop table')) {
+      console.warn(`⚠️ [WAF Anti-XSS/SQLi] Tentativa de injeção bloqueada de ${ip}`);
+      wafAttackLogs.unshift({ data: new Date().toISOString(), ip, metodo: req.method, endpoint: req.originalUrl, motivo: 'Tentativa de Injeção SQL/XSS' });
+      if (wafAttackLogs.length > 100) wafAttackLogs.pop();
+      return res.status(400).json({ success: false, error: 'Requisição inválida (Filtro de Segurança WAF).' });
+    }
+  }
+
+  // 4. Rate Limiter (Anti-DDoS por IP)
   const now = Date.now();
   const windowMs = 60 * 1000;
-  const maxReqs = 300;
+  const maxReqs = parseInt(wafConfig.max_reqs_per_minute) || 300;
 
   let record = rateLimitMap.get(ip);
   if (!record || now - record.startTime > windowMs) {
@@ -266,8 +309,10 @@ app.use((req, res, next) => {
   } else {
     record.count++;
     if (record.count > maxReqs) {
-      console.warn(`⚠️ [Anti-DDoS] IP bloqueado por excesso de requisições: ${ip}`);
-      return res.status(429).json({ success: false, error: 'Muitas requisições. Aguarde 1 minuto.' });
+      console.warn(`⚠️ [Anti-DDoS] IP bloqueado por limite de taxa (${record.count} reqs/min): ${ip}`);
+      wafAttackLogs.unshift({ data: new Date().toISOString(), ip, metodo: req.method, endpoint: req.originalUrl, motivo: `Limite Rate Limit excedido (${record.count}/${maxReqs})` });
+      if (wafAttackLogs.length > 100) wafAttackLogs.pop();
+      return res.status(429).json({ success: false, error: 'Limite de requisições excedido. Aguarde 1 minuto.' });
     }
   }
 
@@ -906,6 +951,37 @@ const io = new Server(server, {
 // (Multi-tenant) Todo io.emit() executado dentro de um contexto de tenant é
 // roteado para a sala restaurante_<id>, isolando broadcasts entre negócios.
 // Fora de contexto (ex.: timers de startup) cai no comportamento global.
+// ── SUPER ADMIN: APIs da Central de Segurança & WAF ─────────────────────────
+app.get('/api/super/waf-config', superAdminAuth, (req, res) => {
+  res.json({ ok: true, config: wafConfig });
+});
+
+app.post('/api/super/waf-config', superAdminAuth, (req, res) => {
+  const { enabled, max_reqs_per_minute, block_sqli_xss, headers_enabled, blacklist_ips } = req.body || {};
+
+  wafConfig.enabled = enabled !== undefined ? !!enabled : wafConfig.enabled;
+  wafConfig.max_reqs_per_minute = parseInt(max_reqs_per_minute) || 300;
+  wafConfig.block_sqli_xss = block_sqli_xss !== undefined ? !!block_sqli_xss : wafConfig.block_sqli_xss;
+  wafConfig.headers_enabled = headers_enabled !== undefined ? !!headers_enabled : wafConfig.headers_enabled;
+  if (Array.isArray(blacklist_ips)) {
+    wafConfig.blacklist_ips = blacklist_ips.map(ip => String(ip).trim()).filter(Boolean);
+  }
+
+  const jsonVal = JSON.stringify(wafConfig);
+  masterDb.run(
+    `INSERT INTO configuracoes_global (chave, valor) VALUES ('waf_config', ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor`,
+    [jsonVal],
+    function(err) {
+      if (err) return res.json({ ok: false, erro: err.message });
+      res.json({ ok: true, mensagem: 'Configurações de segurança e WAF atualizadas!', config: wafConfig });
+    }
+  );
+});
+
+app.get('/api/super/waf-logs', superAdminAuth, (req, res) => {
+  res.json({ ok: true, logs: wafAttackLogs, total_bloqueados: wafAttackLogs.length });
+});
+
 const _ioEmitGlobal = io.emit.bind(io);
 io.emit = function (event, ...args) {
   const tid = tenantContext.getStore();
