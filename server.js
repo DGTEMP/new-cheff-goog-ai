@@ -5159,8 +5159,13 @@ io.on('connection', (socket) => {
     const valor_hora = f.valor_hora || 0;
     const hash = bcrypt.hashSync(f.senha || '123', 10);
     const restauranteId = socketTenantId || tenantContext.getStore() || 1;
-    db.run(`INSERT INTO funcionarios (nome, usuario, senha, cargo, valor_hora, status, restaurante_id) VALUES (?, ?, ?, ?, ?, 'Pendente', ?)`,
-      [f.nome, f.usuario, hash, f.cargo || 'Garcom', valor_hora, restauranteId], () => {
+    const st = f.status || 'Ativo';
+    db.run(`INSERT INTO funcionarios (nome, usuario, senha, cargo, valor_hora, status, restaurante_id) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [f.nome, f.usuario, hash, f.cargo || 'Garcom', valor_hora, st, restauranteId], (err) => {
+        if (err) {
+          console.error('[ERRO] Falha ao inserir funcionario:', err.message);
+          return socket.emit('erro_funcionario', err.message.includes('UNIQUE') ? 'Nome de usuário já cadastrado.' : 'Erro ao cadastrar funcionário.');
+        }
         db.all(`SELECT * FROM funcionarios`, (e, r) => io.emit('funcionarios_atualizados', r || []));
       });
   });

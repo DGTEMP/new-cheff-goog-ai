@@ -2229,9 +2229,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const senha = document.getElementById('admin-func-pass').value.trim();
     const cargo = document.getElementById('admin-func-cargo').value;
     if (!nome || !usuario || !senha) return alert('Preencha Nome, Usuário e Senha.');
-    socket.emit('add_funcionario', { nome, usuario, senha, cargo, valor_hora: 0 });
+    socket.emit('add_funcionario', { nome, usuario, senha, cargo, valor_hora: 0, status: 'Ativo' });
+    document.getElementById('admin-func-nome').value = '';
+    document.getElementById('admin-func-user').value = '';
     document.getElementById('admin-func-pass').value = '';
+    alert('Colaborador adicionado com sucesso!');
   };
+  socket.on('erro_funcionario', (msg) => alert(msg));
 });
 
 // --- CLIENTES CRM & FIDELIZAÇÃO (SUPORTE DE ALTA PERFORMANCE PARA 50.000+ CLIENTES) ---
