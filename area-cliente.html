@@ -656,6 +656,7 @@
 
     const urlParams = new URLSearchParams(window.location.search);
     const fromCardapio = urlParams.get('from') === 'cardapio';
+    const isCheckin = urlParams.get('checkin') === '1';
     const secaoInicial = urlParams.get('secao') === 'beneficios' ? 'beneficios' : null;
     const mesaUrl = urlParams.get('mesa') || '';
 
@@ -725,6 +726,10 @@
       socket.emit('get_cliente_visitas', { cliente_id: clienteAtual.id, telefone: clienteAtual.telefone });
       socket.emit('registrar_visita', { cliente_id: clienteAtual.id, cliente_nome: clienteAtual.nome, cliente_telefone: clienteAtual.telefone, mesa: mesaUrl });
 
+      if (isCheckin) {
+        socket.emit('cliente_checkin', { cliente_id: clienteAtual.id, telefone: clienteAtual.telefone });
+      }
+
       document.getElementById('lista-ofertas').innerHTML = '<p style="color:#94a3b8; text-align:center; padding:20px;">Nenhuma oferta disponível no momento.</p>';
 
       if (secaoInicial) showSection(secaoInicial);
@@ -760,6 +765,17 @@
         socket.emit('cliente_login', salvo);
       }
     };
+
+    socket.on('checkin_response', (res) => {
+      if (res.error) {
+        alert(res.error);
+      } else if (res.success) {
+        alert('Check-in realizado! + ' + res.pontos + ' pontos. Saldo: ' + res.novoSaldo + ' pontos.');
+      } else {
+        alert(res.error || 'Check-in não realizado.');
+      }
+      if (isCheckin) window.location.href = '/area-cliente.html?restaurante_id=' + (urlParams.get('restaurante_id') || localStorage.getItem('restaurante_id') || '1');
+    });
 
     socket.on('beneficios_lista', (lista) => {
       beneficiosGlobais = lista;

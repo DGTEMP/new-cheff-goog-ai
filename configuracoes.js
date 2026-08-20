@@ -534,6 +534,9 @@ document.addEventListener('DOMContentLoaded', () => {
       socket.emit('get_cupons_list');
       if (typeof initDiasGrid === 'function' && !_diasGridInit) { _diasGridInit = true; initDiasGrid(); }
     }
+    if (tabId === 'fidelidade') {
+      setTimeout(() => { if (window.gerarQrCheckin) window.gerarQrCheckin(true); }, 300);
+    }
 
     // Update title
     const elTitulo = document.getElementById('titulo-aba');
@@ -3306,10 +3309,9 @@ socket.on('fidelidade_config_salvo', (res) => {
 });
 
 // --- FIDELIDADE: QR de check-in ---
-window.gerarQrCheckin = () => {
+window.gerarQrCheckin = (silent) => {
   const protocol = window.location.protocol;
   const port = window.location.port;
-  /* Preferir custom_domain sobre IP */
   const host = (restCustomDomain && restCustomDomain.trim()) || ((typeof _serverIpReal !== 'undefined' && _serverIpReal) || window.location.hostname);
   const isDomain = host.indexOf('.') !== -1 && !host.match(/^\d+\.\d+\.\d+\.\d+$/);
   const portPart = isDomain ? '' : (port ? ':' + port : '');
@@ -3318,7 +3320,7 @@ window.gerarQrCheckin = () => {
   const img = document.getElementById('fid-checkin-qr-img');
   if (img) img.src = (window.location.origin || '') + '/api/qr?size=140&data=' + encodeURIComponent(appUrl);
   window._checkinQrUrl = appUrl;
-  alert('QR de check-in gerado! Clique em "Baixar QR" para imprimir.');
+  if (!silent && typeof window.showToast === 'function') window.showToast('QR de check-in gerado!', '#22c55e');
 };
 window.baixarQrCheckin = () => {
   const img = document.getElementById('fid-checkin-qr-img');
@@ -5738,72 +5740,80 @@ document.addEventListener('DOMContentLoaded', () => {
     if (data.error || !data.suggestions || data.suggestions.length === 0) {
       empty.style.display = 'block';
       empty.querySelector('h4').textContent = data.error || 'Nenhuma sugestão possível';
-      empty.querySelector('p').textContent = data.error ? '' : 'Cadastre mais produtos com categorias fiscais para gerar combos.';
+      empty.querySelector('p').textContent = data.error ? '' : 'Cadastre mais produtos e tenha vendas registradas para gerar sugestões.';
       return;
     }
 
     const s = data.stats;
     document.getElementById('combo-stat-produtos').textContent = s.totalProdutos || 0;
     document.getElementById('combo-stat-faturamento').textContent = `R$ ${(s.totalFaturado30d || 0).toFixed(2).replace('.', ',')}`;
-    document.getElementById('combo-stat-taxa').textContent = `${(s.mediaTributariaAtual || 0).toFixed(1)}%`;
+    document.getElementById('combo-stat-taxa').textContent = s.totalPedidos30d ? `${s.totalPedidos30d} pedidos` : '-';
     document.getElementById('combo-stat-sugestoes').textContent = data.suggestions.length;
     statsPanel.style.display = 'block';
 
-    // Render category distribution
+    const tipoLabels = {
+      frequente_junto: { label: 'Frequentemente Juntos', color: '#dc2626', bg: '#fef2f2' },
+      estrella_dormencia: { label: 'Estrela + Dormência', color: '#d97706', bg: '#fffbeb' },
+      combo_momento: { label: 'Combo do Momento', color: '#7c3aed', bg: '#f5f3ff' },
+      cross_sell: { label: 'Cross-Sell Top', color: '#059669', bg: '#f0fdf4' },
+      alto_margem: { label: 'Alto Valor / Baixa Saída', color: '#0284c7', bg: '#f0f9ff' }
+    };
+
     const catDist = document.getElementById('combo-cat-distribution');
-    const dist = s.distribuicao || [];
-    catDist.innerHTML = dist.map(d => {
-      const barColor = d.categoria.includes('Alcoól') ? '#dc2626' : d.categoria.includes('Não-Alc') ? '#f59e0b' : d.categoria.includes('Aliment') ? '#059669' : '#6366f1';
-      return `
-        <div>
-          <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px;">
-            <span style="font-weight: 500; color: #334155;">${d.categoria} <span style="color: #94a3b8; font-size: 11px;">(alíq. ${d.taxaImposto}%)</span></span>
-            <span style="font-weight: 600; color: #475569;">R$ ${(d.faturamento || 0).toFixed(2).replace('.', ',')} (${d.percentual}%)</span>
+    if (catDist) {
+      const dist = s.distribuicao || [];
+      catDist.innerHTML = dist.map(d => {
+        const barColor = d.categoria.includes('Alcoól') ? '#dc2626' : d.categoria.includes('Não-Alc') ? '#f59e0b' : d.categoria.includes('Aliment') ? '#059669' : '#6366f1';
+        return `
+          <div>
+            <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px;">
+              <span style="font-weight: 500; color: #334155;">${d.categoria}</span>
+              <span style="font-weight: 600; color: #475569;">R$ ${(d.faturamento || 0).toFixed(2).replace('.', ',')} (${d.percentual}%)</span>
+            </div>
+            <div style="width: 100%; height: 8px; background: #f1f5f9; border-radius: 4px; overflow: hidden;">
+              <div style="width: ${d.percentual}%; height: 100%; background: ${barColor}; border-radius: 4px; transition: width 0.5s;"></div>
+            </div>
           </div>
-          <div style="width: 100%; height: 8px; background: #f1f5f9; border-radius: 4px; overflow: hidden;">
-            <div style="width: ${d.percentual}%; height: 100%; background: ${barColor}; border-radius: 4px; transition: width 0.5s;"></div>
+        `;
+      }).join('');
+    }
+
+    grid.style.display = 'grid';
+    grid.innerHTML = data.suggestions.map((c, idx) => {
+      const tipo = tipoLabels[c.tipo] || { label: c.tipo, color: '#64748b', bg: '#f8fafc' };
+      return `
+        <div style="background: white; border-radius: 14px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.03); transition: transform 0.2s, box-shadow 0.2s;"
+             onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 25px rgba(0,0,0,0.08)';"
+             onmouseout="this.style.transform='none'; this.style.boxShadow='0 4px 6px rgba(0,0,0,0.03)';">
+          <div style="background: ${tipo.bg}; padding: 12px 16px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 12px; font-weight: 600; color: ${tipo.color};">
+              ${c.icon} ${tipo.label}
+            </span>
+            <span style="font-size: 11px; color: #94a3b8;">#${idx + 1}</span>
+          </div>
+          <div style="padding: 16px;">
+            <h4 style="margin: 0 0 6px; font-size: 15px; color: #1e293b;">${c.titulo}</h4>
+            <p style="margin: 0 0 4px; font-size: 12px; color: #64748b;">${c.descricao}</p>
+            ${c.evidencia ? `<p style="margin: 0 0 12px; font-size: 11px; color: #94a3b8; font-style: italic;">📊 ${c.evidencia}</p>` : ''}
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+              <div style="text-align: center;">
+                <div style="font-size: 11px; color: #94a3b8;">Separados</div>
+                <div style="font-size: 16px; font-weight: 700; color: #64748b; text-decoration: line-through;">R$ ${c.precoOriginal.toFixed(2).replace('.', ',')}</div>
+              </div>
+              <i class="ph ph-arrow-right" style="color: #059669; font-size: 18px;"></i>
+              <div style="text-align: center;">
+                <div style="font-size: 11px; color: #059669;">Combo</div>
+                <div style="font-size: 20px; font-weight: 800; color: #059669;">R$ ${c.precoCombo.toFixed(2).replace('.', ',')}</div>
+              </div>
+              <span style="background: #dcfce7; color: #16a34a; padding: 3px 8px; border-radius: 20px; font-size: 11px; font-weight: 700;">-${c.descontoPct}%</span>
+            </div>
+            <button onclick="window.aplicarComboIA(${JSON.stringify(c).replace(/"/g, '&quot;')})" style="width: 100%; padding: 10px; background: #059669; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 6px; transition: background 0.2s;" onmouseover="this.style.background='#047857'" onmouseout="this.style.background='#059669'">
+              <i class="ph ph-magic-wand"></i> Aplicar como Promoção
+            </button>
           </div>
         </div>
       `;
     }).join('');
-
-    // Render suggestion cards
-    grid.style.display = 'grid';
-    grid.innerHTML = data.suggestions.map((c, idx) => `
-      <div style="background: white; border-radius: 14px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.03); transition: transform 0.2s, box-shadow 0.2s;" 
-           onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 25px rgba(0,0,0,0.08)';" 
-           onmouseout="this.style.transform='none'; this.style.boxShadow='0 4px 6px rgba(0,0,0,0.03)';">
-        <div style="background: ${c.economiaEstimada > 0 ? '#f0fdf4' : '#fef2f2'}; padding: 12px 16px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
-          <span style="font-size: 12px; font-weight: 600; color: ${c.economiaEstimada > 0 ? '#059669' : '#dc2626'};">
-            ${c.icon} ${c.categoriaFiscal} — Economia ~R$ ${(c.economiaEstimada || 0).toFixed(2).replace('.', ',')}/unidade
-          </span>
-          <span style="font-size: 11px; color: #94a3b8;">#${idx + 1}</span>
-        </div>
-        <div style="padding: 16px;">
-          <h4 style="margin: 0 0 6px; font-size: 15px; color: #1e293b;">${c.titulo}</h4>
-          <p style="margin: 0 0 12px; font-size: 12px; color: #94a3b8;">${c.descricao}</p>
-          <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
-            <div style="text-align: center;">
-              <div style="font-size: 11px; color: #94a3b8;">Separados</div>
-              <div style="font-size: 16px; font-weight: 700; color: #64748b; text-decoration: line-through;">R$ ${c.precoOriginal.toFixed(2).replace('.', ',')}</div>
-            </div>
-            <i class="ph ph-arrow-right" style="color: #059669; font-size: 18px;"></i>
-            <div style="text-align: center;">
-              <div style="font-size: 11px; color: #059669;">Combo</div>
-              <div style="font-size: 20px; font-weight: 800; color: #059669;">R$ ${c.precoCombo.toFixed(2).replace('.', ',')}</div>
-            </div>
-            <span style="background: #dcfce7; color: #16a34a; padding: 3px 8px; border-radius: 20px; font-size: 11px; font-weight: 700;">-${c.descontoPct}%</span>
-          </div>
-          <div style="display: flex; justify-content: space-between; font-size: 11px; color: #94a3b8; padding-top: 10px; border-top: 1px solid #f1f5f9; margin-bottom: 12px;">
-            <span>Taxa atual: <strong style="color: #dc2626;">${c.taxaAtual}%</strong></span>
-            <span>Taxa combo: <strong style="color: #059669;">${c.taxaCombo}%</strong></span>
-          </div>
-          <button onclick="window.aplicarComboIA(${JSON.stringify(c).replace(/"/g, '&quot;')})" style="width: 100%; padding: 10px; background: #059669; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 6px; transition: background 0.2s;" onmouseover="this.style.background='#047857'" onmouseout="this.style.background='#059669'">
-            <i class="ph ph-magic-wand"></i> Aplicar como Promoção
-          </button>
-        </div>
-      </div>
-    `).join('');
   });
 
   // Apply combo suggestion as a promotion

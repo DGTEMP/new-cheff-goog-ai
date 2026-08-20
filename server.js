@@ -2492,7 +2492,26 @@ db.serialize(() => {
   db.run(`ALTER TABLE clientes ADD COLUMN pontos INTEGER DEFAULT 0`, (err) => { });
   db.run(`ALTER TABLE clientes ADD COLUMN total_gasto REAL DEFAULT 0`, (err) => { });
   db.run(`ALTER TABLE clientes ADD COLUMN nivel TEXT DEFAULT 'Bronze'`, (err) => { });
+  db.run(`ALTER TABLE clientes ADD COLUMN ultimo_checkin TEXT`, (err) => { });
   db.run(`ALTER TABLE fila_espera ADD COLUMN mesa_ofertada TEXT`, (err) => { });
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS checkins_fidelidade (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      cliente_id INTEGER,
+      pontos INTEGER DEFAULT 0,
+      data DATETIME DEFAULT (datetime('now', 'localtime'))
+    )
+  `);
+  db.run(`
+    CREATE TABLE IF NOT EXISTS ofertas_fidelidade (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      titulo TEXT,
+      descricao TEXT,
+      nivel TEXT DEFAULT 'Bronze',
+      ativo INTEGER DEFAULT 1
+    )
+  `);
 
   db.run(`
     CREATE TABLE IF NOT EXISTS cliente_visitas (
@@ -5825,8 +5844,7 @@ io.on('connection', (socket) => {
     db.all(`SELECT * FROM promocoes`, (e, r) => io.emit('promocoes_atualizadas', r || []));
   }));
 
-  // --- AI COMBO GENERATOR - Redução de Carga Tributária ---
-  // Tax rate estimates by fiscal category (approximate Brazilian averages)
+  // --- AI COMBO GENERATOR - Sugestões Inteligentes de Vendas ---
   const TAX_RATES = {
     'Alimentacao': { icms: 7, pis_cofins: 9.25, total: 16.25 },
     'Bebida_Nao_Alcoolica': { icms: 12, pis_cofins: 9.25, total: 21.25 },
@@ -5835,202 +5853,403 @@ io.on('connection', (socket) => {
     'Outros': { icms: 12, pis_cofins: 9.25, total: 21.25 }
   };
   const TAX_LABELS = {
-    'Alimentacao': 'Alimentação',
-    'Bebida_Nao_Alcoolica': 'Bebida Não-Alc.',
-    'Bebida_Alcoolica': 'Bebida Alcoólica',
-    'Servico': 'Serviço',
-    'Outros': 'Outros'
+    'Alimentacao': 'Alimentação', 'Bebida_Nao_Alcoolica': 'Bebida Não-Alc.',
+    'Bebida_Alcoolica': 'Bebida Alcoólica', 'Servico': 'Serviço', 'Outros': 'Outros'
   };
 
   socket.on('get_ai_combo_suggestions', () => {
-    // 1. Get all active products with their fiscal categories
     db.all(`SELECT * FROM produtos WHERE status = 'ativo' ORDER BY categoria, nome`, (err, products) => {
-      if (err || !products || products.length === 0) {
-        return socket.emit('ai_combo_suggestions', { suggestions: [], stats: {}, error: 'Nenhum produto ativo encontrado.' });
+      if (err || !products || products.length < 2) {
+        return socket.emit('ai_combo_suggestions', { suggestions: [], stats: {}, error: 'Cadastre pelo menos 2 produtos ativos.' });
       }
 
-      // 2. Get sales data for the last 30 days
       const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+      // Pedidos dos últimos 30 dias (para análise de co-ocorrência)
       db.all(
-        `SELECT productName, COUNT(*) as qty, SUM(CAST(REPLACE(REPLACE(total, ',', '.'), 'R$', '') AS REAL)) as revenue
-         FROM pedidos 
-         WHERE createdAt >= ? AND status IN ('Finalizado', 'Pago', 'Entregue')
+        `SELECT id, productName, createdAt FROM pedidos 
+         WHERE createdAt >= ? AND status IN ('Finalizado','Pago','Entregue')
          AND productName NOT LIKE 'Pgto Parcial%' AND productName NOT LIKE 'Pagamento%'
-         GROUP BY productName ORDER BY revenue DESC`,
+         ORDER BY id`,
         [thirtyDaysAgo], (errSales, sales) => {
 
-          const salesMap = {};
-          (sales || []).forEach(s => {
-            salesMap[s.productName] = { qty: s.qty, revenue: Math.abs(s.revenue || 0) };
-          });
+          // Vendas dos últimos 7 dias (para tendência)
+          db.all(
+            `SELECT productName, COUNT(*) as qty, SUM(CAST(REPLACE(REPLACE(total, ',', '.'), 'R$', '') AS REAL)) as revenue
+             FROM pedidos WHERE createdAt >= ? AND status IN ('Finalizado','Pago','Entregue')
+             AND productName NOT LIKE 'Pgto Parcial%' AND productName NOT LIKE 'Pagamento%'
+             GROUP BY productName ORDER BY qty DESC`,
+            [sevenDaysAgo], (errTrend, trendSales) => {
 
-          // 3. Classify products by fiscal category
-          const byCategory = {};
-          products.forEach(p => {
-            const cat = p.categoria_fiscal || 'Alimentacao';
-            if (!byCategory[cat]) byCategory[cat] = [];
-            byCategory[cat].push({
-              id: p.id, nome: p.nome, preco: p.preco, categoria: p.categoria,
-              emoji: p.emoji || '', categoria_fiscal: cat,
-              sales: salesMap[p.nome] || { qty: 0, revenue: 0 }
-            });
-          });
+              // Mapa de vendas
+              const salesMap30d = {};
+              (sales || []).forEach(s => {
+                if (!salesMap30d[s.productName]) salesMap30d[s.productName] = { qty: 0, revenue: 0 };
+                salesMap30d[s.productName].qty++;
+                salesMap30d[s.productName].revenue += Math.abs(parseFloat(String(s.total || '0').replace(/[R$\s]/g, '').replace(',', '.')) || 0);
+              });
 
-          // 4. Calculate current tax burden by category
-          let totalRevenue = 0;
-          let weightedTax = 0;
-          const catRevenue = {};
-          Object.keys(byCategory).forEach(cat => {
-            const catTotal = byCategory[cat].reduce((sum, p) => sum + (p.sales.revenue || 0), 0);
-            catRevenue[cat] = catTotal;
-            totalRevenue += catTotal;
-            weightedTax += catTotal * (TAX_RATES[cat]?.total || 20);
-          });
-          const currentAvgTax = totalRevenue > 0 ? (weightedTax / totalRevenue) : 0;
+              const salesMap7d = {};
+              (trendSales || []).forEach(s => {
+                salesMap7d[s.productName] = { qty: s.qty, revenue: Math.abs(s.revenue || 0) };
+              });
 
-          // 5. Generate combo suggestions
-          const suggestions = [];
-          const foods = byCategory['Alimentacao'] || [];
-          const drinksNaoAlc = byCategory['Bebida_Nao_Alcoolica'] || [];
-          const drinksAlc = byCategory['Bebida_Alcoolica'] || [];
+              // Mapa de produtos ativos
+              const prodMap = {};
+              products.forEach(p => {
+                prodMap[p.nome] = {
+                  id: p.id, nome: p.nome, preco: p.preco, categoria: p.categoria,
+                  emoji: p.emoji || '', categoria_fiscal: p.categoria_fiscal || 'Alimentacao',
+                  estoque: p.estoque, status_inicial: p.status_inicial,
+                  vendas30d: salesMap30d[p.nome] || { qty: 0, revenue: 0 },
+                  vendas7d: salesMap7d[p.nome] || { qty: 0, revenue: 0 }
+                };
+              });
 
-          // Strategy A: Food + Food combos (lowest tax rate)
-          if (foods.length >= 2) {
-            const sortedFoods = [...foods].sort((a, b) => (b.sales.qty || 0) - (a.sales.qty || 0));
-            for (let i = 0; i < Math.min(sortedFoods.length - 1, 5); i++) {
-              for (let j = i + 1; j < Math.min(sortedFoods.length, i + 4); j++) {
-                const a = sortedFoods[i], b = sortedFoods[j];
-                if (a.id === b.id) continue;
+              // ═══ ESTRATÉGIA 1: FREQUENTEMENTE JUNTOS (Market Basket) ═══
+              // Agrupa vendas por timestamp (mesma mesa/pedido) para encontrar pares co-frequentes
+              const pedidoGrupos = {};
+              (sales || []).forEach(s => {
+                const key = s.id; // cada pedido tem um id único
+                if (!pedidoGrupos[key]) pedidoGrupos[key] = new Set();
+                if (prodMap[s.productName]) pedidoGrupos[key].add(s.productName);
+              });
+
+              const parCount = {};
+              const produtoPairCount = {};
+              Object.values(pedidoGrupos).forEach(produtos => {
+                const arr = [...produtos];
+                for (let i = 0; i < arr.length; i++) {
+                  for (let j = i + 1; j < arr.length; j++) {
+                    const key = [arr[i], arr[j]].sort().join('|||');
+                    parCount[key] = (parCount[key] || 0) + 1;
+                    produtoPairCount[arr[i]] = (produtoPairCount[arr[i]] || 0) + 1;
+                    produtoPairCount[arr[j]] = (produtoPairCount[arr[j]] || 0) + 1;
+                  }
+                }
+              });
+
+              const suggestions = [];
+
+              // Top pares co-frequentes
+              const topPairs = Object.entries(parCount)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 10);
+
+              topPairs.forEach(([key, count]) => {
+                const [nomeA, nomeB] = key.split('|||');
+                const a = prodMap[nomeA], b = prodMap[nomeB];
+                if (!a || !b || a.id === b.id) return;
                 const soma = a.preco + b.preco;
-                const comboPrice = +(soma * 0.88).toFixed(2); // 12% "desconto" visual
-                const potentialTaxSaved = soma * ((currentAvgTax - TAX_RATES['Alimentacao'].total) / 100);
-
+                const desconto = count >= 5 ? 10 : count >= 3 ? 8 : 5;
+                const comboPrice = +(soma * (1 - desconto / 100)).toFixed(2);
                 suggestions.push({
-                  tipo: 'food_food',
-                  titulo: `${a.emoji || ''} ${a.nome} + ${b.emoji || ''} ${b.nome}`,
-                  descricao: `Combo de Alimentação — Ambos na categoria de menor tributação`,
-                  itens: [{ id: a.id, nome: a.nome, preco: a.preco }, { id: b.id, nome: b.preco ? b.nome : b.nome, preco: b.preco }],
+                  tipo: 'frequente_junto',
+                  titulo: `${a.emoji} ${a.nome} + ${b.emoji} ${b.nome}`,
+                  descricao: `Frequentemente pedido junto — ${count}x nos últimos 30 dias`,
+                  itens: [{ id: a.id, nome: a.nome, preco: a.preco }, { id: b.id, nome: b.nome, preco: b.preco }],
                   precoOriginal: +soma.toFixed(2),
                   precoCombo: comboPrice,
-                  descontoPct: 12,
-                  categoriaFiscal: 'Alimentacao',
-                  taxaAtual: +currentAvgTax.toFixed(2),
-                  taxaCombo: TAX_RATES['Alimentacao'].total,
-                  economiaEstimada: +Math.max(0, potentialTaxSaved).toFixed(2),
-                  prioridade: (a.sales.qty || 0) + (b.sales.qty || 0),
-                  icon: '🍽️'
+                  descontoPct: desconto,
+                  economiaEstimada: +(soma - comboPrice).toFixed(2),
+                  prioridade: count * 10,
+                  icon: '🔥',
+                  evidencia: `${count}x juntos`
+                });
+              });
+
+              // ═══ ESTRATÉGIA 2: ESTRELA + DORMÊNCIA ═══
+              // Parear produto mais vendido com produto menos vendido (do mesmo tipo)
+              const allProds = Object.values(prodMap).sort((a, b) => b.vendas30d.qty - a.vendas30d.qty);
+              const bestSellers = allProds.filter(p => p.vendas30d.qty >= 3);
+              const lowSellers = allProds.filter(p => p.vendas30d.qty <= 1 && p.vendas30d.qty >= 0);
+
+              bestSellers.slice(0, 5).forEach(best => {
+                const complemento = lowSellers.find(l =>
+                  l.id !== best.id &&
+                  l.categoria_fiscal !== best.categoria_fiscal &&
+                  Math.abs(best.preco - l.preco) < best.preco * 0.5
+                );
+                if (!complemento) return;
+                const soma = best.preco + complemento.preco;
+                const desconto = 12;
+                const comboPrice = +(soma * 0.88).toFixed(2);
+                suggestions.push({
+                  tipo: 'estrella_dormencia',
+                  titulo: `${best.emoji} ${best.nome} + ${complemento.emoji} ${complemento.nome}`,
+                  descricao: `${best.nome} é o mais vendido! Acompanhe com ${complemento.nome} (parado no estoque)`,
+                  itens: [{ id: best.id, nome: best.nome, preco: best.preco }, { id: complemento.id, nome: complemento.nome, preco: complemento.preco }],
+                  precoOriginal: +soma.toFixed(2),
+                  precoCombo: comboPrice,
+                  descontoPct: desconto,
+                  economiaEstimada: +(soma - comboPrice).toFixed(2),
+                  prioridade: best.vendas30d.qty * 3 + 5,
+                  icon: '⭐',
+                  evidencia: `${best.vendas30d.qty} vendas vs ${complemento.vendas30d.qty} venda(s)`
+                });
+              });
+
+              // ═══ ESTRATÉGIA 3: COMBO DO MOMENTO (Hora do dia) ═══
+              const hora = new Date().getHours();
+              let periodo = 'noite';
+              if (hora >= 6 && hora < 12) periodo = 'manha';
+              else if (hora >= 12 && hora < 15) periodo = 'almoco';
+              else if (hora >= 15 && hora < 18) periodo = 'tarde';
+
+              const sugestoesPeriodo = [];
+              if (periodo === 'manha') {
+                // Café da manhã: produtos com "café", "pão", "suco", "sanduíche"
+                const palavrasChave = ['cafe', 'café', 'pão', 'suco', 'sanduiche', 'sanduíche', 'bolo', 'iogurte'];
+                allProds.forEach(p => {
+                  const nomeLow = p.nome.toLowerCase();
+                  if (palavrasChave.some(k => nomeLow.includes(k))) sugestoesPeriodo.push(p);
+                });
+              } else if (periodo === 'almoco' || periodo === 'tarde') {
+                // Almoço/lanche: marmita, prato, batata, refrigerante
+                const palavrasChave = ['marmita', 'prato', 'batata', 'refrigerante', 'água', 'agua', 'suco', 'lanche'];
+                allProds.forEach(p => {
+                  const nomeLow = p.nome.toLowerCase();
+                  if (palavrasChave.some(k => nomeLow.includes(k))) sugestoesPeriodo.push(p);
+                });
+              } else {
+                // Noite: pizza, porção, cerveja, drink
+                const palavrasChave = ['pizza', 'porção', 'porcao', 'cerveja', 'drink', 'hambúrguer', 'hamburguer', 'churrasco'];
+                allProds.forEach(p => {
+                  const nomeLow = p.nome.toLowerCase();
+                  if (palavrasChave.some(k => nomeLow.includes(k))) sugestoesPeriodo.push(p);
                 });
               }
-            }
-          }
 
-          // Strategy B: Food + Non-Alcoholic Drink (moderate tax reduction)
-          if (foods.length > 0 && drinksNaoAlc.length > 0) {
-            const topFood = foods.sort((a, b) => (b.sales.qty || 0) - (a.sales.qty || 0))[0];
-            const topDrink = drinksNaoAlc.sort((a, b) => (b.sales.qty || 0) - (a.sales.qty || 0))[0];
-            if (topFood && topDrink && topFood.id !== topDrink.id) {
-              const soma = topFood.preco + topDrink.preco;
-              const comboPrice = +(soma * 0.90).toFixed(2);
-              const potentialTaxSaved = soma * ((currentAvgTax - ((TAX_RATES['Alimentacao'].total + TAX_RATES['Bebida_Nao_Alcoolica'].total) / 2)) / 100);
+              if (sugestoesPeriodo.length >= 2) {
+                const sorted = sugestoesPeriodo.sort((a, b) => b.vendas30d.qty - a.vendas30d.qty);
+                for (let i = 0; i < Math.min(sorted.length - 1, 3); i++) {
+                  const a = sorted[i], b = sorted[i + 1];
+                  if (a.id === b.id) continue;
+                  const soma = a.preco + b.preco;
+                  const desconto = 8;
+                  const comboPrice = +(soma * 0.92).toFixed(2);
+                  const labelsPeriodo = { manha: 'Café da Manhã', almoco: 'Almoço', tarde: 'Lanche da Tarde', noite: 'Jantar' };
+                  suggestions.push({
+                    tipo: 'combo_momento',
+                    titulo: `${a.emoji} ${a.nome} + ${b.emoji} ${b.nome}`,
+                    descricao: `Combo ${labelsPeriodo[periodo]} — sugerido para este horário`,
+                    itens: [{ id: a.id, nome: a.nome, preco: a.preco }, { id: b.id, nome: b.nome, preco: b.preco }],
+                    precoOriginal: +soma.toFixed(2),
+                    precoCombo: comboPrice,
+                    descontoPct: desconto,
+                    economiaEstimada: +(soma - comboPrice).toFixed(2),
+                    prioridade: 15,
+                    icon: periodo === 'manha' ? '☀️' : periodo === 'almoco' ? '🍽️' : periodo === 'tarde' ? '🌅' : '🌙',
+                    evidencia: `Sugerido para ${labelsPeriodo[periodo].toLowerCase()}`
+                  });
+                }
+              }
 
-              suggestions.push({
-                tipo: 'food_bebida',
-                titulo: `${topFood.emoji || ''} ${topFood.nome} + ${topDrink.emoji || ''} ${topDrink.nome}`,
-                descricao: `Combo Alimentação + Bebida — Mix de categorias com desconto`,
-                itens: [{ id: topFood.id, nome: topFood.nome, preco: topFood.preco }, { id: topDrink.id, nome: topDrink.nome, preco: topDrink.preco }],
-                precoOriginal: +soma.toFixed(2),
-                precoCombo: comboPrice,
-                descontoPct: 10,
-                categoriaFiscal: 'Misto',
-                taxaAtual: +currentAvgTax.toFixed(2),
-                taxaCombo: +((TAX_RATES['Alimentacao'].total + TAX_RATES['Bebida_Nao_Alcoolica'].total) / 2).toFixed(2),
-                economiaEstimada: +Math.max(0, potentialTaxSaved).toFixed(2),
-                prioridade: (topFood.sales.qty || 0) + (topDrink.sales.qty || 0) + 100,
-                icon: '🥤'
+              // ═══ ESTRATÉGIA 4: CROSS-SELL INTELIGENTE ═══
+              // Se o cliente pediu comida, sugira bebida e vice-versa (baseado nos top sellers)
+              const foods = allProds.filter(p => p.categoria_fiscal === 'Alimentacao' && p.vendas30d.qty > 0);
+              const drinks = allProds.filter(p => (p.categoria_fiscal === 'Bebida_Alcoolica' || p.categoria_fiscal === 'Bebida_Nao_Alcoolica') && p.vendas30d.qty > 0);
+
+              if (foods.length > 0 && drinks.length > 0) {
+                const topFood = foods[0];
+                const topDrink = drinks[0];
+                if (topFood.id !== topDrink.id) {
+                  const soma = topFood.preco + topDrink.preco;
+                  const desconto = 10;
+                  const comboPrice = +(soma * 0.90).toFixed(2);
+                  suggestions.push({
+                    tipo: 'cross_sell',
+                    titulo: `${topFood.emoji} ${topFood.nome} + ${topDrink.emoji} ${topDrink.nome}`,
+                    descricao: `O combo mais pedido do restaurante — ${topFood.vendas30d.qty}x + ${topDrink.vendas30d.qty}x vendidos`,
+                    itens: [{ id: topFood.id, nome: topFood.nome, preco: topFood.preco }, { id: topDrink.id, nome: topDrink.nome, preco: topDrink.preco }],
+                    precoOriginal: +soma.toFixed(2),
+                    precoCombo: comboPrice,
+                    descontoPct: desconto,
+                    economiaEstimada: +(soma - comboPrice).toFixed(2),
+                    prioridade: topFood.vendas30d.qty + topDrink.vendas30d.qty + 20,
+                    icon: '🏆',
+                    evidencia: `Top 1 em cada categoria`
+                  });
+                }
+              }
+
+              // ═══ ESTRATÉGIA 5: ALTO MARGEM COM BAIXA VISIBILIDADE ═══
+              // Produtos com preço alto mas poucas vendas — precisa de promo
+              const altoMargemBaixa = allProds.filter(p =>
+                p.preco > 20 && p.vendas30d.qty <= 2 && p.vendas30d.qty >= 0
+              ).sort((a, b) => b.preco - a.preco);
+
+              if (altoMargemBaixa.length >= 2) {
+                const a = altoMargemBaixa[0], b = altoMargemBaixa[1];
+                if (a.id !== b.id) {
+                  const soma = a.preco + b.preco;
+                  const desconto = 15;
+                  const comboPrice = +(soma * 0.85).toFixed(2);
+                  suggestions.push({
+                    tipo: 'alto_margem',
+                    titulo: `${a.emoji} ${a.nome} + ${b.emoji} ${b.nome}`,
+                    descricao: `Produtos de alto valor com baixa saída — combo promocional para impulsionar`,
+                    itens: [{ id: a.id, nome: a.nome, preco: a.preco }, { id: b.id, nome: b.nome, preco: b.preco }],
+                    precoOriginal: +soma.toFixed(2),
+                    precoCombo: comboPrice,
+                    descontoPct: desconto,
+                    economiaEstimada: +(soma - comboPrice).toFixed(2),
+                    prioridade: 10,
+                    icon: '💎',
+                    evidencia: `${a.vendas30d.qty}x e ${b.vendas30d.qty}x vendidos (R$ ${a.preco} + R$ ${b.preco})`
+                  });
+                }
+              }
+
+              // Deduplicar e ordenar por prioridade
+              const seen = new Set();
+              const unique = suggestions.filter(s => {
+                const key = s.itens.map(i => i.id).sort().join('-');
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
+              }).sort((a, b) => b.prioridade - a.prioridade).slice(0, 8);
+
+              // Stats
+              const totalRevenue = Object.values(salesMap30d).reduce((s, v) => s + v.revenue, 0);
+              const catRevenue = {};
+              products.forEach(p => {
+                const cat = p.categoria_fiscal || 'Alimentacao';
+                if (!catRevenue[cat]) catRevenue[cat] = 0;
+                catRevenue[cat] += (salesMap30d[p.nome]?.revenue || 0);
               });
+
+              const stats = {
+                totalProdutos: products.length,
+                totalFaturado30d: +totalRevenue.toFixed(2),
+                totalPedidos30d: (sales || []).length,
+                periodoAtual: periodo,
+                distribuicao: Object.keys(catRevenue).map(cat => ({
+                  categoria: TAX_LABELS[cat] || cat,
+                  faturamento: +(catRevenue[cat] || 0).toFixed(2),
+                  percentual: totalRevenue > 0 ? +((catRevenue[cat] / totalRevenue) * 100).toFixed(1) : 0
+                })),
+                topProdutos: allProds.slice(0, 5).map(p => ({
+                  nome: p.nome, emoji: p.emoji, vendas: p.vendas30d.qty,
+                  receita: +p.vendas30d.revenue.toFixed(2)
+                }))
+              };
+
+              socket.emit('ai_combo_suggestions', { suggestions: unique, stats });
             }
-          }
-
-          // Strategy C: Encourage shifting away from alcoholic drinks
-          if (drinksAlc.length > 0 && foods.length > 0) {
-            const topAlc = drinksAlc.sort((a, b) => (b.sales.revenue || 0) - (a.sales.revenue || 0))[0];
-            const topFood = foods.sort((a, b) => (b.sales.qty || 0) - (a.sales.qty || 0))[0];
-            if (topAlc && topFood) {
-              const soma = topAlc.preco + topFood.preco;
-              const comboPrice = +(soma * 0.85).toFixed(2); // Bigger discount to incentivize
-              const potentialTaxSaved = soma * ((currentAvgTax - ((TAX_RATES['Alimentacao'].total + TAX_RATES['Bebida_Alcoolica'].total) / 2)) / 100);
-
-              suggestions.push({
-                tipo: 'food_alcoolica',
-                titulo: `${topFood.emoji || ''} ${topFood.nome} + ${topAlc.emoji || ''} ${topAlc.nome}`,
-                descricao: `Combo Especial — Incentiva mix com menor carga tributária`,
-                itens: [{ id: topFood.id, nome: topFood.nome, preco: topFood.preco }, { id: topAlc.id, nome: topAlc.nome, preco: topAlc.preco }],
-                precoOriginal: +soma.toFixed(2),
-                precoCombo: comboPrice,
-                descontoPct: 15,
-                categoriaFiscal: 'Misto',
-                taxaAtual: +currentAvgTax.toFixed(2),
-                taxaCombo: +((TAX_RATES['Alimentacao'].total + TAX_RATES['Bebida_Alcoolica'].total) / 2).toFixed(2),
-                economiaEstimada: +Math.max(0, potentialTaxSaved).toFixed(2),
-                prioridade: (topAlc.sales.revenue || 0) + 200,
-                icon: '🍺'
-              });
-            }
-          }
-
-          // Strategy D: Triple food combo (highest tax savings)
-          if (foods.length >= 3) {
-            const sorted = [...foods].sort((a, b) => (b.sales.qty || 0) - (a.sales.qty || 0));
-            const [a, b, c] = sorted;
-            if (a && b && c) {
-              const soma = a.preco + b.preco + c.preco;
-              const comboPrice = +(soma * 0.80).toFixed(2); // 20% combo discount
-              const potentialTaxSaved = soma * ((currentAvgTax - TAX_RATES['Alimentacao'].total) / 100);
-
-              suggestions.push({
-                tipo: 'food_trio',
-                titulo: `${a.emoji || ''} ${a.nome} + ${b.emoji || ''} ${b.nome} + ${c.emoji || ''} ${c.nome}`,
-                descricao: ` Trio Gastronômico — 3 itens 100% Alimentação, maior economia`,
-                itens: [{ id: a.id, nome: a.nome, preco: a.preco }, { id: b.id, nome: b.nome, preco: b.preco }, { id: c.id, nome: c.nome, preco: c.preco }],
-                precoOriginal: +soma.toFixed(2),
-                precoCombo: comboPrice,
-                descontoPct: 20,
-                categoriaFiscal: 'Alimentacao',
-                taxaAtual: +currentAvgTax.toFixed(2),
-                taxaCombo: TAX_RATES['Alimentacao'].total,
-                economiaEstimada: +Math.max(0, potentialTaxSaved).toFixed(2),
-                prioridade: 300,
-                icon: '🍕'
-              });
-            }
-          }
-
-          // Sort by potential savings (highest first)
-          suggestions.sort((a, b) => b.economiaEstimada - a.economiaEstimada);
-
-          // Limit to top 8
-          const topSuggestions = suggestions.slice(0, 8);
-
-          // Stats
-          const stats = {
-            totalProdutos: products.length,
-            totalFaturado30d: +totalRevenue.toFixed(2),
-            mediaTributariaAtual: +currentAvgTax.toFixed(2),
-            distribuicao: Object.keys(catRevenue).map(cat => ({
-              categoria: TAX_LABELS[cat] || cat,
-              faturamento: +(catRevenue[cat] || 0).toFixed(2),
-              percentual: totalRevenue > 0 ? +((catRevenue[cat] / totalRevenue) * 100).toFixed(1) : 0,
-              taxaImposto: TAX_RATES[cat]?.total || 0
-            })),
-            produtosPorCategoria: Object.keys(byCategory).map(cat => ({
-              categoria: TAX_LABELS[cat] || cat,
-              qtd: byCategory[cat].length
-            }))
-          };
-
-          socket.emit('ai_combo_suggestions', { suggestions: topSuggestions, stats });
+          );
         }
       );
+    });
+  });
+
+  // --- FIDELIDADE COMPLETA (config, níveis, check-in QR, ofertas) ---
+  const ORDEM_NIVEIS = { 'Bronze': 0, 'Prata': 1, 'Ouro': 2, 'Diamante': 3 };
+
+  function fidelidadeNivelServer(totalGasto, cfg) {
+    const prata = parseFloat(cfg.fidelidade_nivel_prata) || 500;
+    const ouro = parseFloat(cfg.fidelidade_nivel_ouro) || 1500;
+    const diamante = parseFloat(cfg.fidelidade_nivel_diamante) || 3500;
+    if (totalGasto >= diamante) return 'Diamante';
+    if (totalGasto >= ouro) return 'Ouro';
+    if (totalGasto >= prata) return 'Prata';
+    return 'Bronze';
+  }
+
+  socket.on('get_fidelidade_config', () => {
+    db.all(`SELECT chave, valor FROM configuracoes`, (err, rows) => {
+      const cfg = {};
+      if (rows) rows.forEach(r => cfg[r.chave] = r.valor);
+      socket.emit('fidelidade_config_atual', {
+        enabled: cfg.fidelidade_enabled !== 'false',
+        pontos_por_real: parseFloat(cfg.fidelidade_pontos_por_real) || 1,
+        checkin_pontos: parseInt(cfg.fidelidade_checkin_pontos) || 5,
+        checkin_diario: cfg.fidelidade_checkin_diario !== 'false',
+        niveis: [
+          { nome: 'Bronze', minimo: 0, bonus: 0 },
+          { nome: 'Prata', minimo: parseInt(cfg.fidelidade_nivel_prata) || 500, bonus: parseInt(cfg.fidelidade_bonus_prata) || 10 },
+          { nome: 'Ouro', minimo: parseInt(cfg.fidelidade_nivel_ouro) || 1500, bonus: parseInt(cfg.fidelidade_bonus_ouro) || 20 },
+          { nome: 'Diamante', minimo: parseInt(cfg.fidelidade_nivel_diamante) || 3500, bonus: parseInt(cfg.fidelidade_bonus_diamante) || 30 }
+        ]
+      });
+    });
+  });
+
+  socket.on('admin_atualizar_fidelidade_config', (cfg) => {
+    const campos = ['fidelidade_enabled', 'fidelidade_pontos_por_real', 'fidelidade_checkin_pontos', 'fidelidade_checkin_diario', 'fidelidade_nivel_prata', 'fidelidade_nivel_ouro', 'fidelidade_nivel_diamante', 'fidelidade_bonus_prata', 'fidelidade_bonus_ouro', 'fidelidade_bonus_diamante'];
+    let pendentes = campos.length;
+    const finalizar = () => { pendentes--; if (pendentes <= 0) socket.emit('fidelidade_config_salvo', { success: true }); };
+    campos.forEach(k => {
+      if (cfg && cfg[k] !== undefined) {
+        db.run(`INSERT INTO configuracoes (chave, valor) VALUES (?, ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor`, [k, String(cfg[k])], finalizar);
+      } else { finalizar(); }
+    });
+  });
+
+  socket.on('cliente_checkin', (data) => {
+    const { cliente_id, telefone } = data || {};
+    const whereClause = isValidId(cliente_id) ? 'id = ?' : 'telefone = ?';
+    const param = isValidId(cliente_id) ? cliente_id : String(telefone || '').replace(/\D/g, '');
+    db.get(`SELECT * FROM clientes WHERE ${whereClause}`, [param], (err, cliente) => {
+      if (!cliente) return socket.emit('checkin_response', { error: 'Cliente não encontrado. Cadastre-se no caixa.' });
+      db.all(`SELECT chave, valor FROM configuracoes`, (eCfg, cfgRows) => {
+        const cfg = {};
+        if (cfgRows) cfgRows.forEach(r => cfg[r.chave] = r.valor);
+        if (cfg.fidelidade_enabled === 'false') return socket.emit('checkin_response', { error: 'Programa de fidelidade desativado.' });
+        const pontos = Math.max(1, parseInt(cfg.fidelidade_checkin_pontos) || 5);
+        const diario = cfg.fidelidade_checkin_diario !== 'false';
+        const agora = new Date();
+        const hoje = agora.getFullYear() + '-' + String(agora.getMonth() + 1).padStart(2, '0') + '-' + String(agora.getDate()).padStart(2, '0');
+        if (diario && cliente.ultimo_checkin === hoje) {
+          return socket.emit('checkin_response', { success: false, error: 'Você já fez check-in hoje. Volte amanhã!' });
+        }
+        db.run(`UPDATE clientes SET pontos = pontos + ?, ultimo_checkin = ? WHERE id = ?`, [pontos, hoje, cliente.id], (err2) => {
+          if (err2) return socket.emit('checkin_response', { error: 'Erro ao registrar check-in.' });
+          db.run(`INSERT INTO checkins_fidelidade (cliente_id, pontos, data) VALUES (?, ?, datetime('now', 'localtime'))`, [cliente.id, pontos], () => {
+            socket.emit('checkin_response', { success: true, pontos, novoSaldo: (parseInt(cliente.pontos) || 0) + pontos });
+            db.all(`SELECT * FROM clientes`, (e, r) => io.emit('clientes_atualizados', r || []));
+          });
+        });
+      });
+    });
+  });
+
+  socket.on('get_cliente_checkins', (cliente_id) => {
+    if (!isValidId(cliente_id)) return socket.emit('cliente_checkins_lista', []);
+    db.all(`SELECT * FROM checkins_fidelidade WHERE cliente_id = ? ORDER BY id DESC LIMIT 30`, [cliente_id], (err, rows) => {
+      socket.emit('cliente_checkins_lista', rows || []);
+    });
+  });
+
+  socket.on('get_ofertas_fidelidade', (cliente_id) => {
+    db.get(`SELECT nivel, total_gasto FROM clientes WHERE id = ?`, [cliente_id], (err, cliente) => {
+      const nivel = (cliente && cliente.nivel) || 'Bronze';
+      const idx = ORDEM_NIVEIS[nivel] !== undefined ? ORDEM_NIVEIS[nivel] : 0;
+      db.all(`SELECT * FROM ofertas_fidelidade WHERE ativo = 1 ORDER BY id DESC`, [], (err, rows) => {
+        const permitidos = (rows || []).filter(o => (ORDEM_NIVEIS[o.nivel] !== undefined ? ORDEM_NIVEIS[o.nivel] : 0) <= idx);
+        socket.emit('ofertas_fidelidade_lista', permitidos);
+      });
+    });
+  });
+
+  socket.on('admin_get_ofertas_fidelidade', () => {
+    db.all(`SELECT * FROM ofertas_fidelidade ORDER BY id DESC`, (err, rows) => socket.emit('admin_ofertas_fidelidade_lista', rows || []));
+  });
+  socket.on('add_oferta_fidelidade', (o) => {
+    db.run(`INSERT INTO ofertas_fidelidade (titulo, descricao, nivel, ativo) VALUES (?, ?, ?, ?)`, [o.titulo, o.descricao, o.nivel || 'Bronze', o.ativo ? 1 : 0], () => {
+      db.all(`SELECT * FROM ofertas_fidelidade ORDER BY id DESC`, (err, rows) => io.emit('admin_ofertas_fidelidade_lista', rows || []));
+    });
+  });
+  socket.on('edit_oferta_fidelidade', (o) => {
+    db.run(`UPDATE ofertas_fidelidade SET titulo=?, descricao=?, nivel=?, ativo=? WHERE id=?`, [o.titulo, o.descricao, o.nivel || 'Bronze', o.ativo ? 1 : 0, o.id], () => {
+      db.all(`SELECT * FROM ofertas_fidelidade ORDER BY id DESC`, (err, rows) => io.emit('admin_ofertas_fidelidade_lista', rows || []));
+    });
+  });
+  socket.on('delete_oferta_fidelidade', (id) => {
+    if (!isValidId(id)) return;
+    db.run(`DELETE FROM ofertas_fidelidade WHERE id=?`, [id], () => {
+      db.all(`SELECT * FROM ofertas_fidelidade ORDER BY id DESC`, (err, rows) => io.emit('admin_ofertas_fidelidade_lista', rows || []));
     });
   });
 
