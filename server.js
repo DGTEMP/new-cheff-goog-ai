@@ -622,7 +622,7 @@ app.get('/robots.txt', (req, res) => {
   res.type('text/plain').send('User-agent: *\nDisallow: /api/\nDisallow: /super-admin\n');
 });
 
-app.get('*.map', (req, res) => {
+app.get('{*path}.map', (req, res) => {
   res.status(404).send('');
 });
 
