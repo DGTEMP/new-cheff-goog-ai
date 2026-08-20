@@ -124,6 +124,8 @@ function entrarPainel() {
   document.getElementById('login-container').style.display = 'none';
   document.getElementById('admin-panel').style.display = 'block';
   atualizarHeader();
+  initSuporteRealtimeSockets();
+  carregarNotificacoesSuporte();
   switchTabSuporte('sec-dashboard');
 }
 
@@ -569,6 +571,7 @@ function salvarVendaSuporte() {
 }
 
 function carregarFinanceiroSuporte() {
+  carregarMissoesSurpresa();
   apiGet('/api/suporte/financeiro', function(err, data) {
     if (err || !data || !data.ok) { carregarMinhasVendas(); return; }
 
@@ -703,6 +706,96 @@ function salvarCadastroParceiro() {
     }
     alert(data.mensagem || 'Cadastro realizado! Aguarde a aprovação da equipe.');
     fecharModalCadastroParceiro();
+  });
+}
+
+/* ═══ CENTRAL DE NOTIFICAÇÕES EM TEMPO REAL & MISSÕES SURPRESA ═══ */
+var _suporteSocket = null;
+function initSuporteRealtimeSockets() {
+  if (typeof io === 'undefined') return;
+  if (_suporteSocket) return;
+  try {
+    _suporteSocket = io();
+    _suporteSocket.on('nova_missao_surpresa', function(data) {
+      showToast('🔥 PROMOÇÃO SURPRESA: ' + data.titulo + ' (Bônus R$ ' + parseFloat(data.recompensa_valor || 0).toFixed(2) + ')', 'warning');
+      carregarMissoesSurpresa();
+      carregarNotificacoesSuporte();
+    });
+  } catch(e) { console.error('Erro ao conectar socket de suporte:', e); }
+}
+
+function carregarNotificacoesSuporte() {
+  apiGet('/api/suporte/notificacoes', function(err, data) {
+    var badge = document.getElementById('notif-badge');
+    var list = document.getElementById('central-notificacoes-list');
+    if (!data || !data.ok || !data.notificacoes) return;
+
+    var notifs = data.notificacoes || [];
+    if (badge) {
+      if (notifs.length > 0) {
+        badge.textContent = notifs.length;
+        badge.style.display = 'inline-block';
+      } else {
+        badge.style.display = 'none';
+      }
+    }
+
+    if (list) {
+      if (notifs.length === 0) {
+        list.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:20px;">Nenhuma notificação recebida.</div>';
+        return;
+      }
+      var h = '';
+      notifs.forEach(function(n) {
+        var icon = n.tipo === 'urgente' ? 'fa-bell-slash' : (n.tipo === 'importante' ? 'fa-triangle-exclamation' : 'fa-bullhorn');
+        var color = n.tipo === 'urgente' ? 'var(--danger)' : (n.tipo === 'importante' ? 'var(--warning)' : 'var(--accent)');
+        h += '<div style="background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:10px;padding:12px;">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">' +
+            '<strong style="color:white;font-size:0.9rem;"><i class="fa-solid ' + icon + '" style="color:' + color + ';margin-right:6px;"></i> ' + esc(n.titulo) + '</strong>' +
+            '<small style="color:var(--text-muted);font-size:0.75rem;">' + (n.criado_em ? new Date(n.criado_em).toLocaleString('pt-BR') : '—') + '</small>' +
+          '</div>' +
+          '<p style="color:var(--text-secondary);font-size:0.85rem;margin:0;">' + esc(n.corpo) + '</p>' +
+          '</div>';
+      });
+      list.innerHTML = h;
+    }
+  });
+}
+
+function toggleCentralNotificacoesSuporte() {
+  var modal = document.getElementById('modal-central-notificacoes');
+  if (!modal) return;
+  if (modal.classList.contains('active')) {
+    modal.classList.remove('active');
+  } else {
+    modal.classList.add('active');
+    carregarNotificacoesSuporte();
+  }
+}
+
+function carregarMissoesSurpresa() {
+  apiGet('/api/suporte/missoes', function(err, data) {
+    var container = document.getElementById('container-missoes-surpresa');
+    if (!container) return;
+    if (err || !data || !data.ok || !data.missoes || data.missoes.length === 0) {
+      container.innerHTML = '<div style="background:rgba(255,255,255,0.05);padding:1rem;border-radius:12px;border:1px dashed #6366f1;text-align:center;color:#94a3b8;font-size:0.85rem;">Nenhuma promoção relâmpago ativa no momento. Fique atento às notificações!</div>';
+      return;
+    }
+    var h = '';
+    data.missoes.forEach(function(m) {
+      h += '<div style="background:rgba(99,102,241,0.15);border:1px solid #6366f1;padding:12px;border-radius:12px;">' +
+        '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">' +
+          '<h4 style="color:#fbbf24;font-size:0.95rem;margin:0;"><i class="fa-solid fa-bolt" style="color:#f59e0b;"></i> ' + esc(m.titulo) + '</h4>' +
+          '<span style="background:var(--success);color:white;font-weight:800;padding:2px 8px;border-radius:10px;font-size:0.75rem;">+ R$ ' + parseFloat(m.recompensa_valor || 0).toFixed(2) + '</span>' +
+        '</div>' +
+        '<p style="color:#e2e8f0;font-size:0.8rem;margin-bottom:8px;">' + esc(m.descricao) + '</p>' +
+        '<div style="display:flex;justify-content:space-between;font-size:0.75rem;color:#94a3b8;">' +
+          '<span>Meta: <strong>' + (m.meta_qtd || 1) + ' vendas</strong></span>' +
+          '<span>Prazo: <strong>' + (m.data_limite ? new Date(m.data_limite).toLocaleString('pt-BR') : 'Hoje / Esporádico') + '</strong></span>' +
+        '</div>' +
+        '</div>';
+    });
+    container.innerHTML = h;
   });
 }
 /* ═══ SIDEBAR EVENTS ═══ */

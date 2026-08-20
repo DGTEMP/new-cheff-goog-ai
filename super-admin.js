@@ -1993,16 +1993,17 @@ document.addEventListener('DOMContentLoaded', function() {
   if (btnSalvarAtrib) btnSalvarAtrib.addEventListener('click', salvarAtribuicoes);
 
 /* ═══ TAREFAS E AVISOS DE SUPORTE (SUPER ADMIN) ═══ */
-function abrirModalNovaTaskSuporte() {
+window.abrirModalNovaTaskSuporte = function() {
   var modal = document.getElementById('modal-nova-task-suporte');
   if (!modal) return;
   
   // Preencher select de suportes
   var selectSuporte = document.getElementById('task-suporte-id');
   selectSuporte.innerHTML = '<option value="">Selecione o atendente de suporte...</option>';
-  for (var i = 0; i < suporteData.length; i++) {
-    var s = suporteData[i];
-    selectSuporte.innerHTML += '<option value="' + s.id + '">' + esc(s.nome) + ' (' + esc(s.cargo) + ')</option>';
+  var list = (typeof suporteData !== 'undefined' && Array.isArray(suporteData)) ? suporteData : [];
+  for (var i = 0; i < list.length; i++) {
+    var s = list[i];
+    selectSuporte.innerHTML += '<option value="' + s.id + '">' + escapeHtml(s.nome) + ' (' + escapeHtml(s.cargo || 'Atendente') + ')</option>';
   }
   
   // Preencher select de restaurantes
@@ -2012,7 +2013,7 @@ function abrirModalNovaTaskSuporte() {
     if (!err && data && data.ok && data.clients) {
       for (var j = 0; j < data.clients.length; j++) {
         var r = data.clients[j];
-        selectRest.innerHTML += '<option value="' + r.id + '">' + esc(r.nome) + ' (#' + r.id + ')</option>';
+        selectRest.innerHTML += '<option value="' + r.id + '">' + escapeHtml(r.nome) + ' (#' + r.id + ')</option>';
       }
     }
   });
@@ -2020,15 +2021,19 @@ function abrirModalNovaTaskSuporte() {
   document.getElementById('task-tipo').value = '';
   document.getElementById('task-descricao').value = '';
   document.getElementById('task-pontos').value = '10';
+  modal.classList.add('active');
   modal.style.display = 'flex';
-}
+};
 
-function fecharModalNovaTaskSuporte() {
+window.fecharModalNovaTaskSuporte = function() {
   var modal = document.getElementById('modal-nova-task-suporte');
-  if (modal) modal.style.display = 'none';
-}
+  if (modal) {
+    modal.classList.remove('active');
+    modal.style.display = 'none';
+  }
+};
 
-function salvarTaskSuporte() {
+window.salvarTaskSuporte = function() {
   var suporteId = document.getElementById('task-suporte-id').value;
   var restId = document.getElementById('task-restaurante-id').value;
   var tipo = document.getElementById('task-tipo').value.trim();
@@ -2050,12 +2055,12 @@ function salvarTaskSuporte() {
       alert(err || (data && data.erro) || 'Erro ao criar task.');
       return;
     }
-    alert(data.mensagem || 'Task atribuída com sucesso!');
+    showToast(data.mensagem || 'Task atribuída com sucesso!', 'success');
     fecharModalNovaTaskSuporte();
   });
-}
+};
 
-function abrirModalEnviarAvisoSuporte() {
+window.abrirModalEnviarAvisoSuporte = function() {
   var modal = document.getElementById('modal-enviar-aviso-suporte');
   if (!modal) return;
 
@@ -2068,29 +2073,34 @@ function abrirModalEnviarAvisoSuporte() {
   // Renderizar checkboxes de suporte
   var listDiv = document.getElementById('lista-checkbox-suporte');
   var h = '';
-  for (var i = 0; i < suporteData.length; i++) {
-    var s = suporteData[i];
+  var list = (typeof suporteData !== 'undefined' && Array.isArray(suporteData)) ? suporteData : [];
+  for (var i = 0; i < list.length; i++) {
+    var s = list[i];
     h += '<label style="display:flex;align-items:center;gap:8px;font-size:13px;color:white;cursor:pointer;">' +
-      '<input type="checkbox" class="check-suporte-aviso" value="' + s.id + '"> ' + esc(s.nome) + ' (' + esc(s.email) + ')' +
+      '<input type="checkbox" class="check-suporte-aviso" value="' + s.id + '"> ' + escapeHtml(s.nome) + ' (' + escapeHtml(s.email) + ')' +
       '</label>';
   }
   listDiv.innerHTML = h || '<div style="color:#888;font-size:12px;">Nenhum atendente cadastrado.</div>';
 
+  modal.classList.add('active');
   modal.style.display = 'flex';
-}
+};
 
-function toggleSelecaoSuporteAviso() {
+window.toggleSelecaoSuporteAviso = function() {
   var tipo = document.getElementById('aviso-destino-tipo').value;
   var container = document.getElementById('container-selecao-suporte');
   if (container) container.style.display = (tipo === 'selecionados') ? 'block' : 'none';
-}
+};
 
-function fecharModalEnviarAvisoSuporte() {
+window.fecharModalEnviarAvisoSuporte = function() {
   var modal = document.getElementById('modal-enviar-aviso-suporte');
-  if (modal) modal.style.display = 'none';
-}
+  if (modal) {
+    modal.classList.remove('active');
+    modal.style.display = 'none';
+  }
+};
 
-function enviarAvisoSuporte() {
+window.enviarAvisoSuporte = function() {
   var destinoTipo = document.getElementById('aviso-destino-tipo').value;
   var titulo = document.getElementById('aviso-titulo').value.trim();
   var tipo = document.getElementById('aviso-tipo').value;
@@ -2120,10 +2130,58 @@ function enviarAvisoSuporte() {
       alert(err || (data && data.erro) || 'Erro ao enviar aviso.');
       return;
     }
-    alert(data.mensagem || 'Aviso transmitido com sucesso!');
+    showToast(data.mensagem || 'Aviso transmitido com sucesso!', 'success');
     fecharModalEnviarAvisoSuporte();
   });
-}
+};
+
+window.abrirModalCriarMissaoSurpresa = function() {
+  var modal = document.getElementById('modal-criar-missao-surpresa');
+  if (!modal) return;
+  document.getElementById('missao-titulo').value = '';
+  document.getElementById('missao-meta').value = '5';
+  document.getElementById('missao-recompensa').value = '1000';
+  document.getElementById('missao-limite').value = '';
+  document.getElementById('missao-descricao').value = '';
+  modal.classList.add('active');
+  modal.style.display = 'flex';
+};
+
+window.fecharModalCriarMissaoSurpresa = function() {
+  var modal = document.getElementById('modal-criar-missao-surpresa');
+  if (modal) {
+    modal.classList.remove('active');
+    modal.style.display = 'none';
+  }
+};
+
+window.salvarMissaoSurpresa = function() {
+  var titulo = document.getElementById('missao-titulo').value.trim();
+  var meta = parseInt(document.getElementById('missao-meta').value) || 1;
+  var recompensa = parseFloat(document.getElementById('missao-recompensa').value) || 0;
+  var limite = document.getElementById('missao-limite').value.trim();
+  var desc = document.getElementById('missao-descricao').value.trim();
+
+  if (!titulo || !recompensa) {
+    alert('Preencha o título e o valor da bonificação.');
+    return;
+  }
+
+  apiPost('/api/super/missoes', {
+    titulo: titulo,
+    meta_qtd: meta,
+    recompensa_valor: recompensa,
+    data_limite: limite,
+    descricao: desc
+  }, function(err, data) {
+    if (err || !data || !data.ok) {
+      alert(err || (data && data.erro) || 'Erro ao lançar missão.');
+      return;
+    }
+    showToast(data.mensagem || 'Promoção surpresa lançada!', 'success');
+    fecharModalCriarMissaoSurpresa();
+  });
+};
 
   /* Servidor */
   var btnRefreshServer = document.getElementById('btn-refresh-server');

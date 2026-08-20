@@ -2589,6 +2589,65 @@ app.get('/api/super/suporte/audit-logs', superAdminAuth, (req, res) => {
   });
 });
 
+// GET /api/suporte/notificacoes — Central de Notificações em Tempo Real do Suporte
+app.get('/api/suporte/notificacoes', suporteAuth, (req, res) => {
+  masterDb.all(`SELECT * FROM mensagens ORDER BY criado_em DESC LIMIT 50`, [], (err, rows) => {
+    if (err) return res.json({ ok: false, erro: err.message });
+    const suporteIdStr = String(req.suporteId);
+    const filtradas = (rows || []).filter(m => {
+      if (!m.lida_por) return true; // Todos
+      const destinatarios = m.lida_por.split(',');
+      return destinatarios.includes(suporteIdStr);
+    });
+    res.json({ ok: true, notificacoes: filtradas });
+  });
+});
+
+// GET /api/suporte/missoes — Missões Ativas / Promoções Surpresa e Super Bonificações
+app.get('/api/suporte/missoes', suporteAuth, (req, res) => {
+  masterDb.all(`SELECT * FROM missoes_promocoes WHERE ativo = 1 ORDER BY criado_em DESC`, [], (err, rows) => {
+    if (err) return res.json({ ok: false, erro: err.message });
+    res.json({ ok: true, missoes: rows || [] });
+  });
+});
+
+// GET /api/super/missoes — Lista de Missões / Promoções Surpresa para o Super Admin
+app.get('/api/super/missoes', superAdminAuth, (req, res) => {
+  masterDb.all(`SELECT * FROM missoes_promocoes ORDER BY criado_em DESC`, [], (err, rows) => {
+    if (err) return res.json({ ok: false, erro: err.message });
+    res.json({ ok: true, missoes: rows || [] });
+  });
+});
+
+// POST /api/super/missoes — Super Admin Criar Nova Missão / Promoção Surpresa com Super Bonificação
+app.post('/api/super/missoes', superAdminAuth, (req, res) => {
+  const { titulo, descricao, meta_qtd, recompensa_valor, data_limite } = req.body || {};
+  if (!titulo || !recompensa_valor) return res.json({ ok: false, erro: 'Título e valor da bonificação são obrigatórios.' });
+
+  masterDb.run(`INSERT INTO missoes_promocoes (titulo, descricao, meta_qtd, recompensa_valor, data_limite, ativo) VALUES (?, ?, ?, ?, ?, 1)`,
+    [titulo.trim(), descricao || '', parseInt(meta_qtd) || 1, parseFloat(recompensa_valor) || 0, data_limite || null],
+    function(err) {
+      if (err) return res.json({ ok: false, erro: err.message });
+      const missaoId = this.lastID;
+
+      // Disparar notificação em tempo real via Socket.IO para todos os suportes/vendedores
+      if (io) {
+        io.emit('nova_missao_surpresa', {
+          id: missaoId,
+          titulo,
+          descricao,
+          meta_qtd,
+          recompensa_valor,
+          data_limite
+        });
+      }
+
+      registrarAuditLog(null, 'Super Admin', 'criacao_missao_surpresa', `Nova missão surpresa criada: "${titulo}" com bônus de R$ ${recompensa_valor}`, req);
+      res.json({ ok: true, mensagem: '🔥 Promoção Surpresa / Super Bonificação lançada em tempo real para toda a equipe!' });
+    }
+  );
+});
+
 // POST /api/suporte/atualizar-status — Alterar status do atendente
 app.post('/api/suporte/atualizar-status', suporteAuth, (req, res) => {
   const { status } = req.body || {};
@@ -2917,6 +2976,17 @@ masterDb.serialize(async () => {
     detalhes TEXT,
     ip TEXT,
     data_acao DATETIME DEFAULT (datetime('now','localtime'))
+  )`);
+
+  masterDb.run(`CREATE TABLE IF NOT EXISTS missoes_promocoes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    titulo TEXT,
+    descricao TEXT,
+    meta_qtd INTEGER DEFAULT 1,
+    recompensa_valor REAL DEFAULT 0,
+    data_limite DATETIME,
+    ativo INTEGER DEFAULT 1,
+    criado_em DATETIME DEFAULT (datetime('now','localtime'))
   )`);
   masterDb.run(`CREATE TABLE IF NOT EXISTS telemetria (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

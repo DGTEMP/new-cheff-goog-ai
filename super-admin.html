@@ -2159,13 +2159,16 @@
                 <p style="color:#999;font-size:13px;">Gerencie os funcionários que prestam suporte aos restaurantes contratados.</p>
               </div>
               <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                <button class="btn-action" style="background:#6366f1;color:white;" onclick="abrirModalCriarMissaoSurpresa()">
+                  <i class="fa-solid fa-bolt"></i> Nova Missão Surpresa
+                </button>
                 <button class="btn-action" style="background:#3b82f6;color:white;" onclick="abrirModalNovaTaskSuporte()">
                   <i class="fa-solid fa-list-check"></i> Nova Task
                 </button>
                 <button class="btn-action" style="background:#f59e0b;color:white;" onclick="abrirModalEnviarAvisoSuporte()">
                   <i class="fa-solid fa-bullhorn"></i> Enviar Aviso
                 </button>
-                <button class="btn-action btn-primary-action" id="btn-novo-suporte">
+                <button class="btn-action btn-primary-action" id="btn-novo-suporte" onclick="abrirModalNovoSuporte()">
                   <i class="fa-solid fa-plus"></i> Novo Membro
                 </button>
               </div>
@@ -3974,8 +3977,38 @@
           </table>
         </div>
       </div>
+  <!-- MODAL: CRIAR NOVA MISSÃO SURPRESA / PROMOÇÃO RELÂMPAGO -->
+  <div class="modal-overlay" id="modal-criar-missao-surpresa">
+    <div class="modal-content" style="max-width:540px; width:92%;">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-bolt" style="color:#6366f1;"></i> Lançar Missão Surpresa / Super Bonificação</h3>
+        <button class="modal-close" onclick="fecharModalCriarMissaoSurpresa()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Título da Missão / Promoção Surpresa *</label>
+          <input type="text" id="missao-titulo" placeholder="Ex: Quem fizer 5 vendas hoje ganha R$ 1000">
+        </div>
+        <div class="form-group">
+          <label>Meta de Vendas Necessárias (Quantidade) *</label>
+          <input type="number" id="missao-meta" value="5" min="1">
+        </div>
+        <div class="form-group">
+          <label>Super Bonificação em Dinheiro (R$) *</label>
+          <input type="number" id="missao-recompensa" value="1000" step="50">
+        </div>
+        <div class="form-group">
+          <label>Prazo / Horário Limite (Opcional)</label>
+          <input type="text" id="missao-limite" placeholder="Ex: Hoje até as 17:37">
+        </div>
+        <div class="form-group">
+          <label>Instruções / Detalhes da Promoção</label>
+          <textarea id="missao-descricao" rows="3" placeholder="Ex: Válido para planos Premium fechados a partir de agora..." style="width:100%;padding:10px;background:#111;border:1px solid #333;color:white;border-radius:6px;font-size:13px;"></textarea>
+        </div>
+      </div>
       <div class="modal-footer">
-        <button class="btn-action" onclick="fecharModalAuditLogs()">Fechar</button>
+        <button class="btn-action" onclick="fecharModalCriarMissaoSurpresa()">Cancelar</button>
+        <button class="btn-action" style="background:#6366f1;color:white;" onclick="salvarMissaoSurpresa()"><i class="fa-solid fa-fire"></i> Lançar Promoção em Tempo Real</button>
       </div>
     </div>
   </div>
