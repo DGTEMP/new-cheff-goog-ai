@@ -68,7 +68,11 @@ console.log = function (...args) {
     formatted = `${ANSI.green}🟢 [${timeStr}] [Conexão] Dispositivo: ${line.replace(/^Cliente conectado:/, '').trim()}${ANSI.reset}`;
   }
 
-  originalLog.apply(console, [formatted]);
+  if (typeof isMatrixAnimating !== 'undefined' && isMatrixAnimating) {
+    pendingLogs.push(() => originalLog.apply(console, [formatted]));
+  } else {
+    originalLog.apply(console, [formatted]);
+  }
 };
 
 console.error = function (...args) {
@@ -11591,6 +11595,10 @@ function shutdown(signal) {
 process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 
+// Controla a fila de logs durante a animação inicial da Matrix
+let isMatrixAnimating = true;
+const pendingLogs = [];
+
 // Inicializar licença e depois subir o servidor com Animação Visualizer / Matrix ────────────
 licenseManager.initLicense().then((licState) => {
   server.listen(PORT, HOST, () => {
@@ -11610,7 +11618,7 @@ ${ANSI.dim}───────────────────────
 `;
     originalLog.apply(console, [banner]);
 
-    // Animação inicial de Matrix Rain & Equalizador por 2.5 segundos (Inspirada no Rice Arch Linux)
+    // Animação de Chuva Digital Matrix Rain por 2.5s
     const katakana = "ｦｱｳｴｵｶｷｹｺｻｼｽｾｿﾀﾂﾃﾅﾆﾇﾈﾊﾋﾎﾏﾐﾑﾒﾓﾔﾕﾗﾘﾜ1234567890";
     let animFrames = 0;
     const animInterval = setInterval(() => {
@@ -11629,8 +11637,16 @@ ${ANSI.dim}───────────────────────
 
       if (animFrames >= 25) {
         clearInterval(animInterval);
-        process.stdout.write('\r\x1b[K');
+        // Garante que a linha da animação é completamente apaga antes dos dados reais
+        process.stdout.write('\r\x1b[2K\r');
         originalLog.apply(console, [`${ANSI.green}✨ [Visualizer Engine] Matrix & Audio Pipes Prontos! Aguardando Conexões...${ANSI.reset}\n`]);
+        
+        isMatrixAnimating = false;
+        // Despacha todos os logs represados durante os 2.5s de animação
+        while (pendingLogs.length > 0) {
+          const fn = pendingLogs.shift();
+          fn();
+        }
       }
     }, 100);
   });
