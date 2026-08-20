@@ -658,6 +658,53 @@ function confirmarSolicitarAdiantamento() {
     carregarFinanceiroSuporte();
   });
 }
+
+function abrirModalCadastroParceiro() {
+  document.getElementById('cad-nome').value = '';
+  document.getElementById('cad-email').value = '';
+  document.getElementById('cad-telefone').value = '';
+  document.getElementById('cad-senha').value = '';
+  document.getElementById('cad-cpf').value = '';
+  document.getElementById('cad-pix').value = '';
+  document.getElementById('cad-motivacao').value = '';
+  document.getElementById('modal-cadastro-parceiro').classList.add('active');
+}
+
+function fecharModalCadastroParceiro() {
+  document.getElementById('modal-cadastro-parceiro').classList.remove('active');
+}
+
+function salvarCadastroParceiro() {
+  var nome = document.getElementById('cad-nome').value.trim();
+  var email = document.getElementById('cad-email').value.trim();
+  var tel = document.getElementById('cad-telefone').value.trim();
+  var senha = document.getElementById('cad-senha').value;
+  var cpf = document.getElementById('cad-cpf').value.trim();
+  var pix = document.getElementById('cad-pix').value.trim();
+  var motivacao = document.getElementById('cad-motivacao').value.trim();
+
+  if (!nome || !email || !senha) {
+    alert('Preencha nome, email e senha para o cadastro.');
+    return;
+  }
+
+  apiPost('/api/suporte/cadastro', {
+    nome: nome,
+    email: email,
+    telefone: tel,
+    senha: senha,
+    cpf_cnpj: cpf,
+    pix_chave: pix,
+    motivacao: motivacao
+  }, function(err, data) {
+    if (err || !data || !data.ok) {
+      alert(err || (data && data.erro) || 'Erro ao realizar cadastro.');
+      return;
+    }
+    alert(data.mensagem || 'Cadastro realizado! Aguarde a aprovação da equipe.');
+    fecharModalCadastroParceiro();
+  });
+}
 /* ═══ SIDEBAR EVENTS ═══ */
 document.addEventListener('DOMContentLoaded', function() {
   var savedToken = localStorage.getItem('chef_suporte_token');

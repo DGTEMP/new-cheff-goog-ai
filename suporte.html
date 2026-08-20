@@ -302,9 +302,62 @@
       <button class="btn-primary" id="btn-login" onclick="loginSuporte()">
         <i class="fa-solid fa-right-to-bracket"></i> Entrar
       </button>
+      <div style="margin-top:1.2rem;text-align:center;">
+        <a href="javascript:void(0)" onclick="abrirModalCadastroParceiro()" style="color:var(--accent);font-size:0.85rem;text-decoration:none;font-weight:600;">
+          <i class="fa-solid fa-handshake"></i> Quer ser Vendedor / Suporte e Faturar Junto? Cadastre-se!
+        </a>
+      </div>
       <p style="margin-top:1.5rem;font-size:0.75rem;color:#555;text-align:center;">
-        <i class="fa-solid fa-headset"></i> Equipe de Suporte Chef Cozinha
+        <i class="fa-solid fa-headset"></i> Equipe de Suporte & Vendas Chef Cozinha
       </p>
+    </div>
+  </div>
+
+  <!-- MODAL: CADASTRO DE PARCEIRO / SUPORTE / VENDEDOR -->
+  <div class="modal-overlay" id="modal-cadastro-parceiro">
+    <div class="modal-content" style="max-width:520px;">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-handshake" style="color:var(--accent);"></i> Cadastre-se para a Equipe Chef</h3>
+        <button class="btn btn-sm" onclick="fecharModalCadastroParceiro()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body" style="padding:1.2rem;max-height:75vh;overflow-y:auto;">
+        <div class="form-group">
+          <label>Nome Completo *</label>
+          <input type="text" id="cad-nome" placeholder="Seu nome completo">
+        </div>
+        <div class="form-row">
+          <div class="form-group" style="flex:1;">
+            <label>Email de Acesso *</label>
+            <input type="email" id="cad-email" placeholder="seu@email.com">
+          </div>
+          <div class="form-group" style="flex:1;">
+            <label>WhatsApp / Telefone *</label>
+            <input type="text" id="cad-telefone" placeholder="(11) 99999-9999">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group" style="flex:1;">
+            <label>Senha de Acesso *</label>
+            <input type="password" id="cad-senha" placeholder="Crie uma senha forte">
+          </div>
+          <div class="form-group" style="flex:1;">
+            <label>CPF / CNPJ</label>
+            <input type="text" id="cad-cpf" placeholder="000.000.000-00">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Chave PIX (Para recebimento de comissões/bonificações)</label>
+          <input type="text" id="cad-pix" placeholder="Email, CPF, Telefone ou Chave aleatória">
+        </div>
+        <div class="form-group">
+          <label>Por que você quer fazer acontecer e faturar com a Chef?</label>
+          <textarea id="cad-motivacao" rows="3" placeholder="Fale brevemente sobre sua experiência em vendas ou suporte..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer" style="padding:1rem 1.2rem;">
+        <button class="btn" onclick="fecharModalCadastroParceiro()">Cancelar</button>
+        <button class="btn btn-primary" onclick="salvarCadastroParceiro()"><i class="fa-solid fa-paper-plane"></i> Enviar Solicitação de Cadastro</button>
+      </div>
     </div>
   </div>
 

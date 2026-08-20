@@ -2026,6 +2026,12 @@ function suporteAuth(req, res, next) {
   } catch (e) { res.json({ ok: false, erro: 'Sessão de suporte inválida ou expirada.' }); }
 }
 
+function registrarAuditLog(suporteId, suporteNome, acao, detalhes, req) {
+  const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
+  masterDb.run(`INSERT INTO suporte_logs_audit (suporte_id, suporte_nome, acao, detalhes, ip) VALUES (?, ?, ?, ?, ?)`,
+    [suporteId || null, suporteNome || 'Anônimo', acao, detalhes, String(clientIp)]);
+}
+
 function gerarXP(suporteId, pontos, tipo, descricao, restauranteId) {
   masterDb.run(`UPDATE equipe_suporte SET xp = COALESCE(xp,0) + ? WHERE id = ?`, [pontos, suporteId]);
   masterDb.run(`INSERT INTO tarefas_suporte (suporte_id, tipo, descricao, restaurante_id, pontos, status, concluida_em) VALUES (?, ?, ?, ?, ?, 'concluida', datetime('now','localtime'))`,
@@ -2049,6 +2055,28 @@ function gerarXP(suporteId, pontos, tipo, descricao, restauranteId) {
   });
 }
 
+// POST /api/suporte/cadastro — Auto-cadastro para ser Suporte / Vendedor Afiliado
+app.post('/api/suporte/cadastro', async (req, res) => {
+  const { nome, email, telefone, senha, cargo, especialidade, cpf_cnpj, pix_chave, motivacao } = req.body || {};
+  if (!nome || !email || !senha) return res.json({ ok: false, erro: 'Nome, email e senha são obrigatórios.' });
+
+  try {
+    const hash = await bcrypt.hash(senha, 10);
+    masterDb.run(`INSERT INTO equipe_suporte (nome, email, telefone, password_hash, cargo, especialidade, status, status_aprovacao, cpf_cnpj, pix_chave, motivacao) VALUES (?, ?, ?, ?, ?, ?, 'offline', 'pendente', ?, ?, ?)`,
+      [nome.trim(), email.trim().toLowerCase(), telefone || '', hash, cargo || 'Vendedor & Suporte', especialidade || 'Vendas e Onboarding', cpf_cnpj || '', pix_chave || '', motivacao || ''],
+      function(err) {
+        if (err) {
+          if (err.message.includes('UNIQUE')) return res.json({ ok: false, erro: 'Este email já está cadastrado no sistema.' });
+          return res.json({ ok: false, erro: err.message });
+        }
+        const newId = this.lastID;
+        registrarAuditLog(newId, nome, 'solicitacao_cadastro', `Novo cadastro de parceiro/vendedor solicitado (${email})`, req);
+        res.json({ ok: true, mensagem: 'Cadastro realizado com sucesso! Aguarde a aprovação da nossa equipe de suporte / gestores para liberar seu acesso.' });
+      }
+    );
+  } catch (e) { res.json({ ok: false, erro: e.message }); }
+});
+
 // POST /api/suporte/login — Login do membro da equipe de suporte
 app.post('/api/suporte/login', (req, res) => {
   const { email, senha } = req.body || {};
@@ -2057,12 +2085,23 @@ app.post('/api/suporte/login', (req, res) => {
   masterDb.get(`SELECT * FROM equipe_suporte WHERE LOWER(email) = LOWER(?)`, [email.trim()], (err, row) => {
     if (err) return res.json({ ok: false, erro: err.message });
     if (!row) return res.json({ ok: false, erro: 'Email de suporte não encontrado.' });
+
+    if (row.status_aprovacao === 'pendente') {
+      return res.json({ ok: false, erro: 'Seu cadastro ainda está pendente de aprovação pela equipe de suporte / administradores.' });
+    }
+    if (row.status_aprovacao === 'recusado') {
+      return res.json({ ok: false, erro: 'Seu cadastro de parceiro foi recusado pela administração.' });
+    }
     
     bcrypt.compare(senha, row.password_hash, (errComp, match) => {
       if (errComp) return res.json({ ok: false, erro: 'Erro ao verificar senha.' });
-      if (!match) return res.json({ ok: false, erro: 'Senha incorreta.' });
+      if (!match) {
+        registrarAuditLog(row.id, row.nome, 'tentativa_login_falhada', `Senha incorreta informada ao tentar logar com ${email}`, req);
+        return res.json({ ok: false, erro: 'Senha incorreta.' });
+      }
       
       const token = jwt.sign({ id: row.id, email: row.email, nome: row.nome }, suporteJwtSecret, { expiresIn: '12h' });
+      registrarAuditLog(row.id, row.nome, 'login_sucesso', `Login efetuado no Portal de Suporte/Vendas`, req);
       res.json({
         ok: true,
         token,
@@ -2493,6 +2532,63 @@ app.put('/api/super/suporte/:id/metas-comissao', superAdminAuth, (req, res) => {
   );
 });
 
+// PUT /api/super/suporte/:id/status-aprovacao — Aprovar ou Recusar cadastro de parceiro/vendedor
+app.put('/api/super/suporte/:id/status-aprovacao', superAdminAuth, (req, res) => {
+  const suporteId = parseInt(req.params.id);
+  const { status_aprovacao } = req.body || {};
+  if (!['aprovado', 'recusado', 'pendente'].includes(status_aprovacao)) return res.json({ ok: false, erro: 'Status inválido.' });
+
+  masterDb.run(`UPDATE equipe_suporte SET status_aprovacao = ? WHERE id = ?`, [status_aprovacao, suporteId], function(err) {
+    if (err) return res.json({ ok: false, erro: err.message });
+    registrarAuditLog(suporteId, 'Super Admin', 'alteracao_status_aprovacao', `Status de aprovação alterado para ${status_aprovacao}`, req);
+    res.json({ ok: true, mensagem: `Cadastro do suporte #${suporteId} alterado para ${status_aprovacao}!` });
+  });
+});
+
+// POST /api/super/equipe/tasks — Atribuir nova task para membro da equipe de suporte
+app.post('/api/super/equipe/tasks', superAdminAuth, (req, res) => {
+  const { suporte_id, restaurante_id, tipo, descricao, pontos } = req.body || {};
+  if (!suporte_id || !tipo || !descricao) return res.json({ ok: false, erro: 'Atendente, tipo e descrição são obrigatórios.' });
+
+  const pts = parseInt(pontos) || 10;
+  masterDb.run(`INSERT INTO tarefas_suporte (suporte_id, tipo, descricao, restaurante_id, pontos, status, concluida_em) VALUES (?, ?, ?, ?, ?, 'concluida', datetime('now','localtime'))`,
+    [suporte_id, tipo, descricao, restaurante_id || null, pts], function(err) {
+      if (err) return res.json({ ok: false, erro: err.message });
+      // Creditar XP ao atendente
+      masterDb.run(`UPDATE equipe_suporte SET xp = COALESCE(xp,0) + ? WHERE id = ?`, [pts, suporte_id]);
+      registrarAuditLog(suporte_id, 'Super Admin', 'task_atribuida', `Task "${tipo}" atribuída (${pts} XP)`, req);
+      res.json({ ok: true, mensagem: 'Task atribuída com sucesso!' });
+    }
+  );
+});
+
+// POST /api/super/equipe/avisos — Transmitir avisos/alertas para o suporte
+app.post('/api/super/equipe/avisos', superAdminAuth, (req, res) => {
+  const { destino, suporte_ids, titulo, tipo, corpo } = req.body || {};
+  if (!titulo || !corpo) return res.json({ ok: false, erro: 'Título e corpo do aviso são obrigatórios.' });
+
+  let destinatarios = '';
+  if (destino === 'selecionados' && Array.isArray(suporte_ids) && suporte_ids.length > 0) {
+    destinatarios = suporte_ids.join(',');
+  }
+
+  masterDb.run(`INSERT INTO mensagens (titulo, corpo, tipo, lida_por, criado_em) VALUES (?, ?, ?, ?, datetime('now','localtime'))`,
+    [titulo, corpo, tipo || 'aviso', destinatarios], function(err) {
+      if (err) return res.json({ ok: false, erro: err.message });
+      registrarAuditLog(null, 'Super Admin', 'transmissao_aviso', `Aviso "${titulo}" transmitido para: ${destino}`, req);
+      res.json({ ok: true, mensagem: 'Aviso transmitido com sucesso!' });
+    }
+  );
+});
+
+// GET /api/super/suporte/audit-logs — Visualizar logs de auditoria e segurança dos suportes (anti-fraude)
+app.get('/api/super/suporte/audit-logs', superAdminAuth, (req, res) => {
+  masterDb.all(`SELECT * FROM suporte_logs_audit ORDER BY data_acao DESC LIMIT 150`, [], (err, rows) => {
+    if (err) return res.json({ ok: false, erro: err.message });
+    res.json({ ok: true, logs: rows || [] });
+  });
+});
+
 // POST /api/suporte/atualizar-status — Alterar status do atendente
 app.post('/api/suporte/atualizar-status', suporteAuth, (req, res) => {
   const { status } = req.body || {};
@@ -2799,6 +2895,10 @@ masterDb.serialize(async () => {
   masterDb.run(`ALTER TABLE equipe_suporte ADD COLUMN meta_vendas_mes INTEGER DEFAULT 5`, (err) => { });
   masterDb.run(`ALTER TABLE equipe_suporte ADD COLUMN comissao_padrao REAL DEFAULT 10`, (err) => { });
   masterDb.run(`ALTER TABLE equipe_suporte ADD COLUMN bonificacao_meta REAL DEFAULT 200`, (err) => { });
+  masterDb.run(`ALTER TABLE equipe_suporte ADD COLUMN status_aprovacao TEXT DEFAULT 'aprovado'`, (err) => { });
+  masterDb.run(`ALTER TABLE equipe_suporte ADD COLUMN cpf_cnpj TEXT`, (err) => { });
+  masterDb.run(`ALTER TABLE equipe_suporte ADD COLUMN pix_chave TEXT`, (err) => { });
+  masterDb.run(`ALTER TABLE equipe_suporte ADD COLUMN motivacao TEXT`, (err) => { });
 
   masterDb.run(`CREATE TABLE IF NOT EXISTS suporte_adiantamentos (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -2807,6 +2907,16 @@ masterDb.serialize(async () => {
     descricao TEXT,
     status TEXT DEFAULT 'aprovado',
     data_solicitacao DATETIME DEFAULT (datetime('now','localtime'))
+  )`);
+
+  masterDb.run(`CREATE TABLE IF NOT EXISTS suporte_logs_audit (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    suporte_id INTEGER,
+    suporte_nome TEXT,
+    acao TEXT,
+    detalhes TEXT,
+    ip TEXT,
+    data_acao DATETIME DEFAULT (datetime('now','localtime'))
   )`);
   masterDb.run(`CREATE TABLE IF NOT EXISTS telemetria (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

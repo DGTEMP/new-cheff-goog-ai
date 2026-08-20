@@ -2171,14 +2171,17 @@
               </div>
             </div>
 
-            <div class="table-controls">
-              <input type="text" id="suporte-search" placeholder="Buscar por nome ou email..." style="flex:1;min-width:200px;">
-              <select id="suporte-filter-status" style="width:auto;">
-                <option value="">Todos os Status</option>
-                <option value="disponivel">Disponível</option>
-                <option value="ocupado">Ocupado</option>
-                <option value="offline">Offline</option>
+            <div class="table-controls" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:1rem;">
+              <input type="text" id="suporte-search" placeholder="Buscar por nome, email, CPF..." style="flex:1;min-width:200px;" oninput="carregarSuporte()">
+              <select id="suporte-filter-status" style="width:auto;" onchange="carregarSuporte()">
+                <option value="">Todos os Status de Aprovação</option>
+                <option value="aprovado">🟢 Aprovados (Ativos)</option>
+                <option value="pendente">🟡 Pendentes de Aprovação</option>
+                <option value="recusado">🔴 Recusados</option>
               </select>
+              <button class="btn-action" style="background:#8b5cf6;color:white;" onclick="carregarAuditLogsSuporte()">
+                <i class="fa-solid fa-shield-halved"></i> Audit / Logs Anti-Fraude
+              </button>
             </div>
 
             <div class="table-container">
@@ -3943,6 +3946,36 @@
       <div class="modal-footer">
         <button class="btn-action" onclick="fecharModalMetaComissao()">Cancelar</button>
         <button class="btn-action" style="background:#22c55e;color:white;" onclick="salvarMetasComissaoVendedor()"><i class="fa-solid fa-floppy-disk"></i> Salvar Alterações</button>
+      </div>
+    </div>
+  <!-- MODAL: AUDITORIA E LOGS ANTI-FRAUDE DOS ATENDENTES/PARCEIROS -->
+  <div class="modal-overlay" id="modal-audit-logs">
+    <div class="modal-content" style="max-width:780px; width:94%;">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-shield-halved" style="color:#8b5cf6;"></i> Auditoria & Registro de Atividades Anti-Fraude</h3>
+        <button class="modal-close" onclick="fecharModalAuditLogs()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body" style="padding:1.2rem;">
+        <p style="color:#888;font-size:12px;margin-bottom:12px;">Histórico de logins, IPs acessados, erros de senha e ações de parceiros/vendedores no sistema.</p>
+        <div style="overflow-x:auto;max-height:400px;">
+          <table class="data-table" style="width:100%;border-collapse:collapse;font-size:12px;">
+            <thead>
+              <tr style="background:#11131f;border-bottom:2px solid #2a2d3e;">
+                <th style="padding:8px;text-align:left;color:#fc4b15;">Data / Hora</th>
+                <th style="padding:8px;text-align:left;color:white;">Atendente / Parceiro</th>
+                <th style="padding:8px;text-align:left;color:#888;">Ação / Evento</th>
+                <th style="padding:8px;text-align:left;color:#888;">Detalhes do Registro</th>
+                <th style="padding:8px;text-align:center;color:#888;">Endereço IP</th>
+              </tr>
+            </thead>
+            <tbody id="audit-logs-tbody">
+              <tr><td colspan="5" style="text-align:center;color:#888;padding:20px;">Carregando logs de auditoria...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-action" onclick="fecharModalAuditLogs()">Fechar</button>
       </div>
     </div>
   </div>

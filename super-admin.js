@@ -3810,22 +3810,50 @@ window.carregarSuporte = function() {
     var tbody = document.getElementById('suporte-tbody');
     if (!tbody) return;
     if (err || !data || !data.ok || !data.equipe || data.equipe.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:20px;">Nenhum membro na equipe de suporte cadastrado.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:20px;">Nenhum membro na equipe de suporte cadastrado.</td></tr>';
       return;
     }
+
+    suporteData = data.equipe; // Atualiza variável global para modals de Task e Avisos
+
+    var searchVal = (document.getElementById('suporte-search') ? document.getElementById('suporte-search').value : '').toLowerCase();
+    var filterStatus = document.getElementById('suporte-filter-status') ? document.getElementById('suporte-filter-status').value : '';
+
+    var equipeFiltrada = data.equipe.filter(function(m) {
+      var matchSearch = !searchVal || (m.nome || '').toLowerCase().indexOf(searchVal) !== -1 || (m.email || '').toLowerCase().indexOf(searchVal) !== -1 || (m.cpf_cnpj || '').toLowerCase().indexOf(searchVal) !== -1;
+      var stAp = m.status_aprovacao || 'aprovado';
+      var matchStatus = !filterStatus || stAp === filterStatus;
+      return matchSearch && matchStatus;
+    });
+
+    if (equipeFiltrada.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:20px;">Nenhum colaborador encontrado com os filtros selecionados.</td></tr>';
+      return;
+    }
+
     var html = '';
-    data.equipe.forEach(function(m) {
-      var stColor = m.status === 'disponivel' ? '#22c55e' : (m.status === 'em_atendimento' ? '#3b82f6' : '#ef4444');
+    equipeFiltrada.forEach(function(m) {
+      var stColor = m.status === 'disponivel' ? '#22c55e' : (m.status === 'ocupado' ? '#f59e0b' : '#ef4444');
+      var stAp = m.status_aprovacao || 'aprovado';
+      var badgeAp = stAp === 'aprovado' ? '<span style="background:#22c55e22;color:#22c55e;padding:2px 6px;border-radius:6px;font-size:10px;font-weight:bold;">🟢 APROVADO</span>' :
+        (stAp === 'pendente' ? '<span style="background:#f59e0b22;color:#f59e0b;padding:2px 6px;border-radius:6px;font-size:10px;font-weight:bold;">🟡 PENDENTE</span>' :
+        '<span style="background:#ef444422;color:#ef4444;padding:2px 6px;border-radius:6px;font-size:10px;font-weight:bold;">🔴 RECUSADO</span>');
+
       html += '<tr>' +
-        '<td style="padding:10px 12px;font-weight:600;color:white;">' + esc(m.nome) + '<br><small style="color:#888;">Nível ' + (m.nivel || 1) + ' (' + (m.xp || 0) + ' XP)</small></td>' +
-        '<td style="padding:10px 12px;color:#ccc;">' + esc(m.email) + '</td>' +
-        '<td style="padding:10px 12px;text-align:center;color:#ccc;">' + esc(m.telefone || '—') + '</td>' +
+        '<td style="padding:10px 12px;font-weight:600;color:white;">' + esc(m.nome) + '<br><small style="color:#888;">Nível ' + (m.nivel || 1) + ' (' + (m.xp || 0) + ' XP)</small> ' + badgeAp + '</td>' +
+        '<td style="padding:10px 12px;color:#ccc;">' + esc(m.email) + '<br><small style="color:#888;">CPF/CNPJ: ' + esc(m.cpf_cnpj || '—') + '</small></td>' +
+        '<td style="padding:10px 12px;text-align:center;color:#ccc;">' + esc(m.telefone || '—') + '<br><small style="color:#888;">PIX: ' + esc(m.pix_chave || '—') + '</small></td>' +
         '<td style="padding:10px 12px;text-align:center;color:#3b82f6;font-weight:600;">' + esc(m.cargo || 'Atendente') + '</td>' +
         '<td style="padding:10px 12px;text-align:center;color:#888;">' + esc(m.especialidade || 'Geral') + '</td>' +
         '<td style="padding:10px 12px;text-align:center;"><span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;background:' + stColor + '22;color:' + stColor + ';border:1px solid ' + stColor + '44;">' + esc((m.status || 'disponivel').toUpperCase()) + '</span></td>' +
         '<td style="padding:10px 12px;text-align:center;color:#888;font-size:11px;">' + (m.data_cadastro ? new Date(m.data_cadastro).toLocaleDateString('pt-BR') : '—') + '</td>' +
-        '<td style="padding:10px 12px;text-align:center;">' +
-          '<button class="btn-action" style="padding:4px 8px;font-size:11px;background:#22c55e;color:white;" onclick="abrirModalMetaComissao(' + m.id + ',\'' + escapeHtml(m.nome) + '\',' + (m.comissao_padrao || 10) + ',' + (m.meta_vendas_mes || 5) + ',' + (m.bonificacao_meta || 200) + ')"><i class="fa-solid fa-sliders"></i> Metas / Comissões</button>' +
+        '<td style="padding:10px 12px;text-align:center;white-space:nowrap;">' +
+          '<button class="btn-action" style="padding:4px 8px;font-size:11px;background:#22c55e;color:white;margin-right:4px;" onclick="abrirModalMetaComissao(' + m.id + ',\'' + escapeHtml(m.nome) + '\',' + (m.comissao_padrao || 10) + ',' + (m.meta_vendas_mes || 5) + ',' + (m.bonificacao_meta || 200) + ')" title="Metas e Comissões"><i class="fa-solid fa-sliders"></i></button>' +
+          (stAp === 'pendente' ? 
+            '<button class="btn-action" style="padding:4px 8px;font-size:11px;background:#3b82f6;color:white;margin-right:4px;" onclick="alterarStatusAprovacaoSuporte(' + m.id + ',\'aprovado\')" title="Aprovar Cadastro"><i class="fa-solid fa-check"></i> Aprovar</button>' +
+            '<button class="btn-action" style="padding:4px 8px;font-size:11px;background:#ef4444;color:white;" onclick="alterarStatusAprovacaoSuporte(' + m.id + ',\'recusado\')" title="Recusar Cadastro"><i class="fa-solid fa-xmark"></i> Recusar</button>' :
+            (stAp === 'aprovado' ? '<button class="btn-action" style="padding:4px 8px;font-size:11px;background:#f59e0b;color:white;" onclick="alterarStatusAprovacaoSuporte(' + m.id + ',\'recusado\')" title="Suspender"><i class="fa-solid fa-ban"></i> Suspender</button>' :
+            '<button class="btn-action" style="padding:4px 8px;font-size:11px;background:#3b82f6;color:white;" onclick="alterarStatusAprovacaoSuporte(' + m.id + ',\'aprovado\')" title="Reativar"><i class="fa-solid fa-check"></i> Reativar</button>')) +
         '</td>' +
         '</tr>';
     });
@@ -3833,6 +3861,43 @@ window.carregarSuporte = function() {
   });
 
   carregarMetricasComerciaisSuporte();
+};
+
+window.alterarStatusAprovacaoSuporte = function(id, novoStatus) {
+  if (!confirm('Deseja realmente alterar o status de aprovação do colaborador para "' + novoStatus.toUpperCase() + '"?')) return;
+  apiPut('/api/super/suporte/' + id + '/status-aprovacao', { status_aprovacao: novoStatus }, function(err, data) {
+    if (err || !data || !data.ok) return showToast(err || (data && data.erro) || 'Erro ao alterar status.', 'danger');
+    showToast(data.mensagem || 'Status de aprovação alterado com sucesso!', 'success');
+    carregarSuporte();
+  });
+};
+
+window.carregarAuditLogsSuporte = function() {
+  document.getElementById('modal-audit-logs').classList.add('active');
+  apiGet('/api/super/suporte/audit-logs', function(err, data) {
+    var tbody = document.getElementById('audit-logs-tbody');
+    if (!tbody) return;
+    if (err || !data || !data.ok || !data.logs || data.logs.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:#888;">Nenhum registro de auditoria encontrado.</td></tr>';
+      return;
+    }
+    var html = '';
+    data.logs.forEach(function(l) {
+      var d = l.data_acao ? new Date(l.data_acao).toLocaleString('pt-BR') : '—';
+      html += '<tr>' +
+        '<td style="color:#888;white-space:nowrap;">' + d + '</td>' +
+        '<td style="color:white;font-weight:bold;">' + escapeHtml(l.suporte_nome || '—') + ' <small style="color:#888;">(#' + (l.suporte_id || 'sys') + ')</small></td>' +
+        '<td style="color:#fc4b15;font-weight:600;">' + escapeHtml(l.acao) + '</td>' +
+        '<td style="color:#ccc;">' + escapeHtml(l.detalhes || '') + '</td>' +
+        '<td style="text-align:center;color:#3b82f6;font-family:monospace;">' + escapeHtml(l.ip || '127.0.0.1') + '</td>' +
+        '</tr>';
+    });
+    tbody.innerHTML = html;
+  });
+};
+
+window.fecharModalAuditLogs = function() {
+  document.getElementById('modal-audit-logs').classList.remove('active');
 };
 
 window.abrirModalMetaComissao = function(id, nome, comissao, meta, bonus) {
