@@ -2202,6 +2202,89 @@
                 </table>
               </div>
             </div>
+            <!-- ════ DASHBOARD ESTRATÉGICO DE VENDAS & DESEMPENHO DA EQUIPE ════ -->
+            <div style="margin-top:2rem;background:#161a2b;border:1px solid #2a2d3e;border-radius:16px;padding:20px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:1.2rem;">
+                <div>
+                  <h3 style="font-family:'Outfit',sans-serif;font-size:1.3rem;color:white;margin-bottom:4px;">
+                    <i class="fa-solid fa-chart-line" style="color:#22c55e;"></i> Desempenho Comercial & Inteligência de Vendas
+                  </h3>
+                  <p style="color:#888;font-size:13px;">Métricas estratégicas dos estabelecimentos contatados, razões de fechamento e objeções da equipe.</p>
+                </div>
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                  <input type="date" id="comercial-filtro-inicio" style="padding:6px 10px;background:#11131f;border:1px solid #2a2d3e;color:white;border-radius:8px;font-size:12px;">
+                  <span style="color:#888;font-size:12px;">até</span>
+                  <input type="date" id="comercial-filtro-fim" style="padding:6px 10px;background:#11131f;border:1px solid #2a2d3e;color:white;border-radius:8px;font-size:12px;">
+                  <button class="btn-action" style="background:#fc4b15;color:white;padding:6px 14px;font-size:12px;" onclick="carregarMetricasComerciaisSuporte()">
+                    <i class="fa-solid fa-filter"></i> Filtrar
+                  </button>
+                </div>
+              </div>
+
+              <!-- CARDS DE RESUMO COMERCIAL -->
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:1.5rem;" id="cards-resumo-comercial">
+                <div style="background:#11131f;padding:14px;border-radius:12px;border:1px solid #2a2d3e;">
+                  <div style="color:#888;font-size:11px;text-transform:uppercase;font-weight:600;">Contatos no Período</div>
+                  <div style="font-size:1.6rem;font-weight:800;color:white;margin-top:4px;" id="metric-comercial-contatos">0</div>
+                </div>
+                <div style="background:#11131f;padding:14px;border-radius:12px;border:1px solid #2a2d3e;">
+                  <div style="color:#888;font-size:11px;text-transform:uppercase;font-weight:600;">Vendas Fechadas</div>
+                  <div style="font-size:1.6rem;font-weight:800;color:#22c55e;margin-top:4px;" id="metric-comercial-fechados">0</div>
+                </div>
+                <div style="background:#11131f;padding:14px;border-radius:12px;border:1px solid #2a2d3e;">
+                  <div style="color:#888;font-size:11px;text-transform:uppercase;font-weight:600;">Taxa de Conversão</div>
+                  <div style="font-size:1.6rem;font-weight:800;color:#f59e0b;margin-top:4px;" id="metric-comercial-conversao">0%</div>
+                </div>
+                <div style="background:#11131f;padding:14px;border-radius:12px;border:1px solid #2a2d3e;">
+                  <div style="color:#888;font-size:11px;text-transform:uppercase;font-weight:600;">Faturamento Gerado</div>
+                  <div style="font-size:1.6rem;font-weight:800;color:#3b82f6;margin-top:4px;" id="metric-comercial-faturamento">R$ 0,00</div>
+                </div>
+              </div>
+
+              <!-- PAINÉIS DE ANÁLISE ESTRATÉGICA -->
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;margin-bottom:1.5rem;">
+                <!-- Fatores Decisivos de Venda -->
+                <div style="background:#11131f;padding:16px;border-radius:12px;border:1px solid #2a2d3e;">
+                  <h4 style="color:white;font-size:14px;margin-bottom:12px;display:flex;align-items:center;gap:8px;">
+                    <i class="fa-solid fa-thumbs-up" style="color:#22c55e;"></i> Fatores que Fizeram o Cliente Comprar
+                  </h4>
+                  <div id="container-fatores-decisao" style="display:flex;flex-direction:column;gap:8px;font-size:13px;color:#ccc;">
+                    <!-- Injetado via JS -->
+                  </div>
+                </div>
+
+                <!-- Objeções Frequentes -->
+                <div style="background:#11131f;padding:16px;border-radius:12px;border:1px solid #2a2d3e;">
+                  <h4 style="color:white;font-size:14px;margin-bottom:12px;display:flex;align-items:center;gap:8px;">
+                    <i class="fa-solid fa-lightbulb" style="color:#f59e0b;"></i> Objeções & Fatores a Melhorar para Próxima Venda
+                  </h4>
+                  <div id="container-objecoes" style="max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;font-size:13px;color:#ccc;">
+                    <!-- Injetado via JS -->
+                  </div>
+                </div>
+              </div>
+
+              <!-- TABELA DE VENDAS DA EQUIPE -->
+              <h4 style="color:white;font-size:14px;margin-bottom:10px;"><i class="fa-solid fa-list-check"></i> Histórico Detalhado de Negociações da Equipe</h4>
+              <div style="overflow-x:auto;max-height:350px;">
+                <table class="data-table" style="width:100%;border-collapse:collapse;font-size:12px;">
+                  <thead>
+                    <tr style="background:#11131f;border-bottom:2px solid #2a2d3e;">
+                      <th style="padding:8px;text-align:left;color:#fc4b15;">Atendente / Suporte</th>
+                      <th style="padding:8px;text-align:left;color:white;">Restaurante</th>
+                      <th style="padding:8px;text-align:left;color:#888;">Contato / Tel</th>
+                      <th style="padding:8px;text-align:center;color:#888;">Plano / Valor</th>
+                      <th style="padding:8px;text-align:center;color:#888;">Fator de Decisão</th>
+                      <th style="padding:8px;text-align:left;color:#888;">Objeções / Aprendizados</th>
+                      <th style="padding:8px;text-align:center;color:#888;">Data</th>
+                    </tr>
+                  </thead>
+                  <tbody id="comercial-vendas-tbody">
+                    <tr><td colspan="7" style="text-align:center;color:#888;padding:20px;">Carregando histórico comercial...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         </div>
 

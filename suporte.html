@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -323,6 +323,7 @@
     <div class="main-layout">
       <div class="sidebar">
         <div class="menu-item active" data-target="sec-dashboard"><i class="fa-solid fa-chart-simple"></i> Dashboard</div>
+        <div class="menu-item" data-target="sec-vendas"><i class="fa-solid fa-key" style="color:var(--warning);"></i> Minhas Vendas</div>
         <div class="menu-item" data-target="sec-restaurantes"><i class="fa-solid fa-store"></i> Restaurantes</div>
         <div class="menu-item" data-target="sec-cardapio" id="menu-cardapio" style="display:none;"><i class="fa-solid fa-book"></i> Cardápio</div>
         <div class="menu-item" data-target="sec-tarefas"><i class="fa-solid fa-list-check"></i> Atividades</div>
@@ -417,6 +418,42 @@
           </div>
         </div>
 
+        <!-- Minhas Vendas & Onboarding -->
+        <div class="content-section" id="sec-vendas">
+          <div class="card-header">
+            <div>
+              <h2 style="font-family:'Outfit',sans-serif;"><i class="fa-solid fa-key" style="color:var(--warning);"></i> Minhas Vendas & Onboarding</h2>
+              <p style="color:var(--text-muted);font-size:0.85rem;">Venda o sistema Chef Cozinha para estabelecimentos e gerencie o onboarding inicial dos seus clientes.</p>
+            </div>
+            <button class="btn btn-primary" onclick="abrirModalNovaVenda()"><i class="fa-solid fa-cart-plus"></i> Registrar Nova Venda</button>
+          </div>
+
+          <div class="card" style="padding:0;overflow:hidden;margin-top:1rem;">
+            <div style="padding:1rem;background:rgba(255,255,255,0.03);border-bottom:1px solid var(--border-color);display:flex;justify-content:space-between;align-items:center;">
+              <h4 style="margin:0;"><i class="fa-solid fa-list"></i> Histórico de Restaurantes Vendidos & Atribuídos</h4>
+              <button class="btn btn-sm" onclick="carregarMinhasVendas()"><i class="fa-solid fa-rotate"></i> Atualizar</button>
+            </div>
+            <div class="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Chave Emitida</th>
+                    <th>Restaurante</th>
+                    <th>Contato / Resp</th>
+                    <th>Plano / Valor</th>
+                    <th>Fator de Decisão</th>
+                    <th>Objeção Superada / Ajudas</th>
+                    <th>Data</th>
+                  </tr>
+                </thead>
+                <tbody id="minhas-vendas-body">
+                  <tr><td colspan="7" style="text-align:center;color:var(--text-muted);">Carregando suas vendas...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
         <!-- Ranking -->
         <div class="content-section" id="sec-ranking">
           <div class="card-header">
@@ -476,6 +513,89 @@
       <div class="modal-footer">
         <button class="btn" onclick="document.getElementById('modal-produto').classList.remove('active')">Cancelar</button>
         <button class="btn btn-primary" onclick="salvarProduto()"><i class="fa-solid fa-floppy-disk"></i> Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: REGISTRAR NOVA VENDA DA LICENÇA -->
+  <div class="modal-overlay" id="modal-nova-venda">
+    <div class="modal-content" style="max-width:620px;">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-cart-plus" style="color:var(--accent);"></i> Registrar Nova Venda de Licença</h3>
+        <button class="btn btn-sm" onclick="fecharModalNovaVenda()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body" style="padding:1.2rem;max-height:75vh;overflow-y:auto;">
+        <div class="form-row">
+          <div class="form-group" style="flex:1;">
+            <label>Nome do Restaurante *</label>
+            <input type="text" id="venda-restaurante-nome" placeholder="Ex: Cantina da Mamma">
+          </div>
+          <div class="form-group" style="flex:1;">
+            <label>Plano Escolhido *</label>
+            <select id="venda-plano">
+              <option value="premium">Premium (R$ 299/mês)</option>
+              <option value="pro">Pro (R$ 199/mês)</option>
+              <option value="plus">Plus (R$ 149/mês)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group" style="flex:1;">
+            <label>Nome do Contato / Dono</label>
+            <input type="text" id="venda-contato-nome" placeholder="Ex: Roberto Silva">
+          </div>
+          <div class="form-group" style="flex:1;">
+            <label>Telefone / WhatsApp</label>
+            <input type="text" id="venda-contato-telefone" placeholder="(11) 99999-9999">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group" style="flex:1;">
+            <label>Valor da Venda (R$)</label>
+            <input type="number" id="venda-valor" value="299" step="10">
+          </div>
+          <div class="form-group" style="flex:1;">
+            <label>Status do Negócio</label>
+            <select id="venda-status">
+              <option value="fechado">🟢 Fechado (Gera Chave & Atribui Onboarding)</option>
+              <option value="negociacao">🟡 Em Negociação / Em Análise</option>
+              <option value="perdido">🔴 Não Fechou / Recusado</option>
+            </select>
+          </div>
+        </div>
+
+        <hr style="border:0;border-top:1px solid var(--border-color);margin:1rem 0;">
+        <h4 style="font-size:0.9rem;color:var(--accent);margin-bottom:0.8rem;"><i class="fa-solid fa-brain"></i> Métricas Estratégicas da Venda (Inteligência Comercial)</h4>
+
+        <div class="form-group">
+          <label>Fator Decisivo que Fez o Cliente Comprar o Sistema *</label>
+          <select id="venda-fator-decisao">
+            <option value="facilidade_interface">Facilidade de Uso / Interface Moderna</option>
+            <option value="pedido_qrcode">Cardápio QR Code / Pedidos na Mesa</option>
+            <option value="controle_financeiro">Controle Financeiro & DRE Automático</option>
+            <option value="integracao_ifood">Integração iFood & Entregas</option>
+            <option value="suporte_humanizado">Suporte Técnico Dedicado / Humanizado</option>
+            <option value="preco_competitivo">Preço Acessível / Custo-Benefício</option>
+            <option value="estabilidade_offline">Funcionamento Local / Estabilidade</option>
+            <option value="outro">Outro Motivo</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Objeção do Cliente / O que Faltou pra Fechar Fácil ou Motivo do Não Fechamento</label>
+          <textarea id="venda-objecao" rows="2" placeholder="Ex: Preço achado alto inicial, faltava integrar balança x, dúvida sobre contrato..."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label>Ajudas de Usabilidade / Treinamentos Iniciais Necessários no Onboarding</label>
+          <textarea id="venda-ajudas" rows="2" placeholder="Ex: Cadastrar impressora da cozinha, treinar garçons para usar o app..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer" style="padding:1rem 1.2rem;">
+        <button class="btn" onclick="fecharModalNovaVenda()">Cancelar</button>
+        <button class="btn btn-primary" onclick="salvarVendaSuporte()"><i class="fa-solid fa-check"></i> Emitir Chave & Atribuir Onboarding</button>
       </div>
     </div>
   </div>

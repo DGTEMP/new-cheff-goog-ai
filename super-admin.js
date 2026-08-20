@@ -3804,3 +3804,124 @@ function carregarWafLogs() {
   });
 }
 
+/* ═══ GESTÃO & METRICAS DA EQUIPE DE SUPORTE NO SUPER-ADMIN ═══ */
+window.carregarSuporte = function() {
+  apiGet('/api/super/equipe', function(err, data) {
+    var tbody = document.getElementById('suporte-tbody');
+    if (!tbody) return;
+    if (err || !data || !data.ok || !data.equipe || data.equipe.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:20px;">Nenhum membro na equipe de suporte cadastrado.</td></tr>';
+      return;
+    }
+    var html = '';
+    data.equipe.forEach(function(m) {
+      var stColor = m.status === 'disponivel' ? '#22c55e' : (m.status === 'em_atendimento' ? '#3b82f6' : '#ef4444');
+      html += '<tr>' +
+        '<td style="padding:10px 12px;font-weight:600;color:white;">' + esc(m.nome) + '<br><small style="color:#888;">Nível ' + (m.nivel || 1) + ' (' + (m.xp || 0) + ' XP)</small></td>' +
+        '<td style="padding:10px 12px;color:#ccc;">' + esc(m.email) + '</td>' +
+        '<td style="padding:10px 12px;text-align:center;color:#ccc;">' + esc(m.telefone || '—') + '</td>' +
+        '<td style="padding:10px 12px;text-align:center;color:#3b82f6;font-weight:600;">' + esc(m.cargo || 'Atendente') + '</td>' +
+        '<td style="padding:10px 12px;text-align:center;color:#888;">' + esc(m.especialidade || 'Geral') + '</td>' +
+        '<td style="padding:10px 12px;text-align:center;"><span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;background:' + stColor + '22;color:' + stColor + ';border:1px solid ' + stColor + '44;">' + esc((m.status || 'disponivel').toUpperCase()) + '</span></td>' +
+        '<td style="padding:10px 12px;text-align:center;color:#888;font-size:11px;">' + (m.data_cadastro ? new Date(m.data_cadastro).toLocaleDateString('pt-BR') : '—') + '</td>' +
+        '</tr>';
+    });
+    tbody.innerHTML = html;
+  });
+
+  carregarMetricasComerciaisSuporte();
+};
+
+window.carregarMetricasComerciaisSuporte = function() {
+  var inicio = document.getElementById('comercial-filtro-inicio') ? document.getElementById('comercial-filtro-inicio').value : '';
+  var fim = document.getElementById('comercial-filtro-fim') ? document.getElementById('comercial-filtro-fim').value : '';
+
+  var query = [];
+  if (inicio) query.push('inicio=' + encodeURIComponent(inicio));
+  if (fim) query.push('fim=' + encodeURIComponent(fim));
+  var url = '/api/super/suporte/metricas-vendas' + (query.length ? '?' + query.join('&') : '');
+
+  apiGet(url, function(err, data) {
+    if (err || !data || !data.ok) return;
+
+    var res = data.resumo || {};
+    if (document.getElementById('metric-comercial-contatos')) document.getElementById('metric-comercial-contatos').textContent = res.totalContatos || 0;
+    if (document.getElementById('metric-comercial-fechados')) document.getElementById('metric-comercial-fechados').textContent = res.totalFechados || 0;
+    if (document.getElementById('metric-comercial-conversao')) document.getElementById('metric-comercial-conversao').textContent = res.taxaConversao || '0%';
+    if (document.getElementById('metric-comercial-faturamento')) document.getElementById('metric-comercial-faturamento').textContent = 'R$ ' + parseFloat(res.totalFaturamento || 0).toFixed(2);
+
+    // Render Fatores Decisivos
+    var containerFatores = document.getElementById('container-fatores-decisao');
+    if (containerFatores) {
+      var fatoresLabels = {
+        facilidade_interface: 'Interface / Facilidade de Uso',
+        pedido_qrcode: 'Cardápio QR Code na Mesa',
+        controle_financeiro: 'Controle Financeiro Automático',
+        integracao_ifood: 'Integração iFood & Entregas',
+        suporte_humanizado: 'Suporte Técnico Humanizado',
+        preco_competitivo: 'Custo-Benefício / Preço',
+        estabilidade_offline: 'Modo Offline e Estabilidade',
+        outro: 'Outros Motivos'
+      };
+      var fat = data.fatoresDecisao || {};
+      var keysF = Object.keys(fat);
+      if (keysF.length === 0) {
+        containerFatores.innerHTML = '<span style="color:#888;font-size:12px;">Nenhum fator registrado ainda.</span>';
+      } else {
+        var htmlF = '';
+        keysF.forEach(function(k) {
+          var label = fatoresLabels[k] || k;
+          var count = fat[k];
+          htmlF += '<div style="display:flex;justify-content:space-between;align-items:center;background:#161a2b;padding:8px 12px;border-radius:8px;">' +
+            '<span><i class="fa-solid fa-check" style="color:#22c55e;margin-right:6px;"></i> ' + esc(label) + '</span>' +
+            '<span style="font-weight:bold;color:#22c55e;">' + count + ' vendas</span>' +
+            '</div>';
+        });
+        containerFatores.innerHTML = htmlF;
+      }
+    }
+
+    // Render Objeções e Motivos de Perda
+    var containerObj = document.getElementById('container-objecoes');
+    if (containerObj) {
+      var obj = data.objecoes || {};
+      var keysO = Object.keys(obj);
+      if (keysO.length === 0) {
+        containerObj.innerHTML = '<span style="color:#888;font-size:12px;">Nenhuma objeção registrada.</span>';
+      } else {
+        var htmlO = '';
+        keysO.forEach(function(k) {
+          var count = obj[k];
+          htmlO += '<div style="background:#161a2b;padding:8px 12px;border-radius:8px;">' +
+            '<strong style="color:#f59e0b;">' + count + 'x citado:</strong> ' + esc(k) +
+            '</div>';
+        });
+        containerObj.innerHTML = htmlO;
+      }
+    }
+
+    // Render Tabela de Vendas
+    var tbody = document.getElementById('comercial-vendas-tbody');
+    if (tbody) {
+      var vendas = data.vendas || [];
+      if (vendas.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#888;padding:20px;">Nenhuma negociação registrada no período.</td></tr>';
+        return;
+      }
+      var htmlV = '';
+      vendas.forEach(function(v) {
+        var stColor = v.status_venda === 'fechado' ? '#22c55e' : (v.status_venda === 'negociacao' ? '#f59e0b' : '#ef4444');
+        htmlV += '<tr style="border-bottom:1px solid #1f2438;">' +
+          '<td style="padding:8px;color:#fc4b15;font-weight:600;">' + esc(v.suporte_nome || 'Suporte #' + v.suporte_id) + '</td>' +
+          '<td style="padding:8px;color:white;font-weight:bold;">' + esc(v.restaurante_nome) + '<br><small style="color:#888;">' + esc(v.chave_ativacao) + '</small></td>' +
+          '<td style="padding:8px;color:#ccc;">' + esc(v.contato_nome || '—') + '<br><small style="color:#888;">' + esc(v.contato_telefone || '') + '</small></td>' +
+          '<td style="padding:8px;text-align:center;"><span style="color:#f59e0b;font-weight:bold;">' + esc(v.plano.toUpperCase()) + '</span><br><small style="color:#888;">R$ ' + parseFloat(v.valor_venda || 0).toFixed(2) + '</small></td>' +
+          '<td style="padding:8px;text-align:center;"><span style="background:#22c55e22;color:#22c55e;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:bold;">' + esc(v.fator_decisao || '—') + '</span></td>' +
+          '<td style="padding:8px;color:#ccc;"><small><strong>Objeção:</strong> ' + esc(v.objeção_nao_fecho || 'Nenhuma') + '<br><strong>Onboarding:</strong> ' + esc(v.ajudas_usabilidade || 'Nenhuma') + '</small></td>' +
+          '<td style="padding:8px;text-align:center;color:#888;">' + (v.data_venda ? new Date(v.data_venda).toLocaleDateString('pt-BR') : '—') + '</td>' +
+          '</tr>';
+      });
+      tbody.innerHTML = htmlV;
+    }
+  });
+};

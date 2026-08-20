@@ -2255,6 +2255,140 @@ app.get('/api/suporte/minhas-conquistas', suporteAuth, (req, res) => {
   });
 });
 
+// ═══ ÁREA DE VENDAS E ONBOARDING DO SUPORTE ═══
+
+// GET /api/suporte/minhas-vendas — Vendas realizadas pelo suporte logado
+app.get('/api/suporte/minhas-vendas', suporteAuth, (req, res) => {
+  masterDb.all(`SELECT * FROM suporte_vendas WHERE suporte_id = ? ORDER BY data_venda DESC`, [req.suporteId], (err, rows) => {
+    if (err) return res.json({ ok: false, erro: err.message });
+    res.json({ ok: true, vendas: rows || [] });
+  });
+});
+
+// POST /api/suporte/vendas — Registrar nova venda de licença pelo suporte
+app.post('/api/suporte/vendas', suporteAuth, async (req, res) => {
+  const { restaurante_nome, contato_nome, contato_telefone, plano, valor_venda, fator_decisao, objecao_nao_fecho, ajudas_usabilidade, status_venda } = req.body || {};
+  if (!restaurante_nome) return res.json({ ok: false, erro: 'Nome do restaurante é obrigatório.' });
+
+  const planoVal = plano || 'premium';
+  const valorVal = parseFloat(valor_venda) || (planoVal === 'premium' ? 299 : (planoVal === 'pro' ? 199 : 149));
+  const stVenda = status_venda || 'fechado';
+
+  // Gerar chave de ativação única (ex: CHEF-VNDA-8821-9923)
+  const partes = Array.from({ length: 3 }, () => Math.random().toString(36).substring(2, 6).toUpperCase());
+  const chave = `CHEF-${partes.join('-')}`;
+
+  try {
+    // 1. Criar restaurante no sistema
+    masterDb.run(`INSERT INTO restaurantes (nome, licenca, ativo, chave_ativacao, data_cadastro) VALUES (?, ?, 1, ?, datetime('now','localtime'))`,
+      [restaurante_nome.trim(), 'ativo', chave], function(errR) {
+        if (errR) return res.json({ ok: false, erro: errR.message });
+        const restauranteId = this.lastID;
+
+        // 2. Registrar no catálogo de licenças
+        masterDb.run(`INSERT INTO licencas (chave, restaurante_nome, plano, dias, validade, obs, status, usada_em, usada_por) VALUES (?, ?, ?, 365, datetime('now','+365 days','localtime'), ?, 'usada', datetime('now','localtime'), ?)`,
+          [chave, restaurante_nome.trim(), planoVal, `Venda efetuada pelo Suporte #${req.suporteId}`, restaurante_nome.trim()]);
+
+        // 3. Atribuir IMEDIATAMENTE o restaurante ao suporte (para onboarding e apoio)
+        masterDb.run(`INSERT OR IGNORE INTO suporte_restaurantes (suporte_id, restaurante_id, tipo_suporte) VALUES (?, ?, 'comercial_onboarding')`,
+          [req.suporteId, restauranteId]);
+
+        // 4. Registrar a venda com as métricas estratégicas
+        masterDb.run(`INSERT INTO suporte_vendas (suporte_id, chave_ativacao, restaurante_nome, restaurante_id, contato_nome, contato_telefone, plano, valor_venda, fator_decisao, objeção_nao_fecho, ajudas_usabilidade, status_venda) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [req.suporteId, chave, restaurante_nome.trim(), restauranteId, contato_nome || '', contato_telefone || '', planoVal, valorVal, fator_decisao || '', objecao_nao_fecho || '', ajudas_usabilidade || '', stVenda],
+          function(errV) {
+            if (errV) return res.json({ ok: false, erro: errV.message });
+
+            // Creditar XP pela venda
+            gerarXP(req.suporteId, 50, 'venda_restaurante', `Vendeu o plano ${planoVal.toUpperCase()} para o restaurante "${restaurante_nome}"`, restauranteId);
+
+            res.json({
+              ok: true,
+              chave,
+              restauranteId,
+              mensagem: `Venda registrada! Chave ${chave} emitida e restaurante #${restauranteId} atribuído a você para onboarding.`
+            });
+          }
+        );
+      }
+    );
+  } catch (e) { res.json({ ok: false, erro: e.message }); }
+});
+
+// GET /api/super/suporte/metricas-vendas — Dashboard Estratégico de Vendas e Objeções para o Super Admin
+app.get('/api/super/suporte/metricas-vendas', superAdminAuth, (req, res) => {
+  const { inicio, fim, suporte_id } = req.query || {};
+
+  let query = `SELECT v.*, s.nome as suporte_nome, s.email as suporte_email 
+    FROM suporte_vendas v 
+    LEFT JOIN equipe_suporte s ON v.suporte_id = s.id 
+    WHERE 1=1`;
+  const params = [];
+
+  if (inicio) { query += ` AND v.data_venda >= ?`; params.push(inicio + ' 00:00:00'); }
+  if (fim) { query += ` AND v.data_venda <= ?`; params.push(fim + ' 23:59:59'); }
+  if (suporte_id) { query += ` AND v.suporte_id = ?`; params.push(parseInt(suporte_id)); }
+
+  query += ` ORDER BY v.data_venda DESC`;
+
+  masterDb.all(query, params, (err, rows) => {
+    if (err) return res.json({ ok: false, erro: err.message });
+    const vendas = rows || [];
+
+    // Calcular Métricas Estratégicas
+    let totalFaturamento = 0;
+    let totalFechados = 0;
+    let totalPerdidos = 0;
+    const fatoresDecisaoCount = {};
+    const objecoesCount = {};
+    const desempenhoeQuipe = {};
+
+    vendas.forEach(v => {
+      if (v.status_venda === 'fechado') {
+        totalFechados++;
+        totalFaturamento += parseFloat(v.valor_venda || 0);
+      } else {
+        totalPerdidos++;
+      }
+
+      // Fatores de Decisão
+      if (v.fator_decisao) {
+        fatoresDecisaoCount[v.fator_decisao] = (fatoresDecisaoCount[v.fator_decisao] || 0) + 1;
+      }
+      // Objeções
+      if (v.objeção_nao_fecho) {
+        objecoesCount[v.objeção_nao_fecho] = (objecoesCount[v.objeção_nao_fecho] || 0) + 1;
+      }
+      // Desempenho por Atendente
+      const sid = v.suporte_id || 0;
+      if (!desempenhoeQuipe[sid]) {
+        desempenhoeQuipe[sid] = { suporte_id: sid, nome: v.suporte_nome || 'Desconhecido', vendas: 0, faturamento: 0, perdidos: 0 };
+      }
+      if (v.status_venda === 'fechado') {
+        desempenhoeQuipe[sid].vendas++;
+        desempenhoeQuipe[sid].faturamento += parseFloat(v.valor_venda || 0);
+      } else {
+        desempenhoeQuipe[sid].perdidos++;
+      }
+    });
+
+    res.json({
+      ok: true,
+      resumo: {
+        totalContatos: vendas.length,
+        totalFechados,
+        totalPerdidos,
+        taxaConversao: vendas.length > 0 ? ((totalFechados / vendas.length) * 100).toFixed(1) + '%' : '0%',
+        totalFaturamento
+      },
+      fatoresDecisao: fatoresDecisaoCount,
+      objecoes: objecoesCount,
+      desempenhoEquipe: Object.values(desempenhoeQuipe),
+      vendas
+    });
+  });
+});
+
 // POST /api/suporte/atualizar-status — Alterar status do atendente
 app.post('/api/suporte/atualizar-status', suporteAuth, (req, res) => {
   const { status } = req.body || {};
@@ -2536,6 +2670,22 @@ masterDb.serialize(async () => {
     suporte_id INTEGER, conquista TEXT, icone TEXT, descricao TEXT,
     data_obtida DATETIME DEFAULT (datetime('now','localtime')),
     UNIQUE(suporte_id, conquista)
+  )`);
+  masterDb.run(`CREATE TABLE IF NOT EXISTS suporte_vendas (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    suporte_id INTEGER,
+    chave_ativacao TEXT,
+    restaurante_nome TEXT,
+    restaurante_id INTEGER,
+    contato_nome TEXT,
+    contato_telefone TEXT,
+    plano TEXT DEFAULT 'premium',
+    valor_venda REAL DEFAULT 0,
+    fator_decisao TEXT,
+    objeção_nao_fecho TEXT,
+    ajudas_usabilidade TEXT,
+    status_venda TEXT DEFAULT 'fechado',
+    data_venda DATETIME DEFAULT (datetime('now','localtime'))
   )`);
   masterDb.run(`CREATE TABLE IF NOT EXISTS telemetria (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

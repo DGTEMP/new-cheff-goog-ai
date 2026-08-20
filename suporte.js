@@ -113,6 +113,7 @@ function switchTabSuporte(targetId) {
     sections[j].className = sections[j].id === targetId ? 'content-section active' : 'content-section';
   }
   if (targetId === 'sec-dashboard') carregarDashboardSuporte();
+  else if (targetId === 'sec-vendas') carregarMinhasVendas();
   else if (targetId === 'sec-restaurantes') carregarRestaurantesSuporte();
   else if (targetId === 'sec-cardapio') { if (_restauranteAtual) carregarProdutos(); }
   else if (targetId === 'sec-tarefas') carregarAtividades();
@@ -480,7 +481,92 @@ function atualizarDadosUsuario() {
     }
   });
 }
+/* ═══ VENDAS & ONBOARDING ═══ */
+function carregarMinhasVendas() {
+  apiGet('/api/suporte/minhas-vendas', function(err, data) {
+    var tbody = document.getElementById('minhas-vendas-body');
+    if (!tbody) return;
+    if (err || !data || !data.ok || !data.vendas || data.vendas.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);">Nenhuma venda registrada ainda. Clique em "Registrar Nova Venda" para começar.</td></tr>';
+      return;
+    }
+    var h = '';
+    var fatoresLabels = {
+      facilidade_interface: 'Interface / Facilidade',
+      pedido_qrcode: 'Cardápio QR Code',
+      controle_financeiro: 'Controle Financeiro',
+      integracao_ifood: 'Integração iFood',
+      suporte_humanizado: 'Suporte Humanizado',
+      preco_competitivo: 'Custo-Benefício',
+      estabilidade_offline: 'Modo Offline',
+      outro: 'Outro'
+    };
+    for (var i = 0; i < data.vendas.length; i++) {
+      var v = data.vendas[i];
+      var stColor = v.status_venda === 'fechado' ? 'var(--success)' : (v.status_venda === 'negociacao' ? 'var(--warning)' : 'var(--danger)');
+      var stIcon = v.status_venda === 'fechado' ? 'fa-circle-check' : (v.status_venda === 'negociacao' ? 'fa-clock' : 'fa-circle-xmark');
+      h += '<tr>' +
+        '<td><code style="color:var(--accent);font-weight:bold;">' + esc(v.chave_ativacao) + '</code></td>' +
+        '<td><strong style="color:white;">' + esc(v.restaurante_nome) + '</strong><br><small style="color:var(--text-muted);">#' + (v.restaurante_id || '—') + '</small></td>' +
+        '<td>' + esc(v.contato_nome || '—') + '<br><small style="color:var(--text-muted);">' + esc(v.contato_telefone || '') + '</small></td>' +
+        '<td><span style="color:var(--warning);font-weight:bold;">' + esc(v.plano.toUpperCase()) + '</span><br><small>R$ ' + parseFloat(v.valor_venda || 0).toFixed(2) + '</small></td>' +
+        '<td><span class="level-badge" style="font-size:0.75rem;">' + esc(fatoresLabels[v.fator_decisao] || v.fator_decisao || '—') + '</span></td>' +
+        '<td><small style="color:var(--text-muted);">Objeção: ' + esc(v.objeção_nao_fecho || 'Nenhuma') + '<br>Ajudas: ' + esc(v.ajudas_usabilidade || 'Nenhuma') + '</small></td>' +
+        '<td><small>' + (v.data_venda ? new Date(v.data_venda).toLocaleDateString('pt-BR') : '—') + '</small></td>' +
+        '</tr>';
+    }
+    tbody.innerHTML = h;
+  });
+}
 
+function abrirModalNovaVenda() {
+  document.getElementById('venda-restaurante-nome').value = '';
+  document.getElementById('venda-contato-nome').value = '';
+  document.getElementById('venda-contato-telefone').value = '';
+  document.getElementById('venda-valor').value = '299';
+  document.getElementById('venda-objecao').value = '';
+  document.getElementById('venda-ajudas').value = '';
+  document.getElementById('modal-nova-venda').classList.add('active');
+}
+
+function fecharModalNovaVenda() {
+  document.getElementById('modal-nova-venda').classList.remove('active');
+}
+
+function salvarVendaSuporte() {
+  var restNome = document.getElementById('venda-restaurante-nome').value.trim();
+  var contatoNome = document.getElementById('venda-contato-nome').value.trim();
+  var contatoTel = document.getElementById('venda-contato-telefone').value.trim();
+  var plano = document.getElementById('venda-plano').value;
+  var valor = document.getElementById('venda-valor').value;
+  var statusVenda = document.getElementById('venda-status').value;
+  var fatorDecisao = document.getElementById('venda-fator-decisao').value;
+  var objecao = document.getElementById('venda-objecao').value.trim();
+  var ajudas = document.getElementById('venda-ajudas').value.trim();
+
+  if (!restNome) { alert('Digite o nome do restaurante.'); return; }
+
+  apiPost('/api/suporte/vendas', {
+    restaurante_nome: restNome,
+    contato_nome: contatoNome,
+    contato_telefone: contatoTel,
+    plano: plano,
+    valor_venda: valor,
+    status_venda: statusVenda,
+    fator_decisao: fatorDecisao,
+    objecao_nao_fecho: objecao,
+    ajudas_usabilidade: ajudas
+  }, function(err, data) {
+    if (err || !data || !data.ok) {
+      alert(err || (data && data.erro) || 'Erro ao registrar venda.');
+      return;
+    }
+    alert(data.mensagem || 'Venda realizada com sucesso!');
+    fecharModalNovaVenda();
+    carregarMinhasVendas();
+    carregarRestaurantesSuporte();
+  });
+}
 /* ═══ SIDEBAR EVENTS ═══ */
 document.addEventListener('DOMContentLoaded', function() {
   var savedToken = localStorage.getItem('chef_suporte_token');
