@@ -414,7 +414,21 @@ if (activeCertLoaded) {
 } else {
   server = http.createServer(app);
 }
-const io = new Server(server, { cors: { origin: '*', methods: ['GET', 'POST'] } });
+const io = new Server(server, {
+  cors: {
+    origin: function(origin, cb) {
+      if (!origin) return cb(null, true);
+      try {
+        const host = new URL(origin).hostname;
+        if (/^(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)$/.test(host)) return cb(null, true);
+        if (host === BASE_DOMAIN || host.endsWith('.' + BASE_DOMAIN)) return cb(null, true);
+        if (host === 'chefcozinha.com.br' || host.endsWith('.chefcozinha.com.br')) return cb(null, true);
+      } catch(e) {}
+      cb(null, false);
+    },
+    methods: ['GET', 'POST']
+  }
+});
 if (serverHttp) io.attach(serverHttp);
 
 // Protocolo efetivo da instalação (HTTPS quando há cert ativo).
@@ -2386,6 +2400,26 @@ function broadcastMesaClientes() {
   });
 }
 
+/* ── Socket auth helpers ───────────────────────────────────────────── */
+const ADMIN_CARGOS = ['Admin', 'Administrador', 'adm', 'Gerente'];
+
+function exigirAdminSocket(socket) {
+  const cargo = socket.auth?.cargo || '';
+  if (!ADMIN_CARGOS.includes(cargo)) {
+    socket.emit('erro_servidor', 'Apenas administradores podem executar esta ação.');
+    return false;
+  }
+  return true;
+}
+
+function exigirAuthSocket(socket) {
+  if (!socket.auth) {
+    socket.emit('erro_servidor', 'Autentique-se para executar esta ação.');
+    return false;
+  }
+  return true;
+}
+
 io.on('connection', (socket) => {
   // (Segurança) Autenticação opcional via JWT: conexões sem token válido continuam
   // permitidas (ex.: cliente acessando o cardápio), mas ficam marcadas como anônimas
@@ -2591,6 +2625,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('delete_forma_pagamento', (id) => {
+    if (!exigirAdminSocket(socket)) return;
     if (!id) return;
     db.get(`SELECT nome FROM formas_pagamento WHERE id = ?`, [id], (err, row) => {
       if (err || !row) return;
@@ -2956,8 +2991,14 @@ io.on('connection', (socket) => {
     if (!pedido || typeof pedido !== 'object') return;
     // (Segurança) Remove marcadores HTML de campos exibidos na fila/cardápio para
     // impedir XSS armazenado via pedido malicioso.
+    function _sanitizeXss(v) {
+      if (typeof v !== 'string') return v;
+      return v.replace(/[<>"'&]/g, function(c) {
+        return { '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;', '&':'&amp;' }[c] || '';
+      });
+    }
     ['productName', 'productEmoji', 'localName', 'userName', 'time', 'mensagem', 'observations'].forEach(function (f) {
-      if (typeof pedido[f] === 'string') pedido[f] = pedido[f].replace(/[<>]/g, '');
+      if (typeof pedido[f] === 'string') pedido[f] = _sanitizeXss(pedido[f]);
     });
     const clientName = pedido.mesa_comanda ? pedido.mesa_comanda.trim() : null;
     const clientPhone = pedido.cliente_telefone ? pedido.cliente_telefone.trim() : null;
@@ -3135,7 +3176,7 @@ io.on('connection', (socket) => {
     const idNum = parseInt(id, 10);
     if (isNaN(idNum)) return;
     id = idNum;
-    db.run(`UPDATE pedidos SET status = ?, prontoEm = CURRENT_TIMESTAMP WHERE id = ?`, [status, id], function (err) {
+    db.run(`UPDATE pedidos SET status = ?, prontoEm = CASE WHEN ? = 'Pronto' THEN datetime('now', 'localtime') ELSE prontoEm END WHERE id = ?`, [status, status, id], function (err) {
       if (err) return console.error(err);
 
       db.get(`SELECT * FROM pedidos WHERE id = ?`, [id], (err, row) => {
@@ -3692,9 +3733,12 @@ io.on('connection', (socket) => {
   socket.on('add_mesa', (nome) => db.run(`INSERT INTO mesas (nome) VALUES (?)`, [nome], () => {
     db.all(`SELECT * FROM mesas`, (e, r) => io.emit('mesas_atualizadas', r || []));
   }));
-  socket.on('delete_mesa', (id) => db.run(`DELETE FROM mesas WHERE id = ?`, [id], () => {
-    db.all(`SELECT * FROM mesas`, (e, r) => io.emit('mesas_atualizadas', r || []));
-  }));
+  socket.on('delete_mesa', (id) => {
+    if (!exigirAdminSocket(socket)) return;
+    db.run(`DELETE FROM mesas WHERE id = ?`, [id], () => {
+      db.all(`SELECT * FROM mesas`, (e, r) => io.emit('mesas_atualizadas', r || []));
+    });
+  });
 
   socket.on('add_produto', (p) => db.run(`INSERT INTO produtos (categoria, nome, preco, emoji, hasAddons, setor, status_inicial, status, categoria_fiscal, descricao, codigo_barras, visibilidade) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [p.categoria, p.nome, p.preco, p.emoji, p.hasAddons, p.setor || 'Cozinha 1', p.status_inicial || 'Em espera', p.status || 'ativo', p.categoria_fiscal || 'Alimentacao', p.descricao || '', p.codigo_barras || null, p.visibilidade || 'todos'], (err) => {
@@ -3715,6 +3759,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('delete_produto', async (data) => {
+    if (!exigirAdminSocket(socket)) return;
     const id = (typeof data === 'object') ? data.id : data;
     const op = (typeof data === 'object') ? data.operador : 'Admin';
     const senha = (typeof data === 'object') ? data.senha : undefined;
@@ -3740,9 +3785,12 @@ io.on('connection', (socket) => {
       });
   });
 
-  socket.on('delete_funcionario', (id) => db.run(`DELETE FROM funcionarios WHERE id = ?`, [id], () => {
-    db.all(`SELECT * FROM funcionarios`, (e, r) => io.emit('funcionarios_atualizados', r || []));
-  }));
+  socket.on('delete_funcionario', (id) => {
+    if (!exigirAdminSocket(socket)) return;
+    db.run(`DELETE FROM funcionarios WHERE id = ?`, [id], () => {
+      db.all(`SELECT * FROM funcionarios`, (e, r) => io.emit('funcionarios_atualizados', r || []));
+    });
+  });
 
   socket.on('save_restaurante_config', (config) => {
     if (!config || typeof config !== 'object') return;
@@ -3825,6 +3873,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('hub_deletar_pedido', (id) => {
+    if (!exigirAdminSocket(socket)) return;
     db.run(`DELETE FROM hub_pedidos WHERE id=?`, [id], () => broadcastHubPedidos());
   });
 
@@ -3973,9 +4022,10 @@ io.on('connection', (socket) => {
     const tRem = tipo_remuneracao || 'hora';
 
     if (senha && senha.trim() !== '') {
+      const hash = bcrypt.hashSync(senha, 10);
       db.run(
         `UPDATE funcionarios SET nome = ?, usuario = ?, senha = ?, cargo = ?, tipo_remuneracao = ?, valor_hora = ?, valor_dia = ?, valor_semana = ?, valor_mes = ?, chave_pix = ?, cpf = ?, telefone = ?, observacao_rh = ? WHERE id = ?`,
-        [nome, usuario, senha, cargo, tRem, vHora, vDia, vSemana, vMes, chave_pix || '', cpf || '', telefone || '', observacao_rh || '', id],
+        [nome, usuario, hash, cargo, tRem, vHora, vDia, vSemana, vMes, chave_pix || '', cpf || '', telefone || '', observacao_rh || '', id],
         (err) => {
           if (!err) db.all(`SELECT * FROM funcionarios`, (e, r) => io.emit('funcionarios_atualizados', r || []));
           else console.error("Erro update_funcionario:", err);
@@ -4142,6 +4192,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('recusar_funcionario', (id) => {
+    if (!exigirAdminSocket(socket)) return;
     db.run(`DELETE FROM funcionarios WHERE id = ?`, [id], () => {
       db.all(`SELECT * FROM funcionarios`, (e, r) => io.emit('funcionarios_atualizados', r || []));
     });
@@ -4194,6 +4245,7 @@ io.on('connection', (socket) => {
     }
   });
   socket.on('delete_cliente', (id) => {
+    if (!exigirAdminSocket(socket)) return;
     db.run(`DELETE FROM clientes WHERE id = ?`, [id], () => {
       db.all(`SELECT * FROM clientes`, (e, r) => io.emit('clientes_atualizados', r || []));
     });
@@ -4367,9 +4419,12 @@ io.on('connection', (socket) => {
   socket.on('add_promocao', (p) => db.run(`INSERT INTO promocoes (nome, regra, desconto, ativo, config) VALUES (?, ?, ?, ?, ?)`, [p.nome, p.regra, p.desconto, p.ativo !== undefined ? p.ativo : 1, p.config], () => {
     db.all(`SELECT * FROM promocoes`, (e, r) => io.emit('promocoes_atualizadas', r || []));
   }));
-  socket.on('delete_promocao', (id) => db.run(`DELETE FROM promocoes WHERE id = ?`, [id], () => {
-    db.all(`SELECT * FROM promocoes`, (e, r) => io.emit('promocoes_atualizadas', r || []));
-  }));
+  socket.on('delete_promocao', (id) => {
+    if (!exigirAdminSocket(socket)) return;
+    db.run(`DELETE FROM promocoes WHERE id = ?`, [id], () => {
+      db.all(`SELECT * FROM promocoes`, (e, r) => io.emit('promocoes_atualizadas', r || []));
+    });
+  });
   socket.on('update_promocao', (p) => db.run(`UPDATE promocoes SET nome = ?, regra = ?, desconto = ?, ativo = ?, config = ? WHERE id = ?`, [p.nome, p.regra, p.desconto || 0, p.ativo !== undefined ? p.ativo : 1, p.config, p.id], () => {
     db.all(`SELECT * FROM promocoes`, (e, r) => io.emit('promocoes_atualizadas', r || []));
   }));
@@ -4717,6 +4772,7 @@ io.on('connection', (socket) => {
     });
   });
   socket.on('delete_oferta_fidelidade', (id) => {
+    if (!exigirAdminSocket(socket)) return;
     if (!isValidId(id)) return;
     db.run(`DELETE FROM ofertas_fidelidade WHERE id=?`, [id], () => {
       db.all(`SELECT * FROM ofertas_fidelidade ORDER BY id DESC`, (err, rows) => io.emit('admin_ofertas_fidelidade_lista', rows || []));
@@ -4827,6 +4883,7 @@ io.on('connection', (socket) => {
     });
   });
   socket.on('delete_beneficio', (id) => {
+    if (!exigirAdminSocket(socket)) return;
     db.run(`DELETE FROM beneficios WHERE id=?`, [id], () => {
       db.all(`SELECT * FROM beneficios`, (err, rows) => io.emit('admin_beneficios_lista', rows || []));
     });
@@ -5391,6 +5448,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('delete_cupom', (data) => {
+    if (!exigirAdminSocket(socket)) return;
     const codigo = typeof data === 'object' ? data.codigo : data;
     db.run(`DELETE FROM cupons_usos WHERE cupom_codigo = ?`, [codigo], () => {
       db.run(`DELETE FROM cupons WHERE codigo = ?`, [codigo], (err) => {
@@ -5659,6 +5717,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('nota_excluir', (id) => {
+    if (!exigirAdminSocket(socket)) return;
     if (!id) return;
     db.run(`DELETE FROM nota_itens WHERE nota_id = ?`, [id], () => {
       db.run(`DELETE FROM notas_compra WHERE id = ?`, [id], (err) => {
@@ -5732,6 +5791,13 @@ io.on('connection', (socket) => {
   });
 
   socket.on('zerar_todos_dados', async ({ senha }) => {
+    /* Apenas Admin/Gerente podem zerar dados */
+    const cargo = socket.auth?.cargo || '';
+    const isAdmin = ['Admin', 'Administrador', 'adm', 'Gerente'].includes(cargo);
+    if (!isAdmin) {
+      socket.emit('erro_caixa', 'Apenas administradores podem zerar dados.');
+      return;
+    }
     if (!(await verificarPinOuSenha(senha))) {
       socket.emit('erro_caixa', 'Senha ou PIN incorreto!');
       return;
@@ -6306,22 +6372,73 @@ app.post('/api/retro/cobranca', (req, res) => {
   if (!mesaNome || !metodo || valor === undefined) {
     return res.status(400).json({ error: 'mesaNome, metodo e valor são obrigatórios.' });
   }
+  const valorNumerico = parseFloat(String(valor).replace(',', '.'));
+  if (isNaN(valorNumerico) || valorNumerico <= 0) {
+    return res.status(400).json({ error: 'Valor inválido.' });
+  }
+
   const tid = resolveTenantId(req);
   const roomId = (Number.isFinite(tid) && tid > 0) ? `restaurante_${tid}` : null;
 
   withTenant(req, () => {
-    db.run(`UPDATE pedidos SET status = 'Finalizado', paymentMethod = ?, finalizadoEm = datetime('now') WHERE mesa_comanda = ? AND status != 'Finalizado'`, [metodo, mesaNome], function (err) {
-      if (err) return res.status(500).json({ error: 'Erro ao finalizar pedidos.' });
+    db.get(`SELECT * FROM turnos_caixa WHERE status = 'Aberto' ORDER BY id DESC LIMIT 1`, [], (errTurno, turno) => {
+      if (errTurno || !turno) {
+        return res.status(400).json({ error: 'O caixa está fechado! Abra o caixa antes de receber pagamentos.' });
+      }
 
-      db.run(`UPDATE mesas SET status = 'Disponível' WHERE nome = ?`, [mesaNome], function (err2) {
-        if (err2) return res.status(500).json({ error: 'Erro ao atualizar mesa.' });
+      db.all(`SELECT * FROM pedidos WHERE (localName = ? OR mesa_grupo = ? OR mesa_comanda = ?) AND status != 'Finalizado'`, [mesaNome, mesaNome, mesaNome], (errItems, rows) => {
+        if (errItems) return res.status(500).json({ error: 'Erro ao buscar itens da mesa.' });
+        const items = rows || [];
 
-        if (roomId) io.to(roomId).emit('mesas_atualizadas');
-        else io.emit('mesas_atualizadas');
-        if (roomId) io.to(roomId).emit('pedido_atualizado', { mesa: mesaNome, status: 'Finalizado' });
-        else io.emit('pedido_atualizado', { mesa: mesaNome, status: 'Finalizado' });
+        let consumoBruto = 0;
+        let jaPago = 0;
+        items.forEach(r => {
+          const v = parseFloat(String(r.total).replace(',', '.')) || 0;
+          if (v >= 0) {
+            consumoBruto += v;
+          } else if (r.productName && (String(r.productName).indexOf('Pgto Parcial') !== -1 || String(r.productName).indexOf('Pagamento') !== -1)) {
+            jaPago += Math.abs(v);
+          }
+        });
 
-        res.json({ success: true, message: 'Cobrança registrada com sucesso!' });
+        db.get(`SELECT valor FROM configuracoes_global WHERE chave = 'taxa_servico'`, [], (errTaxa, taxaRow) => {
+          const taxaPct = (errTaxa || !taxaRow) ? 10 : (parseFloat(taxaRow.valor) || 10);
+          const totalComTaxa = Math.max(0, consumoBruto * (1 + taxaPct / 100) - jaPago);
+
+          if (valorNumerico < totalComTaxa - 0.05 && totalComTaxa > 0.01) {
+            return res.status(400).json({ error: `Valor insuficiente. Total a pagar: R$ ${totalComTaxa.toFixed(2)}` });
+          }
+
+          db.run(`UPDATE pedidos SET status = 'Finalizado', paymentMethod = ?, turno_id = ?, finalizadoEm = datetime('now') WHERE (localName = ? OR mesa_grupo = ? OR mesa_comanda = ?) AND status != 'Finalizado'`, [metodo, turno.id, mesaNome, mesaNome, mesaNome], function (err) {
+            if (err) return res.status(500).json({ error: 'Erro ao finalizar pedidos.' });
+
+            db.run(
+              `INSERT INTO movimentacoes (turno_id, tipo, valor, forma_pagamento, descricao, data) VALUES (?, 'Entrada', ?, ?, ?, datetime('now', 'localtime'))`,
+              [turno.id, valorNumerico, metodo, `Pgto Mesa: ${mesaNome}${garcom ? ' (Garçom: ' + garcom + ')' : ''}`]
+            );
+
+            const gorjetaNum = parseFloat(String(gorjeta || '0').replace(',', '.'));
+            if (gorjetaNum > 0) {
+              db.run(
+                `INSERT INTO movimentacoes (turno_id, tipo, valor, forma_pagamento, descricao, data) VALUES (?, 'Entrada', ?, ?, ?, datetime('now', 'localtime'))`,
+                [turno.id, gorjetaNum, metodo, `Gorjeta: ${mesaNome}`]
+              );
+            }
+
+            db.run(`UPDATE mesas SET status = 'Disponível' WHERE nome = ?`, [mesaNome], function (err2) {
+              if (err2) return res.status(500).json({ error: 'Erro ao atualizar mesa.' });
+
+              if (roomId) io.to(roomId).emit('mesas_atualizadas');
+              else io.emit('mesas_atualizadas');
+              if (roomId) io.to(roomId).emit('mesa_finalizada', { mesaName: mesaNome });
+              else io.emit('mesa_finalizada', { mesaName: mesaNome });
+
+              setTimeout(() => io.emit('atualizacao_caixa'), 300);
+
+              res.json({ success: true, message: 'Cobrança registrada com sucesso!' });
+            });
+          });
+        });
       });
     });
   });

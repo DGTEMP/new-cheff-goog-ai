@@ -282,6 +282,50 @@
       box-shadow: none;
       transform: none;
     }
+
+    /* ═══ WIZARD RESPONSIVO ═══ */
+    @media (max-width: 600px) {
+      .onboarding-card {
+        width: 96% !important;
+        max-height: 96vh !important;
+        border-radius: 20px !important;
+        padding: 0 !important;
+      }
+      .onboarding-card > div[style*="padding:24px"] {
+        padding: 18px 18px 0 18px !important;
+      }
+      .onboarding-card .wizard-panel {
+        padding: 16px 18px 18px 18px !important;
+      }
+      .onboarding-card #wizard-nav {
+        padding: 0 18px 16px 18px !important;
+      }
+      .onboarding-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 8px !important;
+      }
+      .onboarding-item-card {
+        padding: 12px !important;
+        min-height: 100px !important;
+      }
+      .onboarding-item-name { font-size: 12px !important; }
+      .onboarding-item-desc { font-size: 10px !important; }
+    }
+
+    /* Wizard: produto rows empilham no mobile */
+    @media (max-width: 480px) {
+      #wiz-produtos-list > div {
+        flex-wrap: wrap !important;
+      }
+      #wiz-produtos-list input[type="text"],
+      #wiz-produtos-list input[type="number"] {
+        flex: 1 1 100% !important;
+        min-width: 0 !important;
+      }
+      #wiz-produtos-list > div > span:first-child {
+        display: none !important;
+      }
+    }
   </style>
 
   <script src="/locales.js"></script>
@@ -353,6 +397,105 @@
       <div class="onboarding-actions">
         <button id="btn-onboarding-confirm" class="onboarding-btn" disabled onclick="confirmOnboardingModality()">
           Começar a usar <i class="ph-bold ph-arrow-right"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- ONBOARDING WIZARD — Guia interativo de 3 passos               -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <div id="onboarding-wizard" class="onboarding-overlay hidden">
+    <div class="onboarding-card" style="max-width:600px; gap:0; padding:0; overflow:hidden;">
+
+      <!-- Barra de progresso -->
+      <div style="display:flex; height:4px; background:rgba(255,255,255,0.06);">
+        <div id="wizard-progress-bar" style="width:33%; background:#fc4b15; transition:width 0.4s ease;"></div>
+      </div>
+
+      <!-- Header comum -->
+      <div style="padding:24px 28px 0 28px; display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <div style="font-size:11px; font-weight:700; color:#fc4b15; text-transform:uppercase; letter-spacing:1.5px; margin-bottom:4px;">
+            Passo <span id="wizard-step-num">1</span> de 3
+          </div>
+          <h2 id="wizard-step-title" style="font-size:20px; font-weight:800; color:#f8fafc; margin:0;">Dados do Restaurante</h2>
+        </div>
+        <button onclick="window.wizardSkip()" style="background:none; border:none; color:#64748b; font-size:13px; cursor:pointer; padding:6px 10px; border-radius:8px; transition:color 0.2s;" onmouseover="this.style.color='#f8fafc'" onmouseout="this.style.color='#64748b'">
+          Pular <i class="ph ph-arrow-right" style="font-size:14px;"></i>
+        </button>
+      </div>
+
+      <!-- PASSO 1 — Dados do Restaurante -->
+      <div id="wizard-panel-1" class="wizard-panel" style="padding:20px 28px 24px 28px;">
+        <p style="color:#94a3b8; font-size:13px; margin:0 0 16px 0;">Conte-nos sobre o seu estabelecimento. Esses dados aparecem nos comprovantes e cardápios.</p>
+        <div style="display:flex; flex-direction:column; gap:12px;">
+          <div>
+            <label style="color:#cbd5e1; font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Nome do Restaurante *</label>
+            <input type="text" id="wiz-rest-nome" placeholder="Ex: Restaurante Bom Sabor" style="width:100%; padding:12px 14px; border-radius:12px; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.04); color:#f8fafc; font-size:14px; outline:none; box-sizing:border-box; transition:border-color 0.2s;" onfocus="this.style.borderColor='#fc4b15'" onblur="this.style.borderColor='rgba(255,255,255,0.08)'">
+          </div>
+          <div>
+            <label style="color:#cbd5e1; font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Telefone</label>
+            <input type="tel" id="wiz-rest-tel" placeholder="(11) 99999-0000" style="width:100%; padding:12px 14px; border-radius:12px; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.04); color:#f8fafc; font-size:14px; outline:none; box-sizing:border-box; transition:border-color 0.2s;" onfocus="this.style.borderColor='#fc4b15'" onblur="this.style.borderColor='rgba(255,255,255,0.08)'">
+          </div>
+          <div>
+            <label style="color:#cbd5e1; font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Endereço</label>
+            <input type="text" id="wiz-rest-endereco" placeholder="Rua, número, bairro" style="width:100%; padding:12px 14px; border-radius:12px; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.04); color:#f8fafc; font-size:14px; outline:none; box-sizing:border-box; transition:border-color 0.2s;" onfocus="this.style.borderColor='#fc4b15'" onblur="this.style.borderColor='rgba(255,255,255,0.08)'">
+          </div>
+        </div>
+      </div>
+
+      <!-- PASSO 2 — Mesas -->
+      <div id="wizard-panel-2" class="wizard-panel" style="padding:20px 28px 24px 28px; display:none;">
+        <p style="color:#94a3b8; font-size:13px; margin:0 0 12px 0;">Quantas mesas o seu estabelecimento possui? Você pode ajustar depois em Configurações.</p>
+        <div style="display:flex; flex-direction:column; gap:14px;">
+          <div>
+            <label style="color:#cbd5e1; font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Número de Mesas</label>
+            <input type="number" id="wiz-qtd-mesas" min="1" max="100" value="10" style="width:100%; padding:12px 14px; border-radius:12px; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.04); color:#f8fafc; font-size:14px; outline:none; box-sizing:border-box;">
+          </div>
+          <div>
+            <label style="color:#cbd5e1; font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Incluir também:</label>
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+              <label style="display:flex; align-items:center; gap:6px; color:#94a3b8; font-size:13px; cursor:pointer;">
+                <input type="checkbox" id="wiz-add-delivery" checked style="accent-color:#fc4b15;"> Delivery
+              </label>
+              <label style="display:flex; align-items:center; gap:6px; color:#94a3b8; font-size:13px; cursor:pointer;">
+                <input type="checkbox" id="wiz-add-balcao" style="accent-color:#fc4b15;"> Balcão
+              </label>
+            </div>
+          </div>
+          <div id="wiz-mesas-preview" style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:12px; display:flex; flex-wrap:wrap; gap:6px; max-height:120px; overflow-y:auto;"></div>
+        </div>
+      </div>
+
+      <!-- PASSO 3 — Produtos -->
+      <div id="wizard-panel-3" class="wizard-panel" style="padding:20px 28px 24px 28px; display:none;">
+        <p style="color:#94a3b8; font-size:13px; margin:0 0 12px 0;">Adicione seus primeiros produtos para começar a vender. Você pode adicionar mais depois.</p>
+        <div id="wiz-produtos-list" style="display:flex; flex-direction:column; gap:10px; max-height:240px; overflow-y:auto;"></div>
+        <button onclick="window.wizardAddProdutoRow()" style="margin-top:10px; background:rgba(252,75,21,0.1); border:1px dashed rgba(252,75,21,0.4); color:#fc4b15; padding:10px; border-radius:10px; font-size:13px; font-weight:600; cursor:pointer; transition:all 0.2s; display:flex; align-items:center; justify-content:center; gap:6px;" onmouseover="this.style.background='rgba(252,75,21,0.18)'" onmouseout="this.style.background='rgba(252,75,21,0.1)'">
+          <i class="ph ph-plus-circle" style="font-size:16px;"></i> Adicionar produto
+        </button>
+      </div>
+
+      <!-- PASSO 4 — Concluído -->
+      <div id="wizard-panel-4" class="wizard-panel" style="padding:28px; display:none; text-align:center;">
+        <div style="width:64px; height:64px; background:rgba(52,211,153,0.15); border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 16px auto;">
+          <i class="ph-bold ph-check-circle" style="font-size:36px; color:#34d399;"></i>
+        </div>
+        <h3 style="color:#f8fafc; font-size:18px; font-weight:700; margin:0 0 8px 0;">Tudo pronto!</h3>
+        <p style="color:#94a3b8; font-size:13px; margin:0 0 20px 0;">Seu restaurante está configurado. Você já pode começar a usar o sistema.</p>
+        <button onclick="window.wizardFinish()" class="onboarding-btn" style="margin:0 auto;">
+          Ir para o PDV <i class="ph-bold ph-arrow-right"></i>
+        </button>
+      </div>
+
+      <!-- Botões de navegação (inferior) -->
+      <div id="wizard-nav" style="padding:0 28px 20px 28px; display:flex; justify-content:space-between; gap:10px;">
+        <button id="wizard-btn-back" onclick="window.wizardPrev()" style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.08); color:#94a3b8; padding:12px 20px; border-radius:12px; font-size:14px; font-weight:600; cursor:pointer; transition:all 0.2s; display:none;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='rgba(255,255,255,0.06)'">
+          <i class="ph ph-arrow-left"></i> Voltar
+        </button>
+        <button id="wizard-btn-next" onclick="window.wizardNext()" class="onboarding-btn" style="margin-left:auto;">
+          Próximo <i class="ph-bold ph-arrow-right"></i>
         </button>
       </div>
     </div>

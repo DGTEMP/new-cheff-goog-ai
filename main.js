@@ -2179,9 +2179,12 @@ document.addEventListener('DOMContentLoaded', () => {
       const modal = document.getElementById('onboarding-modal');
       if (modal) modal.classList.add('hidden');
       if (window.onModalityLoaded) window.onModalityLoaded(window.selectedOnboardingModality);
+      /* Abre o wizard de configuração após selecionar modalidade */
+      setTimeout(() => window.showWizard(), 400);
     }).catch(() => {
       const modal = document.getElementById('onboarding-modal');
       if (modal) modal.classList.add('hidden');
+      setTimeout(() => window.showWizard(), 400);
     });
   };
 
@@ -2197,6 +2200,10 @@ document.addEventListener('DOMContentLoaded', () => {
           } else {
             modal.classList.add('hidden');
             if (window.onModalityLoaded) window.onModalityLoaded(conf.rest_modalidade);
+            /* Mostra wizard na primeira vez */
+            if (!conf.onboarding_completo) {
+              setTimeout(() => window.showWizard(), 500);
+            }
           }
         }
         if (typeof window.renderPdvMenu === 'function') window.renderPdvMenu();
@@ -2205,6 +2212,258 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   fetchPdvConfigs();
   socket.on('configuracoes_atualizadas', fetchPdvConfigs);
+
+  /* ═══════════════════════════════════════════════════════════════ */
+  /* ONBOARDING WIZARD — 3 passos (Dados, Mesas, Produtos)         */
+  /* ═══════════════════════════════════════════════════════════════ */
+  let _wizardStep = 1;
+  const _wizardTotal = 3;
+  let _wizardProdutos = []; /* [{categoria, nome, preco}] */
+  let _wizardActive = false; /* evita re-exibição pelo fetchPdvConfigs */
+
+  window.showWizard = function() {
+    if (_wizardActive) return; /* já aberto, ignora */
+    const el = document.getElementById('onboarding-wizard');
+    if (!el) return;
+    _wizardActive = true;
+    el.classList.remove('hidden');
+    _wizardStep = 1;
+    _wizardProdutos = [];
+    _renderWizardStep();
+    _renderWizProdutos();
+  };
+
+  function _renderWizardStep() {
+    for (let i = 1; i <= 4; i++) {
+      const panel = document.getElementById('wizard-panel-' + i);
+      if (panel) panel.style.display = i === _wizardStep ? 'block' : 'none';
+    }
+    const bar = document.getElementById('wizard-progress-bar');
+    const num = document.getElementById('wizard-step-num');
+    const title = document.getElementById('wizard-step-title');
+    const nav = document.getElementById('wizard-nav');
+    const btnBack = document.getElementById('wizard-btn-back');
+    const btnNext = document.getElementById('wizard-btn-next');
+
+    if (bar) bar.style.width = (_wizardStep <= 3 ? (_wizardStep / _wizardTotal * 100) : 100) + '%';
+    if (num) num.textContent = _wizardStep <= 3 ? _wizardStep : 3;
+    if (nav) nav.style.display = _wizardStep === 4 ? 'none' : 'flex';
+    if (btnBack) btnBack.style.display = _wizardStep > 1 ? 'inline-flex' : 'none';
+
+    const titles = { 1: 'Dados do Restaurante', 2: 'Configurar Mesas', 3: 'Primeiros Produtos', 4: 'Tudo Pronto!' };
+    if (title) title.textContent = titles[_wizardStep] || '';
+    if (btnNext) {
+      if (_wizardStep === 3) {
+        btnNext.innerHTML = 'Finalizar <i class="ph-bold ph-check"></i>';
+      } else {
+        btnNext.innerHTML = 'Próximo <i class="ph-bold ph-arrow-right"></i>';
+      }
+    }
+
+    /* Pré-visualiza mesas no passo 2 */
+    if (_wizardStep === 2) _updateMesasPreview();
+  }
+
+  function _updateMesasPreview() {
+    const preview = document.getElementById('wiz-mesas-preview');
+    const qtd = parseInt(document.getElementById('wiz-qtd-mesas')?.value) || 0;
+    const addDelivery = document.getElementById('wiz-add-delivery')?.checked;
+    const addBalcao = document.getElementById('wiz-add-balcao')?.checked;
+    if (!preview) return;
+    let items = [];
+    for (let i = 1; i <= qtd; i++) items.push('Mesa ' + i);
+    if (addDelivery) items.push('Delivery');
+    if (addBalcao) items.push('Balcão');
+    preview.innerHTML = items.map(n =>
+      '<span style="background:rgba(252,75,21,0.1); border:1px solid rgba(252,75,21,0.2); color:#f8fafc; padding:4px 10px; border-radius:8px; font-size:12px; white-space:nowrap;">' + n + '</span>'
+    ).join('');
+  }
+
+  function _renderWizProdutos() {
+    const list = document.getElementById('wiz-produtos-list');
+    if (!list) return;
+    if (_wizardProdutos.length === 0) {
+      /* Produtos sugeridos por modalidade */
+      const mod = window.pdvConfigs?.rest_modalidade || 'a_la_carte';
+      const sugestoes = {
+        'a_la_carte': [
+          { categoria: 'Pratos', nome: 'Filé com Fritas', preco: 42.90, emoji: '🍽️' },
+          { categoria: 'Bebidas', nome: 'Suco Natural', preco: 8.90, emoji: '🧃' },
+          { categoria: 'Sobremesas', nome: 'Pudim', preco: 12.90, emoji: '🍮' }
+        ],
+        'pizzaria': [
+          { categoria: 'Pizzas', nome: 'Margherita', preco: 49.90, emoji: '🍕' },
+          { categoria: 'Pizzas', nome: 'Calabresa', preco: 44.90, emoji: '🍕' },
+          { categoria: 'Bebidas', nome: 'Guaraná', preco: 7.90, emoji: '🥤' }
+        ],
+        'lanchonete': [
+          { categoria: 'Lanches', nome: 'X-Burger', preco: 24.90, emoji: '🍔' },
+          { categoria: 'Lanches', nome: 'Hot Dog', preco: 18.90, emoji: '🌭' },
+          { categoria: 'Bebidas', nome: 'Coca-Cola Lata', preco: 8.90, emoji: '🥤' }
+        ],
+        'bar': [
+          { categoria: 'Drinks', nome: 'Caipirinha', preco: 19.90, emoji: '🍹' },
+          { categoria: 'Petiscos', nome: 'Bolinho de Bacalhau', preco: 28.90, emoji: '🧆' },
+          { categoria: 'Bebidas', nome: 'Chopp 500ml', preco: 14.90, emoji: '🍺' }
+        ],
+        'a_kilo': [
+          { categoria: 'Pratos', nome: 'Arroz com Feijão (100g)', preco: 8.90, emoji: '🍚' },
+          { categoria: 'Saladas', nome: 'Salada Caesar (100g)', preco: 12.90, emoji: '🥗' },
+          { categoria: 'Carnes', nome: 'Picanha (100g)', preco: 22.90, emoji: '🥩' }
+        ],
+        'buffet': [
+          { categoria: 'Rodízio', nome: 'Rodízio Almoço', preco: 59.90, emoji: '🍽️' },
+          { categoria: 'Bebidas', nome: 'Suco ilimitado', preco: 15.90, emoji: '🧃' }
+        ]
+      };
+      _wizardProdutos = (sugestoes[mod] || sugestoes['a_la_carte']).map(p => ({ ...p }));
+    }
+    _refreshProdutosList();
+  }
+
+  function _refreshProdutosList() {
+    const list = document.getElementById('wiz-produtos-list');
+    if (!list) return;
+    list.innerHTML = _wizardProdutos.map((p, i) => `
+      <div style="display:flex; gap:8px; align-items:center; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); border-radius:10px; padding:8px 10px;">
+        <span style="font-size:20px; flex-shrink:0;">${p.emoji}</span>
+        <input type="text" value="${p.categoria}" placeholder="Categoria" onchange="_wizardProdutos[${i}].categoria=this.value" style="flex:1; min-width:0; padding:8px 10px; border-radius:8px; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.04); color:#f8fafc; font-size:13px; outline:none; box-sizing:border-box;">
+        <input type="text" value="${p.nome}" placeholder="Nome" onchange="_wizardProdutos[${i}].nome=this.value" style="flex:2; min-width:0; padding:8px 10px; border-radius:8px; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.04); color:#f8fafc; font-size:13px; outline:none; box-sizing:border-box;">
+        <input type="number" value="${p.preco}" placeholder="R$" step="0.01" min="0" onchange="_wizardProdutos[${i}].preco=parseFloat(this.value)||0" style="width:80px; padding:8px 10px; border-radius:8px; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.04); color:#f8fafc; font-size:13px; outline:none; box-sizing:border-box;">
+        <button onclick="_wizardProdutos.splice(${i},1); _refreshProdutosList();" style="background:none; border:none; color:#ef4444; cursor:pointer; padding:4px; flex-shrink:0;" title="Remover"><i class="ph ph-x-circle" style="font-size:18px;"></i></button>
+      </div>
+    `).join('');
+  }
+
+  window.wizardAddProdutoRow = function() {
+    _wizardProdutos.push({ categoria: '', nome: '', preco: 0, emoji: '🍽️' });
+    _refreshProdutosList();
+    /* Foca no último input de categoria */
+    const list = document.getElementById('wiz-produtos-list');
+    if (list) {
+      const lastInputs = list.querySelectorAll('div:last-child input[type="text"]');
+      if (lastInputs[0]) lastInputs[0].focus();
+    }
+  };
+
+  window.wizardNext = function() {
+    if (_wizardStep === 1) {
+      /* Valida dados do restaurante */
+      const nome = document.getElementById('wiz-rest-nome')?.value.trim();
+      if (!nome) {
+        window.showToast && window.showToast('Informe o nome do restaurante.', 'warning');
+        document.getElementById('wiz-rest-nome')?.focus();
+        return;
+      }
+      /* Salva dados do restaurante */
+      _saveWizRestaurantData();
+      _wizardStep = 2;
+      _renderWizardStep();
+    } else if (_wizardStep === 2) {
+      /* Salva mesas */
+      _saveWizMesas();
+      _wizardStep = 3;
+      _renderWizardStep();
+    } else if (_wizardStep === 3) {
+      /* Salva produtos e mostra tela de conclusão */
+      _saveWizProdutos();
+      _wizardStep = 4;
+      _renderWizardStep();
+    }
+  };
+
+  window.wizardPrev = function() {
+    if (_wizardStep > 1) {
+      _wizardStep--;
+      _renderWizardStep();
+    }
+  };
+
+  window.wizardSkip = function() {
+    if (!confirm('Pular a configuração? Você poderá configurar depois em Configurações.')) return;
+    _finishWizard();
+  };
+
+  window.wizardFinish = function() {
+    _finishWizard();
+  };
+
+  function _saveWizRestaurantData() {
+    const nome = document.getElementById('wiz-rest-nome')?.value.trim();
+    const tel = document.getElementById('wiz-rest-tel')?.value.trim();
+    const endereco = document.getElementById('wiz-rest-endereco')?.value.trim();
+    const payload = {};
+    if (nome) payload.nome_restaurante = nome;
+    if (tel) payload.telefone_restaurante = tel;
+    if (endereco) payload.endereco_restaurante = endereco;
+    if (Object.keys(payload).length > 0) {
+      socket.emit('save_restaurante_config', payload);
+      fetch('/api/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(typeof authHeaders === 'function' ? authHeaders() : {}) },
+        body: JSON.stringify(payload)
+      }).catch(() => {});
+    }
+  }
+
+  function _saveWizMesas() {
+    const qtd = parseInt(document.getElementById('wiz-qtd-mesas')?.value) || 0;
+    const addDelivery = document.getElementById('wiz-add-delivery')?.checked;
+    const addBalcao = document.getElementById('wiz-add-balcao')?.checked;
+    for (let i = 1; i <= qtd; i++) {
+      socket.emit('add_mesa', 'Mesa ' + i);
+    }
+    if (addDelivery) socket.emit('add_mesa', 'Delivery');
+    if (addBalcao) socket.emit('add_mesa', 'Balcão');
+  }
+
+  function _saveWizProdutos() {
+    _wizardProdutos.forEach(p => {
+      if (p.nome && p.nome.trim()) {
+        socket.emit('add_produto', {
+          categoria: p.categoria || 'Geral',
+          nome: p.nome.trim(),
+          preco: p.preco || 0,
+          emoji: p.emoji || '🍽️',
+          hasAddons: false,
+          setor: 'Cozinha 1',
+          status_inicial: 'Em espera',
+          status: 'ativo',
+          categoria_fiscal: 'Alimentacao',
+          descricao: '',
+          codigo_barras: null,
+          visibilidade: 'todos'
+        });
+      }
+    });
+  }
+
+  function _finishWizard() {
+    _wizardActive = false;
+    /* Salva flag de onboarding completo */
+    fetch('/api/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(typeof authHeaders === 'function' ? authHeaders() : {}) },
+      body: JSON.stringify({ onboarding_completo: 'true' })
+    }).catch(() => {});
+    socket.emit('save_restaurante_config', { onboarding_completo: 'true' });
+
+    const el = document.getElementById('onboarding-wizard');
+    if (el) el.classList.add('hidden');
+    window.showToast && window.showToast('Configuração inicial concluída! 🎉', 'success');
+  }
+
+  /* Atualiza preview de mesas ao digitar */
+  document.addEventListener('input', function(e) {
+    if (e.target.id === 'wiz-qtd-mesas' || e.target.id === 'wiz-add-delivery' || e.target.id === 'wiz-add-balcao') {
+      _updateMesasPreview();
+    }
+  });
+  document.addEventListener('change', function(e) {
+    if (e.target.id === 'wiz-add-delivery' || e.target.id === 'wiz-add-balcao') {
+      _updateMesasPreview();
+    }
+  });
 
   // --- MERCADO PAGO SOCKET STATUS ---
   socket.on('mp_status_pagamento', (data) => {

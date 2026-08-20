@@ -1299,6 +1299,24 @@ function initDiasGrid() {
   });
   grid.innerHTML = h;
 }
+
+window.toggleDiasGrid = () => {
+  const grid = document.getElementById('cupom-dias-grid');
+  const btn = document.getElementById('btn-toggle-dias');
+  if (!grid) return;
+  const isVisible = grid.style.display !== 'none';
+  grid.style.display = isVisible ? 'none' : 'grid';
+  if (btn) btn.innerHTML = isVisible ? '<i class="ph ph-calendar"></i> Todos os dias' : '<i class="ph ph-x"></i> Fechar dias';
+};
+
+window.toggleTodosDias = (checked) => {
+  const dias = ['domingo','segunda','terca','quarta','quinta','sexta','sabado'];
+  dias.forEach(d => {
+    const chk = document.getElementById('chk-dia-' + d);
+    if (chk) chk.checked = checked;
+  });
+};
+
 // Call it when script loads
 /* initDiasGrid is now deferred until promocoes tab is activated */
 
@@ -1641,15 +1659,20 @@ window.deleteCupom = (codigo) => {
 };
 
 socket.on('cupons_list', (cupons) => {
+  _cupomLastFetch = Date.now();
   renderCuponsList(cupons);
 });
 
 let _cupomAtualizadoTimer = null;
+let _cupomLastFetch = 0;
 socket.on('cupons_atualizados', () => {
   if (_cupomAtualizadoTimer) clearTimeout(_cupomAtualizadoTimer);
   _cupomAtualizadoTimer = setTimeout(() => {
+    const now = Date.now();
+    if (now - _cupomLastFetch < 2000) return; // cooldowwn 2s
+    _cupomLastFetch = now;
     socket.emit('get_cupons_list');
-  }, 300);
+  }, 500);
 });
 
 // Pedir lista ao abrir a aba promoções
@@ -1755,10 +1778,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.querySelectorAll('.admin-tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      if (btn.getAttribute('data-tab') === 'promocoes') {
-        debouncedGetCupons();
-        if (!_diasGridInit) { _diasGridInit = true; initDiasGrid(); }
-      }
       if (btn.getAttribute('data-tab') === 'inteligencia') {
         socket.emit('ia_get_config');
       }

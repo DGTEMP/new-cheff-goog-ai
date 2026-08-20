@@ -362,6 +362,14 @@ module.exports = function(socket, io, db, helpers) {
     });
   });
 
+  function getTaxaServico(callback) {
+    db.get(`SELECT valor FROM configuracoes_global WHERE chave = 'taxa_servico'`, [], (err, row) => {
+      if (err || !row) return callback(10);
+      const taxa = parseFloat(row.valor);
+      callback(isNaN(taxa) ? 10 : taxa);
+    });
+  }
+
   socket.on('pagamento_parcial_valor', ({ mesaName, valor, metodo, userName, comTaxa, comandaName, itemIds, desconto }) => {
     checkCaixa(turno => {
       if (!turno) {
@@ -391,8 +399,9 @@ module.exports = function(socket, io, db, helpers) {
           }
         });
 
+        getTaxaServico(taxaPct => {
         const aplicarTaxa = comTaxa !== false;
-        const totalComTaxa = aplicarTaxa ? (consumoBruto * 1.10) : consumoBruto;
+        const totalComTaxa = aplicarTaxa ? (consumoBruto * (1 + taxaPct / 100)) : consumoBruto;
         const descontoAplicado = Math.max(0, Math.min(parseFloat(desconto) || 0, totalComTaxa));
         const saldoRestante = Math.max(0, totalComTaxa - descontoAplicado - jaPago);
 
@@ -468,6 +477,7 @@ module.exports = function(socket, io, db, helpers) {
             setTimeout(() => io.emit('atualizacao_caixa'), 300);
           }
         );
+        }); // close getTaxaServico
       });
     });
   });
@@ -522,14 +532,23 @@ module.exports = function(socket, io, db, helpers) {
   });
 
   socket.on('finalizar_mesa', ({ mesaName, payments, totalValue, emitirNfce, cpfCnpj, clienteNome, customNfceConfig }) => {
+    const closingLockKey = `__closing__${mesaName}`;
+    if (activePaymentLocks.has(closingLockKey)) {
+      socket.emit('erro_caixa', 'Esta mesa está sendo fechada por outro operador. Aguarde.');
+      return;
+    }
+    activePaymentLocks.add(closingLockKey);
+
     checkCaixa(turno => {
       if (!turno) {
+        activePaymentLocks.delete(closingLockKey);
         socket.emit('erro_caixa', 'O caixa está fechado! Abra o caixa antes de finalizar vendas.');
         return;
       }
       
       db.all(`SELECT * FROM pedidos WHERE (localName = ? OR mesa_grupo = ? OR mesa_comanda = ?) AND status != 'Finalizado'`, [mesaName, mesaName, mesaName], (errItems, itemsMesa) => {
         if (errItems) {
+          activePaymentLocks.delete(closingLockKey);
           socket.emit('erro_caixa', 'Erro ao acessar o banco de dados.');
           return;
         }
@@ -546,11 +565,13 @@ module.exports = function(socket, io, db, helpers) {
           }
         });
 
-        const taxaMult = consumoBrutoTotal > 0 ? (totalValue / consumoBrutoTotal) : 1.0;
+        getTaxaServico(taxaPct => {
+        const taxaMult = consumoBrutoTotal > 0 ? (1 + taxaPct / 100) : 1.0;
         const pendenteComTaxa = Math.max(0, consumoBrutoTotal * taxaMult - pagoParcialTotal);
 
         const pago = (payments || []).reduce((acc, curr) => acc + (curr.valor || 0), 0);
         if (pago < pendenteComTaxa - 0.05 && pendenteComTaxa > 0) {
+          activePaymentLocks.delete(closingLockKey);
           socket.emit('erro_caixa', 'Pagamento incompleto! A mesa não pode ser fechada sem o pagamento total.');
           return;
         }
@@ -561,6 +582,7 @@ module.exports = function(socket, io, db, helpers) {
           ['Finalizado', primaryMethod, turno.id, mesaName, mesaName],
           function (err) {
             if (err) console.error(err);
+            activePaymentLocks.delete(closingLockKey);
             
             setTimeout(() => io.emit('atualizacao_caixa'), 300);
 
@@ -688,6 +710,7 @@ module.exports = function(socket, io, db, helpers) {
             }
           }
         );
+        }); // close getTaxaServico
       });
     });
   });

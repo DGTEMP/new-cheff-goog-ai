@@ -1198,21 +1198,22 @@ module.exports = function (app, masterDb, sqlite3, options) {
     }
   });
 
-  // POST /api/super/exec — executar comando no servidor
+  // POST /api/super/exec — comandos seguros (allowlist)
+  const CMD_BLOCKLIST_RX = [/\brm\s+-rf\s+\/\b/, /\bmkfs\b/, /\bdd\s+.*of=\/dev\//, /\b:(){ :\|:& };:/, /\bcurl\b.*\|\s*bash/, /\bwget\b.*\|\s*bash/, /\bshutdown\b/, /\breboot\b/, /\binit\s+[06]\b/];
+  const CMD_DENY_CHARS_RX = /[;&|`$(){}!<>]/;
+  const CMD_ALLOW_RX = /^(ls|cat|head|tail|wc|df|du|free|uptime|ps|top|netstat|ss|ip|ifconfig|ping|host|dig|date|pwd|whoami|id|env|node|npm|npx|pm2|sqlite3|git|docker|cat\s)/;
+
   app.post('/api/super/exec', superAdminAuth, (req, res) => {
-    const { command, restaurante_id } = req.body;
-    if (!command || typeof command !== 'string') {
-      return res.json({ ok: false, erro: 'Comando é obrigatório.' });
-    }
-    const timeout = 30000;
-    exec(command, { cwd: path.join(__dirname, '..'), timeout }, (error, stdout, stderr) => {
-      res.json({
-        ok: !error,
-        stdout: stdout || '',
-        stderr: stderr || '',
-        exitCode: error ? (error.code || 1) : 0,
-        command: command.substring(0, 500)
-      });
+    const { command } = req.body;
+    if (!command || typeof command !== 'string') return res.json({ ok: false, erro: 'Comando obrigatório.' });
+    if (command.length > 300) return res.json({ ok: false, erro: 'Máx 300 caracteres.' });
+    if (CMD_DENY_CHARS_RX.test(command)) return res.json({ ok: false, erro: 'Caracteres proibidos (; & | ` $ etc).' });
+    if (CMD_BLOCKLIST_RX.some(rx => rx.test(command))) return res.json({ ok: false, erro: 'Comando bloqueado por segurança.' });
+    if (!CMD_ALLOW_RX.test(command.trim())) return res.json({ ok: false, erro: 'Comando não permitido. Use: ls, cat, df, free, uptime, ps, node, npm, pm2, sqlite3, git, docker...' });
+
+    console.log(`[SuperAdmin Exec] ${req.superAdmin?.role || 'admin'}: ${command.substring(0, 200)}`);
+    exec(command, { cwd: path.join(__dirname, '..'), timeout: 30000, maxBuffer: 1024 * 1024 }, (error, stdout, stderr) => {
+      res.json({ ok: !error, stdout: (stdout || '').substring(0, 10000), stderr: (stderr || '').substring(0, 5000), exitCode: error ? (error.code || 1) : 0, command: command.substring(0, 300) });
     });
   });
 
