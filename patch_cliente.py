@@ -1,8 +1,16 @@
+import sys
+import codecs
+
+path = r'c:\Users\computer\Desktop\chef cozinha\area-cliente.html'
+with codecs.open(path, 'r', 'utf-8') as f:
+    content = f.read()
+
+client_games_code = '''
     // --- GAMIFICACAO CLIENTE ---
     let currentGame = null;
 
     function renderJogosDisponiveis() {
-      if (typeof mesaUrl === 'undefined' || !mesaUrl) {
+      if (!mesaUrl) {
         document.getElementById('jogos-disponiveis').innerHTML = '<p style="color:#94a3b8; font-size:13px;">Voce precisa estar em uma mesa para jogar.</p>';
         return;
       }
@@ -98,8 +106,8 @@
              document.getElementById('jogos-game-content').innerHTML = `<h3 style="text-align:center; color:white;">Faca sua jogada!</h3>`;
              document.getElementById('jogos-game-actions').innerHTML = `
                <div style="display:flex; gap:10px; width:100%; justify-content:center; margin-bottom:10px;">
-                 <button onclick="window.gameSide='par'; this.style.background='var(--primary)';" style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc; background:#222; color:white;">PAR</button>
-                 <button onclick="window.gameSide='impar'; this.style.background='var(--primary)';" style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc; background:#222; color:white;">IMPAR</button>
+                 <button onclick="window.gameSide='par'" style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc; background:#222; color:white;">PAR</button>
+                 <button onclick="window.gameSide='impar'" style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc; background:#222; color:white;">IMPAR</button>
                </div>
                <div style="display:flex; gap:5px; width:100%; justify-content:center;">
                  ${[0,1,2,3,4,5].map(n => `<button onclick="if(!window.gameSide){alert('Escolha PAR ou IMPAR primeiro');return;} jogarParImpar(window.gameSide, ${n})" style="padding:10px 15px; border-radius:8px; border:none; background:var(--primary); color:white; font-weight:bold; font-size:18px;">${n}</button>`).join('')}
@@ -115,6 +123,7 @@
              document.getElementById('jogos-game-content').innerHTML = `<div id="reflex-box" style="width:100%; height:150px; background:#ef4444; border-radius:12px; display:flex; align-items:center; justify-content:center;"><h2 style="color:white; margin:0;">Espere ficar VERDE!</h2></div>`;
              document.getElementById('jogos-game-actions').innerHTML = `<button id="btn-reflexo" style="width:100%; padding:15px; font-size:20px; font-weight:bold; background:#333; color:white; border:none; border-radius:12px; cursor:not-allowed;" disabled>Toque aqui!</button>`;
              
+             // Random time to turn green
              if(!window.reflexTimeout) {
                window.reflexTimeout = setTimeout(() => {
                  const box = document.getElementById('reflex-box');
@@ -152,15 +161,30 @@
         `;
         document.getElementById('jogos-game-actions').innerHTML = '';
         
+        // Add to history
         const hList = document.getElementById('lista-jogos-historico');
         const div = document.createElement('div');
         div.className = 'pedido-card';
-        div.innerHTML = `<h4 style="margin:0; font-size:14px;">${currentGame.type === 'par_impar' ? 'Par ou Impar' : 'Reflexo'}</h4><p style="margin:0; font-size:12px; color:var(--text-muted);">Vencedor: ${winnerName} | Premio: ${currentGame.prize}</p>`;
+        div.innerHTML = `<h4 style="margin:0; font-size:14px;">${currentGame.type}</h4><p style="margin:0; font-size:12px; color:var(--text-muted);">Vencedor: ${winnerName} | Premio: ${currentGame.prize}</p>`;
         hList.prepend(div);
       }
     });
 
+    // Check games on connect
     socket.on('connect', () => {
-      if(typeof mesaUrl !== 'undefined' && mesaUrl) socket.emit('get_table_game', { mesa: mesaUrl });
+      if(mesaUrl) socket.emit('get_table_game', { mesa: mesaUrl });
       renderJogosDisponiveis();
     });
+    // --- FIM GAMIFICACAO CLIENTE ---
+'''
+
+idx = content.find('// Check games on connect')
+if idx == -1:
+    insert_point = content.find('</script>\n</body>')
+    if insert_point != -1:
+        content = content[:insert_point] + client_games_code + '\n' + content[insert_point:]
+        with codecs.open(path, 'w', 'utf-8') as f:
+            f.write(content)
+        print('Client JS patched successfully!')
+else:
+    print('Already patched.')
