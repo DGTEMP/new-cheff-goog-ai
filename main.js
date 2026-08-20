@@ -1847,7 +1847,7 @@ window.removerItemPedido = (id) => {
   });
 };
 
-window.removerPagamento = (paymentId) => {
+window.removerPagamento = async (paymentId) => {
   if (paymentId === undefined || paymentId === null || paymentId === '') return;
 
   const pObj = (window.pagamentosParciais || []).find(p => p.id === paymentId || p === paymentId);
