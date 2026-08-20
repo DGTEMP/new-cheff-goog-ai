@@ -1580,6 +1580,7 @@ window.openDetails = (id) => {
   
   renderSuggestions(selectedProduct);
   updateDetailPrice();
+  fetchGarcomMontavel(selectedProduct.id);
   showView('details', 'Detalhes do Item');
 };
 
@@ -1643,45 +1644,105 @@ function updateDetailPrice() {
 }
 
 let _compsAtuais = [];
+let _garcomMontavelConfig = null;
 
-function renderDetailComps() {
-  const list = document.getElementById('detail-comps-list');
-  if (!list) return;
-  list.innerHTML = _compsAtuais.map((c, i) =>
-    '<span style="background:#dbeafe;color:#1e40af;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600;display:inline-flex;align-items:center;gap:3px;">' + c + ' <button onclick="window._rmGarcomComp(' + i + ')" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:12px;padding:0;font-weight:700;">&times;</button></span>'
-  ).join('');
+function renderGarcomMontavelUI() {
+  const section = document.getElementById('detail-comps-section');
+  const catsContainer = document.getElementById('detail-montavel-cats');
+  const precoEl = document.getElementById('detail-montavel-preco');
+  const hiddenInput = document.getElementById('detail-composicoes-json');
+  if (!section || !_garcomMontavelConfig) { if (section) section.style.display = 'none'; return; }
+  section.style.display = 'block';
+  _compsAtuais = _garcomMontavelConfig.categorias.map(() => []);
+
+  catsContainer.innerHTML = _garcomMontavelConfig.categorias.map((cat, ci) => {
+    const isSingle = cat.max_escolhas === 1;
+    const optsHtml = cat.opcoes.map((opt, oi) => {
+      const inputType = isSingle ? 'radio' : 'checkbox';
+      const inputName = 'gmontavel-' + ci;
+      return '<label style="display:flex;align-items:center;gap:6px;padding:5px 8px;background:white;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;font-size:12px;">' +
+        '<input type="' + inputType + '" name="' + inputName + '" value="' + oi + '" onchange="window.onGarcomMontavelSelect(' + ci + ',' + oi + ',' + isSingle + ')">' +
+        '<span style="flex:1;">' + escHtml(opt.nome) + '</span>' +
+        (opt.preco > 0 ? '<span style="color:#3b82f6;font-weight:700;font-size:11px;">+R$' + opt.preco.toFixed(2).replace('.', ',') + '</span>' : '') +
+        '</label>';
+    }).join('');
+
+    return '<div style="margin-bottom:8px;">' +
+      '<div style="font-size:11px;font-weight:700;color:#475569;margin-bottom:3px;">' + escHtml(cat.nome) +
+      (cat.obrigatoria ? ' <span style="color:#dc2626;">*</span>' : '') +
+      (cat.max_escolhas > 1 ? ' <span style="color:#94a3b8;font-weight:400;">(até ' + cat.max_escolhas + ')</span>' : '') +
+      '</div>' +
+      '<div style="display:flex;flex-direction:column;gap:3px;">' + optsHtml + '</div>' +
+      '</div>';
+  }).join('');
+
+  updateGarcomMontavelPrice();
+  if (hiddenInput) hiddenInput.value = JSON.stringify(_compsAtuais);
 }
 
-window._rmGarcomComp = (idx) => { _compsAtuais.splice(idx, 1); renderDetailComps(); };
+window.onGarcomMontavelSelect = (catIdx, optIdx, isSingle) => {
+  if (isSingle) { _compsAtuais[catIdx] = [optIdx]; }
+  else {
+    const arr = _compsAtuais[catIdx];
+    const pos = arr.indexOf(optIdx);
+    if (pos >= 0) arr.splice(pos, 1);
+    else { const max = _garcomMontavelConfig.categorias[catIdx].max_escolhas || 1; if (arr.length < max) arr.push(optIdx); }
+  }
+  updateGarcomMontavelPrice();
+  const hiddenInput = document.getElementById('detail-composicoes-json');
+  if (hiddenInput) hiddenInput.value = JSON.stringify(_compsAtuais);
+};
 
-const btnAddComp = document.getElementById('detail-btn-add-comp');
-if (btnAddComp) {
-  btnAddComp.onclick = () => {
-    const inp = document.getElementById('detail-comp-input');
-    if (!inp) return;
-    const val = inp.value.trim();
-    if (!val) return;
-    _compsAtuais.push(val);
-    inp.value = '';
-    renderDetailComps();
-  };
-  const compInput = document.getElementById('detail-comp-input');
-  if (compInput) {
-    compInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') { e.preventDefault(); btnAddComp.click(); }
+function updateGarcomMontavelPrice() {
+  const precoEl = document.getElementById('detail-montavel-preco');
+  if (!precoEl || !_garcomMontavelConfig || !selectedProduct) return;
+  let total = _garcomMontavelConfig.pricing_model === 'fixo' ? _garcomMontavelConfig.preco_fixo : selectedProduct.price;
+  if (_garcomMontavelConfig.pricing_model === 'soma') {
+    _garcomMontavelConfig.categorias.forEach((cat, ci) => {
+      (_compsAtuais[ci] || []).forEach(oi => { if (cat.opcoes[oi]) total += cat.opcoes[oi].preco || 0; });
     });
   }
+  precoEl.textContent = 'Total: R$ ' + (total * selectedQty).toFixed(2).replace('.', ',');
+  precoEl.dataset.unitPrice = total;
+}
+
+function fetchGarcomMontavel(productId) {
+  _garcomMontavelConfig = null;
+  _compsAtuais = [];
+  const section = document.getElementById('detail-comps-section');
+  if (section) section.style.display = 'none';
+  fetch('/api/montaveis/produto/' + productId, { headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('chef_token') || '') } })
+    .then(r => r.json())
+    .then(cfg => { if (cfg && cfg.id) { _garcomMontavelConfig = cfg; renderGarcomMontavelUI(); } })
+    .catch(() => {});
 }
 
 document.getElementById('btn-add-to-cart').onclick = () => {
+  const rawComps = JSON.parse(document.getElementById('detail-composicoes-json') ? (document.getElementById('detail-composicoes-json').value || '[]') : '[]');
+  let composicoes = [];
+  let unitPrice = selectedProduct.price;
+
+  if (_garcomMontavelConfig) {
+    _garcomMontavelConfig.categorias.forEach((cat, ci) => {
+      (rawComps[ci] || []).forEach(oi => {
+        const opt = cat.opcoes[oi];
+        if (opt) composicoes.push({ categoria: cat.nome, opcao: opt.nome, preco: opt.preco || 0 });
+      });
+    });
+    const precoEl = document.getElementById('detail-montavel-preco');
+    unitPrice = precoEl && precoEl.dataset.unitPrice ? parseFloat(precoEl.dataset.unitPrice) : unitPrice;
+  } else {
+    composicoes = rawComps;
+  }
+
   cart.push({
     productName: selectedProduct.name,
     productEmoji: selectedProduct.emoji,
     sector: selectedProduct.sector,
     quantity: selectedQty,
     obs: document.getElementById('detail-obs').value,
-    composicoes: [..._compsAtuais],
-    total: selectedProduct.price * selectedQty,
+    composicoes: composicoes,
+    total: unitPrice * selectedQty,
     status: 'Recebido',
     localName: currentTable,
     userName: loggedUser.nome,
@@ -1689,9 +1750,11 @@ document.getElementById('btn-add-to-cart').onclick = () => {
     addons: []
   });
   _compsAtuais = [];
-  renderDetailComps();
+  _garcomMontavelConfig = null;
   const obsField = document.getElementById('detail-obs');
   if (obsField) obsField.value = '';
+  const compsSection = document.getElementById('detail-comps-section');
+  if (compsSection) compsSection.style.display = 'none';
   saveCart(currentTable);
   updateCartBadge();
   showView('menu', `Pedido: ${currentTable}`);
@@ -1730,7 +1793,7 @@ function renderCart() {
           <strong style="color: #fc4b15; font-size: 16px;">R$ ${item.total.toFixed(2).replace('.',',')}</strong>
         </div>
         ${item.obs ? `<div style="font-size: 13px; color: #777; margin-bottom: 8px; background: #f9f9f9; padding: 6px 10px; border-radius: 6px; border-left: 3px solid #ddd;">Obs: ${item.obs}</div>` : ''}
-        ${item.composicoes && item.composicoes.length > 0 ? `<div style="font-size: 12px; color: #1e40af; margin-bottom: 8px; background: #dbeafe; padding: 6px 10px; border-radius: 6px; border-left: 3px solid #3b82f6; font-weight: 600;">Composições: ${item.composicoes.join(', ')}</div>` : ''}
+        ${item.composicoes && item.composicoes.length > 0 ? `<div style="font-size: 12px; color: #1e40af; margin-bottom: 8px; background: #dbeafe; padding: 6px 10px; border-radius: 6px; border-left: 3px solid #3b82f6; font-weight: 600;">Monte: ${item.composicoes.map(c => typeof c === 'object' ? c.categoria + ': ' + c.opcao : c).join(' | ')}</div>` : ''}
         
         <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px; padding-top: 10px; border-top: 1px dashed #eee;">
           <span style="font-size: 13px; color: #666; font-weight: 500;">Comanda/Cliente:</span>

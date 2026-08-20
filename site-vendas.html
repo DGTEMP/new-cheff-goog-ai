@@ -99,7 +99,7 @@
       background-color: var(--dark-bg);
       color: var(--text-main);
       line-height: 1.6;
-      overflow-x: hidden;
+      overflow-x: clip;
     }
     h1, h2, h3, h4, h5, h6 { font-family: 'Outfit', sans-serif; }
 
@@ -359,9 +359,16 @@
   <script>document.documentElement.classList.remove('no-js');</script>
   <noscript><style>.no-js .animate-on-scroll{opacity:1!important;transform:none!important}</style></noscript>
 
+  <!-- Preloader Elegante -->
+  <div id="site-preloader" style="position:fixed;top:0;left:0;width:100%;height:100%;background-color:var(--dark-bg);z-index:999999;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity 0.6s ease;">
+    <div class="logo-icon" style="width:80px;height:80px;margin-bottom:20px;animation:pulse-glow 1.5s ease infinite;"><img src="/icons/icon-192.png" alt="Chef Cozinha" style="width:60px;height:60px;border-radius:12px;"></div>
+    <div style="color:var(--text-main);font-family:'Outfit';font-size:24px;font-weight:800;letter-spacing:2px;margin-bottom:8px;">CHEF COZINHA</div>
+    <div style="color:var(--primary);font-size:14px;font-weight:600;letter-spacing:1px;text-transform:uppercase;">Carregando Experiência...</div>
+  </div>
+
   <!-- Top Banner -->
   <div class="top-promo-bar" id="top-banner">
-    <span id="banner-text">🔥 Promoção de Lançamento: Teste o Chef Cozinha por 14 dias sem cartão de crédito!</span>
+    <span id="banner-text">🔥 ATENÇÃO: Preço promocional válido apenas até atingirmos 85% da capacidade dos servidores (Uso atual: 57%). Garanta sua vaga!</span>
     <a id="banner-link" onclick="abrirSetupModal()">Garantir Teste Grátis →</a>
   </div>
 
@@ -390,11 +397,11 @@
     </div>
     
     <h1 id="hero-titulo">
-      O Sistema para Restaurantes <span id="hero-destaque">Mais Rápido e Antifraude</span> do Mercado
+      O Único Sistema Que Garante <span id="hero-destaque">Eficiência Máxima</span> Sem Quedas
     </h1>
     
     <p id="hero-subtitulo">
-      Gerencie mesas, comandas, fila da cozinha em tempo real (KDS), ponto digital de funcionários e fechamento de caixa sem travamentos e com trava de segurança de pagamentos eletrônicos.
+      Nossos servidores operam com no máximo 85% de carga para garantir que seu restaurante nunca pare (Capacidade Atual: 57%). PDV, Fila da Cozinha e Comanda Mobile à prova de falhas.
     </p>
 
     <div class="hero-actions">
@@ -852,6 +859,14 @@
       initAnimations();
       updateCalculator();
       loadSetupDraft();
+      
+      setTimeout(() => {
+        const pl = document.getElementById('site-preloader');
+        if (pl) {
+          pl.style.opacity = '0';
+          setTimeout(() => pl.remove(), 600);
+        }
+      }, 500);
     });
 
     // ═══ SETUP MODAL LOGIC ═══

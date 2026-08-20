@@ -111,8 +111,7 @@
         html += '<label>Observações:</label><br>';
         html += '<input type="text" id="prod-obs" placeholder="Ex: Sem cebola"><br>';
         html += '<label>Composições:</label><br>';
-        html += '<div id="retro-comps-list" style="margin-bottom:4px;"></div>';
-        html += '<div style="display:flex;gap:4px;"><input type="text" id="prod-comp" placeholder="Ex: Calabresa, Borda" style="flex:1;"><button class="btn" onclick="addRetroComp()" style="padding:5px 10px;">+</button></div>';
+        html += '<div id="retro-comps-section" style="display:none;margin-bottom:4px;"><div id="retro-montavel-cats"></div><div id="retro-montavel-preco" style="font-weight:700;color:#8b5cf6;margin-top:4px;"></div><input type="hidden" id="retro-comps-json" value="[]"></div>';
         html += '<button class="btn" onclick="addCarrinho()">Adicionar ao Pedido</button>';
         html += '<button class="btn btn-secondary" onclick="state.view=\'cardapio\'; render()">Cancelar</button>';
         html += '</div>';
@@ -125,7 +124,7 @@
         } else {
           for (var k = 0; k < state.carrinho.length; k++) {
             var item = state.carrinho[k];
-            html += '<div class="card"><b>' + item.quantity + 'x ' + escHtml(item.productName) + '</b><br>Obs: ' + escHtml(item.observations) + (item.composicoes && item.composicoes.length > 0 ? '<br>Composições: ' + escHtml(item.composicoes.join(', ')) : '') + '<br><button style="margin-top:5px; padding: 5px; background: red; color: white; border: none; border-radius: 3px;" onclick="removerItem(' + k + ')">Remover</button></div>';
+            html += '<div class="card"><b>' + item.quantity + 'x ' + escHtml(item.productName) + '</b><br>Obs: ' + escHtml(item.observations) + (item.composicoes && item.composicoes.length > 0 ? '<br>Monte: ' + escHtml(item.composicoes.map(function(c) { return typeof c === 'object' ? c.categoria + ': ' + c.opcao : c; }).join(' | ')) : '') + '<br><button style="margin-top:5px; padding: 5px; background: red; color: white; border: none; border-radius: 3px;" onclick="removerItem(' + k + ')">Remover</button></div>';
           }
           html += '<button class="btn" id="btn-enviar" onclick="enviarPedido()">Enviar Pedido p/ Cozinha</button>';
           html += '<button class="btn btn-secondary" onclick="state.view=\'cardapio\'; render()">Adicionar Mais Itens</button>';
@@ -176,38 +175,114 @@
       state.produtoSelecionado = state.cardapio[idx];
       state.view = 'produto';
       render();
+      fetchRetroMontavel(state.cardapio[idx].id);
     }
 
     var _retroComps = [];
-    function addRetroComp() {
-      var inp = document.getElementById('prod-comp');
-      if (!inp) return;
-      var val = inp.value.trim();
-      if (!val) return;
-      _retroComps.push(val);
-      inp.value = '';
-      var list = document.getElementById('retro-comps-list');
-      if (list) list.innerHTML = _retroComps.map(function(c,i) { return '<span style="background:#dbeafe;color:#1e40af;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600;">' + escHtml(c) + ' <button onclick="_retroComps.splice('+i+',1);addRetroComp();" style="background:none;border:none;color:red;">&times;</button></span>'; }).join(' ');
+    var _retroMontavelConfig = null;
+
+    function fetchRetroMontavel(productId) {
+      _retroMontavelConfig = null;
+      _retroComps = [];
+      var section = document.getElementById('retro-comps-section');
+      if (section) section.style.display = 'none';
+      ajax('GET', '/api/montaveis/produto/' + productId, null, function(err, data) {
+        if (!err && data && data.id) { _retroMontavelConfig = data; renderRetroMontavelUI(); }
+      });
+    }
+
+    function renderRetroMontavelUI() {
+      var section = document.getElementById('retro-comps-section');
+      var catsContainer = document.getElementById('retro-montavel-cats');
+      var precoEl = document.getElementById('retro-montavel-preco');
+      var hiddenInput = document.getElementById('retro-comps-json');
+      if (!section || !_retroMontavelConfig) { if (section) section.style.display = 'none'; return; }
+      section.style.display = 'block';
+      var p = state.produtoSelecionado;
+      _retroComps = _retroMontavelConfig.categorias.map(function() { return []; });
+
+      catsContainer.innerHTML = _retroMontavelConfig.categorias.map(function(cat, ci) {
+        var isSingle = cat.max_escolhas === 1;
+        var optsHtml = cat.opcoes.map(function(opt, oi) {
+          var inputType = isSingle ? 'radio' : 'checkbox';
+          var inputName = 'rretro-' + ci;
+          return '<label style="display:flex;align-items:center;gap:6px;padding:5px 8px;background:white;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;font-size:12px;">' +
+            '<input type="' + inputType + '" name="' + inputName + '" value="' + oi + '" onchange="onRetroMontavelSelect(' + ci + ',' + oi + ',' + isSingle + ')">' +
+            '<span style="flex:1;">' + escHtml(opt.nome) + '</span>' +
+            (opt.preco > 0 ? '<span style="color:#3b82f6;font-weight:700;font-size:11px;">+R$' + opt.preco.toFixed(2).replace('.', ',') + '</span>' : '') +
+            '</label>';
+        }).join('');
+        return '<div style="margin-bottom:8px;"><div style="font-size:11px;font-weight:700;color:#475569;margin-bottom:3px;">' + escHtml(cat.nome) +
+          (cat.obrigatoria ? ' <span style="color:#dc2626;">*</span>' : '') +
+          (cat.max_escolhas > 1 ? ' <span style="color:#94a3b8;font-weight:400;">(até ' + cat.max_escolhas + ')</span>' : '') +
+          '</div><div style="display:flex;flex-direction:column;gap:3px;">' + optsHtml + '</div></div>';
+      }).join('');
+      updateRetroMontavelPrice();
+      if (hiddenInput) hiddenInput.value = JSON.stringify(_retroComps);
+    }
+
+    window.onRetroMontavelSelect = function(catIdx, optIdx, isSingle) {
+      if (isSingle) { _retroComps[catIdx] = [optIdx]; }
+      else {
+        var arr = _retroComps[catIdx];
+        var pos = arr.indexOf(optIdx);
+        if (pos >= 0) arr.splice(pos, 1);
+        else { var max = _retroMontavelConfig.categorias[catIdx].max_escolhas || 1; if (arr.length < max) arr.push(optIdx); }
+      }
+      updateRetroMontavelPrice();
+      var hiddenInput = document.getElementById('retro-comps-json');
+      if (hiddenInput) hiddenInput.value = JSON.stringify(_retroComps);
+    };
+
+    function updateRetroMontavelPrice() {
+      var precoEl = document.getElementById('retro-montavel-preco');
+      if (!precoEl || !_retroMontavelConfig) return;
+      var p = state.produtoSelecionado;
+      var total = _retroMontavelConfig.pricing_model === 'fixo' ? _retroMontavelConfig.preco_fixo : p.preco;
+      if (_retroMontavelConfig.pricing_model === 'soma') {
+        _retroMontavelConfig.categorias.forEach(function(cat, ci) {
+          (_retroComps[ci] || []).forEach(function(oi) { if (cat.opcoes[oi]) total += cat.opcoes[oi].preco || 0; });
+        });
+      }
+      var qtd = parseInt(document.getElementById('prod-qtd') ? document.getElementById('prod-qtd').value : 1) || 1;
+      precoEl.textContent = 'Total: R$ ' + (total * qtd).toFixed(2).replace('.', ',');
     }
 
     function addCarrinho() {
       var qtd = parseInt(document.getElementById('prod-qtd').value) || 1;
       var obs = document.getElementById('prod-obs').value || '';
       var p = state.produtoSelecionado;
-      
+      var rawComps = JSON.parse(document.getElementById('retro-comps-json') ? (document.getElementById('retro-comps-json').value || '[]') : '[]');
+      var composicoes = [];
+      var unitPrice = p.preco;
+
+      if (_retroMontavelConfig) {
+        _retroMontavelConfig.categorias.forEach(function(cat, ci) {
+          (rawComps[ci] || []).forEach(function(oi) {
+            var opt = cat.opcoes[oi];
+            if (opt) composicoes.push({ categoria: cat.nome, opcao: opt.nome, preco: opt.preco || 0 });
+          });
+        });
+        var precoEl = document.getElementById('retro-montavel-preco');
+        unitPrice = precoEl && precoEl.dataset.unitPrice ? parseFloat(precoEl.dataset.unitPrice) : unitPrice;
+      } else {
+        composicoes = rawComps;
+      }
+
       state.carrinho.push({
         userName: state.nomeGarcom,
         mesa_comanda: state.mesaSelecionada,
         productName: p.nome,
         quantity: qtd,
         observations: obs,
-        composicoes: _retroComps.slice(),
+        composicoes: composicoes,
         printer: p.impressora || '',
         sector: p.setor || '',
-        total: qtd * p.preco
+        total: unitPrice * qtd
       });
-      
+
       _retroComps = [];
+      _retroMontavelConfig = null;
       state.produtoSelecionado = null;
       state.view = 'cardapio';
       render();

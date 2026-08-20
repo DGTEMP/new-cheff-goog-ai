@@ -885,12 +885,20 @@ function renderQueue() {
     try {
       const comps = typeof item.composicoes === 'string' ? JSON.parse(item.composicoes) : (item.composicoes || []);
       if (Array.isArray(comps) && comps.length > 0) {
-        compsHtml = '<div class="item-composicoes">' + comps.map(c => {
-          if (typeof c === 'object' && c.nome) {
-            return '<span class="comp-item">' + escHtml(c.nome) + (c.quantidade ? ' x' + escHtml(String(c.quantidade)) : '') + '</span>';
+        const byCat = {};
+        comps.forEach(c => {
+          if (typeof c === 'object' && c.categoria) {
+            if (!byCat[c.categoria]) byCat[c.categoria] = [];
+            byCat[c.categoria].push(c.opcao || c.nome || String(c));
+          } else {
+            if (!byCat['Composição']) byCat['Composição'] = [];
+            byCat['Composição'].push(typeof c === 'object' ? (c.nome || c.opcao || JSON.stringify(c)) : String(c));
           }
-          return '<span class="comp-item">' + escHtml(String(c)) + '</span>';
-        }).join('') + '</div>';
+        });
+        compsHtml = '<div class="item-composicoes">' + Object.keys(byCat).map(cat =>
+          '<span style="font-weight:700;color:#1e3a5f;">' + escHtml(cat) + ':</span> ' +
+          byCat[cat].map(o => '<span class="comp-item">' + escHtml(o) + '</span>').join(' ')
+        ).join(' &nbsp; ') + '</div>';
       }
     } catch(e) {}
 

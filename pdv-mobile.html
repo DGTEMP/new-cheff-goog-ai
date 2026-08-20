@@ -252,12 +252,11 @@
 
       <input type="text" id="modal-produto-obs" class="form-input" placeholder="Observações (ex: sem cebola)...">
 
-      <div id="modal-produto-comps-section">
-        <div id="modal-produto-comps-list" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:4px;"></div>
-        <div style="display:flex;gap:4px;">
-          <input type="text" id="modal-produto-comp-input" class="form-input" placeholder="Composição (ex: Calabresa, Borda)" style="flex:1;">
-          <button onclick="adicionarCompMobile()" style="background:#3ab55b;color:white;border:none;border-radius:8px;padding:8px 12px;font-weight:700;cursor:pointer;">+</button>
-        </div>
+      <div id="modal-produto-comps-section" style="display:none;">
+        <div style="font-size:12px;font-weight:700;color:#8b5cf6;margin-bottom:4px;">Monte o Seu:</div>
+        <div id="modal-produto-montavel-cats"></div>
+        <div id="modal-produto-montavel-preco" style="margin-top:6px;font-weight:700;color:#8b5cf6;font-size:14px;"></div>
+        <input type="hidden" id="modal-produto-composicoes-json" value="[]">
       </div>
 
       <button class="btn-primary" onclick="confirmarAdicionarProduto()">Lançar na Mesa</button>

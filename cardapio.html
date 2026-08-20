@@ -1183,13 +1183,10 @@
         <textarea id="modal-obs" rows="2" class="form-input" style="resize:none;"
           placeholder="Ex: Sem cebola, gelo e limão..."></textarea>
       </div>
-      <div class="form-group">
-        <label class="form-label">Composições (opcional):</label>
-        <div id="modal-comps-list" style="display:flex; flex-direction:column; gap:4px; margin-bottom:6px;"></div>
-        <div style="display:flex; gap:4px;">
-          <input type="text" id="modal-comp-input" placeholder="Ex: Calabresa, Borda Cheddar..." style="flex:1; padding:8px 10px; border:1.5px solid var(--border); border-radius:8px; font-size:13px; background:var(--bg);">
-          <button onclick="window.adicionarComposicao()" style="background:var(--primary); color:white; border:none; border-radius:8px; padding:8px 12px; font-size:13px; font-weight:700; cursor:pointer; white-space:nowrap;">+</button>
-        </div>
+      <div id="modal-montavel-section" style="display:none; margin-top:8px;">
+        <label class="form-label" style="font-weight:700; color:var(--primary);">Monte o seu — Escolha as composições:</label>
+        <div id="modal-montavel-cats"></div>
+        <div id="modal-montavel-preco" style="margin-top:8px; font-weight:800; color:var(--primary); font-size:15px;"></div>
         <input type="hidden" id="modal-composicoes" value="[]">
       </div>
       <button class="btn-submit" onclick="window.adicionarItemAoCarrinho()" style="margin-top: 8px;">
@@ -1575,6 +1572,7 @@
     let selectedItem = null;
     let selectedQty = 1;
     let searchFilter = '';
+    let _montavelConfig = null;
     let currentPendingOrderId = null;
     let tourActive = false;
     let tourBannerData = {
@@ -1848,6 +1846,7 @@
 
       selectedItem = item;
       selectedQty = 1;
+      _montavelConfig = null;
 
       document.getElementById('modal-title').innerText = item.nome;
       document.getElementById('modal-price').innerText = `R$ ${parseFloat(item.preco).toFixed(2).replace('.', ',')}`;
@@ -1855,7 +1854,21 @@
       document.getElementById('modal-qty').innerText = '1';
       document.getElementById('modal-obs').value = '';
       window._compsAtuais = [];
-      window.renderCompsList();
+
+      const montavelSection = document.getElementById('modal-montavel-section');
+      if (montavelSection) montavelSection.style.display = 'none';
+
+      if (typeof restauranteId !== 'undefined' && item.id) {
+        fetch('/api/montaveis/produto/' + item.id, { headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('chef_token') || '') } })
+          .then(r => r.json())
+          .then(cfg => {
+            if (cfg && cfg.id) {
+              _montavelConfig = cfg;
+              window.renderMontavelUI();
+            }
+          })
+          .catch(() => {});
+      }
 
       document.getElementById('modal-item-details').style.display = 'flex';
     };
@@ -1872,56 +1885,112 @@
     };
 
     window._compsAtuais = [];
+    window.renderMontavelUI = () => {
+      const section = document.getElementById('modal-montavel-section');
+      const catsContainer = document.getElementById('modal-montavel-cats');
+      const precoEl = document.getElementById('modal-montavel-preco');
+      const hiddenInput = document.getElementById('modal-composicoes');
+      if (!section || !_montavelConfig) { if (section) section.style.display = 'none'; return; }
+      section.style.display = 'block';
+      window._compsAtuais = _montavelConfig.categorias.map(() => []);
 
-    window.renderCompsList = () => {
-      const container = document.getElementById('modal-comps-list');
-      const input = document.getElementById('modal-composicoes');
-      if (!container) return;
-      container.innerHTML = window._compsAtuais.map((c, i) =>
-        '<div style="display:flex;align-items:center;gap:4px;background:var(--bg,#f1f5f9);border:1px solid var(--border,#e2e8f0);border-radius:6px;padding:3px 6px;font-size:12px;">' +
-        '<span style="flex:1;font-weight:600;">' + escFila(c) + '</span>' +
-        '<button onclick="window.removerComposicao(' + i + ')" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:14px;padding:0 2px;font-weight:700;">&times;</button>' +
-        '</div>'
-      ).join('');
-      if (input) input.value = JSON.stringify(window._compsAtuais);
+      catsContainer.innerHTML = _montavelConfig.categorias.map((cat, ci) => {
+        const isSingle = cat.max_escolhas === 1;
+        const optsHtml = cat.opcoes.map((opt, oi) => {
+          const inputType = isSingle ? 'radio' : 'checkbox';
+          const inputName = 'montavel-cat-' + ci;
+          return '<label style="display:flex; align-items:center; gap:6px; padding:6px 8px; background:white; border:1px solid var(--border); border-radius:6px; cursor:pointer; font-size:13px;">' +
+            '<input type="' + inputType + '" name="' + inputName + '" value="' + oi + '" onchange="window.onMontavelSelect(' + ci + ',' + oi + ',' + isSingle + ')">' +
+            '<span style="flex:1;">' + escFila(opt.nome) + '</span>' +
+            (opt.preco > 0 ? '<span style="color:var(--primary); font-weight:700; font-size:12px;">+R$ ' + opt.preco.toFixed(2).replace('.', ',') + '</span>' : '') +
+            '</label>';
+        }).join('');
+
+        return '<div style="margin-bottom:10px;">' +
+          '<div style="font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">' +
+          escFila(cat.nome) +
+          (cat.obrigatoria ? ' <span style="color:#dc2626;">*</span>' : '') +
+          (cat.max_escolhas > 1 ? ' <span style="color:#94a3b8; font-weight:400;">(escolha até ' + cat.max_escolhas + ')</span>' : '') +
+          '</div>' +
+          '<div style="display:flex; flex-direction:column; gap:4px;">' + optsHtml + '</div>' +
+          '</div>';
+      }).join('');
+
+      window._updateMontavelPrice();
+      if (hiddenInput) hiddenInput.value = JSON.stringify(window._compsAtuais);
     };
 
-    window.adicionarComposicao = () => {
-      const inp = document.getElementById('modal-comp-input');
-      if (!inp) return;
-      const val = inp.value.trim();
-      if (!val) return;
-      window._compsAtuais.push(val);
-      inp.value = '';
-      window.renderCompsList();
+    window.onMontavelSelect = (catIdx, optIdx, isSingle) => {
+      if (isSingle) {
+        window._compsAtuais[catIdx] = [optIdx];
+      } else {
+        const arr = window._compsAtuais[catIdx];
+        const pos = arr.indexOf(optIdx);
+        if (pos >= 0) arr.splice(pos, 1);
+        else {
+          const max = _montavelConfig.categorias[catIdx].max_escolhas || 1;
+          if (arr.length < max) arr.push(optIdx);
+        }
+      }
+      window._updateMontavelPrice();
+      const hiddenInput = document.getElementById('modal-composicoes');
+      if (hiddenInput) hiddenInput.value = JSON.stringify(window._compsAtuais);
     };
 
-    window.removerComposicao = (idx) => {
-      window._compsAtuais.splice(idx, 1);
-      window.renderCompsList();
+    window._updateMontavelPrice = () => {
+      const precoEl = document.getElementById('modal-montavel-preco');
+      if (!precoEl || !_montavelConfig) return;
+      let base = parseFloat(selectedItem ? selectedItem.preco : 0);
+      let total = _montavelConfig.pricing_model === 'fixo' ? _montavelConfig.preco_fixo : base;
+
+      if (_montavelConfig.pricing_model === 'soma') {
+        _montavelConfig.categorias.forEach((cat, ci) => {
+          (window._compsAtuais[ci] || []).forEach(oi => {
+            if (cat.opcoes[oi]) total += cat.opcoes[oi].preco || 0;
+          });
+        });
+      }
+
+      precoEl.textContent = 'Total: R$ ' + total.toFixed(2).replace('.', ',');
+      if (selectedItem) selectedItem._precoMontavel = total;
     };
 
     window.adicionarItemAoCarrinho = () => {
       if (!selectedItem) return;
 
       const obs = document.getElementById('modal-obs').value.trim();
-      const comps = JSON.parse(document.getElementById('modal-composicoes') ? (document.getElementById('modal-composicoes').value || '[]') : '[]');
-      const existing = CART.find(x => x.id === selectedItem.id && x.obs === obs && JSON.stringify(x.composicoes) === JSON.stringify(comps));
+      const rawComps = JSON.parse(document.getElementById('modal-composicoes') ? (document.getElementById('modal-composicoes').value || '[]') : '[]');
+
+      let composicoes = [];
+      let precoUnit = parseFloat(selectedItem.preco);
+      if (_montavelConfig) {
+        _montavelConfig.categorias.forEach((cat, ci) => {
+          (rawComps[ci] || []).forEach(oi => {
+            const opt = cat.opcoes[oi];
+            if (opt) composicoes.push({ categoria: cat.nome, opcao: opt.nome, preco: opt.preco || 0 });
+          });
+        });
+        precoUnit = _montavelConfig.pricing_model === 'fixo' ? _montavelConfig.preco_fixo : selectedItem._precoMontavel || precoUnit;
+      } else {
+        composicoes = rawComps;
+      }
+
+      const existing = CART.find(x => x.id === selectedItem.id && x.obs === obs && JSON.stringify(x.composicoes) === JSON.stringify(composicoes));
 
       if (existing) {
         existing.quantity += selectedQty;
-        existing.total = existing.quantity * parseFloat(selectedItem.preco);
+        existing.total = existing.quantity * precoUnit;
       } else {
         CART.push({
           id: selectedItem.id,
           productName: selectedItem.nome,
           productEmoji: selectedItem.emoji,
           quantity: selectedQty,
-          preco: parseFloat(selectedItem.preco),
+          preco: precoUnit,
           obs: obs,
-          composicoes: comps,
+          composicoes: composicoes,
           sector: selectedItem.setor || 'Cozinha 1',
-          total: selectedQty * parseFloat(selectedItem.preco)
+          total: selectedQty * precoUnit
         });
       }
 
@@ -1953,7 +2022,7 @@
           <div class="cart-item-info">
             <div class="cart-item-name">${item.quantity}x ${item.productEmoji || ''} ${item.productName}</div>
             ${item.obs ? `<div style="font-size:11px; color:#888; margin-top:2px;">Obs: ${item.obs}</div>` : ''}
-            ${item.composicoes && item.composicoes.length > 0 ? `<div style="font-size:11px; color:#3b82f6; margin-top:2px; font-weight:600;">Composições: ${item.composicoes.join(', ')}</div>` : ''}
+            ${item.composicoes && item.composicoes.length > 0 ? '<div style="font-size:11px; color:#3b82f6; margin-top:2px; font-weight:600;">Monte: ' + item.composicoes.map(c => (typeof c === 'object' ? c.categoria + ': ' + c.opcao : c)).join(' | ') + '</div>' : ''}
             <span class="cart-item-price">R$ ${item.total.toFixed(2).replace('.', ',')}</span>
           </div>
           <div style="display:flex; flex-direction:column; gap:4px; align-items:center;">

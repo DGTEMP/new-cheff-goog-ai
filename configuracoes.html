@@ -850,6 +850,9 @@
         <button class="admin-tab-btn" data-tab="produtos">
           <i class="ph ph-hamburger"></i> Produtos
         </button>
+        <button class="admin-tab-btn" data-tab="montaveis" style="color:#8b5cf6;">
+          <i class="ph ph-puzzle-piece"></i> Itens Montáveis
+        </button>
         <button class="admin-tab-btn" data-tab="funcionarios">
           <i class="ph ph-users"></i> Funcionários
         </button>
@@ -1601,6 +1604,68 @@
             </thead>
             <tbody id="admin-produtos-list"></tbody>
           </table>
+        </div>
+      </div>
+
+      <!-- TAB ITENS MONTAVEIS -->
+      <div id="admin-tab-montaveis" class="admin-tab-content">
+        <div style="padding:20px;">
+          <h3 style="margin-bottom:8px;"><i class="ph ph-puzzle-piece"></i> Itens Montáveis (Monte o Seu)</h3>
+          <p style="color:#666; font-size:13px; margin-bottom:16px;">Crie itens onde o cliente ou garçom escolhe composições. Defina categorias, opções e modelo de preço.</p>
+
+          <div style="display:flex; gap:8px; margin-bottom:16px;">
+            <button onclick="window.abrirModalMontavel()" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed); color:white; border:none; padding:10px 20px; border-radius:10px; font-weight:700; cursor:pointer; font-size:14px;">
+              <i class="ph ph-plus"></i> Novo Item Montável
+            </button>
+          </div>
+
+          <div id="admin-montaveis-list" style="display:flex; flex-direction:column; gap:12px;"></div>
+        </div>
+      </div>
+
+      <!-- MODAL CRIAR/EDITAR ITEM MONTAVEL -->
+      <div id="modal-montavel" style="display:none; position:fixed; inset:0; z-index:10000; background:rgba(0,0,0,0.5); backdrop-filter:blur(4px); align-items:center; justify-content:center;">
+        <div style="background:white; border-radius:16px; padding:24px; width:95%; max-width:700px; max-height:90vh; overflow-y:auto;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <h3 id="montavel-modal-title" style="margin:0;">Novo Item Montável</h3>
+            <button onclick="document.getElementById('modal-montavel').style.display='none'" style="background:#f1f5f9; border:none; width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:16px;">&times;</button>
+          </div>
+
+          <input type="hidden" id="montavel-edit-id" value="">
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px;">
+            <div>
+              <label style="font-size:12px; font-weight:700; color:#475569; display:block; margin-bottom:4px;">Produto Base *</label>
+              <select id="montavel-produto" style="width:100%; padding:10px; border:1.5px solid #e2e8f0; border-radius:8px; font-size:13px;"></select>
+            </div>
+            <div>
+              <label style="font-size:12px; font-weight:700; color:#475569; display:block; margin-bottom:4px;">Modelo de Preço</label>
+              <select id="montavel-pricing" onchange="window.toggleMontavelPreco()" style="width:100%; padding:10px; border:1.5px solid #e2e8f0; border-radius:8px; font-size:13px;">
+                <option value="soma">Soma das Composições (+R$ por opção)</option>
+                <option value="fixo">Preço Fixo do Item (composições inclusas)</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="montavel-preco-fixo-row" style="display:none; margin-bottom:16px;">
+            <label style="font-size:12px; font-weight:700; color:#475569; display:block; margin-bottom:4px;">Preço Fixo (R$)</label>
+            <input type="number" id="montavel-preco-fixo" step="0.01" min="0" placeholder="0.00" style="width:200px; padding:10px; border:1.5px solid #e2e8f0; border-radius:8px; font-size:13px;">
+          </div>
+
+          <div style="border-top:1px solid #e2e8f0; padding-top:16px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+              <h4 style="margin:0;">Categorias de Composição</h4>
+              <button onclick="window.adicionarCategoriaMontavel()" style="background:#8b5cf6; color:white; border:none; padding:6px 14px; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;">
+                <i class="ph ph-plus"></i> Categoria
+              </button>
+            </div>
+            <div id="montavel-categorias-list"></div>
+          </div>
+
+          <div style="display:flex; gap:8px; margin-top:16px; justify-content:flex-end;">
+            <button onclick="document.getElementById('modal-montavel').style.display='none'" style="background:#f1f5f9; color:#475569; border:none; padding:10px 20px; border-radius:8px; font-weight:700; cursor:pointer;">Cancelar</button>
+            <button onclick="window.salvarMontavel()" style="background:#8b5cf6; color:white; border:none; padding:10px 24px; border-radius:8px; font-weight:700; cursor:pointer;">Salvar</button>
+          </div>
         </div>
       </div>
 

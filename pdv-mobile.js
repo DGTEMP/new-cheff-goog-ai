@@ -634,40 +634,84 @@ window.adicionarProduto = (id) => {
   selectedProduto = prod;
   selectedQtd = 1;
   window._compsMobile = [];
+  _mobileMontavelConfig = null;
 
   document.getElementById('modal-produto-nome').textContent = prod.nome;
   document.getElementById('modal-produto-preco').textContent = `R$ ${prod.preco.toFixed(2).replace('.', ',')}`;
   document.getElementById('modal-produto-qtd').textContent = selectedQtd;
   document.getElementById('modal-produto-obs').value = '';
-  document.getElementById('modal-produto-comps-list').innerHTML = '';
+
+  const compsSection = document.getElementById('modal-produto-comps-section');
+  if (compsSection) compsSection.style.display = 'none';
   document.getElementById('modal-produto').classList.add('active');
+
+  fetch('/api/montaveis/produto/' + prod.id, { headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('chef_token') || '') } })
+    .then(r => r.json())
+    .then(cfg => { if (cfg && cfg.id) { _mobileMontavelConfig = cfg; window.renderMobileMontavelUI(); } })
+    .catch(() => {});
 };
 
-window._compsMobile = [];
+window.renderMobileMontavelUI = () => {
+  const section = document.getElementById('modal-produto-comps-section');
+  const catsContainer = document.getElementById('modal-produto-montavel-cats');
+  const precoEl = document.getElementById('modal-produto-montavel-preco');
+  const hiddenInput = document.getElementById('modal-produto-composicoes-json');
+  if (!section || !_mobileMontavelConfig) { if (section) section.style.display = 'none'; return; }
+  section.style.display = 'block';
+  window._compsMobile = _mobileMontavelConfig.categorias.map(() => []);
 
-window.renderCompsMobile = () => {
-  const list = document.getElementById('modal-produto-comps-list');
-  if (!list) return;
-  list.innerHTML = (window._compsMobile || []).map((c, i) =>
-    '<span style="background:#dbeafe;color:#1e40af;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600;">' + c + ' <button onclick="window._rmCompMobile(' + i + ')" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:12px;padding:0;">&times;</button></span>'
-  ).join('');
+  catsContainer.innerHTML = _mobileMontavelConfig.categorias.map((cat, ci) => {
+    const isSingle = cat.max_escolhas === 1;
+    const optsHtml = cat.opcoes.map((opt, oi) => {
+      const inputType = isSingle ? 'radio' : 'checkbox';
+      const inputName = 'mmontavel-' + ci;
+      return '<label style="display:flex;align-items:center;gap:6px;padding:5px 8px;background:white;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;font-size:12px;">' +
+        '<input type="' + inputType + '" name="' + inputName + '" value="' + oi + '" onchange="window.onMobileMontavelSelect(' + ci + ',' + oi + ',' + isSingle + ')">' +
+        '<span style="flex:1;">' + opt.nome + '</span>' +
+        (opt.preco > 0 ? '<span style="color:#3b82f6;font-weight:700;font-size:11px;">+R$' + opt.preco.toFixed(2).replace('.', ',') + '</span>' : '') +
+        '</label>';
+    }).join('');
+
+    return '<div style="margin-bottom:8px;">' +
+      '<div style="font-size:11px;font-weight:700;color:#475569;margin-bottom:3px;">' + cat.nome +
+      (cat.obrigatoria ? ' <span style="color:#dc2626;">*</span>' : '') +
+      (cat.max_escolhas > 1 ? ' <span style="color:#94a3b8;font-weight:400;">(até ' + cat.max_escolhas + ')</span>' : '') +
+      '</div>' +
+      '<div style="display:flex;flex-direction:column;gap:3px;">' + optsHtml + '</div>' +
+      '</div>';
+  }).join('');
+
+  updateMobileMontavelPrice();
+  if (hiddenInput) hiddenInput.value = JSON.stringify(window._compsMobile);
 };
 
-window.adicionarCompMobile = () => {
-  const inp = document.getElementById('modal-produto-comp-input');
-  if (!inp) return;
-  const val = inp.value.trim();
-  if (!val) return;
-  if (!window._compsMobile) window._compsMobile = [];
-  window._compsMobile.push(val);
-  inp.value = '';
-  window.renderCompsMobile();
+window.onMobileMontavelSelect = (catIdx, optIdx, isSingle) => {
+  if (isSingle) { window._compsMobile[catIdx] = [optIdx]; }
+  else {
+    const arr = window._compsMobile[catIdx];
+    const pos = arr.indexOf(optIdx);
+    if (pos >= 0) arr.splice(pos, 1);
+    else { const max = _mobileMontavelConfig.categorias[catIdx].max_escolhas || 1; if (arr.length < max) arr.push(optIdx); }
+  }
+  updateMobileMontavelPrice();
+  const hiddenInput = document.getElementById('modal-produto-composicoes-json');
+  if (hiddenInput) hiddenInput.value = JSON.stringify(window._compsMobile);
 };
 
-window._rmCompMobile = (idx) => {
-  if (window._compsMobile) window._compsMobile.splice(idx, 1);
-  window.renderCompsMobile();
-};
+function updateMobileMontavelPrice() {
+  const precoEl = document.getElementById('modal-produto-montavel-preco');
+  if (!precoEl || !_mobileMontavelConfig || !selectedProduto) return;
+  let total = _mobileMontavelConfig.pricing_model === 'fixo' ? _mobileMontavelConfig.preco_fixo : selectedProduto.preco;
+  if (_mobileMontavelConfig.pricing_model === 'soma') {
+    _mobileMontavelConfig.categorias.forEach((cat, ci) => {
+      (window._compsMobile[ci] || []).forEach(oi => { if (cat.opcoes[oi]) total += cat.opcoes[oi].preco || 0; });
+    });
+  }
+  precoEl.textContent = 'Total: R$ ' + (total * selectedQtd).toFixed(2).replace('.', ',');
+  precoEl.dataset.unitPrice = total;
+}
+
+window.adicionarCompMobile = () => {};
 
 window.fecharModalProduto = (e) => {
   if (e && e.target !== e.currentTarget) return;
@@ -688,6 +732,23 @@ window.confirmarAdicionarProduto = () => {
   if (!selectedProduto || !currentMesa) return;
 
   const obs = document.getElementById('modal-produto-obs').value.trim();
+  const rawComps = JSON.parse(document.getElementById('modal-produto-composicoes-json') ? (document.getElementById('modal-produto-composicoes-json').value || '[]') : '[]');
+
+  let composicoes = [];
+  let unitPrice = selectedProduto.preco;
+
+  if (_mobileMontavelConfig) {
+    _mobileMontavelConfig.categorias.forEach((cat, ci) => {
+      (rawComps[ci] || []).forEach(oi => {
+        const opt = cat.opcoes[oi];
+        if (opt) composicoes.push({ categoria: cat.nome, opcao: opt.nome, preco: opt.preco || 0 });
+      });
+    });
+    const precoEl = document.getElementById('modal-produto-montavel-preco');
+    unitPrice = precoEl && precoEl.dataset.unitPrice ? parseFloat(precoEl.dataset.unitPrice) : unitPrice;
+  } else {
+    composicoes = rawComps;
+  }
 
   socket.emit('novo_pedido', {
     productName: selectedProduto.nome,
@@ -696,16 +757,17 @@ window.confirmarAdicionarProduto = () => {
     time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
     localName: currentMesa,
     userName: 'Caixa Mobile',
-    total: (selectedProduto.preco * selectedQtd).toFixed(2).replace('.', ','),
+    total: (unitPrice * selectedQtd).toFixed(2).replace('.', ','),
     status: 'Recebido',
     status_inicial: selectedProduto.status_inicial || 'Em espera',
     sector: selectedProduto.setor || 'Cozinha 1',
     mesa_comanda: currentMesa,
     observations: obs,
-    composicoes: window._compsMobile || []
+    composicoes: composicoes
   });
 
   window._compsMobile = [];
+  _mobileMontavelConfig = null;
   showToast(`${selectedQtd}x ${selectedProduto.nome} lancado!`, 'success');
   fecharModalProduto();
 };

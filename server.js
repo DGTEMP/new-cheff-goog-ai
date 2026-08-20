@@ -5,6 +5,7 @@ const originalError = console.error;
 
 let isMatrixAnimating = true;
 const pendingLogs = [];
+let tableGames = {};
 
 // ══════════════════════════════════════════════════════════
 // 🎉 ANIMAÇÃO DE VITÓRIA — NOVO RESTAURANTE CADASTRADO
@@ -3726,6 +3727,33 @@ db.serialize(() => {
   db.run(`ALTER TABLE pedidos ADD COLUMN composicoes TEXT`, (err) => { });
   db.run(`ALTER TABLE promocoes ADD COLUMN config TEXT`, (err) => { });
 
+  // --- ITENS MONTÁVEIS (Build Your Own) ---
+  db.run(`CREATE TABLE IF NOT EXISTS itens_montaveis (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    produto_id INTEGER,
+    pricing_model TEXT DEFAULT 'soma',
+    preco_fixo REAL DEFAULT 0,
+    ativo INTEGER DEFAULT 1,
+    criado_em DATETIME DEFAULT (datetime('now', 'localtime'))
+  )`, (err) => { });
+  db.run(`CREATE TABLE IF NOT EXISTS montavel_categorias (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    montavel_id INTEGER,
+    nome TEXT,
+    obrigatoria INTEGER DEFAULT 0,
+    min_escolhas INTEGER DEFAULT 0,
+    max_escolhas INTEGER DEFAULT 1,
+    ordem INTEGER DEFAULT 0
+  )`, (err) => { });
+  db.run(`CREATE TABLE IF NOT EXISTS montavel_opcoes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    categoria_id INTEGER,
+    nome TEXT,
+    preco REAL DEFAULT 0,
+    ativo INTEGER DEFAULT 1,
+    ordem INTEGER DEFAULT 0
+  )`, (err) => { });
+
   // Inscrições de notificações push (Web Push) por dispositivo
   db.run(`
     CREATE TABLE IF NOT EXISTS push_subscriptions (
@@ -5013,6 +5041,70 @@ io.on('connection', (socket) => {
 
   // Tenants sem token (ex.: cliente que escaneou o QR do cardápio) usam o
   // restaurante_id informado na própria URL/query do socket.
+  
+  // --- GAMIFICACAO / JOGOS DE MESA ---
+  socket.on('game_create_lobby', (data) => {
+    const roomId = socketTenantId + '_' + data.mesa;
+    const cid = data.cliente_id || socket.id;
+    tableGames[roomId] = {
+      status: 'waiting', type: data.type, prize: data.prize, host: cid,
+      players: { [cid]: { name: data.cliente_nome || 'Cliente 1', id: cid, ready: true, choice: null, actionTime: null } },
+      winner: null
+    };
+    io.to('restaurante_' + socketTenantId).emit('game_lobby_updated', { mesa: data.mesa, game: tableGames[roomId] });
+  });
+
+  socket.on('game_join_lobby', (data) => {
+    const roomId = socketTenantId + '_' + data.mesa;
+    const game = tableGames[roomId];
+    if(game && game.status === 'waiting') {
+      const cid = data.cliente_id || socket.id;
+      game.players[cid] = { name: data.cliente_nome || 'Cliente 2', id: cid, ready: true, choice: null, actionTime: null };
+      if(Object.keys(game.players).length >= 2) game.status = 'playing';
+      io.to('restaurante_' + socketTenantId).emit('game_lobby_updated', { mesa: data.mesa, game });
+    }
+  });
+
+  socket.on('game_action', (data) => {
+    const roomId = socketTenantId + '_' + data.mesa;
+    const game = tableGames[roomId];
+    if(!game || game.status !== 'playing') return;
+    const cid = data.cliente_id || socket.id;
+    if(game.players[cid]) {
+      game.players[cid].choice = data.choice;
+      game.players[cid].actionTime = Date.now();
+      const pKeys = Object.keys(game.players);
+      const allPlayed = pKeys.every(k => game.players[k].choice !== null);
+      if(allPlayed) {
+        game.status = 'finished';
+        if(game.type === 'par_impar') {
+          const p1 = game.players[pKeys[0]]; const p2 = game.players[pKeys[1]];
+          const isPar = ((p1.choice.fingers || 0) + (p2.choice.fingers || 0)) % 2 === 0;
+          game.winner = (p1.choice.side === 'par' && isPar) || (p1.choice.side === 'impar' && !isPar) ? p1.id : p2.id;
+        } else if (game.type === 'reflexo') {
+          const p1 = game.players[pKeys[0]]; const p2 = game.players[pKeys[1]];
+          game.winner = p1.actionTime < p2.actionTime ? p1.id : p2.id;
+        }
+        io.to('restaurante_' + socketTenantId).emit('game_lobby_updated', { mesa: data.mesa, game });
+        setTimeout(() => {
+          if(tableGames[roomId] === game) delete tableGames[roomId];
+          io.to('restaurante_' + socketTenantId).emit('game_lobby_updated', { mesa: data.mesa, game: null });
+        }, 15000);
+      }
+    }
+  });
+  
+  socket.on('game_cancel', (data) => {
+    const roomId = socketTenantId + '_' + data.mesa;
+    if(tableGames[roomId]) { delete tableGames[roomId]; io.to('restaurante_' + socketTenantId).emit('game_lobby_updated', { mesa: data.mesa, game: null }); }
+  });
+
+  socket.on('get_table_game', (data) => {
+    const roomId = socketTenantId + '_' + data.mesa;
+    socket.emit('game_lobby_updated', { mesa: data.mesa, game: tableGames[roomId] || null });
+  });
+  // --- FIM GAMIFICACAO ---
+
   if (!socket.auth) {
     const qrid = parseInt(socket.handshake.query.restaurante_id, 10);
     if (Number.isFinite(qrid) && qrid > 0) socketTenantId = qrid;
@@ -10165,6 +10257,131 @@ app.post('/api/config', verificarToken, (req, res) => {
     broadcastProdutos(); // Força envio atualizado com Destaques
     res.json({ success: true });
   }, 500);
+});
+
+// --- ITENS MONTÁVEIS CRUD ---
+app.get('/api/montaveis', verificarToken, (req, res) => {
+  withTenant(req, () => {
+    db.all(`SELECT m.*, p.nome AS produto_nome, p.emoji AS produto_emoji
+            FROM itens_montaveis m LEFT JOIN produtos p ON m.produto_id = p.id
+            WHERE m.ativo = 1 ORDER BY m.id DESC`, [], (err, rows) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json(rows || []);
+    });
+  });
+});
+
+app.get('/api/montaveis/:id', verificarToken, (req, res) => {
+  const mid = parseInt(req.params.id);
+  if (!mid) return res.status(400).json({ error: 'ID inválido' });
+  withTenant(req, () => {
+    db.get(`SELECT m.*, p.nome AS produto_nome FROM itens_montaveis m LEFT JOIN produtos p ON m.produto_id = p.id WHERE m.id = ?`, [mid], (eM, mRow) => {
+      if (eM || !mRow) return res.status(404).json({ error: 'Item não encontrado' });
+      db.all(`SELECT * FROM montavel_categorias WHERE montavel_id = ? ORDER BY ordem, id`, [mid], (eC, cats) => {
+        const catList = cats || [];
+        if (catList.length === 0) return res.json({ ...mRow, categorias: [] });
+        const catIds = catList.map(c => c.id);
+        const ph = catIds.map(() => '?').join(',');
+        db.all(`SELECT * FROM montavel_opcoes WHERE categoria_id IN (${ph}) ORDER BY ordem, id`, catIds, (eO, opts) => {
+          const allOpts = opts || [];
+          catList.forEach(cat => {
+            cat.opcoes = allOpts.filter(o => o.categoria_id === cat.id);
+          });
+          res.json({ ...mRow, categorias: catList });
+        });
+      });
+    });
+  });
+});
+
+app.post('/api/montaveis', verificarToken, (req, res) => {
+  const { produto_id, pricing_model, preco_fixo, categorias } = req.body || {};
+  if (!produto_id) return res.status(400).json({ error: 'produto_id obrigatório' });
+  withTenant(req, () => {
+    db.run(`INSERT INTO itens_montaveis (produto_id, pricing_model, preco_fixo) VALUES (?, ?, ?)`,
+      [produto_id, pricing_model || 'soma', preco_fixo || 0], function (err) {
+        if (err) return res.status(500).json({ error: err.message });
+        const mid = this.lastID;
+        insertCategorias(mid, categorias || [], () => {
+          res.json({ success: true, id: mid });
+        });
+      });
+  });
+});
+
+app.put('/api/montaveis/:id', verificarToken, (req, res) => {
+  const mid = parseInt(req.params.id);
+  if (!mid) return res.status(400).json({ error: 'ID inválido' });
+  const { produto_id, pricing_model, preco_fixo, categorias } = req.body || {};
+  withTenant(req, () => {
+    db.run(`UPDATE itens_montaveis SET produto_id = ?, pricing_model = ?, preco_fixo = ? WHERE id = ?`,
+      [produto_id, pricing_model || 'soma', preco_fixo || 0, mid], (err) => {
+        if (err) return res.status(500).json({ error: err.message });
+        db.run(`DELETE FROM montavel_opcoes WHERE categoria_id IN (SELECT id FROM montavel_categorias WHERE montavel_id = ?)`, [mid], () => {
+          db.run(`DELETE FROM montavel_categorias WHERE montavel_id = ?`, [mid], () => {
+            insertCategorias(mid, categorias || [], () => {
+              res.json({ success: true });
+            });
+          });
+        });
+      });
+  });
+});
+
+app.delete('/api/montaveis/:id', verificarToken, (req, res) => {
+  const mid = parseInt(req.params.id);
+  if (!mid) return res.status(400).json({ error: 'ID inválido' });
+  withTenant(req, () => {
+    db.run(`DELETE FROM montavel_opcoes WHERE categoria_id IN (SELECT id FROM montavel_categorias WHERE montavel_id = ?)`, [mid], () => {
+      db.run(`DELETE FROM montavel_categorias WHERE montavel_id = ?`, [mid], () => {
+        db.run(`DELETE FROM itens_montaveis WHERE id = ?`, [mid], (err) => {
+          if (err) return res.status(500).json({ error: err.message });
+          res.json({ success: true });
+        });
+      });
+    });
+  });
+});
+
+function insertCategorias(montavelId, cats, done) {
+  if (!cats.length) return done();
+  let pending = cats.length;
+  cats.forEach((cat, ci) => {
+    db.run(`INSERT INTO montavel_categorias (montavel_id, nome, obrigatoria, min_escolhas, max_escolhas, ordem) VALUES (?, ?, ?, ?, ?, ?)`,
+      [montavelId, cat.nome || '', cat.obrigatoria ? 1 : 0, cat.min_escolhas || 0, cat.max_escolhas || 1, ci], function (err) {
+        if (err || !cat.opcoes || !cat.opcoes.length) { if (--pending === 0) done(); return; }
+        const catId = this.lastID;
+        let optPending = cat.opcoes.length;
+        cat.opcoes.forEach((opt, oi) => {
+          db.run(`INSERT INTO montavel_opcoes (categoria_id, nome, preco, ativo, ordem) VALUES (?, ?, ?, ?, ?)`,
+            [catId, opt.nome || '', opt.preco || 0, opt.ativo !== undefined ? (opt.ativo ? 1 : 0) : 1, oi], () => {
+              if (--optPending === 0 && --pending === 0) done();
+            });
+        });
+      });
+  });
+}
+
+// Buscar config de montável para um produto específico
+app.get('/api/montaveis/produto/:produtoId', verificarToken, (req, res) => {
+  const pid = parseInt(req.params.produtoId);
+  if (!pid) return res.status(400).json({ error: 'ID inválido' });
+  withTenant(req, () => {
+    db.get(`SELECT * FROM itens_montaveis WHERE produto_id = ? AND ativo = 1`, [pid], (eM, mRow) => {
+      if (eM || !mRow) return res.json(null);
+      const mid = mRow.id;
+      db.all(`SELECT * FROM montavel_categorias WHERE montavel_id = ? ORDER BY ordem, id`, [mid], (eC, cats) => {
+        const catList = cats || [];
+        if (catList.length === 0) return res.json({ ...mRow, categorias: [] });
+        const catIds = catList.map(c => c.id);
+        const ph = catIds.map(() => '?').join(',');
+        db.all(`SELECT * FROM montavel_opcoes WHERE categoria_id IN (${ph}) AND ativo = 1 ORDER BY ordem, id`, catIds, (eO, opts) => {
+          catList.forEach(cat => { cat.opcoes = (opts || []).filter(o => o.categoria_id === cat.id); });
+          res.json({ ...mRow, categorias: catList });
+        });
+      });
+    });
+  });
 });
 
 // --- ENDPOINT TESTE DE CONEXÃO COM MAQUININHA ---

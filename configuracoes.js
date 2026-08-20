@@ -1097,6 +1097,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (btn.getAttribute('data-tab') === 'jogos') {
         if (typeof initAdminJogos === 'function') initAdminJogos();
       }
+      if (btn.getAttribute('data-tab') === 'montaveis') {
+        if (typeof initAdminMontaveis === 'function') initAdminMontaveis();
+      }
     });
   });
 });
@@ -6631,4 +6634,165 @@ window.salvarConfigJogos = function() {
     if (d.ok) { showToast('Configuracoes de jogos salvas!', 'success'); }
     else { showToast('Erro ao salvar: ' + (d.erro || 'desconhecido'), 'danger'); }
   }).catch(function() { showToast('Erro de conexao ao salvar.', 'danger'); });
+};
+
+// --- ITENS MONTÁVEIS ---
+let _montavelCatsTemp = [];
+
+window.toggleMontavelPreco = function() {
+  const model = document.getElementById('montavel-pricing').value;
+  const row = document.getElementById('montavel-preco-fixo-row');
+  if (row) row.style.display = model === 'fixo' ? 'block' : 'none';
+};
+
+window.initAdminMontaveis = function() {
+  const token = localStorage.getItem('chef_token');
+  fetch('/api/montaveis', { headers: { 'Authorization': 'Bearer ' + token } })
+    .then(r => r.json())
+    .then(rows => window.renderAdminMontaveis(rows))
+    .catch(() => {});
+};
+
+window.renderAdminMontaveis = function(rows) {
+  const list = document.getElementById('admin-montaveis-list');
+  if (!list) return;
+  if (!rows || rows.length === 0) {
+    list.innerHTML = '<div style="text-align:center; padding:40px; color:#94a3b8;"><i class="ph ph-puzzle-piece" style="font-size:48px; display:block; margin-bottom:8px;"></i>Nenhum item montável criado.<br>Clique em "Novo Item Montável" para começar.</div>';
+    return;
+  }
+  list.innerHTML = rows.map(m => {
+    const pricing = m.pricing_model === 'fixo' ? 'Preço Fixo R$ ' + Number(m.preco_fixo || 0).toFixed(2).replace('.', ',') : 'Soma das composições';
+    return '<div style="background:white; border:1px solid #e2e8f0; border-radius:12px; padding:16px; display:flex; justify-content:space-between; align-items:center;">' +
+      '<div>' +
+      '<div style="font-weight:700; font-size:15px;">' + (m.produto_emoji || '🍽️') + ' ' + escHtml(m.produto_nome || 'Produto #' + m.produto_id) + '</div>' +
+      '<div style="font-size:12px; color:#64748b; margin-top:2px;">' + escHtml(pricing) + '</div>' +
+      '</div>' +
+      '<div style="display:flex; gap:6px;">' +
+      '<button onclick="window.editarMontavel(' + m.id + ')" style="background:#f1f5f9; border:none; padding:6px 12px; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer;">Editar</button>' +
+      '<button onclick="window.excluirMontavel(' + m.id + ')" style="background:#fef2f2; color:#dc2626; border:none; padding:6px 12px; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer;">Excluir</button>' +
+      '</div></div>';
+  }).join('');
+};
+
+window.abrirModalMontavel = function(montavel) {
+  const modal = document.getElementById('modal-montavel');
+  const title = document.getElementById('montavel-modal-title');
+  const idField = document.getElementById('montavel-edit-id');
+  const prodSel = document.getElementById('montavel-produto');
+  const pricingSel = document.getElementById('montavel-pricing');
+  const precoFixo = document.getElementById('montavel-preco-fixo');
+
+  if (montavel) {
+    title.textContent = 'Editar Item Montável';
+    idField.value = montavel.id;
+    pricingSel.value = montavel.pricing_model || 'soma';
+    precoFixo.value = montavel.preco_fixo || 0;
+    document.getElementById('montavel-preco-fixo-row').style.display = montavel.pricing_model === 'fixo' ? 'block' : 'none';
+  } else {
+    title.textContent = 'Novo Item Montável';
+    idField.value = '';
+    pricingSel.value = 'soma';
+    precoFixo.value = '';
+    document.getElementById('montavel-preco-fixo-row').style.display = 'none';
+  }
+
+  const token = localStorage.getItem('chef_token');
+  fetch('/api/config/produtos', { headers: { 'Authorization': 'Bearer ' + token } })
+    .then(r => r.json())
+    .then(produtos => {
+      prodSel.innerHTML = '<option value="">Selecione o produto...</option>' + produtos.map(p =>
+        '<option value="' + p.id + '" ' + (montavel && montavel.produto_id == p.id ? 'selected' : '') + '>' + (p.emoji || '') + ' ' + escHtml(p.nome) + ' (R$ ' + Number(p.preco).toFixed(2).replace('.', ',') + ')</option>'
+      ).join('');
+    });
+
+  if (montavel && montavel.id) {
+    fetch('/api/montaveis/' + montavel.id, { headers: { 'Authorization': 'Bearer ' + token } })
+      .then(r => r.json())
+      .then(data => {
+        _montavelCatsTemp = (data.categorias || []).map(c => ({
+          nome: c.nome,
+          obrigatoria: c.obrigatoria,
+          min_escolhas: c.min_escolhas || 0,
+          max_escolhas: c.max_escolhas || 1,
+          opcoes: (c.opcoes || []).map(o => ({ nome: o.nome, preco: o.preco || 0, ativo: o.ativo !== 0 }))
+        }));
+        window.renderMontavelCats();
+      });
+  } else {
+    _montavelCatsTemp = [];
+    window.renderMontavelCats();
+  }
+
+  modal.style.display = 'flex';
+};
+
+window.editarMontavel = function(id) {
+  const token = localStorage.getItem('chef_token');
+  fetch('/api/montaveis/' + id, { headers: { 'Authorization': 'Bearer ' + token } })
+    .then(r => r.json())
+    .then(data => window.abrirModalMontavel(data));
+};
+
+window.excluirMontavel = function(id) {
+  if (!confirm('Excluir este item montável?')) return;
+  const token = localStorage.getItem('chef_token');
+  fetch('/api/montaveis/' + id, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + token } })
+    .then(r => r.json())
+    .then(() => { window.initAdminMontaveis(); showToast('Item montável excluído!', 'success'); });
+};
+
+window.renderMontavelCats = function() {
+  const list = document.getElementById('montavel-categorias-list');
+  if (!list) return;
+  list.innerHTML = _montavelCatsTemp.map((cat, ci) => {
+    const optsHtml = (cat.opcoes || []).map((opt, oi) =>
+      '<div style="display:flex; gap:6px; align-items:center; padding:4px 0; border-bottom:1px solid #f1f5f9;">' +
+      '<input type="text" value="' + escHtml(opt.nome) + '" onchange="_montavelCatsTemp[' + ci + '].opcoes[' + oi + '].nome=this.value" placeholder="Nome da opção" style="flex:1; padding:6px 8px; border:1px solid #e2e8f0; border-radius:6px; font-size:12px;">' +
+      '<input type="number" step="0.01" min="0" value="' + (opt.preco || 0) + '" onchange="_montavelCatsTemp[' + ci + '].opcoes[' + oi + '].preco=parseFloat(this.value)||0" placeholder="+R$" style="width:80px; padding:6px 8px; border:1px solid #e2e8f0; border-radius:6px; font-size:12px;">' +
+      '<button onclick="_montavelCatsTemp[' + ci + '].opcoes.splice(' + oi + ',1);window.renderMontavelCats()" style="background:none; border:none; color:#dc2626; cursor:pointer; font-size:14px; padding:0 4px;">&times;</button>' +
+      '</div>'
+    ).join('');
+
+    return '<div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px; margin-bottom:8px;">' +
+      '<div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">' +
+      '<input type="text" value="' + escHtml(cat.nome) + '" onchange="_montavelCatsTemp[' + ci + '].nome=this.value" placeholder="Nome da categoria (ex: Recheio, Borda)" style="flex:1; padding:6px 8px; border:1px solid #e2e8f0; border-radius:6px; font-size:13px; font-weight:600;">' +
+      '<label style="font-size:11px; display:flex; align-items:center; gap:3px; white-space:nowrap;"><input type="checkbox" ' + (cat.obrigatoria ? 'checked' : '') + ' onchange="_montavelCatsTemp[' + ci + '].obrigatoria=this.checked?1:0"> Obrigatória</label>' +
+      '<label style="font-size:11px; white-space:nowrap;">Min: <input type="number" min="0" max="20" value="' + (cat.min_escolhas || 0) + '" onchange="_montavelCatsTemp[' + ci + '].min_escolhas=parseInt(this.value)||0" style="width:40px; padding:4px; border:1px solid #e2e8f0; border-radius:4px; font-size:11px;"></label>' +
+      '<label style="font-size:11px; white-space:nowrap;">Max: <input type="number" min="1" max="20" value="' + (cat.max_escolhas || 1) + '" onchange="_montavelCatsTemp[' + ci + '].max_escolhas=parseInt(this.value)||1" style="width:40px; padding:4px; border:1px solid #e2e8f0; border-radius:4px; font-size:11px;"></label>' +
+      '<button onclick="_montavelCatsTemp.splice(' + ci + ',1);window.renderMontavelCats()" style="background:#fef2f2; color:#dc2626; border:none; padding:4px 8px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer;">Remover</button>' +
+      '</div>' +
+      '<div style="padding-left:12px;">' + optsHtml + '</div>' +
+      '<button onclick="_montavelCatsTemp[' + ci + '].opcoes.push({nome:\'\',preco:0,ativo:1});window.renderMontavelCats()" style="background:none; border:1px dashed #8b5cf6; color:#8b5cf6; padding:4px 10px; border-radius:6px; font-size:11px; font-weight:600; cursor:pointer; margin-top:4px;">+ Adicionar Opção</button>' +
+      '</div>';
+  }).join('');
+};
+
+window.adicionarCategoriaMontavel = function() {
+  _montavelCatsTemp.push({ nome: '', obrigatoria: 1, min_escolhas: 1, max_escolhas: 1, opcoes: [{ nome: '', preco: 0, ativo: 1 }] });
+  window.renderMontavelCats();
+};
+
+window.salvarMontavel = function() {
+  const id = document.getElementById('montavel-edit-id').value;
+  const produto_id = parseInt(document.getElementById('montavel-produto').value);
+  const pricing_model = document.getElementById('montavel-pricing').value;
+  const preco_fixo = parseFloat(document.getElementById('montavel-preco-fixo').value) || 0;
+
+  if (!produto_id) { showToast('Selecione um produto!', 'danger'); return; }
+  if (_montavelCatsTemp.length === 0) { showToast('Adicione pelo menos uma categoria!', 'danger'); return; }
+
+  const body = { produto_id, pricing_model, preco_fixo, categorias: _montavelCatsTemp };
+  const token = localStorage.getItem('chef_token');
+  const url = id ? '/api/montaveis/' + id : '/api/montaveis';
+  const method = id ? 'PUT' : 'POST';
+
+  fetch(url, { method, headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    .then(r => r.json())
+    .then(d => {
+      if (d.success || d.id) {
+        document.getElementById('modal-montavel').style.display = 'none';
+        window.initAdminMontaveis();
+        showToast('Item montável salvo!', 'success');
+      } else { showToast('Erro: ' + (d.error || 'desconhecido'), 'danger'); }
+    });
 };

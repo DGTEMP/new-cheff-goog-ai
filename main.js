@@ -3206,23 +3206,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (item) item.observations = String(texto || '');
   };
 
-  window.pdvAddComp = (idx, texto) => {
-    const item = window.pdvCart[idx];
-    if (!item) return;
-    const val = (texto || '').trim();
-    if (!val) return;
-    if (!item.composicoes) item.composicoes = [];
-    item.composicoes.push(val);
-    window.renderPdvCart();
-  };
-
-  window.pdvRmComp = (idx, ci) => {
-    const item = window.pdvCart[idx];
-    if (!item || !item.composicoes) return;
-    item.composicoes.splice(ci, 1);
-    window.renderPdvCart();
-  };
-
   window.podeVendaRapida = () => {
     const roles = ['admin', 'administrador', 'gerente', 'caixa', 'operador de caixa', 'caixa / pdv', 'adm'];
     const check = (creds) => {
@@ -3311,10 +3294,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <span style="color: gray; font-size: 13px;">x ${item.quantity}</span>
               </div>
               <input type="text" maxlength="140" placeholder="Observação (opcional)" value="${escHtml(item.observations || '')}" oninput="window.pdvSetObservacao(${idx}, this.value)" style="width: 100%; margin-top: 4px; padding: 3px 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px; box-sizing: border-box;">
-              <div style="display:flex; gap:4px; margin-top:3px; align-items:center;">
-                <input type="text" placeholder="Composição (Enter p/ add)" id="pdv-comp-${idx}" onkeydown="if(event.key==='Enter'){event.preventDefault();window.pdvAddComp(${idx},this.value);this.value='';}" style="flex:1; padding:3px 6px; border:1px solid #ddd; border-radius:4px; font-size:11px; box-sizing:border-box;">
-              </div>
-              ${item.composicoes && item.composicoes.length > 0 ? '<div style="display:flex;flex-wrap:wrap;gap:2px;margin-top:2px;">' + item.composicoes.map((c,ci) => '<span style="background:#dbeafe;color:#1e40af;padding:1px 5px;border-radius:3px;font-size:10px;font-weight:600;">' + escHtml(c) + ' <button onclick="window.pdvRmComp(' + idx + ',' + ci + ')" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:10px;padding:0;margin-left:2px;">&times;</button></span>').join('') + '</div>' : ''}
+              ${item.composicoes && item.composicoes.length > 0 ? '<div style="display:flex;flex-wrap:wrap;gap:2px;margin-top:3px;">' + item.composicoes.map(c => '<span style="background:#dbeafe;color:#1e40af;padding:1px 5px;border-radius:3px;font-size:10px;font-weight:600;">' + escHtml(typeof c === 'object' ? (c.categoria + ': ' + c.opcao) : c) + '</span>').join('') + '</div>' : ''}
             </div>
             <div style="display: flex; align-items: center; gap: 8px;">
               <button onclick="window.pdvRemoveFromCart(${idx})" style="background: #eee; border: none; border-radius: 4px; width: 24px; height: 24px; cursor: pointer; font-weight: bold;">-</button>

@@ -883,10 +883,10 @@ body.light .conta-total-row { border-top-color: #ccc; }
           '<button onclick="mudarQty(1)">+</button>' +
         '</div>' +
         '<textarea id="d-obs" placeholder="Observa&ccedil;&otilde;es (opcional)"></textarea>' +
-        '<div id="d-comps-list" style="margin-bottom:4px;"></div>' +
-        '<div style="display:flex;gap:4px;"><input type="text" id="d-comp" placeholder="Composi&ccedil;&atilde;o" style="flex:1;padding:6px;border:1px solid #ddd;border-radius:6px;font-size:12px;"><button onclick="addLiteComp()" style="padding:6px 10px;background:#22c55e;color:white;border:none;border-radius:6px;font-weight:700;cursor:pointer;">+</button></div>' +
+        '<div id="d-comps-section" style="display:none;margin-bottom:4px;"><div id="d-montavel-cats"></div><div id="d-montavel-preco" style="font-weight:700;color:#8b5cf6;margin-top:4px;font-size:14px;"></div><input type="hidden" id="d-comps-json" value="[]"></div>' +
         '<button class="btn-full" onclick="addCarrinho()">Adicionar — ' + total + '</button>' +
       '</div>';
+    fetchLiteMontavel(p.id);
   }
 
   window.mudarQty = function(delta) {
@@ -903,25 +903,101 @@ body.light .conta-total-row { border-top-color: #ccc; }
   };
 
   var _liteComps = [];
-  window.addLiteComp = function() {
-    var inp = $('d-comp');
-    if (!inp) return;
-    var val = inp.value.trim();
-    if (!val) return;
-    _liteComps.push(val);
-    inp.value = '';
-    var list = $('d-comps-list');
-    if (list) list.innerHTML = _liteComps.map(function(c,i) { return '<span style="background:#dbeafe;color:#1e40af;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600;">' + c + ' <button onclick="_liteComps.splice('+i+',1);addLiteComp();" style="background:none;border:none;color:red;">&times;</button></span>'; }).join(' ');
+  var _liteMontavelConfig = null;
+
+  function fetchLiteMontavel(productId) {
+    _liteMontavelConfig = null;
+    _liteComps = [];
+    var section = $('d-comps-section');
+    if (section) section.style.display = 'none';
+    fetch('/api/montaveis/produto/' + productId, { headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('chef_token') || '') } })
+      .then(function(r) { return r.json(); })
+      .then(function(cfg) { if (cfg && cfg.id) { _liteMontavelConfig = cfg; renderLiteMontavelUI(); } })
+      .catch(function() {});
+  }
+
+  function renderLiteMontavelUI() {
+    var section = $('d-comps-section');
+    var catsContainer = $('d-montavel-cats');
+    var precoEl = $('d-montavel-preco');
+    var hiddenInput = $('d-comps-json');
+    if (!section || !_liteMontavelConfig) { if (section) section.style.display = 'none'; return; }
+    section.style.display = 'block';
+    _liteComps = _liteMontavelConfig.categorias.map(function() { return []; });
+
+    catsContainer.innerHTML = _liteMontavelConfig.categorias.map(function(cat, ci) {
+      var isSingle = cat.max_escolhas === 1;
+      var optsHtml = cat.opcoes.map(function(opt, oi) {
+        var inputType = isSingle ? 'radio' : 'checkbox';
+        var inputName = 'lmont-' + ci;
+        return '<label style="display:flex;align-items:center;gap:6px;padding:5px 8px;background:white;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;font-size:12px;">' +
+          '<input type="' + inputType + '" name="' + inputName + '" value="' + oi + '" onchange="window.onLiteMontavelSelect(' + ci + ',' + oi + ',' + isSingle + ')">' +
+          '<span style="flex:1;">' + escHtml(opt.nome) + '</span>' +
+          (opt.preco > 0 ? '<span style="color:#3b82f6;font-weight:700;font-size:11px;">+R$' + opt.preco.toFixed(2).replace('.', ',') + '</span>' : '') +
+          '</label>';
+      }).join('');
+      return '<div style="margin-bottom:8px;"><div style="font-size:11px;font-weight:700;color:#475569;margin-bottom:3px;">' + escHtml(cat.nome) +
+        (cat.obrigatoria ? ' <span style="color:#dc2626;">*</span>' : '') +
+        (cat.max_escolhas > 1 ? ' <span style="color:#94a3b8;font-weight:400;">(até ' + cat.max_escolhas + ')</span>' : '') +
+        '</div><div style="display:flex;flex-direction:column;gap:3px;">' + optsHtml + '</div></div>';
+    }).join('');
+    updateLiteMontavelPrice();
+    if (hiddenInput) hiddenInput.value = JSON.stringify(_liteComps);
+  }
+
+  window.onLiteMontavelSelect = function(catIdx, optIdx, isSingle) {
+    if (isSingle) { _liteComps[catIdx] = [optIdx]; }
+    else {
+      var arr = _liteComps[catIdx];
+      var pos = arr.indexOf(optIdx);
+      if (pos >= 0) arr.splice(pos, 1);
+      else { var max = _liteMontavelConfig.categorias[catIdx].max_escolhas || 1; if (arr.length < max) arr.push(optIdx); }
+    }
+    updateLiteMontavelPrice();
+    var hiddenInput = $('d-comps-json');
+    if (hiddenInput) hiddenInput.value = JSON.stringify(_liteComps);
   };
+
+  function updateLiteMontavelPrice() {
+    var precoEl = $('d-montavel-preco');
+    if (!precoEl || !_liteMontavelConfig || !PROD_ATUAL) return;
+    var total = _liteMontavelConfig.pricing_model === 'fixo' ? _liteMontavelConfig.preco_fixo : PROD_ATUAL.preco;
+    if (_liteMontavelConfig.pricing_model === 'soma') {
+      _liteMontavelConfig.categorias.forEach(function(cat, ci) {
+        (_liteComps[ci] || []).forEach(function(oi) { if (cat.opcoes[oi]) total += cat.opcoes[oi].preco || 0; });
+      });
+    }
+    precoEl.textContent = 'Total: R$ ' + (total * QTY_ATUAL).toFixed(2).replace('.', ',');
+  }
+
+  window.addLiteComp = function() {};
 
   /* ═══ ADD TO CART ═══ */
   window.addCarrinho = function() {
     if (!PROD_ATUAL) return;
     var obs = ($('d-obs') ? $('d-obs').value : '') || '';
+    var rawComps = JSON.parse($('d-comps-json') ? ($('d-comps-json').value || '[]') : '[]');
+    var composicoes = [];
+    var unitPrice = PROD_ATUAL.preco;
+
+    if (_liteMontavelConfig) {
+      _liteMontavelConfig.categorias.forEach(function(cat, ci) {
+        (rawComps[ci] || []).forEach(function(oi) {
+          var opt = cat.opcoes[oi];
+          if (opt) composicoes.push({ categoria: cat.nome, opcao: opt.nome, preco: opt.preco || 0 });
+        });
+      });
+      var precoEl = $('d-montavel-preco');
+      unitPrice = precoEl && precoEl.dataset.unitPrice ? parseFloat(precoEl.dataset.unitPrice) : unitPrice;
+    } else {
+      composicoes = rawComps;
+    }
+
     var found = false;
     for (var i = 0; i < CART.length; i++) {
-      if (CART[i].id === PROD_ATUAL.id && CART[i].obs === obs) {
+      if (CART[i].id === PROD_ATUAL.id && CART[i].obs === obs && JSON.stringify(CART[i].composicoes) === JSON.stringify(composicoes)) {
         CART[i].qty += QTY_ATUAL;
+        CART[i].total = CART[i].qty * unitPrice;
         found = true;
         break;
       }
@@ -931,17 +1007,16 @@ body.light .conta-total-row { border-top-color: #ccc; }
         id: PROD_ATUAL.id,
         nome: PROD_ATUAL.nome,
         emoji: PROD_ATUAL.emoji,
-        preco: PROD_ATUAL.preco,
+        preco: unitPrice,
         setor: PROD_ATUAL.setor,
         status_inicial: PROD_ATUAL.status_inicial,
         qty: QTY_ATUAL,
         obs: obs,
-        composicoes: _liteComps.slice()
+        composicoes: composicoes
       });
     }
     _liteComps = [];
-    var compsList = $('d-comps-list');
-    if (compsList) compsList.innerHTML = '';
+    _liteMontavelConfig = null;
     showToast('Adicionado ao carrinho!');
     voltarMenu();
   };
@@ -977,7 +1052,7 @@ body.light .conta-total-row { border-top-color: #ccc; }
       h += '<div class="ci-nome">' + item.emoji + ' ' + item.nome + '</div>';
       h += '<div class="ci-qty">' + item.qty + 'x R$ ' + item.preco.toFixed(2).replace('.', ',') + '</div>';
       if (item.obs) h += '<div class="ci-obs">Obs: ' + item.obs + '</div>';
-      if (item.composicoes && item.composicoes.length > 0) h += '<div class="ci-obs" style="color:#3b82f6;font-weight:600;">Composições: ' + item.composicoes.join(', ') + '</div>';
+      if (item.composicoes && item.composicoes.length > 0) h += '<div class="ci-obs" style="color:#3b82f6;font-weight:600;">Monte: ' + item.composicoes.map(function(c) { return typeof c === 'object' ? c.categoria + ': ' + c.opcao : c; }).join(' | ') + '</div>';
       h += '<div class="ci-rm" onclick="removerItem(' + i + ')">Remover</div>';
       h += '</div>';
       h += '<div class="ci-right">';
@@ -1474,7 +1549,7 @@ body.light .conta-total-row { border-top-color: #ccc; }
         if (item.observations) h += '<div class="ci-obs">' + item.observations + '</div>';
         try {
           var comps = typeof item.composicoes === 'string' ? JSON.parse(item.composicoes) : (item.composicoes || []);
-          if (comps.length > 0) h += '<div class="ci-obs" style="color:#3b82f6;font-weight:600;">Composições: ' + comps.join(', ') + '</div>';
+          if (comps.length > 0) h += '<div class="ci-obs" style="color:#3b82f6;font-weight:600;">Monte: ' + comps.map(function(c) { return typeof c === 'object' ? c.categoria + ': ' + c.opcao : c; }).join(' | ') + '</div>';
         } catch(e) {}
         h += '</div>';
         h += '<div class="ci-unit">R$ ' + unitPrice.toFixed(2).replace('.', ',') + '</div>';
