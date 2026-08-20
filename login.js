@@ -53,7 +53,17 @@ async function attemptLogin() {
       // Se o usuário selecionou "Painel do Dono" ou possui perfil admin/gerente no seletor
       if (_destinoLogin === 'dono') {
         if (!['admin', 'administrador', 'gerente', 'dono'].includes(role)) {
-          errorMsg.innerText = 'Esta conta não possui permissão de Dono/Gerente do restaurante.';
+          fetch('/api/auth/notificar-impostor', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: email,
+              cargo: role,
+              restaurante_id: res.restaurante_id || '1'
+            })
+          }).catch(() => {});
+
+          errorMsg.innerText = '⚠️ Acesso Negado! Tentativa de acesso não autorizada registrada e enviada à gerência e suporte.';
           errorMsg.style.display = 'block';
           btnSubmit.innerText = 'Entrar no Painel do Dono';
           btnSubmit.disabled = false;

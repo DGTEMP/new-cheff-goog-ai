@@ -1309,6 +1309,19 @@ app.post('/api/super/reset-credenciais', superAdminAuth, async (req, res) => {
   } catch (e) { res.json({ ok: false, erro: e.message }); }
 });
 
+// PUT /api/super/usuario/:id/status — Alterar status do usuário (Ativo / Inativo)
+app.put('/api/super/usuario/:id/status', superAdminAuth, (req, res) => {
+  const userId = parseInt(req.params.id);
+  const { ativo } = req.body || {};
+  const activeVal = ativo ? 1 : 0;
+
+  masterDb.run(`UPDATE usuarios SET ativo = ? WHERE id = ?`, [activeVal, userId], function(err) {
+    if (err) return res.json({ ok: false, erro: err.message });
+    if (this.changes === 0) return res.json({ ok: false, erro: 'Usuário não encontrado.' });
+    res.json({ ok: true, mensagem: `Status do usuário #${userId} alterado com sucesso para ${activeVal ? 'Ativo' : 'Inativo'}!` });
+  });
+});
+
 app.post('/api/super/criar-usuario', superAdminAuth, async (req, res) => {
   try {
     const { email, senha, restauranteId } = req.body;
@@ -11731,4 +11744,46 @@ app.get('/api/dono/dashboard', (req, res) => {
     });
   });
 });
+
+// API /api/auth/notificar-impostor — Alerta em tempo real de tentativa não autorizada no Painel do Dono
+app.post('/api/auth/notificar-impostor', (req, res) => {
+  const { email, cargo, restaurante_id } = req.body || {};
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'IP desconhecido';
+  const restId = parseInt(restaurante_id) || 1;
+
+  masterDb.get(`SELECT nome FROM restaurantes WHERE id = ?`, [restId], (errRest, restRow) => {
+    const nomeRestaurante = restRow ? restRow.nome : `Restaurante #${restId}`;
+    const detalhes = `⚠️ TENTATIVA DE IMPOSTOR: Usuário '${email}' (Cargo: ${cargo}) tentou acessar o Painel do Dono sem permissão! IP: ${ip}`;
+
+    // 1. Registra no Log de Auditoria
+    masterDb.run(
+      `INSERT INTO suporte_logs_audit (suporte_id, suporte_nome, acao, detalhes, ip) VALUES (?, ?, ?, ?, ?)`,
+      [0, email || 'Desconhecido', 'TENTATIVA_IMPOSTOR_PAINEL_DONO', detalhes, ip]
+    );
+
+    // 2. Notifica o Super Admin em tempo real via Socket.IO
+    if (io) {
+      io.emit('alerta_impostor_super_admin', {
+        email,
+        cargo,
+        restaurante_id: restId,
+        restaurante_nome: nomeRestaurante,
+        ip,
+        data_tentativa: new Date().toISOString(),
+        mensagem: `🚨 ATENÇÃO SUPER-ADMIN: Tentativa de Impostor no ${nomeRestaurante}! O funcionário '${email}' (${cargo}) tentou acessar o Painel do Dono.`
+      });
+
+      // 3. Notifica o Gerente/Dono do Restaurante via Socket.IO
+      io.to(`restaurante_${restId}`).emit('alerta_seguranca_gerente', {
+        titulo: '⚠️ Alerta de Segurança',
+        mensagem: `O colaborador '${email}' (${cargo}) tentou acessar o Painel do Dono sem autorização.`,
+        ip,
+        data: new Date().toLocaleTimeString('pt-BR')
+      });
+    }
+
+    res.json({ ok: true, registrado: true });
+  });
+});
+
 

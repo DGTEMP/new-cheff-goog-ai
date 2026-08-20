@@ -195,9 +195,55 @@ function initSuperAdminSockets() {
         carregarDashboard();
       }
     });
+
+    _superAdminSocket.on('alerta_impostor_super_admin', function(data) {
+      console.log('🚨 [SuperAdmin] Alerta de Impostor recebido:', data);
+      tocarNotificacaoSom();
+      showToast('🚨 TENTATIVA DE IMPOSTOR: ' + (data.email || '') + ' no ' + (data.restaurante_nome || ''), 'danger');
+      exibirAlertaImpostor(data);
+    });
   } catch (e) {
     console.error('Erro ao conectar socket super-admin:', e);
   }
+}
+
+function exibirAlertaImpostor(data) {
+  var alertBox = document.getElementById('impostor-live-alert');
+  if (!alertBox) {
+    alertBox = document.createElement('div');
+    alertBox.id = 'impostor-live-alert';
+    alertBox.style.cssText = 'position:fixed;top:20px;right:20px;z-index:999999;max-width:420px;background:rgba(239,68,68,0.95);border:2px solid #ef4444;border-radius:16px;box-shadow:0 20px 40px rgba(239,68,68,0.4);backdrop-filter:blur(12px);padding:20px;color:#ffffff;font-family:inherit;animation:slideInRight 0.4s ease;';
+    document.body.appendChild(alertBox);
+  }
+
+  var restNome = esc(data.restaurante_nome || 'Restaurante');
+  var userEmail = esc(data.email || 'Não informado');
+  var userCargo = esc(data.cargo || 'Não informado');
+  var userIp = esc(data.ip || 'Desconhecido');
+
+  alertBox.innerHTML = `
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="width:36px;height:36px;border-radius:10px;background:rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;font-size:18px;">🕵️‍♂️</div>
+        <div>
+          <h4 style="margin:0;font-size:16px;font-weight:700;">Alerta de Impostor!</h4>
+          <span style="font-size:12px;opacity:0.8;">Tentativa sem permissão no Painel do Dono</span>
+        </div>
+      </div>
+      <button onclick="document.getElementById('impostor-live-alert').style.display='none'" style="background:none;border:none;color:white;font-size:18px;cursor:pointer;opacity:0.7;">&times;</button>
+    </div>
+    <div style="font-size:13px;background:rgba(0,0,0,0.2);padding:12px;border-radius:10px;margin-bottom:12px;line-height:1.4;">
+      <div><strong>Restaurante:</strong> ${restNome}</div>
+      <div><strong>Colaborador:</strong> ${userEmail} (${userCargo})</div>
+      <div><strong>IP:</strong> ${userIp}</div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button onclick="document.getElementById('impostor-live-alert').style.display='none'; switchTab('sec-usuarios');" style="flex:1;padding:8px;border:none;border-radius:8px;background:white;color:#ef4444;font-weight:700;font-size:12px;cursor:pointer;">
+        Gerenciar Usuários
+      </button>
+    </div>
+  `;
+  alertBox.style.display = 'block';
 }
 
 function tocarNotificacaoSom() {
@@ -1152,12 +1198,24 @@ function renderUsuarios() {
     html += '<td><div class="row-actions">';
     html += '<button class="btn-row-action edit-action" onclick="resetarUsuario(' + u2.id + ')" title="Redefinir senha"><i class="fa-solid fa-key"></i></button>';
     if (u2.ativo) {
-      html += '<button class="btn-row-action block-action" onclick="desativarUsuario(' + u2.id + ',' + escJs(u2.username) + ')" title="Desativar"><i class="fa-solid fa-ban"></i></button>';
+      html += '<button class="btn-row-action block-action" onclick="alternarStatusUsuario(' + u2.id + ',\'' + escapeHtml(u2.username) + '\', false)" title="Desativar Acesso"><i class="fa-solid fa-ban"></i> Desativar</button>';
+    } else {
+      html += '<button class="btn-row-action edit-action" style="background:#22c55e;color:white;" onclick="alternarStatusUsuario(' + u2.id + ',\'' + escapeHtml(u2.username) + '\', true)" title="Reativar Acesso"><i class="fa-solid fa-check"></i> Reativar</button>';
     }
     html += '</div></td></tr>';
   }
   tbody.innerHTML = html;
 }
+
+window.alternarStatusUsuario = function(id, username, novoStatus) {
+  var acao = novoStatus ? 'reativar' : 'desativar';
+  if (!confirm('Deseja realmente ' + acao + ' o acesso do usuário "' + username + '"?')) return;
+  apiPut('/api/super/usuario/' + id + '/status', { ativo: novoStatus }, function(err, data) {
+    if (err || !data || !data.ok) { showToast(err || (data ? data.erro : 'Erro ao alterar status'), 'danger'); return; }
+    showToast(data.mensagem || 'Status do usuário alterado!', 'success');
+    carregarUsuarios();
+  });
+};
 
 function resetarUsuario(id) {
   var novaSenha = prompt('Nova senha para o usuário #' + id + ':');
@@ -1170,12 +1228,7 @@ function resetarUsuario(id) {
 }
 
 function desativarUsuario(id, username) {
-  if (!confirm('Desativar o acesso do usuário "' + username + '"?')) return;
-  apiDelete('/api/super/usuario/' + id, function(err, data) {
-    if (err || !data || !data.ok) { showToast('Erro ao desativar', 'danger'); return; }
-    showToast('Usuário desativado.', 'success');
-    carregarUsuarios();
-  });
+  alternarStatusUsuario(id, username, false);
 }
 
 function criarUsuarioNovo() {
