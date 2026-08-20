@@ -407,317 +407,121 @@
       background: #fafbfc;
     }
 
-    /* REFORMULAÇÃO RESPONSIVA DO PAINEL DE CONFIGURAÇÕES EM DISPOSITIVOS MÓVEIS */
-    @media (max-width: 768px) {
-      .config-header {
-        padding: 10px 14px;
-        flex-direction: row;
-        gap: 8px;
-      }
 
-      .config-header h1 {
-        font-size: 15px;
-      }
-
-      .config-header button {
-        padding: 6px 12px !important;
-        font-size: 12px !important;
-      }
-
-      .config-layout {
-        flex-direction: column !important;
-        height: calc(100vh - 58px) !important;
-      }
-
-      /* Sidebar de Navegação de Configurações convertida em Barra Horizontal (Scrollable Pills) */
-      .config-sidebar {
-        width: 100% !important;
-        height: auto !important;
-        flex-direction: row !important;
-        overflow-x: auto !important;
-        overflow-y: hidden !important;
-        padding: 8px 10px !important;
-        gap: 8px !important;
-        background: #1e1e2e !important;
-        flex-shrink: 0 !important;
-        -webkit-overflow-scrolling: touch;
-      }
-
-      .config-sidebar.collapsed {
-        width: 100% !important;
-        display: flex !important;
-        padding: 8px 10px !important;
-      }
-
-      #btn-toggle-sidebar {
-        display: none !important;
-      }
-
-      .action-group {
-        margin-bottom: 0 !important;
-        display: flex !important;
-        align-items: center !important;
-        gap: 6px !important;
-      }
-
-      .group-title {
-        display: none !important;
-      }
-
-      .admin-tab-btn {
-        white-space: nowrap !important;
-        width: auto !important;
-        padding: 6px 14px !important;
-        font-size: 13px !important;
-        border-radius: 20px !important;
-        background: rgba(255, 255, 255, 0.08) !important;
-        color: #e2e8f0 !important;
-      }
-
-      .admin-tab-btn.active {
-        background: #fc4b15 !important;
-        color: #ffffff !important;
-        font-weight: 700 !important;
-      }
-
-      /* Workspace principal */
-      .main-workspace {
-        padding: 14px !important;
-        flex: 1 !important;
-        overflow: hidden !important;
-        display: flex !important;
-        flex-direction: column !important;
-      }
-
-      h2.aba-titulo {
-        font-size: 17px !important;
-        margin-bottom: 12px !important;
-        padding-bottom: 6px !important;
-      }
-
-      .admin-tab-content {
-        flex: 1 !important;
-        overflow-y: auto !important;
-      }
-
-      /* Tab Mesas & Comandas: Empilhar Colunas */
-      #admin-tab-mesas>div {
-        flex-direction: column !important;
-        gap: 16px !important;
-        height: auto !important;
-        overflow: visible !important;
-      }
-
-      #admin-tab-mesas>div>div {
-        height: auto !important;
-      }
-
-      .tab-form-header {
-        max-height: none !important;
-        overflow: visible !important;
-      }
-
-      /* Formulários Responsivos dos Tabs */
-      #admin-tab-produtos .tab-form-header>div {
-        flex-direction: column !important;
-        gap: 8px !important;
-      }
-
-      #admin-tab-produtos .tab-form-header>div>div {
-        width: 100% !important;
-        min-width: 100% !important;
-        flex: none !important;
-      }
-
-      #admin-tab-funcionarios .tab-form-header>div:first-child {
-        flex-direction: column !important;
-        gap: 12px !important;
-      }
-
-      #admin-tab-funcionarios .tab-form-header>div:nth-child(3) {
-        display: flex !important;
-        flex-direction: column !important;
-        gap: 8px !important;
-      }
-
-      #admin-tab-clientes>div {
-        display: flex !important;
-        flex-direction: column !important;
-        gap: 8px !important;
-      }
-
-      #admin-tab-promocoes .promo-grid-2,
-      #admin-tab-promocoes .promo-grid-3 {
-        grid-template-columns: 1fr !important;
-      }
-
-      #admin-tab-promocoes .promo-row-flex {
-        flex-direction: column !important;
-      }
-
-      #admin-tab-promocoes .promo-row-flex > div {
-        width: 100% !important;
-        flex: none !important;
-      }
-
-      #admin-tab-promocoes .promo-card-body {
-        padding: 16px !important;
-      }
-
-      /* Grade de dias da semana e gerador de cupons no mobile */
-      #cupom-dias-grid {
-        grid-template-columns: 1fr !important;
-        gap: 8px !important;
-      }
-
-      .cupom-dia-row {
-        flex-wrap: wrap !important;
-        gap: 6px !important;
-      }
-
-      /* Mobile promo cards */
-      .promo-grid-3 {
-        grid-template-columns: 1fr !important;
-      }
-      .promo-grid-2 {
-        grid-template-columns: 1fr !important;
-      }
-      .promo-table-wrap {
-        overflow-x: auto !important;
-        -webkit-overflow-scrolling: touch;
-      }
-      .promo-table {
-        min-width: 500px;
-      }
-      .promo-card-body {
-        padding: 14px !important;
-      }
-
-      /* PINs stats grid */
-      #admin-tab-pins [style*="grid-template-columns: repeat(4"] {
-        grid-template-columns: repeat(2, 1fr) !important;
-      }
-
-      /* Tab RH Form */
-      #admin-tab-rh .tab-form-header {
-        max-height: none !important;
-        overflow: visible !important;
-        position: static !important;
-      }
-
-      #admin-tab-rh.active {
-        overflow-y: auto !important;
-      }
-
-      #admin-tab-rh .rh-subtab-content [style*="display: flex; gap: 10px;"] {
-        flex-direction: column !important;
-      }
-
-      #admin-tab-rh [style*="grid-template-columns: repeat(6, 1fr)"] {
-        grid-template-columns: repeat(3, 1fr) !important;
-      }
-
-      #admin-tab-rh .rh-subtab-content select,
-      #admin-tab-rh .rh-subtab-content input {
-        width: 100% !important;
-        flex: none !important;
-      }
-
-      #admin-tab-rh .tab-form-header>div:nth-child(2) {
-        overflow-x: auto !important;
-        -webkit-overflow-scrolling: touch;
-      }
-
-      /* Tabelas com Rolagem Horizontal Suave */
-      .tab-table-scroll {
-        overflow-x: auto !important;
-        -webkit-overflow-scrolling: touch;
-        width: 100% !important;
-        max-width: 100% !important;
-      }
-
-      .tab-table-scroll table {
-        min-width: 480px !important;
-      }
-    }
-  
-    
-    
-    /* FIX GLOBAL DE SCROLL (VERSÃO DEFINITIVA) */
-    * {
-      box-sizing: border-box !important;
-    }
-    
+    /* ══════ GLOBAL SCROLL FIX ══════ */
     html, body {
-      overflow: hidden !important; 
+      overflow: hidden !important;
       height: 100vh !important;
       margin: 0 !important;
       padding: 0 !important;
     }
-    
+
     .config-layout {
       height: calc(100vh - 58px) !important;
-      min-height: 0 !important; 
+      min-height: 0 !important;
       overflow: hidden !important;
       display: flex !important;
     }
-    
+
     .main-workspace {
       height: 100% !important;
       min-height: 0 !important;
       overflow: hidden !important;
       display: flex !important;
       flex-direction: column !important;
-      padding: 24px !important;
     }
-    
+
     .admin-tab-content.active {
       flex: 1 !important;
-      height: 100% !important;
       min-height: 0 !important;
       display: flex !important;
       flex-direction: column !important;
+      overflow-x: hidden !important;
       overflow-y: auto !important;
       -webkit-overflow-scrolling: touch;
     }
-    
+
     /* Abas com tabela interna: a tabela rola, o container NÃO */
     .admin-tab-content.active:has(.tab-table-scroll) {
       overflow: hidden !important;
-      overflow-y: hidden !important;
     }
-    
+
     .tab-table-scroll {
       flex: 1 !important;
       min-height: 0 !important;
       overflow-y: auto !important;
-      }
+    }
 
-    /* Corrige o hack que quebrava a aba de Mesas */
-    #admin-tab-mesas > div {
-      height: 100% !important;
-      overflow: hidden !important;
-    }
-    #admin-tab-mesas > div > div {
-      height: 100% !important;
-      overflow: hidden !important;
-      display: flex !important;
-      flex-direction: column !important;
-    }
-    
-    /* Mantém o cabeçalho fixo nas abas que rolam inteiras (ex: Gerais, Configurações Fiscais) */
     .tab-form-header {
       position: sticky;
       top: 0;
       z-index: 50;
+      background: #fff;
     }
 
-    /* === MOBILE: Restaura scroll que os rules globais bloqueiam === */
-    @media (max-width: 768px) {
-      .config-layout {
-        flex-direction: column !important;
+    /* ══════ TABLET (769px–1024px) ══════ */
+    @media (max-width: 1024px) {
+      .main-workspace { padding: 18px !important; }
+      h2.aba-titulo { font-size: 18px !important; }
+
+      /* Sidebar encolhe um pouco mas continua vertical */
+      .config-sidebar { width: 190px !important; padding: 14px 8px !important; }
+      .admin-tab-btn { font-size: 13px !important; padding: 9px 12px !important; }
+      .btn-action { font-size: 13px !important; padding: 9px 12px !important; }
+
+      /* Tabs com formulário: grids com 2 colunas */
+      #admin-tab-produtos .tab-form-header > div {
+        flex-wrap: wrap !important;
+      }
+      #admin-tab-produtos .tab-form-header > div > div {
+        min-width: 45% !important;
+        flex: 1 !important;
       }
 
+      /* RH subtabs cabem em 2 linhas */
+      #admin-tab-rh .tab-form-header > div:nth-child(2) {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      /* PINs grid 2 colunas */
+      #admin-tab-pins [style*="grid-template-columns: repeat(4"] {
+        grid-template-columns: repeat(2, 1fr) !important;
+      }
+
+      /* RH grid 4 colunas */
+      #admin-tab-rh [style*="grid-template-columns: repeat(6, 1fr)"] {
+        grid-template-columns: repeat(4, 1fr) !important;
+      }
+
+      /* Tabelas com scroll horizontal */
+      .tab-table-scroll { overflow-x: auto !important; -webkit-overflow-scrolling: touch; }
+      .tab-table-scroll table { min-width: 600px; }
+      .promo-table-wrap { overflow-x: auto !important; -webkit-overflow-scrolling: touch; }
+      .promo-table { min-width: 500px; }
+    }
+
+    /* ══════ MOBILE (≤768px) ══════ */
+    @media (max-width: 768px) {
+      /* Header compacto */
+      .config-header {
+        padding: 8px 12px !important;
+        height: 50px !important;
+      }
+      .config-header h1 { font-size: 14px !important; }
+      .config-header button {
+        padding: 6px 10px !important;
+        font-size: 11px !important;
+      }
+
+      /* Layout empilha sidebar + conteúdo */
+      .config-layout {
+        flex-direction: column !important;
+        height: calc(100vh - 50px) !important;
+        margin-top: 50px !important;
+      }
+
+      /* Sidebar vira barra horizontal de pills */
       .config-sidebar {
         width: 100% !important;
         height: auto !important;
@@ -727,38 +531,64 @@
         overflow-y: hidden !important;
         padding: 8px 10px !important;
         gap: 8px !important;
+        background: #1e1e2e !important;
         flex-shrink: 0 !important;
         -webkit-overflow-scrolling: touch;
         scrollbar-width: none;
       }
       .config-sidebar::-webkit-scrollbar { display: none; }
-      .config-sidebar.collapsed { width: 100% !important; display: flex !important; }
+      .config-sidebar.collapsed {
+        width: 100% !important;
+        display: flex !important;
+        padding: 8px 10px !important;
+      }
 
       #btn-toggle-sidebar { display: none !important; }
-      .action-group { margin-bottom: 0 !important; display: flex !important; align-items: center !important; gap: 6px !important; flex-shrink: 0 !important; white-space: nowrap !important; }
       .group-title { display: none !important; }
+
+      .action-group {
+        margin-bottom: 0 !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 6px !important;
+        flex-shrink: 0 !important;
+        white-space: nowrap !important;
+      }
 
       .admin-tab-btn {
         white-space: nowrap !important;
         width: auto !important;
-        padding: 6px 14px !important;
+        padding: 8px 16px !important;
         font-size: 13px !important;
         border-radius: 20px !important;
         background: rgba(255, 255, 255, 0.08) !important;
         color: #e2e8f0 !important;
         flex-shrink: 0 !important;
+        min-height: 36px !important;
       }
-      .admin-tab-btn.active { background: #fc4b15 !important; color: #ffffff !important; font-weight: 700 !important; }
+      .admin-tab-btn.active {
+        background: #fc4b15 !important;
+        color: #ffffff !important;
+        font-weight: 700 !important;
+      }
 
+      /* Workspace compacto */
       .main-workspace {
         height: 100% !important;
         min-height: 0 !important;
         overflow: hidden !important;
         display: flex !important;
         flex-direction: column !important;
-        padding: 14px !important;
+        padding: 12px !important;
       }
 
+      h2.aba-titulo {
+        font-size: 16px !important;
+        margin-bottom: 10px !important;
+        padding-bottom: 8px !important;
+      }
+
+      /* Tab content scrolla */
       .admin-tab-content.active {
         overflow-y: auto !important;
         -webkit-overflow-scrolling: touch;
@@ -767,9 +597,159 @@
         overflow: hidden !important;
       }
 
-      .tab-form-header { max-height: none !important; overflow: visible !important; position: static !important; }
-      .tab-table-scroll { overflow-x: auto !important; -webkit-overflow-scrolling: touch; }
-      .tab-table-scroll table { min-width: 480px; }
+      /* Form header: sem sticky, max-height livre */
+      .tab-form-header {
+        max-height: none !important;
+        overflow: visible !important;
+        position: static !important;
+        margin-bottom: 12px !important;
+      }
+
+      /* ═══ PRODUTOS ═══ */
+      #admin-tab-produtos .tab-form-header > div {
+        flex-direction: column !important;
+        gap: 8px !important;
+      }
+      #admin-tab-produtos .tab-form-header > div > div {
+        width: 100% !important;
+        min-width: 100% !important;
+        flex: none !important;
+      }
+
+      /* ═══ FUNCIONÁRIOS ═══ */
+      #admin-tab-funcionarios .tab-form-header > div:first-child {
+        flex-direction: column !important;
+        gap: 10px !important;
+      }
+      #admin-tab-funcionarios .tab-form-header > div:nth-child(3) {
+        flex-direction: column !important;
+        gap: 8px !important;
+      }
+
+      /* ═══ CLIENTES ═══ */
+      #admin-tab-clientes > div {
+        flex-direction: column !important;
+        gap: 8px !important;
+      }
+
+      /* ═══ MESAS ═══ */
+      #admin-tab-mesas > div {
+        flex-direction: column !important;
+        gap: 12px !important;
+        height: auto !important;
+        overflow: visible !important;
+      }
+      #admin-tab-mesas > div > div { height: auto !important; }
+
+      /* ═══ PROMOÇÕES ═══ */
+      #admin-tab-promocoes .promo-grid-2,
+      #admin-tab-promocoes .promo-grid-3,
+      .promo-grid-3,
+      .promo-grid-2 {
+        grid-template-columns: 1fr !important;
+      }
+      #admin-tab-promocoes .promo-row-flex {
+        flex-direction: column !important;
+      }
+      #admin-tab-promocoes .promo-row-flex > div {
+        width: 100% !important;
+        flex: none !important;
+      }
+      .promo-card-body { padding: 14px !important; }
+
+      /* Grade de dias da semana */
+      #cupom-dias-grid {
+        grid-template-columns: 1fr !important;
+        gap: 8px !important;
+      }
+      .cupom-dia-row { flex-wrap: wrap !important; gap: 6px !important; }
+
+      .promo-table-wrap {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+      }
+      .promo-table { min-width: 400px; }
+
+      /* ═══ PINS ═══ */
+      #admin-tab-pins [style*="grid-template-columns: repeat(4"] {
+        grid-template-columns: repeat(2, 1fr) !important;
+      }
+
+      /* ═══ RH ═══ */
+      #admin-tab-rh .tab-form-header {
+        max-height: none !important;
+        overflow: visible !important;
+        position: static !important;
+      }
+      #admin-tab-rh.active { overflow-y: auto !important; }
+      #admin-tab-rh .rh-subtab-content [style*="display: flex; gap: 10px;"] {
+        flex-direction: column !important;
+      }
+      #admin-tab-rh [style*="grid-template-columns: repeat(6, 1fr)"] {
+        grid-template-columns: repeat(2, 1fr) !important;
+      }
+      #admin-tab-rh .rh-subtab-content select,
+      #admin-tab-rh .rh-subtab-content input {
+        width: 100% !important;
+        flex: none !important;
+      }
+      #admin-tab-rh .tab-form-header > div:nth-child(2) {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      /* ═══ TABELAS ═══ */
+      .tab-table-scroll {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+        width: 100% !important;
+        max-width: 100% !important;
+      }
+      .tab-table-scroll table { min-width: 400px !important; }
+
+      /* ═══ TOQUE: alvos mínimos 44px ═══ */
+      .admin-tab-btn,
+      .btn-action,
+      .promo-btn,
+      button,
+      input[type="text"],
+      input[type="number"],
+      input[type="password"],
+      input[type="search"],
+      select,
+      textarea {
+        min-height: 42px !important;
+      }
+    }
+
+    /* ══════ CELULAR PEQUENO (≤480px) ══════ */
+    @media (max-width: 480px) {
+      .config-header { padding: 6px 10px !important; }
+      .config-header h1 { font-size: 13px !important; }
+      .config-header h1 span { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+      .config-layout { height: calc(100vh - 46px) !important; margin-top: 46px !important; }
+      .config-header { height: 46px !important; }
+
+      .main-workspace { padding: 10px !important; }
+      h2.aba-titulo { font-size: 15px !important; margin-bottom: 8px !important; }
+
+      .admin-tab-btn {
+        padding: 7px 12px !important;
+        font-size: 12px !important;
+      }
+
+      /* PINs e RH grids 1 coluna */
+      #admin-tab-pins [style*="grid-template-columns: repeat(4"],
+      #admin-tab-pins [style*="grid-template-columns: repeat(2"] {
+        grid-template-columns: 1fr !important;
+      }
+      #admin-tab-rh [style*="grid-template-columns: repeat(6, 1fr)"] {
+        grid-template-columns: 1fr !important;
+      }
+      #admin-tab-rh [style*="grid-template-columns: repeat(4, 1fr)"] {
+        grid-template-columns: 1fr !important;
+      }
     }
 </style>
 
