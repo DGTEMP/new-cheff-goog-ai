@@ -1,5 +1,7 @@
 const logLines = [];
 const activeSockets = new Map();
+const originalLog = console.log;
+const originalError = console.error;
 
 const ANSI = {
   reset: "\x1b[0m",
