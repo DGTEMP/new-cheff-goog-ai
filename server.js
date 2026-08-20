@@ -602,6 +602,12 @@ app.get(['/afiliados', '/portal-afiliados'], (req, res) => {
   else res.sendFile(path.join(__dirname, 'portal-afiliados.html'));
 });
 
+app.get(['/suporte', '/painel-suporte'], (req, res) => {
+  const distPath = path.join(__dirname, 'dist', 'suporte.html');
+  if (fs.existsSync(distPath)) res.sendFile(distPath);
+  else res.sendFile(path.join(__dirname, 'suporte.html'));
+});
+
 app.get('/ativacao', (req, res) => {
   const distPath = path.join(__dirname, 'dist', 'ativacao.html');
   if (fs.existsSync(distPath)) res.sendFile(distPath);
@@ -1956,6 +1962,262 @@ app.delete('/api/super/equipe/:id/restaurantes/:restId', superAdminAuth, (req, r
     });
 });
 
+// ═══════════════════════════════════════════
+// PAINEL DE SUPORTE — AUTH, GESTÃO & GAMIFICAÇÃO
+// ═══════════════════════════════════════════
+
+const suporteJwtSecret = process.env.SUPORTE_JWT_SECRET || 'chef-suporte-secret-key-2026';
+
+function suporteAuth(req, res, next) {
+  const token = req.headers['x-suporte-token'];
+  if (!token) return res.json({ ok: false, erro: 'Token de suporte não fornecido.' });
+  try {
+    const decoded = jwt.verify(token, suporteJwtSecret);
+    req.suporteId = decoded.id;
+    req.suporteData = decoded;
+    next();
+  } catch (e) { res.json({ ok: false, erro: 'Sessão de suporte inválida ou expirada.' }); }
+}
+
+function gerarXP(suporteId, pontos, tipo, descricao, restauranteId) {
+  masterDb.run(`UPDATE equipe_suporte SET xp = COALESCE(xp,0) + ? WHERE id = ?`, [pontos, suporteId]);
+  masterDb.run(`INSERT INTO tarefas_suporte (suporte_id, tipo, descricao, restaurante_id, pontos, status, concluida_em) VALUES (?, ?, ?, ?, ?, 'concluida', datetime('now','localtime'))`,
+    [suporteId, tipo, descricao, restauranteId || null, pontos]);
+  
+  masterDb.get(`SELECT xp, nivel FROM equipe_suporte WHERE id = ?`, [suporteId], (err, row) => {
+    if (row) {
+      const novoNivel = Math.floor((row.xp || 0) / 100) + 1;
+      if (novoNivel > (row.nivel || 1)) {
+        masterDb.run(`UPDATE equipe_suporte SET nivel = ? WHERE id = ?`, [novoNivel, suporteId]);
+        masterDb.run(`INSERT OR IGNORE INTO conquistas_suporte (suporte_id, conquista, icone, descricao) VALUES (?, ?, ?, ?)`,
+          [suporteId, `level_${novoNivel}`, 'fa-star', `Atingiu o nível ${novoNivel}!`]);
+      }
+      if ((row.xp || 0) + pontos >= 100 && (row.xp || 0) < 100) {
+        masterDb.run(`INSERT OR IGNORE INTO conquistas_suporte (suporte_id, conquista, icone, descricao) VALUES (?, 'primeiros_100', 'fa-bolt', 'Acumulou 100 XP!')`, [suporteId]);
+      }
+      if ((row.xp || 0) + pontos >= 500 && (row.xp || 0) < 500) {
+        masterDb.run(`INSERT OR IGNORE INTO conquistas_suporte (suporte_id, conquista, icone, descricao) VALUES (?, 'primeiros_500', 'fa-fire', 'Acumulou 500 XP!')`, [suporteId]);
+      }
+    }
+  });
+}
+
+// POST /api/suporte/login — Login do membro da equipe de suporte
+app.post('/api/suporte/login', (req, res) => {
+  const { email, senha } = req.body || {};
+  if (!email || !senha) return res.json({ ok: false, erro: 'Email e senha obrigatórios.' });
+  
+  masterDb.get(`SELECT * FROM equipe_suporte WHERE LOWER(email) = LOWER(?)`, [email.trim()], (err, row) => {
+    if (err) return res.json({ ok: false, erro: err.message });
+    if (!row) return res.json({ ok: false, erro: 'Email de suporte não encontrado.' });
+    
+    bcrypt.compare(senha, row.password_hash, (errComp, match) => {
+      if (errComp) return res.json({ ok: false, erro: 'Erro ao verificar senha.' });
+      if (!match) return res.json({ ok: false, erro: 'Senha incorreta.' });
+      
+      const token = jwt.sign({ id: row.id, email: row.email, nome: row.nome }, suporteJwtSecret, { expiresIn: '12h' });
+      res.json({
+        ok: true,
+        token,
+        usuario: {
+          id: row.id, nome: row.nome, email: row.email,
+          cargo: row.cargo, especialidade: row.especialidade,
+          status: row.status, xp: row.xp || 0, nivel: row.nivel || 1
+        }
+      });
+    });
+  });
+});
+
+// GET /api/suporte/me — Dados do perfil do suporte logado
+app.get('/api/suporte/me', suporteAuth, (req, res) => {
+  masterDb.get(`SELECT id, nome, email, telefone, cargo, especialidade, status, xp, nivel, data_cadastro FROM equipe_suporte WHERE id = ?`,
+    [req.suporteId], (err, row) => {
+      if (err || !row) return res.json({ ok: false, erro: 'Usuário não encontrado.' });
+      res.json({ ok: true, usuario: row });
+    }
+  );
+});
+
+// GET /api/suporte/restaurantes — Restaurantes atribuídos ao atendente de suporte
+app.get('/api/suporte/restaurantes', suporteAuth, (req, res) => {
+  masterDb.all(`SELECT r.*, sr.tipo_suporte, sr.data_atribuicao 
+    FROM suporte_restaurantes sr 
+    JOIN restaurantes r ON sr.restaurante_id = r.id 
+    WHERE sr.suporte_id = ? 
+    ORDER BY r.nome`, [req.suporteId], (err, rows) => {
+    if (err) return res.json({ ok: false, erro: err.message });
+    res.json({ ok: true, restaurantes: rows || [] });
+  });
+});
+
+// GET /api/suporte/restaurantes/:id/produtos — Produtos do restaurante
+app.get('/api/suporte/restaurantes/:id/produtos', suporteAuth, (req, res) => {
+  const restId = parseInt(req.params.id);
+  const tenantDbPath = getTenantDbPath(restId);
+  if (!fsSync.existsSync(tenantDbPath)) return res.json({ ok: true, produtos: [], categorias: [] });
+  
+  let produtos = [], categorias = [];
+  let loaded = 0;
+  
+  const tDb = new sqlite3.Database(tenantDbPath, sqlite3.OPEN_READONLY, errOpen => {
+    if (errOpen) return res.json({ ok: false, erro: 'Erro ao abrir banco do restaurante.' });
+    
+    tDb.all(`SELECT * FROM produtos ORDER BY nome`, [], (errP, rowsP) => {
+      if (!errP && rowsP) produtos = rowsP;
+      loaded++;
+      if (loaded >= 2) finalizar();
+    });
+    
+    tDb.all(`SELECT DISTINCT categoria FROM produtos WHERE categoria IS NOT NULL AND categoria != '' ORDER BY categoria`, [], (errC, rowsC) => {
+      if (!errC && rowsC) categorias = rowsC.map(r => ({ nome: r.categoria }));
+      loaded++;
+      if (loaded >= 2) finalizar();
+    });
+    
+    function finalizar() {
+      tDb.close();
+      res.json({ ok: true, produtos, categorias });
+    }
+  });
+});
+
+// POST /api/suporte/restaurantes/:id/produtos — Criar produto no restaurante
+app.post('/api/suporte/restaurantes/:id/produtos', suporteAuth, (req, res) => {
+  const restId = parseInt(req.params.id);
+  const { nome, categoria, preco, descricao, ingredientes, disponivel } = req.body || {};
+  if (!nome) return res.json({ ok: false, erro: 'Nome do produto é obrigatório.' });
+  
+  const tenantDbPath = getTenantDbPath(restId);
+  if (!fsSync.existsSync(tenantDbPath)) return res.json({ ok: false, erro: 'Banco do restaurante não encontrado.' });
+  
+  const tDb = new sqlite3.Database(tenantDbPath);
+  tDb.run(`INSERT INTO produtos (nome, categoria, preco, descricao, ingredientes, disponivel, createdAt) VALUES (?, ?, ?, ?, ?, ?, datetime('now','localtime'))`,
+    [nome, categoria || '', preco || 0, descricao || '', ingredientes || '', disponivel !== undefined ? (disponivel ? 1 : 0) : 1],
+    function(err) {
+      tDb.close();
+      if (err) return res.json({ ok: false, erro: err.message });
+      
+      gerarXP(req.suporteId, 5, 'criar_produto', `Criou o produto "${nome}" no restaurante #${restId}`, restId);
+      res.json({ ok: true, id: this.lastID, mensagem: 'Produto criado!' });
+    }
+  );
+});
+
+// PUT /api/suporte/restaurantes/:id/produtos/:prodId — Atualizar produto
+app.put('/api/suporte/restaurantes/:id/produtos/:prodId', suporteAuth, (req, res) => {
+  const restId = parseInt(req.params.id);
+  const prodId = parseInt(req.params.prodId);
+  const { nome, categoria, preco, descricao, ingredientes, disponivel } = req.body || {};
+  
+  const tenantDbPath = getTenantDbPath(restId);
+  if (!fsSync.existsSync(tenantDbPath)) return res.json({ ok: false, erro: 'Banco do restaurante não encontrado.' });
+  
+  const updates = [];
+  const params = [];
+  if (nome !== undefined) { updates.push('nome = ?'); params.push(nome); }
+  if (categoria !== undefined) { updates.push('categoria = ?'); params.push(categoria); }
+  if (preco !== undefined) { updates.push('preco = ?'); params.push(preco); }
+  if (descricao !== undefined) { updates.push('descricao = ?'); params.push(descricao); }
+  if (ingredientes !== undefined) { updates.push('ingredientes = ?'); params.push(ingredientes); }
+  if (disponivel !== undefined) { updates.push('disponivel = ?'); params.push(disponivel ? 1 : 0); }
+  if (updates.length === 0) return res.json({ ok: false, erro: 'Nenhum campo para atualizar.' });
+  params.push(prodId);
+  
+  const tDb = new sqlite3.Database(tenantDbPath);
+  tDb.run(`UPDATE produtos SET ${updates.join(', ')} WHERE id = ?`, params, function(err) {
+    tDb.close();
+    if (err) return res.json({ ok: false, erro: err.message });
+    
+    gerarXP(req.suporteId, 3, 'editar_produto', `Editou o produto #${prodId} no restaurante #${restId}`, restId);
+    res.json({ ok: true, mensagem: 'Produto atualizado!' });
+  });
+});
+
+// DELETE /api/suporte/restaurantes/:id/produtos/:prodId — Excluir produto
+app.delete('/api/suporte/restaurantes/:id/produtos/:prodId', suporteAuth, (req, res) => {
+  const restId = parseInt(req.params.id);
+  const prodId = parseInt(req.params.prodId);
+  
+  const tenantDbPath = getTenantDbPath(restId);
+  if (!fsSync.existsSync(tenantDbPath)) return res.json({ ok: false, erro: 'Banco do restaurante não encontrado.' });
+  
+  const tDb = new sqlite3.Database(tenantDbPath);
+  tDb.run(`DELETE FROM produtos WHERE id = ?`, [prodId], function(err) {
+    tDb.close();
+    if (err) return res.json({ ok: false, erro: err.message });
+    res.json({ ok: true, mensagem: 'Produto excluído!' });
+  });
+});
+
+// POST /api/suporte/restaurantes/:id/produtos/:prodId/duplicar — Duplicar produto
+app.post('/api/suporte/restaurantes/:id/produtos/:prodId/duplicar', suporteAuth, (req, res) => {
+  const restId = parseInt(req.params.id);
+  const prodId = parseInt(req.params.prodId);
+  
+  const tenantDbPath = getTenantDbPath(restId);
+  if (!fsSync.existsSync(tenantDbPath)) return res.json({ ok: false, erro: 'Banco não encontrado.' });
+  
+  const tDb = new sqlite3.Database(tenantDbPath, sqlite3.OPEN_READONLY, errOpen => {
+    if (errOpen) return res.json({ ok: false, erro: 'Erro ao abrir banco.' });
+    tDb.get(`SELECT * FROM produtos WHERE id = ?`, [prodId], (err, row) => {
+      tDb.close();
+      if (err || !row) return res.json({ ok: false, erro: 'Produto não encontrado.' });
+      
+      const tDb2 = new sqlite3.Database(tenantDbPath);
+      tDb2.run(`INSERT INTO produtos (nome, categoria, preco, descricao, ingredientes, disponivel, createdAt) VALUES (?, ?, ?, ?, ?, ?, datetime('now','localtime'))`,
+        [row.nome + ' (cópia)', row.categoria, row.preco, row.descricao, row.ingredientes, row.disponivel],
+        function(err2) {
+          tDb2.close();
+          if (err2) return res.json({ ok: false, erro: err2.message });
+          gerarXP(req.suporteId, 2, 'duplicar_produto', `Duplicou o produto #${prodId} no restaurante #${restId}`, restId);
+          res.json({ ok: true, id: this.lastID, mensagem: 'Produto duplicado!' });
+        }
+      );
+    });
+  });
+});
+
+// GET /api/suporte/minhas-tarefas — Histórico de atividades do atendente
+app.get('/api/suporte/minhas-tarefas', suporteAuth, (req, res) => {
+  masterDb.all(`SELECT t.*, r.nome as restaurante_nome FROM tarefas_suporte t LEFT JOIN restaurantes r ON t.restaurante_id = r.id WHERE t.suporte_id = ? ORDER BY t.criada_em DESC LIMIT 100`,
+    [req.suporteId], (err, rows) => {
+      if (err) return res.json({ ok: false, erro: err.message });
+      res.json({ ok: true, tarefas: rows || [] });
+    }
+  );
+});
+
+// GET /api/suporte/ranking — Ranking de produtividade da equipe
+app.get('/api/suporte/ranking', suporteAuth, (req, res) => {
+  masterDb.all(`SELECT id, nome, cargo, xp, nivel, status FROM equipe_suporte ORDER BY xp DESC LIMIT 50`, [], (err, rows) => {
+    if (err) return res.json({ ok: false, erro: err.message });
+    let minhaPos = 1;
+    for (let i = 0; i < (rows || []).length; i++) {
+      if (rows[i].id === req.suporteId) { minhaPos = i + 1; break; }
+    }
+    res.json({ ok: true, ranking: rows || [], minhaPosicao: minhaPos });
+  });
+});
+
+// GET /api/suporte/minhas-conquistas — Conquistas obtidas
+app.get('/api/suporte/minhas-conquistas', suporteAuth, (req, res) => {
+  masterDb.all(`SELECT * FROM conquistas_suporte WHERE suporte_id = ? ORDER BY data_obtida DESC`, [req.suporteId], (err, rows) => {
+    if (err) return res.json({ ok: false, erro: err.message });
+    res.json({ ok: true, conquistas: rows || [] });
+  });
+});
+
+// POST /api/suporte/atualizar-status — Alterar status do atendente
+app.post('/api/suporte/atualizar-status', suporteAuth, (req, res) => {
+  const { status } = req.body || {};
+  if (!['disponivel', 'ocupado', 'offline'].includes(status)) return res.json({ ok: false, erro: 'Status inválido.' });
+  masterDb.run(`UPDATE equipe_suporte SET status = ? WHERE id = ?`, [status, req.suporteId], function(err) {
+    if (err) return res.json({ ok: false, erro: err.message });
+    res.json({ ok: true, mensagem: 'Status atualizado!' });
+  });
+});
+
 // ── SUPER ADMIN: CRIAR RESTAURANTE COMPLETO ─────────────────────────
 app.post('/api/super/criar-restaurante-completo', superAdminAuth, async (req, res) => {
   try {
@@ -2214,6 +2476,19 @@ masterDb.serialize(async () => {
   masterDb.run(`CREATE TABLE IF NOT EXISTS suporte_restaurantes (
     suporte_id INTEGER, restaurante_id INTEGER, tipo_suporte TEXT DEFAULT 'remoto',
     UNIQUE(suporte_id, restaurante_id)
+  )`);
+  masterDb.run(`CREATE TABLE IF NOT EXISTS tarefas_suporte (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    suporte_id INTEGER, tipo TEXT, descricao TEXT, restaurante_id INTEGER,
+    pontos INTEGER DEFAULT 0, status TEXT DEFAULT 'concluida',
+    criada_em DATETIME DEFAULT (datetime('now','localtime')),
+    concluida_em DATETIME
+  )`);
+  masterDb.run(`CREATE TABLE IF NOT EXISTS conquistas_suporte (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    suporte_id INTEGER, conquista TEXT, icone TEXT, descricao TEXT,
+    data_obtida DATETIME DEFAULT (datetime('now','localtime')),
+    UNIQUE(suporte_id, conquista)
   )`);
   masterDb.run(`CREATE TABLE IF NOT EXISTS telemetria (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
