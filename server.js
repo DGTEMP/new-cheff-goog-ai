@@ -13,18 +13,24 @@ const ANSI = {
   magenta: "\x1b[35m",
   red: "\x1b[31m",
   blue: "\x1b[34m",
-  bgBlue: "\x1b[44m\x1b[37m"
+  bgBlue: "\x1b[44m\x1b[37m",
+  bgCyan: "\x1b[46m\x1b[30m",
+  bgMagenta: "\x1b[45m\x1b[37m",
+  bgGreen: "\x1b[42m\x1b[30m"
 };
 
 // Medição de disponibilidade do servidor
 const serverStartTime = Date.now();
 function getEfficiencyStars() {
   const memRssMb = process.memoryUsage().rss / (1024 * 1024);
-  if (memRssMb < 150) return "⭐⭐⭐⭐⭐ (Eficiência Máxima - 100%)";
-  if (memRssMb < 300) return "⭐⭐⭐⭐ (Ótima Eficiência - 95%)";
-  if (memRssMb < 500) return "⭐⭐⭐ (Boa Eficiência - 85%)";
-  return "⭐⭐ (Atenção - Uso Elevado)";
+  if (memRssMb < 150) return "⭐⭐⭐⭐⭐ [100% EXCELENTE]";
+  if (memRssMb < 300) return "⭐⭐⭐⭐ [95% ÓTIMO]";
+  if (memRssMb < 500) return "⭐⭐⭐ [85% BOM]";
+  return "⭐⭐ [ATENÇÃO RESTRIÇÃO]";
 }
+
+let isBootingAnimation = true;
+setTimeout(() => { isBootingAnimation = false; }, 3500);
 
 console.log = function (...args) {
   const line = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(' ');
@@ -34,36 +40,35 @@ console.log = function (...args) {
   const timeStr = new Date().toLocaleTimeString('pt-BR');
   let formatted = line;
 
+  // Se for card de Ação de Usuário (Clique ou Navegação)
   if (/^\[Cli-Click\]/.test(line)) {
     const content = line.replace(/^\[Cli-Click\]/, '').trim();
-    formatted = `\n${ANSI.magenta}┌── 🖱️  AÇÃO DO USUÁRIO  ───────────────────────────────────────────┐${ANSI.reset}\n` +
-                `${ANSI.magenta}│${ANSI.reset} 🕒 Hora: ${timeStr}\n` +
-                `${ANSI.magenta}│${ANSI.reset} ${content}\n` +
-                `${ANSI.magenta}└──────────────────────────────────────────────────────────────────┘${ANSI.reset}\n`;
-  } else if (/^\[Socket\]/.test(line)) {
+    formatted = `\n` +
+      `${ANSI.bgMagenta}${ANSI.bright} 🖱️  AÇÃO DO USUÁRIO DETECTADA ${ANSI.reset} ${ANSI.dim}── ${timeStr} ──${ANSI.reset}\n` +
+      `│ ${ANSI.magenta}▶${ANSI.reset} ${content}\n` +
+      `└───────────────────────────────────────────────────────────\n`;
+  }
+  // Se for evento Socket IO
+  else if (/^\[Socket\]/.test(line)) {
     const content = line.replace(/^\[Socket\]/, '').trim();
-    formatted = `${ANSI.cyan}┌── ⚡ EVENTO SOCKET ─────────────────────────────────────────────┐${ANSI.reset}\n` +
-                `${ANSI.cyan}│${ANSI.reset} 🕒 Hora: ${timeStr}\n` +
-                `${ANSI.cyan}│${ANSI.reset} ${content}\n` +
-                `${ANSI.cyan}└──────────────────────────────────────────────────────────────────┘${ANSI.reset}\n`;
-  } else if (/^\[iFood/.test(line)) {
-    const content = line.replace(/^\[iFood[^\]]*\]/, '').trim();
-    formatted = `${ANSI.red}🛵 [${timeStr}] [iFood]${ANSI.reset} ${content}`;
+    formatted = `\n` +
+      `${ANSI.bgCyan}${ANSI.bright} ⚡ EVENTO SOCKET EM TEMPO REAL ${ANSI.reset} ${ANSI.dim}── ${timeStr} ──${ANSI.reset}\n` +
+      `│ ${ANSI.cyan}▶${ANSI.reset} ${content}\n` +
+      `└───────────────────────────────────────────────────────────\n`;
+  }
+  // Outros logs formatados
+  else if (/^\[iFood/.test(line)) {
+    formatted = `${ANSI.red}🛵 [${timeStr}] [iFood]${ANSI.reset} ${line.replace(/^\[iFood[^\]]*\]/, '').trim()}`;
   } else if (/^\[Lazy DB Pool\]/.test(line)) {
-    const content = line.replace(/^\[Lazy DB Pool\]/, '').trim();
-    formatted = `${ANSI.green}💾 [${timeStr}] [Lazy DB Pool]${ANSI.reset} ${content}`;
+    formatted = `${ANSI.green}💾 [${timeStr}] [Lazy DB Pool]${ANSI.reset} ${line.replace(/^\[Lazy DB Pool\]/, '').trim()}`;
   } else if (/^\[Deploy\]/.test(line)) {
-    const content = line.replace(/^\[Deploy\]/, '').trim();
-    formatted = `${ANSI.magenta}🚀 [${timeStr}] [Deploy]${ANSI.reset} ${content}`;
+    formatted = `${ANSI.magenta}🚀 [${timeStr}] [Deploy]${ANSI.reset} ${line.replace(/^\[Deploy\]/, '').trim()}`;
   } else if (/^\[Sync/.test(line)) {
-    const content = line.replace(/^\[Sync[^\]]*\]/, '').trim();
-    formatted = `${ANSI.yellow}🔄 [${timeStr}] [Sync]${ANSI.reset} ${content}`;
+    formatted = `${ANSI.yellow}🔄 [${timeStr}] [Sync]${ANSI.reset} ${line.replace(/^\[Sync[^\]]*\]/, '').trim()}`;
   } else if (/^\[Licença\]/.test(line)) {
-    const content = line.replace(/^\[Licença\]/, '').trim();
-    formatted = `${ANSI.yellow}🔑 [${timeStr}] [Licença]${ANSI.reset} ${content}`;
+    formatted = `${ANSI.yellow}🔑 [${timeStr}] [Licença]${ANSI.reset} ${line.replace(/^\[Licença\]/, '').trim()}`;
   } else if (/^Cliente conectado:/.test(line)) {
-    const content = line.replace(/^Cliente conectado:/, '').trim();
-    formatted = `${ANSI.green}🟢 [${timeStr}] [Novo Dispositivo] Socket ID: ${content}${ANSI.reset}`;
+    formatted = `${ANSI.green}🟢 [${timeStr}] [Conexão] Dispositivo Conectado: ${line.replace(/^Cliente conectado:/, '').trim()}${ANSI.reset}`;
   }
 
   originalLog.apply(console, [formatted]);
@@ -73,7 +78,7 @@ console.error = function (...args) {
   const line = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(' ');
   logLines.push(`[ERR] ${new Date().toLocaleTimeString('pt-BR')} - ${line}`);
   if (logLines.length > 100) logLines.shift();
-  originalError.apply(console, [`${ANSI.red}${ANSI.bright}❌ [${new Date().toLocaleTimeString('pt-BR')}] [ERRO] ${line}${ANSI.reset}`]);
+  originalError.apply(console, [`\n${ANSI.red}${ANSI.bright}❌ [${new Date().toLocaleTimeString('pt-BR')}] [ERRO] ${line}${ANSI.reset}\n`]);
 };
 
 const express = require('express');
@@ -11584,11 +11589,38 @@ function shutdown(signal) {
 process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 
-// Inicializar licença e depois subir o servidor ────────────
+// Inicializar licença e depois subir o servidor com Animação Cyberpunk/Moderna ────────────
 licenseManager.initLicense().then((licState) => {
   server.listen(PORT, HOST, () => {
     const ip = getLocalIp();
-    const banner = `
+    
+    // Animação Sequencial em Tempo Real nos primeiros segundos
+    const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+    const steps = [
+      { text: "Inicializando Kernel SaaS & Módulos...", color: ANSI.cyan },
+      { text: "Conectando ao Engine SQLite Multi-Tenant...", color: ANSI.yellow },
+      { text: "Ativando Barramento de Eventos WebSockets...", color: ANSI.magenta },
+      { text: "Verificando Autenticidade & Licença...", color: ANSI.blue },
+      { text: "SISTEMA PRONTO! Carregando Painel...", color: ANSI.green }
+    ];
+
+    let frameIdx = 0;
+    let stepIdx = 0;
+
+    const animInterval = setInterval(() => {
+      const frame = frames[frameIdx % frames.length];
+      const step = steps[stepIdx];
+      
+      process.stdout.write(`\r${step.color}${frame} [TEMPOS MODERNOS] ${step.text}${ANSI.reset}   `);
+      frameIdx++;
+
+      if (frameIdx % 6 === 0) {
+        stepIdx++;
+        if (stepIdx >= steps.length) {
+          clearInterval(animInterval);
+          process.stdout.write('\r\x1b[K'); // Limpa a linha atual da animação
+
+          const banner = `
 ${ANSI.cyan}${ANSI.bright}  ╔════════════════════════════════════════════════════════════════════╗
   ║                                                                    ║
   ║    ██████╗██╗  ██╗███████╗███████╗    ██████╗███████╗███████╗      ║
@@ -11601,15 +11633,18 @@ ${ANSI.cyan}${ANSI.bright}  ╔════════════════�
   ║              ⚡ CHEF COZINHA HIGH PERFORMANCE SaaS v1.0             ║
   ╚════════════════════════════════════════════════════════════════════╝${ANSI.reset}
 
-  ${ANSI.green}🟢 STATUS DO SISTEMA:${ANSI.reset} Online & Operacional
-  ${ANSI.yellow}📡 ENDEREÇO DA API:${ANSI.reset}   http://localhost:${PORT}
-  ${ANSI.cyan}📱 CONEXÃO LOCAL:${ANSI.reset}     https://${ip}:5173
-  ${ANSI.magenta}🔑 LICENÇA ATIVA:${ANSI.reset}     ${licState.status.toUpperCase()} (${licState.restaurante || 'Dev Mode'})
-  ${ANSI.blue}📊 SAÚDE DO SERVIDOR:${ANSI.reset} ${getEfficiencyStars()}
+  ${ANSI.bgGreen}${ANSI.bright} 🟢 SISTEMA OPERACIONAL ${ANSI.reset}  Servidor Pronto & Escutando na porta ${PORT}
+  ${ANSI.cyan}📡 ENDEREÇO DA API:${ANSI.reset}     http://localhost:${PORT}
+  ${ANSI.magenta}📱 CONEXÃO LOCAL:${ANSI.reset}       https://${ip}:5173
+  ${ANSI.yellow}🔑 LICENÇA ATIVA:${ANSI.reset}       ${licState.status.toUpperCase()} (${licState.restaurante || 'Dev Mode'})
+  ${ANSI.blue}📊 SAÚDE DO SERVIDOR:${ANSI.reset}   ${getEfficiencyStars()}
 
 ${ANSI.dim}────────────────────────────────────────────────────────────────────────${ANSI.reset}
 `;
-    console.log(banner);
+          originalLog.apply(console, [banner]);
+        }
+      }
+    }, 80);
   });
 });
 
