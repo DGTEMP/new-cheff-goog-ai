@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" class="no-js">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,7 +12,9 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@400;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/vendor/phosphor/src/regular/style.css">
   <link rel="stylesheet" href="/vendor/phosphor/src/bold/style.css">
-  <link rel="stylesheet" href="/vendor/phosphor/src/fill/style.css">
+  <!-- Phosphor fill loaded async — non-render-blocking -->
+  <link rel="stylesheet" href="/vendor/phosphor/src/fill/style.css" media="print" onload="this.media='all'">
+  <noscript><link rel="stylesheet" href="/vendor/phosphor/src/fill/style.css"></noscript>
 
   <style>
     :root {
@@ -55,6 +57,8 @@
     .animate-on-scroll { opacity: 0; transform: translateY(30px); transition: opacity 0.7s ease, transform 0.7s ease; }
     .animate-on-scroll.visible { opacity: 1; transform: translateY(0); }
     .gsap-active .animate-on-scroll { opacity: 1; transform: none; transition: none; } /* GSAP overrides */
+    /* Fallback: if JS disabled or blocked, keep content fully visible */
+    .no-js .animate-on-scroll { opacity: 1 !important; transform: none !important; transition: none !important; }
 
     /* ═══ TOP PROMO BANNER ═══ */
     .top-promo-bar {
@@ -289,13 +293,15 @@
     }
   </style>
   
-  <script src="/locales.js"></script>
-  <script src="/i18n.js"></script>
+  <!-- locales.js / i18n.js moved to end of body with defer to avoid render-blocking -->
   <link rel="icon" href="/icons/icon.ico">
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#fc4b15">
 </head>
 <body>
+  <!-- Add no-js class via JS immediately; <noscript> keeps it if JS is disabled -->
+  <script>document.documentElement.classList.remove('no-js');</script>
+  <noscript><style>.no-js .animate-on-scroll{opacity:1!important;transform:none!important}</style></noscript>
 
   <!-- Top Banner -->
   <div class="top-promo-bar" id="top-banner">
@@ -1024,6 +1030,10 @@
       document.getElementById('setupEquipeList').appendChild(div);
     }
   </script>
+
+  <!-- Deferred i18n scripts: non-render-blocking, loaded after DOM is ready -->
+  <script src="/locales.js" defer></script>
+  <script src="/i18n.js" defer></script>
 
 </body>
 </html>
