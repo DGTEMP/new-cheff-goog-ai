@@ -2415,18 +2415,24 @@ window.endLongPress = (e) => {
 document.addEventListener('DOMContentLoaded', () => {
   const themeToggleBtn = document.getElementById('btn-theme-toggle');
   if (!themeToggleBtn) return;
-  
-  /* Sempre iniciar em modo claro */
-  document.body.classList.remove('dark-mode');
-  themeToggleBtn.innerHTML = '<i class="ph ph-moon"></i>';
-  
+
+  // Restaurar preferência salva (padrão: claro)
+  const savedTheme = localStorage.getItem('chef_garcom_theme');
+  if (savedTheme === 'dark') {
+    document.body.classList.add('dark-mode');
+    themeToggleBtn.innerHTML = '<i class="ph ph-sun"></i>';
+  } else {
+    document.body.classList.remove('dark-mode');
+    themeToggleBtn.innerHTML = '<i class="ph ph-moon"></i>';
+  }
+
   themeToggleBtn.addEventListener('click', () => {
     document.body.classList.toggle('dark-mode');
     const isDark = document.body.classList.contains('dark-mode');
-    if (isDark) {
-      themeToggleBtn.innerHTML = '<i class="ph ph-sun"></i>';
-    } else {
-      themeToggleBtn.innerHTML = '<i class="ph ph-moon"></i>';
-    }
+    localStorage.setItem('chef_garcom_theme', isDark ? 'dark' : 'light');
+    themeToggleBtn.innerHTML = isDark
+      ? '<i class="ph ph-sun"></i>'
+      : '<i class="ph ph-moon"></i>';
   });
 });
+

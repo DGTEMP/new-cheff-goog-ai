@@ -1,0 +1,445 @@
+/*
+ * dark-mode.css — Modo Noturno Global do Chef Cozinha
+ * Carregado em todas as páginas operacionais.
+ * Ativado via classe `body.dark-mode`.
+ *
+ * Paleta:
+ *   bg-0 (mais fundo)  : #0d1117
+ *   bg-1 (app)         : #13171f
+ *   bg-2 (sidebar/nav) : #1a1f2e
+ *   bg-3 (cards)       : #1e2435
+ *   bg-4 (inputs)      : #252b3b
+ *   border             : rgba(255,255,255,0.07)
+ *   text-primary       : #e8edf5
+ *   text-secondary     : #8b95a9
+ *   accent             : #fc4b15
+ */
+
+/* ═══════════════════════════════════════════
+   1. VARIÁVEIS GLOBAIS
+═══════════════════════════════════════════ */
+body.dark-mode {
+  --bg-color:   #13171f;
+  --bg-sidebar: #1a1f2e;
+  --bg-card:    #1e2435;
+  --text-primary:   #e8edf5;
+  --text-secondary: #8b95a9;
+  --border-color:   rgba(255,255,255,0.07);
+  --accent-hover:   rgba(252,75,21,0.12);
+  --shadow-sm:  0 2px 8px rgba(0,0,0,0.4);
+  --shadow-md:  0 4px 16px rgba(0,0,0,0.5);
+  --shadow-card:0 4px 16px rgba(0,0,0,0.45);
+
+  background-color: #13171f !important;
+  color: #e8edf5 !important;
+}
+
+/* ═══════════════════════════════════════════
+   2. LAYOUT PRINCIPAL
+═══════════════════════════════════════════ */
+body.dark-mode .app-container,
+body.dark-mode .main-content,
+body.dark-mode .content-area,
+body.dark-mode .page-content,
+body.dark-mode .content-wrapper,
+body.dark-mode #main-content,
+body.dark-mode #content {
+  background-color: #13171f;
+}
+
+/* Sidebar / nav lateral */
+body.dark-mode .sidebar,
+body.dark-mode .side-menu,
+body.dark-mode .nav-sidebar,
+body.dark-mode aside,
+body.dark-mode .left-panel,
+body.dark-mode .sidebar-sectors {
+  background-color: #1a1f2e !important;
+  border-right: 1px solid rgba(255,255,255,0.07) !important;
+  color: #e8edf5;
+}
+
+/* Header / top bar */
+body.dark-mode header,
+body.dark-mode .top-bar,
+body.dark-mode .top-menubar,
+body.dark-mode .navbar,
+body.dark-mode .app-header,
+body.dark-mode .page-header {
+  background-color: #1a1f2e !important;
+  border-bottom: 1px solid rgba(255,255,255,0.07) !important;
+  color: #e8edf5 !important;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.4) !important;
+}
+
+body.dark-mode header *,
+body.dark-mode .top-bar *,
+body.dark-mode .top-menubar * {
+  color: #e8edf5;
+}
+
+/* ═══════════════════════════════════════════
+   3. CARDS & PAINÉIS
+═══════════════════════════════════════════ */
+body.dark-mode .card,
+body.dark-mode .widget,
+body.dark-mode .panel,
+body.dark-mode .box,
+body.dark-mode .info-card,
+body.dark-mode .stat-card,
+body.dark-mode .metric-card,
+body.dark-mode .summary-card,
+body.dark-mode .kpi-card,
+body.dark-mode .data-card,
+body.dark-mode .report-card,
+body.dark-mode .section-card,
+body.dark-mode .chart-card,
+body.dark-mode .dash-card,
+body.dark-mode [class*="-card"]:not(.table-card):not(.menu-item),
+body.dark-mode [class*="card-"]:not(.cart-badge):not(.card-category-badge) {
+  background-color: #1e2435 !important;
+  border-color: rgba(255,255,255,0.07) !important;
+  color: #e8edf5 !important;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.45) !important;
+}
+
+/* ═══════════════════════════════════════════
+   4. TABELAS
+═══════════════════════════════════════════ */
+body.dark-mode table { border-color: rgba(255,255,255,0.07); }
+body.dark-mode th {
+  background-color: #1e2435 !important;
+  color: #8b95a9 !important;
+  border-bottom-color: rgba(255,255,255,0.07) !important;
+}
+body.dark-mode td {
+  background-color: transparent !important;
+  color: #e8edf5 !important;
+  border-bottom-color: rgba(255,255,255,0.05) !important;
+}
+body.dark-mode tr:hover td,
+body.dark-mode tbody tr:hover {
+  background-color: rgba(255,255,255,0.03) !important;
+}
+body.dark-mode .table-container,
+body.dark-mode .table-wrapper,
+body.dark-mode .data-table,
+body.dark-mode #tabelaPedidos,
+body.dark-mode .finance-table {
+  background-color: #1e2435 !important;
+  border-color: rgba(255,255,255,0.07) !important;
+}
+
+/* ═══════════════════════════════════════════
+   5. FORMULÁRIOS & INPUTS
+═══════════════════════════════════════════ */
+body.dark-mode input,
+body.dark-mode textarea,
+body.dark-mode select {
+  background-color: #252b3b !important;
+  color: #e8edf5 !important;
+  border-color: rgba(255,255,255,0.12) !important;
+}
+body.dark-mode input::placeholder,
+body.dark-mode textarea::placeholder {
+  color: #576070 !important;
+}
+body.dark-mode input:focus,
+body.dark-mode textarea:focus,
+body.dark-mode select:focus {
+  border-color: #fc4b15 !important;
+  box-shadow: 0 0 0 3px rgba(252,75,21,0.15) !important;
+  outline: none !important;
+}
+body.dark-mode label {
+  color: #8b95a9 !important;
+}
+body.dark-mode option {
+  background-color: #1e2435;
+  color: #e8edf5;
+}
+
+/* ═══════════════════════════════════════════
+   6. MODAIS & OVERLAYS
+═══════════════════════════════════════════ */
+body.dark-mode .modal,
+body.dark-mode .modal-content,
+body.dark-mode .modal-box,
+body.dark-mode .dialog,
+body.dark-mode .popup,
+body.dark-mode [class*="modal"]:not([class*="modal-overlay"]) {
+  background-color: #1e2435 !important;
+  border-color: rgba(255,255,255,0.08) !important;
+  color: #e8edf5 !important;
+}
+body.dark-mode .modal-header,
+body.dark-mode .modal-footer {
+  border-color: rgba(255,255,255,0.07) !important;
+  background-color: #1a1f2e !important;
+}
+body.dark-mode .modal-overlay,
+body.dark-mode .overlay,
+body.dark-mode .backdrop {
+  background-color: rgba(0,0,0,0.75) !important;
+}
+
+/* ═══════════════════════════════════════════
+   7. NAVEGAÇÃO & ABAS
+═══════════════════════════════════════════ */
+body.dark-mode .nav-item,
+body.dark-mode .menu-item-nav,
+body.dark-mode .sidebar-link,
+body.dark-mode .nav-link {
+  color: #8b95a9 !important;
+}
+body.dark-mode .nav-item:hover,
+body.dark-mode .nav-link:hover,
+body.dark-mode .menu-icon:hover {
+  background-color: rgba(255,255,255,0.05) !important;
+  color: #e8edf5 !important;
+}
+body.dark-mode .nav-item.active,
+body.dark-mode .nav-link.active,
+body.dark-mode .sidebar-link.active {
+  background-color: rgba(252,75,21,0.15) !important;
+  color: #fc4b15 !important;
+}
+
+/* Tabs (abas) */
+body.dark-mode .tab,
+body.dark-mode .tabs .tab,
+body.dark-mode .bill-tab,
+body.dark-mode [role="tab"] {
+  background-color: #1e2435 !important;
+  border-color: rgba(255,255,255,0.07) !important;
+  color: #8b95a9 !important;
+}
+body.dark-mode .tab.active,
+body.dark-mode .bill-tab.active,
+body.dark-mode [role="tab"][aria-selected="true"] {
+  background-color: #fc4b15 !important;
+  color: #ffffff !important;
+  border-color: #fc4b15 !important;
+}
+
+/* ═══════════════════════════════════════════
+   8. BOTÕES
+═══════════════════════════════════════════ */
+body.dark-mode .btn,
+body.dark-mode button:not(.btn-primary):not([class*="btn-"]):not([id*="btn-global"]) {
+  background-color: #252b3b;
+  color: #e8edf5;
+  border-color: rgba(255,255,255,0.1);
+}
+body.dark-mode .btn:hover,
+body.dark-mode button:not(.btn-primary):hover {
+  background-color: #2e3550;
+}
+body.dark-mode .btn-secondary {
+  background-color: #252b3b !important;
+  color: #e8edf5 !important;
+  border-color: rgba(255,255,255,0.12) !important;
+}
+/* Manter botões de ação com suas cores originais */
+body.dark-mode .btn-primary,
+body.dark-mode .btn-danger,
+body.dark-mode .btn-success,
+body.dark-mode .btn-warning {
+  filter: brightness(0.9);
+}
+
+/* ═══════════════════════════════════════════
+   9. STATUS BADGES & TAGS
+═══════════════════════════════════════════ */
+body.dark-mode .badge,
+body.dark-mode .status-badge,
+body.dark-mode .tag,
+body.dark-mode .chip {
+  filter: brightness(0.8) saturate(0.9);
+}
+body.dark-mode .status-badge.pendente  { background: rgba(133,100,4,0.25)   !important; color: #fbbf24 !important; }
+body.dark-mode .status-badge.aprovado  { background: rgba(21,87,36,0.3)     !important; color: #4ade80 !important; }
+body.dark-mode .status-badge.recusado  { background: rgba(114,28,36,0.3)    !important; color: #f87171 !important; }
+body.dark-mode .status-badge.entregue  { background: rgba(29,78,216,0.25)   !important; color: #93c5fd !important; }
+
+/* ═══════════════════════════════════════════
+   10. FILA DA COZINHA (fila-pedidos / fila.css)
+═══════════════════════════════════════════ */
+body.dark-mode .queue-header,
+body.dark-mode .fila-header,
+body.dark-mode .kanban-header {
+  background-color: #1a1f2e !important;
+  border-bottom-color: rgba(255,255,255,0.07) !important;
+}
+body.dark-mode .order-card,
+body.dark-mode .pedido-card,
+body.dark-mode .item-card,
+body.dark-mode .kanban-card,
+body.dark-mode .pedido-row {
+  background-color: #1e2435 !important;
+  border-color: rgba(255,255,255,0.07) !important;
+  color: #e8edf5 !important;
+}
+body.dark-mode .app-container.fila,
+body.dark-mode .fila-container,
+body.dark-mode .kanban-board,
+body.dark-mode .queue-board {
+  background-color: #13171f !important;
+}
+/* Colunas da fila */
+body.dark-mode .fila-column,
+body.dark-mode .kanban-column,
+body.dark-mode .status-column {
+  background-color: #181d28 !important;
+  border-color: rgba(255,255,255,0.05) !important;
+}
+/* Coluna header */
+body.dark-mode .column-header,
+body.dark-mode .fila-column-header {
+  background-color: #1e2435 !important;
+  border-bottom-color: rgba(255,255,255,0.07) !important;
+}
+/* Item observation */
+body.dark-mode .item-observacao {
+  background: rgba(251,191,36,0.15) !important;
+  color: #fbbf24 !important;
+}
+/* Sidebar de setores */
+body.dark-mode .sidebar-sectors,
+body.dark-mode .sector-sidebar {
+  background-color: #1a1f2e !important;
+}
+body.dark-mode .status-btn {
+  background: rgba(26,115,232,0.15) !important;
+  border-color: rgba(26,115,232,0.3) !important;
+}
+body.dark-mode .status-btn span { color: #60a5fa !important; }
+
+/* ═══════════════════════════════════════════
+   11. FINANCEIRO (financeiro.html)
+═══════════════════════════════════════════ */
+body.dark-mode .finance-sidebar,
+body.dark-mode .financeiro-sidebar {
+  background-color: #1a1f2e !important;
+  border-right-color: rgba(255,255,255,0.07) !important;
+}
+body.dark-mode .turno-card,
+body.dark-mode .caixa-card,
+body.dark-mode .fechamento-card,
+body.dark-mode .relatorio-card {
+  background-color: #1e2435 !important;
+  border-color: rgba(255,255,255,0.07) !important;
+}
+body.dark-mode .resumo-item,
+body.dark-mode .finance-item {
+  border-bottom-color: rgba(255,255,255,0.06) !important;
+}
+body.dark-mode .finance-total,
+body.dark-mode .valor-total,
+body.dark-mode .totals-area {
+  background-color: #252b3b !important;
+  border-color: rgba(255,255,255,0.07) !important;
+}
+
+/* ═══════════════════════════════════════════
+   12. CONFIGURAÇÕES (configuracoes.html)
+═══════════════════════════════════════════ */
+body.dark-mode .config-section,
+body.dark-mode .settings-card,
+body.dark-mode .config-panel {
+  background-color: #1e2435 !important;
+  border-color: rgba(255,255,255,0.07) !important;
+}
+body.dark-mode .config-sidebar,
+body.dark-mode .settings-nav {
+  background-color: #1a1f2e !important;
+}
+body.dark-mode .config-tab,
+body.dark-mode .settings-tab {
+  color: #8b95a9 !important;
+}
+body.dark-mode .config-tab.active,
+body.dark-mode .settings-tab.active {
+  background-color: rgba(252,75,21,0.15) !important;
+  color: #fc4b15 !important;
+}
+body.dark-mode .toggle-switch .slider {
+  background-color: #3d4663 !important;
+}
+body.dark-mode .toggle-switch input:checked + .slider {
+  background-color: #fc4b15 !important;
+}
+
+/* ═══════════════════════════════════════════
+   13. DASHBOARD
+═══════════════════════════════════════════ */
+body.dark-mode .dashboard-grid,
+body.dark-mode .metrics-grid,
+body.dark-mode .dash-grid {
+  /* grid container — fundo já coberto pelo body */
+}
+body.dark-mode .chart-container,
+body.dark-mode canvas {
+  filter: brightness(0.88) contrast(1.05);
+}
+body.dark-mode .table-section,
+body.dark-mode .recent-orders,
+body.dark-mode .top-products {
+  background-color: #1e2435 !important;
+  border-color: rgba(255,255,255,0.07) !important;
+}
+
+/* ═══════════════════════════════════════════
+   14. PAINEL FUNCIONÁRIO
+═══════════════════════════════════════════ */
+body.dark-mode .funcionario-header,
+body.dark-mode .ponto-header,
+body.dark-mode .employee-header {
+  background: linear-gradient(135deg, #1e2435, #252b3b) !important;
+}
+body.dark-mode .pagamento-item,
+body.dark-mode .ponto-item,
+body.dark-mode .historico-item {
+  border-bottom-color: rgba(255,255,255,0.06) !important;
+}
+body.dark-mode .pagamento-item:hover,
+body.dark-mode .ponto-item:hover {
+  background-color: rgba(255,255,255,0.03) !important;
+}
+
+/* ═══════════════════════════════════════════
+   15. SCROLLBAR ESCURA
+═══════════════════════════════════════════ */
+body.dark-mode ::-webkit-scrollbar { width: 6px; height: 6px; }
+body.dark-mode ::-webkit-scrollbar-track { background: #1a1f2e; }
+body.dark-mode ::-webkit-scrollbar-thumb { background: #3d4663; border-radius: 4px; }
+body.dark-mode ::-webkit-scrollbar-thumb:hover { background: #4f5f80; }
+
+/* ═══════════════════════════════════════════
+   16. UTILITÁRIOS / SEPARADORES
+═══════════════════════════════════════════ */
+body.dark-mode hr,
+body.dark-mode .divider,
+body.dark-mode .separator {
+  border-color: rgba(255,255,255,0.07) !important;
+}
+body.dark-mode .text-muted,
+body.dark-mode .text-secondary,
+body.dark-mode .subtitle {
+  color: #8b95a9 !important;
+}
+body.dark-mode code,
+body.dark-mode pre {
+  background-color: #0d1117 !important;
+  border-color: rgba(255,255,255,0.07) !important;
+  color: #a5f3fc !important;
+}
+
+/* ═══════════════════════════════════════════
+   17. TOAST / NOTIFICAÇÕES
+═══════════════════════════════════════════ */
+body.dark-mode #toast {
+  background-color: #1e2435 !important;
+  border-color: rgba(255,255,255,0.1) !important;
+  color: #e8edf5 !important;
+}

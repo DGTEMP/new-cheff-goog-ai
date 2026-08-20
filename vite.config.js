@@ -4,6 +4,19 @@ import fs from 'fs';
 import basicSsl from '@vitejs/plugin-basic-ssl';
 import legacy from '@vitejs/plugin-legacy';
 
+// Plugin: copia arquivos CSS/JS estáticos da raiz para dist/ após o build
+const copyRootStatics = () => ({
+  name: 'copy-root-statics',
+  closeBundle() {
+    const files = ['style.css', 'fila.css', 'dark-mode.css', 'broadcast.js'];
+    for (const f of files) {
+      const src = resolve(__dirname, f);
+      const dest = resolve(__dirname, 'dist', f);
+      if (fs.existsSync(src)) fs.copyFileSync(src, dest);
+    }
+  }
+});
+
 const BACKEND_PORT = (() => {
   try {
     const p = fs.readFileSync(resolve(__dirname, 'port.txt'), 'utf8').trim();
@@ -30,6 +43,7 @@ const isCodespaces = process.env.CODESPACES === 'true';
 
 export default defineConfig({
   plugins: [
+    copyRootStatics(),
     injectPolyfills(),
     ...(!isCodespaces ? [basicSsl()] : []),
     legacy({

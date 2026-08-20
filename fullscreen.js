@@ -1,5 +1,21 @@
 (function() {
 
+  // ─── DARK MODE CSS INJECTION ─────────────────────────────────────────────────
+  // Inject dark-mode.css if not already present (for pages that don't load it directly)
+  if (!document.querySelector('link[href*="dark-mode.css"]')) {
+    var dmLink = document.createElement('link');
+    dmLink.rel = 'stylesheet';
+    dmLink.href = '/dark-mode.css';
+    document.head.appendChild(dmLink);
+  }
+
+  // ─── DARK MODE STATE ─────────────────────────────────────────────────────────
+  var DARK_KEY = 'chef_garcom_theme';
+  var isDark = localStorage.getItem(DARK_KEY) === 'dark';
+
+  // Apply immediately on load (before DOMContentLoaded to avoid flash)
+  if (isDark) document.documentElement.classList.add('dark-mode-pre');
+
   // ─── ROTATION STATE ────────────────────────────────────────────────────────
   var ROTATE_KEY = 'chef_screen_rotated';
   var isRotated = localStorage.getItem(ROTATE_KEY) === '1';
@@ -21,6 +37,15 @@
   rotBtn.innerHTML = SVG_ROTATE;
   rotBtn.title = 'Rotacionar Tela';
 
+  // ─── DARK MODE BUTTON ────────────────────────────────────────────────────────
+  var SVG_MOON = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+  var SVG_SUN  = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
+
+  var darkBtn = document.createElement('button');
+  darkBtn.id = 'btn-global-darkmode';
+  darkBtn.innerHTML = isDark ? SVG_SUN : SVG_MOON;
+  darkBtn.title = isDark ? 'Modo Claro' : 'Modo Noturno';
+
   function applyButtonStyle(b) {
     b.style.width = '36px';
     b.style.height = '36px';
@@ -40,6 +65,47 @@
 
   applyButtonStyle(btn);
   applyButtonStyle(rotBtn);
+  applyButtonStyle(darkBtn);
+
+  // ─── DARK MODE LOGIC ─────────────────────────────────────────────────────────
+  function applyDarkMode(dark) {
+    document.body.classList.toggle('dark-mode', dark);
+    document.documentElement.classList.toggle('dark-mode', dark);
+    darkBtn.innerHTML = dark ? SVG_SUN : SVG_MOON;
+    darkBtn.title = dark ? 'Modo Claro' : 'Modo Noturno';
+    darkBtn.style.opacity = dark ? '1' : '0.7';
+    darkBtn.style.color = dark ? '#f59e0b' : 'inherit';
+  }
+
+  // Apply saved theme on DOM ready (promotes pre-class to body.dark-mode)
+  function applyDarkOnLoad() {
+    // Only apply if body.dark-mode isn't already managed by the page itself
+    // (garcom.html manages its own via garcom.js — avoid double-toggle)
+    var pageManages = !!document.getElementById('btn-theme-toggle');
+    if (!pageManages && isDark) {
+      applyDarkMode(true);
+    } else if (pageManages) {
+      // Sync icon with garcom.js state
+      var bodyIsDark = document.body.classList.contains('dark-mode');
+      isDark = bodyIsDark;
+      darkBtn.innerHTML = bodyIsDark ? SVG_SUN : SVG_MOON;
+      darkBtn.style.color = bodyIsDark ? '#f59e0b' : 'inherit';
+      darkBtn.style.opacity = bodyIsDark ? '1' : '0.7';
+    }
+    document.documentElement.classList.remove('dark-mode-pre');
+  }
+  document.addEventListener('DOMContentLoaded', applyDarkOnLoad);
+  if (document.readyState === 'complete' || document.readyState === 'interactive') applyDarkOnLoad();
+
+  darkBtn.addEventListener('click', function(e) {
+    e.preventDefault(); e.stopPropagation();
+    isDark = !isDark;
+    localStorage.setItem(DARK_KEY, isDark ? 'dark' : 'light');
+    applyDarkMode(isDark);
+    // Sync garcom.js button if present
+    var garcomBtn = document.getElementById('btn-theme-toggle');
+    if (garcomBtn) garcomBtn.innerHTML = isDark ? '<i class="ph ph-sun"></i>' : '<i class="ph ph-moon"></i>';
+  });
 
   // ─── CSS TRANSFORM ROTATION ─────────────────────────────────────────────────
   function applyCssRotation(on) {
@@ -150,10 +216,12 @@
     if (headerRightActions) {
       styleForDark(btn);
       styleForDark(rotBtn);
+      styleForDark(darkBtn);
       const wrap = document.createElement('div');
       wrap.style.display = 'flex';
       wrap.style.gap = '6px';
       if (gearBtn) { styleForDark(gearBtn); wrap.appendChild(gearBtn); }
+      wrap.appendChild(darkBtn);
       wrap.appendChild(rotBtn);
       wrap.appendChild(btn);
       headerRightActions.prepend(wrap);
@@ -167,7 +235,9 @@
       wrapper.style.paddingRight = '10px';
       styleForLight(btn);
       styleForLight(rotBtn);
+      styleForLight(darkBtn);
       if (gearBtn) { styleForLight(gearBtn); wrapper.appendChild(gearBtn); }
+      wrapper.appendChild(darkBtn);
       wrapper.appendChild(rotBtn);
       wrapper.appendChild(btn);
       topMenubar.appendChild(wrapper);
@@ -179,6 +249,7 @@
       wrapper.style.gap = '6px';
       wrapper.style.marginLeft = '8px';
       if (gearBtn) wrapper.appendChild(gearBtn);
+      wrapper.appendChild(darkBtn);
       wrapper.appendChild(rotBtn);
       wrapper.appendChild(btn);
       headerElement.appendChild(wrapper);
@@ -201,10 +272,18 @@
       rotBtn.style.color = 'white';
       document.body.appendChild(rotBtn);
 
+      darkBtn.style.position = 'fixed';
+      darkBtn.style.top = '10px';
+      darkBtn.style.right = '102px';
+      darkBtn.style.zIndex = '999999';
+      darkBtn.style.backgroundColor = '#333';
+      darkBtn.style.color = isDark ? '#f59e0b' : 'white';
+      document.body.appendChild(darkBtn);
+
       if (gearBtn) {
         gearBtn.style.position = 'fixed';
         gearBtn.style.top = '10px';
-        gearBtn.style.right = '102px';
+        gearBtn.style.right = '148px';
         gearBtn.style.zIndex = '999999';
         gearBtn.style.backgroundColor = '#333';
         gearBtn.style.color = 'white';
@@ -216,6 +295,11 @@
     if (isRotated) {
       rotBtn.style.opacity = '1';
       rotBtn.style.color = 'var(--primary, #fc4b15)';
+    }
+    // Highlight dark mode button if currently dark
+    if (isDark) {
+      darkBtn.style.opacity = '1';
+      darkBtn.style.color = '#f59e0b';
     }
   }
 

@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   
@@ -168,63 +168,199 @@
     .skel-w60 { width: 60%; }
     .skel-w40 { width: 40%; }
     .skel-mt { margin-top: 8px; }
-    /* Dark Mode Theme */
+    /* ═══ DARK MODE — Tema Noturno Completo ═══ */
     body.dark-mode {
-      background-color: #12121a;
-      color: #e2e8f0;
+      background-color: #13171f !important;
+      color: #e8edf5 !important;
     }
     body.dark-mode header {
-      background-color: #1e1e2d;
-      border-bottom: 1px solid #333;
-      color: #fff;
+      background-color: #1a1f2e !important;
+      border-bottom: 1px solid rgba(255,255,255,0.07) !important;
+      color: #e8edf5 !important;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.4) !important;
     }
-    body.dark-mode header button {
-      color: #e2e8f0 !important;
+    body.dark-mode header button,
+    body.dark-mode header span,
+    body.dark-mode header p {
+      color: #e8edf5 !important;
     }
-    body.dark-mode .grid-mesas .card, body.dark-mode .grid-produtos .card {
-      background-color: #1e1e2d;
-      border: 1px solid #333;
-      color: #e2e8f0;
+    /* Tela de mesas */
+    body.dark-mode .table-card {
+      background: #1e2435 !important;
+      border-color: #2d5a3d !important;
+      color: #4ade80 !important;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.4) !important;
     }
+    body.dark-mode .table-card.ocupada {
+      background: #2d1b1b !important;
+      border-color: #5a2d2d !important;
+      color: #f87171 !important;
+    }
+    body.dark-mode .table-card .mesa-label,
+    body.dark-mode .table-card span {
+      color: inherit !important;
+    }
+    body.dark-mode .bill-requested-icon {
+      border-color: #1a1f2e !important;
+    }
+    /* Abas de categoria */
+    body.dark-mode .tab {
+      background: #1e2435 !important;
+      border-color: rgba(255,255,255,0.08) !important;
+      color: #8b95a9 !important;
+      box-shadow: none !important;
+    }
+    body.dark-mode .tab:hover {
+      background: #252b3b !important;
+      color: #e8edf5 !important;
+    }
+    body.dark-mode .tab.active {
+      background: #fc4b15 !important;
+      color: #fff !important;
+      border-color: #fc4b15 !important;
+    }
+    /* Itens do menu */
+    body.dark-mode .menu-item {
+      background: #1e2435 !important;
+      border-color: rgba(255,255,255,0.07) !important;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
+    }
+    body.dark-mode .menu-item .img-box {
+      background: rgba(252,75,21,0.1) !important;
+      border-color: rgba(252,75,21,0.2) !important;
+    }
+    body.dark-mode .menu-item .item-name,
+    body.dark-mode .menu-item .item-price,
+    body.dark-mode .menu-item .item-desc {
+      color: #e8edf5 !important;
+    }
+    /* Controle de quantidade */
+    body.dark-mode .qty-control {
+      background: #1e2435 !important;
+      border-color: rgba(255,255,255,0.07) !important;
+      box-shadow: none !important;
+    }
+    body.dark-mode .qty-btn {
+      background: #252b3b !important;
+    }
+    body.dark-mode .qty-btn:active { background: rgba(252,75,21,0.2) !important; }
+    /* Textarea de observações */
+    body.dark-mode textarea {
+      background: #1e2435 !important;
+      border-color: rgba(255,255,255,0.1) !important;
+      color: #e8edf5 !important;
+    }
+    /* Sugestões */
+    body.dark-mode .suggestion-card {
+      background: #1e2435 !important;
+      border-color: rgba(255,255,255,0.07) !important;
+      color: #e8edf5 !important;
+      box-shadow: none !important;
+    }
+    /* Barra de baixo (enviar pedido) */
+    body.dark-mode .fixed-bottom-bar {
+      background: #1a1f2e !important;
+      border-top-color: rgba(255,255,255,0.07) !important;
+      box-shadow: 0 -4px 16px rgba(0,0,0,0.4) !important;
+    }
+    /* Detalhe do produto */
+    body.dark-mode .detail-hero {
+      background: #1e2435 !important;
+      border-color: rgba(255,255,255,0.07) !important;
+      box-shadow: none !important;
+    }
+    body.dark-mode #detail-img {
+      background: rgba(252,75,21,0.1) !important;
+      border-color: rgba(252,75,21,0.2) !important;
+    }
+    /* Conta — abas */
+    body.dark-mode .bill-tab {
+      background: #1e2435 !important;
+      border-color: rgba(255,255,255,0.07) !important;
+      color: #8b95a9 !important;
+    }
+    body.dark-mode .bill-tab.active {
+      background: #252b3b !important;
+      color: #fc4b15 !important;
+      border-color: rgba(255,255,255,0.1) !important;
+      box-shadow: none !important;
+    }
+    /* Itens da conta */
+    body.dark-mode .bill-item-row {
+      background: #1e2435 !important;
+      border-color: rgba(255,255,255,0.07) !important;
+    }
+    body.dark-mode .bill-item-row.selected {
+      border-color: #fc4b15 !important;
+      background: rgba(252,75,21,0.1) !important;
+    }
+    body.dark-mode .bill-item-row .checkbox {
+      border-color: #3d4663 !important;
+    }
+    /* Modal */
+    body.dark-mode .modal {
+      background: #1e2435 !important;
+      color: #e8edf5 !important;
+    }
+    body.dark-mode .modal label { color: #8b95a9 !important; }
+    body.dark-mode .modal input,
+    body.dark-mode .modal textarea {
+      background: #252b3b !important;
+      border-color: rgba(255,255,255,0.1) !important;
+      color: #e8edf5 !important;
+    }
+    body.dark-mode .modal input::placeholder,
+    body.dark-mode .modal textarea::placeholder { color: #576070 !important; }
+    /* Carrinho flutuante */
     body.dark-mode .floating-cart-panel {
-      background-color: #1e1e2d;
-      border-top: 1px solid #333;
+      background: #1a1f2e !important;
+      border-top-color: rgba(255,255,255,0.07) !important;
     }
     body.dark-mode .cart-item {
-      border-bottom: 1px solid #333;
+      border-bottom-color: rgba(255,255,255,0.06) !important;
     }
+    /* Categorias */
     body.dark-mode #categorias-container button {
-      background-color: #333;
-      color: #e2e8f0;
-      border: 1px solid #444;
+      background: #252b3b !important;
+      color: #e8edf5 !important;
+      border-color: rgba(255,255,255,0.08) !important;
     }
     body.dark-mode #categorias-container button.active {
-      background-color: #fc4b15;
-      color: white;
-      border: none;
+      background: #fc4b15 !important;
+      color: #fff !important;
+      border-color: #fc4b15 !important;
     }
-    body.dark-mode h1, body.dark-mode h2, body.dark-mode h3 {
-      color: #f8fafc;
-    }
-    body.dark-mode .modal {
-      background-color: #1e1e2d;
-      color: #e2e8f0;
-    }
-    body.dark-mode .modal label {
-      color: #94a3b8;
-    }
-    body.dark-mode .modal input, body.dark-mode .modal textarea {
-      background-color: #12121a;
-      border: 1px solid #333;
-      color: #e2e8f0;
-    }
-    body.dark-mode .floating-cart-btn {
-      background: linear-gradient(135deg, #1e3a8a, #3b82f6);
-    }
+    /* Card category tag */
     body.dark-mode .card-category {
-      background: rgba(255,255,255,0.05);
-      color: #94a3b8;
+      background: rgba(255,255,255,0.07) !important;
+      color: #8b95a9 !important;
     }
+    /* Skeleton loaders */
+    body.dark-mode .skeleton-card { background: #1e2435 !important; }
+    body.dark-mode .skel-line {
+      background: linear-gradient(90deg, #252b3b 25%, #2e3550 50%, #252b3b 75%) !important;
+    }
+    /* Contexto / menu de ações */
+    body.dark-mode #garcom-context-menu {
+      background: #1e2435 !important;
+      border-color: rgba(255,255,255,0.08) !important;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5) !important;
+    }
+    body.dark-mode #garcom-context-menu button {
+      color: #e8edf5 !important;
+    }
+    body.dark-mode #garcom-context-menu button:hover {
+      background: rgba(255,255,255,0.05) !important;
+    }
+    /* Headings */
+    body.dark-mode h1, body.dark-mode h2, body.dark-mode h3,
+    body.dark-mode h4, body.dark-mode h5, body.dark-mode h6 {
+      color: #e8edf5 !important;
+    }
+    /* Scrollbar */
+    body.dark-mode ::-webkit-scrollbar { width: 5px; height: 5px; }
+    body.dark-mode ::-webkit-scrollbar-track { background: #1a1f2e; }
+    body.dark-mode ::-webkit-scrollbar-thumb { background: #3d4663; border-radius: 4px; }
   </style>
   <script src="/vendor/html5-qrcode/html5-qrcode.min.js"></script>
   <script src="/vendor/morphdom/morphdom.min.js"></script>
