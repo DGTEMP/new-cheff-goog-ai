@@ -5450,26 +5450,26 @@ window.abrirPerfilMesa = function(mesaNome) {
   
   if (canvas) {
     try {
-      if (typeof QRious !== 'undefined') {
-        new QRious({
-          element: canvas,
-          value: tableUrl,
-          size: 180,
-          level: 'H'
-        });
-      } else {
       const ctx = canvas.getContext('2d');
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      const qrImg = new Image();
-      qrImg.crossOrigin = 'anonymous';
-      qrImg.onload = function() {
-        ctx.drawImage(qrImg, 0, 0, 200, 200);
+      const drawImageOnCanvas = function(src) {
+        const qrImg = new Image();
+        qrImg.crossOrigin = 'anonymous';
+        qrImg.onload = function() {
+          ctx.drawImage(qrImg, 0, 0, canvas.width, canvas.height);
+        };
+        qrImg.src = src;
       };
-      qrImg.src = typeof window.gerarQrDataUrl === 'function'
-        ? (window.gerarQrDataUrl(tableUrl, 200, function(d){ qrImg.src = d; }), '')
-        : (window.location.origin || '') + '/api/qr?size=200&data=' + encodeURIComponent(tableUrl);
-    }
-    } catch (e) { console.error(e); }
+
+      if (typeof window.gerarQrDataUrl === 'function') {
+        window.gerarQrDataUrl(tableUrl, 200, function(dataUrl) {
+          drawImageOnCanvas(dataUrl);
+        });
+      } else {
+        const fallbackUrl = (window.location.origin || '') + '/api/qr?size=200&data=' + encodeURIComponent(tableUrl);
+        drawImageOnCanvas(fallbackUrl);
+      }
+    } catch (e) { console.error('[PerfilMesa] Erro ao gerar QR code:', e); }
   }
   
   const clientesEl = document.getElementById('perfil-mesa-clientes');
