@@ -1,20 +1,41 @@
 const logLines = [];
 const activeSockets = new Map();
-const originalLog = console.log;
-const originalError = console.error;
+
+const ANSI = {
+  reset: "\x1b[0m",
+  bright: "\x1b[1m",
+  dim: "\x1b[2m",
+  green: "\x1b[32m",
+  yellow: "\x1b[33m",
+  cyan: "\x1b[36m",
+  magenta: "\x1b[35m",
+  red: "\x1b[31m",
+  bgBlue: "\x1b[44m\x1b[37m"
+};
 
 console.log = function (...args) {
   const line = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(' ');
   logLines.push(`[LOG] ${new Date().toLocaleTimeString()} - ${line}`);
   if (logLines.length > 100) logLines.shift();
-  originalLog.apply(console, args);
+
+  // Formatação bonita de tags [Tag] no console
+  let formatted = line;
+  if (/^\[Socket\]/.test(line)) formatted = `${ANSI.cyan}⚡ [Socket]${ANSI.reset} ${line.replace(/^\[Socket\]/, '').trim()}`;
+  else if (/^\[iFood/.test(line)) formatted = `${ANSI.red}🛵 [iFood]${ANSI.reset} ${line.replace(/^\[iFood[^\]]*\]/, '').trim()}`;
+  else if (/^\[Lazy DB Pool\]/.test(line)) formatted = `${ANSI.green}💾 [Lazy DB Pool]${ANSI.reset} ${line.replace(/^\[Lazy DB Pool\]/, '').trim()}`;
+  else if (/^\[Deploy\]/.test(line)) formatted = `${ANSI.magenta}🚀 [Deploy]${ANSI.reset} ${line.replace(/^\[Deploy\]/, '').trim()}`;
+  else if (/^\[Sync/.test(line)) formatted = `${ANSI.yellow}🔄 [Sync]${ANSI.reset} ${line.replace(/^\[Sync[^\]]*\]/, '').trim()}`;
+  else if (/^\[Licença\]/.test(line)) formatted = `${ANSI.yellow}🔑 [Licença]${ANSI.reset} ${line.replace(/^\[Licença\]/, '').trim()}`;
+  else if (/^Cliente conectado:/.test(line)) formatted = `${ANSI.green}🟢 Cliente Conectado:${ANSI.reset} ${line.replace(/^Cliente conectado:/, '').trim()}`;
+
+  originalLog.apply(console, [formatted]);
 };
 
 console.error = function (...args) {
   const line = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(' ');
   logLines.push(`[ERR] ${new Date().toLocaleTimeString()} - ${line}`);
   if (logLines.length > 100) logLines.shift();
-  originalError.apply(console, args);
+  originalError.apply(console, [`${ANSI.red}${ANSI.bright}❌ [ERRO] ${line}${ANSI.reset}`]);
 };
 
 const express = require('express');
@@ -4697,38 +4718,7 @@ function syncTenantSchema(tenantDb, refPath, done) {
   });
 }
 
-function syncAllTenantSchemas() {
-  let files = [];
-  try {
-    files = fsSync.readdirSync(__dirname).filter((f) => /^database_(\d+)\.sqlite$/.test(f) && f !== 'database_1.sqlite');
-  } catch (e) {
-    return;
-  }
-  files.forEach((file) => {
-    const tid = parseInt(file.match(/^database_(\d+)\.sqlite$/)[1], 10);
-    const dbPath = path.join(__dirname, file);
-    const tdb = new sqlite3.Database(dbPath, (err) => {
-      if (err) {
-        console.error(`[Tenant Schema] Erro ao abrir ${file}:`, err.message);
-        return;
-      }
-    });
-    tdb.run('PRAGMA journal_mode = WAL;', () => {
-      tdb.run('PRAGMA synchronous = NORMAL;', () => {
-        tdb.run('PRAGMA busy_timeout = 5000;', () => {
-          tdb.run('PRAGMA cache_size = -20000;', () => {
-            tdb.run('PRAGMA temp_store = MEMORY;', () => {
-              syncTenantSchema(tdb, path.join(__dirname, 'database_1.sqlite'), () => {
-                tdb.close();
-                console.log(`[Tenant Schema] Schema de ${file} (tenant ${tid}) sincronizado.`);
-              });
-            });
-          });
-        });
-      });
-    });
-  });
-}
+
 
 
 function broadcastProdutos(targetSocket = io) {
