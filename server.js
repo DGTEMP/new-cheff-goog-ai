@@ -3,6 +3,9 @@ const activeSockets = new Map();
 const originalLog = console.log;
 const originalError = console.error;
 
+let isMatrixAnimating = true;
+const pendingLogs = [];
+
 const ANSI = {
   reset: "\x1b[0m",
   bright: "\x1b[1m",
@@ -11594,10 +11597,6 @@ function shutdown(signal) {
 }
 process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('SIGTERM', () => shutdown('SIGTERM'));
-
-// Controla a fila de logs durante a animação inicial da Matrix
-let isMatrixAnimating = true;
-const pendingLogs = [];
 
 // Inicializar licença e depois subir o servidor com Animação Visualizer / Matrix ────────────
 licenseManager.initLicense().then((licState) => {
