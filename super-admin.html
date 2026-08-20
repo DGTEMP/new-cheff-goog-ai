@@ -1636,6 +1636,10 @@
             <i class="fa-solid fa-bullseye"></i>
             <span>Site de Vendas</span>
           </div>
+          <div class="menu-item" data-target="sec-afiliados" id="menu-item-afiliados">
+            <i class="fa-solid fa-handshake"></i>
+            <span>Afiliados & Parceiros</span>
+          </div>
           <div class="menu-item" data-target="sec-terminal">
             <i class="fa-solid fa-terminal"></i>
             <span>Terminal</span>
@@ -2811,7 +2815,90 @@
           </div>
         </div>
 
-        <!-- ═══ SEÇÃO: SITE DE VENDAS (CMS) ═══ -->
+        
+        <!-- ════ SEÇÃO: AFILIADOS & PARCEIROS DE VENDAS ════ -->
+        <div class="content-section" id="sec-afiliados">
+          <div style="padding: 20px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
+              <div>
+                <h2 style="margin-bottom:4px; font-size:22px;"><i class="fa-solid fa-handshake" style="color:var(--primary);"></i> Programa de Afiliados & Parceiros</h2>
+                <p style="color:var(--text-muted); font-size:13.5px;">Gerencie revendedores, acompanhe vendas por código de referência e comissões em tempo real.</p>
+              </div>
+              <div style="display:flex; gap:10px;">
+                <button onclick="carregarAfiliados()" class="btn-action" style="padding:9px 16px;">
+                  <i class="fa-solid fa-rotate"></i> Atualizar
+                </button>
+                <button onclick="abrirModalNovoAfiliado()" class="btn-action btn-primary-action" style="padding:9px 18px;">
+                  <i class="fa-solid fa-user-plus"></i> Novo Afiliado
+                </button>
+              </div>
+            </div>
+
+            <!-- Cards de Métricas Gerais de Afiliados -->
+            <div class="stats-grid" style="margin-bottom: 24px;">
+              <div class="stat-card">
+                <div class="stat-icon" style="background:rgba(255,87,34,0.15); color:var(--primary);"><i class="fa-solid fa-users"></i></div>
+                <div class="stat-meta">
+                  <span>Total de Afiliados</span>
+                  <h3 id="afil-stat-total">0</h3>
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon" style="background:rgba(16,185,129,0.15); color:var(--success);"><i class="fa-solid fa-bag-shopping"></i></div>
+                <div class="stat-meta">
+                  <span>Vendas por Afiliados</span>
+                  <h3 id="afil-stat-vendas">0</h3>
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon" style="background:rgba(59,130,246,0.15); color:var(--info);"><i class="fa-solid fa-chart-line"></i></div>
+                <div class="stat-meta">
+                  <span>Faturamento Gerado</span>
+                  <h3 id="afil-stat-faturamento">R$ 0,00</h3>
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon" style="background:rgba(245,158,11,0.15); color:var(--warning);"><i class="fa-solid fa-hand-holding-dollar"></i></div>
+                <div class="stat-meta">
+                  <span>Comissões Geradas</span>
+                  <h3 id="afil-stat-comissoes">R$ 0,00</h3>
+                </div>
+              </div>
+            </div>
+
+            <!-- Tabela de Afiliados -->
+            <div class="table-container">
+              <div class="table-controls">
+                <div class="search-bar">
+                  <i class="fa-solid fa-magnifying-glass"></i>
+                  <input type="text" id="afil-search" onkeyup="filtrarTabelaAfiliados()" placeholder="Buscar por nome, email ou código ref...">
+                </div>
+              </div>
+              <div style="overflow-x:auto;">
+                <table class="custom-table">
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Afiliado</th>
+                      <th>Código Ref.</th>
+                      <th>Comissão %</th>
+                      <th>Vendas</th>
+                      <th>Faturado</th>
+                      <th>Comissões</th>
+                      <th>Status</th>
+                      <th>Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody id="afil-tbody">
+                    <tr><td colspan="9" style="text-align:center; padding:30px; color:var(--text-muted);">Carregando afiliados...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+<!-- ═══ SEÇÃO: SITE DE VENDAS (CMS) ═══ -->
         <div class="content-section" id="sec-site-vendas">
           <div style="padding: 20px;">
             <h2 style="margin-bottom:6px;"><i class="fa-solid fa-bullseye"></i> Site de Vendas — CMS</h2>
@@ -3333,6 +3420,93 @@
   <script src="/socket.io.min.js"></script>
   <script src="/super-admin.js"></script>
   <script src="/fullscreen.js"></script>
+
+
+  <!-- MODAL: NOVO / EDITAR AFILIADO -->
+  <div class="modal-overlay" id="modal-afiliado">
+    <div class="modal-content" style="max-width:540px;">
+      <div class="modal-header">
+        <h3 id="modal-afiliado-title">Novo Afiliado / Parceiro</h3>
+        <button class="modal-close" onclick="fecharModalAfiliado()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="afil-edit-id">
+        <div class="form-group">
+          <label>Nome Completo do Afiliado *</label>
+          <input type="text" id="afil-nome" placeholder="Ex: João da Silva (Revenda SP)" required>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>E-mail (Login do Afiliado) *</label>
+            <input type="email" id="afil-email" placeholder="joao@parceiro.com" required>
+          </div>
+          <div class="form-group">
+            <label>WhatsApp / Telefone</label>
+            <input type="text" id="afil-telefone" placeholder="(11) 99999-8888">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Código de Referência (Cupom/Ref) *</label>
+            <input type="text" id="afil-codigo" placeholder="EX: JOAO10" style="text-transform:uppercase; font-weight:bold; letter-spacing:1px;" required>
+          </div>
+          <div class="form-group">
+            <label>Comissão (% sobre vendas)</label>
+            <input type="number" id="afil-comissao" value="10" step="0.5" min="0" max="100">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Chave PIX para Resgate</label>
+          <input type="text" id="afil-pix" placeholder="CPF, Celular, E-mail ou Aleatória">
+        </div>
+        <div class="form-group">
+          <label>Senha de Acesso ao Portal</label>
+          <input type="password" id="afil-senha" placeholder="Deixe em branco para manter a atual (mín. 4 caracteres)">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-action modal-close" onclick="fecharModalAfiliado()">Cancelar</button>
+        <button class="btn-action btn-primary-action" onclick="salvarAfiliado()"><i class="fa-solid fa-floppy-disk"></i> Salvar Afiliado</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: MÉTRICAS E VENDAS DO AFILIADO -->
+  <div class="modal-overlay" id="modal-afiliado-detalhes">
+    <div class="modal-content" style="max-width:760px; width:92%;">
+      <div class="modal-header">
+        <h3 id="modal-afil-detalhes-title">Métricas do Afiliado</h3>
+        <button class="modal-close" onclick="fecharModalAfiliadoDetalhes()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <div id="afil-detalhes-header" style="background:rgba(255,255,255,0.04); padding:16px; border-radius:12px; margin-bottom:20px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+          <!-- JS injects info -->
+        </div>
+
+        <h4 style="margin-bottom:12px; font-size:15px; color:#fff;"><i class="fa-solid fa-list-check"></i> Histórico de Vendas Realizadas</h4>
+        <div style="overflow-x:auto; max-height:300px;">
+          <table class="custom-table" style="font-size:13px;">
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Restaurante</th>
+                <th>Plano</th>
+                <th>Valor Venda</th>
+                <th>Comissão</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="afil-detalhes-vendas-tbody">
+              <tr><td colspan="6" style="text-align:center; padding:20px; color:var(--text-muted);">Nenhuma venda registrada ainda.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-action" onclick="fecharModalAfiliadoDetalhes()">Fechar</button>
+      </div>
+    </div>
+  </div>
 
 </body>
 </html>

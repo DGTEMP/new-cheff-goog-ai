@@ -458,6 +458,201 @@ app.use(express.static(__dirname, {
 }));
 app.use(express.static(path.join(__dirname, 'public'), {
   etag: true,
+    db.run(
+      `INSERT INTO api_logs (operador, ip, metodo, endpoint, detalhes, status_code) VALUES (?, ?, ?, ?, ?, ?)`,
+      [operador, ip, req.method, req.originalUrl || req.url, payload, res.statusCode]
+    );
+  });
+  next();
+});
+
+// --- DOMÍNIO POR TENANT (subdomínio + domínio próprio) ---
+let BASE_DOMAIN = (process.env.BASE_DOMAIN || 'chefcozinha.com.br').toLowerCase();
+const domainMap = new Map(); // custom_domain → tenant_id
+const slugMap = new Map();   // slug → tenant_id
+let domainMapLoaded = false;
+
+function loadDomainMaps() {
+  return new Promise((resolve) => {
+    masterDb.all(`SELECT id, slug, custom_domain FROM restaurantes WHERE ativo = 1`, [], (err, rows) => {
+      if (err) return resolve();
+      domainMap.clear();
+      slugMap.clear();
+      (rows || []).forEach(r => {
+        if (r.custom_domain && r.custom_domain.trim()) {
+          domainMap.set(r.custom_domain.trim().toLowerCase(), r.id);
+        }
+        if (r.slug && r.slug.trim()) {
+          slugMap.set(r.slug.trim().toLowerCase(), r.id);
+        }
+      });
+      domainMapLoaded = true;
+      resolve();
+    });
+  });
+}
+
+function resolveTenantFromHost(req) {
+  const host = (req.get('host') || '').split(':')[0].toLowerCase();
+  if (!host) return null;
+
+  // 1) Match custom domain first
+  if (domainMap.has(host)) return domainMap.get(host);
+
+  // 2) Check if it's a subdomain of BASE_DOMAIN (e.g. pizzaria.chefcozinha.com.br)
+  const suffix = '.' + BASE_DOMAIN;
+  if (host.endsWith(suffix) && host.length > suffix.length) {
+    const subdomain = host.slice(0, host.length - suffix.length);
+    if (slugMap.has(subdomain)) return slugMap.get(subdomain);
+  }
+
+  return null;
+}
+
+// --- SAAS MULTI-TENANT SIMULATION ---
+app.use((req, res, next) => {
+  const domainTenant = resolveTenantFromHost(req);
+  req.restaurante_id = domainTenant || 1; // Domain-resolved or default tenant
+  req.tenant_slug = null;
+  if (domainTenant) {
+    const host = (req.get('host') || '').split(':')[0].toLowerCase();
+    const suffix = '.' + BASE_DOMAIN;
+    if (host.endsWith(suffix)) {
+      req.tenant_slug = host.slice(0, host.length - suffix.length);
+    }
+  }
+  next();
+});
+
+app.use((req, res, next) => {
+  const origSetHeader = res.setHeader.bind(res);
+  res.setHeader = (name, val) => {
+    if (name && name.toLowerCase() === 'content-type' && typeof val === 'string' && !val.includes('charset')) {
+      const textTypes = ['text/', 'application/javascript', 'application/json', 'application/xml'];
+      if (textTypes.some(t => val.startsWith(t))) val += '; charset=utf-8';
+    }
+    return origSetHeader(name, val);
+  };
+  next();
+});
+
+// (Segurança) Bloqueia a exposição via estática de bancos de dados, certificados,
+// chaves, scripts do servidor, configs e demais arquivos sensíveis do diretório raiz.
+const BLOCKED_STATIC_PREFIXES = [
+  'node_modules', 'database_', 'installer', 'package.json', 'package-lock',
+  'server.js', 'server-prod', 'server_test', 'server-prod-header', 'main_invalid',
+  'webpack.config', 'vite.config', 'uploads', 'webpush', 'certs', 'backup',
+  'estabelecimentos', 'hub-server', 'ubuntu-server', 'ChefCozinha-Nativo',
+  'iniciodoprojeto', 'super-admin.js', 'dist'
+];
+const BLOCKED_STATIC_EXTS = [
+  '.sqlite', '.sqlite-wal', '.sqlite-shm', '.db', '.db-wal', '.db-shm',
+  '.pfx', '.p12', '.pem', '.crt', '.key', '.cer', '.env', '.log', '.ini',
+  '.bat', '.cmd', '.ps1', '.sh'
+];
+app.use((req, res, next) => {
+  if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+  const urlPath = (req.path || '/').toLowerCase();
+  if (urlPath.startsWith('/api') || urlPath.startsWith('/socket.io') || urlPath.startsWith('/super-admin')) return next();
+  let decoded = '';
+  try { decoded = decodeURIComponent(req.path || '/').toLowerCase(); } catch (e) { decoded = urlPath; }
+  if (decoded.includes('..')) return res.status(403).send('Acesso negado.');
+  if (BLOCKED_STATIC_PREFIXES.some(b => decoded.includes(b))) return res.status(403).send('Acesso negado.');
+  if (BLOCKED_STATIC_EXTS.some(b => decoded.endsWith(b))) return res.status(403).send('Acesso negado.');
+  next();
+});
+
+// Compressão brotli/gzip (GET de conteúdo textual, sem dep externa) ─────────
+app.use((req, res, next) => {
+  if (req.method !== 'GET') return next();
+  const urlPath = (req.path || '').toLowerCase();
+  if (urlPath.startsWith('/api') || urlPath.startsWith('/socket.io')) return next();
+  const accept = req.headers['accept-encoding'] || '';
+  const useBr = /(^|[,\s])br($|[,\s])/i.test(accept);
+  const useGz = /gzip/i.test(accept);
+  if (!useBr && !useGz) return next();
+
+  const origWrite = res.write;
+  const origEnd = res.end;
+  const chunks = [];
+
+  res.write = function (chunk, encoding, callback) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk, encoding || 'utf8'));
+    if (typeof callback === 'function') callback();
+    return true;
+  };
+  res.end = function (chunk, encoding, callback) {
+    if (chunk) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk, encoding || 'utf8'));
+    const body = Buffer.concat(chunks);
+    const ct = String(res.getHeader('content-type') || '');
+    if (body.length < 256 || !/text|javascript|json|xml|css/i.test(ct)) {
+      res.write = origWrite;
+      res.end = origEnd;
+      res.removeHeader('content-length');
+      return origEnd.call(res, body, encoding, callback);
+    }
+    res.removeHeader('content-length');
+    const compress = useBr ? zlib.brotliCompress : zlib.gzip;
+    compress(body, (err, out) => {
+      if (err || out.length >= body.length) {
+        res.write = origWrite;
+        res.end = origEnd;
+        return origEnd.call(res, body, encoding, callback);
+      }
+      res.setHeader('content-encoding', useBr ? 'br' : 'gzip');
+      res.setHeader('vary', 'Accept-Encoding');
+      res.setHeader('content-length', out.length);
+      origEnd.call(res, out);
+    });
+    return res;
+  };
+  next();
+});
+
+// Serve a raiz primeiro (HTML/JS das páginas), com o dist como fallback (vendor, assets, libs)
+// Estáticos com cache: ativos com hash (v=...) podem ser cacheados por mais tempo; os demais curtos.
+// Cache curto do mtime evita um statSync síncrono (que bloqueia o event loop) por requisição.
+const mtimeCache = new Map();
+function cachedMtime(filePath) {
+  const hit = mtimeCache.get(filePath);
+  if (hit && Date.now() - hit.t < 2000) return hit.mtime;
+  let m;
+  try { m = fsSync.statSync(filePath).mtime; } catch (e) { m = new Date(0); }
+  mtimeCache.set(filePath, { mtime: m, t: Date.now() });
+  if (mtimeCache.size > 400) {
+    const entries = mtimeCache.keys();
+    for (const k of entries) { mtimeCache.delete(k); if (mtimeCache.size <= 250) break; }
+  }
+  return m;
+}
+// Rota do cardápio digital com gate por feature (cardapio) do tenant
+app.get('/cardapio.html', (req, res) => {
+  const qrid = parseInt(req.query.restaurante_id, 10);
+  const tid = (Number.isFinite(qrid) && qrid > 0) ? qrid : 1;
+  if (!isTenantFeatureEnabled(tid, 'cardapio')) {
+    return res.status(403).send(
+      '<div style="font-family:sans-serif;text-align:center;margin-top:15vh;color:#555"><h2>Cardápio indisponível</h2><p>Este estabelecimento não está com o cardápio digital ativo.</p></div>'
+    );
+  }
+  res.sendFile(path.join(__dirname, 'cardapio.html'));
+});
+
+app.use(express.static(__dirname, {
+  etag: true,
+  setHeaders: (res, filePath) => {
+    res.setHeader('Last-Modified', cachedMtime(filePath).toUTCString());
+    const cachePath = filePath.replace(/\\/g, '/').toLowerCase();
+    if (/\.(js|css|png|jpg|jpeg|gif|svg|ico|woff2?|ttf|mp4|webp)$/.test(cachePath)) {
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+    } else if (/\.html$/.test(cachePath)) {
+      res.setHeader('Cache-Control', 'no-cache');
+    } else {
+      res.setHeader('Cache-Control', 'no-cache');
+    }
+  }
+}));
+app.use(express.static(path.join(__dirname, 'public'), {
+  etag: true,
   setHeaders: (res, filePath) => {
     const cachePath = filePath.replace(/\\/g, '/').toLowerCase();
     if (/\.(js|css|png|jpg|jpeg|gif|svg|ico|woff2?|ttf|mp4|webp)$/.test(cachePath)) {
@@ -479,41 +674,34 @@ app.use(express.static(path.join(__dirname, 'dist'), {
   }
 }));
 
-// Rota do Super Admin
 app.get('/super-admin', (req, res) => {
   const distPath = path.join(__dirname, 'dist', 'super-admin.html');
-  if (fs.existsSync(distPath)) {
-    res.sendFile(distPath);
-  } else {
-    res.sendFile(path.join(__dirname, 'super-admin.html'));
-  }
+  if (fs.existsSync(distPath)) res.sendFile(distPath);
+  else res.sendFile(path.join(__dirname, 'super-admin.html'));
 });
 
 app.get('/super-admin.js', (req, res) => {
   const distPath = path.join(__dirname, 'dist', 'super-admin.js');
-  if (fs.existsSync(distPath)) {
-    res.sendFile(distPath);
-  } else {
-    res.sendFile(path.join(__dirname, 'super-admin.js'));
-  }
+  if (fs.existsSync(distPath)) res.sendFile(distPath);
+  else res.sendFile(path.join(__dirname, 'super-admin.js'));
+});
+
+app.get(['/afiliados', '/portal-afiliados'], (req, res) => {
+  const distPath = path.join(__dirname, 'dist', 'portal-afiliados.html');
+  if (fs.existsSync(distPath)) res.sendFile(distPath);
+  else res.sendFile(path.join(__dirname, 'portal-afiliados.html'));
 });
 
 app.get('/ativacao', (req, res) => {
   const distPath = path.join(__dirname, 'dist', 'ativacao.html');
-  if (fs.existsSync(distPath)) {
-    res.sendFile(distPath);
-  } else {
-    res.sendFile(path.join(__dirname, 'ativacao.html'));
-  }
+  if (fs.existsSync(distPath)) res.sendFile(distPath);
+  else res.sendFile(path.join(__dirname, 'ativacao.html'));
 });
 
-app.get('/site', (req, res) => {
+app.get(['/site', '/vendas'], (req, res) => {
   const distPath = path.join(__dirname, 'dist', 'site-vendas.html');
-  if (fs.existsSync(distPath)) {
-    res.sendFile(distPath);
-  } else {
-    res.sendFile(path.join(__dirname, 'site-vendas.html'));
-  }
+  if (fs.existsSync(distPath)) res.sendFile(distPath);
+  else res.sendFile(path.join(__dirname, 'site-vendas.html'));
 });
 
 app.get('/vendas', (req, res) => {
@@ -2212,6 +2400,36 @@ const tenantDbs = new Map();
 function seedTenantDb(db, restauranteNome, done) {
   const onErr = (e) => { if (e) console.error('[Seed] Erro:', e.message); };
   db.serialize(() => {
+  db.run(`
+    CREATE TABLE IF NOT EXISTS afiliados (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      nome TEXT NOT NULL,
+      email TEXT UNIQUE NOT NULL,
+      telefone TEXT,
+      codigo_ref TEXT UNIQUE NOT NULL,
+      comissao_percentual REAL DEFAULT 10,
+      chave_pix TEXT,
+      status TEXT DEFAULT 'ativo',
+      password_hash TEXT,
+      created_at DATETIME DEFAULT (datetime('now', 'localtime'))
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS afiliado_vendas (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      afiliado_id INTEGER NOT NULL,
+      restaurante_id INTEGER,
+      restaurante_nome TEXT,
+      plano TEXT,
+      valor_venda REAL DEFAULT 0,
+      comissao_valor REAL DEFAULT 0,
+      status TEXT DEFAULT 'pendente',
+      created_at DATETIME DEFAULT (datetime('now', 'localtime')),
+      FOREIGN KEY (afiliado_id) REFERENCES afiliados(id)
+    )
+  `);
+
     for (let i = 1; i <= 6; i++) {
       db.run(`INSERT OR IGNORE INTO mesas (nome, status, observacao) VALUES (?, 'Disponível', NULL)`, ['Mesa ' + i], onErr);
     }
@@ -10022,6 +10240,28 @@ app.post('/api/auth/registro', async (req, res) => {
               return res.status(500).json({ success: false, error: 'E-mail já cadastrado.' });
             }
 
+            // Vincular Venda a Afiliado se chaveRef for informada
+            if (chaveRef && typeof chaveRef === 'string' && chaveRef.trim()) {
+              const codeClean = chaveRef.trim().toUpperCase();
+              db.get(`SELECT * FROM afiliados WHERE UPPER(codigo_ref) = ? AND status = 'ativo'`, [codeClean], (errAfil, afil) => {
+                if (!errAfil && afil) {
+                  const comissaoPct = afil.comissao_percentual || 10;
+                  const valorPlanoPadrao = 149.90; // Valor base padrão do plano
+                  const comissaoVal = (valorPlanoPadrao * comissaoPct) / 100;
+
+                  db.run(
+                    `INSERT INTO afiliado_vendas (afiliado_id, restaurante_id, restaurante_nome, plano, valor_venda, comissao_valor, status) VALUES (?, ?, ?, 'Trial 14 Dias', ?, ?, 'pendente')`,
+                    [afil.id, restauranteId, restauranteNome, valorPlanoPadrao, comissaoVal],
+                    function(errVenda) {
+                      if (!errVenda) {
+                        console.log(`🤝 [Afiliados] Venda registrada para Afiliado #${afil.id} (${afil.codigo_ref}) no Restaurante #${restauranteId}`);
+                      }
+                    }
+                  );
+                }
+              });
+            }
+
             // Notificar o Super Admin em tempo real via Socket.IO
             try {
               const cadastroNotif = {
@@ -10342,3 +10582,160 @@ licenseManager.initLicense().then((licState) => {
     console.log('=========================================');
   });
 });
+
+
+// ═══════════════════════════════════════════════════════════════
+// AFILIADOS & PARCEIROS (MÉTRICAS E AMBIENTE PRÓPRIO)
+// ═══════════════════════════════════════════════════════════════
+
+// Listar todos os afiliados (Super Admin)
+app.get('/api/super/afiliados', superAdminAuth, (req, res) => {
+  db.all(`
+    SELECT a.*, 
+           COUNT(DISTINCT v.id) as total_vendas,
+           COALESCE(SUM(v.valor_venda), 0) as total_faturado,
+           COALESCE(SUM(v.comissao_valor), 0) as total_comissoes
+    FROM afiliados a
+    LEFT JOIN afiliado_vendas v ON a.id = v.afiliado_id
+    GROUP BY a.id
+    ORDER BY a.id DESC
+  `, [], (err, rows) => {
+    if (err) return res.json({ ok: false, erro: err.message });
+    res.json({ ok: true, afiliados: rows || [] });
+  });
+});
+
+// Criar novo afiliado
+app.post('/api/super/afiliados', superAdminAuth, async (req, res) => {
+  try {
+    const { nome, email, telefone, codigo_ref, comissao_percentual, chave_pix, senha } = req.body;
+    if (!nome || !email || !codigo_ref) {
+      return res.json({ ok: false, erro: 'Nome, E-mail e Código de Afiliado são obrigatórios.' });
+    }
+    const codeClean = codigo_ref.trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '');
+    const passHash = senha ? await bcrypt.hash(senha, 10) : await bcrypt.hash('123456', 10);
+    const comissao = parseFloat(comissao_percentual) || 10;
+
+    db.run(
+      `INSERT INTO afiliados (nome, email, telefone, codigo_ref, comissao_percentual, chave_pix, password_hash, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'ativo')`,
+      [nome.trim(), email.trim().toLowerCase(), telefone || '', codeClean, comissao, chave_pix || '', passHash],
+      function (err) {
+        if (err) {
+          if (err.message.includes('UNIQUE')) {
+            return res.json({ ok: false, erro: 'E-mail ou Código de Afiliado já cadastrado.' });
+          }
+          return res.json({ ok: false, erro: err.message });
+        }
+        res.json({ ok: true, id: this.lastID, codigo_ref: codeClean });
+      }
+    );
+  } catch (e) {
+    res.json({ ok: false, erro: e.message });
+  }
+});
+
+// Editar afiliado
+app.put('/api/super/afiliados/:id', superAdminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { nome, email, telefone, comissao_percentual, chave_pix, status, senha } = req.body;
+    
+    let updates = ['nome = ?', 'email = ?', 'telefone = ?', 'comissao_percentual = ?', 'chave_pix = ?', 'status = ?'];
+    let params = [nome, email, telefone, parseFloat(comissao_percentual) || 10, chave_pix, status || 'ativo'];
+
+    if (senha && senha.trim().length >= 4) {
+      const hash = await bcrypt.hash(senha.trim(), 10);
+      updates.push('password_hash = ?');
+      params.push(hash);
+    }
+
+    params.push(id);
+    db.run(`UPDATE afiliados SET ${updates.join(', ')} WHERE id = ?`, params, function (err) {
+      if (err) return res.json({ ok: false, erro: err.message });
+      res.json({ ok: true });
+    });
+  } catch (e) {
+    res.json({ ok: false, erro: e.message });
+  }
+});
+
+// Excluir afiliado
+app.delete('/api/super/afiliados/:id', superAdminAuth, (req, res) => {
+  const { id } = req.params;
+  db.run(`DELETE FROM afiliados WHERE id = ?`, [id], (err) => {
+    if (err) return res.json({ ok: false, erro: err.message });
+    res.json({ ok: true });
+  });
+});
+
+// Detalhes / Métricas completas de um afiliado (Super Admin)
+app.get('/api/super/afiliados/:id/metricas', superAdminAuth, (req, res) => {
+  const { id } = req.params;
+  db.get(`SELECT * FROM afiliados WHERE id = ?`, [id], (err, afil) => {
+    if (err || !afil) return res.json({ ok: false, erro: 'Afiliado não encontrado.' });
+
+    db.all(`SELECT * FROM afiliado_vendas WHERE afiliado_id = ? ORDER BY id DESC`, [id], (errVendas, vendas) => {
+      res.json({
+        ok: true,
+        afiliado: afil,
+        vendas: vendas || []
+      });
+    });
+  });
+});
+
+// Login do Afiliado para entrar no seu próprio Portal
+app.post('/api/afiliado/login', async (req, res) => {
+  const { email, senha } = req.body;
+  if (!email || !senha) return res.json({ ok: false, erro: 'Preencha email e senha.' });
+
+  db.get(`SELECT * FROM afiliados WHERE LOWER(email) = LOWER(?)`, [email.trim()], async (err, afil) => {
+    if (err || !afil) return res.json({ ok: false, erro: 'Afiliado não encontrado.' });
+    if (afil.status !== 'ativo') return res.json({ ok: false, erro: 'Conta de afiliado inativa ou suspensa.' });
+
+    const match = await bcrypt.compare(senha, afil.password_hash || '');
+    if (!match) return res.json({ ok: false, erro: 'Senha incorreta.' });
+
+    const token = jwt.sign({ id: afil.id, codigo_ref: afil.codigo_ref, role: 'afiliado' }, JWT_SECRET, { expiresIn: '7d' });
+    res.json({ ok: true, token, afiliado: { id: afil.id, nome: afil.nome, email: afil.email, codigo_ref: afil.codigo_ref } });
+  });
+});
+
+// Dashboard do Afiliado (Autenticado pelo token do afiliado)
+app.get('/api/afiliado/dashboard', (req, res) => {
+  const tokenHeader = req.headers['authorization'] || req.headers['x-afiliado-token'];
+  if (!tokenHeader) return res.json({ ok: false, erro: 'Token não fornecido.' });
+  
+  const token = tokenHeader.replace(/^Bearers+/, '');
+  jwt.verify(token, JWT_SECRET, (err, decoded) => {
+    if (err || !decoded || decoded.role !== 'afiliado') {
+      return res.json({ ok: false, erro: 'Sessão inválida ou expirada.' });
+    }
+
+    db.get(`SELECT id, nome, email, telefone, codigo_ref, comissao_percentual, chave_pix FROM afiliados WHERE id = ?`, [decoded.id], (errA, afil) => {
+      if (errA || !afil) return res.json({ ok: false, erro: 'Afiliado não encontrado.' });
+
+      db.all(`SELECT * FROM afiliado_vendas WHERE afiliado_id = ? ORDER BY id DESC`, [decoded.id], (errV, vendas) => {
+        const listV = vendas || [];
+        const totalFaturado = listV.reduce((acc, v) => acc + (v.valor_venda || 0), 0);
+        const totalComissao = listV.reduce((acc, v) => acc + (v.comissao_valor || 0), 0);
+        const comissoesPagas = listV.filter(v => v.status === 'pago').reduce((acc, v) => acc + (v.comissao_valor || 0), 0);
+        const comissoesPendentes = listV.filter(v => v.status === 'pendente').reduce((acc, v) => acc + (v.comissao_valor || 0), 0);
+
+        res.json({
+          ok: true,
+          afiliado: afil,
+          stats: {
+            totalVendas: listV.length,
+            totalFaturado,
+            totalComissao,
+            comissoesPagas,
+            comissoesPendentes
+          },
+          vendas: listV
+        });
+      });
+    });
+  });
+});
+

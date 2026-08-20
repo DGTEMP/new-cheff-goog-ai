@@ -958,9 +958,10 @@
 
         btn.innerHTML = '<i class="ph ph-spinner ph-spin"></i> Criando ambiente...'; btn.disabled = true;
         try {
+          const chaveRef = document.getElementById('setupChave').value.trim();
           const res = await fetch('/api/auth/registro', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ restauranteNome, nome, email, telefone, senha }) // O back-end já insere o Dono na tabela funcionarios
+            body: JSON.stringify({ restauranteNome, nome, email, telefone, senha, chaveRef }) // O back-end já insere o Dono na tabela funcionarios
           });
           const data = await res.json();
           if (data.success) {

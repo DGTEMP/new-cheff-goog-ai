@@ -438,7 +438,8 @@ function switchTab(targetId) {
     'sec-suporte': ['Equipe de Suporte', 'Funcionários que prestam suporte aos restaurantes'],
     'sec-terminal': ['Terminal', 'Execute comandos no servidor local'],
     'sec-instancias': ['Instâncias On-Premise', 'Gerencie instalações locais conectadas ao servidor'],
-    'sec-site-vendas': ['Site de Vendas', 'Edite conteúdo, planos, gateways e configurações da landing page']
+    'sec-site-vendas': ['Site de Vendas', 'Edite conteúdo, planos, gateways e configurações da landing page'],
+    'sec-afiliados': ['Afiliados & Parceiros', 'Gerenciamento completo da rede de revenda, cadastros e comissões']
   };
 
   for (var i = 0; i < items.length; i++) {
@@ -478,6 +479,7 @@ function switchTab(targetId) {
    else if (targetId === 'sec-terminal') { resetInactivityTimer(); }
    else if (targetId === 'sec-instancias') carregarInstancias();
    else if (targetId === 'sec-site-vendas') carregarSiteVendas();
+   else if (targetId === 'sec-afiliados') carregarAfiliados();
 }
 
 /* ═══ DASHBOARD ═══ */
@@ -3213,3 +3215,230 @@ function salvarSiteConsultor() {
     showToast('Dados do consultor atualizados!', 'success');
   });
 }
+
+
+/* ═══════════════════════════════════════════════════════════════════════ */
+/* ═══ AFILIADOS & PARCEIROS — GERENCIAMENTO & MÉTRICAS ════════════════ */
+/* ═══════════════════════════════════════════════════════════════════════ */
+
+var afiliadosData = [];
+
+function carregarAfiliados() {
+  var tbody = document.getElementById('afil-tbody');
+  if (tbody) {
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:24px; color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Carregando lista de afiliados...</td></tr>';
+  }
+
+  apiGet('/api/super/afiliados', function(err, data) {
+    if (err || !data || !data.ok) {
+      if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:24px; color:var(--danger);">Erro ao carregar afiliados.</td></tr>';
+      return;
+    }
+    afiliadosData = data.afiliados || [];
+    renderAfiliados();
+  });
+}
+
+function renderAfiliados() {
+  var search = (document.getElementById('afil-search') ? document.getElementById('afil-search').value : '').toLowerCase().trim();
+  var filtered = [];
+
+  for (var i = 0; i < afiliadosData.length; i++) {
+    var a = afiliadosData[i];
+    if (search) {
+      var matchNome = (a.nome || '').toLowerCase().indexOf(search) !== -1;
+      var matchEmail = (a.email || '').toLowerCase().indexOf(search) !== -1;
+      var matchCod = (a.codigo_ref || '').toLowerCase().indexOf(search) !== -1;
+      if (!matchNome && !matchEmail && !matchCod) continue;
+    }
+    filtered.push(a);
+  }
+
+  // Atualizar cards de métricas
+  var totalVendas = 0, totalFaturado = 0, totalComissoes = 0;
+  afiliadosData.forEach(function(item) {
+    totalVendas += (item.total_vendas || 0);
+    totalFaturado += (item.total_faturado || 0);
+    totalComissoes += (item.total_comissoes || 0);
+  });
+
+  setTextById('afil-stat-total', afiliadosData.length);
+  setTextById('afil-stat-vendas', totalVendas);
+  setTextById('afil-stat-faturamento', 'R$ ' + formatMoney(totalFaturado));
+  setTextById('afil-stat-comissoes', 'R$ ' + formatMoney(totalComissoes));
+
+  var tbody = document.getElementById('afil-tbody');
+  if (!tbody) return;
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:24px; color:var(--text-muted);">Nenhum afiliado cadastrado ou encontrado.</td></tr>';
+    return;
+  }
+
+  var html = '';
+  for (var j = 0; j < filtered.length; j++) {
+    var af = filtered[j];
+    var statusBadge = af.status === 'ativo' 
+      ? '<span class="badge badge-ativo">Ativo</span>' 
+      : '<span class="badge badge-bloqueado">Inativo</span>';
+
+    html += '<tr>' +
+      '<td><code style="font-size:12px; opacity:0.7;">#' + af.id + '</code></td>' +
+      '<td>' +
+        '<div style="font-weight:700; color:#fff;">' + esc(af.nome) + '</div>' +
+        '<div style="font-size:12px; color:var(--text-muted);">' + esc(af.email) + (af.telefone ? ' • ' + esc(af.telefone) : '') + '</div>' +
+      '</td>' +
+      '<td><code style="background:rgba(255,87,34,0.15); color:var(--primary); padding:3px 8px; border-radius:6px; font-weight:700; font-size:13px;">' + esc(af.codigo_ref) + '</code></td>' +
+      '<td><strong style="color:#fdba74;">' + (af.comissao_percentual || 10) + '%</strong></td>' +
+      '<td style="text-align:center; font-weight:700; color:#fff;">' + (af.total_vendas || 0) + '</td>' +
+      '<td>R$ ' + formatMoney(af.total_faturado || 0) + '</td>' +
+      '<td style="color:var(--success); font-weight:700;">R$ ' + formatMoney(af.total_comissoes || 0) + '</td>' +
+      '<td>' + statusBadge + '</td>' +
+      '<td>' +
+        '<div class="row-actions">' +
+          '<button class="btn-row-action select-action" onclick="verMetricasAfiliado(' + af.id + ')" title="Ver Métricas / Vendas"><i class="fa-solid fa-chart-line"></i></button>' +
+          '<button class="btn-row-action edit-action" onclick="editarAfiliado(' + af.id + ')" title="Editar Afiliado"><i class="fa-regular fa-pen-to-square"></i></button>' +
+          '<button class="btn-row-action delete-action" onclick="excluirAfiliado(' + af.id + ', ' + escJs(af.nome) + ')" title="Excluir Afiliado"><i class="fa-regular fa-trash-can"></i></button>' +
+        '</div>' +
+      '</td>' +
+    '</tr>';
+  }
+
+  tbody.innerHTML = html;
+}
+
+function filtrarTabelaAfiliados() {
+  renderAfiliados();
+}
+
+function abrirModalNovoAfiliado() {
+  document.getElementById('modal-afiliado-title').textContent = 'Novo Afiliado / Parceiro';
+  document.getElementById('afil-edit-id').value = '';
+  document.getElementById('afil-nome').value = '';
+  document.getElementById('afil-email').value = '';
+  document.getElementById('afil-telefone').value = '';
+  document.getElementById('afil-codigo').value = '';
+  document.getElementById('afil-comissao').value = '10';
+  document.getElementById('afil-pix').value = '';
+  document.getElementById('afil-senha').value = '';
+  document.getElementById('modal-afiliado').classList.add('active');
+}
+
+function fecharModalAfiliado() {
+  document.getElementById('modal-afiliado').classList.remove('active');
+}
+
+function editarAfiliado(id) {
+  var af = afiliadosData.find(function(item) { return item.id === id; });
+  if (!af) return showToast('Afiliado não encontrado.', 'warning');
+
+  document.getElementById('modal-afiliado-title').textContent = 'Editar Afiliado';
+  document.getElementById('afil-edit-id').value = af.id;
+  document.getElementById('afil-nome').value = af.nome || '';
+  document.getElementById('afil-email').value = af.email || '';
+  document.getElementById('afil-telefone').value = af.telefone || '';
+  document.getElementById('afil-codigo').value = af.codigo_ref || '';
+  document.getElementById('afil-comissao').value = af.comissao_percentual || 10;
+  document.getElementById('afil-pix').value = af.chave_pix || '';
+  document.getElementById('afil-senha').value = '';
+  document.getElementById('modal-afiliado').classList.add('active');
+}
+
+function salvarAfiliado() {
+  var id = document.getElementById('afil-edit-id').value;
+  var nome = document.getElementById('afil-nome').value.trim();
+  var email = document.getElementById('afil-email').value.trim();
+  var telefone = document.getElementById('afil-telefone').value.trim();
+  var codigo_ref = document.getElementById('afil-codigo').value.trim().toUpperCase();
+  var comissao_percentual = parseFloat(document.getElementById('afil-comissao').value) || 10;
+  var chave_pix = document.getElementById('afil-pix').value.trim();
+  var senha = document.getElementById('afil-senha').value;
+
+  if (!nome || !email || !codigo_ref) {
+    showToast('Nome, E-mail e Código de Referência são obrigatórios!', 'warning');
+    return;
+  }
+
+  var payload = {
+    nome: nome,
+    email: email,
+    telefone: telefone,
+    codigo_ref: codigo_ref,
+    comissao_percentual: comissao_percentual,
+    chave_pix: chave_pix,
+    senha: senha
+  };
+
+  if (id) {
+    apiPut('/api/super/afiliados/' + id, payload, function(err, data) {
+      if (err || !data || !data.ok) return showToast('Erro ao salvar: ' + (data ? data.erro : 'Falha na requisição'), 'danger');
+      showToast('Afiliado atualizado com sucesso!', 'success');
+      fecharModalAfiliado();
+      carregarAfiliados();
+    });
+  } else {
+    apiPost('/api/super/afiliados', payload, function(err, data) {
+      if (err || !data || !data.ok) return showToast('Erro ao cadastrar: ' + (data ? data.erro : 'Falha na requisição'), 'danger');
+      showToast('Afiliado criado com sucesso!', 'success');
+      fecharModalAfiliado();
+      carregarAfiliados();
+    });
+  }
+}
+
+function excluirAfiliado(id, nome) {
+  if (!confirm('Tem certeza que deseja excluir o afiliado "' + nome + '"?')) return;
+
+  apiDelete('/api/super/afiliados/' + id, function(err, data) {
+    if (err || !data || !data.ok) return showToast('Erro ao excluir afiliado.', 'danger');
+    showToast('Afiliado removido!', 'success');
+    carregarAfiliados();
+  });
+}
+
+function verMetricasAfiliado(id) {
+  apiGet('/api/super/afiliados/' + id + '/metricas', function(err, data) {
+    if (err || !data || !data.ok) return showToast('Erro ao carregar métricas.', 'danger');
+
+    var af = data.afiliado;
+    var vendas = data.vendas || [];
+
+    document.getElementById('modal-afil-detalhes-title').textContent = 'Métricas — ' + af.nome + ' (' + af.codigo_ref + ')';
+
+    var headerHTML = '<div>' +
+        '<strong style="font-size:16px; color:#fff;">' + esc(af.nome) + '</strong><br>' +
+        '<small style="color:var(--text-muted);">' + esc(af.email) + ' | PIX: ' + esc(af.chave_pix || 'Não cadastrada') + '</small>' +
+      '</div>' +
+      '<div>' +
+        '<span style="background:rgba(255,87,34,0.15); color:var(--primary); padding:6px 12px; border-radius:8px; font-weight:700; font-size:14px;">Comissão: ' + (af.comissao_percentual || 10) + '%</span>' +
+      '</div>';
+
+    document.getElementById('afil-detalhes-header').innerHTML = headerHTML;
+
+    var tbody = document.getElementById('afil-detalhes-vendas-tbody');
+    if (vendas.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:20px; color:var(--text-muted);">Nenhuma venda registrada para este afiliado ainda.</td></tr>';
+    } else {
+      var html = '';
+      vendas.forEach(function(v) {
+        var statusClr = v.status === 'pago' ? 'var(--success)' : 'var(--warning)';
+        html += '<tr>' +
+          '<td>' + (v.created_at ? new Date(v.created_at).toLocaleDateString('pt-BR') : '—') + '</td>' +
+          '<td><strong style="color:#fff;">' + esc(v.restaurante_nome || '—') + '</strong></td>' +
+          '<td><span class="badge badge-plano">' + esc(v.plano || 'SaaS') + '</span></td>' +
+          '<td>R$ ' + formatMoney(v.valor_venda || 0) + '</td>' +
+          '<td style="color:var(--success); font-weight:bold;">R$ ' + formatMoney(v.comissao_valor || 0) + '</td>' +
+          '<td><span style="color:' + statusClr + '; font-weight:bold; font-size:12px; text-transform:uppercase;">' + esc(v.status) + '</span></td>' +
+        '</tr>';
+      });
+      tbody.innerHTML = html;
+    }
+
+    document.getElementById('modal-afiliado-detalhes').classList.add('active');
+  });
+}
+
+function fecharModalAfiliadoDetalhes() {
+  document.getElementById('modal-afiliado-detalhes').classList.remove('active');
+}
+
