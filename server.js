@@ -11632,3 +11632,103 @@ app.get('/api/afiliado/dashboard', (req, res) => {
   });
 });
 
+// API /api/dono/dashboard — Métricas em tempo real para o Painel do Dono
+app.get('/api/dono/dashboard', (req, res) => {
+  const authHeader = req.headers['authorization'];
+  if (!authHeader) return res.status(403).json({ success: false, error: 'Nenhum token fornecido.' });
+  const token = authHeader.split(' ')[1];
+
+  jwt.verify(token, JWT_SECRET, (errToken, decoded) => {
+    if (errToken || !decoded) return res.status(401).json({ success: false, error: 'Sessão expirada ou token inválido.' });
+    if (decoded.role !== 'admin' && decoded.role !== 'gerente') {
+      return res.status(403).json({ success: false, error: 'Acesso não autorizado.' });
+    }
+
+    const tenantId = decoded.restaurante_id || 1;
+    const dbInst = getTenantDb(tenantId);
+    if (!dbInst) return res.status(500).json({ success: false, error: 'Banco de dados do restaurante indisponível.' });
+
+    const periodo = req.query.periodo || 'hoje';
+    const dataInicio = req.query.data_inicio;
+    const dataFim = req.query.data_fim;
+
+    let dateWhere = "date(createdAt) = date('now', 'localtime')";
+    let rotulo = 'Hoje';
+
+    if (periodo === 'ontem') {
+      dateWhere = "date(createdAt) = date('now', '-1 day', 'localtime')";
+      rotulo = 'Ontem';
+    } else if (periodo === 'semana') {
+      dateWhere = "createdAt >= date('now', '-7 days', 'localtime')";
+      rotulo = 'Últimos 7 dias';
+    } else if (periodo === 'mes') {
+      dateWhere = "strftime('%Y-%m', createdAt) = strftime('%Y-%m', 'now', 'localtime')";
+      rotulo = 'Este Mês';
+    } else if (periodo === 'custom' && dataInicio && dataFim) {
+      dateWhere = `date(createdAt) BETWEEN '${dataInicio}' AND '${dataFim}'`;
+      rotulo = `${dataInicio} a ${dataFim}`;
+    }
+
+    dbInst.get(`
+      SELECT COALESCE(SUM(total), 0) as total, COUNT(*) as totalPedidos
+      FROM pedidos 
+      WHERE status IN ('Finalizado', 'Entregue') AND ${dateWhere}
+    `, [], (err1, faturamentoRow) => {
+      if (err1) return res.status(500).json({ success: false, error: err1.message });
+
+      dbInst.get(`
+        SELECT COUNT(DISTINCT localName) as ativas 
+        FROM pedidos 
+        WHERE status NOT IN ('Finalizado', 'Cancelado', 'Entregue')
+      `, [], (err2, mesasRow) => {
+        if (err2) return res.status(500).json({ success: false, error: err2.message });
+
+        dbInst.get(`
+          SELECT COALESCE(AVG(total), 0) as avgTotal 
+          FROM pedidos 
+          WHERE status IN ('Finalizado', 'Entregue') AND ${dateWhere}
+        `, [], (err3, ticketRow) => {
+          if (err3) return res.status(500).json({ success: false, error: err3.message });
+
+          dbInst.get(`
+            SELECT COUNT(*) as ativos 
+            FROM pontos 
+            WHERE data_saida IS NULL OR saida IS NULL
+          `, [], (err4, ativosRow) => {
+            dbInst.get(`
+              SELECT status, saldo_final, data_abertura 
+              FROM turnos_caixa 
+              ORDER BY id DESC 
+              LIMIT 1
+            `, [], (err5, caixaRow) => {
+              dbInst.all(`
+                SELECT productName, productEmoji, SUM(quantity) as quantidade, SUM(total) as total
+                FROM pedidos
+                WHERE status IN ('Finalizado', 'Entregue') AND ${dateWhere}
+                GROUP BY productName, productEmoji
+                ORDER BY quantidade DESC
+                LIMIT 5
+              `, [], (err6, topProdutos) => {
+                res.json({
+                  success: true,
+                  data: {
+                    rotuloPeriodo: rotulo,
+                    totalPedidos: faturamentoRow?.totalPedidos || 0,
+                    faturamentoHoje: faturamentoRow?.total || 0,
+                    mesasAtivas: mesasRow?.ativas || 0,
+                    ticketMedio: ticketRow?.avgTotal || 0,
+                    colaboradoresAtivos: ativosRow?.ativos || 0,
+                    caixaStatus: caixaRow?.status || 'Fechado',
+                    caixaSaldo: caixaRow?.saldo_final || 0,
+                    topProdutos: topProdutos || []
+                  }
+                });
+              });
+            });
+          });
+        });
+      });
+    });
+  });
+});
+
