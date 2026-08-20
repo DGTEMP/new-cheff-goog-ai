@@ -4915,7 +4915,12 @@ io.on('connection', (socket) => {
 
   // --- CAPTURA AUTOMÁTICA DE TODOS OS LOGS DE SOCKET.IO + AÇÕES DO USUÁRIO ---
   socket.onAny((event, ...args) => {
-    if (['get_connected_devices', 'get_auditoria_logs', 'get_api_logs', 'ping', 'pong'].includes(event)) {
+    // Filtra pings, heartbeats e requisições iniciais de leitura para manter o terminal limpo
+    if ([
+      'get_connected_devices', 'get_auditoria_logs', 'get_api_logs', 'ping', 'pong',
+      'get_produtos', 'get_funcionarios', 'get_promocoes', 'get_estado_caixa',
+      'get_qr_pedidos_pendentes', 'get_mesas', 'registrar_sessao', 'registrar_sessao_detalhada'
+    ].includes(event)) {
       return;
     }
 

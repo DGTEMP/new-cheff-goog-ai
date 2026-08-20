@@ -2105,6 +2105,7 @@ socket.on('estado_caixa', (turno) => {
 });
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Inicialização essencial de dados (evita chamadas duplicadas ao backend)
   socket.emit('get_estado_caixa');
   socket.emit('get_produtos');
   socket.emit('get_funcionarios');
