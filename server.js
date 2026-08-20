@@ -3223,11 +3223,67 @@ require('./controllers/super-admin')(app, masterDb, sqlite3, {
     masterDb,
     tenantContext,
     getTenantDb,
-    dir: __dirname,
-    isFeatureEnabled: isTenantFeatureEnabled
+    dir: __dirname
   }
 });
+
 const tenantDbs = new Map();
+const tenantDbLastAccess = new Map();
+const DB_IDLE_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutos de inatividade encerram a conexão do tenant
+
+// Limpeza automática de conexões inativas de bancos de tenants para economizar RAM
+setInterval(() => {
+  const now = Date.now();
+  for (const [tenantId, lastAccess] of tenantDbLastAccess.entries()) {
+    // Nunca encerra a conexão do tenant master (ID 1)
+    if (tenantId === 1) continue;
+    if (now - lastAccess > DB_IDLE_TIMEOUT_MS) {
+      const activeDb = tenantDbs.get(tenantId);
+      if (activeDb) {
+        try {
+          activeDb.close((err) => {
+            if (!err) {
+              console.log(`[Lazy DB Pool] Conexão SQLite do tenant #${tenantId} fechada por inatividade (${Math.round(DB_IDLE_TIMEOUT_MS / 60000)}m sem acessos). RAM liberada!`);
+            }
+          });
+        } catch (e) {}
+        tenantDbs.delete(tenantId);
+        tenantDbLastAccess.delete(tenantId);
+      }
+    }
+  }
+}, 60000);
+
+function getTenantDb() {
+  const tenantId = tenantContext.getStore() || 1;
+  tenantDbLastAccess.set(tenantId, Date.now());
+
+  if (!tenantDbs.has(tenantId)) {
+    const dbPath = path.join(__dirname, `database_${tenantId}.sqlite`);
+    const isNew = !fsSync.existsSync(dbPath);
+    const newDb = new sqlite3.Database(dbPath, (err) => {
+      if (err) console.error(`Erro ao abrir banco do tenant ${tenantId}:`, err);
+    });
+
+    // Configura o banco
+    newDb.run('PRAGMA journal_mode = WAL;');
+    newDb.run('PRAGMA synchronous = NORMAL;');
+    newDb.run('PRAGMA busy_timeout = 5000;');
+    newDb.run('PRAGMA cache_size = -20000;');
+    newDb.run('PRAGMA temp_store = MEMORY;');
+    tenantDbs.set(tenantId, newDb);
+
+    if (isNew && tenantId !== 1) {
+      const refPath = path.join(__dirname, 'database_1.sqlite');
+      if (fsSync.existsSync(refPath)) {
+        syncTenantSchema(newDb, refPath, () => {
+          seedTenantDb(newDb, null, () => {});
+        });
+      }
+    }
+  }
+  return tenantDbs.get(tenantId);
+}
 
 // Cria dados iniciais para um banco de tenant novo (mesas, config, formas_pagamento)
 function seedTenantDb(db, restauranteNome, done) {
