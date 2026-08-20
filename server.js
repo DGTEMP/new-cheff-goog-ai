@@ -554,12 +554,10 @@ app.use(express.static(__dirname, {
   setHeaders: (res, filePath) => {
     res.setHeader('Last-Modified', cachedMtime(filePath).toUTCString());
     const cachePath = filePath.replace(/\\/g, '/').toLowerCase();
-    if (/\.(js|css|png|jpg|jpeg|gif|svg|ico|woff2?|ttf|mp4|webp)$/.test(cachePath)) {
+    if (/\.(png|jpg|jpeg|gif|svg|ico|woff2?|ttf|mp4|webp)$/.test(cachePath)) {
       res.setHeader('Cache-Control', 'public, max-age=3600');
-    } else if (/\.html$/.test(cachePath)) {
-      res.setHeader('Cache-Control', 'no-cache');
     } else {
-      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Cache-Control', 'no-cache, must-revalidate');
     }
   }
 }));
