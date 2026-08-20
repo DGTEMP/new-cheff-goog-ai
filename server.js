@@ -726,6 +726,100 @@ app.get('/api/public/site-config', (req, res) => {
   });
 });
 
+// ── PUBLIC API: Tracking Config (Pixel & GTAG) ───────────────────────────
+app.get('/api/public/tracking-config', (req, res) => {
+  masterDb.get("SELECT valor FROM configuracoes_global WHERE chave = 'tracking_config'", [], (err, row) => {
+    if (err || !row) return res.json({ ok: true, config: {} });
+    try {
+      const cfg = JSON.parse(row.valor);
+      res.json({ ok: true, config: cfg });
+    } catch(e) {
+      res.json({ ok: true, config: {} });
+    }
+  });
+});
+
+// ── SUPER ADMIN: Save Tracking Config ────────────────────────────────────
+app.post('/api/super/tracking-config', superAdminAuth, (req, res) => {
+  const config = req.body || {};
+  const jsonVal = JSON.stringify(config);
+  masterDb.run(
+    `INSERT INTO configuracoes_global (chave, valor) VALUES ('tracking_config', ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor`,
+    [jsonVal],
+    function(err) {
+      if (err) return res.json({ ok: false, erro: err.message });
+      res.json({ ok: true, mensagem: 'Configurações de GTAG e Pixel salvas com sucesso!' });
+    }
+  );
+});
+
+// ── SUPER ADMIN: Gerador de Audiência para Anúncios Meta/Google ─────────────
+app.get('/api/super/anuncios/audiencia-export', superAdminAuth, (req, res) => {
+  const { categoria } = req.query; // 'donos', 'funcionarios', 'clientes', 'todos'
+
+  if (categoria === 'donos') {
+    masterDb.all(`SELECT DISTINCT dono_nome AS nome, dono_email AS email, dono_telefone AS telefone, 'Dono / Restaurante' AS tipo FROM restaurantes WHERE ativo = 1`, [], (err, rows) => {
+      if (err) return res.json({ ok: false, erro: err.message });
+      res.json({ ok: true, categoria, total: rows.length, dados: rows });
+    });
+  } else if (categoria === 'funcionarios') {
+    masterDb.all(`SELECT DISTINCT nome, username AS email, telefone, cargo AS tipo FROM usuarios WHERE ativo = 1 AND role != 'admin'`, [], (err, rows) => {
+      if (err) return res.json({ ok: false, erro: err.message });
+      res.json({ ok: true, categoria, total: rows.length, dados: rows });
+    });
+  } else if (categoria === 'clientes') {
+    masterDb.all(`SELECT DISTINCT nome, email, telefone, 'Cliente Final' AS tipo FROM clientes WHERE ativo = 1`, [], (err, rows) => {
+      if (err) return res.json({ ok: false, erro: err.message });
+      res.json({ ok: true, categoria, total: rows.length, dados: rows });
+    });
+  } else {
+    // Todos unificados
+    const sql = `
+      SELECT dono_nome AS nome, dono_email AS email, dono_telefone AS telefone, 'Dono / Restaurante' AS tipo FROM restaurantes WHERE ativo = 1
+      UNION
+      SELECT nome, username AS email, telefone, cargo AS tipo FROM usuarios WHERE ativo = 1
+      UNION
+      SELECT nome, email, telefone, 'Cliente Final' AS tipo FROM clientes WHERE ativo = 1
+    `;
+    masterDb.all(sql, [], (err, rows) => {
+      if (err) return res.json({ ok: false, erro: err.message });
+      res.json({ ok: true, categoria: 'todos', total: rows.length, dados: rows });
+    });
+  }
+});
+
+// ── SUPER ADMIN: Gerador de Copy / Texto de Anúncios Direcionados ─────────
+app.post('/api/super/anuncios/gerar-copy', superAdminAuth, (req, res) => {
+  const { categoria, objetivo } = req.body || {};
+
+  const templates = {
+    donos: {
+      titulo: '🚀 Automatize seu Restaurante e Aumente seus Lucros com o Chef Cozinha!',
+      subtitulo: 'Sistema PDV completo, Cardápio Digital QR Code, Gestão de Garçons e Anti-Fraude.',
+      texto: 'Você é dono de bar, restaurante ou lanchonete? Pare de perder dinheiro com comandas no papel ou sistemas lentos. O Chef Cozinha oferece KDS de cozinha, controle financeiro em tempo real e WhatsApp integrado. Teste grátis por 14 dias sem cartão!',
+      call_to_action: 'Cadastre seu Restaurante Grátis',
+      link: '/site'
+    },
+    funcionarios: {
+      titulo: '⚡ Agilidade Extrema no Atendimento para Garçons e Atendentes!',
+      subtitulo: 'Comandas no celular, PIN rápido, métricas de gorjetas e menos erros na cozinha.',
+      texto: 'Trabalha como Garçom, Gerente ou Operador de Caixa? Conheça o Chef Cozinha App, o sistema com interface ultrarrápida projetada para facilitar a rotina do colaborador.',
+      call_to_action: 'Conheça os Recursos de Equipe',
+      link: '/site'
+    },
+    clientes: {
+      titulo: '🍕 Faça seu Pedido Sem Filas e Ganhe Cupons Exclusivos!',
+      subtitulo: 'Acesse o Cardápio Digital no seu celular, peça à mesa ou pelo Delivery com PIX automático.',
+      texto: 'Quer a melhor experiência gastronômica nos melhores restaurantes da sua cidade? Peça pelo cardápio digital Chef Cozinha e aproveite descontos no Programa de Fidelidade!',
+      call_to_action: 'Ver Restaurantes Parceiros',
+      link: '/cardapio.html'
+    }
+  };
+
+  const tpl = templates[categoria] || templates.donos;
+  res.json({ ok: true, copy: tpl });
+});
+
 // ── PUBLIC API: Checkout (Asaas / MercadoPago) ───────────────────────────
 app.post('/api/public/checkout', async (req, res) => {
   const { plano, nome, email, telefone, cpfCnpj, gateway } = req.body || {};

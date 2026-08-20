@@ -2971,6 +2971,7 @@ function renderSiteVendasTab(tabId) {
   if (tabId === 'sv-tab-conteudo') populateSiteConteudo();
   else if (tabId === 'sv-tab-planos') populateSitePlanos();
   else if (tabId === 'sv-tab-gateways') populateSiteGateways();
+  else if (tabId === 'sv-tab-tracking') populateSiteTracking();
   else if (tabId === 'sv-tab-consultor') populateSiteConsultor();
 }
 
@@ -3193,6 +3194,93 @@ function salvarSiteGateways() {
     if (err || !data || !data.ok) return showToast('Erro ao salvar gateways.', 'danger');
     siteVendasConfigs.site_gateways = gw;
     showToast('Gateways de pagamento salvos!', 'success');
+  });
+}
+
+/* ── TRACKING & PIXELS ─────────────────────────── */
+function populateSiteTracking() {
+  apiGet('/api/public/tracking-config', function(err, data) {
+    if (err || !data || !data.ok) return;
+    var cfg = data.config || {};
+    setVal('tracking-gtag-site', cfg.gtag_site || '');
+    setVal('tracking-gtag-cardapio', cfg.gtag_cardapio || '');
+    setVal('tracking-gtag-colaborador', cfg.gtag_colaborador || '');
+    setVal('tracking-gtag-home', cfg.gtag_home || '');
+
+    setVal('tracking-pixel-site', cfg.pixel_site || '');
+    setVal('tracking-pixel-cardapio', cfg.pixel_cardapio || '');
+    setVal('tracking-pixel-colaborador', cfg.pixel_colaborador || '');
+    setVal('tracking-pixel-home', cfg.pixel_home || '');
+  });
+}
+
+function salvarTrackingConfig() {
+  var cfg = {
+    gtag_site: document.getElementById('tracking-gtag-site').value.trim(),
+    gtag_cardapio: document.getElementById('tracking-gtag-cardapio').value.trim(),
+    gtag_colaborador: document.getElementById('tracking-gtag-colaborador').value.trim(),
+    gtag_home: document.getElementById('tracking-gtag-home').value.trim(),
+
+    pixel_site: document.getElementById('tracking-pixel-site').value.trim(),
+    pixel_cardapio: document.getElementById('tracking-pixel-cardapio').value.trim(),
+    pixel_colaborador: document.getElementById('tracking-pixel-colaborador').value.trim(),
+    pixel_home: document.getElementById('tracking-pixel-home').value.trim()
+  };
+
+  apiPost('/api/super/tracking-config', cfg, function(err, data) {
+    if (err || !data || !data.ok) return showToast('Erro ao salvar pixels.', 'danger');
+    showToast('Configurações de GTAG e Meta Pixel salvas com sucesso!', 'success');
+  });
+}
+
+function gerarCopyAnuncio() {
+  var cat = document.getElementById('ad-target-category').value;
+  apiPost('/api/super/anuncios/gerar-copy', { categoria: cat }, function(err, data) {
+    if (err || !data || !data.ok) return showToast('Erro ao gerar texto de anúncio.', 'danger');
+    var copy = data.copy;
+    document.getElementById('ad-res-titulo').textContent = copy.titulo;
+    document.getElementById('ad-res-subtitulo').textContent = copy.subtitulo;
+    document.getElementById('ad-res-texto').textContent = copy.texto;
+    document.getElementById('ad-res-cta').textContent = copy.call_to_action + ' (' + copy.link + ')';
+    document.getElementById('ad-copy-result').style.display = 'block';
+    showToast('Anuncio gerado para ' + cat.toUpperCase() + '!', 'success');
+  });
+}
+
+function exportarAudienciaCSV() {
+  var cat = document.getElementById('ad-target-category').value;
+  apiGet('/api/super/anuncios/audiencia-export?categoria=' + encodeURIComponent(cat), function(err, data) {
+    if (err || !data || !data.ok) return showToast('Erro ao exportar audiência.', 'danger');
+    var list = data.dados || [];
+    if (list.length === 0) return showToast('Nenhum contato encontrado para esta categoria.', 'warning');
+
+    var csvContent = "data:text/csv;charset=utf-8,Nome,Email,Telefone,Tipo\n";
+    list.forEach(function(r) {
+      var nome = (r.nome || '').replace(/,/g, '');
+      var email = (r.email || '').replace(/,/g, '');
+      var tel = (r.telefone || '').replace(/,/g, '');
+      var tipo = (r.tipo || '').replace(/,/g, '');
+      csvContent += [nome, email, tel, tipo].join(",") + "\n";
+    });
+
+    var encodedUri = encodeURI(csvContent);
+    var link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "audiencia_meta_google_" + cat + ".csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast('Exportados ' + list.length + ' contatos em CSV!', 'success');
+  });
+}
+
+function copiarTextoAnuncio() {
+  var t = document.getElementById('ad-res-titulo').textContent + "\n\n" +
+          document.getElementById('ad-res-subtitulo').textContent + "\n\n" +
+          document.getElementById('ad-res-texto').textContent + "\n\n" +
+          "CTA: " + document.getElementById('ad-res-cta').textContent;
+  navigator.clipboard.writeText(t).then(function() {
+    showToast('Texto do anúncio copiado!', 'success');
   });
 }
 
