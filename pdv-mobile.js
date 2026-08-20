@@ -633,12 +633,40 @@ window.adicionarProduto = (id) => {
 
   selectedProduto = prod;
   selectedQtd = 1;
+  window._compsMobile = [];
 
   document.getElementById('modal-produto-nome').textContent = prod.nome;
   document.getElementById('modal-produto-preco').textContent = `R$ ${prod.preco.toFixed(2).replace('.', ',')}`;
   document.getElementById('modal-produto-qtd').textContent = selectedQtd;
   document.getElementById('modal-produto-obs').value = '';
+  document.getElementById('modal-produto-comps-list').innerHTML = '';
   document.getElementById('modal-produto').classList.add('active');
+};
+
+window._compsMobile = [];
+
+window.renderCompsMobile = () => {
+  const list = document.getElementById('modal-produto-comps-list');
+  if (!list) return;
+  list.innerHTML = (window._compsMobile || []).map((c, i) =>
+    '<span style="background:#dbeafe;color:#1e40af;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600;">' + c + ' <button onclick="window._rmCompMobile(' + i + ')" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:12px;padding:0;">&times;</button></span>'
+  ).join('');
+};
+
+window.adicionarCompMobile = () => {
+  const inp = document.getElementById('modal-produto-comp-input');
+  if (!inp) return;
+  const val = inp.value.trim();
+  if (!val) return;
+  if (!window._compsMobile) window._compsMobile = [];
+  window._compsMobile.push(val);
+  inp.value = '';
+  window.renderCompsMobile();
+};
+
+window._rmCompMobile = (idx) => {
+  if (window._compsMobile) window._compsMobile.splice(idx, 1);
+  window.renderCompsMobile();
 };
 
 window.fecharModalProduto = (e) => {
@@ -673,9 +701,11 @@ window.confirmarAdicionarProduto = () => {
     status_inicial: selectedProduto.status_inicial || 'Em espera',
     sector: selectedProduto.setor || 'Cozinha 1',
     mesa_comanda: currentMesa,
-    obs: obs
+    observations: obs,
+    composicoes: window._compsMobile || []
   });
 
+  window._compsMobile = [];
   showToast(`${selectedQtd}x ${selectedProduto.nome} lancado!`, 'success');
   fecharModalProduto();
 };

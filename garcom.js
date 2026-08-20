@@ -1642,6 +1642,37 @@ function updateDetailPrice() {
   document.getElementById('detail-total-price').innerText = `R$ ${(selectedProduct.price * selectedQty).toFixed(2).replace('.', ',')}`;
 }
 
+let _compsAtuais = [];
+
+function renderDetailComps() {
+  const list = document.getElementById('detail-comps-list');
+  if (!list) return;
+  list.innerHTML = _compsAtuais.map((c, i) =>
+    '<span style="background:#dbeafe;color:#1e40af;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600;display:inline-flex;align-items:center;gap:3px;">' + c + ' <button onclick="window._rmGarcomComp(' + i + ')" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:12px;padding:0;font-weight:700;">&times;</button></span>'
+  ).join('');
+}
+
+window._rmGarcomComp = (idx) => { _compsAtuais.splice(idx, 1); renderDetailComps(); };
+
+const btnAddComp = document.getElementById('detail-btn-add-comp');
+if (btnAddComp) {
+  btnAddComp.onclick = () => {
+    const inp = document.getElementById('detail-comp-input');
+    if (!inp) return;
+    const val = inp.value.trim();
+    if (!val) return;
+    _compsAtuais.push(val);
+    inp.value = '';
+    renderDetailComps();
+  };
+  const compInput = document.getElementById('detail-comp-input');
+  if (compInput) {
+    compInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); btnAddComp.click(); }
+    });
+  }
+}
+
 document.getElementById('btn-add-to-cart').onclick = () => {
   cart.push({
     productName: selectedProduct.name,
@@ -1649,6 +1680,7 @@ document.getElementById('btn-add-to-cart').onclick = () => {
     sector: selectedProduct.sector,
     quantity: selectedQty,
     obs: document.getElementById('detail-obs').value,
+    composicoes: [..._compsAtuais],
     total: selectedProduct.price * selectedQty,
     status: 'Recebido',
     localName: currentTable,
@@ -1656,6 +1688,10 @@ document.getElementById('btn-add-to-cart').onclick = () => {
     time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
     addons: []
   });
+  _compsAtuais = [];
+  renderDetailComps();
+  const obsField = document.getElementById('detail-obs');
+  if (obsField) obsField.value = '';
   saveCart(currentTable);
   updateCartBadge();
   showView('menu', `Pedido: ${currentTable}`);
@@ -1694,6 +1730,7 @@ function renderCart() {
           <strong style="color: #fc4b15; font-size: 16px;">R$ ${item.total.toFixed(2).replace('.',',')}</strong>
         </div>
         ${item.obs ? `<div style="font-size: 13px; color: #777; margin-bottom: 8px; background: #f9f9f9; padding: 6px 10px; border-radius: 6px; border-left: 3px solid #ddd;">Obs: ${item.obs}</div>` : ''}
+        ${item.composicoes && item.composicoes.length > 0 ? `<div style="font-size: 12px; color: #1e40af; margin-bottom: 8px; background: #dbeafe; padding: 6px 10px; border-radius: 6px; border-left: 3px solid #3b82f6; font-weight: 600;">Composições: ${item.composicoes.join(', ')}</div>` : ''}
         
         <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px; padding-top: 10px; border-top: 1px dashed #eee;">
           <span style="font-size: 13px; color: #666; font-weight: 500;">Comanda/Cliente:</span>
@@ -1731,6 +1768,8 @@ document.getElementById('btn-send-order').onclick = () => {
     const phone = comandaName ? (window.newComandasMap ? window.newComandasMap.get(comandaName) : '') : '';
     const emitItem = { 
       ...item, 
+      observations: item.obs || item.observations || '',
+      composicoes: item.composicoes || [],
       total: item.total.toFixed(2).replace('.', ','),
       mesa_comanda: comandaName,
       cliente_telefone: phone || ''

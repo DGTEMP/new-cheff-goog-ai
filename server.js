@@ -3723,6 +3723,7 @@ db.serialize(() => {
   db.run(`ALTER TABLE pedidos ADD COLUMN garcom_call DATETIME`, (err) => { });
   db.run(`ALTER TABLE pedidos ADD COLUMN observations TEXT`, (err) => { });
   db.run(`ALTER TABLE pedidos ADD COLUMN options TEXT`, (err) => { });
+  db.run(`ALTER TABLE pedidos ADD COLUMN composicoes TEXT`, (err) => { });
   db.run(`ALTER TABLE promocoes ADD COLUMN config TEXT`, (err) => { });
 
   // Inscrições de notificações push (Web Push) por dispositivo
@@ -5601,6 +5602,17 @@ io.on('connection', (socket) => {
     ['productName', 'productEmoji', 'localName', 'userName', 'time', 'mensagem', 'observations'].forEach(function (f) {
       if (typeof pedido[f] === 'string') pedido[f] = _sanitizeXss(pedido[f]);
     });
+    if (Array.isArray(pedido.composicoes)) {
+      pedido.composicoes = pedido.composicoes.map(c => {
+        if (typeof c === 'string') return _sanitizeXss(c);
+        if (c && typeof c === 'object') {
+          const clean = {};
+          for (const k in c) { clean[_sanitizeXss(k)] = _sanitizeXss(c[k]); }
+          return clean;
+        }
+        return c;
+      });
+    }
     const clientName = pedido.mesa_comanda ? pedido.mesa_comanda.trim() : null;
     const clientPhone = pedido.cliente_telefone ? pedido.cliente_telefone.trim() : null;
 
@@ -5697,9 +5709,9 @@ io.on('connection', (socket) => {
 
         function savePedidoAndBonus() {
           db.run(
-            `INSERT INTO pedidos (productName, productEmoji, quantity, time, localName, userName, total, status, sector, cliente_id, promocao_id, entregador_id, mesa_comanda, observations, createdAt)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))`,
-            [pedido.productName, pedido.productEmoji, pedido.quantity, pedido.time, pedido.localName, pedido.userName, pedido.total, status, pedido.sector || 'Cozinha 1', pedido.cliente_id || null, pedido.promocao_id || null, pedido.entregador_id || null, pedido.mesa_comanda || null, pedido.observations || ''],
+            `INSERT INTO pedidos (productName, productEmoji, quantity, time, localName, userName, total, status, sector, cliente_id, promocao_id, entregador_id, mesa_comanda, observations, composicoes, createdAt)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))`,
+            [pedido.productName, pedido.productEmoji, pedido.quantity, pedido.time, pedido.localName, pedido.userName, pedido.total, status, pedido.sector || 'Cozinha 1', pedido.cliente_id || null, pedido.promocao_id || null, pedido.entregador_id || null, pedido.mesa_comanda || null, pedido.observations || '', JSON.stringify(pedido.composicoes || [])],
             function (err) {
               if (err) {
                 console.error('Erro ao inserir pedido:', err);
@@ -6204,9 +6216,9 @@ io.on('connection', (socket) => {
             let status = 'Em espera';
 
             db.run(
-              `INSERT INTO pedidos (productName, productEmoji, quantity, time, localName, userName, total, status, sector, turno_id, mesa_comanda, cliente_id, createdAt) 
-               VALUES (?, ?, ?, ?, ?, 'QR Code', ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))`,
-              [item.productName, item.productEmoji || '🍽️', item.quantity, timeStr, mesaName, String(item.total).replace('.', ','), status, item.sector || 'Cozinha 1', turno.id, comandaNome || null, pendingOrder.cliente_id || null],
+              `INSERT INTO pedidos (productName, productEmoji, quantity, time, localName, userName, total, status, sector, turno_id, mesa_comanda, cliente_id, observations, composicoes, createdAt) 
+               VALUES (?, ?, ?, ?, ?, 'QR Code', ?, ?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))`,
+              [item.productName, item.productEmoji || '🍽️', item.quantity, timeStr, mesaName, String(item.total).replace('.', ','), status, item.sector || 'Cozinha 1', turno.id, comandaNome || null, pendingOrder.cliente_id || null, item.observations || '', JSON.stringify(item.composicoes || [])],
               function (errInsert) {
                 if (errInsert) {
                   hasError = true;
@@ -9482,11 +9494,11 @@ app.post('/api/retro/pedido', (req, res) => {
 
     const query = `
       INSERT INTO pedidos (
-        userName, localName, productName, quantity, options, observations,
+        userName, localName, productName, quantity, options, observations, composicoes,
         status, mesa_comanda, mesa_grupo, isCommand,
         printer, sector, total,
         cliente_id, is_delivery
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
     const params = [
       pedido.userName || 'Garçom Retro',
@@ -9495,6 +9507,7 @@ app.post('/api/retro/pedido', (req, res) => {
       pedido.quantity || 1,
       pedido.options || '[]',
       pedido.observations || '',
+      JSON.stringify(pedido.composicoes || []),
       status,
       pedido.mesa_comanda,
       pedido.mesa_grupo || pedido.mesa_comanda,

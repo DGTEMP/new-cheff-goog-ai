@@ -881,6 +881,18 @@ function renderQueue() {
     const localEsc = escHtml(item.localName || 'Mesa');
     const userEsc = escHtml(item.userName || '');
     const obsEsc = escHtml(item.observations || '');
+    let compsHtml = '';
+    try {
+      const comps = typeof item.composicoes === 'string' ? JSON.parse(item.composicoes) : (item.composicoes || []);
+      if (Array.isArray(comps) && comps.length > 0) {
+        compsHtml = '<div class="item-composicoes">' + comps.map(c => {
+          if (typeof c === 'object' && c.nome) {
+            return '<span class="comp-item">' + escHtml(c.nome) + (c.quantidade ? ' x' + escHtml(String(c.quantidade)) : '') + '</span>';
+          }
+          return '<span class="comp-item">' + escHtml(String(c)) + '</span>';
+        }).join('') + '</div>';
+      }
+    } catch(e) {}
 
     return `
       <div class="queue-item${isNewClass}" data-id="${id}" data-status="${statusEsc}" style="background-color: ${bgColor}; border-left-color: ${localColor}; ${estiloEspecial}">
@@ -894,6 +906,7 @@ function renderQueue() {
           <span>${nomeEsc}</span>
           ${badgeEspecial}
           ${obsEsc ? `<div class="item-observacao">${obsEsc}</div>` : ''}
+          ${compsHtml}
         </div>
 
         <div class="item-local">

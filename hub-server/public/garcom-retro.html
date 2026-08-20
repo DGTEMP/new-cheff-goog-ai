@@ -110,6 +110,9 @@
         html += '<input type="number" id="prod-qtd" value="1"><br>';
         html += '<label>Observações:</label><br>';
         html += '<input type="text" id="prod-obs" placeholder="Ex: Sem cebola"><br>';
+        html += '<label>Composições:</label><br>';
+        html += '<div id="retro-comps-list" style="margin-bottom:4px;"></div>';
+        html += '<div style="display:flex;gap:4px;"><input type="text" id="prod-comp" placeholder="Ex: Calabresa, Borda" style="flex:1;"><button class="btn" onclick="addRetroComp()" style="padding:5px 10px;">+</button></div>';
         html += '<button class="btn" onclick="addCarrinho()">Adicionar ao Pedido</button>';
         html += '<button class="btn btn-secondary" onclick="state.view=\'cardapio\'; render()">Cancelar</button>';
         html += '</div>';
@@ -122,7 +125,7 @@
         } else {
           for (var k = 0; k < state.carrinho.length; k++) {
             var item = state.carrinho[k];
-            html += '<div class="card"><b>' + item.quantity + 'x ' + escHtml(item.productName) + '</b><br>Obs: ' + escHtml(item.observations) + '<br><button style="margin-top:5px; padding: 5px; background: red; color: white; border: none; border-radius: 3px;" onclick="removerItem(' + k + ')">Remover</button></div>';
+            html += '<div class="card"><b>' + item.quantity + 'x ' + escHtml(item.productName) + '</b><br>Obs: ' + escHtml(item.observations) + (item.composicoes && item.composicoes.length > 0 ? '<br>Composições: ' + escHtml(item.composicoes.join(', ')) : '') + '<br><button style="margin-top:5px; padding: 5px; background: red; color: white; border: none; border-radius: 3px;" onclick="removerItem(' + k + ')">Remover</button></div>';
           }
           html += '<button class="btn" id="btn-enviar" onclick="enviarPedido()">Enviar Pedido p/ Cozinha</button>';
           html += '<button class="btn btn-secondary" onclick="state.view=\'cardapio\'; render()">Adicionar Mais Itens</button>';
@@ -175,6 +178,18 @@
       render();
     }
 
+    var _retroComps = [];
+    function addRetroComp() {
+      var inp = document.getElementById('prod-comp');
+      if (!inp) return;
+      var val = inp.value.trim();
+      if (!val) return;
+      _retroComps.push(val);
+      inp.value = '';
+      var list = document.getElementById('retro-comps-list');
+      if (list) list.innerHTML = _retroComps.map(function(c,i) { return '<span style="background:#dbeafe;color:#1e40af;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600;">' + escHtml(c) + ' <button onclick="_retroComps.splice('+i+',1);addRetroComp();" style="background:none;border:none;color:red;">&times;</button></span>'; }).join(' ');
+    }
+
     function addCarrinho() {
       var qtd = parseInt(document.getElementById('prod-qtd').value) || 1;
       var obs = document.getElementById('prod-obs').value || '';
@@ -186,11 +201,13 @@
         productName: p.nome,
         quantity: qtd,
         observations: obs,
+        composicoes: _retroComps.slice(),
         printer: p.impressora || '',
         sector: p.setor || '',
         total: qtd * p.preco
       });
       
+      _retroComps = [];
       state.produtoSelecionado = null;
       state.view = 'cardapio';
       render();

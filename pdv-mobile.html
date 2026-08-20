@@ -252,6 +252,14 @@
 
       <input type="text" id="modal-produto-obs" class="form-input" placeholder="Observações (ex: sem cebola)...">
 
+      <div id="modal-produto-comps-section">
+        <div id="modal-produto-comps-list" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:4px;"></div>
+        <div style="display:flex;gap:4px;">
+          <input type="text" id="modal-produto-comp-input" class="form-input" placeholder="Composição (ex: Calabresa, Borda)" style="flex:1;">
+          <button onclick="adicionarCompMobile()" style="background:#3ab55b;color:white;border:none;border-radius:8px;padding:8px 12px;font-weight:700;cursor:pointer;">+</button>
+        </div>
+      </div>
+
       <button class="btn-primary" onclick="confirmarAdicionarProduto()">Lançar na Mesa</button>
     </div>
   </div>

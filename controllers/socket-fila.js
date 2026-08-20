@@ -106,6 +106,14 @@ module.exports = function(socket, io, db, helpers) {
         (err) => {
           if (!err) {
             emitirFila('broadcast');
+            // Notificar o cliente na fila que recebeu uma mesa (redireciona automaticamente)
+            if (mesaName) {
+              io.to(`fila_cliente_${pid}`).emit('fila_mesa_liberada', {
+                fila_id: pid,
+                mesa: mesaName,
+                mensagem: 'Sua mesa esta pronta! Redirecionando...'
+              });
+            }
             if (mesaName) {
               const cliNome = (filaRow && filaRow.cliente_nome) ? filaRow.cliente_nome : '';
               const cliTel = (filaRow && filaRow.cliente_telefone) ? filaRow.cliente_telefone : '';

@@ -1015,7 +1015,7 @@
       </div>
 
       <!-- MODAL DE FORMULARIO DE CADASTRO -->
-      <div id="fila-form-overlay" style="display:none; position:fixed; inset:0; z-index:200; background:rgba(0,0,0,0.5); backdrop-filter:blur(4px); align-items:flex-end; justify-content:center; padding:0;">
+      <div id="fila-form-overlay" onclick="if(event.target===this)this.style.display='none'" style="display:none; position:fixed; inset:0; z-index:200; background:rgba(0,0,0,0.5); backdrop-filter:blur(4px); align-items:flex-end; justify-content:center; padding:0;">
         <div style="width:100%; max-width:480px; background:white; border-radius:20px 20px 0 0; padding:24px 20px 32px; max-height:90vh; overflow-y:auto; animation:slideUp 0.3s ease;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
             <div>
@@ -1078,9 +1078,14 @@
 
           <!-- LISTA DA FILA (dentro do modal) -->
           <div id="lista-fila-espera" style="display:none; margin-top:12px; border-top:1px solid #f1f5f9; padding-top:12px;">
-            <div style="font-size:12px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:1px; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
-              <i class="ph ph-users-three"></i> Pessoas na Fila
-              <span id="lista-fila-count" style="background:#e2e8f0; color:#475569; padding:1px 8px; border-radius:20px; font-size:11px;"></span>
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+              <div style="font-size:12px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:1px; display:flex; align-items:center; gap:6px;">
+                <i class="ph ph-users-three"></i> Pessoas na Fila
+                <span id="lista-fila-count" style="background:#e2e8f0; color:#475569; padding:1px 8px; border-radius:20px; font-size:11px;"></span>
+              </div>
+              <button onclick="document.getElementById('fila-form-overlay').style.display='none'" style="background:#f1f5f9; color:#64748b; border:none; width:28px; height:28px; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0;">
+                <i class="ph ph-x"></i>
+              </button>
             </div>
             <div id="lista-fila-rows"></div>
           </div>
@@ -1177,6 +1182,15 @@
         <label class="form-label">Observações (opcional):</label>
         <textarea id="modal-obs" rows="2" class="form-input" style="resize:none;"
           placeholder="Ex: Sem cebola, gelo e limão..."></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Composições (opcional):</label>
+        <div id="modal-comps-list" style="display:flex; flex-direction:column; gap:4px; margin-bottom:6px;"></div>
+        <div style="display:flex; gap:4px;">
+          <input type="text" id="modal-comp-input" placeholder="Ex: Calabresa, Borda Cheddar..." style="flex:1; padding:8px 10px; border:1.5px solid var(--border); border-radius:8px; font-size:13px; background:var(--bg);">
+          <button onclick="window.adicionarComposicao()" style="background:var(--primary); color:white; border:none; border-radius:8px; padding:8px 12px; font-size:13px; font-weight:700; cursor:pointer; white-space:nowrap;">+</button>
+        </div>
+        <input type="hidden" id="modal-composicoes" value="[]">
       </div>
       <button class="btn-submit" onclick="window.adicionarItemAoCarrinho()" style="margin-top: 8px;">
         Adicionar ao Pedido
@@ -1840,6 +1854,8 @@
       document.getElementById('modal-emoji').innerText = item.emoji || '🍽️';
       document.getElementById('modal-qty').innerText = '1';
       document.getElementById('modal-obs').value = '';
+      window._compsAtuais = [];
+      window.renderCompsList();
 
       document.getElementById('modal-item-details').style.display = 'flex';
     };
@@ -1855,11 +1871,42 @@
       document.getElementById('modal-qty').innerText = selectedQty;
     };
 
+    window._compsAtuais = [];
+
+    window.renderCompsList = () => {
+      const container = document.getElementById('modal-comps-list');
+      const input = document.getElementById('modal-composicoes');
+      if (!container) return;
+      container.innerHTML = window._compsAtuais.map((c, i) =>
+        '<div style="display:flex;align-items:center;gap:4px;background:var(--bg,#f1f5f9);border:1px solid var(--border,#e2e8f0);border-radius:6px;padding:3px 6px;font-size:12px;">' +
+        '<span style="flex:1;font-weight:600;">' + escFila(c) + '</span>' +
+        '<button onclick="window.removerComposicao(' + i + ')" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:14px;padding:0 2px;font-weight:700;">&times;</button>' +
+        '</div>'
+      ).join('');
+      if (input) input.value = JSON.stringify(window._compsAtuais);
+    };
+
+    window.adicionarComposicao = () => {
+      const inp = document.getElementById('modal-comp-input');
+      if (!inp) return;
+      const val = inp.value.trim();
+      if (!val) return;
+      window._compsAtuais.push(val);
+      inp.value = '';
+      window.renderCompsList();
+    };
+
+    window.removerComposicao = (idx) => {
+      window._compsAtuais.splice(idx, 1);
+      window.renderCompsList();
+    };
+
     window.adicionarItemAoCarrinho = () => {
       if (!selectedItem) return;
 
       const obs = document.getElementById('modal-obs').value.trim();
-      const existing = CART.find(x => x.id === selectedItem.id && x.obs === obs);
+      const comps = JSON.parse(document.getElementById('modal-composicoes') ? (document.getElementById('modal-composicoes').value || '[]') : '[]');
+      const existing = CART.find(x => x.id === selectedItem.id && x.obs === obs && JSON.stringify(x.composicoes) === JSON.stringify(comps));
 
       if (existing) {
         existing.quantity += selectedQty;
@@ -1872,6 +1919,7 @@
           quantity: selectedQty,
           preco: parseFloat(selectedItem.preco),
           obs: obs,
+          composicoes: comps,
           sector: selectedItem.setor || 'Cozinha 1',
           total: selectedQty * parseFloat(selectedItem.preco)
         });
@@ -1905,6 +1953,7 @@
           <div class="cart-item-info">
             <div class="cart-item-name">${item.quantity}x ${item.productEmoji || ''} ${item.productName}</div>
             ${item.obs ? `<div style="font-size:11px; color:#888; margin-top:2px;">Obs: ${item.obs}</div>` : ''}
+            ${item.composicoes && item.composicoes.length > 0 ? `<div style="font-size:11px; color:#3b82f6; margin-top:2px; font-weight:600;">Composições: ${item.composicoes.join(', ')}</div>` : ''}
             <span class="cart-item-price">R$ ${item.total.toFixed(2).replace('.', ',')}</span>
           </div>
           <div style="display:flex; flex-direction:column; gap:4px; align-items:center;">
@@ -2113,7 +2162,9 @@
         productEmoji: item.productEmoji,
         quantity: item.quantity,
         total: item.preco.toFixed(2),
-        sector: item.sector
+        sector: item.sector,
+        observations: item.obs || '',
+        composicoes: item.composicoes || []
       }));
 
       socket.emit('criar_pedido_qr', {
@@ -2562,8 +2613,35 @@
           '<button onclick="this.closest(\'#fila-aviso-overlay\').remove()" style="padding:12px 32px;background:#6c5ce7;color:white;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;">Entendi</button>' +
           '</div>';
         document.body.appendChild(overlay);
-        // Vibra se suportado
         if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+      });
+
+      // --- MESA LIBERADA PELO CAIXA: redirecionar automaticamente para o cardapio da mesa ---
+      socket.on('fila_mesa_liberada', (data) => {
+        if (!data || !data.mesa) return;
+        const mesa = data.mesa;
+        const msg = data.mensagem || 'Sua mesa esta pronta!';
+        const overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);backdrop-filter:blur(6px);font-family:Inter,sans-serif;';
+        overlay.innerHTML =
+          '<div style="background:white;border-radius:20px;padding:32px 28px;max-width:380px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.3);animation:slideUp .3s ease;">' +
+          '<div style="font-size:48px;margin-bottom:10px;">🎉</div>' +
+          '<h2 style="margin:0 0 6px;color:#15803d;font-size:20px;">' + escFila(mesa) + ' Liberada!</h2>' +
+          '<p style="margin:0 0 16px;color:#475569;font-size:14px;">' + escFila(msg) + '</p>' +
+          '<div style="font-size:13px;color:#94a3b8;margin-bottom:16px;">Redirecionando em <span id="fila-redirect-countdown">3</span>s...</div>' +
+          '</div>';
+        document.body.appendChild(overlay);
+        if (navigator.vibrate) navigator.vibrate([300, 100, 300, 100, 300]);
+        let count = 3;
+        const cdEl = overlay.querySelector('#fila-redirect-countdown');
+        const timer = setInterval(() => {
+          count--;
+          if (cdEl) cdEl.textContent = count;
+          if (count <= 0) {
+            clearInterval(timer);
+            window.location.href = 'cardapio.html?mesa=' + encodeURIComponent(mesa) + '&restaurante_id=' + encodeURIComponent(restauranteId);
+          }
+        }, 1000);
       });
 
       // Junta sala de fila quando o cliente é identificado

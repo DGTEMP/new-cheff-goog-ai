@@ -213,14 +213,56 @@
   display: block;
   margin-top: 4px;
   font-size: 12px;
-  font-weight: 600;
-  color: #b45309;
-  background: #fef3c7;
+  font-weight: 700;
+  color: #92400e;
+  background: linear-gradient(135deg, #fef3c7, #fde68a);
+  border: 1px solid #f59e0b;
+  border-left: 3px solid #f59e0b;
   border-radius: 4px;
-  padding: 2px 6px;
+  padding: 4px 8px;
   white-space: normal;
-  width: fit-content;
+  width: 100%;
   max-width: 100%;
+  letter-spacing: 0.3px;
+  animation: obsPulse 2s ease-in-out 1;
+}
+.item-observacao::before {
+  content: '📝 ';
+}
+.item-composicoes {
+  display: block;
+  margin-top: 4px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #1e40af;
+  background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+  border: 1px solid #60a5fa;
+  border-left: 3px solid #3b82f6;
+  border-radius: 4px;
+  padding: 4px 8px;
+  white-space: normal;
+  width: 100%;
+  max-width: 100%;
+  line-height: 1.4;
+}
+.item-composicoes::before {
+  content: '📋 ';
+  font-weight: 700;
+}
+.item-composicoes .comp-item {
+  display: inline-block;
+  background: #3b82f6;
+  color: white;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 10.5px;
+  font-weight: 700;
+  margin: 1px 2px;
+}
+@keyframes obsPulse {
+  0% { box-shadow: 0 0 0 0 rgba(245,158,11,0.4); }
+  50% { box-shadow: 0 0 8px 2px rgba(245,158,11,0.3); }
+  100% { box-shadow: 0 0 0 0 rgba(245,158,11,0); }
 }
 
 .col-local,
