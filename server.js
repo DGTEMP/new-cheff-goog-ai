@@ -6,6 +6,56 @@ const originalError = console.error;
 let isMatrixAnimating = true;
 const pendingLogs = [];
 
+// ══════════════════════════════════════════════════════════
+// 🎉 ANIMAÇÃO DE VITÓRIA — NOVO RESTAURANTE CADASTRADO
+// ══════════════════════════════════════════════════════════
+function celebrarNovoRestaurante(nome, id, dono) {
+  const frames = ['🎉', '🎊', '✨', '🏆', '🌟', '🎆', '🎇'];
+  let f = 0;
+  const spinner = setInterval(() => {
+    process.stdout.write(`\r  ${frames[f % frames.length]}  Processando novo cliente... `);
+    f++;
+  }, 120);
+
+  setTimeout(() => {
+    clearInterval(spinner);
+    process.stdout.write('\r\x1b[2K\r');
+
+    const ts = new Date().toLocaleTimeString('pt-BR');
+    const banner = [
+      '',
+      `${ANSI.yellow}${ANSI.bright}  ╔══════════════════════════════════════════════════╗${ANSI.reset}`,
+      `${ANSI.yellow}${ANSI.bright}  ║   🏆  NOVO RESTAURANTE CADASTRADO  🏆            ║${ANSI.reset}`,
+      `${ANSI.yellow}${ANSI.bright}  ╠══════════════════════════════════════════════════╣${ANSI.reset}`,
+      `${ANSI.yellow}  ║${ANSI.reset}  ${ANSI.cyan}🏪 Nome:${ANSI.reset}   ${ANSI.bright}${nome}${ANSI.reset}`,
+      `${ANSI.yellow}  ║${ANSI.reset}  ${ANSI.green}🆔 ID:${ANSI.reset}     #${id}`,
+      dono ? `${ANSI.yellow}  ║${ANSI.reset}  ${ANSI.magenta}👤 Dono:${ANSI.reset}   ${dono}` : null,
+      `${ANSI.yellow}  ║${ANSI.reset}  ${ANSI.dim}🕐 Hora:${ANSI.reset}   ${ts}`,
+      `${ANSI.yellow}${ANSI.bright}  ╚══════════════════════════════════════════════════╝${ANSI.reset}`,
+      `  ${ANSI.green}${ANSI.bright}🎊 Bem-vindo ao ecossistema Chef Cozinha SaaS! 🎊${ANSI.reset}`,
+      '',
+    ].filter(Boolean).join('\n');
+
+    originalLog.apply(console, [banner]);
+
+    // Confete ASCII
+    const confete = '  ✦ ★ ✦ ★ ✦ ★ ✦ ★ ✦ ★ ✦ ★ ✦ ★ ✦ ★ ✦ ★ ✦ ★ ✦';
+    let c = 0;
+    const rain = setInterval(() => {
+      c++;
+      const colors = [ANSI.yellow, ANSI.cyan, ANSI.magenta, ANSI.green];
+      const col = colors[c % colors.length];
+      process.stdout.write(`\r${col}${confete}${ANSI.reset}`);
+      if (c >= 10) {
+        clearInterval(rain);
+        process.stdout.write('\r\x1b[2K\r');
+        originalLog.apply(console, [`${ANSI.dim}────────────────────────────────────────────────────────${ANSI.reset}`]);
+      }
+    }, 150);
+  }, 800);
+}
+
+
 const ANSI = {
   reset: "\x1b[0m",
   bright: "\x1b[1m",
@@ -1466,10 +1516,14 @@ app.post('/api/super/criar-restaurante', superAdminAuth, async (req, res) => {
             masterDb.run(`INSERT INTO usuarios (restaurante_id, username, password_hash, role, ativo, data_cadastro) VALUES (?, ?, ?, 'admin', 1, datetime('now', 'localtime'))`,
               [restauranteId, email.trim().toLowerCase(), hash], function(errUser) {
                 if (errUser) return res.json({ ok: true, restauranteId, alerta: 'Restaurante criado, mas falhou ao registrar usuário administrador.' });
+                celebrarNovoRestaurante(nome, restauranteId, email || null);
                 res.json({ ok: true, restauranteId, mensagem: 'Restaurante e administrador criados com sucesso!' });
               });
           }).catch(() => { res.json({ ok: true, restauranteId, alerta: 'Restaurante criado, mas falhou ao gerar senha.' }); });
-        } else { res.json({ ok: true, restauranteId, mensagem: 'Restaurante criado com sucesso!' }); }
+        } else {
+          celebrarNovoRestaurante(nome, restauranteId, null);
+          res.json({ ok: true, restauranteId, mensagem: 'Restaurante criado com sucesso!' });
+        }
       });
   } catch (e) { res.json({ ok: false, erro: e.message }); }
 });
@@ -2764,6 +2818,7 @@ app.post('/api/super/criar-restaurante-completo', superAdminAuth, async (req, re
         if (!fsSync.existsSync(tenantDbPath) && fsSync.existsSync(getTenantDbPath(1))) {
           fsSync.copyFileSync(getTenantDbPath(1), tenantDbPath);
         }
+        celebrarNovoRestaurante(nome, restauranteId, email || null);
         res.json({ ok: true, ...resultados, mensagem: 'Restaurante criado com sucesso!' });
       });
   } catch (e) { res.json({ ok: false, erro: e.message }); }
@@ -11301,6 +11356,7 @@ app.post('/api/auth/registro', async (req, res) => {
                 data: getLocalTimestamp()
               };
               io.emit('novo_cadastro_saas', cadastroNotif);
+              celebrarNovoRestaurante(restauranteNome, restauranteId, `${nome} <${email}>`);
               console.log(`🔔 [SaaS Onboarding] Novo cadastro em andamento: Restaurante #${restauranteId} "${restauranteNome}" | Dono: ${nome} | Tel: ${telFormatado} | Email: ${email}`);
             } catch (eNotif) {
               console.error('Erro ao emitir notificacao de novo cadastro saas:', eNotif);
