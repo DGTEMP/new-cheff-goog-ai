@@ -4808,6 +4808,13 @@ io.on('connection', (socket) => {
   metricAddSocket(socket);
   socket.features = getTenantFeaturesSync(socketTenantId);
 
+  // [iFood On-Demand] Notifica sessão ativa para o tenant
+  try {
+    const roomSockets = io.sockets.adapter.rooms.get(`restaurante_${socketTenantId}`);
+    const activeCount = roomSockets ? roomSockets.size : 1;
+    ifoodApi.notifyTenantSessionState(socketTenantId, activeCount, { io, masterDb, tenantContext, getTenantDb, isFeatureEnabled: isTenantFeatureEnabled });
+  } catch (e) {}
+
   // Wrap all socket events in tenant context!
   const originalOn = socket.on.bind(socket);
   socket.on = function (eventName, callback) {
@@ -8885,6 +8892,14 @@ io.on('connection', (socket) => {
       clearInterval(mpPollInterval);
       mpPollInterval = null;
     }
+
+    // [iFood On-Demand] Atualiza contagem de sessões ativas do tenant após desconexão
+    try {
+      const roomSockets = io.sockets.adapter.rooms.get(`restaurante_${socketTenantId}`);
+      const activeCount = roomSockets ? roomSockets.size : 0;
+      ifoodApi.notifyTenantSessionState(socketTenantId, activeCount, { io, masterDb, tenantContext, getTenantDb, isFeatureEnabled: isTenantFeatureEnabled });
+    } catch (e) {}
+
     console.log(`[Socket] Dispositivo desconectado: ${socket.id}`);
   });
 });

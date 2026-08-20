@@ -193,8 +193,9 @@ async function refreshToken(tdb, masterDb, tenantId, conn) {
   }
 }
 
-// ---------- Polling de eventos ----------
+// ---------- Polling de eventos (On-Demand por Sessão Ativa) ----------
 const pollers = new Map();
+const activeTenantSessions = new Map(); // tenantId -> count of active sockets
 
 function ensurePoller(tenantId, deps) {
   if (pollers.has(tenantId)) return;
@@ -213,11 +214,37 @@ function ensurePoller(tenantId, deps) {
   const iv = setInterval(tick, 30000);
   if (iv.unref) iv.unref();
   pollers.set(tenantId, iv);
+  console.log(`[iFood On-Demand] Poller INICIADO para o restaurante ID #${tenantId} (Sessão ativa detectada).`);
 }
 
 function stopPoller(tenantId) {
   const iv = pollers.get(tenantId);
-  if (iv) { clearInterval(iv); pollers.delete(tenantId); }
+  if (iv) {
+    clearInterval(iv);
+    pollers.delete(tenantId);
+    console.log(`[iFood On-Demand] Poller PAUSADO para o restaurante ID #${tenantId} (Nenhuma sessão ativa).`);
+  }
+}
+
+function notifyTenantSessionState(tenantId, activeCount, deps) {
+  activeTenantSessions.set(tenantId, activeCount);
+  if (activeCount > 0) {
+    // Restaurante possui pelo menos 1 dispositivo/sessão conectado: verifica autorização e inicia poller
+    const { getTenantDb, tenantContext } = deps || {};
+    if (typeof getTenantDb === 'function' && tenantContext) {
+      try {
+        const tdb = tenantContext.run(tenantId, () => getTenantDb());
+        tdb.get(`SELECT status FROM ifood_connections WHERE restaurante_id = ?`, [tenantId], (err, row) => {
+          if (!err && row && row.status === 'authorized') {
+            ensurePoller(tenantId, deps);
+          }
+        });
+      } catch (e) {}
+    }
+  } else {
+    // Nenhuma sessão ativa para o estabelecimento: encerra/pausa o poller do iFood imediatamente
+    stopPoller(tenantId);
+  }
 }
 
 function emitHub(tdb, io, tenantId) {
@@ -555,5 +582,6 @@ module.exports = {
   ensurePoller,
   stopPoller,
   startAllPollers,
+  notifyTenantSessionState,
   pollOnce
 };
