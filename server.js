@@ -608,6 +608,18 @@ app.get('/ativacao', (req, res) => {
   else res.sendFile(path.join(__dirname, 'ativacao.html'));
 });
 
+app.get('/favicon.ico', (req, res) => {
+  res.sendFile(path.join(__dirname, 'icons', 'icon.ico'));
+});
+
+app.get('/robots.txt', (req, res) => {
+  res.type('text/plain').send('User-agent: *\nDisallow: /api/\nDisallow: /super-admin\n');
+});
+
+app.get('*.map', (req, res) => {
+  res.status(404).send('');
+});
+
 app.get(['/site', '/vendas'], (req, res) => {
   const distPath = path.join(__dirname, 'dist', 'site-vendas.html');
   if (fs.existsSync(distPath)) res.sendFile(distPath);
