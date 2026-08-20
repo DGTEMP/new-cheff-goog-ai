@@ -360,13 +360,13 @@
   <noscript><style>.no-js .animate-on-scroll{opacity:1!important;transform:none!important}</style></noscript>
 
   <!-- Preloader Elegante -->
-  <div id="site-preloader" style="position:fixed;top:0;left:0;width:100%;height:100%;background-color:var(--dark-bg);z-index:999999;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity 0.6s ease;">
-    <div class="logo-icon" style="width:80px;height:80px;margin-bottom:20px;animation:pulse-glow 1.5s ease infinite;"><img src="/icons/icon-192.png" alt="Chef Cozinha" style="width:60px;height:60px;border-radius:12px;"></div>
-    <div style="color:var(--text-main);font-family:'Outfit';font-size:24px;font-weight:800;letter-spacing:2px;margin-bottom:8px;">CHEF COZINHA</div>
-    <div style="color:var(--primary);font-size:14px;font-weight:600;letter-spacing:1px;text-transform:uppercase;">Carregando Experiência...</div>
-  </div>
+    <div id="site-preloader" style="position:fixed;top:0;left:0;width:100%;height:100%;background-color:var(--dark-bg);z-index:999999;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity 0.8s ease;">
+      <div class="logo-icon" style="width:160px;height:160px;margin-bottom:30px;animation:epic-spin-pulse 2s cubic-bezier(0.4, 0, 0.2, 1) infinite; border-radius:30px;"><img src="/icons/icon-192.png" alt="Chef Cozinha" style="width:120px;height:120px;border-radius:24px;"></div>
+      <div style="color:var(--text-main);font-family:'Outfit';font-size:32px;font-weight:900;letter-spacing:4px;margin-bottom:12px; text-shadow: 0px 4px 20px rgba(252,75,21,0.4);">CHEF COZINHA</div>
+      <div style="color:var(--primary);font-size:16px;font-weight:700;letter-spacing:2px;text-transform:uppercase; animation:float 2s ease infinite;">Preparando a Cozinha...</div>
+    </div>
 
-  <!-- Top Banner -->
+    <!-- Top Banner -->
   <div class="top-promo-bar" id="top-banner">
     <span id="banner-text">🔥 ATENÇÃO: Preço promocional válido apenas até atingirmos 85% da capacidade dos servidores (Uso atual: 57%). Garanta sua vaga!</span>
     <a id="banner-link" onclick="abrirSetupModal()">Garantir Teste Grátis →</a>
@@ -737,7 +737,15 @@
         html += '<button class="btn-plan-cta ' + (isPop ? 'btn-plan-primary' : 'btn-plan-secondary') + '" onclick="abrirSetupModal(\'' + escH(p.id||p.nome) + '\')">' + escH(p.cta || 'Assinar') + '</button></div>';
       });
       grid.innerHTML = html;
+      
+      // Fix for GSAP ScrollTrigger on refresh
+      if ('scrollRestoration' in history) {
+        history.scrollRestoration = 'manual';
+      }
+
       initAnimations();
+      setTimeout(() => { if (window.ScrollTrigger) ScrollTrigger.refresh(); }, 1000);
+      setTimeout(() => { if (window.ScrollTrigger) ScrollTrigger.refresh(); }, 3000);
     }
 
     function renderPlanosDefault() {
@@ -755,7 +763,15 @@
         html += '<div class="faq-item animate-on-scroll"><div class="faq-question" onclick="toggleFaq(this)">' + escH(i.pergunta) + '<i class="ph ph-caret-down"></i></div><div class="faq-answer">' + escH(i.resposta) + '</div></div>';
       });
       container.innerHTML = html;
+      
+      // Fix for GSAP ScrollTrigger on refresh
+      if ('scrollRestoration' in history) {
+        history.scrollRestoration = 'manual';
+      }
+
       initAnimations();
+      setTimeout(() => { if (window.ScrollTrigger) ScrollTrigger.refresh(); }, 1000);
+      setTimeout(() => { if (window.ScrollTrigger) ScrollTrigger.refresh(); }, 3000);
     }
 
     function renderFaqDefault() {
@@ -856,7 +872,15 @@
     }
 
     document.addEventListener('DOMContentLoaded', function() {
+      
+      // Fix for GSAP ScrollTrigger on refresh
+      if ('scrollRestoration' in history) {
+        history.scrollRestoration = 'manual';
+      }
+
       initAnimations();
+      setTimeout(() => { if (window.ScrollTrigger) ScrollTrigger.refresh(); }, 1000);
+      setTimeout(() => { if (window.ScrollTrigger) ScrollTrigger.refresh(); }, 3000);
       updateCalculator();
       loadSetupDraft();
       
