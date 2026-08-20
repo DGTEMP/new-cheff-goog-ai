@@ -131,40 +131,45 @@ module.exports = function(socket, io, db, helpers) {
   socket.on('abrir_caixa', (data) => {
     // (Segurança) Abrir o caixa não exige senha: apenas confirmação no PDV.
     // Regras de senha por cargo se aplicam ao FECHAR o caixa.
-    const fundo_troco = parseFloat(data.fundo_troco) || 0;
+    const payload = (data && typeof data === 'object') ? data : {};
+    const fundo_troco = parseFloat(payload.fundo_troco) || 0;
+    
     checkCaixa(turnoAtual => {
       if (turnoAtual) {
         socket.emit('estado_caixa', turnoAtual);
         socket.emit('caixa_aberto_sucesso');
         return;
       }
-      db.run(`UPDATE mesas SET status = 'Disponível', observacao = ''`, () => {
-      db.run(`UPDATE pedidos SET status = 'Finalizado' WHERE status NOT IN ('Finalizado', 'Cancelado') AND (turno_id IS NULL OR turno_id < (SELECT IFNULL(MAX(id), 0) FROM turnos_caixa))`, () => {
-        db.run(
-          `INSERT INTO turnos_caixa (fundo_troco, data_abertura) VALUES (?, datetime('now', 'localtime'))`,
-          [fundo_troco],
-          function (err) {
-            if (!err) {
-              const newTurno = { id: this.lastID, status: 'Aberto', fundo_troco };
-              if (typeof global.registrarAuditoria === 'function') {
-                try {
-                  global.registrarAuditoria(data.operador || 'Caixa', 'ABERTURA_CAIXA', `Caixa aberto com fundo R$ ${fundo_troco.toFixed(2)}`, 'Início de Turno', 'BAIXO');
-                } catch (eAudit) {
-                  console.error("Erro ao registrar auditoria de abertura:", eAudit);
-                }
+      
+      db.run(
+        `INSERT INTO turnos_caixa (fundo_troco, data_abertura) VALUES (?, datetime('now', 'localtime'))`,
+        [fundo_troco],
+        function (err) {
+          if (!err) {
+            const newTurno = { id: this.lastID, status: 'Aberto', fundo_troco };
+            
+            // Limpa mesas e encerra pedidos pendentes sem turno
+            db.run(`UPDATE mesas SET status = 'Disponível', observacao = ''`, () => {});
+            db.run(`UPDATE pedidos SET status = 'Finalizado' WHERE status NOT IN ('Finalizado', 'Cancelado') AND (turno_id IS NULL OR turno_id < ?)`, [newTurno.id], () => {});
+
+            if (typeof global.registrarAuditoria === 'function') {
+              try {
+                global.registrarAuditoria(payload.operador || 'Caixa', 'ABERTURA_CAIXA', `Caixa aberto com fundo R$ ${fundo_troco.toFixed(2)}`, 'Início de Turno', 'BAIXO');
+              } catch (eAudit) {
+                console.error("Erro ao registrar auditoria de abertura:", eAudit);
               }
-              io.emit('estado_caixa', newTurno);
-              socket.emit('caixa_aberto_sucesso');
-              db.all(`SELECT * FROM mesas`, (e, r) => io.emit('mesas_atualizadas', r || []));
-              if (typeof broadcastPedidos === 'function') broadcastPedidos();
-            } else {
-              console.error("Erro ao abrir caixa:", err);
-              socket.emit('erro_caixa', 'Erro no servidor ao abrir o caixa.');
             }
+            
+            io.emit('estado_caixa', newTurno);
+            socket.emit('caixa_aberto_sucesso');
+            db.all(`SELECT * FROM mesas`, (e, r) => io.emit('mesas_atualizadas', r || []));
+            if (typeof broadcastPedidos === 'function') broadcastPedidos();
+          } else {
+            console.error("Erro ao abrir caixa:", err);
+            socket.emit('erro_caixa', 'Erro no servidor ao abrir o caixa: ' + (err.message || 'Falha no banco de dados'));
           }
-        );
-      });
-    });
+        }
+      );
     });
   });
 
