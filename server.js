@@ -12,32 +12,57 @@ const ANSI = {
   cyan: "\x1b[36m",
   magenta: "\x1b[35m",
   red: "\x1b[31m",
+  blue: "\x1b[34m",
   bgBlue: "\x1b[44m\x1b[37m"
 };
 
+// Medição de disponibilidade do servidor
+const serverStartTime = Date.now();
+function getEfficiencyStars() {
+  const memRssMb = process.memoryUsage().rss / (1024 * 1024);
+  if (memRssMb < 150) return "⭐⭐⭐⭐⭐ (Eficiência Máxima - 100%)";
+  if (memRssMb < 300) return "⭐⭐⭐⭐ (Ótima Eficiência - 95%)";
+  if (memRssMb < 500) return "⭐⭐⭐ (Boa Eficiência - 85%)";
+  return "⭐⭐ (Atenção - Uso Elevado)";
+}
+
 console.log = function (...args) {
   const line = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(' ');
-  logLines.push(`[LOG] ${new Date().toLocaleTimeString()} - ${line}`);
+  logLines.push(`[LOG] ${new Date().toLocaleTimeString('pt-BR')} - ${line}`);
   if (logLines.length > 100) logLines.shift();
 
-  // Formatação bonita de tags [Tag] no console
+  const timeStr = new Date().toLocaleTimeString('pt-BR');
   let formatted = line;
-  if (/^\[Socket\]/.test(line)) formatted = `${ANSI.cyan}⚡ [Socket]${ANSI.reset} ${line.replace(/^\[Socket\]/, '').trim()}`;
-  else if (/^\[iFood/.test(line)) formatted = `${ANSI.red}🛵 [iFood]${ANSI.reset} ${line.replace(/^\[iFood[^\]]*\]/, '').trim()}`;
-  else if (/^\[Lazy DB Pool\]/.test(line)) formatted = `${ANSI.green}💾 [Lazy DB Pool]${ANSI.reset} ${line.replace(/^\[Lazy DB Pool\]/, '').trim()}`;
-  else if (/^\[Deploy\]/.test(line)) formatted = `${ANSI.magenta}🚀 [Deploy]${ANSI.reset} ${line.replace(/^\[Deploy\]/, '').trim()}`;
-  else if (/^\[Sync/.test(line)) formatted = `${ANSI.yellow}🔄 [Sync]${ANSI.reset} ${line.replace(/^\[Sync[^\]]*\]/, '').trim()}`;
-  else if (/^\[Licença\]/.test(line)) formatted = `${ANSI.yellow}🔑 [Licença]${ANSI.reset} ${line.replace(/^\[Licença\]/, '').trim()}`;
-  else if (/^Cliente conectado:/.test(line)) formatted = `${ANSI.green}🟢 Cliente Conectado:${ANSI.reset} ${line.replace(/^Cliente conectado:/, '').trim()}`;
+
+  if (/^\[Socket\]/.test(line)) {
+    formatted = `${ANSI.cyan}⚡ [${timeStr}] [Socket]${ANSI.reset} ${line.replace(/^\[Socket\]/, '').trim()}`;
+  } else if (/^\[Cli-Click\]/.test(line)) {
+    formatted = `${ANSI.magenta}🖱️ [${timeStr}] [Ação do Usuário]${ANSI.reset} ${line.replace(/^\[Cli-Click\]/, '').trim()}`;
+  } else if (/^\[iFood/.test(line)) {
+    formatted = `${ANSI.red}🛵 [${timeStr}] [iFood]${ANSI.reset} ${line.replace(/^\[iFood[^\]]*\]/, '').trim()}`;
+  } else if (/^\[Lazy DB Pool\]/.test(line)) {
+    formatted = `${ANSI.green}💾 [${timeStr}] [Lazy DB Pool]${ANSI.reset} ${line.replace(/^\[Lazy DB Pool\]/, '').trim()}`;
+  } else if (/^\[Deploy\]/.test(line)) {
+    formatted = `${ANSI.magenta}🚀 [${timeStr}] [Deploy]${ANSI.reset} ${line.replace(/^\[Deploy\]/, '').trim()}`;
+  } else if (/^\[Sync/.test(line)) {
+    formatted = `${ANSI.yellow}🔄 [${timeStr}] [Sync]${ANSI.reset} ${line.replace(/^\[Sync[^\]]*\]/, '').trim()}`;
+  } else if (/^\[Licença\]/.test(line)) {
+    formatted = `${ANSI.yellow}🔑 [${timeStr}] [Licença]${ANSI.reset} ${line.replace(/^\[Licença\]/, '').trim()}`;
+  } else if (/^Cliente conectado:/.test(line)) {
+    formatted = `${ANSI.green}🟢 [${timeStr}] [Novo Cliente]${ANSI.reset} ${line.replace(/^Cliente conectado:/, '').trim()}`;
+  } else if (line.includes('Escutando na porta')) {
+    const uptimeSec = Math.floor((Date.now() - serverStartTime) / 1000);
+    formatted = `${line}\n${ANSI.yellow}📊 Desempenho: ${getEfficiencyStars()} | Servidor Up há ${uptimeSec}s${ANSI.reset}`;
+  }
 
   originalLog.apply(console, [formatted]);
 };
 
 console.error = function (...args) {
   const line = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(' ');
-  logLines.push(`[ERR] ${new Date().toLocaleTimeString()} - ${line}`);
+  logLines.push(`[ERR] ${new Date().toLocaleTimeString('pt-BR')} - ${line}`);
   if (logLines.length > 100) logLines.shift();
-  originalError.apply(console, [`${ANSI.red}${ANSI.bright}❌ [ERRO] ${line}${ANSI.reset}`]);
+  originalError.apply(console, [`${ANSI.red}${ANSI.bright}❌ [${new Date().toLocaleTimeString('pt-BR')}] [ERRO] ${line}${ANSI.reset}`]);
 };
 
 const express = require('express');
@@ -4872,14 +4897,15 @@ io.on('connection', (socket) => {
 
   let mpPollInterval = null;
 
-  // --- CAPTURA AUTOMÁTICA DE TODOS OS LOGS DE SOCKET.IO ---
+  // --- CAPTURA AUTOMÁTICA DE TODOS OS LOGS DE SOCKET.IO + AÇÕES DO USUÁRIO ---
   socket.onAny((event, ...args) => {
     if (['get_connected_devices', 'get_auditoria_logs', 'get_api_logs', 'ping', 'pong'].includes(event)) {
       return;
     }
 
     const conn = typeof activeSockets !== 'undefined' ? activeSockets.get(socket.id) : null;
-    const operador = (conn && conn.user && conn.user !== 'Visitante') ? conn.user : 'Operador (Socket)';
+    const operador = (conn && conn.user && conn.user !== 'Visitante') ? conn.user : (socket.auth?.nome || 'Operador (Socket)');
+    const cargo = conn?.cargo || socket.auth?.cargo || 'Operador';
     const ip = conn ? conn.ip : (socket.handshake && socket.handshake.address ? socket.handshake.address.replace('::ffff:', '') : '127.0.0.1');
 
     let payload = '';
@@ -4893,9 +4919,17 @@ io.on('connection', (socket) => {
             if (arg.token) arg.token = '***';
           }
         });
-        payload = JSON.stringify(cleanArgs).substring(0, 400);
+        payload = JSON.stringify(cleanArgs).substring(0, 300);
       }
     } catch (e) { }
+
+    // Log bonitão no terminal do servidor com detalhes completos da ação/botão
+    if (event === 'registrar_clique_botao') {
+      const btnInfo = args[0] || {};
+      console.log(`[Cli-Click] 👤 Usuario: ${operador} (${cargo}) | 🏪 Rest. ID: #${socketTenantId} | 📄 Tela: ${btnInfo.pagina || 'Sistema'} | 🔘 Botao/Acao: '${btnInfo.botao || event}'`);
+    } else {
+      console.log(`[Socket] 👤 Usuario: ${operador} (${cargo}) | 🏪 Rest. ID: #${socketTenantId} | ⚡ Evento: ${event} | 📦 Dados: ${payload || '{}'}`);
+    }
 
     tenantContext.run(socketTenantId, () => {
       db.run(
@@ -4914,6 +4948,9 @@ io.on('connection', (socket) => {
     const { pagina, titulo, autorizado, motivo } = data;
     const conn = typeof activeSockets !== 'undefined' ? activeSockets.get(socket.id) : null;
     const operador = (conn && conn.user && conn.user !== 'Visitante') ? conn.user : 'Operador do Sistema';
+    const cargo = conn?.cargo || 'Operador';
+
+    console.log(`[Cli-Click] 📄 NAVEGACAO | 👤 ${operador} (${cargo}) | 🏪 Rest. ID: #${socketTenantId} | Seção: ${titulo || pagina}`);
 
     const acao = (autorizado === false) ? 'TENTATIVA_ACESSO_NEGADO' : 'ACESSO_PAGINA';
     const detalhes = `Acessou/Navegou para a seção: ${titulo || pagina || 'Sistema'} (${pagina || ''})`;

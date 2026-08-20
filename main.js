@@ -83,6 +83,17 @@ window.enviarRegistroSessaoDetalhado = function () {
   }
 };
 
+// Rastreamento global de cliques em botões e navegação
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('button, a, input[type="button"], input[type="submit"], .btn, .btn-action, [onclick]');
+  if (!btn) return;
+  const label = (btn.innerText || btn.title || btn.ariaLabel || btn.value || btn.id || btn.className || 'Botao').trim().replace(/\s+/g, ' ').substring(0, 50);
+  const pagina = window.location.pathname.split('/').pop() || 'index.html';
+  if (typeof socket !== 'undefined' && socket.emit) {
+    socket.emit('registrar_clique_botao', { botao: label, pagina });
+  }
+}, true);
+
 window.apelidarDispositivo = function () {
   const atual = localStorage.getItem('apelido_dispositivo') || '';
   const novoApelido = prompt('Digite um nome/identificador fácil para este aparelho (ex: Comanda Garçom 01, Tablet Cozinha, Notebook Caixa):', atual);
