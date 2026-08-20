@@ -4,7 +4,8 @@
     "main": "server.js",
     "bin": "server-prod.js",
     "scripts": {
-        "start": "concurrently \"node server.js\" \"vite --host\"",
+        "start": "node setup-quiz.js",
+        "start:direct": "concurrently \"node server.js\" \"vite --host\"",
         "start:watchdog": "node watchdog.js",
         "dev": "vite --host",
         "build": "vite build",
