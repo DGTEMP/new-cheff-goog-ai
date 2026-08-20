@@ -117,7 +117,6 @@ const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
-const XLSX = require('xlsx');
 const nfceService = require('./nfce-service');
 
 // Carrega variáveis do arquivo .env (sem dependência externa)
@@ -134,9 +133,6 @@ try {
 } catch (e) {
   console.error('[Startup] Erro ao carregar .env:', e.message);
 }
-
-// --- DOMÍNIO BASE ---
-let BASE_DOMAIN = (process.env.BASE_DOMAIN || 'chefcozinha.com.br').toLowerCase();
 
 // Carregar configuracao da licenca e URL do Apps Script antes de importar o license-manager
 
@@ -414,21 +410,7 @@ if (activeCertLoaded) {
 } else {
   server = http.createServer(app);
 }
-const io = new Server(server, {
-  cors: {
-    origin: function(origin, cb) {
-      if (!origin) return cb(null, true);
-      try {
-        const host = new URL(origin).hostname;
-        if (/^(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)$/.test(host)) return cb(null, true);
-        if (host === BASE_DOMAIN || host.endsWith('.' + BASE_DOMAIN)) return cb(null, true);
-        if (host === 'chefcozinha.com.br' || host.endsWith('.chefcozinha.com.br')) return cb(null, true);
-      } catch(e) {}
-      cb(null, false);
-    },
-    methods: ['GET', 'POST']
-  }
-});
+const io = new Server(server, { cors: { origin: '*', methods: ['GET', 'POST'] } });
 if (serverHttp) io.attach(serverHttp);
 
 // Protocolo efetivo da instalação (HTTPS quando há cert ativo).
@@ -709,13 +691,6 @@ masterDb.serialize(() => {
   masterDb.run(`ALTER TABLE restaurantes ADD COLUMN chave_ativacao TEXT`, err => { if (err) {} });
   masterDb.run(`ALTER TABLE restaurantes ADD COLUMN validade_licenca TEXT`, err => { if (err) {} });
   masterDb.run(`ALTER TABLE restaurantes ADD COLUMN max_dispositivos INTEGER DEFAULT 0`, err => { if (err) {} });
-  masterDb.run(`CREATE TABLE IF NOT EXISTS super_config (
-    key TEXT PRIMARY KEY,
-    value TEXT
-  )`);
-  masterDb.get(`SELECT value FROM super_config WHERE key = 'base_domain'`, [], (err, row) => {
-    if (!err && row && row.value) BASE_DOMAIN = row.value.toLowerCase();
-  });
   masterDb.run(`CREATE TABLE IF NOT EXISTS usuarios (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     restaurante_id INTEGER,
@@ -889,29 +864,6 @@ app.delete('/api/super/certs/:file', superAdminAuth, (req, res) => {
     res.json({ ok: true });
   } catch (e) {
     res.json({ ok: false, erro: 'Falha ao remover: ' + (e.message || e) });
-  }
-});
-
-// ── SUPER ADMIN: CONFIG (base_domain etc) ──────────────────────────
-app.get('/api/super/config', superAdminAuth, (req, res) => {
-  masterDb.all(`SELECT key, value FROM super_config`, [], (err, rows) => {
-    const config = {};
-    (rows || []).forEach(r => { config[r.key] = r.value; });
-    config.base_domain = config.base_domain || BASE_DOMAIN;
-    res.json({ ok: true, config });
-  });
-});
-
-app.post('/api/super/config', superAdminAuth, (req, res) => {
-  const { base_domain } = req.body || {};
-  if (base_domain !== undefined) {
-    const val = String(base_domain || '').toLowerCase().trim();
-    masterDb.run(`INSERT OR REPLACE INTO super_config (key, value) VALUES ('base_domain', ?)`, [val], () => {
-      if (val) BASE_DOMAIN = val;
-      res.json({ ok: true, base_domain: BASE_DOMAIN });
-    });
-  } else {
-    res.json({ ok: true });
   }
 });
 
@@ -1151,6 +1103,221 @@ setInterval(() => processarFilaSync(), 60 * 1000);
 // Copiar todo o conteúdo do server.js original a partir da linha dos db.serialize
 // (A lógica de tabelas e sockets é idêntica ao server.js de desenvolvimento)
 
+  db.serialize(() => {
+    for (let i = 1; i <= 6; i++) {
+      db.run(`INSERT OR IGNORE INTO mesas (nome, status, observacao) VALUES (?, 'Disponível', NULL)`, ['Mesa ' + i], onErr);
+    }
+    if (restauranteNome) {
+      db.run(`INSERT OR REPLACE INTO configuracoes (chave, valor) VALUES ('nome_restaurante', ?)`, [restauranteNome], onErr);
+    }
+    const defaultMethods = [
+      ['Dinheiro', 'dinheiro', 0.0, 0, 1, 'ph-currency-dollar', 1],
+      ['Cartão de Crédito', 'credito', 2.5, 30, 1, 'ph-credit-card', 2],
+      ['Cartão de Débito', 'debito', 1.2, 1, 1, 'ph-credit-card', 3],
+      ['PIX', 'pix', 0.0, 0, 1, 'ph-qr-code', 4]
+    ];
+    db.get('SELECT COUNT(*) as c FROM formas_pagamento', [], (e, r) => {
+      if (!e && r && r.c === 0) {
+        const q = 'INSERT INTO formas_pagamento (nome, tipo, taxa, prazo_dias, ativo, icone, ordem) VALUES (?, ?, ?, ?, ?, ?, ?)';
+        defaultMethods.forEach(m => db.run(q, m, onErr));
+      }
+    });
+  }, done || (() => {}));
+}
+
+// Cria um banco de tenant novo com schema vazio + dados iniciais (sem copiar database_1.sqlite)
+function createFreshTenantDb(dbPath, restauranteNome) {
+  return new Promise((resolve) => {
+    const newDb = new sqlite3.Database(dbPath, (err) => {
+      if (err) { console.error('[Tenant] Erro ao criar banco:', err.message); return resolve(newDb); }
+      newDb.run('PRAGMA journal_mode = WAL;');
+      newDb.run('PRAGMA synchronous = NORMAL;');
+      newDb.run('PRAGMA busy_timeout = 5000;');
+      const refPath = path.join(__dirname, 'database_1.sqlite');
+      if (fsSync.existsSync(refPath)) {
+        syncTenantSchema(newDb, refPath, () => {
+          seedTenantDb(newDb, restauranteNome, () => resolve(newDb));
+        });
+      } else {
+        seedTenantDb(newDb, restauranteNome, () => resolve(newDb));
+      }
+    });
+  });
+}
+
+function getTenantDb() {
+  const tenantId = tenantContext.getStore() || 1;
+  if (!tenantDbs.has(tenantId)) {
+    const dbPath = path.join(__dirname, `database_${tenantId}.sqlite`);
+    const isNew = !fsSync.existsSync(dbPath);
+    const newDb = new sqlite3.Database(dbPath, (err) => {
+      if (err) console.error(`Erro ao abrir banco do tenant ${tenantId}:`, err);
+    });
+
+    // Configura o banco
+    newDb.run('PRAGMA journal_mode = WAL;');
+    newDb.run('PRAGMA synchronous = NORMAL;');
+    newDb.run('PRAGMA busy_timeout = 5000;');
+    newDb.run('PRAGMA cache_size = -20000;');
+    newDb.run('PRAGMA temp_store = MEMORY;');
+    tenantDbs.set(tenantId, newDb);
+
+    if (isNew && tenantId !== 1) {
+      const refPath = path.join(__dirname, 'database_1.sqlite');
+      if (fsSync.existsSync(refPath)) {
+        syncTenantSchema(newDb, refPath, () => {
+          seedTenantDb(newDb, null, () => {});
+        });
+      }
+    }
+  }
+  return tenantDbs.get(tenantId);
+}
+
+// (Multi-tenant) O AsyncLocalStorage NÃO propaga automaticamente para callbacks
+// de addons nativos (node-sqlite3). Capturamos o tenant na chamada e o
+// reestabelecemos ao invocar o callback, garantindo que io.emit() e novas
+// consultas dentro do callback continuem no tenant correto.
+function wrapDbCb(args) {
+  const tid = tenantContext.getStore();
+  if (typeof tid !== 'number' || tid <= 0) return args;
+  const last = args.length - 1;
+  if (last < 0 || typeof args[last] !== 'function') return args;
+  const orig = args[last];
+  args[last] = function (...cbArgs) {
+    tenantContext.run(tid, () => orig.apply(this, cbArgs));
+  };
+  return args;
+}
+
+const db = {
+  run: function (...args) { return getTenantDb().run(...wrapDbCb(args)); },
+  all: function (...args) { return getTenantDb().all(...wrapDbCb(args)); },
+  get: function (...args) { return getTenantDb().get(...wrapDbCb(args)); },
+  serialize: function (cb) {
+    // Executa o serialize no contexto atual (statements capturam o tenant na chamada)
+    return getTenantDb().serialize(cb);
+  },
+  close: function (...args) { return getTenantDb().close(...args); }
+};
+
+// (On-Premise) Intercepta writes em tabelas sincronizáveis e enfileira no outbox
+if (deploymentConfig.isOnPremise()) {
+  const origDbRun = db.run.bind(db);
+  db.run = function (...args) {
+    const sql = typeof args[0] === 'string' ? args[0] : '';
+    const tableName = dbProxy.extractTableName(sql);
+
+    if (!tableName) {
+      return origDbRun(...args);
+    }
+
+    const callback = typeof args[args.length - 1] === 'function' ? args[args.length - 1] : null;
+
+    const wrappedCallback = function (err) {
+      if (err) {
+        if (callback) return callback.call(this, err);
+        return;
+      }
+
+      try {
+        const operation = sql.trim().toUpperCase().startsWith('INSERT') ? 'INSERT'
+          : sql.trim().toUpperCase().startsWith('UPDATE') ? 'UPDATE'
+          : sql.trim().toUpperCase().startsWith('DELETE') ? 'DELETE'
+          : 'UNKNOWN';
+
+        const tid = tenantContext.getStore() || 1;
+        const payload = {
+          table: tableName,
+          operation,
+          row_id: (typeof this.lastID === 'number' && this.lastID > 0) ? this.lastID : null,
+          sql_template: sql.replace(/\s+/g, ' ').substring(0, 500),
+          timestamp: new Date().toISOString()
+        };
+
+        // Usa tenantDbs.get(tid) diretamente — getTenantDb() não funciona aqui
+        // porque AsyncLocalStorage não propaga para callbacks nativos do sqlite3
+        const realDb = tenantDbs.get(tid);
+        if (realDb) {
+          realDb.run(
+            `INSERT INTO sync_outbox (message_type, payload, direction, status) VALUES (?, ?, 'up', 'pending')`,
+            [tableName, JSON.stringify(payload)],
+            (syncErr) => {
+              if (syncErr) console.error('[Sync Outbox] Erro ao enfileirar:', syncErr.message);
+            }
+          );
+        }
+      } catch (syncErr) {
+        console.error('[Sync Outbox] Erro ao enfileirar sync:', syncErr.message);
+      }
+
+      if (callback) return callback.call(this);
+    };
+
+    const newArgs = [...args];
+    if (callback) {
+      newArgs[newArgs.length - 1] = wrappedCallback;
+    } else {
+      newArgs.push(wrappedCallback);
+    }
+
+    return origDbRun(...newArgs);
+  };
+  console.log('[Sync] DB Proxy ativo — writes em tabelas sincronizáveis serão enfileirados.');
+}
+// ------------------------------
+
+function resolveTenantId(req) {
+  const authHeader = req.headers['authorization'] || '';
+  const token = authHeader.split(' ')[1];
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      const tid = parseInt(decoded && decoded.restaurante_id, 10);
+      if (Number.isFinite(tid) && tid > 0) return tid;
+    } catch (e) { }
+  }
+  const fromQuery = parseInt(req.query.restaurante_id, 10);
+  if (Number.isFinite(fromQuery) && fromQuery > 0) return fromQuery;
+  const fromBody = parseInt((req.body || {}).restaurante_id, 10);
+  if (Number.isFinite(fromBody) && fromBody > 0) return fromBody;
+  return null;
+}
+
+function withTenant(req, cb) {
+  const tid = resolveTenantId(req);
+  if (tid !== null) tenantContext.run(tid, cb);
+  else cb();
+}
+
+global.registrarAuditoria = (operador, acao, detalhes, motivo, risco, socketId = null) => {
+  let opFinal = (operador || '').trim();
+  if (!opFinal || opFinal === 'Desconhecido' || opFinal === 'Caixa / Desconhecido' || opFinal.toLowerCase().includes('desconhecido') || opFinal === 'undefined') {
+    if (socketId && typeof activeSockets !== 'undefined' && activeSockets.has(socketId)) {
+      const conn = activeSockets.get(socketId);
+      if (conn && conn.user && conn.user !== 'Visitante') {
+        opFinal = conn.user;
+      }
+    }
+  }
+  if (!opFinal || opFinal.toLowerCase().includes('desconhecido') || opFinal === 'undefined') {
+    opFinal = 'Operador do Caixa';
+  }
+  try {
+    db.run(
+      `INSERT INTO auditoria (operador, acao, detalhes, motivo, risco) VALUES (?, ?, ?, ?, ?)`,
+      [opFinal, acao, detalhes || '-', motivo || 'Sem justificativa', risco || 'BAIXO'],
+      (err) => {
+        if (err) console.error("Erro ao registrar auditoria:", err);
+      }
+    );
+  } catch (e) {
+    console.error("Erro ao executar registrarAuditoria:", e);
+  }
+};
+
+
+
 db.serialize(() => {
   db.run('PRAGMA journal_mode = WAL;');
   db.run('PRAGMA synchronous = NORMAL;');
@@ -1264,6 +1431,7 @@ db.serialize(() => {
   db.run(`ALTER TABLE clientes ADD COLUMN total_gasto REAL DEFAULT 0`, (err) => { });
   db.run(`ALTER TABLE clientes ADD COLUMN nivel TEXT DEFAULT 'Bronze'`, (err) => { });
   db.run(`ALTER TABLE clientes ADD COLUMN ultimo_checkin TEXT`, (err) => { });
+  db.run(`ALTER TABLE fila_espera ADD COLUMN mesa_ofertada TEXT`, (err) => { });
 
   db.run(`
     CREATE TABLE IF NOT EXISTS checkins_fidelidade (
@@ -1280,6 +1448,19 @@ db.serialize(() => {
       descricao TEXT,
       nivel TEXT DEFAULT 'Bronze',
       ativo INTEGER DEFAULT 1
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS cliente_visitas (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      cliente_id INTEGER,
+      cliente_nome TEXT,
+      cliente_telefone TEXT,
+      data_visita DATETIME DEFAULT (datetime('now', 'localtime')),
+      mesa TEXT,
+      pontos_ganhos INTEGER DEFAULT 0,
+      contabilizado INTEGER DEFAULT 0
     )
   `);
 
@@ -1324,6 +1505,7 @@ db.serialize(() => {
       mesa_preferida TEXT,
       observacao TEXT,
       status TEXT DEFAULT 'Esperando',
+      mesa_ofertada TEXT,
       mesa_acomodado TEXT,
       criado_em DATETIME DEFAULT (datetime('now', 'localtime')),
       atualizado_em DATETIME
@@ -1617,6 +1799,7 @@ db.serialize(() => {
       mesa_preferida TEXT,
       observacao TEXT,
       status TEXT DEFAULT 'Esperando',
+      mesa_ofertada TEXT,
       mesa_acomodado TEXT,
       criado_em DATETIME DEFAULT (datetime('now', 'localtime')),
       atualizado_em DATETIME
@@ -1856,6 +2039,8 @@ db.serialize(() => {
   db.run(`ALTER TABLE hub_pedidos ADD COLUMN canal_ref TEXT`, (err) => { });
   db.run(`ALTER TABLE hub_pedidos ADD COLUMN merchant_id TEXT`, (err) => { });
   db.run(`ALTER TABLE hub_pedidos ADD COLUMN ifood_json TEXT`, (err) => { });
+  db.run(`ALTER TABLE hub_pedidos ADD COLUMN enviado_cozinha INTEGER DEFAULT 0`, (err) => { });
+  db.run(`ALTER TABLE hub_pedidos ADD COLUMN pedido_link_ids TEXT DEFAULT '[]'`, (err) => { });
 
   db.run(`
     CREATE TABLE IF NOT EXISTS ifood_connections (
@@ -2216,6 +2401,14 @@ db.serialize(() => {
   db.run('CREATE INDEX IF NOT EXISTS idx_pedidos_local_status ON pedidos(localName, status);', () => {
     // Sincroniza o schema dos bancos de tenants existentes após as migrações do tenant 1
     syncAllTenantSchemas();
+
+    // Checkpoint WAL do database_1.sqlite para liberar locks
+    const refDb = new sqlite3.Database(path.join(__dirname, 'database_1.sqlite'), (err) => {
+      if (err) return;
+      refDb.run('PRAGMA wal_checkpoint(TRUNCATE);', () => {
+        refDb.close();
+      });
+    });
   });
 });
 
@@ -2376,6 +2569,7 @@ function broadcastPedidos() {
   const tid = tenantContext.getStore();
   pedidosDebounceTimeout = setTimeout(() => {
     tenantContext.run(tid || 1, () => {
+      if (!isTenantFeatureEnabled(tid || 1, 'tempo_real')) return;
       db.all(`SELECT * FROM pedidos WHERE status NOT IN ('Finalizado','Cancelado') ORDER BY createdAt ASC`, [], (err, rows) => {
         if (!err) {
           const rowsAll = rows || [];
@@ -2403,6 +2597,7 @@ function broadcastMesaClientes() {
 /* ── Socket auth helpers ───────────────────────────────────────────── */
 const ADMIN_CARGOS = ['Admin', 'Administrador', 'adm', 'Gerente'];
 
+/** Retorna true se o socket tem token JWT com cargo de admin */
 function exigirAdminSocket(socket) {
   const cargo = socket.auth?.cargo || '';
   if (!ADMIN_CARGOS.includes(cargo)) {
@@ -2412,6 +2607,7 @@ function exigirAdminSocket(socket) {
   return true;
 }
 
+/** Retorna true se o socket tem token JWT válido */
 function exigirAuthSocket(socket) {
   if (!socket.auth) {
     socket.emit('erro_servidor', 'Autentique-se para executar esta ação.');
@@ -2486,13 +2682,15 @@ io.on('connection', (socket) => {
       }
     } catch (e) { }
 
-    db.run(
-      `INSERT INTO api_logs (operador, ip, metodo, endpoint, detalhes, status_code) VALUES (?, ?, 'SOCKET', ?, ?, 200)`,
-      [operador, ip, `socket://${event}`, payload || '{}'],
-      (err) => {
-        if (err) console.error("Erro ao registrar log de socket:", err);
-      }
-    );
+    tenantContext.run(socketTenantId, () => {
+      db.run(
+        `INSERT INTO api_logs (operador, ip, metodo, endpoint, detalhes, status_code) VALUES (?, ?, 'SOCKET', ?, ?, 200)`,
+        [operador, ip, `socket://${event}`, payload || '{}'],
+        (err) => {
+          if (err) console.error("Erro ao registrar log de socket:", err);
+        }
+      );
+    });
   });
 
   // --- AUDITORIA DE ACESSO E NAVEGAÇÃO DE PÁGINAS ---
@@ -2864,8 +3062,8 @@ io.on('connection', (socket) => {
   });
 
   // Fetch all active orders and send to the new client (always, regardless of IA config)
-  // Poupando servidor: se o tenant tiver a feature tempo_real desligada, pula o envio inicial.
-  if (!socket.features || socket.features.tempo_real) {
+  // Dados iniciais SEMPRE sao enviados — sem isso o caixa desktop nao mostra pedidos.
+  tenantContext.run(socketTenantId, () => {
     db.all(`SELECT * FROM pedidos WHERE status NOT IN ('Finalizado','Cancelado') ORDER BY createdAt ASC`, [], (err, rows) => {
       if (err) {
         console.error(err);
@@ -2875,7 +3073,7 @@ io.on('connection', (socket) => {
       socket.emit('initial_data', rowsAll.filter(r => r.status !== 'Pago'));
       socket.emit('initial_pdv_data', rowsAll);
     });
-  }
+  });
 
 
   socket.on('validar_cupom', ({ mesaName, codigo, userName }) => {
@@ -3033,6 +3231,7 @@ io.on('connection', (socket) => {
         const descontoFixoPromos = activePromos.filter(p => p.config.tipo_promocao === 'desconto_fixo');
         const descontoPctPromos = activePromos.filter(p => p.config.tipo_promocao === 'desconto_pct');
 
+        // preco_fixo: override product price server-side
         const matchingPrecoFixo = precoFixoPromos.find(p => p.config.produto_alvo_nome === pedido.productName);
         if (matchingPrecoFixo && matchingPrecoFixo.config.novo_preco > 0) {
           const qty = parseInt(pedido.quantity) || 1;
@@ -3040,6 +3239,7 @@ io.on('connection', (socket) => {
           pedido.promocao_id = matchingPrecoFixo.id;
         }
 
+        // desconto_fixo: apply fixed R$ discount to subtotal
         if (descontoFixoPromos.length > 0 && !matchingPrecoFixo) {
           const descontoMax = Math.max(...descontoFixoPromos.map(p => p.config.desconto || 0));
           const currentTotal = parseFloat(String(pedido.total).replace(',', '.')) || 0;
@@ -3048,6 +3248,7 @@ io.on('connection', (socket) => {
           pedido.promocao_id = descontoFixoPromos.find(p => (p.config.desconto || 0) === descontoMax).id;
         }
 
+        // desconto_pct: apply % discount to subtotal
         if (descontoPctPromos.length > 0 && !matchingPrecoFixo && descontoFixoPromos.length === 0) {
           const pctMax = Math.max(...descontoPctPromos.map(p => p.config.desconto_pct || 0));
           const currentTotal = parseFloat(String(pedido.total).replace(',', '.')) || 0;
@@ -3176,7 +3377,8 @@ io.on('connection', (socket) => {
     const idNum = parseInt(id, 10);
     if (isNaN(idNum)) return;
     id = idNum;
-    db.run(`UPDATE pedidos SET status = ?, prontoEm = CASE WHEN ? = 'Pronto' THEN datetime('now', 'localtime') ELSE prontoEm END WHERE id = ?`, [status, status, id], function (err) {
+    const prontoUpdate = (status === 'Pronto') ? ", prontoEm = datetime('now', 'localtime')" : '';
+    db.run(`UPDATE pedidos SET status = ?${prontoUpdate} WHERE id = ?`, [status, id], function (err) {
       if (err) return console.error(err);
 
       db.get(`SELECT * FROM pedidos WHERE id = ?`, [id], (err, row) => {
@@ -3184,6 +3386,31 @@ io.on('connection', (socket) => {
 
         io.emit('status_atualizado', row);
         io.emit('pedidos_atualizados');
+
+        // --- HUB DELIVERY SYNC: quando pedido Delivery muda status, atualiza hub ---
+        if (row.sector === 'Delivery' && row.mesa_comanda && row.mesa_comanda.startsWith('Hub #')) {
+          const hubMatch = String(row.mesa_comanda).replace('Hub #', '');
+          db.get(`SELECT * FROM hub_pedidos WHERE id = ? OR codigo = ?`, [hubMatch, hubMatch], (errHub, hubRow) => {
+            if (!hubRow) return;
+            let linkIds = [];
+            try { linkIds = JSON.parse(hubRow.pedido_link_ids || '[]'); } catch (e) { linkIds = []; }
+            if (!linkIds.length) return;
+
+            if (status === 'Pronto') {
+              const placeholders = linkIds.map(() => '?').join(',');
+              db.all(`SELECT status FROM pedidos WHERE id IN (${placeholders})`, linkIds, (errAll, rows) => {
+                const todosProntos = rows && rows.every(r => r.status === 'Pronto');
+                if (todosProntos) {
+                  db.run(`UPDATE hub_pedidos SET status = 'Pronto', atualizado_em = datetime('now','localtime') WHERE id = ?`, [hubRow.id], () => broadcastHubPedidos());
+                }
+              });
+            } else if (status === 'Em preparo') {
+              if (hubRow.status === 'Recebido' || hubRow.status === 'Pronto') {
+                db.run(`UPDATE hub_pedidos SET status = 'Em preparo', atualizado_em = datetime('now','localtime') WHERE id = ?`, [hubRow.id], () => broadcastHubPedidos());
+              }
+            }
+          });
+        }
 
         // Notify customer about order status
         if (row.localName) {
@@ -3257,6 +3484,7 @@ io.on('connection', (socket) => {
     const quantity = d.quantity || 1;
     const localName = d.localName || d.nome || 'PDV Mobile';
     const userName = d.userName || 'PDV Mobile';
+    const clienteNome = d.clienteNome || '';
     const now = Date.now();
     // (Segurança) Limite por socket (ex.: cliente do QR chamando garçom) para
     // evitar spam de notificações.
@@ -3266,15 +3494,15 @@ io.on('connection', (socket) => {
     const isReChamado = lastCall && (now - lastCall) < 10000;
     chamarTimestamps[id] = now;
     if (!id) {
-      const entry = { id: 'pdv_' + now, localName, productName, quantity, userName, tipo: 'pdv', criadoEm: now, status: 'Pronto', targetGarcom: d.targetGarcom || null };
+      const entry = { id: 'pdv_' + now, localName, productName, quantity, userName, clienteNome, tipo: 'pdv', criadoEm: now, status: 'Pronto', targetGarcom: d.targetGarcom || null };
       if (!isReChamado) pdvCalls.push(entry);
       io.emit('notificacao_garcom', Object.assign({}, entry, { reChamado: isReChamado }));
-      if (!isReChamado) sendPush('garcom', '🔔 Garçom Chamado!', `${quantity}x ${productName} — ${localName}`, 'chamar-pdv-' + now, '/garcom.html');
+      if (!isReChamado) sendPush('garcom', '🔔 Garçom Chamado!', `${quantity}x ${productName} — ${localName}${clienteNome ? ' (' + clienteNome + ')' : ''}`, 'chamar-pdv-' + now, '/garcom.html');
       broadcastPedidos();
     } else {
-      io.emit('notificacao_garcom', { id, productName, quantity, localName, userName, tipo: 'chamada', reChamado: isReChamado, targetGarcom: d.targetGarcom || null });
+      io.emit('notificacao_garcom', { id, productName, quantity, localName, userName, clienteNome, tipo: 'chamada', reChamado: isReChamado, targetGarcom: d.targetGarcom || null });
       if (!isReChamado) {
-        sendPush('garcom', '🔔 Garçom Chamado!', `${quantity}x ${productName} — ${localName}`, 'chamar-' + id, '/garcom.html');
+        sendPush('garcom', '🔔 Garçom Chamado!', `${quantity}x ${productName} — ${localName}${clienteNome ? ' (' + clienteNome + ')' : ''}`, 'chamar-' + id, '/garcom.html');
         db.run(`UPDATE pedidos SET garcom_call = datetime('now', 'localtime') WHERE id = ?`, [id]);
         broadcastPedidos();
       }
@@ -3408,6 +3636,12 @@ io.on('connection', (socket) => {
           global.registrarAuditoria(userName, 'Exclusão de Produto',
             `Removido: ${row.quantity}x ${row.productName} - Mesa: ${row.localName} - R$${row.total}`,
             'Ação manual', 'Alto');
+
+          const productName = row.productName || '';
+          if ((productName.indexOf('Pgto Parcial') !== -1 || productName.indexOf('Pagamento') !== -1) && row.turno_id) {
+            const descMatch = productName;
+            db.run(`DELETE FROM movimentacoes WHERE turno_id = ? AND descricao LIKE ? AND tipo = 'Entrada'`, [row.turno_id, `%${mesaName}%`], () => {});
+          }
         }
         broadcastPedidos();
         liberarMesaSeVazia(mesaName);
@@ -3429,6 +3663,7 @@ io.on('connection', (socket) => {
     checkCaixa,
     activePaymentLocks,
     broadcastPedidos,
+    broadcastMesaClientes,
     mesasFechando,
     licenseManager,
     verificarSenhaAdmin,
@@ -3455,43 +3690,77 @@ io.on('connection', (socket) => {
   });
 
   socket.on('criar_pedido_qr', (data) => {
-    // data: { mesa, cliente_nome, itens, valor_total, pago_pix, chave_pix, cliente_id, comanda_nome, requires_validacao, mesa_origem }
-    const { mesa, cliente_nome, itens, valor_total, pago_pix, chave_pix, cliente_id, comanda_nome, requires_validacao, mesa_origem } = data;
-    const itensStr = JSON.stringify(itens);
-    const isPaid = pago_pix ? 1 : 0;
+    // data: { mesa, cliente_nome, itens, valor_total, pago_pix, chave_pix, cliente_id, comanda_nome, is_fila, requires_validacao, mesa_origem }
+    const { mesa, cliente_nome, itens, valor_total, pago_pix, chave_pix, cliente_id, comanda_nome, is_fila, requires_validacao, mesa_origem } = data;
     const needsValidation = requires_validacao ? 1 : 0;
 
-    db.run(
-      `INSERT INTO qr_pedidos_pendentes (mesa, cliente_nome, itens_json, valor_total, pago_pix, chave_pix, status, cliente_id, comanda_nome, requires_validacao, mesa_origem) VALUES (?, ?, ?, ?, ?, ?, 'Pendente', ?, ?, ?, ?)`,
-      [mesa, cliente_nome, itensStr, parseFloat(valor_total) || 0, isPaid, chave_pix || '', cliente_id || null, comanda_nome || '', needsValidation, mesa_origem || null],
-      function (err) {
-        if (err) {
-          console.error('[QR Order] Erro ao criar pedido pendente:', err);
-          socket.emit('criar_pedido_qr_resposta', { success: false, error: 'Erro ao registrar pedido pendente.' });
-          return;
-        }
-
-        const pedidoId = this.lastID;
-        socket.emit('criar_pedido_qr_resposta', { success: true, id: pedidoId, requires_validacao: needsValidation });
-
-        if (needsValidation) {
-          io.emit('validacao_pedido_necessaria', { id: pedidoId, mesa, mesa_origem, cliente_nome });
-        }
-
-        // Notify all cashiers
-        db.all(`SELECT * FROM qr_pedidos_pendentes WHERE status = 'Pendente' ORDER BY createdAt DESC`, [], (errList, rows) => {
-          if (!errList) {
-            io.emit('qr_pedidos_pendentes_list', rows || []);
+    function insertPedido() {
+      const itensStr = JSON.stringify(itens);
+      const isPaid = pago_pix ? 1 : 0;
+      db.run(
+        `INSERT INTO qr_pedidos_pendentes (mesa, cliente_nome, itens_json, valor_total, pago_pix, chave_pix, status, cliente_id, comanda_nome, requires_validacao, mesa_origem) VALUES (?, ?, ?, ?, ?, ?, 'Pendente', ?, ?, ?, ?)`,
+        [mesa, cliente_nome, itensStr, parseFloat(valor_total) || 0, isPaid, chave_pix || '', cliente_id || null, comanda_nome || '', needsValidation, mesa_origem || null],
+        function (err) {
+          if (err) {
+            console.error('[QR Order] Erro ao criar pedido pendente:', err);
+            socket.emit('criar_pedido_qr_resposta', { success: false, error: 'Erro ao registrar pedido pendente.' });
+            return;
           }
+          const pedidoId = this.lastID;
+          socket.emit('criar_pedido_qr_resposta', { success: true, id: pedidoId, requires_validacao: needsValidation });
+          if (needsValidation) {
+            io.emit('validacao_pedido_necessaria', { id: pedidoId, mesa, mesa_origem, cliente_nome });
+          }
+          db.all(`SELECT * FROM qr_pedidos_pendentes WHERE status = 'Pendente' ORDER BY createdAt DESC`, [], (errList, rows) => {
+            if (!errList) io.emit('qr_pedidos_pendentes_list', rows || []);
+          });
+        }
+      );
+    }
+
+    if (is_fila) {
+      db.all(`SELECT chave, valor FROM configuracoes WHERE chave IN ('fila_restricao_habilitada','fila_restricao_tipo','fila_categorias_liberadas','fila_itens_liberados')`, [], (eCfg, cfgRows) => {
+        const cfg = {};
+        if (cfgRows) cfgRows.forEach(r => cfg[r.chave] = r.valor);
+        if (cfg.fila_restricao_habilitada !== 'true') return insertPedido();
+        const tipo = cfg.fila_restricao_tipo || 'nenhum';
+        if (tipo === 'nenhum') return insertPedido();
+        const itemIds = (itens || []).map(i => i.productName);
+        db.all(`SELECT id, nome, categoria FROM produtos`, [], (eProds, prods) => {
+          const restricted = [];
+          (itens || []).forEach(item => {
+            const prod = (prods || []).find(p => p.id === item.id || p.nome === item.productName);
+            if (!prod) return;
+            let allowed = true;
+            if (tipo === 'categorias') {
+              let cats = []; try { cats = JSON.parse(cfg.fila_categorias_liberadas || '[]'); } catch(e) {}
+              allowed = cats.includes(prod.categoria);
+            } else if (tipo === 'itens') {
+              let ids = []; try { ids = JSON.parse(cfg.fila_itens_liberados || '[]'); } catch(e) {}
+              allowed = ids.includes(prod.id);
+            }
+            if (!allowed) restricted.push(prod.nome);
+          });
+          if (restricted.length > 0) {
+            return socket.emit('criar_pedido_qr_resposta', { success: false, error: 'Itens restritos na fila: ' + restricted.join(', ') + '. Aguarde a liberacao da mesa para pedir estes itens.' });
+          }
+          insertPedido();
         });
-      }
-    );
+      });
+    } else {
+      insertPedido();
+    }
   });
 
   socket.on('aprovar_pedido_qr', ({ id }) => {
     db.get(`SELECT * FROM qr_pedidos_pendentes WHERE id = ?`, [id], (err, pendingOrder) => {
       if (err || !pendingOrder) {
         socket.emit('aprovar_pedido_qr_resposta', { success: false, error: 'Pedido pendente não encontrado.' });
+        return;
+      }
+
+      if (pendingOrder.status !== 'Pendente') {
+        socket.emit('aprovar_pedido_qr_resposta', { success: true });
         return;
       }
 
@@ -3779,8 +4048,13 @@ io.on('connection', (socket) => {
     const valor_hora = f.valor_hora || 0;
     const hash = bcrypt.hashSync(f.senha || '123', 10);
     const restauranteId = socketTenantId || tenantContext.getStore() || 1;
-    db.run(`INSERT INTO funcionarios (nome, usuario, senha, cargo, valor_hora, status, restaurante_id) VALUES (?, ?, ?, ?, ?, 'Pendente', ?)`,
-      [f.nome, f.usuario, hash, f.cargo || 'Garcom', valor_hora, restauranteId], () => {
+    const st = f.status || 'Ativo';
+    db.run(`INSERT INTO funcionarios (nome, usuario, senha, cargo, valor_hora, status, restaurante_id) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [f.nome, f.usuario, hash, f.cargo || 'Garcom', valor_hora, st, restauranteId], (err) => {
+        if (err) {
+          console.error('[ERRO] Falha ao inserir funcionario:', err.message);
+          return socket.emit('erro_funcionario', err.message.includes('UNIQUE') ? 'Nome de usuário já cadastrado.' : 'Erro ao cadastrar funcionário.');
+        }
         db.all(`SELECT * FROM funcionarios`, (e, r) => io.emit('funcionarios_atualizados', r || []));
       });
   });
@@ -3868,13 +4142,44 @@ io.on('connection', (socket) => {
             .then(() => console.log(`[iFood] Status "${novoStatus}" enviado para o pedido ${row.canal_ref}`))
             .catch(e => console.error('[iFood] Falha ao sincronizar status:', e.message || e));
         }
+        // --- HUB DELIVERY SYNC: quando hub reverso status, atualiza pedidos vinculados ---
+        if (row && row.enviado_cozinha && row.pedido_link_ids) {
+          let linkIds = [];
+          try { linkIds = JSON.parse(row.pedido_link_ids || '[]'); } catch (e) { linkIds = []; }
+          if (linkIds.length) {
+            let pedidoStatus;
+            if (novoStatus === 'Recebido' || novoStatus === 'Cancelado') pedidoStatus = 'Cancelado';
+            else if (novoStatus === 'Em preparo') pedidoStatus = 'Em preparo';
+            else if (novoStatus === 'Pronto') pedidoStatus = 'Pronto';
+            if (pedidoStatus) {
+              const placeholders = linkIds.map(() => '?').join(',');
+              db.run(`UPDATE pedidos SET status = ? WHERE id IN (${placeholders})`, [pedidoStatus, ...linkIds], () => broadcastPedidos());
+            }
+          }
+        }
       });
     });
   });
 
   socket.on('hub_deletar_pedido', (id) => {
     if (!exigirAdminSocket(socket)) return;
-    db.run(`DELETE FROM hub_pedidos WHERE id=?`, [id], () => broadcastHubPedidos());
+    db.get(`SELECT pedido_link_ids, enviado_cozinha FROM hub_pedidos WHERE id=?`, [id], (err, row) => {
+      if (row && row.enviado_cozinha && row.pedido_link_ids) {
+        let linkIds = [];
+        try { linkIds = JSON.parse(row.pedido_link_ids || '[]'); } catch (e) { linkIds = []; }
+        if (linkIds.length) {
+          const placeholders = linkIds.map(() => '?').join(',');
+          db.run(`UPDATE pedidos SET status = 'Cancelado' WHERE id IN (${placeholders})`, linkIds, () => {
+            db.run(`DELETE FROM hub_pedidos WHERE id=?`, [id], () => {
+              broadcastHubPedidos();
+              broadcastPedidos();
+            });
+          });
+          return;
+        }
+      }
+      db.run(`DELETE FROM hub_pedidos WHERE id=?`, [id], () => broadcastHubPedidos());
+    });
   });
 
   socket.on('hub_get_config', () => {
@@ -3891,6 +4196,108 @@ io.on('connection', (socket) => {
     });
     db.run(`INSERT INTO configuracoes (chave, valor) VALUES ('hub_delivery_config', ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor`, [valor], () => {
       lerHubConfig((c) => io.emit('hub_config_atualizada', c));
+    });
+  });
+
+  // --- HUB DELIVERY → COZINHA: Enviar pedido para fila de preparo ---
+  socket.on('hub_enviar_para_cozinha', (hubPedidoId) => {
+    if (!socket.auth) return;
+    const idNum = parseInt(hubPedidoId, 10);
+    if (isNaN(idNum)) return;
+
+    db.get(`SELECT * FROM hub_pedidos WHERE id = ?`, [idNum], (err, hub) => {
+      if (!hub) return socket.emit('hub_erro', 'Pedido não encontrado.');
+      if (hub.enviado_cozinha) return socket.emit('hub_erro', 'Este pedido já foi enviado para a cozinha.');
+
+      let itens = [];
+      try { itens = typeof hub.itens === 'string' ? JSON.parse(hub.itens || '[]') : (hub.itens || []); } catch (e) { itens = []; }
+      if (!itens.length) return socket.emit('hub_erro', 'Pedido sem itens.');
+
+      const canal = hub.canal || 'Próprio';
+      const localName = 'Delivery - ' + canal;
+      const comandaNome = 'Hub #' + (hub.codigo || hub.id);
+      const clienteNome = hub.cliente || '';
+      const obsParts = [];
+      if (hub.obs) obsParts.push(hub.obs);
+      if (hub.endereco) obsParts.push('Endereço: ' + hub.endereco + (hub.referencia ? ' (ref: ' + hub.referencia + ')' : ''));
+      if (hub.telefone) obsParts.push('Tel: ' + hub.telefone);
+      const observations = obsParts.join(' | ');
+
+      const insertStmt = `INSERT INTO pedidos (productName, productEmoji, quantity, time, localName, userName, total, status, sector, paymentMethod, observations, mesa_comanda, createdAt)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'Pendente', 'Delivery', ?, ?, ?, datetime('now','localtime'))`;
+
+      let insertsDone = 0;
+      let insertsFailed = 0;
+      const pedidoIds = [];
+
+      itens.forEach((item) => {
+        const qtd = parseInt(item.qtd) || 1;
+        const precoUnit = parseFloat(item.preco) || 0;
+        const itemTotal = (precoUnit * qtd).toFixed(2);
+        const emoji = item.emoji || '🍽️';
+
+        db.run(insertStmt, [
+          item.nome || 'Item',
+          emoji,
+          qtd,
+          new Date().toISOString(),
+          localName,
+          clienteNome,
+          itemTotal,
+          hub.pagamento || '',
+          observations,
+          comandaNome
+        ], function (insErr) {
+          if (insErr) {
+            insertsFailed++;
+            console.error('[Hub→Cozinha] Erro ao inserir item:', insErr.message);
+          } else {
+            pedidoIds.push(this.lastID);
+            insertsDone++;
+          }
+          if (insertsDone + insertsFailed === itens.length) {
+            const idsJson = JSON.stringify(pedidoIds);
+            db.run(`UPDATE hub_pedidos SET enviado_cozinha = 1, pedido_link_ids = ?, status = 'Em preparo', atualizado_em = datetime('now','localtime') WHERE id = ?`,
+              [idsJson, idNum], () => {
+                broadcastHubPedidos();
+                broadcastPedidos();
+                socket.emit('hub_pedido_enviado_cozinha', { hubId: idNum, pedidoIds, comanda: comandaNome });
+                sendPush('garcom', '🍽️ Novo Delivery!', `${canal} — ${clienteNome} — ${itens.length} item(ns)`, 'hub-' + idNum, '/fila-pedidos.html');
+              });
+          }
+        });
+      });
+    });
+  });
+
+  socket.on('hub_desfazer_cozinha', (hubPedidoId) => {
+    if (!socket.auth) return;
+    const idNum = parseInt(hubPedidoId, 10);
+    if (isNaN(idNum)) return;
+
+    db.get(`SELECT * FROM hub_pedidos WHERE id = ?`, [idNum], (err, hub) => {
+      if (!hub || !hub.enviado_cozinha) return;
+
+      let pedidoIds = [];
+      try { pedidoIds = JSON.parse(hub.pedido_link_ids || '[]'); } catch (e) { pedidoIds = []; }
+
+      if (pedidoIds.length) {
+        const placeholders = pedidoIds.map(() => '?').join(',');
+        db.run(`UPDATE pedidos SET status = 'Cancelado' WHERE id IN (${placeholders})`, pedidoIds, () => {
+          db.run(`UPDATE hub_pedidos SET enviado_cozinha = 0, pedido_link_ids = '[]', status = 'Recebido', atualizado_em = datetime('now','localtime') WHERE id = ?`,
+            [idNum], () => {
+              broadcastHubPedidos();
+              broadcastPedidos();
+              socket.emit('hub_pedido_desfeito_cozinha', { hubId: idNum });
+            });
+        });
+      } else {
+        db.run(`UPDATE hub_pedidos SET enviado_cozinha = 0, pedido_link_ids = '[]', status = 'Recebido', atualizado_em = datetime('now','localtime') WHERE id = ?`,
+          [idNum], () => {
+            broadcastHubPedidos();
+            socket.emit('hub_pedido_desfeito_cozinha', { hubId: idNum });
+          });
+      }
     });
   });
 
@@ -4419,15 +4826,15 @@ io.on('connection', (socket) => {
   socket.on('add_promocao', (p) => db.run(`INSERT INTO promocoes (nome, regra, desconto, ativo, config) VALUES (?, ?, ?, ?, ?)`, [p.nome, p.regra, p.desconto, p.ativo !== undefined ? p.ativo : 1, p.config], () => {
     db.all(`SELECT * FROM promocoes`, (e, r) => io.emit('promocoes_atualizadas', r || []));
   }));
+  socket.on('update_promocao', (p) => db.run(`UPDATE promocoes SET nome = ?, regra = ?, desconto = ?, ativo = ?, config = ? WHERE id = ?`, [p.nome, p.regra, p.desconto || 0, p.ativo !== undefined ? p.ativo : 1, p.config, p.id], () => {
+    db.all(`SELECT * FROM promocoes`, (e, r) => io.emit('promocoes_atualizadas', r || []));
+  }));
   socket.on('delete_promocao', (id) => {
     if (!exigirAdminSocket(socket)) return;
     db.run(`DELETE FROM promocoes WHERE id = ?`, [id], () => {
       db.all(`SELECT * FROM promocoes`, (e, r) => io.emit('promocoes_atualizadas', r || []));
     });
   });
-  socket.on('update_promocao', (p) => db.run(`UPDATE promocoes SET nome = ?, regra = ?, desconto = ?, ativo = ?, config = ? WHERE id = ?`, [p.nome, p.regra, p.desconto || 0, p.ativo !== undefined ? p.ativo : 1, p.config, p.id], () => {
-    db.all(`SELECT * FROM promocoes`, (e, r) => io.emit('promocoes_atualizadas', r || []));
-  }));
 
   // --- AI COMBO GENERATOR - Sugestões Inteligentes de Vendas ---
   const TAX_RATES = {
@@ -4451,6 +4858,7 @@ io.on('connection', (socket) => {
       const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
+      // Pedidos dos últimos 30 dias (para análise de co-ocorrência)
       db.all(
         `SELECT id, productName, createdAt FROM pedidos 
          WHERE createdAt >= ? AND status IN ('Finalizado','Pago','Entregue')
@@ -4458,6 +4866,7 @@ io.on('connection', (socket) => {
          ORDER BY id`,
         [thirtyDaysAgo], (errSales, sales) => {
 
+          // Vendas dos últimos 7 dias (para tendência)
           db.all(
             `SELECT productName, COUNT(*) as qty, SUM(CAST(REPLACE(REPLACE(total, ',', '.'), 'R$', '') AS REAL)) as revenue
              FROM pedidos WHERE createdAt >= ? AND status IN ('Finalizado','Pago','Entregue')
@@ -4465,6 +4874,7 @@ io.on('connection', (socket) => {
              GROUP BY productName ORDER BY qty DESC`,
             [sevenDaysAgo], (errTrend, trendSales) => {
 
+              // Mapa de vendas
               const salesMap30d = {};
               (sales || []).forEach(s => {
                 if (!salesMap30d[s.productName]) salesMap30d[s.productName] = { qty: 0, revenue: 0 };
@@ -4477,6 +4887,7 @@ io.on('connection', (socket) => {
                 salesMap7d[s.productName] = { qty: s.qty, revenue: Math.abs(s.revenue || 0) };
               });
 
+              // Mapa de produtos ativos
               const prodMap = {};
               products.forEach(p => {
                 prodMap[p.nome] = {
@@ -4488,70 +4899,90 @@ io.on('connection', (socket) => {
                 };
               });
 
-              // ESTRATÉGIA 1: FREQUENTEMENTE JUNTOS (Market Basket)
+              // ═══ ESTRATÉGIA 1: FREQUENTEMENTE JUNTOS (Market Basket) ═══
+              // Agrupa vendas por timestamp (mesma mesa/pedido) para encontrar pares co-frequentes
               const pedidoGrupos = {};
               (sales || []).forEach(s => {
-                const key = s.id;
+                const key = s.id; // cada pedido tem um id único
                 if (!pedidoGrupos[key]) pedidoGrupos[key] = new Set();
                 if (prodMap[s.productName]) pedidoGrupos[key].add(s.productName);
               });
 
               const parCount = {};
+              const produtoPairCount = {};
               Object.values(pedidoGrupos).forEach(produtos => {
                 const arr = [...produtos];
                 for (let i = 0; i < arr.length; i++) {
                   for (let j = i + 1; j < arr.length; j++) {
                     const key = [arr[i], arr[j]].sort().join('|||');
                     parCount[key] = (parCount[key] || 0) + 1;
+                    produtoPairCount[arr[i]] = (produtoPairCount[arr[i]] || 0) + 1;
+                    produtoPairCount[arr[j]] = (produtoPairCount[arr[j]] || 0) + 1;
                   }
                 }
               });
 
               const suggestions = [];
-              Object.entries(parCount)
-                .sort((a, b) => b[1] - a[1])
-                .slice(0, 10)
-                .forEach(([key, count]) => {
-                  const [nomeA, nomeB] = key.split('|||');
-                  const a = prodMap[nomeA], b = prodMap[nomeB];
-                  if (!a || !b || a.id === b.id) return;
-                  const soma = a.preco + b.preco;
-                  const desconto = count >= 5 ? 10 : count >= 3 ? 8 : 5;
-                  const comboPrice = +(soma * (1 - desconto / 100)).toFixed(2);
-                  suggestions.push({
-                    tipo: 'frequente_junto', titulo: `${a.emoji} ${a.nome} + ${b.emoji} ${b.nome}`,
-                    descricao: `Frequentemente pedido junto — ${count}x nos últimos 30 dias`,
-                    itens: [{ id: a.id, nome: a.nome, preco: a.preco }, { id: b.id, nome: b.nome, preco: b.preco }],
-                    precoOriginal: +soma.toFixed(2), precoCombo: comboPrice, descontoPct: desconto,
-                    economiaEstimada: +(soma - comboPrice).toFixed(2), prioridade: count * 10, icon: '🔥',
-                    evidencia: `${count}x juntos`
-                  });
-                });
 
-              // ESTRATÉGIA 2: ESTRELA + DORMÊNCIA
+              // Top pares co-frequentes
+              const topPairs = Object.entries(parCount)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 10);
+
+              topPairs.forEach(([key, count]) => {
+                const [nomeA, nomeB] = key.split('|||');
+                const a = prodMap[nomeA], b = prodMap[nomeB];
+                if (!a || !b || a.id === b.id) return;
+                const soma = a.preco + b.preco;
+                const desconto = count >= 5 ? 10 : count >= 3 ? 8 : 5;
+                const comboPrice = +(soma * (1 - desconto / 100)).toFixed(2);
+                suggestions.push({
+                  tipo: 'frequente_junto',
+                  titulo: `${a.emoji} ${a.nome} + ${b.emoji} ${b.nome}`,
+                  descricao: `Frequentemente pedido junto — ${count}x nos últimos 30 dias`,
+                  itens: [{ id: a.id, nome: a.nome, preco: a.preco }, { id: b.id, nome: b.nome, preco: b.preco }],
+                  precoOriginal: +soma.toFixed(2),
+                  precoCombo: comboPrice,
+                  descontoPct: desconto,
+                  economiaEstimada: +(soma - comboPrice).toFixed(2),
+                  prioridade: count * 10,
+                  icon: '🔥',
+                  evidencia: `${count}x juntos`
+                });
+              });
+
+              // ═══ ESTRATÉGIA 2: ESTRELA + DORMÊNCIA ═══
+              // Parear produto mais vendido com produto menos vendido (do mesmo tipo)
               const allProds = Object.values(prodMap).sort((a, b) => b.vendas30d.qty - a.vendas30d.qty);
               const bestSellers = allProds.filter(p => p.vendas30d.qty >= 3);
               const lowSellers = allProds.filter(p => p.vendas30d.qty <= 1 && p.vendas30d.qty >= 0);
 
               bestSellers.slice(0, 5).forEach(best => {
                 const complemento = lowSellers.find(l =>
-                  l.id !== best.id && l.categoria_fiscal !== best.categoria_fiscal &&
+                  l.id !== best.id &&
+                  l.categoria_fiscal !== best.categoria_fiscal &&
                   Math.abs(best.preco - l.preco) < best.preco * 0.5
                 );
                 if (!complemento) return;
                 const soma = best.preco + complemento.preco;
+                const desconto = 12;
                 const comboPrice = +(soma * 0.88).toFixed(2);
                 suggestions.push({
-                  tipo: 'estrella_dormencia', titulo: `${best.emoji} ${best.nome} + ${complemento.emoji} ${complemento.nome}`,
+                  tipo: 'estrella_dormencia',
+                  titulo: `${best.emoji} ${best.nome} + ${complemento.emoji} ${complemento.nome}`,
                   descricao: `${best.nome} é o mais vendido! Acompanhe com ${complemento.nome} (parado no estoque)`,
                   itens: [{ id: best.id, nome: best.nome, preco: best.preco }, { id: complemento.id, nome: complemento.nome, preco: complemento.preco }],
-                  precoOriginal: +soma.toFixed(2), precoCombo: comboPrice, descontoPct: 12,
-                  economiaEstimada: +(soma - comboPrice).toFixed(2), prioridade: best.vendas30d.qty * 3 + 5, icon: '⭐',
+                  precoOriginal: +soma.toFixed(2),
+                  precoCombo: comboPrice,
+                  descontoPct: desconto,
+                  economiaEstimada: +(soma - comboPrice).toFixed(2),
+                  prioridade: best.vendas30d.qty * 3 + 5,
+                  icon: '⭐',
                   evidencia: `${best.vendas30d.qty} vendas vs ${complemento.vendas30d.qty} venda(s)`
                 });
               });
 
-              // ESTRATÉGIA 3: COMBO DO MOMENTO (Hora do dia)
+              // ═══ ESTRATÉGIA 3: COMBO DO MOMENTO (Hora do dia) ═══
               const hora = new Date().getHours();
               let periodo = 'noite';
               if (hora >= 6 && hora < 12) periodo = 'manha';
@@ -4559,15 +4990,28 @@ io.on('connection', (socket) => {
               else if (hora >= 15 && hora < 18) periodo = 'tarde';
 
               const sugestoesPeriodo = [];
-              const keywords = {
-                manha: ['cafe', 'café', 'pão', 'suco', 'sanduiche', 'sanduíche', 'bolo', 'iogurte'],
-                almoco: ['marmita', 'prato', 'batata', 'refrigerante', 'água', 'agua', 'suco', 'lanche'],
-                tarde: ['marmita', 'prato', 'batata', 'refrigerante', 'lanche', 'pizza'],
-                noite: ['pizza', 'porção', 'porcao', 'cerveja', 'drink', 'hambúrguer', 'hamburguer', 'churrasco']
-              };
-              (keywords[periodo] || []).forEach(k => {
-                allProds.forEach(p => { if (p.nome.toLowerCase().includes(k)) sugestoesPeriodo.push(p); });
-              });
+              if (periodo === 'manha') {
+                // Café da manhã: produtos com "café", "pão", "suco", "sanduíche"
+                const palavrasChave = ['cafe', 'café', 'pão', 'suco', 'sanduiche', 'sanduíche', 'bolo', 'iogurte'];
+                allProds.forEach(p => {
+                  const nomeLow = p.nome.toLowerCase();
+                  if (palavrasChave.some(k => nomeLow.includes(k))) sugestoesPeriodo.push(p);
+                });
+              } else if (periodo === 'almoco' || periodo === 'tarde') {
+                // Almoço/lanche: marmita, prato, batata, refrigerante
+                const palavrasChave = ['marmita', 'prato', 'batata', 'refrigerante', 'água', 'agua', 'suco', 'lanche'];
+                allProds.forEach(p => {
+                  const nomeLow = p.nome.toLowerCase();
+                  if (palavrasChave.some(k => nomeLow.includes(k))) sugestoesPeriodo.push(p);
+                });
+              } else {
+                // Noite: pizza, porção, cerveja, drink
+                const palavrasChave = ['pizza', 'porção', 'porcao', 'cerveja', 'drink', 'hambúrguer', 'hamburguer', 'churrasco'];
+                allProds.forEach(p => {
+                  const nomeLow = p.nome.toLowerCase();
+                  if (palavrasChave.some(k => nomeLow.includes(k))) sugestoesPeriodo.push(p);
+                });
+              }
 
               if (sugestoesPeriodo.length >= 2) {
                 const sorted = sugestoesPeriodo.sort((a, b) => b.vendas30d.qty - a.vendas30d.qty);
@@ -4575,60 +5019,82 @@ io.on('connection', (socket) => {
                   const a = sorted[i], b = sorted[i + 1];
                   if (a.id === b.id) continue;
                   const soma = a.preco + b.preco;
+                  const desconto = 8;
                   const comboPrice = +(soma * 0.92).toFixed(2);
-                  const labels = { manha: 'Café da Manhã', almoco: 'Almoço', tarde: 'Lanche da Tarde', noite: 'Jantar' };
+                  const labelsPeriodo = { manha: 'Café da Manhã', almoco: 'Almoço', tarde: 'Lanche da Tarde', noite: 'Jantar' };
                   suggestions.push({
-                    tipo: 'combo_momento', titulo: `${a.emoji} ${a.nome} + ${b.emoji} ${b.nome}`,
-                    descricao: `Combo ${labels[periodo]} — sugerido para este horário`,
+                    tipo: 'combo_momento',
+                    titulo: `${a.emoji} ${a.nome} + ${b.emoji} ${b.nome}`,
+                    descricao: `Combo ${labelsPeriodo[periodo]} — sugerido para este horário`,
                     itens: [{ id: a.id, nome: a.nome, preco: a.preco }, { id: b.id, nome: b.nome, preco: b.preco }],
-                    precoOriginal: +soma.toFixed(2), precoCombo: comboPrice, descontoPct: 8,
-                    economiaEstimada: +(soma - comboPrice).toFixed(2), prioridade: 15,
+                    precoOriginal: +soma.toFixed(2),
+                    precoCombo: comboPrice,
+                    descontoPct: desconto,
+                    economiaEstimada: +(soma - comboPrice).toFixed(2),
+                    prioridade: 15,
                     icon: periodo === 'manha' ? '☀️' : periodo === 'almoco' ? '🍽️' : periodo === 'tarde' ? '🌅' : '🌙',
-                    evidencia: `Sugerido para ${labels[periodo].toLowerCase()}`
+                    evidencia: `Sugerido para ${labelsPeriodo[periodo].toLowerCase()}`
                   });
                 }
               }
 
-              // ESTRATÉGIA 4: CROSS-SELL INTELIGENTE
+              // ═══ ESTRATÉGIA 4: CROSS-SELL INTELIGENTE ═══
+              // Se o cliente pediu comida, sugira bebida e vice-versa (baseado nos top sellers)
               const foods = allProds.filter(p => p.categoria_fiscal === 'Alimentacao' && p.vendas30d.qty > 0);
               const drinks = allProds.filter(p => (p.categoria_fiscal === 'Bebida_Alcoolica' || p.categoria_fiscal === 'Bebida_Nao_Alcoolica') && p.vendas30d.qty > 0);
 
               if (foods.length > 0 && drinks.length > 0) {
-                const topFood = foods[0], topDrink = drinks[0];
+                const topFood = foods[0];
+                const topDrink = drinks[0];
                 if (topFood.id !== topDrink.id) {
                   const soma = topFood.preco + topDrink.preco;
+                  const desconto = 10;
                   const comboPrice = +(soma * 0.90).toFixed(2);
                   suggestions.push({
-                    tipo: 'cross_sell', titulo: `${topFood.emoji} ${topFood.nome} + ${topDrink.emoji} ${topDrink.nome}`,
+                    tipo: 'cross_sell',
+                    titulo: `${topFood.emoji} ${topFood.nome} + ${topDrink.emoji} ${topDrink.nome}`,
                     descricao: `O combo mais pedido do restaurante — ${topFood.vendas30d.qty}x + ${topDrink.vendas30d.qty}x vendidos`,
                     itens: [{ id: topFood.id, nome: topFood.nome, preco: topFood.preco }, { id: topDrink.id, nome: topDrink.nome, preco: topDrink.preco }],
-                    precoOriginal: +soma.toFixed(2), precoCombo: comboPrice, descontoPct: 10,
-                    economiaEstimada: +(soma - comboPrice).toFixed(2), prioridade: topFood.vendas30d.qty + topDrink.vendas30d.qty + 20, icon: '🏆',
+                    precoOriginal: +soma.toFixed(2),
+                    precoCombo: comboPrice,
+                    descontoPct: desconto,
+                    economiaEstimada: +(soma - comboPrice).toFixed(2),
+                    prioridade: topFood.vendas30d.qty + topDrink.vendas30d.qty + 20,
+                    icon: '🏆',
                     evidencia: `Top 1 em cada categoria`
                   });
                 }
               }
 
-              // ESTRATÉGIA 5: ALTO MARGEM COM BAIXA VISIBILIDADE
-              const altoMargemBaixa = allProds.filter(p => p.preco > 20 && p.vendas30d.qty <= 2 && p.vendas30d.qty >= 0)
-                .sort((a, b) => b.preco - a.preco);
+              // ═══ ESTRATÉGIA 5: ALTO MARGEM COM BAIXA VISIBILIDADE ═══
+              // Produtos com preço alto mas poucas vendas — precisa de promo
+              const altoMargemBaixa = allProds.filter(p =>
+                p.preco > 20 && p.vendas30d.qty <= 2 && p.vendas30d.qty >= 0
+              ).sort((a, b) => b.preco - a.preco);
 
               if (altoMargemBaixa.length >= 2) {
                 const a = altoMargemBaixa[0], b = altoMargemBaixa[1];
                 if (a.id !== b.id) {
                   const soma = a.preco + b.preco;
+                  const desconto = 15;
                   const comboPrice = +(soma * 0.85).toFixed(2);
                   suggestions.push({
-                    tipo: 'alto_margem', titulo: `${a.emoji} ${a.nome} + ${b.emoji} ${b.nome}`,
+                    tipo: 'alto_margem',
+                    titulo: `${a.emoji} ${a.nome} + ${b.emoji} ${b.nome}`,
                     descricao: `Produtos de alto valor com baixa saída — combo promocional para impulsionar`,
                     itens: [{ id: a.id, nome: a.nome, preco: a.preco }, { id: b.id, nome: b.nome, preco: b.preco }],
-                    precoOriginal: +soma.toFixed(2), precoCombo: comboPrice, descontoPct: 15,
-                    economiaEstimada: +(soma - comboPrice).toFixed(2), prioridade: 10, icon: '💎',
+                    precoOriginal: +soma.toFixed(2),
+                    precoCombo: comboPrice,
+                    descontoPct: desconto,
+                    economiaEstimada: +(soma - comboPrice).toFixed(2),
+                    prioridade: 10,
+                    icon: '💎',
                     evidencia: `${a.vendas30d.qty}x e ${b.vendas30d.qty}x vendidos (R$ ${a.preco} + R$ ${b.preco})`
                   });
                 }
               }
 
+              // Deduplicar e ordenar por prioridade
               const seen = new Set();
               const unique = suggestions.filter(s => {
                 const key = s.itens.map(i => i.id).sort().join('-');
@@ -4637,6 +5103,7 @@ io.on('connection', (socket) => {
                 return true;
               }).sort((a, b) => b.prioridade - a.prioridade).slice(0, 8);
 
+              // Stats
               const totalRevenue = Object.values(salesMap30d).reduce((s, v) => s + v.revenue, 0);
               const catRevenue = {};
               products.forEach(p => {
@@ -4858,15 +5325,24 @@ io.on('connection', (socket) => {
     if (!cliente_id && !telefone) return socket.emit('cliente_visitas_response', []);
     let query, params;
     if (cliente_id) {
-      query = `SELECT p.localName as mesa, p.createdAt as data, p.time as hora, p.total FROM pedidos p WHERE p.cliente_id = ? AND p.status = 'Finalizado' ORDER BY p.id DESC LIMIT 30`;
+      query = `SELECT v.mesa, v.data_visita as data, v.pontos_ganhos, v.contabilizado FROM cliente_visitas v WHERE v.cliente_id = ? ORDER BY v.id DESC LIMIT 30`;
       params = [cliente_id];
     } else {
-      query = `SELECT p.localName as mesa, p.createdAt as data, p.time as hora, p.total FROM pedidos p WHERE p.userName = ? AND p.status = 'Finalizado' ORDER BY p.id DESC LIMIT 30`;
+      query = `SELECT v.mesa, v.data_visita as data, v.pontos_ganhos, v.contabilizado FROM cliente_visitas v WHERE v.cliente_telefone = ? ORDER BY v.id DESC LIMIT 30`;
       params = [telefone];
     }
     db.all(query, params, (err, rows) => {
       socket.emit('cliente_visitas_response', rows || []);
     });
+  });
+
+  socket.on('registrar_visita', (data) => {
+    const { cliente_id, cliente_nome, cliente_telefone, mesa } = data || {};
+    if (!cliente_id && !cliente_telefone) return;
+    db.run(`INSERT INTO cliente_visitas (cliente_id, cliente_nome, cliente_telefone, mesa) VALUES (?, ?, ?, ?)`,
+      [cliente_id || null, cliente_nome || '', cliente_telefone || '', mesa || ''], (err) => {
+        if (!err) socket.emit('visita_registrada', { success: true });
+      });
   });
 
   socket.on('admin_get_beneficios', () => {
@@ -5330,19 +5806,53 @@ io.on('connection', (socket) => {
     });
   });
 
-  socket.on('reservar_mesa', ({ mesaName, observacao }) => {
+  socket.on('reservar_mesa', ({ mesaName, observacao, cliente, telefone }) => {
     db.run(`UPDATE mesas SET status = 'Reservada', observacao = ? WHERE nome = ?`, [observacao, mesaName], () => {
-      db.all(`SELECT * FROM mesas`, (err, rows) => {
-        io.emit('mesas_atualizadas', rows || []);
-      });
+      const finalizar = () => {
+        if (cliente) {
+          db.run(
+            `INSERT INTO mesa_clientes (mesa, cliente_id, cliente_nome, cliente_telefone, updated_at)
+             VALUES (?, NULL, ?, ?, datetime('now','localtime'))
+             ON CONFLICT(mesa) DO UPDATE SET
+               cliente_nome = excluded.cliente_nome,
+               cliente_telefone = COALESCE(NULLIF(excluded.cliente_telefone,''), cliente_telefone),
+               updated_at = datetime('now','localtime')`,
+            [mesaName, cliente, telefone || ''], () => {
+              broadcastMesaClientes();
+              db.all(`SELECT * FROM mesas`, (err, rows) => io.emit('mesas_atualizadas', rows || []));
+            });
+        } else {
+          db.all(`SELECT * FROM mesas`, (err, rows) => io.emit('mesas_atualizadas', rows || []));
+        }
+      };
+      if (cliente && telefone) {
+        db.get(`SELECT id FROM clientes WHERE telefone = ?`, [telefone], (err, row) => {
+          if (row) {
+            db.run(`UPDATE clientes SET nome = ? WHERE id = ?`, [cliente, row.id], () => finalizar());
+          } else {
+            db.run(`INSERT INTO clientes (nome, telefone, observacao, endereco, data_nascimento, pontos) VALUES (?, ?, '', '', '', 0)`,
+              [cliente, telefone], () => finalizar());
+          }
+        });
+      } else if (cliente) {
+        db.get(`SELECT id FROM clientes WHERE nome = ? ORDER BY id DESC LIMIT 1`, [cliente], (err, row) => {
+          if (!row) {
+            db.run(`INSERT INTO clientes (nome, telefone, observacao, endereco, data_nascimento, pontos) VALUES (?, '', '', '', '', 0)`,
+              [cliente], () => finalizar());
+          } else {
+            finalizar();
+          }
+        });
+      } else {
+        finalizar();
+      }
     });
   });
 
   socket.on('cancelar_reserva', ({ mesaName }) => {
     db.run(`UPDATE mesas SET status = 'Disponível', observacao = '' WHERE nome = ?`, [mesaName], () => {
-      db.all(`SELECT * FROM mesas`, (err, rows) => {
-        io.emit('mesas_atualizadas', rows || []);
-      });
+      db.run(`DELETE FROM mesa_clientes WHERE mesa = ?`, [mesaName], () => broadcastMesaClientes());
+      db.all(`SELECT * FROM mesas`, (err, rows) => io.emit('mesas_atualizadas', rows || []));
     });
   });
 
@@ -6067,18 +6577,19 @@ io.on('connection', (socket) => {
     db.all(`SELECT chave, valor FROM configuracoes WHERE chave LIKE 'rest_%'`, [], (err, rows) => {
       const config = {};
       (rows || []).forEach(r => { config[r.chave] = r.valor; });
+      // Include slug and custom_domain from master DB
       const restId = socket.restaurante_id || 0;
-      if (restId > 0 && typeof masterDb !== 'undefined') {
+      if (restId > 0) {
         masterDb.get(`SELECT slug, custom_domain FROM restaurantes WHERE id = ?`, [restId], (errM, row) => {
           if (row) {
             config['rest_slug'] = row.slug || '';
             config['rest_custom_domain'] = row.custom_domain || '';
           }
-          if (typeof BASE_DOMAIN !== 'undefined') config['rest_base_domain'] = BASE_DOMAIN;
+          config['rest_base_domain'] = BASE_DOMAIN;
           socket.emit('restaurante_config', config);
         });
       } else {
-        if (typeof BASE_DOMAIN !== 'undefined') config['rest_base_domain'] = BASE_DOMAIN;
+        config['rest_base_domain'] = BASE_DOMAIN;
         socket.emit('restaurante_config', config);
       }
     });
@@ -6177,7 +6688,7 @@ io.on('connection', (socket) => {
 // Liga os pollers de eventos das contas iFood já autorizadas em cada tenant.
 setTimeout(() => {
   try {
-    ifoodApi.startAllPollers({ io, masterDb, tenantContext, getTenantDb, dir: __dirname, isFeatureEnabled });
+    ifoodApi.startAllPollers({ io, masterDb, tenantContext, getTenantDb, dir: __dirname, isFeatureEnabled: isTenantFeatureEnabled });
     console.log('[iFood] Integração iniciada.');
   } catch (e) {
     console.error('[iFood] Falha ao iniciar integração:', e.message || e);
@@ -6730,7 +7241,9 @@ app.get('/api/metricas/garcons', verificarToken, (req, res) => {
   });
 });
 
-// --- QR CODE ENDPOINT ---
+// --- TEMPLATE + IMPORTAÇÃO DE PRODUTOS ---
+const XLSX = require('xlsx');
+
 app.get('/api/qr', (req, res) => {
   const data = String(req.query.data || '').slice(0, 2048);
   if (!data) return res.status(400).send('Missing data');
@@ -6751,7 +7264,6 @@ app.get('/api/qr', (req, res) => {
   }
 });
 
-// --- TEMPLATE + IMPORTAÇÃO DE PRODUTOS ---
 app.get('/api/template-produtos', (req, res) => {
   const headers = ['Categoria', 'Nome', 'Preço', 'Emoji', 'Setor', 'Status Inicial', 'Categoria Fiscal', 'Código de Barras', 'Descrição', 'Preço Custo', 'Unidade', 'Fornecedor', 'Visibilidade'];
   const exemplos = [
@@ -6781,7 +7293,7 @@ app.post('/api/importar-produtos', verificarToken, upload.single('file'), (req, 
       'categoria': 'categoria', 'nome': 'nome', 'preço': 'preco', 'preco': 'preco',
       'emoji': 'emoji', 'setor': 'setor', 'status inicial': 'status_inicial', 'status_inicial': 'status_inicial',
       'categoria fiscal': 'categoria_fiscal', 'categoria_fiscal': 'categoria_fiscal',
-      'código de barras': 'codigo_barras', 'codigo_barras': 'codigo_barras',
+      'código de barras': 'codigo_barras', 'codigo_barras': 'codigo_barras', 'codigo_barras': 'codigo_barras',
       'descrição': 'descricao', 'descricao': 'descricao',
       'preço custo': 'preco_custo', 'preco_custo': 'preco_custo',
       'unidade': 'unidade', 'fornecedor': 'fornecedor', 'visibilidade': 'visibilidade'
@@ -6798,7 +7310,7 @@ app.post('/api/importar-produtos', verificarToken, upload.single('file'), (req, 
     let inseridos = 0, erros = 0;
     const insertNext = (i) => {
       if (i >= mapped.length) {
-        fs.unlinkSync(req.file.path);
+        require('fs').unlinkSync(req.file.path);
         broadcastProdutos();
         return res.json({ ok: true, inseridos, erros, total: mapped.length });
       }
@@ -6822,7 +7334,7 @@ app.post('/api/importar-produtos', verificarToken, upload.single('file'), (req, 
     };
     insertNext(0);
   } catch (e) {
-    fs.unlinkSync(req.file.path);
+    require('fs').unlinkSync(req.file.path);
     return res.status(500).json({ ok: false, erro: 'Erro ao processar arquivo: ' + e.message });
   }
 });
@@ -8430,9 +8942,8 @@ app.post('/api/auth/registro', async (req, res) => {
   }
 });
 
-// ── Verificar disponibilidade de slug ──
+// ── Verificação de disponibilidade de Slug / Subdomínio ──
 app.get('/api/auth/check-slug', (req, res) => {
-  if (typeof masterDb === 'undefined') return res.status(500).json({ available: false, error: 'Master DB não disponível' });
   const raw = req.query.slug || '';
   const currentRestId = req.query.restaurante_id ? parseInt(req.query.restaurante_id, 10) : 0;
   const slug = String(raw).trim().toLowerCase()
@@ -8440,24 +8951,25 @@ app.get('/api/auth/check-slug', (req, res) => {
     .replace(/[^a-z0-9-]/g, '')
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '');
+
   if (!slug || slug.length < 2 || slug.length > 40) {
     return res.json({ available: false, slug, error: 'O link deve ter entre 2 e 40 caracteres (apenas letras, números e hífen).' });
   }
-  const query = currentRestId > 0
+
+  const query = currentRestId > 0 
     ? `SELECT id FROM restaurantes WHERE slug = ? AND id != ?`
     : `SELECT id FROM restaurantes WHERE slug = ?`;
   const params = currentRestId > 0 ? [slug, currentRestId] : [slug];
+
   masterDb.get(query, params, (err, row) => {
     if (err) return res.status(500).json({ available: false, slug, error: 'Erro de validação no servidor.' });
     if (row) return res.json({ available: false, slug, error: 'Este link já está em uso por outro restaurante.' });
-    const baseDom = (typeof BASE_DOMAIN !== 'undefined') ? BASE_DOMAIN : 'chefcozinha.com.br';
-    res.json({ available: true, slug, baseDomain: baseDom, previewUrl: `https://${slug}.${baseDom}` });
+    res.json({ available: true, slug, baseDomain: BASE_DOMAIN, previewUrl: `https://${slug}.${BASE_DOMAIN}` });
   });
 });
 
 // ── Definir Slug individualmente ──
 app.post('/api/auth/definir-slug', verificarToken, (req, res) => {
-  if (typeof masterDb === 'undefined') return res.status(500).json({ success: false, error: 'Master DB não disponível' });
   const restauranteId = req.restaurante_id;
   const raw = (req.body && req.body.slug) || '';
   const slug = String(raw).trim().toLowerCase()
@@ -8465,6 +8977,7 @@ app.post('/api/auth/definir-slug', verificarToken, (req, res) => {
     .replace(/[^a-z0-9-]/g, '')
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '');
+
   if (!slug) {
     masterDb.run(`UPDATE restaurantes SET slug = NULL WHERE id = ?`, [restauranteId], () => {
       if (typeof loadDomainMaps === 'function') loadDomainMaps();
@@ -8472,34 +8985,38 @@ app.post('/api/auth/definir-slug', verificarToken, (req, res) => {
     });
     return;
   }
+
   if (slug.length < 2 || slug.length > 40) {
     return res.status(400).json({ success: false, error: 'Slug deve ter entre 2 e 40 caracteres.' });
   }
+
   masterDb.get(`SELECT id FROM restaurantes WHERE slug = ? AND id != ?`, [slug, restauranteId], (err, row) => {
     if (err) return res.status(500).json({ success: false, error: 'Erro no servidor.' });
     if (row) return res.status(400).json({ success: false, error: 'Este link já está em uso.' });
+
     masterDb.run(`UPDATE restaurantes SET slug = ? WHERE id = ?`, [slug, restauranteId], function(errUp) {
       if (errUp) return res.status(500).json({ success: false, error: 'Erro ao salvar link.' });
       if (typeof loadDomainMaps === 'function') loadDomainMaps();
-      const baseDom = (typeof BASE_DOMAIN !== 'undefined') ? BASE_DOMAIN : 'chefcozinha.com.br';
-      res.json({ success: true, slug, url: `https://${slug}.${baseDom}` });
+      res.json({ success: true, slug, url: `https://${slug}.${BASE_DOMAIN}` });
     });
   });
 });
 
 // ── Verificar disponibilidade de domínio personalizado ──
 app.get('/api/auth/check-dominio', verificarToken, (req, res) => {
-  if (typeof masterDb === 'undefined') return res.status(500).json({ available: false, error: 'Master DB não disponível' });
   const raw = req.query.domain || '';
   const currentRestId = req.restaurante_id || 0;
   const domain = String(raw).trim().toLowerCase().replace(/[^a-z0-9.\-]/g, '').replace(/\.$/, '');
+
   if (!domain || !domain.includes('.')) {
     return res.json({ available: false, domain, error: 'Domínio inválido. Exemplo: meuhotel.com.br' });
   }
+
   const query = currentRestId > 0
     ? `SELECT id FROM restaurantes WHERE custom_domain = ? AND id != ?`
     : `SELECT id FROM restaurantes WHERE custom_domain = ?`;
   const params = currentRestId > 0 ? [domain, currentRestId] : [domain];
+
   masterDb.get(query, params, (err, row) => {
     if (err) return res.status(500).json({ available: false, domain, error: 'Erro de validação no servidor.' });
     if (row) return res.json({ available: false, domain, error: 'Este domínio já está em uso por outro restaurante.' });
@@ -8509,10 +9026,10 @@ app.get('/api/auth/check-dominio', verificarToken, (req, res) => {
 
 // ── Definir domínio personalizado ──
 app.post('/api/auth/definir-dominio', verificarToken, (req, res) => {
-  if (typeof masterDb === 'undefined') return res.status(500).json({ success: false, error: 'Master DB não disponível' });
   const restauranteId = req.restaurante_id;
   const raw = (req.body && req.body.domain) || '';
   const domain = String(raw).trim().toLowerCase().replace(/[^a-z0-9.\-]/g, '').replace(/\.$/, '');
+
   if (!domain) {
     masterDb.run(`UPDATE restaurantes SET custom_domain = NULL WHERE id = ?`, [restauranteId], () => {
       if (typeof loadDomainMaps === 'function') loadDomainMaps();
@@ -8520,12 +9037,15 @@ app.post('/api/auth/definir-dominio', verificarToken, (req, res) => {
     });
     return;
   }
+
   if (!domain.includes('.') || domain.length < 4 || domain.length > 253) {
     return res.status(400).json({ success: false, error: 'Domínio inválido. Exemplo: meuhotel.com.br' });
   }
+
   masterDb.get(`SELECT id FROM restaurantes WHERE custom_domain = ? AND id != ?`, [domain, restauranteId], (err, row) => {
     if (err) return res.status(500).json({ success: false, error: 'Erro no servidor.' });
     if (row) return res.status(400).json({ success: false, error: 'Este domínio já está em uso.' });
+
     masterDb.run(`UPDATE restaurantes SET custom_domain = ? WHERE id = ?`, [domain, restauranteId], function(errUp) {
       if (errUp) return res.status(500).json({ success: false, error: 'Erro ao salvar domínio.' });
       if (typeof loadDomainMaps === 'function') loadDomainMaps();
@@ -8536,13 +9056,45 @@ app.post('/api/auth/definir-dominio', verificarToken, (req, res) => {
 
 // ── Onboarding de equipe apos registro ──
 app.post('/api/auth/equipe-onboarding', verificarToken, async (req, res) => {
-  const { equipe } = req.body;
+  const { equipe, slug } = req.body;
   const restauranteId = req.restaurante_id;
   if (!restauranteId) return res.status(400).json({ success: false, error: 'Restaurante invalido.' });
+
+  // Se um slug foi fornecido, valida e salva
+  if (slug && typeof slug === 'string') {
+    const cleanSlug = slug.trim().toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9-]/g, '')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '');
+
+    if (cleanSlug.length >= 2 && cleanSlug.length <= 40) {
+      await new Promise((resolve) => {
+        masterDb.get(`SELECT id FROM restaurantes WHERE slug = ? AND id != ?`, [cleanSlug, restauranteId], (err, row) => {
+          if (!err && !row) {
+            masterDb.run(`UPDATE restaurantes SET slug = ? WHERE id = ?`, [cleanSlug, restauranteId], () => {
+              if (typeof loadDomainMaps === 'function') loadDomainMaps();
+              resolve();
+            });
+          } else {
+            resolve();
+          }
+        });
+      });
+    }
+  }
+
   if (!Array.isArray(equipe) || equipe.length === 0) return res.status(400).json({ success: false, error: 'Envie pelo menos um funcionario.' });
 
+  const restauranteNome = await new Promise((resolve) => {
+    masterDb.get(`SELECT nome FROM restaurantes WHERE id = ?`, [restauranteId], (e, r) => resolve(r ? r.nome : null));
+  });
+
   const dbPath = path.join(__dirname, `database_${restauranteId}.sqlite`);
-  if (!fsSync.existsSync(dbPath)) return res.status(404).json({ success: false, error: 'Banco do restaurante nao encontrado.' });
+  if (!fsSync.existsSync(dbPath)) {
+    await createFreshTenantDb(dbPath, restauranteNome);
+  }
+  if (!fsSync.existsSync(dbPath)) return res.status(500).json({ success: false, error: 'Erro ao criar banco do restaurante.' });
 
   const tenantDb = new sqlite3.Database(dbPath);
   let criados = 0;

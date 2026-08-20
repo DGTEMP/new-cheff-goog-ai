@@ -97,12 +97,9 @@ async function sendPush(role, title, body, tag, url) {
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 if (!process.env.JWT_SECRET) {
-  console.error('[FATAL] JWT_SECRET não definido no .env! Defina uma chave forte e reinicie.');
-  console.error('[FATAL] Exemplo: JWT_SECRET=sua_chave_aqui_$(openssl rand -hex 32)');
-  if (process.env.NODE_ENV === 'production') process.exit(1);
-  console.warn('[DEV] Continuando com secret interno — NÃO use em produção!');
+  console.warn('[Startup] JWT_SECRET não definido no ambiente. Usando segredo gerado automaticamente.');
 }
-const JWT_SECRET = process.env.JWT_SECRET || 'chef-cozinha-dev-only-' + require('crypto').randomBytes(16).toString('hex');
+const JWT_SECRET = process.env.JWT_SECRET || 'chef-cozinha-sec-' + require('crypto').randomBytes(32).toString('hex');
 
 function verificarSenhaAdmin(senha) {
   return new Promise((resolve) => {
