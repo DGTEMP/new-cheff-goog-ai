@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 
 <head>
@@ -469,13 +469,15 @@
       .admin-tab-btn { font-size: 13px !important; padding: 9px 12px !important; }
       .btn-action { font-size: 13px !important; padding: 9px 12px !important; }
 
-      /* Tabs com formulário: grids com 2 colunas */
+      /* Tabs com formulário: grid flexível que responde adequadamente */
       #admin-tab-produtos .tab-form-header > div {
         flex-wrap: wrap !important;
+        display: flex !important;
+        gap: 12px !important;
       }
       #admin-tab-produtos .tab-form-header > div > div {
-        min-width: 45% !important;
-        flex: 1 !important;
+        min-width: 140px !important;
+        flex: 1 1 180px !important;
       }
 
       /* RH subtabs cabem em 2 linhas */
@@ -598,56 +600,22 @@
         overflow: hidden !important;
       }
 
-      /* Promoções: garantir scroll completo */
-      #admin-tab-promocoes.active {
-        overflow-y: auto !important;
-        overflow-x: hidden !important;
-      }
-      #admin-tab-promocoes .promo-card {
-        overflow: visible !important;
-        break-inside: avoid;
-      }
-      #admin-tab-promocoes .promo-table-wrap {
-        overflow-x: auto !important;
-        -webkit-overflow-scrolling: touch;
-        max-height: 300px !important;
-      }
-
-      /* Form header: sem sticky, max-height livre */
+      /* Form header e formulários no mobile */
       .tab-form-header {
         max-height: none !important;
         overflow: visible !important;
         position: static !important;
         margin-bottom: 12px !important;
       }
-
-      /* ═══ PRODUTOS ═══ */
       #admin-tab-produtos .tab-form-header > div {
-        flex-direction: column !important;
-        gap: 8px !important;
-      }
-      #admin-tab-produtos .tab-form-header > div > div {
-        width: 100% !important;
-        min-width: 100% !important;
-        flex: none !important;
-      }
-
-      /* ═══ FUNCIONÁRIOS ═══ */
-      #admin-tab-funcionarios .tab-form-header > div:first-child {
-        flex-direction: column !important;
+        flex-direction: row !important;
+        flex-wrap: wrap !important;
         gap: 10px !important;
       }
-      #admin-tab-funcionarios .tab-form-header > div:nth-child(3) {
-        flex-direction: column !important;
-        gap: 8px !important;
+      #admin-tab-produtos .tab-form-header > div > div {
+        min-width: 120px !important;
+        flex: 1 1 calc(50% - 10px) !important;
       }
-
-      /* ═══ CLIENTES ═══ */
-      #admin-tab-clientes > div {
-        flex-direction: column !important;
-        gap: 8px !important;
-      }
-
       /* ═══ MESAS ═══ */
       #admin-tab-mesas > div {
         flex-direction: column !important;
