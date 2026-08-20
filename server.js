@@ -8190,6 +8190,26 @@ app.get('/api/metricas/garcons', verificarToken, (req, res) => {
 // --- TEMPLATE + IMPORTAÇÃO DE PRODUTOS ---
 const XLSX = require('xlsx');
 
+app.get('/api/qr', (req, res) => {
+  const data = String(req.query.data || '').slice(0, 2048);
+  if (!data) return res.status(400).send('Missing data');
+  const size = Math.min(Math.max(parseInt(req.query.size, 10) || 140, 60), 1000);
+  try {
+    const qrLib = require('./public/vendor/qrcode/qrcode-generator.js');
+    const qr = qrLib(0, 'M');
+    qr.addData(data);
+    qr.make();
+    const cell = Math.max(2, Math.floor(size / qr.getModuleCount()));
+    const dataUrl = qr.createDataURL(cell, 4);
+    const img = Buffer.from(dataUrl.replace(/^data:image\/gif;base64,/, ''), 'base64');
+    res.setHeader('Content-Type', 'image/gif');
+    res.setHeader('Cache-Control', 'no-store');
+    res.send(img);
+  } catch (err) {
+    res.status(500).send('Erro ao gerar QR');
+  }
+});
+
 app.get('/api/template-produtos', (req, res) => {
   const headers = ['Categoria', 'Nome', 'Preço', 'Emoji', 'Setor', 'Status Inicial', 'Categoria Fiscal', 'Código de Barras', 'Descrição', 'Preço Custo', 'Unidade', 'Fornecedor', 'Visibilidade'];
   const exemplos = [

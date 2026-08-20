@@ -3318,7 +3318,11 @@ window.gerarQrCheckin = (silent) => {
   const tenantId = encodeURIComponent(localStorage.getItem('restaurante_id') || '1');
   const appUrl = `${protocol}//${host}${portPart}/area-cliente.html?checkin=1&restaurante_id=${tenantId}`;
   const img = document.getElementById('fid-checkin-qr-img');
-  if (img) img.src = (window.location.origin || '') + '/api/qr?size=140&data=' + encodeURIComponent(appUrl);
+  if (img && typeof window.qrImg === 'function') {
+    window.qrImg(img, appUrl, 280);
+  } else if (img) {
+    img.src = (window.location.origin || '') + '/api/qr?size=280&data=' + encodeURIComponent(appUrl);
+  }
   window._checkinQrUrl = appUrl;
   if (!silent && typeof window.showToast === 'function') window.showToast('QR de check-in gerado!', '#22c55e');
 };
