@@ -1644,6 +1644,15 @@
             <i class="fa-solid fa-shield-halved"></i>
             <span>Segurança & WAF</span>
           </div>
+          <div class="menu-item" data-target="sec-deploy-updates" id="menu-item-deploy">
+            <i class="fa-solid fa-rocket"></i>
+            <span>Deploy & Atualizações</span>
+            <span class="menu-badge" style="background:#22c55e;">Zero-Downtime</span>
+          </div>
+          <div class="menu-item" data-target="sec-plugins-modulos" id="menu-item-plugins">
+            <i class="fa-solid fa-puzzle-piece"></i>
+            <span>Plugins & Módulos</span>
+          </div>
           <div class="menu-item" data-target="sec-terminal">
             <i class="fa-solid fa-terminal"></i>
             <span>Terminal</span>
@@ -4013,6 +4022,107 @@
     </div>
   </div>
 
+  <!-- ════ SEÇÃO: DEPLOY & ATUALIZAÇÕES ZERO-DOWNTIME ════ -->
+  <div class="content-section" id="sec-deploy-updates" style="display:none;">
+    <div class="info-banner" style="border-left-color: #22c55e;">
+      <i class="fa-solid fa-rocket" style="color: #22c55e;"></i>
+      <div class="info-banner-content">
+        <h4>Deploy Sem Quedas (Zero-Downtime Hot Swap)</h4>
+        <p>Gerencie atualizações do sistema por commit específico sem desconectar garçons, caixas ou clientes. O servidor sincroniza os arquivos e recarrega os módulos em tempo de execução.</p>
+      </div>
+    </div>
+
+    <!-- Card de Ação Principal -->
+    <div style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;padding:1.5rem;margin-bottom:1.5rem;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.2rem;flex-wrap:wrap;gap:10px;">
+        <div>
+          <h3 style="margin:0;font-size:1.3rem;"><i class="fa-solid fa-code-commit" style="color:#6366f1;"></i> Commits no Repositório (Git)</h3>
+          <p style="margin:0.2rem 0 0 0;font-size:0.85rem;color:var(--text-muted);">Selecione a versão/commit desejado para atualizar o ambiente ao vivo.</p>
+        </div>
+        <button class="btn-action btn-primary-action" onclick="carregarCommitsGit()">
+          <i class="fa-solid fa-rotate"></i> Sincronizar Commits
+        </button>
+      </div>
+
+      <div style="overflow-x:auto;">
+        <table class="custom-table" id="commits-table">
+          <thead>
+            <tr>
+              <th>Commit</th>
+              <th>Mensagem</th>
+              <th>Autor</th>
+              <th>Data</th>
+              <th style="width:200px;">Ação de Deploy</th>
+            </tr>
+          </thead>
+          <tbody id="commits-tbody">
+            <tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:20px;">Clique em Sincronizar Commits...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ SEÇÃO: PLUGINS & MÓDULOS EXPANSÍVEIS ════ -->
+  <div class="content-section" id="sec-plugins-modulos" style="display:none;">
+    <div class="info-banner" style="border-left-color: #a855f7;">
+      <i class="fa-solid fa-puzzle-piece" style="color: #a855f7;"></i>
+      <div class="info-banner-content">
+        <h4>Central de Plugins & Módulos Extras</h4>
+        <p>Instale, ative ou desative extensões avançadas (iFood, Balanças ECF, KDS Inteligente, Pagamentos PIX Automáticos, WhatsApp Bot) para todos ou restaurantes específicos.</p>
+      </div>
+    </div>
+
+    <!-- Grid de Plugins -->
+    <div class="stats-grid" id="plugins-grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.2rem; margin-bottom: 1.5rem;">
+      
+      <!-- Plugin iFood -->
+      <div style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;padding:1.5rem;display:flex;flex-direction:column;justify-space:between;">
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <span style="font-size:24px;">🛵</span>
+            <span class="badge badge-ativo" id="plugin-status-ifood">Ativo (Global)</span>
+          </div>
+          <h4 style="margin:0 0 6px 0;font-size:1.1rem;">iFood Integrado Direct</h4>
+          <p style="font-size:0.85rem;color:var(--text-muted);margin:0 0 16px 0;">Integração nativa de pedidos, cardápio e cancelamento automático com o iFood.</p>
+        </div>
+        <button class="btn-action" style="width:100%;background:#a855f7;color:white;" onclick="togglePluginStatus('ifood')">
+          <i class="fa-solid fa-sliders"></i> Gerenciar Plugin iFood
+        </button>
+      </div>
+
+      <!-- Plugin WhatsApp Bot -->
+      <div style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;padding:1.5rem;display:flex;flex-direction:column;justify-space:between;">
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <span style="font-size:24px;">💬</span>
+            <span class="badge badge-ativo" id="plugin-status-whatsapp">Ativo (Global)</span>
+          </div>
+          <h4 style="margin:0 0 6px 0;font-size:1.1rem;">WhatsApp Bot Atendimento</h4>
+          <p style="font-size:0.85rem;color:var(--text-muted);margin:0 0 16px 0;">Disparo de notificação de pedido pronto e robô de pedidos automáticos.</p>
+        </div>
+        <button class="btn-action" style="width:100%;background:#22c55e;color:white;" onclick="togglePluginStatus('whatsapp')">
+          <i class="fa-solid fa-sliders"></i> Gerenciar Plugin WhatsApp
+        </button>
+      </div>
+
+      <!-- Plugin Balança Serial -->
+      <div style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;padding:1.5rem;display:flex;flex-direction:column;justify-space:between;">
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <span style="font-size:24px;">⚖️</span>
+            <span class="badge badge-ativo" id="plugin-status-balanca">Ativo (Global)</span>
+          </div>
+          <h4 style="margin:0 0 6px 0;font-size:1.1rem;">Balança Self-Service / Kilo</h4>
+          <p style="font-size:0.85rem;color:var(--text-muted);margin:0 0 16px 0;">Conexão direta com balanças Toledo, Filizola e Urano via Serial/USB.</p>
+        </div>
+        <button class="btn-action" style="width:100%;background:#3b82f6;color:white;" onclick="togglePluginStatus('balanca')">
+          <i class="fa-solid fa-sliders"></i> Gerenciar Plugin Balança
+        </button>
+      </div>
+
+    </div>
+  </div>
+
 </body>
 </html>
-

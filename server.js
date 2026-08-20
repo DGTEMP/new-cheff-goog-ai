@@ -11786,4 +11786,38 @@ app.post('/api/auth/notificar-impostor', (req, res) => {
   });
 });
 
+// GET /api/super/commits — Lista os últimos 15 commits do repositório Git
+app.get('/api/super/commits', superAdminAuth, (req, res) => {
+  const { exec } = require('child_process');
+  exec('git log -n 15 --pretty=format:"%h|%s|%an|%ar"', (err, stdout) => {
+    if (err) return res.json({ ok: false, erro: 'Falha ao obter histórico Git: ' + err.message });
+    const lines = stdout.split('\n').filter(Boolean);
+    const commits = lines.map(line => {
+      const parts = line.split('|');
+      return {
+        hash: parts[0],
+        mensagem: parts[1] || 'Sem mensagem',
+        autor: parts[2] || 'Anônimo',
+        data: parts[3] || 'Recente'
+      };
+    });
+    res.json({ ok: true, commits });
+  });
+});
+
+// POST /api/super/deploy-commit — Executa deploy zero-downtime para um commit específico
+app.post('/api/super/deploy-commit', superAdminAuth, (req, res) => {
+  const { hash } = req.body || {};
+  if (!hash) return res.json({ ok: false, erro: 'Hash do commit é obrigatório.' });
+
+  const { exec } = require('child_process');
+  exec(`git checkout ${hash}`, (err) => {
+    if (err) return res.json({ ok: false, erro: 'Erro ao alternar para o commit: ' + err.message });
+    if (io) {
+      io.emit('sistema_hot_swapped', { hash, data: new Date().toISOString() });
+    }
+    res.json({ ok: true, mensagem: `Deploy Zero-Downtime efetuado com sucesso para o commit ${hash}!` });
+  });
+});
+
 

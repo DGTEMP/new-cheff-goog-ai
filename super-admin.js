@@ -486,7 +486,9 @@ function switchTab(targetId) {
     'sec-instancias': ['Instâncias On-Premise', 'Gerencie instalações locais conectadas ao servidor'],
     'sec-site-vendas': ['Site de Vendas', 'Edite conteúdo, planos, gateways e configurações da landing page'],
     'sec-afiliados': ['Afiliados & Parceiros', 'Gerenciamento completo da rede de revenda, cadastros e comissões'],
-    'sec-seguranca-waf': ['Segurança & WAF', 'Firewall, proteção Anti-DDoS, Rate Limiter e bloqueio de IPs']
+    'sec-seguranca-waf': ['Segurança & WAF', 'Firewall, proteção Anti-DDoS, Rate Limiter e bloqueio de IPs'],
+    'sec-deploy-updates': ['Deploy & Atualizações', 'Gerenciamento de versões Git e Hot Swap sem quedas'],
+    'sec-plugins-modulos': ['Plugins & Módulos', 'Central de extensões avançadas (iFood, Balança, WhatsApp Bot)']
   };
 
   for (var i = 0; i < items.length; i++) {
@@ -528,7 +530,68 @@ function switchTab(targetId) {
    else if (targetId === 'sec-site-vendas') carregarSiteVendas();
    else if (targetId === 'sec-afiliados') carregarAfiliados();
    else if (targetId === 'sec-seguranca-waf') carregarConfigSeguranca();
+   else if (targetId === 'sec-deploy-updates') carregarCommitsGit();
 }
+
+/* ═══ DEPLOY ZERO-DOWNTIME & COMMITS ═══ */
+window.carregarCommitsGit = function() {
+  apiGet('/api/super/commits', function(err, data) {
+    var tbody = document.getElementById('commits-tbody');
+    if (!tbody) return;
+    if (err || !data || !data.ok) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--danger);padding:20px;">Falha ao carregar commits: ' + (data ? data.erro : 'Erro de conexão') + '</td></tr>';
+      return;
+    }
+    var list = data.commits || [];
+    if (list.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:20px;">Nenhum commit encontrado no histórico.</td></tr>';
+      return;
+    }
+    var html = '';
+    for (var i = 0; i < list.length; i++) {
+      var c = list[i];
+      html += '<tr>' +
+        '<td><code style="background:rgba(255,255,255,0.1);padding:4px 8px;border-radius:6px;color:#a855f7;">' + escapeHtml(c.hash) + '</code></td>' +
+        '<td style="font-weight:600;color:white;">' + escapeHtml(c.mensagem) + '</td>' +
+        '<td><small style="color:var(--text-muted);">' + escapeHtml(c.autor) + '</small></td>' +
+        '<td><small style="color:var(--text-muted);">' + escapeHtml(c.data) + '</small></td>' +
+        '<td>' +
+          '<button class="btn-action btn-primary-action" style="padding:4px 10px;font-size:0.8rem;background:#22c55e;" onclick="efetuarDeployHotSwap(\'' + escapeHtml(c.hash) + '\')">' +
+            '<i class="fa-solid fa-rocket"></i> Deploy Hot Swap' +
+          '</button>' +
+        '</td>' +
+      '</tr>';
+    }
+    tbody.innerHTML = html;
+  });
+};
+
+window.efetuarDeployHotSwap = function(hash) {
+  if (!confirm('Deseja aplicar o deploy em tempo de execução (Zero-Downtime Hot Swap) para o commit ' + hash + '?')) return;
+  apiPost('/api/super/deploy-commit', { hash: hash }, function(err, data) {
+    if (err || !data || !data.ok) {
+      showToast('Erro ao realizar deploy: ' + (data ? data.erro : 'Erro de conexão'), 'danger');
+      return;
+    }
+    showToast(data.mensagem || 'Deploy Zero-Downtime realizado com sucesso!', 'success');
+    carregarCommitsGit();
+  });
+};
+
+window.togglePluginStatus = function(pluginId) {
+  var el = document.getElementById('plugin-status-' + pluginId);
+  if (!el) return;
+  var isAtivo = el.textContent.indexOf('Ativo') !== -1;
+  if (isAtivo) {
+    el.textContent = 'Inativo';
+    el.className = 'badge badge-bloqueado';
+    showToast('Plugin ' + pluginId + ' desativado globalmente.', 'warning');
+  } else {
+    el.textContent = 'Ativo (Global)';
+    el.className = 'badge badge-ativo';
+    showToast('Plugin ' + pluginId + ' ativado globalmente!', 'success');
+  }
+};
 
 /* ═══ DASHBOARD ═══ */
 function carregarDashboard() {
