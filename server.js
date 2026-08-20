@@ -13,6 +13,7 @@ const ANSI = {
   magenta: "\x1b[35m",
   red: "\x1b[31m",
   blue: "\x1b[34m",
+  white: "\x1b[37m",
   bgBlue: "\x1b[44m\x1b[37m",
   bgCyan: "\x1b[46m\x1b[30m",
   bgMagenta: "\x1b[45m\x1b[37m",
@@ -29,9 +30,6 @@ function getEfficiencyStars() {
   return "⭐⭐ [ATENÇÃO RESTRIÇÃO]";
 }
 
-let isBootingAnimation = true;
-setTimeout(() => { isBootingAnimation = false; }, 3500);
-
 console.log = function (...args) {
   const line = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(' ');
   logLines.push(`[LOG] ${new Date().toLocaleTimeString('pt-BR')} - ${line}`);
@@ -40,23 +38,20 @@ console.log = function (...args) {
   const timeStr = new Date().toLocaleTimeString('pt-BR');
   let formatted = line;
 
-  // Se for card de Ação de Usuário (Clique ou Navegação)
+  // Estilo minimalista Arch/Hyprland para Ações de Usuário
   if (/^\[Cli-Click\]/.test(line)) {
     const content = line.replace(/^\[Cli-Click\]/, '').trim();
-    formatted = `\n` +
-      `${ANSI.bgMagenta}${ANSI.bright} 🖱️  AÇÃO DO USUÁRIO DETECTADA ${ANSI.reset} ${ANSI.dim}── ${timeStr} ──${ANSI.reset}\n` +
-      `│ ${ANSI.magenta}▶${ANSI.reset} ${content}\n` +
-      `└───────────────────────────────────────────────────────────\n`;
+    formatted = `${ANSI.magenta}╭─ 🖱️  ${ANSI.bright}USER ACTION${ANSI.reset} ${ANSI.dim}───────────────────────────── [${timeStr}] ─╮${ANSI.reset}\n` +
+                `${ANSI.magenta}│${ANSI.reset} ${ANSI.cyan}󰄾${ANSI.reset} ${content}\n` +
+                `${ANSI.magenta}╰──────────────────────────────────────────────────────────╯${ANSI.reset}`;
   }
-  // Se for evento Socket IO
+  // Estilo minimalista Arch/Hyprland para Eventos Socket
   else if (/^\[Socket\]/.test(line)) {
     const content = line.replace(/^\[Socket\]/, '').trim();
-    formatted = `\n` +
-      `${ANSI.bgCyan}${ANSI.bright} ⚡ EVENTO SOCKET EM TEMPO REAL ${ANSI.reset} ${ANSI.dim}── ${timeStr} ──${ANSI.reset}\n` +
-      `│ ${ANSI.cyan}▶${ANSI.reset} ${content}\n` +
-      `└───────────────────────────────────────────────────────────\n`;
+    formatted = `${ANSI.cyan}╭─ ⚡ ${ANSI.bright}SOCKET EVENT${ANSI.reset} ${ANSI.dim}───────────────────────────── [${timeStr}] ─╮${ANSI.reset}\n` +
+                `${ANSI.cyan}│${ANSI.reset} ${ANSI.magenta}󰄾${ANSI.reset} ${content}\n` +
+                `${ANSI.cyan}╰──────────────────────────────────────────────────────────╯${ANSI.reset}`;
   }
-  // Outros logs formatados
   else if (/^\[iFood/.test(line)) {
     formatted = `${ANSI.red}🛵 [${timeStr}] [iFood]${ANSI.reset} ${line.replace(/^\[iFood[^\]]*\]/, '').trim()}`;
   } else if (/^\[Lazy DB Pool\]/.test(line)) {
@@ -68,7 +63,7 @@ console.log = function (...args) {
   } else if (/^\[Licença\]/.test(line)) {
     formatted = `${ANSI.yellow}🔑 [${timeStr}] [Licença]${ANSI.reset} ${line.replace(/^\[Licença\]/, '').trim()}`;
   } else if (/^Cliente conectado:/.test(line)) {
-    formatted = `${ANSI.green}🟢 [${timeStr}] [Conexão] Dispositivo Conectado: ${line.replace(/^Cliente conectado:/, '').trim()}${ANSI.reset}`;
+    formatted = `${ANSI.green}🟢 [${timeStr}] [Conexão] Dispositivo: ${line.replace(/^Cliente conectado:/, '').trim()}${ANSI.reset}`;
   }
 
   originalLog.apply(console, [formatted]);
@@ -11626,26 +11621,16 @@ licenseManager.initLicense().then((licState) => {
           process.stdout.write('\r\x1b[K'); // Limpa a linha atual da animação
 
           const banner = `
-${ANSI.cyan}${ANSI.bright}  ╔════════════════════════════════════════════════════════════════════╗
-  ║                                                                    ║
-  ║    ██████╗██╗  ██╗███████╗███████╗    ██████╗███████╗███████╗      ║
-  ║   ██╔════╝██║  ██║██╔════╝██╔════╝   ██╔════╝██╔════╝██╔════╝      ║
-  ║   ██║     ███████║█████╗  █████╗     ██║     ███████╗███████╗      ║
-  ║   ██║     ██╔══██║██╔══╝  ██╔══╝     ██║     ╚════██║╚════██║      ║
-  ║   ╚██████╗██║  ██║███████╗██║        ╚██████╗███████║███████║      ║
-  ║    ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝         ╚═════╝╚══════╝╚══════╝      ║
-  ║                                                                    ║
-  ║              ⚡ CHEF COZINHA HIGH PERFORMANCE SaaS v1.0             ║
-  ╚════════════════════════════════════════════════════════════════════╝${ANSI.reset}
-
-  ${ANSI.bgGreen}${ANSI.bright} 🟢 SISTEMA OPERACIONAL ${ANSI.reset}  Servidor Pronto & Escutando na porta ${PORT}
-  ${ANSI.cyan}📡 ENDEREÇO DA API:${ANSI.reset}     http://localhost:${PORT}
-  ${ANSI.magenta}📱 CONEXÃO LOCAL:${ANSI.reset}       https://${ip}:5173
-  ${ANSI.yellow}🔑 LICENÇA ATIVA:${ANSI.reset}       ${licState.status.toUpperCase()} (${licState.restaurante || 'Dev Mode'})
-  ${ANSI.blue}📊 SAÚDE DO SERVIDOR:${ANSI.reset}   ${getEfficiencyStars()}
-
-${ANSI.dim}────────────────────────────────────────────────────────────────────────${ANSI.reset}
-`;
+${ANSI.cyan}${ANSI.bright}  ╭─────────────────────────── System Fetch ───────────────────────────╮${ANSI.reset}
+${ANSI.cyan}  │${ANSI.reset}   ${ANSI.magenta}󰣇 System:${ANSI.reset}     Chef Cozinha SaaS Kernel v1.0.0
+${ANSI.cyan}  │${ANSI.reset}   ${ANSI.yellow}⚡ Engine:${ANSI.reset}     Node.js ${process.version} (${process.platform})
+${ANSI.cyan}  │${ANSI.reset}   ${ANSI.green}🟢 Status:${ANSI.reset}     Online & Pronto (Porta ${PORT})
+${ANSI.cyan}  │${ANSI.reset}   ${ANSI.cyan}📡 Local API:${ANSI.reset}  http://localhost:${PORT}
+${ANSI.cyan}  │${ANSI.reset}   ${ANSI.blue}📱 Network:${ANSI.reset}    https://${ip}:5173
+${ANSI.cyan}  │${ANSI.reset}   ${ANSI.magenta}🔑 License:${ANSI.reset}    ${licState.status.toUpperCase()} (${licState.restaurante || 'Dev Mode'})
+${ANSI.cyan}  │${ANSI.reset}   ${ANSI.yellow}📊 Health:${ANSI.reset}     ${getEfficiencyStars()}
+${ANSI.cyan}  ╰────────────────────────────────────────────────────────────────────╯${ANSI.reset}
+${ANSI.dim}────────────────────────────────────────────────────────────────────────${ANSI.reset}`;
           originalLog.apply(console, [banner]);
         }
       }

@@ -166,13 +166,11 @@ function main() {
   function renderMenu() {
     console.clear();
     console.log(`
-${ANSI.cyan}${ANSI.bright}  ╔════════════════════════════════════════════════════════════════════╗
-  ║                                                                    ║
-  ║         ⚡ CHEF COZINHA HIGH PERFORMANCE SaaS - STACK BOOT         ║
-  ║                                                                    ║
-  ╚════════════════════════════════════════════════════════════════════╝${ANSI.reset}
+${ANSI.cyan}${ANSI.bright}  ╭─────────────────── Chef Cozinha SaaS ───────────────────╮${ANSI.reset}
+${ANSI.cyan}  │${ANSI.reset}  ${ANSI.magenta}󰣇 System Bootloader:${ANSI.reset} High-Performance Stack v1.0
+${ANSI.cyan}  ╰─────────────────────────────────────────────────────────╯${ANSI.reset}
 
-  ${ANSI.bright}Escolha como deseja iniciar o sistema usando as setas [↑ / ↓] e [ENTER]:${ANSI.reset}\n`);
+  ${ANSI.bright}Escolha a ação desejada [↑ / ↓ / ENTER]:${ANSI.reset}\n`);
 
     options.forEach((opt, idx) => {
       if (idx === selectedIndex) {
