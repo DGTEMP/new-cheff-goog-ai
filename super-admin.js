@@ -202,6 +202,32 @@ function initSuperAdminSockets() {
       showToast('🚨 TENTATIVA DE IMPOSTOR: ' + (data.email || '') + ' no ' + (data.restaurante_nome || ''), 'danger');
       exibirAlertaImpostor(data);
     });
+
+    _superAdminSocket.on('sistema_hot_swapped', function(data) {
+      console.log('🚀 [SuperAdmin] Deploy Hot Swap recebido:', data);
+      tocarNotificacaoSom();
+      showToast('🚀 Deploy realizado! Commit: ' + (data.hash || '') + '. ' + (data.mensagem || ''), 'success');
+      var tbody = document.getElementById('commits-tbody');
+      if (tbody) {
+        var bannerHtml = '<tr><td colspan="5" style="text-align:center;background:rgba(34,197,94,0.15);padding:12px;border-radius:8px;color:#22c55e;font-weight:600;">' +
+          '✅ Deploy Hot Swap aplicado — Commit: ' + esc(data.hash || '') + ' às ' + esc(data.data || '') +
+          '<br><small style="color:var(--text-muted);font-weight:400;">Módulos recarregados: ' + (data.reload_result || []).map(function(r){ return r.modulo; }).join(', ') + '</small></td></tr>';
+        tbody.insertAdjacentHTML('afterbegin', bannerHtml);
+      }
+    });
+
+    _superAdminSocket.on('plugin_atualizado', function(data) {
+      console.log('🔌 [SuperAdmin] Plugin atualizado:', data);
+      var el = document.getElementById('plugin-status-' + data.plugin_id);
+      if (!el) return;
+      if (data.ativo) {
+        el.textContent = 'Ativo (Global)';
+        el.className = 'badge badge-ativo';
+      } else {
+        el.textContent = 'Inativo';
+        el.className = 'badge badge-bloqueado';
+      }
+    });
   } catch (e) {
     console.error('Erro ao conectar socket super-admin:', e);
   }
@@ -476,6 +502,7 @@ function switchTab(targetId) {
     'sec-logs': ['Logs do Sistema', 'Auditoria e logs de requisições API'],
     'sec-config': ['Configurações', 'Configurações globais da plataforma'],
     'sec-funcoes': ['Funções', 'Gerencie funcionalidades habilitadas por restaurante'],
+    'sec-features-restaurante': ['Features Restaurante', 'Configure funcionalidades operacionais por restaurante'],
     'sec-dominios': ['Domínios', 'Configure subdomínios e domínios próprios por restaurante'],
     'sec-capacidade': ['Pico & Capacidade', 'Métricas de uso do servidor e capacidade'],
     'sec-licencas': ['Licenças & Telemetria', 'Chaves de ativação e telemetria dos estabelecimentos'],
@@ -523,6 +550,7 @@ function switchTab(targetId) {
    else if (targetId === 'sec-clientes') carregarClientes();
    else if (targetId === 'sec-suporte') carregarSuporte();
    else if (targetId === 'sec-funcoes') renderFuncoes();
+   else if (targetId === 'sec-features-restaurante') renderFeaturesRestaurante();
    else if (targetId === 'sec-dominios') renderDominios();
    else if (targetId === 'sec-capacidade') renderCapacidade();
    else if (targetId === 'sec-terminal') { resetInactivityTimer(); }
@@ -531,6 +559,7 @@ function switchTab(targetId) {
    else if (targetId === 'sec-afiliados') carregarAfiliados();
    else if (targetId === 'sec-seguranca-waf') carregarConfigSeguranca();
    else if (targetId === 'sec-deploy-updates') carregarCommitsGit();
+   else if (targetId === 'sec-plugins-modulos') carregarPlugins();
 }
 
 /* ═══ DEPLOY ZERO-DOWNTIME & COMMITS ═══ */
@@ -582,15 +611,41 @@ window.togglePluginStatus = function(pluginId) {
   var el = document.getElementById('plugin-status-' + pluginId);
   if (!el) return;
   var isAtivo = el.textContent.indexOf('Ativo') !== -1;
-  if (isAtivo) {
-    el.textContent = 'Inativo';
-    el.className = 'badge badge-bloqueado';
-    showToast('Plugin ' + pluginId + ' desativado globalmente.', 'warning');
-  } else {
-    el.textContent = 'Ativo (Global)';
-    el.className = 'badge badge-ativo';
-    showToast('Plugin ' + pluginId + ' ativado globalmente!', 'success');
-  }
+  var novoEstado = isAtivo ? 0 : 1;
+  apiPost('/api/super/plugins', { plugin_id: pluginId, ativo: novoEstado }, function(err, data) {
+    if (err || !data || !data.ok) {
+      showToast('Erro ao atualizar plugin: ' + (data ? data.erro : 'Erro de conexão'), 'danger');
+      return;
+    }
+    if (novoEstado) {
+      el.textContent = 'Ativo (Global)';
+      el.className = 'badge badge-ativo';
+      showToast('Plugin ' + pluginId + ' ativado globalmente!', 'success');
+    } else {
+      el.textContent = 'Inativo';
+      el.className = 'badge badge-bloqueado';
+      showToast('Plugin ' + pluginId + ' desativado globalmente.', 'warning');
+    }
+  });
+};
+
+window.carregarPlugins = function() {
+  apiGet('/api/super/plugins', function(err, data) {
+    if (err || !data || !data.ok) return;
+    var plugins = data.plugins || [];
+    for (var i = 0; i < plugins.length; i++) {
+      var p = plugins[i];
+      var el = document.getElementById('plugin-status-' + p.plugin_id);
+      if (!el) continue;
+      if (p.ativo) {
+        el.textContent = 'Ativo (Global)';
+        el.className = 'badge badge-ativo';
+      } else {
+        el.textContent = 'Inativo';
+        el.className = 'badge badge-bloqueado';
+      }
+    }
+  });
 };
 
 /* ═══ DASHBOARD ═══ */
@@ -4200,3 +4255,97 @@ window.carregarMetricasComerciaisSuporte = function() {
     }
   });
 };
+
+/* ═══ RENDER FEATURES POR RESTAURANTE ═══ */
+var _restFeatureDefs = [
+  { key: 'feature_venda_sem_estoque',      label: 'Vender sem Estoque',     icon: 'fa-box-open',     color: '#ef4444' },
+  { key: 'feature_toggle_produto_rapido',  label: 'Toggle Produto Rápido', icon: 'fa-toggle-on',    color: '#3b82f6' },
+  { key: 'feature_alterar_valores_pdv',    label: 'Alterar Valores PDV',   icon: 'fa-dollar-sign',  color: '#f59e0b' },
+  { key: 'feature_clientes_ativos',        label: 'Clientes Ativos Hoje',  icon: 'fa-users',        color: '#8b5cf6' },
+  { key: 'feature_produto_mais_vendido',   label: 'Produto Mais Vendido',  icon: 'fa-trophy',       color: '#10b981' },
+  { key: 'feature_maior_lucro',            label: 'Maior Lucro',           icon: 'fa-chart-line',   color: '#06b6d4' },
+  { key: 'feature_impressao_digital',      label: 'Impressão Digital',     icon: 'fa-desktop',      color: '#22c55e' },
+  { key: 'feature_impressao_termica',      label: 'Impressão Térmica',     icon: 'fa-print',        color: '#ec4899' },
+  { key: 'feature_produtos_lote',          label: 'Produtos em Lote',      icon: 'fa-layer-group',  color: '#a855f7' }
+];
+
+window.renderFeaturesRestaurante = function() {
+  apiGet('/api/super/features', function(err, data) {
+    if (err || !data || !data.ok) {
+      var tbody = document.getElementById('rest-feat-tbody');
+      if (tbody) tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--danger);padding:20px;">Erro ao carregar restaurantes.</td></tr>';
+      return;
+    }
+    var tenants = data.tenants || [];
+    var searchVal = (document.getElementById('rest-feat-search') ? document.getElementById('rest-feat-search').value : '').toLowerCase();
+    if (searchVal) {
+      tenants = tenants.filter(function(t) { return (t.nome || '').toLowerCase().indexOf(searchVal) !== -1; });
+    }
+    if (tenants.length === 0) {
+      var tbody = document.getElementById('rest-feat-tbody');
+      if (tbody) tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--text-muted);padding:20px;">Nenhum restaurante encontrado.</td></tr>';
+      return;
+    }
+
+    var tbody = document.getElementById('rest-feat-tbody');
+    var html = '';
+    for (var i = 0; i < tenants.length; i++) {
+      var t = tenants[i];
+      html += '<tr>';
+      html += '<td style="font-weight:600;">' + t.id + '</td>';
+      html += '<td style="font-weight:600;color:white;">' + escapeHtml(t.nome) + '</td>';
+      html += '<td id="rest-feat-chips-' + t.id + '"><span style="color:var(--text-muted);font-size:0.8rem;">Carregando...</span></td>';
+      html += '</tr>';
+    }
+    tbody.innerHTML = html;
+
+    for (var j = 0; j < tenants.length; j++) {
+      loadRestFeatures(tenants[j].id);
+    }
+  });
+};
+
+function loadRestFeatures(restId) {
+  apiGet('/api/super/restaurant-features/' + restId, function(err, data) {
+    var container = document.getElementById('rest-feat-chips-' + restId);
+    if (!container) return;
+    if (err || !data || !data.ok) {
+      container.innerHTML = '<span style="color:var(--danger);font-size:0.8rem;">Erro ao carregar</span>';
+      return;
+    }
+    var features = data.features || {};
+    var html = '';
+    for (var i = 0; i < _restFeatureDefs.length; i++) {
+      var f = _restFeatureDefs[i];
+      var enabled = features[f.key] === 'true';
+      var chipBg = enabled ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.1)';
+      var chipColor = enabled ? '#34d399' : '#f87171';
+      var chipBorder = enabled ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.2)';
+      html += '<span style="display:inline-block;padding:3px 10px;border-radius:100px;font-size:0.72rem;font-weight:600;background:' + chipBg + ';color:' + chipColor + ';border:1px solid ' + chipBorder + ';margin:2px;cursor:pointer;" ' +
+        'onclick="toggleRestFeature(' + restId + ',\'' + f.key + '\',' + !enabled + ')" ' +
+        'title="' + escapeHtml(f.label) + '">' +
+        '<i class="fa-solid ' + f.icon + '" style="margin-right:3px;"></i>' + escapeHtml(f.label) + '</span>';
+    }
+    container.innerHTML = html;
+  });
+}
+
+window.toggleRestFeature = function(restId, key, value) {
+  apiPost('/api/super/restaurant-features', { restaurante_id: restId, feature: key, value: value }, function(err, data) {
+    if (err || !data || !data.ok) {
+      showToast('Erro ao alterar feature: ' + (err ? err.message : (data ? data.erro : 'Falha')), 'danger');
+      return;
+    }
+    showToast('Feature ' + (value ? 'ativada' : 'desativada') + ' com sucesso!', 'success');
+    loadRestFeatures(restId);
+  });
+};
+
+var restFeatSearch = document.getElementById('rest-feat-search');
+if (restFeatSearch) {
+  restFeatSearch.addEventListener('input', function() { renderFeaturesRestaurante(); });
+}
+var btnRefreshRestFeat = document.getElementById('btn-refresh-rest-feat');
+if (btnRefreshRestFeat) {
+  btnRefreshRestFeat.addEventListener('click', function() { renderFeaturesRestaurante(); });
+}

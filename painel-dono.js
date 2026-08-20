@@ -527,6 +527,66 @@ socket.on('dono_acao_erro', (data) => {
 window.onload = () => {
   startClock();
   carregarMetricas();
+  carregarFuncionalidades();
 };
 startClock();
 carregarMetricas();
+
+// ─── Funcionalidades (Feature Toggles) ────────────────────────
+const FEATURE_DEFS = [
+  { key: 'feature_venda_sem_estoque',      label: 'Vender sem Estoque',       desc: 'Vender com estoque zerado',  icon: 'ph-package',         color: '#ef4444' },
+  { key: 'feature_toggle_produto_rapido',  label: 'Toggle Produto Rápido',   desc: 'Ativar/desativar na lista',  icon: 'ph-toggle-right',    color: '#3b82f6' },
+  { key: 'feature_alterar_valores_pdv',    label: 'Alterar Valores PDV',     desc: 'Mudar preço no carrinho',    icon: 'ph-currency-dollar', color: '#f59e0b' },
+  { key: 'feature_clientes_ativos',        label: 'Clientes Ativos Hoje',    desc: 'Ranking de clientes',        icon: 'ph-users-three',     color: '#8b5cf6' },
+  { key: 'feature_produto_mais_vendido',   label: 'Mais Vendido',            desc: 'Produto campeão do dia',     icon: 'ph-trophy',          color: '#10b981' },
+  { key: 'feature_maior_lucro',            label: 'Maior Lucro',             desc: 'Produto mais lucrativo',     icon: 'ph-chart-line-up',   color: '#06b6d4' },
+  { key: 'feature_impressao_digital',      label: 'Impressão Digital',       desc: 'Pedidos na fila digital',    icon: 'ph-monitor',         color: '#22c55e' },
+  { key: 'feature_impressao_termica',      label: 'Impressão Térmica',       desc: 'Imprimir na termica',        icon: 'ph-printer',         color: '#ec4899' },
+  { key: 'feature_produtos_lote',          label: 'Produtos em Lote',        desc: 'Gestão em massa',            icon: 'ph-stack',           color: '#a855f7' }
+];
+
+async function carregarFuncionalidades() {
+  try {
+    const res = await fetch('/api/config', { headers: { 'Authorization': `Bearer ${token}` } });
+    if (!res.ok) return;
+    const cfgs = await res.json();
+    const grid = document.getElementById('features-grid-dono');
+    if (!grid) return;
+
+    grid.innerHTML = FEATURE_DEFS.map(f => {
+      const val = cfgs[f.key] === 'true' || cfgs[f.key] === true;
+      return `
+        <div class="feature-card ${val ? 'active' : ''}" id="fc-${f.key}">
+          <div class="feature-icon" style="background:${f.color}15;">
+            <i class="ph ${f.icon}" style="color:${f.color};"></i>
+          </div>
+          <div class="feature-info">
+            <div class="feature-name">${f.label}</div>
+            <div class="feature-desc">${f.desc}</div>
+          </div>
+          <label class="feature-toggle">
+            <input type="checkbox" ${val ? 'checked' : ''} onchange="window.toggleFeatureDono('${f.key}', this.checked)">
+            <span class="track"></span>
+            <span class="thumb"></span>
+          </label>
+        </div>`;
+    }).join('');
+  } catch (e) {
+    console.error('Erro ao carregar funcionalidades:', e);
+  }
+}
+
+window.toggleFeatureDono = async function(key, value) {
+  try {
+    await fetch('/api/config', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ [key]: String(value) })
+    });
+    const card = document.getElementById('fc-' + key);
+    if (card) card.classList.toggle('active', value);
+    showToast(`${value ? 'Funcionalidade ativada' : 'Funcionalidade desativada'}`, 'ph-check-circle', 'success');
+  } catch (e) {
+    showToast('Erro ao salvar funcionalidade', 'ph-warning', 'error');
+  }
+};

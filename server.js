@@ -4565,6 +4565,77 @@ db.serialize(() => {
   db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('qr_pix_name', '')`);
   db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('hub_delivery_config', '{"enabled":false,"canais":[{"nome":"iFood","ativo":true},{"nome":"Rappi","ativo":true},{"nome":"Uber Eats","ativo":true},{"nome":"Mucho","ativo":true},{"nome":"Próprio","ativo":true}],"taxa":"0.00","tempo":45}')`);
 
+  // Feature toggles do restaurante
+  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('feature_venda_sem_estoque', 'false')`);
+  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('feature_toggle_produto_rapido', 'true')`);
+  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('feature_alterar_valores_pdv', 'false')`);
+  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('feature_clientes_ativos', 'true')`);
+  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('feature_produto_mais_vendido', 'true')`);
+  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('feature_maior_lucro', 'true')`);
+  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('feature_impressao_digital', 'true')`);
+  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('feature_impressao_termica', 'false')`);
+  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('feature_produtos_lote', 'false')`);
+  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('feature_jogos', 'true')`);
+  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('jogos_premiacao_automatica', 'true')`);
+  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('jogos_pontos_vitoria', '10')`);
+  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('jogos_pontos_derrota', '2')`);
+
+  // ══════ TABELAS DE JOGOS/GAMIFICAÇÃO ══════
+  db.run(`
+    CREATE TABLE IF NOT EXISTS jogos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      nome TEXT NOT NULL,
+      tipo TEXT NOT NULL,
+      emoji TEXT DEFAULT '🎮',
+      descricao TEXT,
+      regras TEXT,
+      premio_vencedor TEXT DEFAULT 'Quem paga a conta!',
+      premio_perdedor TEXT DEFAULT 'Perdeu, perdeu!',
+      ativo INTEGER DEFAULT 1,
+      created_at DATETIME DEFAULT (datetime('now', 'localtime'))
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS jogos_partidas (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      jogo_id INTEGER,
+      mesa TEXT,
+      jogador1_nome TEXT,
+      jogador1_comanda TEXT,
+      jogador1_cliente_id INTEGER,
+      jogador1_escolha TEXT,
+      jogador2_nome TEXT,
+      jogador2_comanda TEXT,
+      jogador2_cliente_id INTEGER,
+      jogador2_escolha TEXT,
+      rodada INTEGER DEFAULT 1,
+      max_rodadas INTEGER DEFAULT 3,
+      status TEXT DEFAULT 'aguardando',
+      vencedor TEXT,
+      resultado_json TEXT,
+      premio_descricao TEXT,
+      created_at DATETIME DEFAULT (datetime('now', 'localtime')),
+      finished_at DATETIME
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS jogos_historico (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      jogo_id INTEGER,
+      jogo_nome TEXT,
+      mesa TEXT,
+      jogador1_nome TEXT,
+      jogador2_nome TEXT,
+      vencedor TEXT,
+      perdedor TEXT,
+      rodadas_jogadas INTEGER DEFAULT 1,
+      premio_descricao TEXT,
+      created_at DATETIME DEFAULT (datetime('now', 'localtime'))
+    )
+  `);
+
   // Inserir um cupom de teste inicial
   const testItems = [
     { nome: "Cerveja Lata", emoji: "🍺", quantity: 1, sector: "Bar" },
@@ -7735,6 +7806,253 @@ io.on('connection', (socket) => {
   socket.on('get_itens_mesa', (mesaName) => {
     db.all(`SELECT * FROM pedidos WHERE (localName = ? OR mesa_grupo = ? OR mesa_comanda = ?) AND status NOT IN ('Finalizado','Cancelado')`, [mesaName, mesaName, mesaName], (err, rows) => {
       socket.emit('itens_mesa_recebidos', { mesaName, items: rows || [] });
+    });
+  });
+
+  // ══════ JOGOS / GAMIFICAÇÃO ══════
+  const jogosEmAndamento = {};
+
+  // Listar jogos disponíveis
+  socket.on('jogos_listar', () => {
+    db.all(`SELECT * FROM jogos WHERE ativo = 1 ORDER BY nome`, [], (err, rows) => {
+      socket.emit('jogos_lista', rows || []);
+    });
+  });
+
+  // Listar partidas em andamento na mesa
+  socket.on('jogos_partidas_mesa', (mesa) => {
+    if (!mesa) return;
+    const chave = socket.handshake.query.restaurante_id + ':' + mesa;
+    const partidas = jogosEmAndamento[chave] || [];
+    socket.emit('jogos_partidas_lista', partidas.filter(p => p.status !== 'finalizado'));
+  });
+
+  // Criar nova partida
+  socket.on('jogos_criar_partida', (data) => {
+    const { jogo_id, mesa, jogador1_nome, jogador1_comanda, jogador1_cliente_id } = data || {};
+    if (!jogo_id || !mesa || !jogador1_nome) {
+      return socket.emit('jogos_erro', { erro: 'Dados incompletos para criar partida.' });
+    }
+    db.get(`SELECT * FROM jogos WHERE id = ? AND ativo = 1`, [jogo_id], (err, jogo) => {
+      if (err || !jogo) return socket.emit('jogos_erro', { erro: 'Jogo não encontrado.' });
+      const rid = socket.handshake.query.restaurante_id;
+      const chave = rid + ':' + mesa;
+      if (!jogosEmAndamento[chave]) jogosEmAndamento[chave] = [];
+      const partida = {
+        id: Date.now(),
+        jogo_id: jogo.id,
+        jogo_nome: jogo.nome,
+        jogo_tipo: jogo.tipo,
+        jogo_emoji: jogo.emoji,
+        mesa,
+        jogador1: { nome: jogador1_nome, comanda: jogador1_comanda || '', cliente_id: jogador1_cliente_id || null, escolha: null },
+        jogador2: null,
+        rodada: 1,
+        max_rodadas: 3,
+        status: 'aguardando',
+        vencedor: null,
+        premio_descricao: jogo.premio_vencedor || 'Vencedor não paga!',
+        resultado_rodada: [],
+        created_at: new Date().toISOString()
+      };
+      jogosEmAndamento[chave].push(partida);
+      io.to(`mesa_${mesa}`).emit('jogos_partida_criada', partida);
+      socket.emit('jogos_partida_criada', partida);
+    });
+  });
+
+  // Entrar numa partida existente
+  socket.on('jogos_entrar_partida', (data) => {
+    const { partida_id, mesa, jogador2_nome, jogador2_comanda, jogador2_cliente_id } = data || {};
+    if (!partida_id || !mesa || !jogador2_nome) {
+      return socket.emit('jogos_erro', { erro: 'Dados incompletos.' });
+    }
+    const rid = socket.handshake.query.restaurante_id;
+    const chave = rid + ':' + mesa;
+    const partidas = jogosEmAndamento[chave] || [];
+    const partida = partidas.find(p => p.id == partida_id && p.status === 'aguardando');
+    if (!partida) return socket.emit('jogos_erro', { erro: 'Partida não encontrada ou já iniciada.' });
+    if (partida.jogador1.nome === jogador2_nome) {
+      return socket.emit('jogos_erro', { erro: 'Você não pode jogar contra si mesmo!' });
+    }
+    partida.jogador2 = { nome: jogador2_nome, comanda: jogador2_comanda || '', cliente_id: jogador2_cliente_id || null, escolha: null };
+    partida.status = 'em_andamento';
+    io.to(`mesa_${mesa}`).emit('jogos_partida_atualizada', partida);
+  });
+
+  // Fazer jogada (escolha)
+  socket.on('jogos_fazer_jogada', (data) => {
+    const { partida_id, mesa, jogador_nome, escolha } = data || {};
+    if (!partida_id || !mesa || !jogador_nome || escolha === undefined) {
+      return socket.emit('jogos_erro', { erro: 'Dados incompletos para jogada.' });
+    }
+    const rid = socket.handshake.query.restaurante_id;
+    const chave = rid + ':' + mesa;
+    const partidas = jogosEmAndamento[chave] || [];
+    const partida = partidas.find(p => p.id == partida_id && p.status === 'em_andamento');
+    if (!partida) return socket.emit('jogos_erro', { erro: 'Partida não encontrada.' });
+
+    let isJ1 = partida.jogador1 && partida.jogador1.nome === jogador_nome;
+    let isJ2 = partida.jogador2 && partida.jogador2.nome === jogador_nome;
+    if (!isJ1 && !isJ2) return socket.emit('jogos_erro', { erro: 'Jogador não pertence a esta partida.' });
+
+    if (isJ1) partida.jogador1.escolha = escolha;
+    if (isJ2) partida.jogador2.escolha = escolha;
+
+    io.to(`mesa_${mesa}`).emit('jogos_jogada_recebida', {
+      partida_id,
+      jogador_nome,
+      escolha_pendente: (isJ1 && !partida.jogador2?.escolha) || (isJ2 && !partida.jogador1?.escolha)
+    });
+
+    // Se ambos escolheram, resolve a rodada
+    if (partida.jogador1.escolha !== null && partida.jogador2 && partida.jogador2.escolha !== null) {
+      const resultado = resolverRodada(partida);
+      partida.resultado_rodada.push(resultado);
+      io.to(`mesa_${mesa}`).emit('jogos_resultado_rodada', {
+        partida_id,
+        rodada: partida.rodada,
+        resultado
+      });
+
+      if (partida.rodada >= partida.max_rodadas) {
+        const vitoriasJ1 = partida.resultado_rodada.filter(r => r.vencedor === partida.jogador1.nome).length;
+        const vitoriasJ2 = partida.resultado_rodada.filter(r => r.vencedor === partida.jogador2.nome).length;
+        const empates = partida.resultado_rodada.filter(r => r.vencedor === 'empate').length;
+        let vencedorFinal = 'empate';
+        if (vitoriasJ1 > vitoriasJ2) vencedorFinal = partida.jogador1.nome;
+        else if (vitoriasJ2 > vitoriasJ1) vencedorFinal = partida.jogador2.nome;
+        const perdedorFinal = vencedorFinal === 'empate' ? null :
+          (vencedorFinal === partida.jogador1.nome ? partida.jogador2.nome : partida.jogador1.nome);
+
+        partida.status = 'finalizado';
+        partida.vencedor = vencedorFinal;
+
+        db.run(`INSERT INTO jogos_historico (jogo_id, jogo_nome, mesa, jogador1_nome, jogador2_nome, vencedor, perdedor, rodadas_jogadas, premio_descricao, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now','localtime'))`,
+          [partida.jogo_id, partida.jogo_nome, mesa, partida.jogador1.nome, partida.jogador2.nome,
+           vencedorFinal, perdedorFinal, partida.max_rodadas, partida.premio_descricao]);
+
+        // Dar pontos
+        db.all(`SELECT chave, valor FROM configuracoes WHERE chave IN ('jogos_pontos_vitoria','jogos_pontos_derrota','feature_jogos')`, [], (err, cfgRows) => {
+          const cfg = {};
+          (cfgRows || []).forEach(r => cfg[r.chave] = r.valor);
+          if (cfg.feature_jogos === 'false') return;
+          const ptsVitoria = parseInt(cfg.jogos_pontos_vitoria) || 10;
+          const ptsDerrota = parseInt(cfg.jogos_pontos_derrota) || 2;
+          if (perdedorFinal && vencedorFinal !== 'empate') {
+            const cidV = vencedorFinal === partida.jogador1.nome ? partida.jogador1.cliente_id : partida.jogador2?.cliente_id;
+            const cidD = vencedorFinal === partida.jogador1.nome ? partida.jogador2?.cliente_id : partida.jogador1.cliente_id;
+            if (cidV) db.run(`UPDATE clientes SET pontos = pontos + ? WHERE id = ?`, [ptsVitoria, cidV]);
+            if (cidD) db.run(`UPDATE clientes SET pontos = pontos + ? WHERE id = ?`, [ptsDerrota, cidD]);
+          }
+        });
+
+        io.to(`mesa_${mesa}`).emit('jogos_partida_finalizada', {
+          partida_id,
+          vencedor: vencedorFinal,
+          perdedor: perdedorFinal,
+          placar: { jogador1: vitoriasJ1, jogador2: vitoriasJ2, empates },
+          premio: partida.premio_descricao
+        });
+      } else {
+        partida.rodada++;
+        partida.jogador1.escolha = null;
+        if (partida.jogador2) partida.jogador2.escolha = null;
+      }
+    }
+  });
+
+  function resolverRodada(partida) {
+    const tipo = partida.jogador1?.escolha !== undefined ? partida.jogo_tipo : 'par_impar';
+    const e1 = partida.jogador1?.escolha;
+    const e2 = partida.jogador2?.escolha;
+    const n1 = partida.jogador1.nome;
+    const n2 = partida.jogador2?.nome || 'Adversário';
+
+    if (tipo === 'par_impar') {
+      const soma = (parseInt(e1) || 0) + (parseInt(e2) || 0);
+      const isPar = soma % 2 === 0;
+      const vencedor = (e1 === 'par' && isPar) || (e1 === 'impar' && !isPar) ? n1 : n2;
+      return { tipo, escolha1: e1, escolha2: e2, soma, resultado: isPar ? 'par' : 'impar', vencedor };
+    }
+    if (tipo === 'dedos') {
+      const soma = (parseInt(e1) || 0) + (parseInt(e2) || 0);
+      const vencedor = soma % 2 === 0 ? n1 : n2;
+      return { tipo, escolha1: e1, escolha2: e2, soma, resultado: soma % 2 === 0 ? 'par' : 'impar', vencedor };
+    }
+    if (tipo === 'dois_ou_um') {
+      const vencedor = (parseInt(e1) || 0) === 2 && (parseInt(e2) || 0) === 1 ? n1 :
+        (parseInt(e1) || 0) === 1 && (parseInt(e2) || 0) === 2 ? n2 : 'empate';
+      return { tipo, escolha1: e1, escolha2: e2, vencedor };
+    }
+    if (tipo === 'botao_grande') {
+      const t1 = parseInt(e1) || 0;
+      const t2 = parseInt(e2) || 0;
+      const vencedor = t1 === t2 ? 'empate' : (t1 < t2 ? n1 : n2);
+      return { tipo, escolha1: e1, escolha2: e2, vencedor };
+    }
+    if (tipo === 'mao_orelha') {
+      const mao = parseInt(e1) || 0;
+      const palpite = parseInt(e2) || 0;
+      const vencedor = palpite === mao ? n2 : n1;
+      return { tipo, mao, palpite, vencedor };
+    }
+    if (tipo === 'ultimo_tirar_dedo') {
+      const vencedor = (parseInt(e1) || 0) === 1 ? n1 : n2;
+      return { tipo, escolha1: e1, escolha2: e2, vencedor };
+    }
+    return { tipo, escolha1: e1, escolha2: e2, vencedor: 'empate' };
+  }
+
+  // Cancelar partida
+  socket.on('jogos_cancelar_partida', (data) => {
+    const { partida_id, mesa } = data || {};
+    const rid = socket.handshake.query.restaurante_id;
+    const chave = rid + ':' + mesa;
+    const partidas = jogosEmAndamento[chave] || [];
+    const idx = partidas.findIndex(p => p.id == partida_id);
+    if (idx !== -1) {
+      partidas[idx].status = 'cancelado';
+      partidas.splice(idx, 1);
+      io.to(`mesa_${mesa}`).emit('jogos_partida_cancelada', { partida_id });
+    }
+  });
+
+  // Admin: listar todos os jogos (incluindo inativos)
+  socket.on('admin_jogos_listar', () => {
+    db.all(`SELECT * FROM jogos ORDER BY id`, [], (err, rows) => {
+      socket.emit('admin_jogos_lista', rows || []);
+    });
+  });
+
+  // Admin: criar/editar jogo
+  socket.on('admin_jogos_salvar', (data) => {
+    const { id, nome, tipo, emoji, descricao, regras, premio_vencedor, premio_perdedor, ativo } = data || {};
+    if (!nome || !tipo) return socket.emit('jogos_erro', { erro: 'Nome e tipo são obrigatórios.' });
+    if (id) {
+      db.run(`UPDATE jogos SET nome=?, tipo=?, emoji=?, descricao=?, regras=?, premio_vencedor=?, premio_perdedor=?, ativo=? WHERE id=?`,
+        [nome, tipo, emoji || '🎮', descricao || '', regras || '', premio_vencedor || '', premio_perdedor || '', ativo !== undefined ? (ativo ? 1 : 0) : 1, id],
+        function() { socket.emit('admin_jogos_salvo', { ok: true }); });
+    } else {
+      db.run(`INSERT INTO jogos (nome, tipo, emoji, descricao, regras, premio_vencedor, premio_perdedor, ativo) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [nome, tipo, emoji || '🎮', descricao || '', regras || '', premio_vencedor || '', premio_perdedor || '', ativo !== undefined ? (ativo ? 1 : 0) : 1],
+        function() { socket.emit('admin_jogos_salvo', { ok: true }); });
+    }
+  });
+
+  // Admin: excluir jogo
+  socket.on('admin_jogos_excluir', (id) => {
+    if (!id) return;
+    db.run(`DELETE FROM jogos WHERE id = ?`, [id], function() {
+      socket.emit('admin_jogos_salvo', { ok: true });
+    });
+  });
+
+  // Admin: histórico de partidas
+  socket.on('admin_jogos_historico', () => {
+    db.all(`SELECT * FROM jogos_historico ORDER BY id DESC LIMIT 50`, [], (err, rows) => {
+      socket.emit('admin_jogos_historico_lista', rows || []);
     });
   });
 
@@ -12008,8 +12326,9 @@ app.get('/api/dono/dashboard', (req, res) => {
             WHERE data_saida IS NULL OR saida IS NULL
           `, [], (err4, ativosRow) => {
             dbInst.get(`
-              SELECT status, saldo_final, data_abertura 
+              SELECT status, saldo_final, fundo_troco, data_abertura 
               FROM turnos_caixa 
+              WHERE status = 'Aberto'
               ORDER BY id DESC 
               LIMIT 1
             `, [], (err5, caixaRow) => {
@@ -12031,7 +12350,7 @@ app.get('/api/dono/dashboard', (req, res) => {
                     ticketMedio: ticketRow?.avgTotal || 0,
                     colaboradoresAtivos: ativosRow?.ativos || 0,
                     caixaStatus: caixaRow?.status || 'Fechado',
-                    caixaSaldo: caixaRow?.saldo_final || 0,
+                    caixaSaldo: caixaRow?.status === 'Aberto' ? (caixaRow?.fundo_troco || 0) : (caixaRow?.saldo_final || 0),
                     topProdutos: topProdutos || []
                   }
                 });
@@ -12085,6 +12404,48 @@ app.post('/api/auth/notificar-impostor', (req, res) => {
   });
 });
 
+// ══════ PLUGINS & MÓDULOS ══════
+// CREATE TABLE IF NOT EXISTS super_plugins (plugin_id TEXT PRIMARY KEY, nome TEXT, descricao TEXT, ativo INTEGER DEFAULT 1, atualizado_em DATETIME DEFAULT (datetime('now','localtime')));
+masterDb.serialize(() => {
+  masterDb.run(`CREATE TABLE IF NOT EXISTS super_plugins (
+    plugin_id TEXT PRIMARY KEY,
+    nome TEXT,
+    descricao TEXT,
+    ativo INTEGER DEFAULT 1,
+    atualizado_em DATETIME DEFAULT (datetime('now','localtime'))
+  )`);
+  const defaultPlugins = [
+    ['ifood', 'iFood Integrado Direct', 'Integração nativa de pedidos, cardápio e cancelamento automático com o iFood.'],
+    ['whatsapp', 'WhatsApp Bot Atendimento', 'Disparo de notificação de pedido pronto e robô de pedidos automáticos.'],
+    ['balanca', 'Balança Self-Service / Kilo', 'Conexão direta com balanças Toledo, Filizola e Urano via Serial/USB.'],
+    ['kds', 'KDS Inteligente (Cozinha)', 'Painel de TV para gerenciamento de pedidos na cozinha com tempos de preparo.'],
+    ['pix_automatico', 'Pagamentos PIX Automáticos', 'Geração automática de QR Code PIX e conciliação de pagamentos.']
+  ];
+  defaultPlugins.forEach(p => {
+    masterDb.run(`INSERT OR IGNORE INTO super_plugins (plugin_id, nome, descricao, ativo) VALUES (?, ?, ?, 1)`, p);
+  });
+});
+
+app.get('/api/super/plugins', superAdminAuth, (req, res) => {
+  masterDb.all(`SELECT * FROM super_plugins ORDER BY plugin_id`, [], (err, rows) => {
+    if (err) return res.json({ ok: false, erro: err.message });
+    res.json({ ok: true, plugins: rows || [] });
+  });
+});
+
+app.post('/api/super/plugins', superAdminAuth, (req, res) => {
+  const { plugin_id, ativo } = req.body || {};
+  if (!plugin_id) return res.json({ ok: false, erro: 'plugin_id é obrigatório.' });
+  masterDb.run(`UPDATE super_plugins SET ativo = ?, atualizado_em = datetime('now','localtime') WHERE plugin_id = ?`,
+    [ativo ? 1 : 0, plugin_id], function(err) {
+      if (err) return res.json({ ok: false, erro: err.message });
+      if (io) {
+        io.emit('plugin_atualizado', { plugin_id, ativo: !!ativo });
+      }
+      res.json({ ok: true, mensagem: `Plugin ${plugin_id} ${ativo ? 'ativado' : 'desativado'}.` });
+    });
+});
+
 // GET /api/super/commits — Lista os últimos 15 commits do repositório Git
 app.get('/api/super/commits', superAdminAuth, (req, res) => {
   const { exec } = require('child_process');
@@ -12109,13 +12470,44 @@ app.post('/api/super/deploy-commit', superAdminAuth, (req, res) => {
   const { hash } = req.body || {};
   if (!hash) return res.json({ ok: false, erro: 'Hash do commit é obrigatório.' });
 
-  const { exec } = require('child_process');
-  exec(`git checkout ${hash}`, (err) => {
-    if (err) return res.json({ ok: false, erro: 'Erro ao alternar para o commit: ' + err.message });
+  const { exec: execCb } = require('child_process');
+  const safeHash = String(hash).replace(/[^a-f0-9]/gi, '');
+
+  execCb(`git fetch origin && git checkout ${safeHash}`, (err, stdout, stderr) => {
+    if (err) return res.json({ ok: false, erro: 'Erro ao alternar para o commit: ' + (stderr || err.message) });
+
+    const reloadResult = [];
+    const modulesToReload = [
+      './controllers/super-admin.js',
+      './controllers/socket-financeiro.js',
+      './controllers/sync-server.js',
+      './deployment-config.js',
+      './sync-agent.js',
+      './feature-plans.js'
+    ];
+    modulesToReload.forEach(mod => {
+      try {
+        delete require.cache[require.resolve(mod)];
+        reloadResult.push({ modulo: mod, status: 'recarregado' });
+      } catch (e) {
+        reloadResult.push({ modulo: mod, status: 'ignorado: ' + e.message });
+      }
+    });
+
     if (io) {
-      io.emit('sistema_hot_swapped', { hash, data: new Date().toISOString() });
+      io.emit('sistema_hot_swapped', {
+        hash: safeHash,
+        data: new Date().toISOString(),
+        reload_result: reloadResult,
+        mensagem: 'Servidor atualizado para commit ' + safeHash + '. Recarregue a página para ver mudanças.'
+      });
     }
-    res.json({ ok: true, mensagem: `Deploy Zero-Downtime efetuado com sucesso para o commit ${hash}!` });
+
+    res.json({
+      ok: true,
+      mensagem: `Deploy Zero-Downtime efetuado para o commit ${safeHash}. ${reloadResult.length} módulo(s) recarregado(s).`,
+      reload_result: reloadResult
+    });
   });
 });
 

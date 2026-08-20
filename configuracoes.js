@@ -334,7 +334,19 @@ let configs = {
   qr_pix_name: "",
   qr_protocol: "",
   qr_port: "",
-  ponto_saida_fechar_caixa: false
+  ponto_saida_fechar_caixa: false,
+  feature_venda_sem_estoque: false,
+  feature_toggle_produto_rapido: true,
+  feature_alterar_valores_pdv: false,
+  feature_clientes_ativos: true,
+  feature_produto_mais_vendido: true,
+  feature_maior_lucro: true,
+  feature_impressao_digital: true,
+  feature_impressao_termica: false,
+  feature_produtos_lote: false,
+  feature_jogos: true,
+  jogos_pontos_vitoria: 10,
+  jogos_pontos_derrota: 2
 };
 
 let serverIp = window.location.hostname;
@@ -462,6 +474,15 @@ document.addEventListener('DOMContentLoaded', () => {
       configs.modo_touch = (configs.modo_touch === 'true' || configs.modo_touch === true);
       configs.qr_order_enabled = (configs.qr_order_enabled === 'true' || configs.qr_order_enabled === true);
       configs.ponto_saida_fechar_caixa = (configs.ponto_saida_fechar_caixa === 'true' || configs.ponto_saida_fechar_caixa === true);
+      configs.feature_venda_sem_estoque = (configs.feature_venda_sem_estoque === 'true' || configs.feature_venda_sem_estoque === true);
+      configs.feature_toggle_produto_rapido = (configs.feature_toggle_produto_rapido === 'true' || configs.feature_toggle_produto_rapido === true);
+      configs.feature_alterar_valores_pdv = (configs.feature_alterar_valores_pdv === 'true' || configs.feature_alterar_valores_pdv === true);
+      configs.feature_clientes_ativos = (configs.feature_clientes_ativos === 'true' || configs.feature_clientes_ativos === true);
+      configs.feature_produto_mais_vendido = (configs.feature_produto_mais_vendido === 'true' || configs.feature_produto_mais_vendido === true);
+      configs.feature_maior_lucro = (configs.feature_maior_lucro === 'true' || configs.feature_maior_lucro === true);
+      configs.feature_impressao_digital = (configs.feature_impressao_digital === 'true' || configs.feature_impressao_digital === true);
+      configs.feature_impressao_termica = (configs.feature_impressao_termica === 'true' || configs.feature_impressao_termica === true);
+      configs.feature_produtos_lote = (configs.feature_produtos_lote === 'true' || configs.feature_produtos_lote === true);
       if (typeof configs.destaques_itens === 'string') configs.destaques_itens = JSON.parse(configs.destaques_itens || '[]');
       if (!configs.destaques_itens) configs.destaques_itens = [];
       if (typeof configs.ordem_categorias === 'string') configs.ordem_categorias = JSON.parse(configs.ordem_categorias || '[]');
@@ -477,6 +498,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (typeof window.initMaquininhasTab === 'function') window.initMaquininhasTab();
     if (typeof window.initSoundTab === 'function') window.initSoundTab();
     initFilaEsperaTab();
+    initFuncionalidadesTab();
   }).catch(err => {
     console.error('Erro ao carregar configs:', err);
     initGeraisTab();
@@ -1067,6 +1089,15 @@ document.addEventListener('DOMContentLoaded', () => {
   ['rh-filter-start', 'rh-filter-end'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.addEventListener('change', emitGetRhData);
+  });
+
+  // Jogos tab init
+  document.querySelectorAll('.admin-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (btn.getAttribute('data-tab') === 'jogos') {
+        if (typeof initAdminJogos === 'function') initAdminJogos();
+      }
+    });
   });
 });
 
@@ -1914,10 +1945,13 @@ socket.on('produtos_atualizados', (prods) => {
   // 2. Populate product list in table
   const list = document.getElementById('admin-produtos-list');
   if (!list) return;
+  const toggleRapido = configs.feature_toggle_produto_rapido === true;
+  const importSection = document.getElementById('produtos-lote-import-section');
+  if (importSection) importSection.style.display = configs.feature_produtos_lote === true ? 'flex' : 'none';
   list.innerHTML = prods
     .filter(p => p.id < 90000)
     .map(p => `
-    <tr style="border-bottom: 1px solid #eee;">
+    <tr style="border-bottom: 1px solid #eee; ${p.status === 'inativo' ? 'opacity:0.55;' : ''}">
       <td style="padding: 10px; font-weight: 500;">${escapeHtml(p.categoria)}</td>
       <td style="padding: 10px;">${escapeHtml(p.emoji || '')} ${escapeHtml(p.nome)}</td>
       <td style="padding: 10px; font-weight: bold; color: #3ab55b;">R$ ${parseFloat(p.preco).toFixed(2).replace('.', ',')}</td>
@@ -1929,6 +1963,7 @@ socket.on('produtos_atualizados', (prods) => {
         <span class="badge ${p.visibilidade === 'caixa' ? 'badge-blue' : (p.visibilidade === 'garcom' ? 'badge-purple' : 'badge-orange')}" style="font-size:11px;">${p.visibilidade === 'caixa' ? 'Só Caixa' : (p.visibilidade === 'garcom' ? 'Garçom' : 'Todos')}</span>
       </td>
       <td style="padding: 10px;">
+        ${toggleRapido ? `<button onclick="window.toggleProdutoRapido(${p.id}, '${p.status || 'ativo'}')" style="color: ${p.status === 'inativo' ? '#22c55e' : '#f59e0b'}; border: none; background: none; cursor: pointer; margin-right: 8px; font-weight: bold; font-size: 13px;" title="${p.status === 'inativo' ? 'Ativar produto' : 'Desativar produto'}"><i class="ph ph-toggle-${p.status === 'inativo' ? 'right' : 'left'}"></i> ${p.status === 'inativo' ? 'Ativar' : 'Desativar'}</button>` : ''}
         <button onclick="window.editProduto(${p.id}, '${(p.categoria || '').replace(/'/g, "\\'")}', '${(p.nome || '').replace(/'/g, "\\'")}', ${p.preco}, '${(p.emoji || '').replace(/'/g, "\\'")}', '${p.setor || 'Cozinha 1'}', '${p.status || 'ativo'}', '${(p.status_inicial || 'Em espera').replace(/'/g, "\\'")}', '${p.visibilidade || 'todos'}', '${(p.descricao || '').replace(/'/g, "\\'")}')" style="color: #2D9CDB; border: none; background: none; cursor: pointer; margin-right: 8px; font-weight: bold;"><i class="ph ph-pencil"></i> Editar</button>
         <button onclick="window.deleteProduto(${p.id})" style="color: red; border: none; background: none; cursor: pointer; font-weight: bold;"><i class="ph ph-trash"></i> Excluir</button>
       </td>
@@ -1944,6 +1979,26 @@ window.deleteProduto = (id) => {
   } else if (confirm('Excluir produto?')) {
     socket.emit('delete_produto', { id, operador: window.crmPerfil ? window.crmPerfil.nome : 'Admin' });
   }
+};
+
+window.toggleProdutoRapido = (id, currentStatus) => {
+  const newStatus = currentStatus === 'inativo' ? 'ativo' : 'inativo';
+  const prod = (window.allProducts || []).find(p => p.id === id);
+  if (!prod) return;
+  socket.emit('edit_produto', {
+    id,
+    categoria: prod.categoria,
+    nome: prod.nome,
+    preco: prod.preco,
+    emoji: prod.emoji,
+    setor: prod.setor || 'Cozinha 1',
+    status: newStatus,
+    status_inicial: prod.status_inicial || 'Em espera',
+    categoria_fiscal: prod.categoria_fiscal || 'Alimentacao',
+    visibilidade: prod.visibilidade || 'todos',
+    descricao: prod.descricao || '',
+    operador: window.crmPerfil ? window.crmPerfil.nome : 'Admin'
+  });
 };
 
 window.editProduto = (id, categoria, nome, preco, emoji, setor, status, status_inicial, visibilidade, descricao) => {
@@ -6356,3 +6411,224 @@ document.querySelector('.admin-tab-btn[data-tab="perfil"]').addEventListener('cl
     socket.emit('listar_pins_temporarios');
   });
 })();
+
+// ─── Aba Funcionalidades ──────────────────────────────────────
+function initFuncionalidadesTab() {
+  const features = [
+    { key: 'feature_venda_sem_estoque',      label: 'Vender sem Estoque',         desc: 'Permite vender produtos mesmo com estoque zerado ou insuficiente.', icon: 'ph-package', color: '#ef4444' },
+    { key: 'feature_toggle_produto_rapido',  label: 'Ativar/Desativar Produto',   desc: 'Exibe botão rápido para ativar ou desativar produtos diretamente na lista.', icon: 'ph-toggle-right', color: '#3b82f6' },
+    { key: 'feature_alterar_valores_pdv',    label: 'Alterar Valores no PDV',     desc: 'Permite alterar o preço do produto ao adicionar ao carrinho no PDV.', icon: 'ph-currency-dollar', color: '#f59e0b' },
+    { key: 'feature_clientes_ativos',        label: 'Clientes Mais Ativos Hoje',  desc: 'Exibe ranking dos clientes que mais visitaram hoje no painel.', icon: 'ph-users-three', color: '#8b5cf6' },
+    { key: 'feature_produto_mais_vendido',   label: 'Produto Mais Vendido',       desc: 'Exibe ranking do produto mais vendido do dia.', icon: 'ph-trophy', color: '#10b981' },
+    { key: 'feature_maior_lucro',            label: 'Maior Lucro',               desc: 'Exibe o produto que gerou mais lucro no dia.', icon: 'ph-chart-line-up', color: '#06b6d4' },
+    { key: 'feature_impressao_digital',      label: 'Impressão Digital (Fila)',   desc: 'Exibe pedidos na fila de pedidos digital ao invés de impressora.', icon: 'ph-monitor', color: '#22c55e' },
+    { key: 'feature_impressao_termica',      label: 'Impressão Térmica',          desc: 'Imprime pedidos automaticamente na impressora térmica (POS).', icon: 'ph-printer', color: '#ec4899' },
+    { key: 'feature_produtos_lote',          label: 'Produtos em Lote',           desc: 'Permite criar, editar e excluir múltiplos produtos de uma vez.', icon: 'ph-stack', color: '#a855f7' },
+    { key: 'feature_jogos',                  label: 'Jogos / Gamificação',         desc: 'Ativa jogos na mesa para clientes duelarem entre si.', icon: 'ph-game-controller', color: '#8b5cf6' }
+  ];
+
+  const container = document.getElementById('admin-tab-funcionalidades');
+  if (!container) return;
+
+  container.innerHTML = `
+    <div style="background:#f9f9f9; padding:20px; border-radius:12px; border:1px solid #eee; margin-bottom:20px;">
+      <h3 style="margin-top:0; color:#fc4b15;"><i class="ph ph-toggle-left"></i> Funcionalidades do Restaurante</h3>
+      <p style="color:#666; font-size:14px; margin-bottom:20px;">
+        Ative ou desative funcionalidades específicas do seu restaurante. As alterações são aplicadas imediatamente em todas as telas.
+      </p>
+      <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:16px;" id="features-grid"></div>
+    </div>
+  `;
+
+  const grid = document.getElementById('features-grid');
+  grid.innerHTML = features.map(f => `
+    <div style="background:white; border:1px solid #e5e7eb; border-radius:12px; padding:16px; display:flex; align-items:flex-start; gap:14px; transition: all 0.2s;" id="feature-card-${f.key}">
+      <div style="width:44px; height:44px; border-radius:10px; background:${f.color}15; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+        <i class="ph ${f.icon}" style="font-size:22px; color:${f.color};"></i>
+      </div>
+      <div style="flex:1; min-width:0;">
+        <div style="font-weight:700; font-size:14px; color:#1f2937; margin-bottom:4px;">${f.label}</div>
+        <div style="font-size:12.5px; color:#6b7280; line-height:1.4;">${f.desc}</div>
+      </div>
+      <label style="position:relative; display:inline-block; width:48px; height:26px; flex-shrink:0; cursor:pointer;">
+        <input type="checkbox" id="chk-${f.key}" data-feature-key="${f.key}" style="opacity:0; width:0; height:0;" onchange="window.toggleFeatureConfig('${f.key}', this.checked)">
+        <span style="position:absolute; inset:0; background-color:#d1d5db; border-radius:26px; transition:.3s;"></span>
+        <span style="position:absolute; height:20px; width:20px; left:3px; bottom:3px; background-color:white; border-radius:50%; transition:.3s;"></span>
+      </label>
+    </div>
+  `).join('');
+
+  features.forEach(f => {
+    const chk = document.getElementById('chk-' + f.key);
+    if (chk) {
+      chk.checked = !!configs[f.key];
+      updateToggleVisual(chk);
+    }
+  });
+}
+
+function updateToggleVisual(chk) {
+  const track = chk.nextElementSibling;
+  const thumb = track ? track.nextElementSibling : null;
+  if (!track || !thumb) return;
+  if (chk.checked) {
+    track.style.backgroundColor = '#22c55e';
+    thumb.style.left = '25px';
+  } else {
+    track.style.backgroundColor = '#d1d5db';
+    thumb.style.left = '3px';
+  }
+}
+
+window.toggleFeatureConfig = function(key, value) {
+  configs[key] = value;
+  const chk = document.getElementById('chk-' + key);
+  if (chk) updateToggleVisual(chk);
+  salvarConfiguracoes();
+};
+
+/* ══════ JOGOS / ADMIN ══════ */
+var adminJogos = [];
+
+window.initAdminJogos = function() {
+  socket.emit('admin_jogos_listar');
+  socket.emit('admin_jogos_historico');
+  document.getElementById('jogos-habilitado').checked = configs.feature_jogos !== 'false';
+  document.getElementById('jogos-pontos-vitoria').value = configs.jogos_pontos_vitoria || 10;
+  document.getElementById('jogos-pontos-derrota').value = configs.jogos_pontos_derrota || 2;
+};
+
+socket.on('admin_jogos_lista', function(lista) {
+  adminJogos = lista || [];
+  renderAdminJogosLista();
+});
+
+function renderAdminJogosLista() {
+  var container = document.getElementById('admin-jogos-lista');
+  if (!container) return;
+  if (!adminJogos.length) {
+    container.innerHTML = '<p style="color:#999; text-align:center; padding:16px;">Nenhum jogo cadastrado. Clique em "Novo Jogo" para criar.</p>';
+    return;
+  }
+  var tipos = { par_impar: 'Par ou Impar', dedos: 'Dedos Iguais', dois_ou_um: 'Dois ou Um', botao_grande: 'Botao Grande', mao_orelha: 'Mao na Orelha', ultimo_tirar_dedo: 'Ultimo a Tirar o Dedo' };
+  container.innerHTML = adminJogos.map(function(j) {
+    var tipoLabel = tipos[j.tipo] || j.tipo;
+    var statusBadge = j.ativo ? '<span style="background:#d1fae5; color:#065f46; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:700;">ATIVO</span>' :
+      '<span style="background:#fee2e2; color:#991b1b; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:700;">INATIVO</span>';
+    return '<div style="background:white; padding:14px; border-radius:10px; border:1px solid #e5e7eb; display:flex; align-items:center; gap:14px;">' +
+      '<div style="font-size:28px;">' + (j.emoji || '🎮') + '</div>' +
+      '<div style="flex:1;">' +
+        '<div style="display:flex; align-items:center; gap:8px;">' +
+          '<strong style="color:#111;">' + esc(j.nome) + '</strong> ' + statusBadge +
+        '</div>' +
+        '<p style="color:#666; margin:2px 0 0; font-size:12px;">' + tipoLabel + ' &bull; ' + esc(j.descricao || 'Sem descricao') + '</p>' +
+        '<p style="color:#8b5cf6; margin:4px 0 0; font-size:12px;">🏆 Vencedor: ' + esc(j.premio_vencedor || '-') + ' &bull; Perdedor: ' + esc(j.premio_perdedor || '-') + '</p>' +
+      '</div>' +
+      '<div style="display:flex; gap:6px;">' +
+        '<button onclick="editarJogoAdmin(' + j.id + ')" style="background:#f3f4f6; border:1px solid #d1d5db; padding:6px 10px; border-radius:6px; cursor:pointer; font-size:12px;" title="Editar"><i class="ph ph-pencil-simple"></i></button>' +
+        '<button onclick="excluirJogoAdmin(' + j.id + ')" style="background:#fef2f2; border:1px solid #fecaca; padding:6px 10px; border-radius:6px; cursor:pointer; font-size:12px; color:#dc2626;" title="Excluir"><i class="ph ph-trash"></i></button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+window.abrirModalNovoJogo = function() {
+  document.getElementById('jogo-modal-titulo').textContent = 'Novo Jogo';
+  document.getElementById('jogo-id-edit').value = '';
+  document.getElementById('jogo-nome').value = '';
+  document.getElementById('jogo-tipo').value = 'par_impar';
+  document.getElementById('jogo-emoji').value = '🎮';
+  document.getElementById('jogo-descricao').value = '';
+  document.getElementById('jogo-regras').value = '';
+  document.getElementById('jogo-premio-vencedor').value = 'Quem paga a conta!';
+  document.getElementById('jogo-premio-perdedor').value = 'Perdeu, perdeu!';
+  document.getElementById('jogo-ativo').checked = true;
+  document.getElementById('modal-jogos').style.display = 'flex';
+};
+
+window.editarJogoAdmin = function(id) {
+  var j = adminJogos.find(function(x) { return x.id === id; });
+  if (!j) return;
+  document.getElementById('jogo-modal-titulo').textContent = 'Editar Jogo';
+  document.getElementById('jogo-id-edit').value = j.id;
+  document.getElementById('jogo-nome').value = j.nome || '';
+  document.getElementById('jogo-tipo').value = j.tipo || 'par_impar';
+  document.getElementById('jogo-emoji').value = j.emoji || '🎮';
+  document.getElementById('jogo-descricao').value = j.descricao || '';
+  document.getElementById('jogo-regras').value = j.regras || '';
+  document.getElementById('jogo-premio-vencedor').value = j.premio_vencedor || '';
+  document.getElementById('jogo-premio-perdedor').value = j.premio_perdedor || '';
+  document.getElementById('jogo-ativo').checked = !!j.ativo;
+  document.getElementById('modal-jogos').style.display = 'flex';
+};
+
+window.fecharModalJogos = function() {
+  document.getElementById('modal-jogos').style.display = 'none';
+};
+
+window.salvarJogoAdmin = function() {
+  var id = document.getElementById('jogo-id-edit').value || null;
+  socket.emit('admin_jogos_salvar', {
+    id: id ? parseInt(id) : null,
+    nome: document.getElementById('jogo-nome').value.trim(),
+    tipo: document.getElementById('jogo-tipo').value,
+    emoji: document.getElementById('jogo-emoji').value.trim() || '🎮',
+    descricao: document.getElementById('jogo-descricao').value.trim(),
+    regras: document.getElementById('jogo-regras').value.trim(),
+    premio_vencedor: document.getElementById('jogo-premio-vencedor').value.trim(),
+    premio_perdedor: document.getElementById('jogo-premio-perdedor').value.trim(),
+    ativo: document.getElementById('jogo-ativo').checked
+  });
+};
+
+socket.on('admin_jogos_salvo', function() {
+  document.getElementById('modal-jogos').style.display = 'none';
+  socket.emit('admin_jogos_listar');
+});
+
+window.excluirJogoAdmin = function(id) {
+  if (!confirm('Deseja excluir este jogo?')) return;
+  socket.emit('admin_jogos_excluir', id);
+};
+
+socket.on('admin_jogos_historico_lista', function(lista) {
+  var container = document.getElementById('admin-jogos-historico');
+  if (!container) return;
+  if (!lista || !lista.length) {
+    container.innerHTML = '<p style="color:#999; text-align:center; padding:16px;">Nenhuma partida jogada ainda.</p>';
+    return;
+  }
+  container.innerHTML = lista.map(function(h) {
+    var corV = h.vencedor === 'empate' ? '#f59e0b' : '#10b981';
+    return '<div style="background:white; padding:10px 14px; border-radius:8px; border:1px solid #e5e7eb; display:flex; align-items:center; gap:12px; font-size:13px;">' +
+      '<div style="flex:1;">' +
+        '<strong>' + esc(h.jogo_nome || '') + '</strong> ' +
+        '<span style="color:#666;">&bull; ' + esc(h.mesa || '') + '</span>' +
+        '<div style="color:#888; font-size:11px;">' + esc(h.jogador1_nome || '') + ' vs ' + esc(h.jogador2_nome || '') + '</div>' +
+      '</div>' +
+      '<div style="text-align:right;">' +
+        '<div style="color:' + corV + '; font-weight:700;">' + esc(h.vencedor || 'empate') + '</div>' +
+        '<div style="color:#999; font-size:11px;">' + esc(h.created_at || '') + '</div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+});
+
+window.salvarConfigJogos = function() {
+  configs.feature_jogos = document.getElementById('jogos-habilitado').checked ? 'true' : 'false';
+  configs.jogos_pontos_vitoria = document.getElementById('jogos-pontos-vitoria').value;
+  configs.jogos_pontos_derrota = document.getElementById('jogos-pontos-derrota').value;
+
+  fetch('/api/config', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('chef_token') || ''), 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      feature_jogos: configs.feature_jogos,
+      jogos_pontos_vitoria: configs.jogos_pontos_vitoria,
+      jogos_pontos_derrota: configs.jogos_pontos_derrota
+    })
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    if (d.ok) { showToast('Configuracoes de jogos salvas!', 'success'); }
+    else { showToast('Erro ao salvar: ' + (d.erro || 'desconhecido'), 'danger'); }
+  }).catch(function() { showToast('Erro de conexao ao salvar.', 'danger'); });
+};

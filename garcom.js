@@ -1940,48 +1940,93 @@ document.getElementById('nav-esteira').onclick = () => showView('esteira', 'Pron
 
 // --- QR CODE SCANNER LOGIC ---
 let html5QrCode = null;
+let qrScanning = false;
 
 window.startQRScanner = (mesaName) => {
-  document.getElementById('qr-modal').style.display = 'flex';
-  
-  if (typeof Html5Qrcode === 'undefined') {
-    document.getElementById('qr-modal').style.display = 'none';
-    showToast('Leitor de QR indisponível (biblioteca não carregada).', '#e74c3c');
+  if (qrScanning) return;
+  qrScanning = true;
+
+  const modal = document.getElementById('qr-modal');
+  const readerEl = document.getElementById('qr-reader');
+  if (!modal || !readerEl) {
+    qrScanning = false;
     return;
   }
 
-  if (!html5QrCode) {
-    html5QrCode = new Html5Qrcode("qr-reader");
+  if (typeof Html5Qrcode === 'undefined') {
+    showToast('Leitor de QR indisponivel (biblioteca nao carregada).', '#e74c3c');
+    qrScanning = false;
+    return;
   }
 
-  html5QrCode.start(
-    { facingMode: "environment" }, // Usa a câmera traseira do celular/tablet
-    {
-      fps: 15, // Mais frames por segundo para leitura rápida
-      qrbox: { width: 250, height: 250 }
-    },
-    (decodedText, decodedResult) => {
-      // Ao ler com sucesso
-      html5QrCode.stop().catch(e => console.error(e));
-      document.getElementById('qr-modal').style.display = 'none';
-      
-      // Emitir para o servidor validar o cupom
-      socket.emit('validar_cupom', { mesaName: mesaName, codigo: decodedText, userName: loggedUser ? loggedUser.nome : 'Garçom' });
-      showToast('Validando cupom...', '#f2c94c');
-    },
-    (errorMessage) => {
-      // Ignorar erros de scan contínuos
-    }
-  ).catch((err) => {
-    console.error("Erro ao iniciar câmera", err);
+  // Always destroy previous instance to avoid stale state
+  if (html5QrCode) {
+    try { html5QrCode.clear(); } catch (e) {}
+    html5QrCode = null;
+  }
+
+  modal.style.display = 'flex';
+
+  // Wait for DOM to render the modal before starting camera
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      try {
+        html5QrCode = new Html5Qrcode("qr-reader");
+      } catch (e) {
+        console.error("Erro ao criar Html5Qrcode:", e);
+        modal.style.display = 'none';
+        qrScanning = false;
+        showToast('Erro ao inicializar leitor QR.', '#e74c3c');
+        return;
+      }
+
+      html5QrCode.start(
+        { facingMode: "environment" },
+        {
+          fps: 15,
+          qrbox: { width: 250, height: 250 },
+          aspectRatio: 1.0
+        },
+        (decodedText) => {
+          qrScanning = false;
+          window.closeQRScanner();
+          const codigoLimpo = String(decodedText || '').trim().replace(/[\r\n]/g, '');
+          if (!codigoLimpo) {
+            showToast('QR Code vazio ou invalido.', '#e74c3c');
+            return;
+          }
+          socket.emit('validar_cupom', {
+            mesaName: mesaName,
+            codigo: codigoLimpo,
+            userName: loggedUser ? loggedUser.nome : 'Garcom'
+          });
+          showToast('Validando cupom...', '#f2c94c');
+        },
+        () => {}
+      ).catch((err) => {
+        console.error("Erro ao iniciar camera:", err);
+        modal.style.display = 'none';
+        qrScanning = false;
+        showToast('Nao foi possivel abrir a camera. Verifique as permissoes.', '#e74c3c');
+      });
+    });
   });
 };
 
 window.closeQRScanner = () => {
+  qrScanning = false;
   if (html5QrCode) {
-    html5QrCode.stop().then(() => {
-      html5QrCode.clear();
-    }).catch(e => console.error(e));
+    try {
+      html5QrCode.stop().then(() => {
+        try { html5QrCode.clear(); } catch (e) {}
+        html5QrCode = null;
+      }).catch(() => {
+        try { html5QrCode.clear(); } catch (e) {}
+        html5QrCode = null;
+      });
+    } catch (e) {
+      html5QrCode = null;
+    }
   }
   document.getElementById('qr-modal').style.display = 'none';
 };

@@ -166,6 +166,8 @@
     @keyframes popIn { 0% { transform: translate(-50%, -45%) scale(0.9); opacity: 0; } 100% { transform: translate(-50%, -50%) scale(1); opacity: 1; } }
     @keyframes modalPop { 0% { transform: scale(0.9); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
     @keyframes shimmer { 0% { background-position: -200px 0; } 100% { background-position: 200px 0; } }
+    @keyframes scanLine { 0% { top: 0; } 50% { top: calc(100% - 4px); } 100% { top: 0; } }
+    .qr-scan-line { position: absolute; left: 10%; width: 80%; height: 3px; background: linear-gradient(90deg, transparent, #3ab55b, transparent); border-radius: 2px; animation: scanLine 2.5s ease-in-out infinite; pointer-events: none; z-index: 11; }
     .skeleton-card { background: #f1f5f9; border-radius: 16px; padding: 24px 18px; display: flex; flex-direction: column; align-items: center; gap: 8px; min-height: 120px; }
     .skel-line { width: 60%; height: 12px; border-radius: 6px; background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%); background-size: 400px 100%; animation: shimmer 1.6s infinite; }
     .skel-w60 { width: 60%; }
@@ -458,7 +460,7 @@
           <button onclick="closeQRScanner()" style="background: rgba(255,255,255,0.2); border: none; color: white; width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(10px); font-size: 24px; cursor: pointer;"><i class="ph ph-x"></i></button>
         </div>
         <div style="flex: 1; position: relative; display: flex; justify-content: center; align-items: center; overflow: hidden;">
-           <div id="qr-reader" style="width: 100%; height: 100%; position: absolute; inset: 0;"></div>
+           <div id="qr-reader" style="width: 100%; height: 100%; position: absolute; inset: 0; z-index: 1;"></div>
            <div style="position: absolute; inset: 0; z-index: 5; pointer-events: none; display: flex; justify-content: center; align-items: center;">
               <div style="width: 250px; height: 250px; box-shadow: 0 0 0 2000px rgba(0,0,0,0.65); border-radius: 24px;"></div>
            </div>

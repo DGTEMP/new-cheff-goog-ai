@@ -591,6 +591,7 @@
       <button class="profile-tab" data-section="ofertas" onclick="showSection('ofertas')"><i class="ph ph-megaphone"></i> Ofertas</button>
       <button class="profile-tab" data-section="beneficios" onclick="showSection('beneficios')"><i class="ph ph-gift"></i> Loja</button>
       <button class="profile-tab" data-section="resgates" onclick="showSection('resgates')"><i class="ph ph-ticket"></i> Resgates</button>
+      <button class="profile-tab" data-section="jogos" onclick="showSection('jogos')"><i class="ph ph-game-controller"></i> Jogos</button>
     </div>
 
     <!-- PEDIDOS RECENTES -->
@@ -630,6 +631,34 @@
       <h3 class="section-title"><i class="ph-fill ph-clock-counter-clockwise"></i> Seus Resgates</h3>
       <div class="beneficios-list" id="lista-resgates">
         <!-- Injetado via JS -->
+      </div>
+    </div>
+
+    <!-- ══════ JOGOS / GAMIFICAÇÃO ══════ -->
+    <div class="profile-section" id="section-jogos" style="display:none;">
+      <h3 class="section-title"><i class="ph-fill ph-game-controller"></i> Jogos na Mesa</h3>
+      <p style="color:#94a3b8; font-size:13px; margin-bottom:16px;">Desafie quem está na sua mesa! Abra um jogo e espere o adversário entrar.</p>
+
+      <!-- Lista de jogos disponíveis -->
+      <div id="jogos-disponiveis" style="display:grid; gap:12px; margin-bottom:20px;"></div>
+
+      <!-- Partidas em andamento -->
+      <div id="jogos-partidas-ativas" style="display:none;">
+        <h4 style="color:white; margin-bottom:12px;"><i class="ph ph-sword"></i> Partidas em Andamento</h4>
+        <div id="lista-partidas-ativas" style="display:grid; gap:12px;"></div>
+      </div>
+
+      <!-- Área do jogo (quando em partida) -->
+      <div id="jogos-game-area" style="display:none;">
+        <div id="jogos-game-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;"></div>
+        <div id="jogos-game-content" style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:16px; padding:24px;"></div>
+        <div id="jogos-game-actions" style="display:flex; gap:8px; margin-top:16px; flex-wrap:wrap;"></div>
+      </div>
+
+      <!-- Histórico -->
+      <div id="jogos-historico" style="margin-top:24px;">
+        <h4 style="color:var(--text-muted); margin-bottom:12px; font-size:13px;">Últimas partidas</h4>
+        <div id="lista-jogos-historico"></div>
       </div>
     </div>
   </div>
@@ -962,6 +991,7 @@
     }
 </script>
 
+<script src="/jogos-cliente.js"></script>
 </body>
 </html>
 

@@ -2558,6 +2558,9 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   window.podeEditarPrecoPdv = function() {
+    const pdvCfg = window.pdvConfigs || {};
+    const alterarValoresPdv = pdvCfg.feature_alterar_valores_pdv === 'true' || pdvCfg.feature_alterar_valores_pdv === true;
+    if (alterarValoresPdv) return true;
     const roles = ['admin', 'administrador', 'gerente', 'dono', 'proprietario', 'adm'];
     const check = (creds) => {
       if (!creds) return false;
@@ -2954,6 +2957,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const canEditPrice = window.podeEditarPrecoPdv();
+    const pdvCfg = window.pdvConfigs || {};
+    const vendaSemEstoque = pdvCfg.feature_venda_sem_estoque === 'true' || pdvCfg.feature_venda_sem_estoque === true;
 
     // Adjust grid template based on view mode
     const isMobile = window.innerWidth <= 768;
@@ -2976,10 +2981,14 @@ document.addEventListener('DOMContentLoaded', () => {
       const currentPrice = inCartItems.length > 0 ? inCartItems[0].preco : window.getPrecoAtivo(p.nome, p.preco || 0);
       const hasPromo = currentPrice < (p.preco || 0);
       const promoBadge = hasPromo ? `<span style="background:#fef3c7; color:#92400e; padding:1px 5px; border-radius:4px; font-size:9px; font-weight:700; margin-left:4px;">PROMO</span>` : '';
+      const estoqueAtual = parseFloat(p.estoque) || 0;
+      const semEstoqueBadge = (!vendaSemEstoque && estoqueAtual <= 0) ? `<span style="background:#fef2f2; color:#dc2626; padding:1px 5px; border-radius:4px; font-size:9px; font-weight:700; margin-left:4px;">SEM ESTOQUE</span>` : '';
 
       const cardBg = isSelected ? '#f0fdf4' : (isSearchFocus ? '#fff5f2' : '#ffffff');
-      const cardBorder = isSelected ? '2px solid #22c55e' : (isSearchFocus ? '2px solid #fc4b15' : '1px solid #cbd5e1');
+      const isOutOfStock = !vendaSemEstoque && estoqueAtual <= 0;
+      const cardBorder = isSelected ? '2px solid #22c55e' : (isSearchFocus ? '2px solid #fc4b15' : (isOutOfStock ? '1px dashed #fca5a5' : '1px solid #cbd5e1'));
       const cardShadow = isSelected ? 'box-shadow: 0 4px 12px rgba(34, 197, 94, 0.22);' : (isSearchFocus ? 'box-shadow: 0 0 8px rgba(252, 75, 21, 0.25);' : '');
+      const cardOpacity = isOutOfStock ? 'opacity:0.6;' : '';
       const badge = isSearchFocus ? `<span style="background: #fc4b15; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; margin-left: 6px;">↵ Enter</span>` : '';
       const priceColor = isSelected ? '#15803d' : '#64748b';
 
@@ -2994,11 +3003,11 @@ document.addEventListener('DOMContentLoaded', () => {
       if (window.pdvViewMode === 'list') {
         return `
           <div class="pdv-item-card" onclick="window.pdvAddToCart(${p.id})" ${ctxAttrs}
-               style="padding: 10px 14px; border-radius: 10px; cursor: pointer; transition: all 0.15s; background: ${cardBg}; border: ${cardBorder}; ${cardShadow} display: flex; align-items: center; justify-content: space-between; gap: 10px; user-select: none; width: 100%; box-sizing: border-box;">
+               style="padding: 10px 14px; border-radius: 10px; cursor: pointer; transition: all 0.15s; background: ${cardBg}; border: ${cardBorder}; ${cardShadow} ${cardOpacity} display: flex; align-items: center; justify-content: space-between; gap: 10px; user-select: none; width: 100%; box-sizing: border-box;">
              
              <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;">
                <span style="font-size: 20px; flex-shrink: 0;">${p.emoji || '🍽️'}</span>
-                <span style="font-weight: 700; font-size: 14.5px; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escHtml(p.nome)} ${badge} ${promoBadge}</span>
+                 <span style="font-weight: 700; font-size: 14.5px; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escHtml(p.nome)} ${badge} ${promoBadge} ${semEstoqueBadge}</span>
                ${isSelected ? `<span style="background: #22c55e; color: white; padding: 2px 8px; border-radius: 12px; font-weight: 800; font-size: 11.5px; flex-shrink: 0;"><i class="ph ph-check"></i> ${totalQty}x</span>` : ''}
              </div>
 
@@ -3027,13 +3036,13 @@ document.addEventListener('DOMContentLoaded', () => {
       if (window.pdvViewMode === 'icons') {
         return `
           <div class="pdv-item-card" onclick="window.pdvAddToCart(${p.id})" ${ctxAttrs}
-               style="padding: 8px 6px; border-radius: 10px; cursor: pointer; text-align: center; transition: all 0.15s; background: ${cardBg}; border: ${cardBorder}; ${cardShadow} display: flex; flex-direction: column; align-items: center; justify-content: space-between; min-height: 86px; user-select: none; position: relative; box-sizing: border-box;">
+               style="padding: 8px 6px; border-radius: 10px; cursor: pointer; text-align: center; transition: all 0.15s; background: ${cardBg}; border: ${cardBorder}; ${cardShadow} ${cardOpacity} display: flex; flex-direction: column; align-items: center; justify-content: space-between; min-height: 86px; user-select: none; position: relative; box-sizing: border-box;">
              
              ${isSelected ? `<span style="position: absolute; top: 3px; right: 3px; background: #22c55e; color: white; padding: 1px 5px; border-radius: 10px; font-weight: 800; font-size: 10px;">${totalQty}x</span>` : ''}
 
              <div style="font-size: 24px; margin-top: 2px;">${p.emoji || '🍽️'}</div>
              
-             <div style="font-weight: 700; font-size: 11.5px; color: #0f172a; line-height: 1.15; margin: 2px 0; max-height: 26px; overflow: hidden; word-break: break-word;">${escHtml(p.nome)}</div>
+             <div style="font-weight: 700; font-size: 11.5px; color: #0f172a; line-height: 1.15; margin: 2px 0; max-height: 26px; overflow: hidden; word-break: break-word;">${escHtml(p.nome)}${semEstoqueBadge ? ' ' + semEstoqueBadge : ''}</div>
 
              <div style="color: ${hasPromo ? '#dc2626' : priceColor}; font-size: 11.5px; font-weight: 800;">${hasPromo ? `<span style="color:#94a3b8;text-decoration:line-through;font-size:9px;font-weight:400;">R$ ${Number(p.preco || 0).toFixed(2).replace('.', ',')} </span>` : ''}R$ ${Number(currentPrice).toFixed(2).replace('.', ',')}${promoBadge}</div>
 
@@ -3052,10 +3061,10 @@ document.addEventListener('DOMContentLoaded', () => {
       // MODE 1: DEFAULT CARDS MODE
       return `
         <div class="pdv-item-card" onclick="window.pdvAddToCart(${p.id})" ${ctxAttrs}
-             style="padding: 12px 14px; border-radius: 12px; cursor: pointer; text-align: left; transition: all 0.15s; position: relative; background: ${cardBg}; border: ${cardBorder}; ${cardShadow} display: flex; flex-direction: column; justify-content: space-between; min-height: 100px; user-select: none;">
+             style="padding: 12px 14px; border-radius: 12px; cursor: pointer; text-align: left; transition: all 0.15s; position: relative; background: ${cardBg}; border: ${cardBorder}; ${cardShadow} ${cardOpacity} display: flex; flex-direction: column; justify-content: space-between; min-height: 100px; user-select: none;">
            
            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 6px;">
-              <span style="font-weight: 700; font-size: 14px; color: #0f172a; line-height: 1.25;">${p.emoji || ''} ${escHtml(p.nome)} ${badge} ${promoBadge}</span>
+              <span style="font-weight: 700; font-size: 14px; color: #0f172a; line-height: 1.25;">${p.emoji || ''} ${escHtml(p.nome)} ${badge} ${promoBadge} ${semEstoqueBadge}</span>
              ${isSelected ? `<span style="background: #22c55e; color: white; padding: 2px 8px; border-radius: 12px; font-weight: 800; font-size: 12px; flex-shrink: 0;"><i class="ph ph-check"></i> ${totalQty}x</span>` : ''}
            </div>
 
@@ -3088,7 +3097,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const prod = window.allProducts.find(p => p.id === id);
     if (!prod) return;
 
-    const modality = window.pdvConfigs ? window.pdvConfigs.rest_modalidade : 'a_la_carte';
+    const pdvCfg = window.pdvConfigs || {};
+    const vendaSemEstoque = pdvCfg.feature_venda_sem_estoque === 'true' || pdvCfg.feature_venda_sem_estoque === true;
+
+    if (!vendaSemEstoque && prod.estoque !== undefined && prod.estoque !== null && prod.estoque !== '') {
+      const estoqueAtual = parseFloat(prod.estoque) || 0;
+      if (estoqueAtual <= 0) {
+        return alert(`Produto "${prod.nome}" sem estoque disponível!`);
+      }
+    }
+
+    const modality = pdvCfg.rest_modalidade || 'a_la_carte';
 
     // --- MODALITY ADAPTER: À KILO ---
     if (modality === 'a_kilo' && (prod.categoria && prod.categoria.toLowerCase().includes('kilo'))) {
@@ -3145,7 +3164,8 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
       let precoUnit = Number(prod.preco) || 0;
       precoUnit = window.getPrecoAtivo(prod.nome, precoUnit);
-      if (prod.visibilidade === 'caixa') {
+      const alterarValoresPdv = pdvCfg.feature_alterar_valores_pdv === 'true' || pdvCfg.feature_alterar_valores_pdv === true;
+      if (prod.visibilidade === 'caixa' || alterarValoresPdv) {
         const custom = prompt(`Defina o valor de "${prod.nome}" (R$):`, precoUnit ? precoUnit.toFixed(2) : '');
         if (custom === null) return;
         const customVal = parseFloat(String(custom).replace(',', '.'));

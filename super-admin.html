@@ -1610,6 +1610,10 @@
             <i class="fa-solid fa-toggle-on"></i>
             <span>Funções</span>
           </div>
+          <div class="menu-item" data-target="sec-features-restaurante">
+            <i class="fa-solid fa-sliders"></i>
+            <span>Features Restaurante</span>
+          </div>
           <div class="menu-item" data-target="sec-dominios">
             <i class="fa-solid fa-globe"></i>
             <span>Domínios</span>
@@ -2515,6 +2519,42 @@
                 </thead>
                 <tbody id="func-tbody">
                   <tr><td colspan="6" style="text-align:center;color:var(--text-muted);">Clique em Atualizar para carregar...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ════ SEÇÃO: FEATURES POR RESTAURANTE ════ -->
+        <div class="content-section" id="sec-features-restaurante">
+          <div class="info-banner">
+            <i class="fa-solid fa-sliders"></i>
+            <div class="info-banner-content">
+              <h4>Funcionalidades por Restaurante</h4>
+              <p>Configure as funcionalidades operacionais de cada restaurante (venda sem estoque, impressão, produtos em lote, etc). Estas são configurações do dia-a-dia, diferentes dos módulos de plano.</p>
+            </div>
+          </div>
+          <div class="table-container">
+            <div class="table-controls">
+              <div class="search-bar">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="rest-feat-search" placeholder="Buscar restaurante...">
+              </div>
+              <button class="btn-action btn-primary-action" id="btn-refresh-rest-feat">
+                <i class="fa-solid fa-rotate"></i><span>Atualizar</span>
+              </button>
+            </div>
+            <div style="overflow-x:auto;">
+              <table class="custom-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Restaurante</th>
+                    <th style="min-width:600px;">Funcionalidades</th>
+                  </tr>
+                </thead>
+                <tbody id="rest-feat-tbody">
+                  <tr><td colspan="3" style="text-align:center;color:var(--text-muted);">Clique em Atualizar para carregar...</td></tr>
                 </tbody>
               </table>
             </div>

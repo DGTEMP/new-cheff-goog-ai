@@ -1353,4 +1353,68 @@ module.exports = function (app, masterDb, sqlite3, options) {
       res.json({ ok: true, conflicts: rows || [] });
     });
   });
+
+  // ═══════════════════════════════════════════════════════════════
+  // FUNCIONALIDADES POR RESTAURANTE (restaurant-level feature toggles)
+  // ═══════════════════════════════════════════════════════════════
+
+  const REST_FEATURE_KEYS = [
+    'feature_venda_sem_estoque', 'feature_toggle_produto_rapido', 'feature_alterar_valores_pdv',
+    'feature_clientes_ativos', 'feature_produto_mais_vendido', 'feature_maior_lucro',
+    'feature_impressao_digital', 'feature_impressao_termica', 'feature_produtos_lote'
+  ];
+
+  function openTenantRW(tenantId) {
+    return new Promise((resolve, reject) => {
+      const dbPath = getTenantDbPath(tenantId);
+      const db = new sqlite3.Database(dbPath, sqlite3.OPEN_READWRITE, (err) => {
+        if (err) return reject(err);
+        resolve(db);
+      });
+    });
+  }
+
+  // GET /api/super/restaurant-features/:id — listar features do restaurante
+  app.get('/api/super/restaurant-features/:id', superAdminAuth, async (req, res) => {
+    const rid = parseInt(req.params.id, 10);
+    if (!rid) return res.json({ ok: false, erro: 'ID obrigatório.' });
+    try {
+      const tDb = await openTenantRW(rid);
+      tDb.all(`SELECT chave, valor FROM configuracoes WHERE chave LIKE 'feature_%'`, [], (err, rows) => {
+        tDb.close();
+        if (err) return res.json({ ok: false, erro: err.message });
+        const features = {};
+        REST_FEATURE_KEYS.forEach(k => { features[k] = 'false'; });
+        (rows || []).forEach(r => { features[r.chave] = r.valor; });
+        res.json({ ok: true, features, keys: REST_FEATURE_KEYS });
+      });
+    } catch (e) {
+      res.json({ ok: false, erro: 'Banco do restaurante indisponível: ' + e.message });
+    }
+  });
+
+  // POST /api/super/restaurant-features — atualizar feature do restaurante
+  app.post('/api/super/restaurant-features', superAdminAuth, async (req, res) => {
+    const body = req.body || {};
+    const rid = parseInt(body.restaurante_id, 10);
+    const key = body.feature;
+    const value = body.value;
+    if (!rid || !key || typeof value === 'undefined') {
+      return res.json({ ok: false, erro: 'restaurante_id, feature e value são obrigatórios.' });
+    }
+    if (!REST_FEATURE_KEYS.includes(key)) {
+      return res.json({ ok: false, erro: 'Feature desconhecida.' });
+    }
+    try {
+      const tDb = await openTenantRW(rid);
+      const val = String(value);
+      tDb.run(`INSERT INTO configuracoes (chave, valor) VALUES (?, ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor`, [key, val], function (err) {
+        tDb.close();
+        if (err) return res.json({ ok: false, erro: err.message });
+        res.json({ ok: true, mensagem: 'Feature atualizada!' });
+      });
+    } catch (e) {
+      res.json({ ok: false, erro: 'Banco do restaurante indisponível: ' + e.message });
+    }
+  });
 };
