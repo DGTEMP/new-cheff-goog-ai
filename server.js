@@ -40,14 +40,16 @@ console.log = function (...args) {
 
   // Estilo minimalista Arch/Hyprland para Ações de Usuário
   if (/^\[Cli-Click\]/.test(line)) {
-    const content = line.replace(/^\[Cli-Click\]/, '').trim();
+    let content = line.replace(/^\[Cli-Click\]/, '').trim();
+    if (content.length > 110) content = content.substring(0, 107) + '...';
     formatted = `${ANSI.magenta}╭─ 🖱️  ${ANSI.bright}USER ACTION${ANSI.reset} ${ANSI.dim}───────────────────────────── [${timeStr}] ─╮${ANSI.reset}\n` +
                 `${ANSI.magenta}│${ANSI.reset} ${ANSI.cyan}󰄾${ANSI.reset} ${content}\n` +
                 `${ANSI.magenta}╰──────────────────────────────────────────────────────────╯${ANSI.reset}`;
   }
   // Estilo minimalista Arch/Hyprland para Eventos Socket
   else if (/^\[Socket\]/.test(line)) {
-    const content = line.replace(/^\[Socket\]/, '').trim();
+    let content = line.replace(/^\[Socket\]/, '').trim();
+    if (content.length > 110) content = content.substring(0, 107) + '...';
     formatted = `${ANSI.cyan}╭─ ⚡ ${ANSI.bright}SOCKET EVENT${ANSI.reset} ${ANSI.dim}───────────────────────────── [${timeStr}] ─╮${ANSI.reset}\n` +
                 `${ANSI.cyan}│${ANSI.reset} ${ANSI.magenta}󰄾${ANSI.reset} ${content}\n` +
                 `${ANSI.cyan}╰──────────────────────────────────────────────────────────╯${ANSI.reset}`;
@@ -11589,38 +11591,11 @@ function shutdown(signal) {
 process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 
-// Inicializar licença e depois subir o servidor com Animação Cyberpunk/Moderna ────────────
+// Inicializar licença e depois subir o servidor com Dashboard Arch/Neofetch ────────────
 licenseManager.initLicense().then((licState) => {
   server.listen(PORT, HOST, () => {
     const ip = getLocalIp();
-    
-    // Animação Sequencial em Tempo Real nos primeiros segundos
-    const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
-    const steps = [
-      { text: "Inicializando Kernel SaaS & Módulos...", color: ANSI.cyan },
-      { text: "Conectando ao Engine SQLite Multi-Tenant...", color: ANSI.yellow },
-      { text: "Ativando Barramento de Eventos WebSockets...", color: ANSI.magenta },
-      { text: "Verificando Autenticidade & Licença...", color: ANSI.blue },
-      { text: "SISTEMA PRONTO! Carregando Painel...", color: ANSI.green }
-    ];
-
-    let frameIdx = 0;
-    let stepIdx = 0;
-
-    const animInterval = setInterval(() => {
-      const frame = frames[frameIdx % frames.length];
-      const step = steps[stepIdx];
-      
-      process.stdout.write(`\r${step.color}${frame} [TEMPOS MODERNOS] ${step.text}${ANSI.reset}   `);
-      frameIdx++;
-
-      if (frameIdx % 6 === 0) {
-        stepIdx++;
-        if (stepIdx >= steps.length) {
-          clearInterval(animInterval);
-          process.stdout.write('\r\x1b[K'); // Limpa a linha atual da animação
-
-          const banner = `
+    const banner = `
 ${ANSI.cyan}${ANSI.bright}  ╭─────────────────────────── System Fetch ───────────────────────────╮${ANSI.reset}
 ${ANSI.cyan}  │${ANSI.reset}   ${ANSI.magenta}󰣇 System:${ANSI.reset}     Chef Cozinha SaaS Kernel v1.0.0
 ${ANSI.cyan}  │${ANSI.reset}   ${ANSI.yellow}⚡ Engine:${ANSI.reset}     Node.js ${process.version} (${process.platform})
@@ -11630,11 +11605,8 @@ ${ANSI.cyan}  │${ANSI.reset}   ${ANSI.blue}📱 Network:${ANSI.reset}    https
 ${ANSI.cyan}  │${ANSI.reset}   ${ANSI.magenta}🔑 License:${ANSI.reset}    ${licState.status.toUpperCase()} (${licState.restaurante || 'Dev Mode'})
 ${ANSI.cyan}  │${ANSI.reset}   ${ANSI.yellow}📊 Health:${ANSI.reset}     ${getEfficiencyStars()}
 ${ANSI.cyan}  ╰────────────────────────────────────────────────────────────────────╯${ANSI.reset}
-${ANSI.dim}────────────────────────────────────────────────────────────────────────${ANSI.reset}`;
-          originalLog.apply(console, [banner]);
-        }
-      }
-    }, 80);
+${ANSI.dim}────────────────────────────────────────────────────────────────────────${ANSI.reset}\n`;
+    originalLog.apply(console, [banner]);
   });
 });
 
