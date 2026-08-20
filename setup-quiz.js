@@ -175,8 +175,23 @@ ${ANSI.cyan}${ANSI.bright}  ╔════════════════�
     output: process.stdout
   });
 
+  let hasAnswered = false;
+
+  const timer = setTimeout(() => {
+    if (!hasAnswered) {
+      hasAnswered = true;
+      try { rl.close(); } catch (e) {}
+      console.log(`\n${ANSI.yellow}⏱️  Tempo limite de escolha atingido (5s). Iniciando servidor automaticamente (Opção 1)...${ANSI.reset}\n`);
+      startServices();
+    }
+  }, 5000);
+
   rl.question(`${ANSI.cyan}${ANSI.bright}👉 Digite sua opção [1, 2 ou 3] (Padrão: 1 em 5 segs): ${ANSI.reset}`, (choice) => {
+    if (hasAnswered) return;
+    hasAnswered = true;
+    clearTimeout(timer);
     rl.close();
+
     const cleanChoice = choice.trim();
     if (cleanChoice === '2') {
       runInteractiveSetup();
@@ -187,13 +202,6 @@ ${ANSI.cyan}${ANSI.bright}  ╔════════════════�
       startServices();
     }
   });
-
-  // Timeout automático de 5 segundos se o usuário apenas der Enter ou não responder rápido
-  setTimeout(() => {
-    try {
-      rl.close();
-    } catch (e) {}
-  }, 5000);
 }
 
 main();
