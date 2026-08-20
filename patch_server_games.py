@@ -6,13 +6,27 @@ with codecs.open(path, 'r', 'utf-8') as f:
 
 games_code = '''
   // --- GAMIFICACAO / JOGOS DE MESA ---
+  
+  function getHandValue(cards) {
+    let value = 0;
+    let aces = 0;
+    for(let card of cards) {
+      const v = card.slice(0, -1);
+      if(v === 'A') { value += 11; aces++; }
+      else if(['J','Q','K'].includes(v)) value += 10;
+      else value += parseInt(v);
+    }
+    while(value > 21 && aces > 0) { value -= 10; aces--; }
+    return value;
+  }
+
   socket.on('game_create_lobby', (data) => {
     const roomId = socketTenantId + '_' + data.mesa;
     const cid = data.cliente_id || socket.id;
     
     let initialState = {};
     if (data.type === 'velha') initialState = { board: Array(9).fill(null), turn: cid };
-    else if (data.type === 'blackjack') initialState = { deck: [], dealerScore: 0, turn: null };
+    else if (data.type === 'blackjack') initialState = { deck: [], dealerCards: [], turnIndex: 0 };
     else if (data.type === 'batata_quente') initialState = { currentHolder: null, timer: null };
 
     tableGames[roomId] = {
@@ -34,8 +48,6 @@ games_code = '''
       let startGame = false;
       
       if (['par_impar', 'reflexo', 'velha'].includes(game.type) && pKeys.length >= 2) startGame = true;
-      // Para jogos multi-player, precisa de um botao explicito para "Começar" ou começa com >= 2 e alguem clica começar.
-      // O host podera emitir um 'game_start' manual.
       
       if(startGame) game.status = 'playing';
       io.to('restaurante_' + socketTenantId).emit('game_lobby_updated', { mesa: data.mesa, game });
@@ -62,7 +74,6 @@ games_code = '''
           }
         }, timeToExplode);
       } else if (game.type === 'roleta_russa' || game.type === 'roleta_consequencias') {
-         // Decide instantly
          setTimeout(() => {
            game.status = 'finished';
            const pKeys = Object.keys(game.players);
@@ -73,18 +84,25 @@ games_code = '''
            }
            io.to('restaurante_' + socketTenantId).emit('game_lobby_updated', { mesa: data.mesa, game });
            setTimeout(() => { if(tableGames[roomId] === game) delete tableGames[roomId]; }, 15000);
-         }, 3000); // 3 seconds spin
+         }, 3000);
       } else if (game.type === 'blackjack') {
-         // Deck init
          const suits = ['H', 'D', 'C', 'S'];
          const values = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
          let deck = [];
          suits.forEach(s => values.forEach(v => deck.push(v+s)));
          deck = deck.sort(() => Math.random() - 0.5);
          game.state.deck = deck;
-         Object.keys(game.players).forEach(p => game.players[p].state.cards = [deck.pop(), deck.pop()]);
+         
+         const pKeys = Object.keys(game.players);
+         game.state.turnOrder = pKeys;
+         game.state.turnIndex = 0;
+         game.state.dealerCards = [deck.pop(), deck.pop()];
+         
+         pKeys.forEach(p => {
+           game.players[p].state.cards = [deck.pop(), deck.pop()];
+           game.players[p].state.status = 'playing'; // playing, stand, bust
+         });
       }
-      
       io.to('restaurante_' + socketTenantId).emit('game_lobby_updated', { mesa: data.mesa, game });
     }
   });
@@ -133,6 +151,52 @@ games_code = '''
       }
       io.to('restaurante_' + socketTenantId).emit('game_lobby_updated', { mesa: data.mesa, game });
       return;
+    }
+    
+    if (game.type === 'blackjack') {
+       if (game.state.turnOrder[game.state.turnIndex] !== cid) return;
+       const pState = game.players[cid].state;
+       
+       if (data.choice === 'hit') {
+         pState.cards.push(game.state.deck.pop());
+         if (getHandValue(pState.cards) > 21) pState.status = 'bust';
+       } else if (data.choice === 'stand') {
+         pState.status = 'stand';
+       }
+       
+       if (pState.status === 'bust' || pState.status === 'stand') {
+         game.state.turnIndex++;
+         
+         if (game.state.turnIndex >= game.state.turnOrder.length) {
+            // Dealer turn
+            let dealerVal = getHandValue(game.state.dealerCards);
+            while(dealerVal < 17) {
+              game.state.dealerCards.push(game.state.deck.pop());
+              dealerVal = getHandValue(game.state.dealerCards);
+            }
+            
+            // Calc winners
+            game.status = 'finished';
+            const dealerBust = dealerVal > 21;
+            
+            const pKeys = Object.keys(game.players);
+            let closest = -1; let bestPlayer = null;
+            
+            pKeys.forEach(p => {
+               const val = getHandValue(game.players[p].state.cards);
+               if (val <= 21) {
+                  if (val > closest) { closest = val; bestPlayer = p; }
+               }
+            });
+            
+            if (bestPlayer && (dealerBust || closest > dealerVal)) game.winner = bestPlayer;
+            else game.winner = 'dealer'; // no player beat dealer
+            
+            setTimeout(() => { if(tableGames[roomId] === game) delete tableGames[roomId]; }, 20000);
+         }
+       }
+       io.to('restaurante_' + socketTenantId).emit('game_lobby_updated', { mesa: data.mesa, game });
+       return;
     }
 
     // fallback for par_impar and reflexo
