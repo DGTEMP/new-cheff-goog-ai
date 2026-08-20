@@ -532,6 +532,23 @@ app.use((req, res, next) => {
   next();
 });
 
+// Serve a raiz primeiro (HTML/JS das páginas), com o dist como fallback (vendor, assets, libs)
+// Estáticos com cache: ativos com hash (v=...) podem ser cacheados por mais tempo; os demais curtos.
+// Cache curto do mtime evita um statSync síncrono (que bloqueia o event loop) por requisição.
+const mtimeCache = new Map();
+function cachedMtime(filePath) {
+  const hit = mtimeCache.get(filePath);
+  if (hit && Date.now() - hit.t < 2000) return hit.mtime;
+  let m;
+  try { m = fsSync.statSync(filePath).mtime; } catch (e) { m = new Date(0); }
+  mtimeCache.set(filePath, { mtime: m, t: Date.now() });
+  if (mtimeCache.size > 400) {
+    const entries = mtimeCache.keys();
+    for (const k of entries) { mtimeCache.delete(k); if (mtimeCache.size <= 250) break; }
+  }
+  return m;
+}
+
 app.use(express.static(__dirname, {
   etag: true,
   setHeaders: (res, filePath) => {
