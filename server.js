@@ -38,21 +38,21 @@ console.log = function (...args) {
   const timeStr = new Date().toLocaleTimeString('pt-BR');
   let formatted = line;
 
-  // Estilo minimalista Arch/Hyprland para Ações de Usuário
+  // Estilo minimalista Arch/Hyprland para Ações de Usuário (Item por Linha)
   if (/^\[Cli-Click\]/.test(line)) {
-    let content = line.replace(/^\[Cli-Click\]/, '').trim();
-    if (content.length > 110) content = content.substring(0, 107) + '...';
-    formatted = `${ANSI.magenta}╭─ 🖱️  ${ANSI.bright}USER ACTION${ANSI.reset} ${ANSI.dim}───────────────────────────── [${timeStr}] ─╮${ANSI.reset}\n` +
-                `${ANSI.magenta}│${ANSI.reset} ${ANSI.cyan}󰄾${ANSI.reset} ${content}\n` +
-                `${ANSI.magenta}╰──────────────────────────────────────────────────────────╯${ANSI.reset}`;
+    const content = line.replace(/^\[Cli-Click\]/, '').trim();
+    const parts = content.split(' | ');
+    formatted = `${ANSI.magenta}╭─ 🖱️  ${ANSI.bright}AÇÃO DO USUÁRIO${ANSI.reset} ${ANSI.dim}────── [${timeStr}] ──╮${ANSI.reset}\n` +
+                parts.map(p => `${ANSI.magenta}│${ANSI.reset}   ${ANSI.cyan}•${ANSI.reset} ${p}`).join('\n') + `\n` +
+                `${ANSI.magenta}╰──────────────────────────────────────╯${ANSI.reset}`;
   }
-  // Estilo minimalista Arch/Hyprland para Eventos Socket
+  // Estilo minimalista Arch/Hyprland para Eventos Socket (Item por Linha)
   else if (/^\[Socket\]/.test(line)) {
-    let content = line.replace(/^\[Socket\]/, '').trim();
-    if (content.length > 110) content = content.substring(0, 107) + '...';
-    formatted = `${ANSI.cyan}╭─ ⚡ ${ANSI.bright}SOCKET EVENT${ANSI.reset} ${ANSI.dim}───────────────────────────── [${timeStr}] ─╮${ANSI.reset}\n` +
-                `${ANSI.cyan}│${ANSI.reset} ${ANSI.magenta}󰄾${ANSI.reset} ${content}\n` +
-                `${ANSI.cyan}╰──────────────────────────────────────────────────────────╯${ANSI.reset}`;
+    const content = line.replace(/^\[Socket\]/, '').trim();
+    const parts = content.split(' | ');
+    formatted = `${ANSI.cyan}╭─ ⚡ ${ANSI.bright}EVENTO SOCKET${ANSI.reset} ${ANSI.dim}────── [${timeStr}] ──╮${ANSI.reset}\n` +
+                parts.map(p => `${ANSI.cyan}│${ANSI.reset}   ${ANSI.magenta}•${ANSI.reset} ${p}`).join('\n') + `\n` +
+                `${ANSI.cyan}╰──────────────────────────────────────╯${ANSI.reset}`;
   }
   else if (/^\[iFood/.test(line)) {
     formatted = `${ANSI.red}🛵 [${timeStr}] [iFood]${ANSI.reset} ${line.replace(/^\[iFood[^\]]*\]/, '').trim()}`;
