@@ -4641,9 +4641,6 @@ db.serialize(() => {
   db.run('CREATE INDEX IF NOT EXISTS idx_movimentacoes_turno_id ON movimentacoes(turno_id);');
   db.run('CREATE INDEX IF NOT EXISTS idx_pedidos_status_sector_created ON pedidos(status, sector, createdAt);');
   db.run('CREATE INDEX IF NOT EXISTS idx_pedidos_local_status ON pedidos(localName, status);', () => {
-    // Sincroniza o schema dos bancos de tenants existentes após as migrações do tenant 1
-    syncAllTenantSchemas();
-
     // Checkpoint WAL do database_1.sqlite para liberar locks
     const refDb = new sqlite3.Database(path.join(__dirname, 'database_1.sqlite'), (err) => {
       if (err) return;
