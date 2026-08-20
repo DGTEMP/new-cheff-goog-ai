@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <script>
@@ -267,6 +267,9 @@
         <p>Cargo: <strong id="user-role">Garçom</strong></p>
       </div>
       <div style="display:flex; gap:12px; align-items:center;">
+        <button id="btn-meu-pin" title="Gerenciar Meu PIN" style="background:#7c3aed; border:none; color:white; padding:6px 12px; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:4px;">
+          <i class="ph ph-key"></i> Meu PIN
+        </button>
         <button id="btn-global-fullscreen" title="Tela Cheia" style="background:none; border:none; color:var(--primary); font-size:24px; cursor:pointer;"><i class="ph ph-corners-out"></i></button>
         <button id="btn-manager-toggle" style="display:none; background:#059669; border:none; color:white; padding:6px 12px; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer;">
           <i class="ph ph-shield-check"></i> Gerente
@@ -483,9 +486,35 @@
         <label>Valor (R$)</label>
         <input type="number" id="vale-valor" placeholder="Ex: 50.00" step="0.01" min="1">
       </div>
+      <div class="input-group">
+        <label>Descrição / Motivo (Opcional - Máx. 30 caracteres)</label>
+        <input type="text" id="vale-motivo" placeholder="Ex: Passagem, Almoço..." maxlength="30">
+        <small style="color:var(--text-muted); font-size:11px; display:block; margin-top:2px; text-align:right;" id="vale-motivo-counter">0/30</small>
+      </div>
       <div class="modal-actions">
         <button class="btn-secondary" id="btn-close-vale" style="margin-top: 0;">Cancelar</button>
         <button class="btn-main" id="btn-confirm-vale">Confirmar Pedido</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MEU PIN MODAL -->
+  <div class="modal-overlay" id="modal-meu-pin">
+    <div class="modal-content" style="max-width: 360px;">
+      <h3><i class="ph ph-key" style="color:#7c3aed;"></i> Meu PIN de Acesso</h3>
+      <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 16px;">Crie ou atualize seu PIN individual de 4 a 6 dígitos para acessar o sistema rapidamente.</p>
+      <div class="input-group">
+        <label>Novo PIN (4 a 6 dígitos)</label>
+        <input type="password" id="meu-pin-novo" placeholder="••••••" maxlength="6" style="text-align:center; font-size:24px; letter-spacing:8px; font-family:monospace; font-weight:700;">
+      </div>
+      <div class="input-group">
+        <label>Confirmar PIN</label>
+        <input type="password" id="meu-pin-confirma" placeholder="••••••" maxlength="6" style="text-align:center; font-size:24px; letter-spacing:8px; font-family:monospace; font-weight:700;">
+      </div>
+      <div id="meu-pin-error" style="display:none; color:#dc2626; font-size:12px; font-weight:600; text-align:center; margin-bottom:10px;"></div>
+      <div class="modal-actions">
+        <button class="btn-secondary" id="btn-close-meu-pin" style="margin-top: 0;">Cancelar</button>
+        <button class="btn-main" id="btn-salvar-meu-pin" style="background:#7c3aed;">Salvar PIN</button>
       </div>
     </div>
   </div>

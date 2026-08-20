@@ -4517,7 +4517,12 @@ socket.on('dias_atipicos_list', (rows) => {
   tbody.innerHTML = html;
 
   tbody.querySelectorAll('.atipico-aprovar').forEach(btn => {
-    btn.addEventListener('click', () => { socket.emit('aprovar_dia_atipico', parseInt(btn.dataset.id)); });
+    btn.addEventListener('click', () => {
+      const id = parseInt(btn.dataset.id);
+      const opcao = confirm("PAGAMENTO DE DIA EXTRA:\n\nClique OK se o pagamento será feito no FINAL DO TURNO.\nClique CANCELAR se o pagamento será feito no PRÓXIMO PAGAMENTO da folha.");
+      const fp = opcao ? 'final_turno' : 'proximo_pagamento';
+      socket.emit('aprovar_dia_atipico', { id, forma_pagamento: fp });
+    });
   });
   tbody.querySelectorAll('.atipico-recusar').forEach(btn => {
     btn.addEventListener('click', () => { socket.emit('recusar_dia_atipico', parseInt(btn.dataset.id)); });

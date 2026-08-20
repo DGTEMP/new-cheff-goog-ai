@@ -3368,6 +3368,10 @@ db.serialize(() => {
     )
   `);
 
+  db.run(`ALTER TABLE vales ADD COLUMN observacao TEXT`, (err) => { });
+  db.run(`ALTER TABLE funcionarios ADD COLUMN pin_hash TEXT`, (err) => { });
+  db.run(`ALTER TABLE dias_atipicos ADD COLUMN forma_pagamento TEXT DEFAULT 'proximo_pagamento'`, (err) => { });
+
   db.run(`
     CREATE TABLE IF NOT EXISTS funcionarios_pagamentos (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -7618,15 +7622,31 @@ io.on('connection', (socket) => {
     });
   });
 
-  socket.on('solicitar_vale', ({ funcionario_id, valor }) => {
+  socket.on('solicitar_vale', ({ funcionario_id, valor, motivo }) => {
     const agora = getLocalTimestamp();
-    db.run(`INSERT INTO vales (funcionario_id, data_pedido, valor, status) VALUES (?, ?, ?, 'Pendente')`, [funcionario_id, agora, valor], function (err) {
+    const obs = motivo ? String(motivo).trim().substring(0, 30) : '';
+    db.run(`INSERT INTO vales (funcionario_id, data_pedido, valor, status, observacao) VALUES (?, ?, ?, 'Pendente', ?)`,
+      [funcionario_id, agora, valor, obs], function (err) {
       if (!err) {
         socket.emit('vale_solicitado_success');
       } else {
         console.error('Error requesting vale:', err);
         socket.emit('bater_ponto_error', 'Erro ao solicitar vale: ' + err.message);
       }
+    });
+  });
+
+  socket.on('definir_meu_pin', ({ funcionario_id, pin }) => {
+    if (!isValidId(funcionario_id) || !pin || pin.length < 4 || pin.length > 6 || !/^\d+$/.test(pin)) {
+      return socket.emit('definir_pin_error', 'PIN inválido. Deve conter de 4 a 6 números.');
+    }
+    bcrypt.hash(pin, 10).then(hash => {
+      db.run(`UPDATE funcionarios SET pin_hash = ? WHERE id = ?`, [hash, funcionario_id], (err) => {
+        if (err) return socket.emit('definir_pin_error', 'Erro ao salvar PIN no servidor.');
+        socket.emit('definir_pin_success', 'PIN salvo com sucesso! Você já pode usar seu PIN para entrar.');
+      });
+    }).catch(e => {
+      socket.emit('definir_pin_error', 'Erro ao processar PIN.');
     });
   });
 
@@ -8102,34 +8122,62 @@ io.on('connection', (socket) => {
   socket.on('login_por_pin', (data) => {
     const { pin } = data;
     if (!pin) return socket.emit('login_error', 'Informe o PIN.');
-    db.get(`SELECT * FROM pins_temporarios WHERE pin = ? AND ativo = 1`, [pin], (err, row) => {
-      if (err || !row) return socket.emit('login_error', 'PIN invalido ou inativo.');
-      if (row.tipo_expiracao !== 'sessao' && row.expira_em && row.expira_em !== 'SESSION') {
-        if (new Date(row.expira_em) < new Date()) {
-          return socket.emit('login_error', 'PIN expirado. Solicite um novo ao administrador.');
+    
+    // 1. Tenta autenticar via PIN do colaborador permanente
+    db.all(`SELECT * FROM funcionarios WHERE pin_hash IS NOT NULL AND pin_hash != '' AND status = 'Ativo'`, [], async (errF, funcs) => {
+      if (!errF && funcs && funcs.length > 0) {
+        for (const f of funcs) {
+          const match = await bcrypt.compare(String(pin), f.pin_hash).catch(() => false);
+          if (match) {
+            const payload = {
+              id: f.id,
+              nome: f.nome,
+              usuario: f.usuario,
+              cargo: f.cargo || 'Colaborador',
+              status: f.status,
+              restaurante_id: socketTenantId || tenantContext.getStore() || 1
+            };
+            socket.emit('login_success', payload);
+            socket.funcionarioId = f.id;
+            socket.funcionarioCargo = payload.cargo;
+            const sessToken = jwt.sign({ tipo: 'funcionario', id: f.id, nome: f.nome, usuario: f.usuario, cargo: payload.cargo, restaurante_id: payload.restaurante_id, pin: true }, JWT_SECRET, { expiresIn: '12h' });
+            socket.emit('login_token', sessToken);
+            socket.emit('tenant_atualizado', { restaurante_id: payload.restaurante_id, token: sessToken });
+            return;
+          }
         }
       }
-      if (row.usos_atual >= row.max_usos) {
-        return socket.emit('login_error', 'PIN atingiu o limite de usos.');
-      }
-      db.run(`UPDATE pins_temporarios SET usos_atual = usos_atual + 1 WHERE id = ?`, [row.id], () => {});
-      const categorias = JSON.parse(row.categorias || '[]');
-      const payload = {
-        id: -row.id,
-        nome: row.nome_colaborador || 'Colaborador',
-        usuario: 'pin_' + row.pin,
-        cargo: categorias[0] || 'Garcom',
-        categorias_pin: categorias,
-        status: 'Ativo',
-        restaurante_id: socketTenantId || tenantContext.getStore() || 1,
-        login_expires_at: row.tipo_expiracao === 'sessao' ? 'SESSION' : row.expira_em
-      };
-      socket.emit('login_success', payload);
-      socket.funcionarioId = row.id;
-      socket.funcionarioCargo = payload.cargo;
-      const sessToken = jwt.sign({ tipo: 'funcionario', id: row.id, nome: row.nome_colaborador, usuario: 'pin_' + row.pin, cargo: payload.cargo, restaurante_id: payload.restaurante_id, pin: true }, JWT_SECRET, { expiresIn: '12h' });
-      socket.emit('login_token', sessToken);
-      socket.emit('tenant_atualizado', { restaurante_id: payload.restaurante_id, token: sessToken });
+
+      // 2. Se não encontrou colaborador permanente, busca nos PINs temporários
+      db.get(`SELECT * FROM pins_temporarios WHERE pin = ? AND ativo = 1`, [pin], (err, row) => {
+        if (err || !row) return socket.emit('login_error', 'PIN inválido ou inativo.');
+        if (row.tipo_expiracao !== 'sessao' && row.expira_em && row.expira_em !== 'SESSION') {
+          if (new Date(row.expira_em) < new Date()) {
+            return socket.emit('login_error', 'PIN expirado. Solicite um novo ao administrador.');
+          }
+        }
+        if (row.usos_atual >= row.max_usos) {
+          return socket.emit('login_error', 'PIN atingiu o limite de usos.');
+        }
+        db.run(`UPDATE pins_temporarios SET usos_atual = usos_atual + 1 WHERE id = ?`, [row.id], () => {});
+        const categorias = JSON.parse(row.categorias || '[]');
+        const payload = {
+          id: -row.id,
+          nome: row.nome_colaborador || 'Colaborador',
+          usuario: 'pin_' + row.pin,
+          cargo: categorias[0] || 'Garcom',
+          categorias_pin: categorias,
+          status: 'Ativo',
+          restaurante_id: socketTenantId || tenantContext.getStore() || 1,
+          login_expires_at: row.tipo_expiracao === 'sessao' ? 'SESSION' : row.expira_em
+        };
+        socket.emit('login_success', payload);
+        socket.funcionarioId = row.id;
+        socket.funcionarioCargo = payload.cargo;
+        const sessToken = jwt.sign({ tipo: 'funcionario', id: row.id, nome: row.nome_colaborador, usuario: 'pin_' + row.pin, cargo: payload.cargo, restaurante_id: payload.restaurante_id, pin: true }, JWT_SECRET, { expiresIn: '12h' });
+        socket.emit('login_token', sessToken);
+        socket.emit('tenant_atualizado', { restaurante_id: payload.restaurante_id, token: sessToken });
+      });
     });
   });
 
@@ -9830,16 +9878,19 @@ function registerAdminRhEvents(socket) {
     }
   });
 
-  // Admin aprovar/recusar
-  socket.on('aprovar_dia_atipico', (id) => {
-    if (!isValidId(id)) return;
-    db.run(`UPDATE dias_atipicos SET status = 'aprovado' WHERE id = ?`, [id], () => {
+  // Admin aprovar/recusar dia atipico / extra
+  socket.on('aprovar_dia_atipico', ({ id, forma_pagamento }) => {
+    const atipicoId = typeof id === 'object' ? id.id : id;
+    const fp = typeof id === 'object' ? (id.forma_pagamento || forma_pagamento) : (forma_pagamento || 'proximo_pagamento');
+    if (!isValidId(atipicoId)) return;
+    db.run(`UPDATE dias_atipicos SET status = 'aprovado', forma_pagamento = ? WHERE id = ?`, [fp, atipicoId], () => {
       socket.emit('dia_atipico_atualizado');
     });
   });
   socket.on('recusar_dia_atipico', (id) => {
-    if (!isValidId(id)) return;
-    db.run(`UPDATE dias_atipicos SET status = 'recusado' WHERE id = ?`, [id], () => {
+    const atipicoId = typeof id === 'object' ? id.id : id;
+    if (!isValidId(atipicoId)) return;
+    db.run(`UPDATE dias_atipicos SET status = 'recusado' WHERE id = ?`, [atipicoId], () => {
       socket.emit('dia_atipico_atualizado');
     });
   });
@@ -9884,24 +9935,46 @@ app.get('/api/rh/extrato/:id', verificarToken, (req, res) => {
     if (errF || !func) return res.status(404).send("Funcionário não encontrado");
 
     const funcName = func.nome;
-    db.all("SELECT id, valor, data_pedido FROM vales WHERE funcionario_id = ? AND status = 'Aprovado' AND pagamento_id IS NULL", [funcId], (errV, vales) => {
+    db.all("SELECT id, valor, data_pedido, observacao FROM vales WHERE funcionario_id = ? AND status = 'Aprovado' AND pagamento_id IS NULL", [funcId], (errV, vales) => {
       // Para abatimento de consumo (Fiado)
-      // Procuramos pedidos finalizados como Fiado onde o cliente ou o próprio funcionário foi marcado com o nome dele
-      db.all("SELECT id, total, createdAt FROM pedidos WHERE status = 'Finalizado' AND paymentMethod = 'Fiado' AND pagamento_id IS NULL AND (userName = ? OR localName = ?)", [funcName, funcName], (errP, fiados) => {
-        let totalVales = 0;
-        (vales || []).forEach(v => totalVales += parseFloat(v.valor || 0));
-
-        let totalConsumo = 0;
-        (fiados || []).forEach(f => {
-          let v = String(f.total || '0').replace('R$', '').replace(/\./g, '').replace(',', '.').trim();
-          totalConsumo += parseFloat(v || 0);
+      // Procuramos pedidos finalizados onde o funcionario_id esteja preenchido explicitamente para o colaborador
+      db.all("SELECT id, total, productName, quantity, createdAt FROM pedidos WHERE status = 'Finalizado' AND paymentMethod = 'Fiado' AND pagamento_id IS NULL AND funcionario_id = ?", [funcId], (errP, fiados) => {
+        // Fallback: se não houver pedidos vinculados por funcionario_id, busca por userName
+        const buscarFiados = (fiados && fiados.length > 0) ? Promise.resolve(fiados) : new Promise((resolve) => {
+          db.all("SELECT id, total, productName, quantity, createdAt FROM pedidos WHERE status = 'Finalizado' AND paymentMethod = 'Fiado' AND pagamento_id IS NULL AND userName = ?", [funcName], (e, rows) => {
+            resolve(rows || []);
+          });
         });
 
-        res.json({
-          vales: vales || [],
-          fiados: fiados || [],
-          total_vales: totalVales,
-          total_consumo: totalConsumo
+        buscarFiados.then(fiadosLista => {
+          // Dias atípicos / extras pendentes de acerto
+          db.all("SELECT id, data, valor, justificativa, forma_pagamento FROM dias_atipicos WHERE funcionario_id = ? AND status = 'aprovado' AND pagamento_id IS NULL", [funcId], (errD, atipicos) => {
+            let totalVales = 0;
+            (vales || []).forEach(v => totalVales += parseFloat(v.valor || 0));
+
+            let totalConsumo = 0;
+            (fiadosLista || []).forEach(f => {
+              let rawTotal = String(f.total || '0').replace('R$', '').replace(/\./g, '').replace(',', '.').trim();
+              let val = parseFloat(rawTotal || 0);
+              // Proteção contra soma duplicada de arrays ou valores inválidos
+              if (!isNaN(val) && val > 0 && val < 5000) {
+                totalConsumo += val;
+              }
+            });
+
+            let totalAtipicos = 0;
+            (atipicos || []).forEach(a => totalAtipicos += parseFloat(a.valor || 0));
+
+            res.json({
+              vales: vales || [],
+              fiados: fiadosLista || [],
+              atipicos: atipicos || [],
+              total_vales: totalVales,
+              total_consumo: totalConsumo,
+              total_dias_extras: totalAtipicos,
+              suggested_bruto: totalAtipicos
+            });
+          });
         });
       });
     });

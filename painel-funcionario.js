@@ -176,6 +176,66 @@ function initPainelFuncionarioDOM() {
     };
   }
 
+  // Meu PIN Modal Handlers
+  const btnMeuPin = document.getElementById('btn-meu-pin');
+  const modalMeuPin = document.getElementById('modal-meu-pin');
+  const btnCloseMeuPin = document.getElementById('btn-close-meu-pin');
+  const btnSalvarMeuPin = document.getElementById('btn-salvar-meu-pin');
+
+  if (btnMeuPin && modalMeuPin) {
+    btnMeuPin.onclick = () => {
+      document.getElementById('meu-pin-novo').value = '';
+      document.getElementById('meu-pin-confirma').value = '';
+      const errDiv = document.getElementById('meu-pin-error');
+      if (errDiv) errDiv.style.display = 'none';
+      modalMeuPin.style.display = 'flex';
+    };
+  }
+  if (btnCloseMeuPin && modalMeuPin) {
+    btnCloseMeuPin.onclick = () => { modalMeuPin.style.display = 'none'; };
+  }
+  if (btnSalvarMeuPin) {
+    btnSalvarMeuPin.onclick = () => {
+      const pin1 = document.getElementById('meu-pin-novo').value.trim();
+      const pin2 = document.getElementById('meu-pin-confirma').value.trim();
+      const errDiv = document.getElementById('meu-pin-error');
+      
+      if (!pin1 || pin1.length < 4 || pin1.length > 6 || !/^\d+$/.test(pin1)) {
+        if (errDiv) { errDiv.textContent = 'O PIN deve conter de 4 a 6 números.'; errDiv.style.display = 'block'; }
+        return;
+      }
+      if (pin1 !== pin2) {
+        if (errDiv) { errDiv.textContent = 'Os PINs digitados não coincidem.'; errDiv.style.display = 'block'; }
+        return;
+      }
+      if (!currentUser) return alert('Faça login primeiro.');
+
+      socket.emit('definir_meu_pin', { funcionario_id: currentUser.id, pin: pin1 });
+    };
+  }
+
+  socket.on('definir_pin_success', (msg) => {
+    alert(msg || 'PIN salvo com sucesso!');
+    const modalMeuPin = document.getElementById('modal-meu-pin');
+    if (modalMeuPin) modalMeuPin.style.display = 'none';
+  });
+
+  socket.on('definir_pin_error', (msg) => {
+    const errDiv = document.getElementById('meu-pin-error');
+    if (errDiv) { errDiv.textContent = msg || 'Erro ao salvar PIN.'; errDiv.style.display = 'block'; }
+    else alert(msg);
+  });
+
+  // Counter do Motivo do Vale
+  const valeMotivoInput = document.getElementById('vale-motivo');
+  const valeMotivoCounter = document.getElementById('vale-motivo-counter');
+  if (valeMotivoInput && valeMotivoCounter) {
+    valeMotivoInput.oninput = () => {
+      if (valeMotivoInput.value.length > 30) valeMotivoInput.value = valeMotivoInput.value.substring(0, 30);
+      valeMotivoCounter.textContent = valeMotivoInput.value.length + '/30';
+    };
+  }
+
   // Solicitar Vale
   const btnSolVale = document.getElementById('btn-solicitar-vale');
   const modalVale = document.getElementById('modal-vale');
@@ -190,12 +250,16 @@ function initPainelFuncionarioDOM() {
   if (btnConfirmVale) {
     btnConfirmVale.onclick = () => {
       const valInput = document.getElementById('vale-valor');
+      const motivoInput = document.getElementById('vale-motivo');
       const val = parseFloat(valInput ? valInput.value : 0);
+      const motivo = motivoInput ? motivoInput.value.trim().substring(0, 30) : '';
       if (!val || val <= 0) return alert('Insira um valor válido');
       if (!currentUser) return alert('Faça login primeiro.');
-      socket.emit('solicitar_vale', { funcionario_id: currentUser.id, valor: val });
+      socket.emit('solicitar_vale', { funcionario_id: currentUser.id, valor: val, motivo: motivo });
       if (modalVale) modalVale.style.display = 'none';
       if (valInput) valInput.value = '';
+      if (motivoInput) motivoInput.value = '';
+      if (valeMotivoCounter) valeMotivoCounter.textContent = '0/30';
     };
   }
 
