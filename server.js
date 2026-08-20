@@ -243,6 +243,37 @@ app.use(cors({
 }));
 app.use(express.json());
 
+// ── SEGURANÇA WAF & RATE LIMITER (Proteção contra Ataques & Anti-DDoS) ──
+const rateLimitMap = new Map();
+
+app.use((req, res, next) => {
+  // 1. Security Headers (Anti-Clickjacking, Anti-XSS, No-Sniff)
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+
+  // 2. Rate Limiter (Anti-DDoS: máx 300 requisições/min por IP)
+  const rawIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || req.ip || '127.0.0.1';
+  const ip = rawIp.replace('::ffff:', '');
+  const now = Date.now();
+  const windowMs = 60 * 1000;
+  const maxReqs = 300;
+
+  let record = rateLimitMap.get(ip);
+  if (!record || now - record.startTime > windowMs) {
+    rateLimitMap.set(ip, { count: 1, startTime: now });
+  } else {
+    record.count++;
+    if (record.count > maxReqs) {
+      console.warn(`⚠️ [Anti-DDoS] IP bloqueado por excesso de requisições: ${ip}`);
+      return res.status(429).json({ success: false, error: 'Muitas requisições. Aguarde 1 minuto.' });
+    }
+  }
+
+  next();
+});
+
 // Middleware global para registrar acessos à API (Quem, O Que, Pra Onde)
 app.use('/api', (req, res, next) => {
   const start = Date.now();
