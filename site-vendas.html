@@ -703,6 +703,14 @@
     var consultorMensagem = 'Olá! Gostaria de saber mais sobre o Chef Cozinha.';
     var planoSelecionado = 'starter';
 
+    window.siteVendasDesign = {
+      fonte: 'Outfit',
+      tema: 'flame',
+      logoTempo: 0.8,
+      letrasTempo: 1.2,
+      animEstilo: 'explosion'
+    };
+
     (function loadSiteConfig() {
       var x = new XMLHttpRequest();
       x.open('GET', '/api/public/site-config', true);
@@ -720,6 +728,23 @@
       x.send();
     })();
 
+    function applyThemeColors(t) {
+      var root = document.documentElement;
+      if (t === 'emerald') {
+        root.style.setProperty('--primary', '#10b981');
+        root.style.setProperty('--primary-glow', 'rgba(16, 185, 129, 0.4)');
+      } else if (t === 'cyber') {
+        root.style.setProperty('--primary', '#a855f7');
+        root.style.setProperty('--primary-glow', 'rgba(168, 85, 247, 0.4)');
+      } else if (t === 'gold') {
+        root.style.setProperty('--primary', '#eab308');
+        root.style.setProperty('--primary-glow', 'rgba(234, 179, 8, 0.4)');
+      } else {
+        root.style.setProperty('--primary', '#fc4b15');
+        root.style.setProperty('--primary-glow', 'rgba(252, 75, 21, 0.4)');
+      }
+    }
+
     function applySiteConfig(c) {
       if (c.site_hero_titulo) {
         var destaque = c.site_hero_destaque || '';
@@ -733,6 +758,25 @@
       if (c.site_faq && Array.isArray(c.site_faq) && c.site_faq.length > 0) renderFaq(c.site_faq);
       else renderFaqDefault();
       if (c.site_consultor_whatsapp) consultorWhatsapp = c.site_consultor_whatsapp;
+
+      // 🎨 Aplicação dinâmica de Aparência e Animações enviadas do Super Admin
+      if (c.site_design_fonte) {
+        window.siteVendasDesign.fonte = c.site_design_fonte;
+        document.body.style.fontFamily = "'" + c.site_design_fonte + "', sans-serif";
+      }
+      if (c.site_design_tema) {
+        window.siteVendasDesign.tema = c.site_design_tema;
+        applyThemeColors(c.site_design_tema);
+      }
+      if (c.site_design_logo_tempo) {
+        window.siteVendasDesign.logoTempo = parseFloat(c.site_design_logo_tempo);
+      }
+      if (c.site_design_letras_tempo) {
+        window.siteVendasDesign.letrasTempo = parseFloat(c.site_design_letras_tempo);
+      }
+      if (c.site_design_anim_estilo) {
+        window.siteVendasDesign.animEstilo = c.site_design_anim_estilo;
+      }
     }
 
     function escH(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }

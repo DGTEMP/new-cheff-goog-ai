@@ -1,0 +1,3191 @@
+  <div id="admin-panel">
+    <div id="sidebar-overlay"></div>
+
+    <!-- Sidebar Lateral -->
+    <div class="sidebar">
+      <div>
+        <div class="sidebar-header">
+          <i class="fa-solid fa-crown"></i>
+          <h2>Super Admin</h2>
+        </div>
+        <div class="sidebar-menu">
+          <div class="menu-item active" data-target="sec-dash">
+            <i class="fa-solid fa-chart-line"></i>
+            <span>Dashboard</span>
+          </div>
+          <div class="menu-item" data-target="sec-bi">
+            <i class="fa-solid fa-chart-pie"></i>
+            <span>BI / Franquias</span>
+          </div>
+          <div class="menu-item" data-target="sec-restaurantes">
+            <i class="fa-solid fa-store"></i>
+            <span>Restaurantes</span>
+          </div>
+          <div class="menu-item" data-target="sec-usuarios">
+            <i class="fa-solid fa-users-gear"></i>
+            <span>Usuários</span>
+          </div>
+          <div class="menu-item" data-target="sec-suporte">
+            <i class="fa-solid fa-headset"></i>
+            <span>Equipe de Suporte</span>
+          </div>
+          <div class="menu-item" data-target="sec-servidor">
+            <i class="fa-solid fa-server"></i>
+            <span>Servidor</span>
+          </div>
+          <div class="menu-item" data-target="sec-capacidade">
+            <i class="fa-solid fa-chart-area"></i>
+            <span>Pico &amp; Capacidade</span>
+          </div>
+          <div class="menu-item" data-target="sec-mensagens">
+            <i class="fa-solid fa-bullhorn"></i>
+            <span>Mensagens</span>
+          </div>
+          <div class="menu-item" data-target="sec-logs" id="menu-item-logs">
+            <i class="fa-solid fa-file-invoice"></i>
+            <span>Logs do Sistema</span>
+          </div>
+          <div class="menu-item" data-target="sec-config">
+            <i class="fa-solid fa-gear"></i>
+            <span>Configurações</span>
+          </div>
+          <div class="menu-item" data-target="sec-funcoes">
+            <i class="fa-solid fa-toggle-on"></i>
+            <span>Funções</span>
+          </div>
+          <div class="menu-item" data-target="sec-features-restaurante">
+            <i class="fa-solid fa-sliders"></i>
+            <span>Features Restaurante</span>
+          </div>
+          <div class="menu-item" data-target="sec-dominios">
+            <i class="fa-solid fa-globe"></i>
+            <span>Domínios</span>
+          </div>
+          <div class="menu-item" data-target="sec-licencas" id="menu-item-licencas">
+            <i class="fa-solid fa-key"></i>
+            <span>Licenças &amp; Telemetria</span>
+          </div>
+          <div class="menu-item menu-item-alert" data-target="sec-recuperar-acesso">
+            <i class="fa-solid fa-user-shield"></i>
+            <span>Recuperar Acesso</span>
+            <span class="menu-badge">SOS</span>
+          </div>
+          <div class="menu-item" data-target="sec-clientes">
+            <i class="fa-solid fa-users"></i>
+            <span>Clientes</span>
+          </div>
+          <div class="menu-item" data-target="sec-instancias">
+            <i class="fa-solid fa-server"></i>
+            <span>Instâncias On-Premise</span>
+            <span class="menu-badge" id="offline-count-badge" style="display:none;">0</span>
+          </div>
+          <div class="menu-item" data-target="sec-site-vendas">
+            <i class="fa-solid fa-bullseye"></i>
+            <span>Site de Vendas</span>
+          </div>
+          <div class="menu-item" data-target="sec-afiliados" id="menu-item-afiliados">
+            <i class="fa-solid fa-handshake"></i>
+            <span>Afiliados & Parceiros</span>
+          </div>
+          <div class="menu-item" data-target="sec-seguranca-waf" id="menu-item-seguranca">
+            <i class="fa-solid fa-shield-halved"></i>
+            <span>Segurança & WAF</span>
+          </div>
+          <div class="menu-item" data-target="sec-deploy-updates" id="menu-item-deploy">
+            <i class="fa-solid fa-rocket"></i>
+            <span>Deploy & Atualizações</span>
+            <span class="menu-badge" style="background:#22c55e;">Zero-Downtime</span>
+          </div>
+          <div class="menu-item" data-target="sec-plugins-modulos" id="menu-item-plugins">
+            <i class="fa-solid fa-puzzle-piece"></i>
+            <span>Plugins & Módulos</span>
+          </div>
+          <div class="menu-item" data-target="sec-terminal">
+            <i class="fa-solid fa-terminal"></i>
+            <span>Terminal</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="sidebar-footer">
+        <div class="admin-info">
+          <img
+            src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Crect width='40' height='40' rx='20' fill='%23ff5722'/%3E%3Ctext x='20' y='26' font-family='Arial' font-size='18' font-weight='bold' fill='white' text-anchor='middle'%3ECA%3C/text%3E%3C/svg%3E"
+            alt="Avatar">
+          <div class="admin-meta">
+            <span>Chef Admin</span>
+            <small>Suporte Técnico</small>
+          </div>
+        </div>
+        <button class="btn-logout" id="btn-sair">
+          <i class="fa-solid fa-arrow-right-from-bracket"></i>
+          <span>Desconectar</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Área de Conteúdo -->
+    <div class="main-content">
+
+      <!-- Cabeçalho -->
+      <div class="content-header">
+        <div style="display:flex;align-items:center;gap:0.8rem;">
+          <button id="btn-hamburger"><i class="fa-solid fa-bars"></i></button>
+          <div class="header-title">
+            <h1 id="panel-title">Dashboard</h1>
+            <p id="panel-subtitle">Visão geral do ecossistema de licenças Chef Cozinha</p>
+          </div>
+        </div>
+        <div class="header-actions">
+          <button class="btn-action" id="btn-refresh-data">
+            <i class="fa-solid fa-rotate"></i>
+            <span>Sincronizar</span>
+          </button>
+          <button class="btn-action btn-primary-action" id="btn-header-new-key">
+            <i class="fa-solid fa-plus"></i>
+            <span>Nova Licença</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Corpo do Painel -->
+      <div class="content-body">
+
+        <!-- ════ SEÇÃO 1: DASHBOARD ════ -->
+        <div class="content-section active" id="sec-dash">
+          <div class="stats-grid">
+            <div class="stat-card active-card">
+              <div class="stat-icon"><i class="fa-solid fa-circle-check"></i></div>
+              <div class="stat-meta">
+                <span>Ativas</span>
+                <h3 id="stat-ativas">0</h3>
+              </div>
+            </div>
+            <div class="stat-card trial-card">
+              <div class="stat-icon"><i class="fa-solid fa-hourglass-half"></i></div>
+              <div class="stat-meta">
+                <span>Em Trial</span>
+                <h3 id="stat-trials">0</h3>
+              </div>
+            </div>
+            <div class="stat-card expired-card">
+              <div class="stat-icon"><i class="fa-solid fa-circle-exclamation"></i></div>
+              <div class="stat-meta">
+                <span>Expiradas</span>
+                <h3 id="stat-expiradas">0</h3>
+              </div>
+            </div>
+            <div class="stat-card blocked-card">
+              <div class="stat-icon"><i class="fa-solid fa-ban"></i></div>
+              <div class="stat-meta">
+                <span>Bloqueadas</span>
+                <h3 id="stat-bloqueadas">0</h3>
+              </div>
+            </div>
+            <!-- NOVOS CARDS PREMIUM -->
+            <div class="stat-card sales-card" id="card-local-sales" style="display: none;">
+              <div class="stat-icon"
+                style="background: rgba(139, 92, 246, 0.15); color: #c084fc; box-shadow: 0 0 15px rgba(139, 92, 246, 0.2);">
+                <i class="fa-solid fa-money-bill-trend-up"></i></div>
+              <div class="stat-meta">
+                <span>Faturamento Total</span>
+                <h3 id="stat-vendas-locais">R$ 0,00</h3>
+              </div>
+            </div>
+            <div class="stat-card users-card" id="card-local-users" style="display: none;">
+              <div class="stat-icon"
+                style="background: rgba(59, 130, 246, 0.15); color: #60a5fa; box-shadow: 0 0 15px rgba(59, 130, 246, 0.2);">
+                <i class="fa-solid fa-users-gear"></i></div>
+              <div class="stat-meta">
+                <span>Usuários Totais</span>
+                <h3 id="stat-usuarios-locais">0</h3>
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-top: 2rem;" class="table-container">
+            <div class="table-controls">
+              <h3 style="font-family: 'Outfit', sans-serif;">Instalações Recentes</h3>
+            </div>
+            <table class="custom-table" id="recent-installations-table">
+              <thead>
+                <tr>
+                  <th>Cliente</th>
+                  <th>Status</th>
+                  <th>IP / Região</th>
+                  <th>Versão</th>
+                  <th>Última Conexão</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td colspan="5" style="text-align: center; color: var(--text-muted);">Sincronize para carregar os
+                    dados...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ════ SEÇÃO BI: FRANQUIAS ════ -->
+        <div class="content-section" id="sec-bi">
+          <div class="table-container" style="margin-bottom:1.5rem;">
+            <div class="table-controls">
+              <h3 style="font-family: 'Outfit', sans-serif;"><i class="fa-solid fa-chart-pie"></i> BI Comparativo —
+                Franquias</h3>
+              <div class="filter-group">
+                <select class="select-filter" id="bi-periodo">
+                  <option value="7">Últimos 7 dias</option>
+                  <option value="30" selected>Últimos 30 dias</option>
+                  <option value="90">Últimos 90 dias</option>
+                  <option value="365">Último ano</option>
+                </select>
+                <button class="btn-action btn-primary-action" id="btn-bi-atualizar">
+                  <i class="fa-solid fa-rotate"></i><span>Atualizar</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="stats-grid" id="bi-summary">
+            <div class="stat-card active-card">
+              <div class="stat-icon"><i class="fa-solid fa-sack-dollar"></i></div>
+              <div class="stat-meta"><span>Faturamento</span>
+                <h3 id="bi-total-vendas">R$ 0,00</h3>
+              </div>
+            </div>
+            <div class="stat-card trial-card">
+              <div class="stat-icon"><i class="fa-solid fa-receipt"></i></div>
+              <div class="stat-meta"><span>Pedidos</span>
+                <h3 id="bi-total-pedidos">0</h3>
+              </div>
+            </div>
+            <div class="stat-card expired-card">
+              <div class="stat-icon"><i class="fa-solid fa-calculator"></i></div>
+              <div class="stat-meta"><span>Ticket Médio</span>
+                <h3 id="bi-ticket-medio">R$ 0,00</h3>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon"><i class="fa-solid fa-store"></i></div>
+              <div class="stat-meta"><span>Restaurantes</span>
+                <h3 id="bi-qtd-rest">0</h3>
+              </div>
+            </div>
+          </div>
+
+          <div class="table-container" style="margin-top:1.5rem;">
+            <h3 style="font-family: 'Outfit', sans-serif; margin-bottom: 1rem;">Ranking de Faturamento</h3>
+            <div style="overflow-x:auto;">
+              <table class="custom-table" id="bi-ranking-table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Restaurante</th>
+                    <th>Faturamento</th>
+                    <th>Pedidos</th>
+                    <th>Ticket Médio</th>
+                    <th style="width:30%;">Participação</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="bi-ranking-tbody">
+                  <tr>
+                    <td colspan="7" style="text-align:center;color:var(--text-muted);">Selecione o período e clique em
+                      Atualizar...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ════ SEÇÃO 2: RESTAURANTES ════ -->
+        <div class="content-section" id="sec-restaurantes">
+          <div class="table-container">
+            <div class="table-controls">
+              <div class="search-bar">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="rest-search" placeholder="Buscar restaurante...">
+              </div>
+              <div class="filter-group">
+                <select class="select-filter" id="rest-filter-status">
+                  <option value="">Todos os Status</option>
+                  <option value="ativo">Ativos</option>
+                  <option value="trial">Trial</option>
+                  <option value="bloqueado">Bloqueados</option>
+                </select>
+                <button class="btn-action btn-primary-action" id="btn-novo-restaurante">
+                  <i class="fa-solid fa-plus"></i><span>Novo Restaurante</span>
+                </button>
+              </div>
+            </div>
+            <div style="overflow-x: auto;">
+              <table class="custom-table" id="restaurantes-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Restaurante</th>
+                    <th>Licença</th>
+                    <th>Status</th>
+                    <th>Equipe</th>
+                    <th>Data Cadastro</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="restaurantes-tbody">
+                  <tr>
+                    <td colspan="7" style="text-align:center;color:var(--text-muted);">Clique em Sincronizar para
+                      carregar...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ════ SEÇÃO 3: USUÁRIOS ════ -->
+        <div class="content-section" id="sec-usuarios">
+          <div class="table-container">
+            <div class="table-controls">
+              <div class="search-bar">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="user-search" placeholder="Buscar usuário...">
+              </div>
+              <div class="filter-group">
+                <select class="select-filter" id="user-filter-role">
+                  <option value="">Todos os Cargos</option>
+                  <option value="admin">Admin</option>
+                  <option value="caixa">Caixa</option>
+                  <option value="garcom">Garçom</option>
+                  <option value="cozinha">Cozinha</option>
+                </select>
+                <button class="btn-action btn-primary-action" id="btn-novo-usuario">
+                  <i class="fa-solid fa-user-plus"></i><span>Novo Usuário</span>
+                </button>
+              </div>
+            </div>
+            <div style="overflow-x: auto;">
+              <table class="custom-table" id="usuarios-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Email / Login</th>
+                    <th>Restaurante</th>
+                    <th>Cargo</th>
+                    <th>Status</th>
+                    <th>Cadastro</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="usuarios-tbody">
+                  <tr>
+                    <td colspan="7" style="text-align:center;color:var(--text-muted);">Clique em Sincronizar para
+                      carregar...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ════ SEÇÃO 4: SERVIDOR ════ -->
+        <div class="content-section" id="sec-servidor">
+          <div class="stats-grid" id="server-stats">
+            <div class="stat-card active-card">
+              <div class="stat-icon"><i class="fa-solid fa-clock"></i></div>
+              <div class="stat-meta"><span>Uptime</span>
+                <h3 id="srv-uptime">--</h3>
+              </div>
+            </div>
+            <div class="stat-card trial-card">
+              <div class="stat-icon"><i class="fa-solid fa-memory"></i></div>
+              <div class="stat-meta"><span>Memória Heap</span>
+                <h3 id="srv-memoria">--</h3>
+              </div>
+            </div>
+            <div class="stat-card expired-card">
+              <div class="stat-icon"><i class="fa-solid fa-database"></i></div>
+              <div class="stat-meta"><span>Bancos de Dados</span>
+                <h3 id="srv-bancos">--</h3>
+              </div>
+            </div>
+            <div class="stat-card blocked-card">
+              <div class="stat-icon"><i class="fa-solid fa-hard-drive"></i></div>
+              <div class="stat-meta"><span>Tamanho Total</span>
+                <h3 id="srv-disco">--</h3>
+              </div>
+            </div>
+          </div>
+          <div style="margin-top:1.5rem;display:flex;gap:1rem;flex-wrap:wrap;">
+            <button class="btn-action btn-primary-action" id="btn-refresh-server">
+              <i class="fa-solid fa-rotate"></i><span>Atualizar Status</span>
+            </button>
+            <button class="btn-action" id="btn-backup"
+              style="background:rgba(16,185,129,0.15);color:#34d399;border-color:rgba(16,185,129,0.3);">
+              <i class="fa-solid fa-download"></i><span>Criar Backup</span>
+            </button>
+          </div>
+          <div class="info-banner" style="margin-top:1.5rem;">
+            <i class="fa-solid fa-circle-info"></i>
+            <div class="info-banner-content">
+              <h4>Informações do Servidor</h4>
+              <p id="srv-info-extra">Aguarde carregar...</p>
+            </div>
+          </div>
+
+          <!-- ═══ CERTIFICADOS SSL (.pfx) ═══ -->
+          <div
+            style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.5rem; margin-top: 1.5rem;">
+            <h4 style="margin-bottom: 1rem;"><i class="fa-solid fa-shield-halved" style="color:#34d399;"></i>
+              Certificados SSL (.pfx)</h4>
+            <div id="cert-status"
+              style="padding: 0.75rem 1rem; border-radius: 8px; background: var(--bg-tertiary); border: 1px solid var(--border-color); font-size: 0.9rem; margin-bottom: 1rem; color: var(--text-primary);">
+              Carregando...</div>
+
+            <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; margin-bottom: 1.25rem;">
+              <input type="file" id="cert-file-input" accept=".pfx,.p12"
+                style="flex:1; min-width:180px; padding:0.5rem; background:var(--bg-tertiary); border:1px solid var(--border-color); border-radius:8px; color:var(--text-primary);">
+              <input type="password" id="cert-pass-input" placeholder="Senha do certificado (padrão: chefcozinha)"
+                style="flex:1; min-width:180px; padding:0.65rem 0.9rem; background:var(--bg-tertiary); border:1px solid var(--border-color); border-radius:8px; color:var(--text-primary);">
+              <button class="btn-action btn-primary-action" onclick="enviarCertificado()" style="white-space:nowrap;">
+                <i class="fa-solid fa-upload"></i><span>Enviar</span>
+              </button>
+            </div>
+
+            <div class="table-container">
+              <table class="custom-table">
+                <thead>
+                  <tr>
+                    <th>Arquivo</th>
+                    <th>Tamanho</th>
+                    <th>Status</th>
+                    <th style="width:190px;">Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="cert-tbody">
+                  <tr>
+                    <td colspan="4" style="text-align:center;color:var(--text-muted);">Carregando certificados...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 1rem;">
+              <i class="fa-solid fa-circle-info"></i> Se o servidor já estiver em HTTPS, a troca é aplicada ao vivo, sem
+              derrubar conexões. Se estiver em HTTP, ative o certificado e reinicie o servidor para o HTTPS entrar em
+              vigor.
+            </p>
+          </div>
+
+          <!-- ═══ DOMÍNIO BASE DO SERVIDOR ═══ -->
+          <div
+            style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.5rem; margin-top: 1.5rem;">
+            <h4 style="margin-bottom: 0.8rem;"><i class="fa-solid fa-globe" style="color:#3b82f6;"></i> Domínio Base do
+              Servidor</h4>
+            <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem;">
+              Configure o domínio base usado para gerar QR codes e links dos restaurantes que <strong>não</strong>
+              possuem domínio próprio.
+              Exemplo: <code>app.chefcozinha.com.br</code> — os restaurantes receberão links como
+              <code>https://meuresto.app.chefcozinha.com.br</code>
+            </p>
+            <div style="display:flex;gap:0.8rem;flex-wrap:wrap;align-items:flex-end;">
+              <div style="flex:1;min-width:220px;">
+                <label style="font-size:0.82rem;color:var(--text-muted);display:block;margin-bottom:0.3rem;">Domínio
+                  Base</label>
+                <input type="text" id="super-base-domain" placeholder="ex: app.chefcozinha.com.br"
+                  style="width:100%;padding:0.65rem 0.9rem;background:var(--bg-dark);border:1px solid var(--border-color);border-radius:8px;color:white;font-size:0.9rem;outline:none;">
+              </div>
+              <div style="flex:0 0 auto;">
+                <button class="btn-action btn-primary-action" id="btn-save-base-domain" style="white-space:nowrap;">
+                  <i class="fa-solid fa-floppy-disk"></i><span> Salvar</span>
+                </button>
+              </div>
+            </div>
+            <div id="base-domain-status"
+              style="display:none;margin-top:0.8rem;padding:0.6rem 1rem;border-radius:8px;font-size:0.85rem;font-weight:600;">
+            </div>
+          </div>
+        </div>
+
+        <!-- ════ SEÇÃO: PICO & CAPACIDADE ════ -->
+        <div class="content-section" id="sec-capacidade">
+          <div class="stats-grid" id="cap-stats">
+            <div class="stat-card active-card">
+              <div class="stat-icon"><i class="fa-solid fa-memory"></i></div>
+              <div class="stat-meta"><span>RAM Total</span>
+                <h3 id="cap-ram-total">--</h3>
+              </div>
+            </div>
+            <div class="stat-card trial-card">
+              <div class="stat-icon"><i class="fa-solid fa-microchip"></i></div>
+              <div class="stat-meta"><span>RAM Usada</span>
+                <h3 id="cap-ram-used">--</h3>
+              </div>
+            </div>
+            <div class="stat-card expired-card">
+              <div class="stat-icon"><i class="fa-solid fa-plug"></i></div>
+              <div class="stat-meta"><span>Sockets Ativos</span>
+                <h3 id="cap-sockets">--</h3>
+              </div>
+            </div>
+            <div class="stat-card blocked-card">
+              <div class="stat-icon"><i class="fa-solid fa-warehouse"></i></div>
+              <div class="stat-meta"><span>Tenants</span>
+                <h3 id="cap-tenants">--</h3>
+              </div>
+            </div>
+          </div>
+
+          <!-- Capacidade estimada -->
+          <div
+            style="margin-top:1.5rem;background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;padding:1.5rem;">
+            <h4 style="font-family:'Outfit',sans-serif;margin-bottom:1rem;"><i class="fa-solid fa-gauge-high"
+                style="color:var(--primary);"></i> Capacidade Estimada</h4>
+            <div class="stats-grid" style="gap:1rem;">
+              <div class="stat-card">
+                <div class="stat-icon"
+                  style="background:rgba(16,185,129,0.15);color:var(--success);box-shadow:0 0 15px var(--success-glow);">
+                  <i class="fa-solid fa-server"></i></div>
+                <div class="stat-meta"><span>Máx. Tenants</span>
+                  <h3 id="cap-max-tenants">--</h3>
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon"
+                  style="background:rgba(245,158,11,0.15);color:var(--warning);box-shadow:0 0 15px var(--warning-glow);">
+                  <i class="fa-solid fa-arrow-down-long"></i></div>
+                <div class="stat-meta"><span>Restantes</span>
+                  <h3 id="cap-restantes">--</h3>
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon"
+                  style="background:rgba(59,130,246,0.15);color:var(--info);box-shadow:0 0 15px var(--info-glow);"><i
+                    class="fa-solid fa-percent"></i></div>
+                <div class="stat-meta"><span>Uso</span>
+                  <h3 id="cap-percentual">--</h3>
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon"
+                  style="background:rgba(139,92,246,0.15);color:#c084fc;box-shadow:0 0 15px rgba(139,92,246,0.2);"><i
+                    class="fa-solid fa-gear"></i></div>
+                <div class="stat-meta"><span>RAM/Tenant</span>
+                  <h3 id="cap-ram-tenant">--</h3>
+                </div>
+              </div>
+            </div>
+            <div
+              style="margin-top:1rem;background:rgba(0,0,0,0.2);border-radius:10px;height:24px;overflow:hidden;position:relative;">
+              <div id="cap-bar"
+                style="height:100%;background:linear-gradient(90deg,var(--success),var(--warning));border-radius:10px;transition:width 0.6s ease;width:0%;">
+              </div>
+              <span id="cap-bar-label"
+                style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:0.75rem;font-weight:600;color:white;">0%</span>
+            </div>
+          </div>
+
+          <!-- Heatmap 24h -->
+          <div
+            style="margin-top:1.5rem;background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;padding:1.5rem;">
+            <h4 style="font-family:'Outfit',sans-serif;margin-bottom:1rem;"><i class="fa-solid fa-fire"
+                style="color:var(--danger);"></i> Heatmap de Pico (últimos 7 dias)</h4>
+            <div style="overflow-x:auto;">
+              <div id="cap-heatmap" style="display:flex;gap:3px;min-width:700px;height:120px;align-items:flex-end;">
+              </div>
+            </div>
+            <div
+              style="display:flex;justify-content:space-between;margin-top:0.5rem;font-size:0.7rem;color:var(--text-muted);">
+              <span>00:00</span><span>03:00</span><span>06:00</span><span>09:00</span><span>12:00</span><span>15:00</span><span>18:00</span><span>21:00</span><span>23:00</span>
+            </div>
+          </div>
+
+          <!-- Tenants load -->
+          <div
+            style="margin-top:1.5rem;background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;padding:1.5rem;">
+            <h4 style="font-family:'Outfit',sans-serif;margin-bottom:1rem;"><i class="fa-solid fa-list"
+                style="color:var(--info);"></i> Tenants por Socket</h4>
+            <div style="overflow-x:auto;">
+              <table class="custom-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Restaurante</th>
+                    <th>Plano</th>
+                    <th>Status</th>
+                    <th>Sockets Ativos</th>
+                    <th>Pico (hora)</th>
+                  </tr>
+                </thead>
+                <tbody id="cap-tenants-tbody">
+                  <tr>
+                    <td colspan="6" style="text-align:center;color:var(--text-muted);">Clique em Atualizar para
+                      carregar...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div style="margin-top:1rem;">
+              <button class="btn-action btn-primary-action" id="btn-refresh-cap">
+                <i class="fa-solid fa-rotate"></i><span>Atualizar</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ════ SEÇÃO 5: MENSAGENS / BROADCAST ════ -->
+        <div class="content-section" id="sec-mensagens">
+          <div class="content-header" style="margin-bottom: 1.5rem;">
+            <h3><i class="fa-solid fa-bullhorn"></i> Mensagens / Broadcast</h3>
+            <p style="color: var(--text-muted); font-size: 0.9rem;">Envie atualizações, avisos e notificações para todos
+              os restaurantes.</p>
+          </div>
+
+          <!-- Formulário de envio -->
+          <div class="card" style="margin-bottom: 1.5rem; padding: 1.5rem;">
+            <h4 style="margin-bottom: 1rem;"><i class="fa-solid fa-paper-plane"></i> Nova Mensagem</h4>
+            <div style="display: grid; grid-template-columns: 1fr 160px; gap: 1rem; margin-bottom: 1rem;">
+              <div>
+                <label
+                  style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.4rem;">Título</label>
+                <input type="text" id="msg-titulo" placeholder="Ex: Atualização v3.2 disponível"
+                  style="width: 100%; padding: 0.7rem 1rem; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-size: 0.9rem; box-sizing: border-box;">
+              </div>
+              <div>
+                <label
+                  style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.4rem;">Tipo</label>
+                <select id="msg-tipo"
+                  style="width: 100%; padding: 0.7rem 1rem; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-size: 0.9rem; box-sizing: border-box;">
+                  <option value="aviso">Aviso</option>
+                  <option value="atualizacao">Atualização</option>
+                  <option value="manutencao">Manutenção</option>
+                  <option value="urgente">Urgente</option>
+                </select>
+              </div>
+            </div>
+            <div style="margin-bottom: 1rem;">
+              <label
+                style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.4rem;">Mensagem</label>
+              <textarea id="msg-corpo" rows="4" placeholder="Escreva o conteúdo da mensagem aqui..."
+                style="width: 100%; padding: 0.7rem 1rem; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-size: 0.9rem; resize: vertical; box-sizing: border-box;"></textarea>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 0.8rem;">
+              <button class="btn-action btn-secondary-action" id="btn-limpar-msg"><i class="fa-solid fa-eraser"></i>
+                Limpar</button>
+              <button class="btn-action btn-primary-action" id="btn-enviar-msg"><i class="fa-solid fa-paper-plane"></i>
+                Enviar para Todos</button>
+            </div>
+          </div>
+
+          <!-- Histórico -->
+          <div class="table-container">
+            <div class="table-controls">
+              <h4 style="margin: 0;"><i class="fa-solid fa-clock-rotate-left"></i> Histórico de Mensagens</h4>
+              <button class="btn-action btn-primary-action" id="btn-refresh-mensagens"><i
+                  class="fa-solid fa-rotate"></i> Atualizar</button>
+            </div>
+            <div style="overflow-x: auto; max-height: 500px;">
+              <table class="custom-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Tipo</th>
+                    <th>Título</th>
+                    <th>Mensagem</th>
+                    <th>Enviado em</th>
+                    <th>Lida por</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="mensagens-table-body">
+                  <tr>
+                    <td colspan="7" style="text-align: center; color: var(--text-muted);">Clique em "Atualizar" para
+                      carregar...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ════ SEÇÃO: EQUIPE DE SUPORTE ════ -->
+        <div class="content-section" id="sec-suporte">
+          <div style="padding:20px;">
+            <div class="content-header" style="margin-bottom:1.5rem;">
+              <div>
+                <h2 style="margin-bottom:6px;"><i class="fa-solid fa-headset"></i> Equipe de Suporte</h2>
+                <p style="color:#999;font-size:13px;">Gerencie os funcionários que prestam suporte aos restaurantes
+                  contratados.</p>
+              </div>
+              <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                <button class="btn-action" style="background:#6366f1;color:white;"
+                  onclick="abrirModalCriarMissaoSurpresa()">
+                  <i class="fa-solid fa-bolt"></i> Nova Missão Surpresa
+                </button>
+                <button class="btn-action" style="background:#3b82f6;color:white;"
+                  onclick="abrirModalNovaTaskSuporte()">
+                  <i class="fa-solid fa-list-check"></i> Nova Task
+                </button>
+                <button class="btn-action" style="background:#f59e0b;color:white;"
+                  onclick="abrirModalEnviarAvisoSuporte()">
+                  <i class="fa-solid fa-bullhorn"></i> Enviar Aviso
+                </button>
+                <button class="btn-action btn-primary-action" id="btn-novo-suporte" onclick="abrirModalNovoSuporte()">
+                  <i class="fa-solid fa-plus"></i> Novo Membro
+                </button>
+              </div>
+            </div>
+
+            <div class="table-controls"
+              style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:1rem;">
+              <input type="text" id="suporte-search" placeholder="Buscar por nome, email, CPF..."
+                style="flex:1;min-width:200px;" oninput="carregarSuporte()">
+              <select id="suporte-filter-status" style="width:auto;" onchange="carregarSuporte()">
+                <option value="">Todos os Status de Aprovação</option>
+                <option value="aprovado">🟢 Aprovados (Ativos)</option>
+                <option value="pendente">🟡 Pendentes de Aprovação</option>
+                <option value="recusado">🔴 Recusados</option>
+              </select>
+              <button class="btn-action" style="background:#8b5cf6;color:white;" onclick="carregarAuditLogsSuporte()">
+                <i class="fa-solid fa-shield-halved"></i> Audit / Logs Anti-Fraude
+              </button>
+            </div>
+
+            <div class="table-container">
+              <div style="overflow-x: auto; max-height: 550px;">
+                <table class="data-table" style="width:100%;border-collapse:collapse;font-size:13px;">
+                  <thead>
+                    <tr style="background:#1a1d24;border-bottom:2px solid #2a2d35;">
+                      <th style="padding:10px 12px;text-align:left;color:#fc4b15;">Nome</th>
+                      <th style="padding:10px 12px;text-align:left;color:#888;">Email</th>
+                      <th style="padding:10px 12px;text-align:center;color:#888;">Telefone</th>
+                      <th style="padding:10px 12px;text-align:center;color:#888;">Cargo</th>
+                      <th style="padding:10px 12px;text-align:center;color:#888;">Especialidade</th>
+                      <th style="padding:10px 12px;text-align:center;color:#888;">Status</th>
+                      <th style="padding:10px 12px;text-align:center;color:#888;">Desde</th>
+                      <th style="padding:10px 12px;text-align:center;color:#888;">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody id="suporte-tbody">
+                    <tr>
+                      <td colspan="8" style="text-align:center;color:var(--text-muted);">Carregando equipe de suporte...
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <!-- ════ DASHBOARD ESTRATÉGICO DE VENDAS & DESEMPENHO DA EQUIPE ════ -->
+            <div style="margin-top:2rem;background:#161a2b;border:1px solid #2a2d3e;border-radius:16px;padding:20px;">
+              <div
+                style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:1.2rem;">
+                <div>
+                  <h3 style="font-family:'Outfit',sans-serif;font-size:1.3rem;color:white;margin-bottom:4px;">
+                    <i class="fa-solid fa-chart-line" style="color:#22c55e;"></i> Desempenho Comercial & Inteligência de
+                    Vendas
+                  </h3>
+                  <p style="color:#888;font-size:13px;">Métricas estratégicas dos estabelecimentos contatados, razões de
+                    fechamento e objeções da equipe.</p>
+                </div>
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                  <input type="date" id="comercial-filtro-inicio"
+                    style="padding:6px 10px;background:#11131f;border:1px solid #2a2d3e;color:white;border-radius:8px;font-size:12px;">
+                  <span style="color:#888;font-size:12px;">até</span>
+                  <input type="date" id="comercial-filtro-fim"
+                    style="padding:6px 10px;background:#11131f;border:1px solid #2a2d3e;color:white;border-radius:8px;font-size:12px;">
+                  <button class="btn-action" style="background:#fc4b15;color:white;padding:6px 14px;font-size:12px;"
+                    onclick="carregarMetricasComerciaisSuporte()">
+                    <i class="fa-solid fa-filter"></i> Filtrar
+                  </button>
+                </div>
+              </div>
+
+              <!-- CARDS DE RESUMO COMERCIAL -->
+              <div
+                style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:1.5rem;"
+                id="cards-resumo-comercial">
+                <div style="background:#11131f;padding:14px;border-radius:12px;border:1px solid #2a2d3e;">
+                  <div style="color:#888;font-size:11px;text-transform:uppercase;font-weight:600;">Contatos no Período
+                  </div>
+                  <div style="font-size:1.6rem;font-weight:800;color:white;margin-top:4px;"
+                    id="metric-comercial-contatos">0</div>
+                </div>
+                <div style="background:#11131f;padding:14px;border-radius:12px;border:1px solid #2a2d3e;">
+                  <div style="color:#888;font-size:11px;text-transform:uppercase;font-weight:600;">Vendas Fechadas</div>
+                  <div style="font-size:1.6rem;font-weight:800;color:#22c55e;margin-top:4px;"
+                    id="metric-comercial-fechados">0</div>
+                </div>
+                <div style="background:#11131f;padding:14px;border-radius:12px;border:1px solid #2a2d3e;">
+                  <div style="color:#888;font-size:11px;text-transform:uppercase;font-weight:600;">Taxa de Conversão
+                  </div>
+                  <div style="font-size:1.6rem;font-weight:800;color:#f59e0b;margin-top:4px;"
+                    id="metric-comercial-conversao">0%</div>
+                </div>
+                <div style="background:#11131f;padding:14px;border-radius:12px;border:1px solid #2a2d3e;">
+                  <div style="color:#888;font-size:11px;text-transform:uppercase;font-weight:600;">Faturamento Gerado
+                  </div>
+                  <div style="font-size:1.6rem;font-weight:800;color:#3b82f6;margin-top:4px;"
+                    id="metric-comercial-faturamento">R$ 0,00</div>
+                </div>
+              </div>
+
+              <!-- PAINÉIS DE ANÁLISE ESTRATÉGICA -->
+              <div
+                style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;margin-bottom:1.5rem;">
+                <!-- Fatores Decisivos de Venda -->
+                <div style="background:#11131f;padding:16px;border-radius:12px;border:1px solid #2a2d3e;">
+                  <h4 style="color:white;font-size:14px;margin-bottom:12px;display:flex;align-items:center;gap:8px;">
+                    <i class="fa-solid fa-thumbs-up" style="color:#22c55e;"></i> Fatores que Fizeram o Cliente Comprar
+                  </h4>
+                  <div id="container-fatores-decisao"
+                    style="display:flex;flex-direction:column;gap:8px;font-size:13px;color:#ccc;">
+                    <!-- Injetado via JS -->
+                  </div>
+                </div>
+
+                <!-- Objeções Frequentes -->
+                <div style="background:#11131f;padding:16px;border-radius:12px;border:1px solid #2a2d3e;">
+                  <h4 style="color:white;font-size:14px;margin-bottom:12px;display:flex;align-items:center;gap:8px;">
+                    <i class="fa-solid fa-lightbulb" style="color:#f59e0b;"></i> Objeções & Fatores a Melhorar para
+                    Próxima Venda
+                  </h4>
+                  <div id="container-objecoes"
+                    style="max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;font-size:13px;color:#ccc;">
+                    <!-- Injetado via JS -->
+                  </div>
+                </div>
+              </div>
+
+              <!-- TABELA DE VENDAS DA EQUIPE -->
+              <h4 style="color:white;font-size:14px;margin-bottom:10px;"><i class="fa-solid fa-list-check"></i>
+                Histórico Detalhado de Negociações da Equipe</h4>
+              <div style="overflow-x:auto;max-height:350px;">
+                <table class="data-table" style="width:100%;border-collapse:collapse;font-size:12px;">
+                  <thead>
+                    <tr style="background:#11131f;border-bottom:2px solid #2a2d3e;">
+                      <th style="padding:8px;text-align:left;color:#fc4b15;">Atendente / Suporte</th>
+                      <th style="padding:8px;text-align:left;color:white;">Restaurante</th>
+                      <th style="padding:8px;text-align:left;color:#888;">Contato / Tel</th>
+                      <th style="padding:8px;text-align:center;color:#888;">Plano / Valor</th>
+                      <th style="padding:8px;text-align:center;color:#888;">Fator de Decisão</th>
+                      <th style="padding:8px;text-align:left;color:#888;">Objeções / Aprendizados</th>
+                      <th style="padding:8px;text-align:center;color:#888;">Data</th>
+                    </tr>
+                  </thead>
+                  <tbody id="comercial-vendas-tbody">
+                    <tr>
+                      <td colspan="7" style="text-align:center;color:#888;padding:20px;">Carregando histórico
+                        comercial...</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ════ SEÇÃO 6: LOGS DO SISTEMA ════ -->
+        <div class="content-section" id="sec-logs">
+          <div class="table-container">
+            <div class="table-controls">
+              <div class="search-bar">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="logs-search-input" placeholder="Buscar operador, IP, endpoint, detalhes...">
+              </div>
+              <div class="filter-group">
+                <select id="logs-tipo-filter" class="select-filter">
+                  <option value="api" selected>Logs de API (Requisições)</option>
+                  <option value="auditoria">Registros de Auditoria</option>
+                </select>
+                <button class="btn-action btn-primary-action" id="btn-refresh-logs">
+                  <i class="fa-solid fa-rotate"></i>
+                  <span>Atualizar Logs</span>
+                </button>
+              </div>
+            </div>
+
+            <div style="overflow-x: auto; max-height: 500px;">
+              <table class="custom-table" id="logs-table">
+                <thead>
+                  <tr id="logs-table-header">
+                    <!-- Dynamic header -->
+                  </tr>
+                </thead>
+                <tbody id="logs-table-body">
+                  <tr>
+                    <td colspan="7" style="text-align: center; color: var(--text-muted);">Sincronize para carregar
+                      logs...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="table-controls"
+              style="border-top: 1px solid var(--border-color); border-bottom: none; display: flex; justify-content: space-between; align-items: center;">
+              <span id="logs-pagination-info" style="font-size: 0.85rem; color: var(--text-muted);">Mostrando 0-0 de
+                0</span>
+              <div style="display: flex; gap: 0.5rem;">
+                <button class="btn-row-action" id="btn-logs-prev" title="Página Anterior"><i
+                    class="fa-solid fa-chevron-left"></i></button>
+                <button class="btn-row-action" id="btn-logs-next" title="Próxima Página"><i
+                    class="fa-solid fa-chevron-right"></i></button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ════ SEÇÃO 7: CONFIGURAÇÕES GLOBAIS ════ -->
+        <!-- ════ SEÇÃO: LICENÇAS & TELEMETRIA ════ -->
+        <div class="content-section" id="sec-licencas">
+          <div class="form-box">
+            <h3 style="font-family:'Outfit',sans-serif;font-size:1.4rem;">Gerar Chave de Ativação</h3>
+            <p style="color:var(--text-muted);font-size:0.9rem;margin-top:-1rem;">Crie uma chave CHEF-XXXX-YYYY-ZZZZ. O
+              estabelecimento digita a chave na tela de ativação para sair do período de teste.</p>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="lic-restaurante-nome">Restaurante</label>
+                <input type="text" id="lic-restaurante-nome" placeholder="Ex: Churrascaria do Zé">
+              </div>
+              <div class="form-group">
+                <label for="lic-plano">Plano</label>
+                <select id="lic-plano">
+                  <option value="premium">Premium</option>
+                  <option value="pro">Pro</option>
+                  <option value="plus">Plus</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="lic-dias">Duração (dias)</label>
+                <input type="number" id="lic-dias" value="365" min="1" max="3650">
+              </div>
+              <div class="form-group">
+                <label for="lic-maxdisp">Máx. Dispositivos (0 = ilimitado)</label>
+                <input type="number" id="lic-maxdisp" value="0" min="0" max="1000">
+              </div>
+              <div class="form-group">
+                <label for="lic-obs">Observação</label>
+                <input type="text" id="lic-obs" placeholder="Ex: Assinatura anual">
+              </div>
+            </div>
+            <button class="btn-login form-submit" onclick="gerarChave()">
+              <i class="fa-solid fa-key"></i><span>Gerar Chave</span>
+            </button>
+            <div id="lic-result"
+              style="display:none;margin-top:16px;padding:14px;background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.3);border-radius:10px;">
+              <div style="font-size:0.85rem;color:var(--text-muted);margin-bottom:6px;">Chave gerada (copie e envie ao
+                cliente):</div>
+              <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+                <code id="lic-result-key"
+                  style="font-size:1.15rem;font-weight:700;color:#60a5fa;letter-spacing:1px;">CHEF-XXXX-YYYY-ZZZZ</code>
+                <button class="btn-row-action" onclick="copiarChave('lic-result-key')"><i class="fa-solid fa-copy"></i>
+                  Copiar</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-box" style="margin-top:20px;">
+            <h3 style="font-family:'Outfit',sans-serif;font-size:1.2rem;">Chaves Emitidas</h3>
+            <div class="table-controls">
+              <table class="custom-table" id="licencas-table">
+                <thead>
+                  <tr>
+                    <th>Chave</th>
+                    <th>Restaurante</th>
+                    <th>Plano</th>
+                    <th>Validade</th>
+                    <th>Status</th>
+                    <th>Usada por</th>
+                    <th>Usada em</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="licencas-tbody">
+                  <tr>
+                    <td colspan="8" style="text-align:center;color:var(--text-muted);padding:20px;">Carregando chaves...
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="form-box" style="margin-top:20px;">
+            <h3 style="font-family:'Outfit',sans-serif;font-size:1.2rem;">Telemetria dos Estabelecimentos</h3>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:14px 0;"
+              id="telemetria-cards"></div>
+            <div class="table-controls">
+              <div style="display:flex;gap:10px;align-items:center;">
+                <button class="btn-login" style="padding:8px 16px;font-size:0.85rem;" onclick="carregarTelemetria()"><i
+                    class="fa-solid fa-rotate"></i> Atualizar</button>
+                <span style="font-size:0.8rem;color:var(--text-muted);">Atualiza a cada 5 minutos
+                  automaticamente.</span>
+              </div>
+            </div>
+            <div style="overflow-x:auto;">
+              <table class="custom-table" id="telemetria-table">
+                <thead>
+                  <tr>
+                    <th>Estabelecimento</th>
+                    <th>Status</th>
+                    <th>Vendas Hoje</th>
+                    <th>Vendas Total</th>
+                    <th>Pedidos</th>
+                    <th>Funcionários</th>
+                    <th>Produtos</th>
+                    <th>Mesas</th>
+                    <th>Disp.</th>
+                    <th>Tempo Uso</th>
+                    <th>Lucro Est.</th>
+                    <th>Disco</th>
+                  </tr>
+                </thead>
+                <tbody id="telemetria-tbody">
+                  <tr>
+                    <td colspan="12" style="text-align:center;color:var(--text-muted);padding:20px;">Carregando
+                      telemetria...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ════ SEÇÃO: CONFIGURAÇÕES GLOBAIS ════ -->
+        <div class="content-section" id="sec-config">
+          <div class="form-box">
+            <h3 style="font-family:'Outfit',sans-serif;font-size:1.4rem;">Configurações Globais do Sistema</h3>
+            <p style="color:var(--text-muted);font-size:0.9rem;margin-top:-1rem;">Configurações que afetam todos os
+              restaurantes da plataforma.</p>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="cfg-update-ver">Versão do Update Global</label>
+                <input type="text" id="cfg-update-ver" placeholder="Ex: 1.2.0">
+              </div>
+              <div class="form-group">
+                <label for="cfg-update-url">URL do Instalador</label>
+                <input type="text" id="cfg-update-url" placeholder="https://...">
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="cfg-update-msg">Mensagem de Update (banner nos clientes)</label>
+              <textarea id="cfg-update-msg" placeholder="Novidades da atualização..."></textarea>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="cfg-whatsapp">WhatsApp Suporte</label>
+                <input type="text" id="cfg-whatsapp" placeholder="+55 11 99999-0000">
+              </div>
+              <div class="form-group">
+                <label for="cfg-email-suporte">Email Suporte</label>
+                <input type="email" id="cfg-email-suporte" placeholder="suporte@chefcozinha.com.br">
+              </div>
+            </div>
+            <button class="btn-login form-submit" id="btn-save-config">
+              <i class="fa-solid fa-floppy-disk"></i><span>Salvar Configurações</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- ════ SEÇÃO: FUNÇÕES POR TENANT ════ -->
+        <div class="content-section" id="sec-funcoes">
+          <div class="info-banner">
+            <i class="fa-solid fa-circle-info"></i>
+            <div class="info-banner-content">
+              <h4>Gerenciamento de Funções</h4>
+              <p>Altere quais funcionalidades estão habilitadas para cada restaurante. As alterações são aplicadas
+                imediatamente no runtime do servidor.</p>
+            </div>
+          </div>
+
+          <!-- Legendas dos planos -->
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1.5rem;">
+            <div
+              style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);border-radius:12px;padding:1rem;text-align:center;">
+              <div style="font-weight:700;color:var(--warning);font-size:1.1rem;">Trial</div>
+              <div style="font-size:0.78rem;color:var(--text-muted);margin-top:0.3rem;">Funcionalidades básicas apenas
+              </div>
+            </div>
+            <div
+              style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);border-radius:12px;padding:1rem;text-align:center;">
+              <div style="font-weight:700;color:var(--info);font-size:1.1rem;">Pro</div>
+              <div style="font-size:0.78rem;color:var(--text-muted);margin-top:0.3rem;">A maioria das funcionalidades
+              </div>
+            </div>
+            <div
+              style="background:rgba(139,92,246,0.08);border:1px solid rgba(139,92,246,0.2);border-radius:12px;padding:1rem;text-align:center;">
+              <div style="font-weight:700;color:#c084fc;font-size:1.1rem;">Premium</div>
+              <div style="font-size:0.78rem;color:var(--text-muted);margin-top:0.3rem;">Todas as funcionalidades</div>
+            </div>
+          </div>
+
+          <div class="table-container">
+            <div class="table-controls">
+              <div class="search-bar">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="func-search" placeholder="Buscar restaurante...">
+              </div>
+              <button class="btn-action btn-primary-action" id="btn-refresh-func">
+                <i class="fa-solid fa-rotate"></i><span>Atualizar</span>
+              </button>
+            </div>
+            <div style="overflow-x:auto;">
+              <table class="custom-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Restaurante</th>
+                    <th>Plano</th>
+                    <th>Status</th>
+                    <th style="min-width:320px;">Funções Habilitadas</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="func-tbody">
+                  <tr>
+                    <td colspan="6" style="text-align:center;color:var(--text-muted);">Clique em Atualizar para
+                      carregar...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ════ SEÇÃO: FEATURES POR RESTAURANTE ════ -->
+        <div class="content-section" id="sec-features-restaurante">
+          <div class="info-banner">
+            <i class="fa-solid fa-sliders"></i>
+            <div class="info-banner-content">
+              <h4>Funcionalidades por Restaurante</h4>
+              <p>Configure as funcionalidades operacionais de cada restaurante (venda sem estoque, impressão, produtos
+                em lote, etc). Estas são configurações do dia-a-dia, diferentes dos módulos de plano.</p>
+            </div>
+          </div>
+          <div class="table-container">
+            <div class="table-controls">
+              <div class="search-bar">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="rest-feat-search" placeholder="Buscar restaurante...">
+              </div>
+              <button class="btn-action btn-primary-action" id="btn-refresh-rest-feat">
+                <i class="fa-solid fa-rotate"></i><span>Atualizar</span>
+              </button>
+            </div>
+            <div style="overflow-x:auto;">
+              <table class="custom-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Restaurante</th>
+                    <th style="min-width:600px;">Funcionalidades</th>
+                  </tr>
+                </thead>
+                <tbody id="rest-feat-tbody">
+                  <tr>
+                    <td colspan="3" style="text-align:center;color:var(--text-muted);">Clique em Atualizar para
+                      carregar...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ════ SEÇÃO: DOMÍNIOS POR TENANT ════ -->
+        <div class="content-section" id="sec-dominios">
+          <div class="info-banner">
+            <i class="fa-solid fa-globe"></i>
+            <div class="info-banner-content">
+              <h4>Domínios por Tenant</h4>
+              <p>Configure subdomínios (ex: <strong>pizzaria.chefcozinha.com.br</strong>) ou domínios próprios (ex:
+                <strong>www.pizzariabella.com.br</strong>) para cada restaurante. O DNS do domínio próprio deve apontar
+                para o IP do servidor.</p>
+            </div>
+          </div>
+
+          <!-- Formulário de domínio -->
+          <div
+            style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;padding:1.5rem;margin-bottom:1.5rem;">
+            <h4 style="font-family:'Outfit',sans-serif;margin-bottom:1rem;"><i class="fa-solid fa-pen"
+                style="color:var(--primary);"></i> Configurar Domínio</h4>
+            <div style="display:grid;grid-template-columns:120px 1fr 1fr auto;gap:1rem;align-items:end;">
+              <div class="form-group">
+                <label style="font-size:0.82rem;">Restaurante</label>
+                <select id="dom-tenant-select"
+                  style="width:100%;padding:0.6rem 0.8rem;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:white;font-size:0.9rem;">
+                  <option value="">Selecione...</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label style="font-size:0.82rem;">Subdomínio</label>
+                <div style="display:flex;align-items:center;gap:0;">
+                  <input type="text" id="dom-slug" placeholder="meu-restaurante"
+                    style="width:100%;padding:0.6rem 0.8rem;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px 0 0 8px;color:white;font-size:0.9rem;">
+                  <span
+                    style="padding:0.6rem 0.8rem;background:rgba(255,255,255,0.05);border:1px solid var(--border-color);border-left:none;border-radius:0 8px 8px 0;color:var(--text-muted);font-size:0.8rem;white-space:nowrap;">.chefcozinha.com.br</span>
+                </div>
+              </div>
+              <div class="form-group">
+                <label style="font-size:0.82rem;">Domínio Próprio (opcional)</label>
+                <input type="text" id="dom-custom" placeholder="www.exemplo.com.br"
+                  style="width:100%;padding:0.6rem 0.8rem;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:white;font-size:0.9rem;">
+              </div>
+              <button class="btn-action btn-primary-action" id="btn-salvar-dom" style="white-space:nowrap;height:38px;">
+                <i class="fa-solid fa-floppy-disk"></i><span>Salvar</span>
+              </button>
+            </div>
+            <div style="display:flex;gap:1.5rem;margin-top:1rem;font-size:0.78rem;color:var(--text-muted);">
+              <span><i class="fa-solid fa-circle-info"></i> Subdomínio: configure o DNS wildcard
+                <code>*.chefcozinha.com.br</code> → IP do servidor</span>
+              <span><i class="fa-solid fa-circle-info"></i> Domínio próprio: configure <code>CNAME</code> ou
+                <code>A</code> → IP do servidor</span>
+            </div>
+          </div>
+
+          <!-- Tabela de domínios -->
+          <div class="table-container">
+            <div class="table-controls">
+              <div class="search-bar">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="dom-search" placeholder="Buscar restaurante, slug ou domínio...">
+              </div>
+              <button class="btn-action btn-primary-action" id="btn-refresh-dom">
+                <i class="fa-solid fa-rotate"></i><span>Atualizar</span>
+              </button>
+            </div>
+            <div style="overflow-x:auto;">
+              <table class="custom-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Restaurante</th>
+                    <th>Subdomínio</th>
+                    <th>URL Completa</th>
+                    <th>Domínio Próprio</th>
+                    <th>Status</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="dom-tbody">
+                  <tr>
+                    <td colspan="7" style="text-align:center;color:var(--text-muted);">Clique em Atualizar para
+                      carregar...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ════ SEÇÃO 8: RECUPERAR ACESSO ════ -->
+        <div class="content-section" id="sec-recuperar-acesso">
+
+          <!-- Banner de aviso -->
+          <div class="info-banner info-banner-danger">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <div class="info-banner-content">
+              <h4>Zona de Suporte Crítico</h4>
+              <p>Use esta seção para recuperar o acesso de clientes que esqueceram email ou senha. Todas as alterações
+                são aplicadas imediatamente no banco de dados local do restaurante.</p>
+            </div>
+          </div>
+
+          <div class="recuperar-grid">
+
+            <!-- Card: Usuários cadastrados -->
+            <div class="recovery-card">
+              <div class="recovery-card-header">
+                <div class="recovery-card-icon icon-info">
+                  <i class="fa-solid fa-users"></i>
+                </div>
+                <div>
+                  <h3>Usuários Administradores</h3>
+                  <p>Todos os usuários com acesso ao sistema local</p>
+                </div>
+                <button class="btn-action" id="btn-refresh-usuarios" title="Atualizar lista">
+                  <i class="fa-solid fa-rotate"></i>
+                </button>
+              </div>
+
+              <!-- Busca inline -->
+              <div class="recovery-search">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="recovery-search-input" placeholder="Filtrar por email...">
+              </div>
+
+              <!-- Tabela de usuários -->
+              <div class="recovery-table-wrap">
+                <table class="custom-table" id="recovery-users-table">
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Email / Login</th>
+                      <th>Restaurante</th>
+                      <th>Cargo</th>
+                      <th>Status</th>
+                      <th>Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody id="recovery-users-tbody">
+                    <tr>
+                      <td colspan="6" class="table-empty-state">
+                        <i class="fa-solid fa-lock"></i>
+                        <span>Insira a senha de super admin e clique em Carregar Usuários</span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Card: Painel de ação -->
+            <div class="recovery-card">
+              <div class="recovery-card-header">
+                <div class="recovery-card-icon icon-warning">
+                  <i class="fa-solid fa-key"></i>
+                </div>
+                <div>
+                  <h3>Redefinir Credenciais</h3>
+                  <p>Altere email e/ou senha de um usuário</p>
+                </div>
+              </div>
+
+              <!-- Autenticação do super admin -->
+              <div class="admin-auth-box" id="admin-auth-box">
+                <div class="admin-auth-label">
+                  <i class="fa-solid fa-shield-halved"></i>
+                  <span>Sua senha de acesso ao sistema (para autorizar as alterações)</span>
+                </div>
+                <div class="admin-auth-input-wrap">
+                  <input type="password" id="recovery-admin-senha" placeholder="Senha do admin local"
+                    autocomplete="current-password">
+                  <button class="btn-load-users" id="btn-load-users">
+                    <i class="fa-solid fa-lock-open"></i>
+                    Carregar Usuários
+                  </button>
+                </div>
+              </div>
+
+              <!-- Formulário de reset -->
+              <div class="reset-form" id="reset-form">
+                <div class="form-group">
+                  <label for="reset-usuario-select">Usuário Alvo</label>
+                  <select id="reset-usuario-select">
+                    <option value="">— Selecione um usuário —</option>
+                  </select>
+                </div>
+
+                <div class="selected-user-preview" id="selected-user-preview" style="display:none;">
+                  <i class="fa-solid fa-circle-user"></i>
+                  <div>
+                    <strong id="preview-email">—</strong>
+                    <small id="preview-meta">—</small>
+                  </div>
+                  <span class="badge badge-ativo" id="preview-badge">ativo</span>
+                </div>
+
+                <div class="reset-divider">
+                  <span>Novos dados (deixe em branco o que não quer alterar)</span>
+                </div>
+
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="reset-novo-email">
+                      <i class="fa-solid fa-envelope" style="color:var(--info); margin-right: 0.3rem;"></i>
+                      Novo Email / Login
+                    </label>
+                    <input type="email" id="reset-novo-email" placeholder="novo@email.com" autocomplete="off">
+                  </div>
+                  <div class="form-group">
+                    <label for="reset-nova-senha">
+                      <i class="fa-solid fa-lock" style="color:var(--warning); margin-right: 0.3rem;"></i>
+                      Nova Senha
+                    </label>
+                    <div style="position: relative;">
+                      <input type="password" id="reset-nova-senha" placeholder="Mínimo 4 caracteres"
+                        autocomplete="new-password" style="padding-right: 2.8rem;">
+                      <button type="button" class="toggle-senha-btn" id="toggle-nova-senha"
+                        title="Mostrar/ocultar senha">
+                        <i class="fa-solid fa-eye"></i>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Indicador de força de senha -->
+                <div class="senha-strength" id="senha-strength" style="display:none;">
+                  <div class="strength-bar" id="strength-bar"></div>
+                  <span class="strength-label" id="strength-label">Fraca</span>
+                </div>
+
+                <button class="btn-reset" id="btn-reset-credenciais" disabled>
+                  <i class="fa-solid fa-rotate-left"></i>
+                  <span>Aplicar Redefinição</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Card: Criar novo usuário -->
+            <div class="recovery-card recovery-card-full">
+              <div class="recovery-card-header">
+                <div class="recovery-card-icon icon-success">
+                  <i class="fa-solid fa-user-plus"></i>
+                </div>
+                <div>
+                  <h3>Criar Novo Usuário Admin</h3>
+                  <p>Cria um acesso novo para um restaurante, caso o cliente nunca tenha se cadastrado</p>
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="novo-user-email">Email do Novo Usuário</label>
+                  <input type="email" id="novo-user-email" placeholder="restaurante@email.com">
+                </div>
+                <div class="form-group">
+                  <label for="novo-user-senha">Senha Inicial</label>
+                  <input type="password" id="novo-user-senha" placeholder="Senha de acesso">
+                </div>
+                <div class="form-group">
+                  <label for="novo-user-restaurante-id">ID do Restaurante</label>
+                  <input type="number" id="novo-user-restaurante-id" placeholder="Ex: 1" value="1" min="1">
+                </div>
+              </div>
+              <button class="btn-login form-submit" id="btn-criar-usuario">
+                <i class="fa-solid fa-user-plus"></i>
+                <span>Criar Usuário</span>
+              </button>
+            </div>
+
+          </div>
+        </div>
+        <!-- ════ FIM SEÇÃO 5 ════ -->
+
+        <!-- ════ SEÇÃO 9: CLIENTES ════ -->
+        <div class="content-section" id="sec-clientes">
+          <div class="table-container">
+            <div class="table-controls">
+              <div class="search-bar">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="clientes-search" placeholder="Buscar cliente por nome ou telefone...">
+              </div>
+              <div class="filter-group">
+                <select class="select-filter" id="clientes-filter-rest">
+                  <option value="">Todos os Restaurantes</option>
+                </select>
+                <button class="btn-action btn-primary-action" id="btn-refresh-clientes">
+                  <i class="fa-solid fa-rotate"></i><span>Atualizar</span>
+                </button>
+              </div>
+            </div>
+            <div style="overflow-x: auto; max-height: 550px;">
+              <table class="custom-table" id="clientes-table">
+                <thead>
+                  <tr>
+                    <th>Nome</th>
+                    <th>Telefone</th>
+                    <th>Restaurante</th>
+                    <th>Pontos</th>
+                    <th>Total Gasto</th>
+                    <th>Pedidos</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="clientes-tbody">
+                  <tr>
+                    <td colspan="7" style="text-align:center;color:var(--text-muted);">Clique em Atualizar para carregar
+                      clientes...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ════ SEÇÃO 10: TERMINAL ════ -->
+        <div class="content-section" id="sec-terminal">
+          <div style="padding: 20px;">
+            <h2 style="margin-bottom:6px;"><i class="fa-solid fa-terminal"></i> Terminal de Comandos</h2>
+            <p style="color:#999;font-size:13px;margin-bottom:20px;">Execute comandos no servidor, direcionados a uma
+              instalação específica.</p>
+
+            <div class="card" style="padding: 1.5rem; margin-bottom: 1.5rem;">
+              <div style="display:flex;gap:1rem;margin-bottom:1rem;align-items:end;flex-wrap:wrap;">
+                <div style="flex:1;min-width:200px;">
+                  <label
+                    style="display:block;font-size:0.85rem;color:var(--text-muted);margin-bottom:0.4rem;">Instalação
+                    Alvo</label>
+                  <select id="exec-target"
+                    style="width:100%;padding:0.7rem 1rem;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:0.9rem;">
+                    <option value="">Todas as instalações (local)</option>
+                  </select>
+                </div>
+                <button class="btn-action" id="btn-refresh-targets" style="margin-bottom:2px;"
+                  title="Recarregar lista de instalações">
+                  <i class="fa-solid fa-rotate"></i>
+                </button>
+              </div>
+              <div style="margin-bottom:0.8rem;">
+                <label
+                  style="display:block;font-size:0.85rem;color:var(--text-muted);margin-bottom:0.4rem;">Comando</label>
+                <div style="display:flex;gap:0.5rem;">
+                  <input type="text" id="exec-input" placeholder="Ex: node -e console.log('ok')"
+                    style="flex:1;padding:0.8rem 1rem;background:#0d0f17;border:1px solid rgba(255,87,34,0.3);border-radius:8px;color:#a8ff60;font-family:'Consolas','Courier New',monospace;font-size:0.9rem;">
+                  <button class="btn-action btn-primary-action" id="btn-exec" style="white-space:nowrap;">
+                    <i class="fa-solid fa-play"></i> Executar
+                  </button>
+                </div>
+              </div>
+              <div style="display:flex;gap:1rem;font-size:0.8rem;color:var(--text-muted);">
+                <span><i class="fa-solid fa-triangle-exclamation" style="color:var(--warning);"></i> Comandos são
+                  executados como administrador do sistema</span>
+                <span><i class="fa-solid fa-clock"></i> Timeout: 30s</span>
+              </div>
+
+              <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border-color);">
+                <label style="display:block;font-size:0.85rem;color:var(--text-muted);margin-bottom:0.6rem;">
+                  <i class="fa-solid fa-bolt"></i> Comandos Rápidos
+                  <span style="font-size:0.75rem;color:#666;margin-left:0.5rem;">— clique para inserir, ou Alt+Clique
+                    para executar direto</span>
+                </label>
+                <div style="display:flex;flex-wrap:wrap;gap:0.5rem;" id="quick-commands">
+                  <button class="quick-cmd"
+                    data-cmd="node -e &quot;console.log('Servidor OK');console.log('Uptime: '+process.uptime().toFixed(0)+'s');console.log('PID: '+process.pid);console.log('Mem: '+(process.memoryUsage().rss/1024/1024).toFixed(1)+' MB')&quot;">Status
+                    Servidor</button>
+                  <button class="quick-cmd"
+                    data-cmd="tasklist /FI &quot;IMAGENAME eq node.exe&quot; /FO TABLE">Processos Node</button>
+                  <button class="quick-cmd"
+                    data-cmd="systeminfo | findstr /B /C:&quot;OS Name&quot; /C:&quot;OS Version&quot; /C:&quot;System Type&quot;">Info
+                    Sistema</button>
+                  <button class="quick-cmd"
+                    data-cmd="wmic OS get FreePhysicalMemory,TotalVisibleMemorySize /Value">Memória RAM</button>
+                  <button class="quick-cmd"
+                    data-cmd="dir /S /B %TEMP% | find /V /C &quot;&quot; &amp; echo Arquivos temporarios">Limpar
+                    Temp</button>
+                  <button class="quick-cmd"
+                    data-cmd="npm run backup 2&gt;nul || echo Comando backup nao encontrado">Backup DB</button>
+                  <button class="quick-cmd"
+                    data-cmd="echo Iniciando restart... &amp;&amp; ping -n 3 127.0.0.1 &gt;nul &amp;&amp; exit">Reiniciar
+                    App</button>
+                  <button class="quick-cmd"
+                    data-cmd="node -e &quot;var c=require('child_process');c.exec('netstat -ano | findstr :3000',function(e,o){console.log(o||'Nada na porta 3000')})&quot;">Porta
+                    3000</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="card" style="padding: 0; overflow: hidden;">
+              <div
+                style="padding:0.8rem 1.2rem;background:rgba(255,87,34,0.08);border-bottom:1px solid var(--border-color);display:flex;justify-content:space-between;align-items:center;">
+                <span style="font-weight:600;font-size:0.9rem;"><i class="fa-solid fa-display"></i> Output</span>
+                <button class="btn-row-action" id="btn-clear-output" title="Limpar output">
+                  <i class="fa-solid fa-eraser"></i>
+                </button>
+              </div>
+              <pre id="exec-output"
+                style="background:#0a0b12;color:#a8ff60;padding:1.2rem;margin:0;min-height:200px;max-height:400px;overflow:auto;font-family:'Consolas','Courier New',monospace;font-size:0.8rem;line-height:1.5;white-space:pre-wrap;word-break:break-all;">Clique em Executar para rodar um comando...</pre>
+            </div>
+          </div>
+        </div>
+
+        <!-- ════ SEÇÃO: INSTÂNCIAS ON-PREMISE ════ -->
+        <div class="content-section" id="sec-instancias">
+          <div style="padding: 20px;">
+            <h2 style="margin-bottom:6px;"><i class="fa-solid fa-server"></i> Instâncias On-Premise</h2>
+            <p style="color:#999;font-size:13px;margin-bottom:20px;">Gerencie instalações locais dos restaurantes
+              conectadas ao servidor.</p>
+
+            <div class="stats-grid"
+              style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin-bottom:1.5rem;">
+              <div class="stat-card">
+                <div class="stat-icon"><i class="fa-solid fa-server"></i></div>
+                <div class="stat-meta"><span>Total</span>
+                  <h3 id="inst-total">0</h3>
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon" style="color:#00c853;"><i class="fa-solid fa-circle-check"></i></div>
+                <div class="stat-meta"><span>Online</span>
+                  <h3 id="inst-online">0</h3>
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon" style="color:#ff5252;"><i class="fa-solid fa-circle-xmark"></i></div>
+                <div class="stat-meta"><span>Offline</span>
+                  <h3 id="inst-offline">0</h3>
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon" style="color:#ffc107;"><i class="fa-solid fa-clock-rotate-left"></i></div>
+                <div class="stat-meta"><span>Comandos Pendentes</span>
+                  <h3 id="inst-pending">0</h3>
+                </div>
+              </div>
+            </div>
+
+            <div class="card" style="padding:0;overflow:hidden;">
+              <div
+                style="padding:0.8rem 1.2rem;background:rgba(255,87,34,0.08);border-bottom:1px solid var(--border-color);display:flex;justify-content:space-between;align-items:center;">
+                <span style="font-weight:600;font-size:0.9rem;"><i class="fa-solid fa-server"></i> Instâncias
+                  Registradas</span>
+                <button class="btn-action" id="btn-refresh-instances" title="Atualizar"
+                  style="padding:0.4rem 0.8rem;font-size:0.8rem;">
+                  <i class="fa-solid fa-rotate"></i> Atualizar
+                </button>
+              </div>
+              <table class="custom-table">
+                <thead>
+                  <tr>
+                    <th>Nome</th>
+                    <th>Status</th>
+                    <th>Versão</th>
+                    <th>Último Heartbeat</th>
+                    <th>Última Sync</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="instances-table-body">
+                  <tr>
+                    <td colspan="6" style="text-align:center;padding:2rem;color:var(--text-muted);">Carregando
+                      instâncias...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+
+        <!-- ════ SEÇÃO: AFILIADOS & PARCEIROS DE VENDAS ════ -->
+        <div class="content-section" id="sec-afiliados">
+          <div style="padding: 20px;">
+            <div
+              style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
+              <div>
+                <h2 style="margin-bottom:4px; font-size:22px;"><i class="fa-solid fa-handshake"
+                    style="color:var(--primary);"></i> Programa de Afiliados & Parceiros</h2>
+                <p style="color:var(--text-muted); font-size:13.5px;">Gerencie revendedores, acompanhe vendas por código
+                  de referência e comissões em tempo real.</p>
+              </div>
+              <div style="display:flex; gap:10px;">
+                <button onclick="carregarAfiliados()" class="btn-action" style="padding:9px 16px;">
+                  <i class="fa-solid fa-rotate"></i> Atualizar
+                </button>
+                <button onclick="abrirModalNovoAfiliado()" class="btn-action btn-primary-action"
+                  style="padding:9px 18px;">
+                  <i class="fa-solid fa-user-plus"></i> Novo Afiliado
+                </button>
+              </div>
+            </div>
+
+            <!-- Cards de Métricas Gerais de Afiliados -->
+            <div class="stats-grid" style="margin-bottom: 24px;">
+              <div class="stat-card">
+                <div class="stat-icon" style="background:rgba(255,87,34,0.15); color:var(--primary);"><i
+                    class="fa-solid fa-users"></i></div>
+                <div class="stat-meta">
+                  <span>Total de Afiliados</span>
+                  <h3 id="afil-stat-total">0</h3>
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon" style="background:rgba(16,185,129,0.15); color:var(--success);"><i
+                    class="fa-solid fa-bag-shopping"></i></div>
+                <div class="stat-meta">
+                  <span>Vendas por Afiliados</span>
+                  <h3 id="afil-stat-vendas">0</h3>
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon" style="background:rgba(59,130,246,0.15); color:var(--info);"><i
+                    class="fa-solid fa-chart-line"></i></div>
+                <div class="stat-meta">
+                  <span>Faturamento Gerado</span>
+                  <h3 id="afil-stat-faturamento">R$ 0,00</h3>
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon" style="background:rgba(245,158,11,0.15); color:var(--warning);"><i
+                    class="fa-solid fa-hand-holding-dollar"></i></div>
+                <div class="stat-meta">
+                  <span>Comissões Geradas</span>
+                  <h3 id="afil-stat-comissoes">R$ 0,00</h3>
+                </div>
+              </div>
+            </div>
+
+            <!-- Tabela de Afiliados -->
+            <div class="table-container">
+              <div class="table-controls">
+                <div class="search-bar">
+                  <i class="fa-solid fa-magnifying-glass"></i>
+                  <input type="text" id="afil-search" onkeyup="filtrarTabelaAfiliados()"
+                    placeholder="Buscar por nome, email ou código ref...">
+                </div>
+              </div>
+              <div style="overflow-x:auto;">
+                <table class="custom-table">
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Afiliado</th>
+                      <th>Código Ref.</th>
+                      <th>Comissão %</th>
+                      <th>Vendas</th>
+                      <th>Faturado</th>
+                      <th>Comissões</th>
+                      <th>Status</th>
+                      <th>Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody id="afil-tbody">
+                    <tr>
+                      <td colspan="9" style="text-align:center; padding:30px; color:var(--text-muted);">Carregando
+                        afiliados...</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ════ SEÇÃO: SEGURANÇA WAF, ANTI-DDOS & IP BLACKLIST ════ -->
+        <div class="content-section" id="sec-seguranca-waf">
+          <div style="padding: 20px;">
+            <div
+              style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
+              <div>
+                <h2 style="margin-bottom:4px; font-size:22px;"><i class="fa-solid fa-shield-halved"
+                    style="color:var(--primary);"></i> Central de Segurança, WAF & Proteção Anti-DDoS</h2>
+                <p style="color:var(--text-muted); font-size:13.5px;">Configure limites de requisições, bloqueie IPs
+                  maliciosos e gerencie a proteção contra ataques cibernéticos.</p>
+              </div>
+              <div style="display:flex; gap:10px;">
+                <button onclick="carregarConfigSeguranca()" class="btn-action" style="padding:9px 16px;">
+                  <i class="fa-solid fa-rotate"></i> Atualizar
+                </button>
+              </div>
+            </div>
+
+            <!-- Stats WAF -->
+            <div class="stats-grid" style="margin-bottom: 24px;">
+              <div class="stat-card">
+                <div class="stat-icon" style="background:rgba(16,185,129,0.15); color:var(--success);"><i
+                    class="fa-solid fa-shield-cat"></i></div>
+                <div class="stat-meta">
+                  <span>Status do WAF</span>
+                  <h3 id="waf-stat-status" style="color:var(--success);">ATIVO</h3>
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon" style="background:rgba(239,68,68,0.15); color:#ef4444;"><i
+                    class="fa-solid fa-user-slash"></i></div>
+                <div class="stat-meta">
+                  <span>IPs Bloqueados (Blacklist)</span>
+                  <h3 id="waf-stat-blocked">0</h3>
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon" style="background:rgba(245,158,11,0.15); color:var(--warning);"><i
+                    class="fa-solid fa-gauge-high"></i></div>
+                <div class="stat-meta">
+                  <span>Limite Rate Limiter</span>
+                  <h3 id="waf-stat-limit">300 / min</h3>
+                </div>
+              </div>
+            </div>
+
+            <!-- Formulário de Configuração do WAF -->
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; margin-bottom:24px;">
+              <!-- Anti-DDoS & Rate Limiter -->
+              <div
+                style="padding:24px; background:var(--bg-card); border:1px solid var(--border-color); border-radius:16px;">
+                <h3 style="font-size:16px; margin-bottom:16px; color:#fff;"><i class="fa-solid fa-gauge-simple-high"
+                    style="color:var(--primary);"></i> Proteção Anti-DDoS & Limitação de Taxa</h3>
+
+                <div style="margin-bottom:14px;">
+                  <label
+                    style="display:flex; align-items:center; gap:8px; font-size:14px; font-weight:600; color:#fff; cursor:pointer;">
+                    <input type="checkbox" id="waf-enabled"
+                      style="accent-color:var(--primary); width:18px; height:18px;">
+                    Ativar Firewall WAF / Anti-DDoS
+                  </label>
+                </div>
+
+                <div style="margin-bottom:14px;">
+                  <label style="font-size:12px; color:var(--text-muted); display:block; margin-bottom:4px;">Máximo de
+                    Requisições por Minuto por IP</label>
+                  <input type="number" id="waf-max-reqs" placeholder="300"
+                    style="width:100%; padding:10px 14px; background:rgba(0,0,0,0.25); border:1px solid var(--border-color); border-radius:10px; color:#fff; font-size:14px; outline:none;">
+                  <small style="color:var(--text-muted); font-size:11px;">Recomendado: 200 a 500 para uso comum.</small>
+                </div>
+
+                <div style="margin-bottom:14px;">
+                  <label
+                    style="display:flex; align-items:center; gap:8px; font-size:13px; color:var(--text-muted); cursor:pointer;">
+                    <input type="checkbox" id="waf-block-sql-xss" style="accent-color:var(--primary);">
+                    Filtrar Injeções de SQL (SQLi) & Cross-Site Scripting (XSS)
+                  </label>
+                </div>
+
+                <div style="margin-bottom:20px;">
+                  <label
+                    style="display:flex; align-items:center; gap:8px; font-size:13px; color:var(--text-muted); cursor:pointer;">
+                    <input type="checkbox" id="waf-headers-enabled" style="accent-color:var(--primary);">
+                    Injetar Headers de Segurança (Anti-Clickjacking, No-Sniff)
+                  </label>
+                </div>
+
+                <button onclick="salvarConfigSeguranca()"
+                  style="background:linear-gradient(135deg,var(--primary),#e64a19); color:#fff; border:none; border-radius:12px; padding:12px 24px; font-size:14px; font-weight:700; cursor:pointer; box-shadow:0 4px 12px var(--primary-glow); display:flex; align-items:center; gap:8px;">
+                  <i class="fa-solid fa-floppy-disk"></i> Salvar Regras do WAF
+                </button>
+              </div>
+
+              <!-- Gerenciamento de IP Blacklist (Bloqueio Manual) -->
+              <div
+                style="padding:24px; background:var(--bg-card); border:1px solid var(--border-color); border-radius:16px;">
+                <h3 style="font-size:16px; margin-bottom:16px; color:#fff;"><i class="fa-solid fa-user-lock"
+                    style="color:#ef4444;"></i> Lista Negra de IPs (Blacklist)</h3>
+
+                <div style="margin-bottom:14px;">
+                  <label style="font-size:12px; color:var(--text-muted); display:block; margin-bottom:4px;">Bloquear
+                    Novo Endereço IP</label>
+                  <div style="display:flex; gap:10px;">
+                    <input type="text" id="waf-new-ip" placeholder="Ex: 192.168.1.100 ou 45.180.2.1"
+                      style="flex:1; padding:10px 14px; background:rgba(0,0,0,0.25); border:1px solid var(--border-color); border-radius:10px; color:#fff; font-size:14px; outline:none;">
+                    <button onclick="adicionarIpBlacklist()"
+                      style="background:#ef4444; color:#fff; border:none; border-radius:10px; padding:10px 16px; font-size:13px; font-weight:700; cursor:pointer;">
+                      <i class="fa-solid fa-ban"></i> Bloquear
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label style="font-size:12px; color:var(--text-muted); display:block; margin-bottom:6px;">IPs
+                    Bloqueados Atualmente</label>
+                  <div id="waf-blacklist-container"
+                    style="background:rgba(0,0,0,0.3); border:1px solid var(--border-color); border-radius:10px; padding:10px; max-height:160px; overflow-y:auto; font-family:monospace; font-size:13px;">
+                    <div style="color:var(--text-muted); text-align:center; padding:10px;">Nenhum IP bloqueado
+                      manualmente.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Tabela de Logs de Tentativas Bloqueadas pelo WAF -->
+            <div class="table-container">
+              <div class="table-title"><i class="fa-solid fa-triangle-exclamation" style="color:var(--warning);"></i>
+                Logs Recentes de Bloqueios & Inundações de Requisições</div>
+              <div style="overflow-x:auto;">
+                <table class="custom-table">
+                  <thead>
+                    <tr>
+                      <th>Horário</th>
+                      <th>Endereço IP</th>
+                      <th>Método</th>
+                      <th>Endpoint Alvo</th>
+                      <th>Motivo do Bloqueio</th>
+                    </tr>
+                  </thead>
+                  <tbody id="waf-logs-tbody">
+                    <tr>
+                      <td colspan="5" style="text-align:center; padding:20px; color:var(--text-muted);">Nenhum ataque ou
+                        bloqueio registrado recentemente.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ SEÇÃO: SITE DE VENDAS (CMS) ═══ -->
+        <div class="content-section" id="sec-site-vendas">
+          <div style="padding: 20px;">
+            <h2 style="margin-bottom:6px;"><i class="fa-solid fa-bullseye"></i> Site de Vendas — CMS</h2>
+            <p style="color:#999;font-size:13px;margin-bottom:20px;">Edite todo o conteúdo da landing page, planos,
+              gateways de pagamento e dados do consultor.</p>
+
+            <div
+              style="display:flex;gap:6px;margin-bottom:24px;background:rgba(0,0,0,0.2);padding:5px;border-radius:12px;flex-wrap:wrap;">
+              <button class="sv-tab-btn active" data-sv-tab="sv-tab-conteudo"
+                onclick="renderSiteVendasTab('sv-tab-conteudo')"
+                style="flex:1;min-width:120px;padding:10px 16px;border-radius:8px;border:none;background:var(--primary);color:#fff;font-weight:600;font-size:13px;cursor:pointer;"><i
+                  class="fa-solid fa-pen-to-square"></i> Conteúdos</button>
+              <button class="sv-tab-btn" data-sv-tab="sv-tab-planos" onclick="renderSiteVendasTab('sv-tab-planos')"
+                style="flex:1;min-width:120px;padding:10px 16px;border-radius:8px;border:none;background:transparent;color:var(--text-muted);font-weight:600;font-size:13px;cursor:pointer;"><i
+                  class="fa-solid fa-tags"></i> Planos</button>
+              <button class="sv-tab-btn" data-sv-tab="sv-tab-gateways" onclick="renderSiteVendasTab('sv-tab-gateways')"
+                style="flex:1;min-width:120px;padding:10px 16px;border-radius:8px;border:none;background:transparent;color:var(--text-muted);font-weight:600;font-size:13px;cursor:pointer;"><i
+                  class="fa-solid fa-credit-card"></i> Gateways</button>
+              <button class="sv-tab-btn" data-sv-tab="sv-tab-consultor"
+                onclick="renderSiteVendasTab('sv-tab-consultor')"
+                style="flex:1;min-width:120px;padding:10px 16px;border-radius:8px;border:none;background:transparent;color:var(--text-muted);font-weight:600;font-size:13px;cursor:pointer;"><i
+                  class="fa-brands fa-whatsapp"></i> Consultor</button>
+            </div>
+
+            <!-- CONTEÚDOS -->
+            <div class="sv-tab-panel" id="sv-tab-conteudo">
+              <div
+                style="padding:24px;background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;margin-bottom:20px;">
+                <h3 style="margin-bottom:16px;font-size:16px;"><i class="fa-solid fa-wand-magic-sparkles"
+                    style="color:var(--primary);"></i> Hero Section</h3>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+                  <div><label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Título
+                      Principal</label><input id="sv-hero-titulo" placeholder="O Sistema para Restaurantes..."
+                      style="width:100%;padding:10px 14px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:10px;color:#fff;font-size:13px;outline:none;">
+                  </div>
+                  <div><label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Parte
+                      Destacada (laranja)</label><input id="sv-hero-destaque" placeholder="Mais Rápido e Antifraude"
+                      style="width:100%;padding:10px 14px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:10px;color:#fff;font-size:13px;outline:none;">
+                  </div>
+                </div>
+                <div style="margin-bottom:12px;"><label
+                    style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Subtítulo</label><textarea
+                    id="sv-hero-subtitulo" rows="2"
+                    style="width:100%;padding:10px 14px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:10px;color:#fff;font-size:13px;outline:none;resize:vertical;"></textarea>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+                  <div><label
+                      style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Badge</label><input
+                      id="sv-hero-badge"
+                      style="width:100%;padding:10px 14px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:10px;color:#fff;font-size:13px;outline:none;">
+                  </div>
+                  <div><label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">CTA
+                      Principal</label><input id="sv-cta-principal"
+                      style="width:100%;padding:10px 14px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:10px;color:#fff;font-size:13px;outline:none;">
+                  </div>
+                  <div><label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">CTA
+                      Secundário</label><input id="sv-cta-secundario"
+                      style="width:100%;padding:10px 14px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:10px;color:#fff;font-size:13px;outline:none;">
+                  </div>
+                </div>
+              </div>
+              <div
+                style="padding:24px;background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;margin-bottom:20px;">
+                <h3 style="margin-bottom:16px;font-size:16px;"><i class="fa-solid fa-bullhorn"
+                    style="color:var(--warning);"></i> Banner &amp; Footer</h3>
+                <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:12px;">
+                  <div><label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Banner
+                      Texto</label><input id="sv-banner-texto"
+                      style="width:100%;padding:10px 14px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:10px;color:#fff;font-size:13px;outline:none;">
+                  </div>
+                  <div><label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Banner
+                      Link</label><input id="sv-banner-link"
+                      style="width:100%;padding:10px 14px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:10px;color:#fff;font-size:13px;outline:none;">
+                  </div>
+                </div>
+                <div><label
+                    style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Footer</label><input
+                    id="sv-footer-texto"
+                    style="width:100%;padding:10px 14px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:10px;color:#fff;font-size:13px;outline:none;">
+                </div>
+              </div>
+              <div
+                style="padding:24px;background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;margin-bottom:20px;">
+                <h3 style="margin-bottom:16px;font-size:16px;"><i class="fa-solid fa-chart-simple"
+                    style="color:var(--success);"></i> Stats do Hero</h3>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                  <div style="display:flex;gap:8px;"><input id="sv-stat-valor-0" placeholder="Valor"
+                      style="flex:0.4;padding:8px 12px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:#fff;font-size:13px;outline:none;"><input
+                      id="sv-stat-label-0" placeholder="Label"
+                      style="flex:0.6;padding:8px 12px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:#fff;font-size:13px;outline:none;">
+                  </div>
+                  <div style="display:flex;gap:8px;"><input id="sv-stat-valor-1" placeholder="Valor"
+                      style="flex:0.4;padding:8px 12px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:#fff;font-size:13px;outline:none;"><input
+                      id="sv-stat-label-1" placeholder="Label"
+                      style="flex:0.6;padding:8px 12px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:#fff;font-size:13px;outline:none;">
+                  </div>
+                  <div style="display:flex;gap:8px;"><input id="sv-stat-valor-2" placeholder="Valor"
+                      style="flex:0.4;padding:8px 12px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:#fff;font-size:13px;outline:none;"><input
+                      id="sv-stat-label-2" placeholder="Label"
+                      style="flex:0.6;padding:8px 12px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:#fff;font-size:13px;outline:none;">
+                  </div>
+                  <div style="display:flex;gap:8px;"><input id="sv-stat-valor-3" placeholder="Valor"
+                      style="flex:0.4;padding:8px 12px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:#fff;font-size:13px;outline:none;"><input
+                      id="sv-stat-label-3" placeholder="Label"
+                      style="flex:0.6;padding:8px 12px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:#fff;font-size:13px;outline:none;">
+                  </div>
+                </div>
+              </div>
+              <div
+                style="padding:24px;background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;margin-bottom:20px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                  <h3 style="font-size:16px;"><i class="fa-solid fa-circle-question" style="color:var(--info);"></i> FAQ
+                  </h3><button onclick="adicionarFaq()"
+                    style="background:var(--primary);color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;"><i
+                      class="fa-solid fa-plus"></i> Adicionar</button>
+                </div>
+                <div id="sv-faq-container"></div>
+              </div>
+              <button onclick="salvarSiteConteudo()"
+                style="background:linear-gradient(135deg,var(--primary),#e64a19);color:#fff;border:none;border-radius:12px;padding:14px 32px;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px var(--primary-glow);display:flex;align-items:center;gap:8px;"><i
+                  class="fa-solid fa-floppy-disk"></i> Salvar Conteúdo</button>
+            </div>
+
+            <!-- PLANOS -->
+            <div class="sv-tab-panel" id="sv-tab-planos" style="display:none;">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                <p style="color:var(--text-muted);font-size:13px;">Crie, edite e reordene os planos.</p><button
+                  onclick="adicionarPlano()"
+                  style="background:var(--primary);color:#fff;border:none;border-radius:10px;padding:10px 20px;font-size:13px;font-weight:600;cursor:pointer;"><i
+                    class="fa-solid fa-plus"></i> Novo Plano</button>
+              </div>
+              <div id="sv-planos-container"></div>
+              <button onclick="salvarSitePlanos()"
+                style="background:linear-gradient(135deg,var(--primary),#e64a19);color:#fff;border:none;border-radius:12px;padding:14px 32px;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px var(--primary-glow);display:flex;align-items:center;gap:8px;margin-top:10px;"><i
+                  class="fa-solid fa-floppy-disk"></i> Salvar Planos</button>
+            </div>
+
+            <!-- GATEWAYS -->
+            <div class="sv-tab-panel" id="sv-tab-gateways" style="display:none;">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+                <div
+                  style="padding:24px;background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;">
+                  <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+                    <div
+                      style="width:40px;height:40px;background:rgba(16,185,129,0.15);border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--success);font-size:18px;">
+                      <i class="fa-solid fa-building-columns"></i></div>
+                    <div><strong>Asaas</strong><br><small style="color:var(--text-muted);">Boleto, PIX, Cartão</small>
+                    </div>
+                  </div>
+                  <div style="margin-bottom:12px;"><label
+                      style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">API
+                      Key</label><input id="sv-gw-asaas-key" type="password" placeholder="$aact_..."
+                      style="width:100%;padding:10px 14px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:10px;color:#fff;font-size:13px;outline:none;">
+                  </div>
+                  <div style="margin-bottom:12px;"><label
+                      style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Tipo
+                      Cobrança</label><select id="sv-gw-asaas-tipo"
+                      style="width:100%;padding:10px 14px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:10px;color:#fff;font-size:13px;outline:none;">
+                      <option value="PIX">PIX</option>
+                      <option value="BOLETO">Boleto</option>
+                      <option value="CREDIT_CARD">Cartão</option>
+                    </select></div>
+                  <div style="display:flex;gap:20px;"><label
+                      style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-muted);cursor:pointer;"><input
+                        type="checkbox" id="sv-gw-asaas-ativo" style="accent-color:var(--success);"> Ativo</label><label
+                      style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-muted);cursor:pointer;"><input
+                        type="checkbox" id="sv-gw-asaas-sandbox" style="accent-color:var(--warning);"> Sandbox</label>
+                  </div>
+                </div>
+                <div
+                  style="padding:24px;background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;">
+                  <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+                    <div
+                      style="width:40px;height:40px;background:rgba(59,130,246,0.15);border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--info);font-size:18px;">
+                      <i class="fa-solid fa-coins"></i></div>
+                    <div><strong>MercadoPago</strong><br><small style="color:var(--text-muted);">PIX, Cartão,
+                        Boleto</small></div>
+                  </div>
+                  <div style="margin-bottom:12px;"><label
+                      style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Access
+                      Token</label><input id="sv-gw-mp-token" type="password" placeholder="APP_USR-..."
+                      style="width:100%;padding:10px 14px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:10px;color:#fff;font-size:13px;outline:none;">
+                  </div>
+                  <div style="margin-bottom:12px;"><label
+                      style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Public
+                      Key</label><input id="sv-gw-mp-public" type="password" placeholder="APP_USR-..."
+                      style="width:100%;padding:10px 14px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:10px;color:#fff;font-size:13px;outline:none;">
+                  </div>
+                  <label
+                    style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-muted);cursor:pointer;"><input
+                      type="checkbox" id="sv-gw-mp-ativo" style="accent-color:var(--info);"> Ativo</label>
+                </div>
+              </div>
+              <div style="margin-top:16px;"><label
+                  style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Gateway
+                  Padrão</label><select id="sv-gw-padrao"
+                  style="width:200px;padding:10px 14px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:10px;color:#fff;font-size:13px;outline:none;">
+                  <option value="asaas">Asaas</option>
+                  <option value="mercadopago">MercadoPago</option>
+                </select></div>
+              <button onclick="salvarSiteGateways()"
+                style="background:linear-gradient(135deg,var(--primary),#e64a19);color:#fff;border:none;border-radius:12px;padding:14px 32px;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px var(--primary-glow);display:flex;align-items:center;gap:8px;margin-top:20px;"><i
+                  class="fa-solid fa-floppy-disk"></i> Salvar Gateways</button>
+            </div>
+
+            <!-- TRACKING & PIXEL (GTAG + META PIXEL + AUDIÊNCIAS + GERADOR DE ANÚNCIOS) -->
+            <div class="sv-tab-panel" id="sv-tab-tracking" style="display:none;">
+              <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; margin-bottom:24px;">
+                <!-- GTAG / Google Analytics -->
+                <div
+                  style="padding:24px; background:var(--bg-card); border:1px solid var(--border-color); border-radius:16px;">
+                  <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
+                    <div
+                      style="width:40px; height:40px; background:rgba(234,67,53,0.15); border-radius:10px; display:flex; align-items:center; justify-content:center; color:#ea4335; font-size:20px;">
+                      <i class="fa-brands fa-google"></i>
+                    </div>
+                    <div>
+                      <strong style="font-size:16px;">Google Analytics (GTAG)</strong>
+                      <div style="font-size:12px; color:var(--text-muted);">IDs de Acompanhamento (ex: G-XXXXXX ou
+                        AW-XXXXXX)</div>
+                    </div>
+                  </div>
+
+                  <div style="margin-bottom:12px;">
+                    <label style="font-size:12px; color:var(--text-muted); display:block; margin-bottom:4px;">GTAG Site
+                      de Vendas (Landing Page)</label>
+                    <input id="tracking-gtag-site" placeholder="G-XXXXXXXXXX"
+                      style="width:100%; padding:10px 14px; background:rgba(0,0,0,0.25); border:1px solid var(--border-color); border-radius:10px; color:#fff; font-size:13px; outline:none;">
+                  </div>
+                  <div style="margin-bottom:12px;">
+                    <label style="font-size:12px; color:var(--text-muted); display:block; margin-bottom:4px;">GTAG
+                      Cardápio Digital (Clientes)</label>
+                    <input id="tracking-gtag-cardapio" placeholder="G-XXXXXXXXXX"
+                      style="width:100%; padding:10px 14px; background:rgba(0,0,0,0.25); border:1px solid var(--border-color); border-radius:10px; color:#fff; font-size:13px; outline:none;">
+                  </div>
+                  <div style="margin-bottom:12px;">
+                    <label style="font-size:12px; color:var(--text-muted); display:block; margin-bottom:4px;">GTAG Área
+                      do Colaborador (Garçons/Gerentes)</label>
+                    <input id="tracking-gtag-colaborador" placeholder="G-XXXXXXXXXX"
+                      style="width:100%; padding:10px 14px; background:rgba(0,0,0,0.25); border:1px solid var(--border-color); border-radius:10px; color:#fff; font-size:13px; outline:none;">
+                  </div>
+                  <div>
+                    <label style="font-size:12px; color:var(--text-muted); display:block; margin-bottom:4px;">GTAG Home
+                      / Sistema PDV (Dono do Restaurante)</label>
+                    <input id="tracking-gtag-home" placeholder="G-XXXXXXXXXX"
+                      style="width:100%; padding:10px 14px; background:rgba(0,0,0,0.25); border:1px solid var(--border-color); border-radius:10px; color:#fff; font-size:13px; outline:none;">
+                  </div>
+                </div>
+
+                <!-- Meta / Facebook Pixel -->
+                <div
+                  style="padding:24px; background:var(--bg-card); border:1px solid var(--border-color); border-radius:16px;">
+                  <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
+                    <div
+                      style="width:40px; height:40px; background:rgba(24,119,242,0.15); border-radius:10px; display:flex; align-items:center; justify-content:center; color:#1877f2; font-size:20px;">
+                      <i class="fa-brands fa-facebook"></i>
+                    </div>
+                    <div>
+                      <strong style="font-size:16px;">Meta Pixel (Facebook Ads)</strong>
+                      <div style="font-size:12px; color:var(--text-muted);">IDs numéricos do Pixel Meta (ex: 1234567890)
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style="margin-bottom:12px;">
+                    <label style="font-size:12px; color:var(--text-muted); display:block; margin-bottom:4px;">Pixel Site
+                      de Vendas (Landing Page)</label>
+                    <input id="tracking-pixel-site" placeholder="123456789012345"
+                      style="width:100%; padding:10px 14px; background:rgba(0,0,0,0.25); border:1px solid var(--border-color); border-radius:10px; color:#fff; font-size:13px; outline:none;">
+                  </div>
+                  <div style="margin-bottom:12px;">
+                    <label style="font-size:12px; color:var(--text-muted); display:block; margin-bottom:4px;">Pixel
+                      Cardápio Digital (Clientes)</label>
+                    <input id="tracking-pixel-cardapio" placeholder="123456789012345"
+                      style="width:100%; padding:10px 14px; background:rgba(0,0,0,0.25); border:1px solid var(--border-color); border-radius:10px; color:#fff; font-size:13px; outline:none;">
+                  </div>
+                  <div style="margin-bottom:12px;">
+                    <label style="font-size:12px; color:var(--text-muted); display:block; margin-bottom:4px;">Pixel Área
+                      do Colaborador (Garçons/Gerentes)</label>
+                    <input id="tracking-pixel-colaborador" placeholder="123456789012345"
+                      style="width:100%; padding:10px 14px; background:rgba(0,0,0,0.25); border:1px solid var(--border-color); border-radius:10px; color:#fff; font-size:13px; outline:none;">
+                  </div>
+                  <div>
+                    <label style="font-size:12px; color:var(--text-muted); display:block; margin-bottom:4px;">Pixel Home
+                      / Sistema PDV (Dono do Restaurante)</label>
+                    <input id="tracking-pixel-home" placeholder="123456789012345"
+                      style="width:100%; padding:10px 14px; background:rgba(0,0,0,0.25); border:1px solid var(--border-color); border-radius:10px; color:#fff; font-size:13px; outline:none;">
+                  </div>
+                </div>
+              </div>
+
+              <button onclick="salvarTrackingConfig()"
+                style="background:linear-gradient(135deg,var(--primary),#e64a19); color:#fff; border:none; border-radius:12px; padding:14px 32px; font-size:15px; font-weight:700; cursor:pointer; box-shadow:0 4px 12px var(--primary-glow); display:flex; align-items:center; gap:8px; margin-bottom:30px;">
+                <i class="fa-solid fa-floppy-disk"></i> Salvar Pixels e GTAGs
+              </button>
+
+              <!-- GERADOR DE ANÚNCIOS & AUDIÊNCIAS DA BASE DE DADOS -->
+              <div
+                style="padding:24px; background:var(--bg-card); border:1px solid var(--border-color); border-radius:16px;">
+                <div
+                  style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px;">
+                  <div>
+                    <h3 style="font-size:18px; color:#fff;"><i class="fa-solid fa-bullhorn"
+                        style="color:var(--primary);"></i> Gerador de Anúncios & Exportador de Audiências</h3>
+                    <p style="font-size:13px; color:var(--text-muted);">Gere anúncios direcionados e exporte listas de
+                      emails/telefones da sua base para Meta Ads e Google Ads.</p>
+                  </div>
+                  <div style="display:flex; gap:10px;">
+                    <select id="ad-target-category"
+                      style="padding:10px 14px; background:rgba(0,0,0,0.3); border:1px solid var(--border-color); border-radius:10px; color:#fff; font-size:13px; outline:none;">
+                      <option value="donos">🎯 Donos de Restaurantes</option>
+                      <option value="funcionarios">👨‍🍳 Funcionários & Garçons</option>
+                      <option value="clientes">🍕 Clientes Finais (Cardápio)</option>
+                      <option value="todos">🌐 Base Completa Unificada</option>
+                    </select>
+                    <button onclick="gerarCopyAnuncio()"
+                      style="background:var(--primary); color:#fff; border:none; border-radius:10px; padding:10px 18px; font-size:13px; font-weight:700; cursor:pointer;">
+                      <i class="fa-solid fa-wand-magic-sparkles"></i> Gerar Anúncio
+                    </button>
+                    <button onclick="exportarAudienciaCSV()"
+                      style="background:rgba(16,185,129,0.2); color:#10b981; border:1px solid rgba(16,185,129,0.4); border-radius:10px; padding:10px 18px; font-size:13px; font-weight:700; cursor:pointer;">
+                      <i class="fa-solid fa-file-csv"></i> Exportar CSV Audiência
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Preview de Anúncio Gerado -->
+                <div id="ad-copy-result"
+                  style="display:none; background:rgba(0,0,0,0.3); border:1px dashed var(--primary); border-radius:12px; padding:20px; margin-top:20px;">
+                  <div
+                    style="font-size:12px; text-transform:uppercase; color:var(--primary); font-weight:800; margin-bottom:8px;">
+                    💡 Sugestão de Anúncio Direcionado</div>
+                  <h4 id="ad-res-titulo" style="color:#fff; font-size:16px; margin-bottom:6px;">-</h4>
+                  <div id="ad-res-subtitulo"
+                    style="font-size:13.5px; color:var(--text-muted); margin-bottom:12px; font-weight:600;">-</div>
+                  <p id="ad-res-texto" style="font-size:14px; color:#e2e8f0; line-height:1.5; margin-bottom:14px;">-</p>
+                  <div
+                    style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                    <span style="font-size:13px; font-weight:700; color:var(--success);">CTA: <span
+                        id="ad-res-cta">-</span></span>
+                    <button onclick="copiarTextoAnuncio()"
+                      style="background:rgba(255,255,255,0.1); color:#fff; border:1px solid var(--border-color); padding:6px 14px; border-radius:8px; font-size:12px; cursor:pointer;"><i
+                        class="fa-solid fa-copy"></i> Copiar Texto</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- CONSULTOR -->
+            <div class="sv-tab-panel" id="sv-tab-consultor" style="display:none;">
+              <div
+                style="padding:24px;background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;max-width:600px;">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+                  <div
+                    style="width:48px;height:48px;background:rgba(37,211,102,0.15);border-radius:14px;display:flex;align-items:center;justify-content:center;color:#25d366;font-size:24px;">
+                    <i class="fa-brands fa-whatsapp"></i></div>
+                  <div><strong style="font-size:16px;">Consultor WhatsApp</strong><br><small
+                      style="color:var(--text-muted);">Número usado no botão "Falar com Consultor"</small></div>
+                </div>
+                <div style="margin-bottom:14px;"><label
+                    style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Número WhatsApp (com
+                    DDD)</label><input id="sv-consultor-whatsapp" placeholder="11999998888"
+                    style="width:100%;padding:12px 16px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:10px;color:#fff;font-size:14px;outline:none;">
+                </div>
+                <div style="margin-bottom:14px;"><label
+                    style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Mensagem
+                    Pré-definida</label><textarea id="sv-consultor-mensagem" rows="3"
+                    style="width:100%;padding:12px 16px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:10px;color:#fff;font-size:14px;outline:none;resize:vertical;"></textarea>
+                </div>
+                <button onclick="salvarSiteConsultor()"
+                  style="background:linear-gradient(135deg,#25d366,#128c7e);color:#fff;border:none;border-radius:12px;padding:14px 32px;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(37,211,102,0.3);display:flex;align-items:center;gap:8px;"><i
+                    class="fa-solid fa-floppy-disk"></i> Salvar Consultor</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODAL: NOVO/EDITAR MEMBRO SUPORTE ───────────────────── -->
+  <div class="modal-overlay" id="modal-suporte">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modal-suporte-title">Novo Membro da Equipe</h3>
+        <button class="modal-close"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="suporte-edit-id" value="">
+        <div class="form-group">
+          <label>Nome Completo</label>
+          <input type="text" id="suporte-nome" placeholder="Ex: Carlos Silva" required>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Email</label>
+            <input type="email" id="suporte-email" placeholder="carlos@suporte.com" required>
+          </div>
+          <div class="form-group">
+            <label>Telefone</label>
+            <input type="text" id="suporte-telefone" placeholder="(11) 99999-8888">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Senha</label>
+          <input type="password" id="suporte-senha" placeholder="Mínimo 4 caracteres">
+          <small style="color:#888;font-size:0.75rem;">Deixe em branco para manter a senha atual (ao editar).</small>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Cargo</label>
+            <select id="suporte-cargo">
+              <option value="Suporte N1">Suporte N1</option>
+              <option value="Suporte N2">Suporte N2</option>
+              <option value="Suporte N3">Suporte N3</option>
+              <option value="Analista">Analista</option>
+              <option value="Coordenador">Coordenador</option>
+              <option value="Técnico de Campo">Técnico de Campo</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Especialidade</label>
+            <select id="suporte-especialidade">
+              <option value="Remoto">Remoto</option>
+              <option value="Presencial">Presencial</option>
+              <option value="Remoto e Presencial">Remoto e Presencial</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group" id="suporte-status-group" style="display:none;">
+          <label>Status</label>
+          <select id="suporte-status">
+            <option value="disponivel">Disponível</option>
+            <option value="ocupado">Ocupado</option>
+            <option value="offline">Offline</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-action modal-close">Cancelar</button>
+        <button class="btn-action btn-primary-action" id="btn-salvar-suporte">
+          <i class="fa-solid fa-floppy-disk"></i> Salvar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODAL: ATRIBUIR RESTAURANTES AO SUPORTE ────────────── -->
+  <div class="modal-overlay" id="modal-suporte-restaurantes">
+    <div class="modal-content" style="max-width:600px;">
+      <div class="modal-header">
+        <h3 id="modal-suporte-rest-title">Restaurantes Atribuídos</h3>
+        <button class="modal-close"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="suporte-rest-id" value="">
+        <p style="color:var(--text-muted);margin-bottom:1rem;" id="suporte-rest-info">Selecione os restaurantes para
+          atribuir ao membro da equipe.</p>
+        <div style="margin-bottom:1rem;">
+          <input type="text" id="suporte-rest-search" placeholder="Buscar restaurantes..."
+            style="width:100%;padding:0.6rem 1rem;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);">
+        </div>
+        <div
+          style="max-height:350px;overflow-y:auto;border:1px solid var(--border-color);border-radius:8px;padding:0.5rem;"
+          id="suporte-rest-list"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-action modal-close">Fechar</button>
+        <button class="btn-action btn-primary-action" id="btn-salvar-atribuicoes">
+          <i class="fa-solid fa-check"></i> Salvar Atribuições
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODAL: SETUP INICIAL DO TENANT (WIZARD COMPLETO) ──── -->
+  <div class="modal-overlay" id="modal-novo-rest">
+    <div class="modal-content" style="max-width:750px;">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-rocket" style="color:var(--primary);"></i> Setup Inicial do Restaurante</h3>
+        <button class="modal-close"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body" style="max-height:70vh;overflow-y:auto;">
+        <!-- Step indicator -->
+        <div
+          style="display:flex;gap:0;margin-bottom:1.5rem;border-radius:8px;overflow:hidden;border:1px solid var(--border-color);">
+          <div class="wizard-step active" data-step="1"
+            style="flex:1;padding:0.55rem 0.3rem;text-align:center;font-size:0.72rem;background:rgba(252,75,21,0.15);color:#fc4b15;font-weight:600;transition:all 0.3s;">
+            <i class="fa-solid fa-key"></i> Chave
+          </div>
+          <div class="wizard-step" data-step="2"
+            style="flex:1;padding:0.55rem 0.3rem;text-align:center;font-size:0.72rem;background:transparent;color:#888;font-weight:400;transition:all 0.3s;">
+            <i class="fa-solid fa-store"></i> Dados
+          </div>
+          <div class="wizard-step" data-step="3"
+            style="flex:1;padding:0.55rem 0.3rem;text-align:center;font-size:0.72rem;background:transparent;color:#888;font-weight:400;transition:all 0.3s;">
+            <i class="fa-solid fa-user-shield"></i> Admin
+          </div>
+          <div class="wizard-step" data-step="4"
+            style="flex:1;padding:0.55rem 0.3rem;text-align:center;font-size:0.72rem;background:transparent;color:#888;font-weight:400;transition:all 0.3s;">
+            <i class="fa-solid fa-puzzle-piece"></i> Módulos
+          </div>
+          <div class="wizard-step" data-step="5"
+            style="flex:1;padding:0.55rem 0.3rem;text-align:center;font-size:0.72rem;background:transparent;color:#888;font-weight:400;transition:all 0.3s;">
+            <i class="fa-solid fa-users"></i> Equipe
+          </div>
+        </div>
+
+        <!-- Step 1: Chave de Ativação -->
+        <div class="wizard-panel" data-step="1">
+          <h4 style="margin-bottom:0.5rem;color:white;"><i class="fa-solid fa-key" style="color:var(--warning);"></i>
+            Chave de Ativação</h4>
+          <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:1.2rem;">O restaurante já possui uma chave
+            de ativação? Se sim, insira abaixo. Caso contrário, o restaurante será criado em modo <strong>trial (7
+              dias)</strong>.</p>
+          <div class="form-group">
+            <label>Chave de Ativação (opcional)</label>
+            <input type="text" id="new-rest-chave" placeholder="CHEF-XXXX-YYYY-ZZZZ"
+              style="text-transform:uppercase;letter-spacing:2px;font-family:monospace;font-size:1.1rem;text-align:center;"
+              maxlength="19">
+          </div>
+          <div id="chave-status"
+            style="margin-top:0.8rem;padding:0.8rem;border-radius:8px;display:none;font-size:0.85rem;"></div>
+          <div
+            style="margin-top:1.2rem;padding:1rem;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);border-radius:10px;">
+            <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.4rem;">
+              <i class="fa-solid fa-circle-info" style="color:var(--info);"></i>
+              <strong style="color:white;font-size:0.88rem;">Sem chave?</strong>
+            </div>
+            <p style="color:var(--text-muted);font-size:0.82rem;margin:0;">Não tem problema! O sistema criará
+              automaticamente um período de teste de 7 dias. Você pode gerar uma chave depois pelo painel de Licenças.
+            </p>
+          </div>
+        </div>
+
+        <!-- Step 2: Dados do Restaurante + Plano -->
+        <div class="wizard-panel" data-step="2" style="display:none;">
+          <h4 style="margin-bottom:1rem;color:white;"><i class="fa-solid fa-store" style="color:var(--primary);"></i>
+            Dados do Restaurante</h4>
+          <div class="form-group">
+            <label>Nome do Restaurante *</label>
+            <input type="text" id="new-rest-nome" placeholder="Ex: Pizzaria Bella Italia">
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>CNPJ</label>
+              <input type="text" id="new-rest-cnpj" placeholder="00.000.000/0001-00">
+            </div>
+            <div class="form-group">
+              <label>Telefone</label>
+              <input type="text" id="new-rest-telefone" placeholder="(11) 3333-4444">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Endereço</label>
+            <input type="text" id="new-rest-endereco" placeholder="Rua, Número, Bairro, Cidade - UF">
+          </div>
+          <div class="form-group">
+            <label>Plano</label>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0.6rem;">
+              <label style="cursor:pointer;">
+                <input type="radio" name="new-rest-plano" value="trial" style="display:none;">
+                <div class="plano-card" data-plano="trial"
+                  style="padding:0.8rem;border:2px solid var(--border-color);border-radius:10px;text-align:center;transition:all 0.2s;">
+                  <div style="font-weight:700;color:var(--warning);font-size:0.95rem;">Trial</div>
+                  <div style="font-size:0.72rem;color:var(--text-muted);margin-top:0.2rem;">7 dias grátis</div>
+                </div>
+              </label>
+              <label style="cursor:pointer;">
+                <input type="radio" name="new-rest-plano" value="pro" style="display:none;">
+                <div class="plano-card" data-plano="pro"
+                  style="padding:0.8rem;border:2px solid var(--border-color);border-radius:10px;text-align:center;transition:all 0.2s;">
+                  <div style="font-weight:700;color:var(--info);font-size:0.95rem;">Pro</div>
+                  <div style="font-size:0.72rem;color:var(--text-muted);margin-top:0.2rem;">Mais funcionalidades</div>
+                </div>
+              </label>
+              <label style="cursor:pointer;">
+                <input type="radio" name="new-rest-plano" value="premium" checked style="display:none;">
+                <div class="plano-card" data-plano="premium"
+                  style="padding:0.8rem;border:2px solid #c084fc;border-radius:10px;text-align:center;transition:all 0.2s;background:rgba(139,92,246,0.08);">
+                  <div style="font-weight:700;color:#c084fc;font-size:0.95rem;">Premium</div>
+                  <div style="font-size:0.72rem;color:var(--text-muted);margin-top:0.2rem;">Tudo liberado</div>
+                </div>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 3: Administrador / Dono -->
+        <div class="wizard-panel" data-step="3" style="display:none;">
+          <h4 style="margin-bottom:0.5rem;color:white;"><i class="fa-solid fa-user-shield"
+              style="color:var(--success);"></i> Administrador do Restaurante</h4>
+          <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:1.2rem;">Crie o acesso principal do
+            dono/gerente. Este usuário terá cargo <strong>admin</strong> no sistema.</p>
+          <div class="form-group">
+            <label>Nome Completo *</label>
+            <input type="text" id="new-rest-admin-nome" placeholder="Ex: João Silva">
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Email (Login) *</label>
+              <input type="email" id="new-rest-email" placeholder="admin@restaurante.com">
+            </div>
+            <div class="form-group">
+              <label>Senha *</label>
+              <div style="position:relative;">
+                <input type="password" id="new-rest-senha" placeholder="Mínimo 4 caracteres"
+                  style="padding-right:2.5rem;">
+                <button type="button"
+                  onclick="var inp=this.previousElementSibling;inp.type=inp.type==='password'?'text':'password';"
+                  style="position:absolute;right:0.5rem;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:0.85rem;"><i
+                    class="fa-solid fa-eye"></i></button>
+              </div>
+            </div>
+          </div>
+          <div style="margin-top:1rem;padding:0.8rem;background:rgba(0,0,0,0.15);border-radius:8px;">
+            <p style="color:var(--text-muted);font-size:0.8rem;margin:0;"><i class="fa-solid fa-circle-info"></i>
+              Configurações iniciais do restaurante (opcional):</p>
+            <div class="form-row" style="margin-top:0.6rem;">
+              <div class="form-group">
+                <label style="font-size:0.78rem;">Taxa de Entrega (R$)</label>
+                <input type="number" id="new-rest-taxa-entrega" placeholder="5.00" step="0.50" value="0">
+              </div>
+              <div class="form-group">
+                <label style="font-size:0.78rem;">WhatsApp</label>
+                <input type="text" id="new-rest-whatsapp" placeholder="5511999998888">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label style="font-size:0.78rem;">Abertura</label>
+                <input type="time" id="new-rest-abertura" value="08:00"
+                  style="width:100%;padding:0.5rem;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:6px;color:white;">
+              </div>
+              <div class="form-group">
+                <label style="font-size:0.78rem;">Fechamento</label>
+                <input type="time" id="new-rest-fechamento" value="22:00"
+                  style="width:100%;padding:0.5rem;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:6px;color:white;">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 4: Módulos / Features -->
+        <div class="wizard-panel" data-step="4" style="display:none;">
+          <h4 style="margin-bottom:0.5rem;color:white;"><i class="fa-solid fa-puzzle-piece"
+              style="color:var(--info);"></i> Módulos &amp; Funcionalidades</h4>
+          <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:1rem;">Selecione os módulos que o
+            restaurante terá disponível. As opções variam conforme o plano escolhido.</p>
+          <div id="modules-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:0.8rem;">
+            <!-- Populated by JS -->
+          </div>
+          <div
+            style="margin-top:1rem;padding:0.6rem 0.8rem;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);border-radius:8px;font-size:0.8rem;color:var(--text-muted);">
+            <i class="fa-solid fa-triangle-exclamation" style="color:var(--warning);"></i> Módulos marcados como <span
+              style="color:var(--text-muted);font-weight:600;">indisponíveis</span> no plano não podem ser ativados.
+            Mude o plano para liberar mais opções.
+          </div>
+        </div>
+
+        <!-- Step 5: Equipe Inicial -->
+        <div class="wizard-panel" data-step="5" style="display:none;">
+          <h4 style="margin-bottom:0.5rem;color:white;"><i class="fa-solid fa-users" style="color:#c084fc;"></i> Equipe
+            Inicial</h4>
+          <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:1rem;">Adicione funcionários que já começam
+            junto com o restaurante. Você pode pular esta etapa e adicionar depois.</p>
+          <div id="initial-team-list">
+            <div class="initial-team-row" style="display:flex;gap:0.5rem;margin-bottom:0.5rem;align-items:end;">
+              <div style="flex:2;"><input type="text" class="team-nome" placeholder="Nome do funcionário"
+                  style="width:100%;padding:0.5rem 0.7rem;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:6px;color:var(--text-primary);font-size:0.85rem;">
+              </div>
+              <div style="flex:1;">
+                <select class="team-cargo"
+                  style="width:100%;padding:0.5rem 0.7rem;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:6px;color:var(--text-primary);font-size:0.85rem;">
+                  <option value="garcom">Garçom</option>
+                  <option value="cozinha">Cozinha</option>
+                  <option value="caixa">Caixa</option>
+                  <option value="admin">Gerente/Admin</option>
+                </select>
+              </div>
+              <div style="flex:1;"><input type="number" class="team-valor" placeholder="Valor/hora" value="0"
+                  step="0.50"
+                  style="width:100%;padding:0.5rem 0.7rem;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:6px;color:var(--text-primary);font-size:0.85rem;">
+              </div>
+              <button class="btn-row-action remove-team-row" style="flex-shrink:0;" title="Remover"><i
+                  class="fa-solid fa-xmark"></i></button>
+            </div>
+          </div>
+          <button class="btn-action" id="btn-add-team-row"
+            style="font-size:0.8rem;padding:0.4rem 0.8rem;margin-top:0.3rem;">
+            <i class="fa-solid fa-plus"></i> Adicionar Funcionário
+          </button>
+        </div>
+      </div>
+      <div class="modal-footer" style="justify-content:space-between;">
+        <div>
+          <button class="btn-action" id="btn-wizard-prev" style="display:none;"><i class="fa-solid fa-chevron-left"></i>
+            Voltar</button>
+        </div>
+        <div style="display:flex;gap:0.5rem;">
+          <button class="btn-action modal-close">Cancelar</button>
+          <button class="btn-action btn-primary-action" id="btn-wizard-next">Próximo <i
+              class="fa-solid fa-chevron-right"></i></button>
+          <button class="btn-action btn-primary-action" id="btn-criar-restaurante-completo"
+            style="display:none;background:linear-gradient(135deg,var(--success),#059669);box-shadow:0 4px 12px var(--success-glow);">
+            <i class="fa-solid fa-rocket"></i> Criar Restaurante
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODAL: NOVO USUÁRIO ──────────────────────────────── -->
+  <div class="modal-overlay" id="modal-novo-user">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Novo Usuário</h3>
+        <button class="modal-close"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Email / Login</label>
+          <input type="email" id="new-user-email" placeholder="usuario@email.com">
+        </div>
+        <div class="form-group">
+          <label>Senha</label>
+          <input type="password" id="new-user-senha" placeholder="Senha de acesso">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Restaurante (ID)</label>
+            <input type="number" id="new-user-rest-id" placeholder="ID do restaurante" min="1" value="1">
+          </div>
+          <div class="form-group">
+            <label>Cargo</label>
+            <select id="new-user-role">
+              <option value="admin">Admin</option>
+              <option value="caixa">Caixa</option>
+              <option value="garcom">Garçom</option>
+              <option value="cozinha">Cozinha</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-action modal-close">Cancelar</button>
+        <button class="btn-action btn-primary-action" id="btn-criar-usuario-novo">
+          <i class="fa-solid fa-user-plus"></i> Criar Usuário
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODAL: EDIÇÃO DE CLIENTE ──────────────────────────────── -->
+  <div class="modal-overlay" id="modal-edit-client">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Editar Licença do Cliente</h3>
+        <button class="modal-close"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="edit-id">
+
+        <div class="form-group">
+          <label>Nome do Restaurante</label>
+          <input type="text" id="edit-restaurante">
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Status</label>
+            <select id="edit-status">
+              <option value="ativo">Ativo</option>
+              <option value="trial">Trial</option>
+              <option value="expirado">Expirado</option>
+              <option value="bloqueado">Bloqueado</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Plano</label>
+            <select id="edit-plano">
+              <option value="starter">Starter</option>
+              <option value="pro">Pro</option>
+              <option value="enterprise">Enterprise</option>
+              <option value="trial">Trial</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Validade da Licença</label>
+            <input type="date" id="edit-validade">
+          </div>
+          <div class="form-group">
+            <label>Máx Dispositivos</label>
+            <input type="number" id="edit-maxdisp" min="0">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Modo de Login</label>
+          <select id="edit-loginmode">
+            <option value="multi">Multi login (vários dispositivos simultâneos)</option>
+            <option value="single">Single login (uma sessão por vez — monetizar contas)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Update Exclusivo (Opcional)</label>
+          <input type="text" id="edit-updatever" placeholder="Ex: 1.2.0 (sobrescreve o update global)">
+        </div>
+
+        <div class="form-group">
+          <label>Mensagem e URL do Update Exclusivo</label>
+          <input type="text" id="edit-updateurl" placeholder="URL do instalador do update"
+            style="margin-bottom: 0.5rem;">
+          <textarea id="edit-updatemsg" placeholder="Novidades deste update específico"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label>Observações Internas</label>
+          <textarea id="edit-obs" placeholder="Informações adicionais do cliente..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-action modal-close">Cancelar</button>
+        <button class="btn-action btn-primary-action" id="btn-save-edit">Salvar Alterações</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODAL: PERFIL DO CLIENTE ──────────────────────────────── -->
+  <div class="modal-overlay" id="modal-perfil-cliente">
+    <div class="modal-content" style="max-width: 720px;">
+      <div class="modal-header">
+        <h3>Perfil do Cliente</h3>
+        <button class="modal-close"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body" id="perfil-cliente-body">
+        <div style="text-align:center;padding:30px;color:#888;">Carregando...</div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-action modal-close">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODAL: EQUIPE DO RESTAURANTE ─────────────────────────── -->
+  <div class="modal-overlay" id="modal-equipe">
+    <div class="modal-content" style="max-width: 700px;">
+      <div class="modal-header">
+        <h3>Equipe do Restaurante</h3>
+        <button class="modal-close"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body" id="equipe-body">
+        <div style="text-align:center;padding:30px;color:#888;">Carregando...</div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-action modal-close">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast de Notificações -->
+  <div class="toast" id="toast">
+    <i class="fa-solid fa-circle-info" id="toast-icon"></i>
+    <span id="toast-text">Sua ação foi processada.</span>
+  </div>
+
+  <script src="/socket.io.min.js"></script>
+  <script src="/super-admin.js"></script>
+  <script src="/fullscreen.js"></script>
+
+
+  <!-- MODAL: NOVO / EDITAR AFILIADO -->
+  <div class="modal-overlay" id="modal-afiliado">
+    <div class="modal-content" style="max-width:540px;">
+      <div class="modal-header">
+        <h3 id="modal-afiliado-title">Novo Afiliado / Parceiro</h3>
+        <button class="modal-close" onclick="fecharModalAfiliado()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="afil-edit-id">
+        <div class="form-group">
+          <label>Nome Completo do Afiliado *</label>
+          <input type="text" id="afil-nome" placeholder="Ex: João da Silva (Revenda SP)" required>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>E-mail (Login do Afiliado) *</label>
+            <input type="email" id="afil-email" placeholder="joao@parceiro.com" required>
+          </div>
+          <div class="form-group">
+            <label>WhatsApp / Telefone</label>
+            <input type="text" id="afil-telefone" placeholder="(11) 99999-8888">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Código de Referência (Cupom/Ref) *</label>
+            <input type="text" id="afil-codigo" placeholder="EX: JOAO10"
+              style="text-transform:uppercase; font-weight:bold; letter-spacing:1px;" required>
+          </div>
+          <div class="form-group">
+            <label>Comissão (% sobre vendas)</label>
+            <input type="number" id="afil-comissao" value="10" step="0.5" min="0" max="100">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Chave PIX para Resgate</label>
+          <input type="text" id="afil-pix" placeholder="CPF, Celular, E-mail ou Aleatória">
+        </div>
+        <div class="form-group">
+          <label>Senha de Acesso ao Portal</label>
+          <input type="password" id="afil-senha" placeholder="Deixe em branco para manter a atual (mín. 4 caracteres)">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-action modal-close" onclick="fecharModalAfiliado()">Cancelar</button>
+        <button class="btn-action btn-primary-action" onclick="salvarAfiliado()"><i class="fa-solid fa-floppy-disk"></i>
+          Salvar Afiliado</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: MÉTRICAS E VENDAS DO AFILIADO -->
+  <div class="modal-overlay" id="modal-afiliado-detalhes">
+    <div class="modal-content" style="max-width:760px; width:92%;">
+      <div class="modal-header">
+        <h3 id="modal-afil-detalhes-title">Métricas do Afiliado</h3>
+        <button class="modal-close" onclick="fecharModalAfiliadoDetalhes()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <div id="afil-detalhes-header"
+          style="background:rgba(255,255,255,0.04); padding:16px; border-radius:12px; margin-bottom:20px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+          <!-- JS injects info -->
+        </div>
+
+        <h4 style="margin-bottom:12px; font-size:15px; color:#fff;"><i class="fa-solid fa-list-check"></i> Histórico de
+          Vendas Realizadas</h4>
+        <div style="overflow-x:auto; max-height:300px;">
+          <table class="custom-table" style="font-size:13px;">
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Restaurante</th>
+                <th>Plano</th>
+                <th>Valor Venda</th>
+                <th>Comissão</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="afil-detalhes-vendas-tbody">
+              <tr>
+                <td colspan="6" style="text-align:center; padding:20px; color:var(--text-muted);">Nenhuma venda
+                  registrada ainda.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-action" onclick="fecharModalAfiliadoDetalhes()">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: CRIAR TASK PARA SUPORTE -->
+  <div class="modal-overlay" id="modal-nova-task-suporte">
+    <div class="modal-content" style="max-width:540px; width:92%;">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-list-check" style="color:#3b82f6;"></i> Atribuir Task para Suporte</h3>
+        <button class="modal-close" onclick="fecharModalNovaTaskSuporte()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Atribuir Para *</label>
+          <select id="task-suporte-id">
+            <option value="">Selecione o atendente de suporte...</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Restaurante Vinculado (Opcional)</label>
+          <select id="task-restaurante-id">
+            <option value="">Nenhum / Geral</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Título / Tipo da Task *</label>
+          <input type="text" id="task-tipo" placeholder="Ex: Configurar Cardápio de Bebidas, Treinamento WhatsApp...">
+        </div>
+        <div class="form-group">
+          <label>Descrição detalhada *</label>
+          <textarea id="task-descricao" rows="3" placeholder="Descreva o que o suporte precisa fazer..."
+            style="width:100%;padding:10px;background:#111;border:1px solid #333;color:white;border-radius:6px;font-size:13px;"></textarea>
+        </div>
+        <div class="form-group">
+          <label>Recompensa (Pontos XP ao Concluir)</label>
+          <input type="number" id="task-pontos" value="10" min="1" max="500">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-action" onclick="fecharModalNovaTaskSuporte()">Cancelar</button>
+        <button class="btn-action" style="background:#3b82f6;color:white;" onclick="salvarTaskSuporte()"><i
+            class="fa-solid fa-paper-plane"></i> Criar & Enviar Task</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: ENVIAR AVISO PARA SUPORTE -->
+  <div class="modal-overlay" id="modal-enviar-aviso-suporte">
+    <div class="modal-content" style="max-width:540px; width:92%;">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-bullhorn" style="color:#f59e0b;"></i> Enviar Aviso para Suporte</h3>
+        <button class="modal-close" onclick="fecharModalEnviarAvisoSuporte()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Destinatários *</label>
+          <select id="aviso-destino-tipo" onchange="toggleSelecaoSuporteAviso()">
+            <option value="todos">📢 Todos os Atendentes de Suporte</option>
+            <option value="selecionados">🎯 Atendentes Selecionados Especificamente</option>
+          </select>
+        </div>
+        <div class="form-group" id="container-selecao-suporte" style="display:none;">
+          <label>Selecione os Atendentes *</label>
+          <div id="lista-checkbox-suporte"
+            style="max-height:150px;overflow-y:auto;background:#111;padding:10px;border-radius:8px;border:1px solid #333;display:flex;flex-direction:column;gap:8px;">
+            <!-- Injetado por JS -->
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Título do Aviso *</label>
+          <input type="text" id="aviso-titulo" placeholder="Ex: Atualização do Sistema, Reunião de Alinhamento...">
+        </div>
+        <div class="form-group">
+          <label>Tipo do Alerta</label>
+          <select id="aviso-tipo">
+            <option value="aviso">ℹ️ Informação / Geral</option>
+            <option value="importante">⚠️ Importante / Alerta</option>
+            <option value="urgente">🚨 Urgente / Prioridade</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Mensagem do Aviso *</label>
+          <textarea id="aviso-corpo" rows="4" placeholder="Escreva a mensagem completa..."
+            style="width:100%;padding:10px;background:#111;border:1px solid #333;color:white;border-radius:6px;font-size:13px;"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-action" onclick="fecharModalEnviarAvisoSuporte()">Cancelar</button>
+        <button class="btn-action" style="background:#f59e0b;color:white;" onclick="enviarAvisoSuporte()"><i
+            class="fa-solid fa-bullhorn"></i> Transmitir Aviso</button>
+      </div>
+    </div>
+    <!-- MODAL: EDITAR METAS E COMISSÃO DO VENDEDOR / AFILIADO -->
+    <div class="modal-overlay" id="modal-editar-meta-comissao">
+      <div class="modal-content" style="max-width:480px; width:92%;">
+        <div class="modal-header">
+          <h3><i class="fa-solid fa-sliders" style="color:#22c55e;"></i> Ajustar Metas e Comissão do Vendedor</h3>
+          <button class="modal-close" onclick="fecharModalMetaComissao()"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="edit-vendedor-id">
+          <div
+            style="background:#11131f;padding:12px;border-radius:10px;margin-bottom:15px;color:white;font-weight:bold;"
+            id="edit-vendedor-nome">
+            Colaborador
+          </div>
+          <div class="form-group">
+            <label>Taxa de Comissão Padrão por Venda (%)</label>
+            <input type="number" id="edit-vendedor-comissao" placeholder="Ex: 10" step="0.5" value="10">
+          </div>
+          <div class="form-group">
+            <label>Meta de Vendas Mensais (Quantidade)</label>
+            <input type="number" id="edit-vendedor-meta" placeholder="Ex: 5" step="1" value="5">
+          </div>
+          <div class="form-group">
+            <label>Bônus em R$ ao Atingir a Meta (R$)</label>
+            <input type="number" id="edit-vendedor-bonus" placeholder="Ex: 200.00" step="10" value="200">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-action" onclick="fecharModalMetaComissao()">Cancelar</button>
+          <button class="btn-action" style="background:#22c55e;color:white;" onclick="salvarMetasComissaoVendedor()"><i
+              class="fa-solid fa-floppy-disk"></i> Salvar Alterações</button>
+        </div>
+      </div>
+      <!-- MODAL: AUDITORIA E LOGS ANTI-FRAUDE DOS ATENDENTES/PARCEIROS -->
+      <div class="modal-overlay" id="modal-audit-logs">
+        <div class="modal-content" style="max-width:780px; width:94%;">
+          <div class="modal-header">
+            <h3><i class="fa-solid fa-shield-halved" style="color:#8b5cf6;"></i> Auditoria & Registro de Atividades
+              Anti-Fraude</h3>
+            <button class="modal-close" onclick="fecharModalAuditLogs()"><i class="fa-solid fa-xmark"></i></button>
+          </div>
+          <div class="modal-body" style="padding:1.2rem;">
+            <p style="color:#888;font-size:12px;margin-bottom:12px;">Histórico de logins, IPs acessados, erros de senha
+              e ações de parceiros/vendedores no sistema.</p>
+            <div style="overflow-x:auto;max-height:400px;">
+              <table class="data-table" style="width:100%;border-collapse:collapse;font-size:12px;">
+                <thead>
+                  <tr style="background:#11131f;border-bottom:2px solid #2a2d3e;">
+                    <th style="padding:8px;text-align:left;color:#fc4b15;">Data / Hora</th>
+                    <th style="padding:8px;text-align:left;color:white;">Atendente / Parceiro</th>
+                    <th style="padding:8px;text-align:left;color:#888;">Ação / Evento</th>
+                    <th style="padding:8px;text-align:left;color:#888;">Detalhes do Registro</th>
+                    <th style="padding:8px;text-align:center;color:#888;">Endereço IP</th>
+                  </tr>
+                </thead>
+                <tbody id="audit-logs-tbody">
+                  <tr>
+                    <td colspan="5" style="text-align:center;color:#888;padding:20px;">Carregando logs de auditoria...
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <!-- MODAL: CRIAR NOVA MISSÃO SURPRESA / PROMOÇÃO RELÂMPAGO -->
+          <div class="modal-overlay" id="modal-criar-missao-surpresa">
+            <div class="modal-content" style="max-width:540px; width:92%;">
+              <div class="modal-header">
+                <h3><i class="fa-solid fa-bolt" style="color:#6366f1;"></i> Lançar Missão Surpresa / Super Bonificação
+                </h3>
+                <button class="modal-close" onclick="fecharModalCriarMissaoSurpresa()"><i
+                    class="fa-solid fa-xmark"></i></button>
+              </div>
+              <div class="modal-body">
+                <div class="form-group">
+                  <label>Título da Missão / Promoção Surpresa *</label>
+                  <input type="text" id="missao-titulo" placeholder="Ex: Quem fizer 5 vendas hoje ganha R$ 1000">
+                </div>
+                <div class="form-group">
+                  <label>Meta de Vendas Necessárias (Quantidade) *</label>
+                  <input type="number" id="missao-meta" value="5" min="1">
+                </div>
+                <div class="form-group">
+                  <label>Super Bonificação em Dinheiro (R$) *</label>
+                  <input type="number" id="missao-recompensa" value="1000" step="50">
+                </div>
+                <div class="form-group">
+                  <label>Prazo / Horário Limite (Opcional)</label>
+                  <input type="text" id="missao-limite" placeholder="Ex: Hoje até as 17:37">
+                </div>
+                <div class="form-group">
+                  <label>Instruções / Detalhes da Promoção</label>
+                  <textarea id="missao-descricao" rows="3"
+                    placeholder="Ex: Válido para planos Premium fechados a partir de agora..."
+                    style="width:100%;padding:10px;background:#111;border:1px solid #333;color:white;border-radius:6px;font-size:13px;"></textarea>
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button class="btn-action" onclick="fecharModalCriarMissaoSurpresa()">Cancelar</button>
+                <button class="btn-action" style="background:#6366f1;color:white;" onclick="salvarMissaoSurpresa()"><i
+                    class="fa-solid fa-fire"></i> Lançar Promoção em Tempo Real</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- ════ SEÇÃO: DEPLOY & ATUALIZAÇÕES ZERO-DOWNTIME ════ -->
+          <div class="content-section" id="sec-deploy-updates" style="display:none;">
+            <div class="info-banner" style="border-left-color: #22c55e;">
+              <i class="fa-solid fa-rocket" style="color: #22c55e;"></i>
+              <div class="info-banner-content">
+                <h4>Deploy Sem Quedas (Zero-Downtime Hot Swap)</h4>
+                <p>Gerencie atualizações do sistema por commit específico sem desconectar garçons, caixas ou clientes. O
+                  servidor sincroniza os arquivos e recarrega os módulos em tempo de execução.</p>
+              </div>
+            </div>
+
+            <!-- Card de Ação Principal -->
+            <div
+              style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;padding:1.5rem;margin-bottom:1.5rem;">
+              <div
+                style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.2rem;flex-wrap:wrap;gap:10px;">
+                <div>
+                  <h3 style="margin:0;font-size:1.3rem;"><i class="fa-solid fa-code-commit" style="color:#6366f1;"></i>
+                    Commits no Repositório (Git)</h3>
+                  <p style="margin:0.2rem 0 0 0;font-size:0.85rem;color:var(--text-muted);">Selecione a versão/commit
+                    desejado para atualizar o ambiente ao vivo.</p>
+                </div>
+                <button class="btn-action btn-primary-action" onclick="carregarCommitsGit()">
+                  <i class="fa-solid fa-rotate"></i> Sincronizar Commits
+                </button>
+              </div>
+
+              <div style="overflow-x:auto;">
+                <table class="custom-table" id="commits-table">
+                  <thead>
+                    <tr>
+                      <th>Commit</th>
+                      <th>Mensagem</th>
+                      <th>Autor</th>
+                      <th>Data</th>
+                      <th style="width:200px;">Ação de Deploy</th>
+                    </tr>
+                  </thead>
+                  <tbody id="commits-tbody">
+                    <tr>
+                      <td colspan="5" style="text-align:center;color:var(--text-muted);padding:20px;">Clique em
+                        Sincronizar Commits...</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- ════ SEÇÃO: PLUGINS & MÓDULOS EXPANSÍVEIS ════ -->
+          <div class="content-section" id="sec-plugins-modulos" style="display:none;">
+            <div class="info-banner" style="border-left-color: #a855f7;">
+              <i class="fa-solid fa-puzzle-piece" style="color: #a855f7;"></i>
+              <div class="info-banner-content">
+                <h4>Central de Plugins & Módulos Extras</h4>
+                <p>Instale, ative ou desative extensões avançadas (iFood, Balanças ECF, KDS Inteligente, Pagamentos PIX
+                  Automáticos, WhatsApp Bot) para todos ou restaurantes específicos.</p>
+              </div>
+            </div>
+
+            <!-- Grid de Plugins -->
+            <div class="stats-grid" id="plugins-grid"
+              style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.2rem; margin-bottom: 1.5rem;">
+
+              <!-- Plugin iFood -->
+              <div
+                style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;padding:1.5rem;display:flex;flex-direction:column;justify-space:between;">
+                <div>
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                    <span style="font-size:24px;">🛵</span>
+                    <span class="badge badge-ativo" id="plugin-status-ifood">Ativo (Global)</span>
+                  </div>
+                  <h4 style="margin:0 0 6px 0;font-size:1.1rem;">iFood Integrado Direct</h4>
+                  <p style="font-size:0.85rem;color:var(--text-muted);margin:0 0 16px 0;">Integração nativa de pedidos,
+                    cardápio e cancelamento automático com o iFood.</p>
+                </div>
+                <button class="btn-action" style="width:100%;background:#a855f7;color:white;"
+                  onclick="togglePluginStatus('ifood')">
+                  <i class="fa-solid fa-sliders"></i> Gerenciar Plugin iFood
+                </button>
+              </div>
+
+              <!-- Plugin WhatsApp Bot -->
+              <div
+                style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;padding:1.5rem;display:flex;flex-direction:column;justify-space:between;">
+                <div>
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                    <span style="font-size:24px;">💬</span>
+                    <span class="badge badge-ativo" id="plugin-status-whatsapp">Ativo (Global)</span>
+                  </div>
+                  <h4 style="margin:0 0 6px 0;font-size:1.1rem;">WhatsApp Bot Atendimento</h4>
+                  <p style="font-size:0.85rem;color:var(--text-muted);margin:0 0 16px 0;">Disparo de notificação de
+                    pedido pronto e robô de pedidos automáticos.</p>
+                </div>
+                <button class="btn-action" style="width:100%;background:#22c55e;color:white;"
+                  onclick="togglePluginStatus('whatsapp')">
+                  <i class="fa-solid fa-sliders"></i> Gerenciar Plugin WhatsApp
+                </button>
+              </div>
+
+              <!-- Plugin Balança Serial -->
+              <div
+                style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;padding:1.5rem;display:flex;flex-direction:column;justify-space:between;">
+                <div>
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                    <span style="font-size:24px;">⚖️</span>
+                    <span class="badge badge-ativo" id="plugin-status-balanca">Ativo (Global)</span>
+                  </div>
+                  <h4 style="margin:0 0 6px 0;font-size:1.1rem;">Balança Self-Service / Kilo</h4>
+                  <p style="font-size:0.85rem;color:var(--text-muted);margin:0 0 16px 0;">Conexão direta com balanças
+                    Toledo, Filizola e Urano via Serial/USB.</p>
+                </div>
+                <button class="btn-action" style="width:100%;background:#3b82f6;color:white;"
+                  onclick="togglePluginStatus('balanca')">
+                  <i class="fa-solid fa-sliders"></i> Gerenciar Plugin Balança
+                </button>
+              </div>
+
+            </div>
+          </div>
+
+
+</div>

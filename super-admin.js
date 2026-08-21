@@ -135,9 +135,10 @@ function escapeHtml(s) {
 }
 var escHtml = escapeHtml;
 
-/* ═══ LOGIN ═══ */
+/* ═══ LOGIN & CARREGAMENTO DINÂMICO DO PAINEL ═══ */
 function loginLocal() {
-  var senha = document.getElementById('local-senha').value.trim();
+  var senhaInput = document.getElementById('local-senha');
+  var senha = senhaInput ? senhaInput.value.trim() : '';
   if (!senha) { showToast('Informe a senha de administrador!', 'warning'); return; }
 
   var x = new XMLHttpRequest();
@@ -148,10 +149,9 @@ function loginLocal() {
       try {
         var data = JSON.parse(x.responseText);
         if (data.ok) {
-          localToken = data.token;
+          localToken = data.token || '';
           localStorage.setItem('chef_super_admin_local_token', data.token);
-          entrarNoPainel();
-          showToast('Acesso liberado!', 'success');
+          entrarNoPainel(true);
         } else {
           showToast(data.erro || 'Erro ao realizar login.', 'danger');
         }
@@ -163,15 +163,54 @@ function loginLocal() {
   x.send(JSON.stringify({ senha: senha }));
 }
 
-function entrarNoPainel() {
+function entrarNoPainel(isExplicitLogin) {
+  fetch('/api/super/panel-template', { credentials: 'same-origin' })
+    .then(function(res) {
+      if (res.ok) return res.text();
+      throw new Error('Acesso não autorizado.');
+    })
+    .then(function(html) {
+      carregarEExibirPainel(html);
+      if (isExplicitLogin) showToast('Acesso liberado!', 'success');
+    })
+    .catch(function(err) {
+      if (isExplicitLogin) showToast(err.message || 'Sessão expirada ou não autorizada.', 'danger');
+      exibirTelaLogin();
+    });
+}
+
+function carregarEExibirPainel(html) {
   isLocalMode = true;
-  document.getElementById('login-container').style.display = 'none';
-  document.getElementById('admin-panel').style.display = 'grid';
+  var root = document.getElementById('admin-panel-root');
+  if (root) root.innerHTML = html;
+
+  var loginContainer = document.getElementById('login-container');
+  if (loginContainer) loginContainer.style.display = 'none';
+
+  var adminPanel = document.getElementById('admin-panel');
+  if (adminPanel) adminPanel.style.display = 'grid';
   document.body.style.alignItems = 'stretch';
-  switchTab('sec-dash');
-  carregarDashboard();
+
+  initAdminPanelUI();
+
+  var targetTab = window.location.hash ? window.location.hash.replace('#', '') : (localStorage.getItem('super_admin_tab') || 'sec-dash');
+  if (!document.getElementById(targetTab)) targetTab = 'sec-dash';
+
+  switchTab(targetTab);
   startInactivityMonitor();
   initSuperAdminSockets();
+}
+
+function exibirTelaLogin() {
+  isLocalMode = false;
+  var root = document.getElementById('admin-panel-root');
+  if (root) root.innerHTML = '';
+
+  var loginContainer = document.getElementById('login-container');
+  if (loginContainer) loginContainer.style.display = 'flex';
+
+  var earlyStyle = document.getElementById('early-tab-style');
+  if (earlyStyle && earlyStyle.parentNode) earlyStyle.parentNode.removeChild(earlyStyle);
 }
 
 var _superAdminSocket = null;
@@ -526,7 +565,14 @@ function switchTab(targetId) {
   }
 
   /* Persistir aba atual */
-  try { localStorage.setItem('super_admin_tab', targetId); } catch(e) {}
+  try { 
+    localStorage.setItem('super_admin_tab', targetId); 
+    if (window.location.hash !== '#' + targetId) {
+      history.replaceState(null, null, '#' + targetId);
+    }
+  } catch(e) {}
+  var earlyStyle = document.getElementById('early-tab-style');
+  if (earlyStyle) earlyStyle.remove();
 
   /* Fechar sidebar no mobile */
   var sidebar = document.querySelector('.sidebar');
@@ -2049,18 +2095,8 @@ function salvarAtribuicoes() {
   });
 }
 
-/* ═══ INICIALIZAÇÃO ═══ */
-document.addEventListener('DOMContentLoaded', function() {
-  var savedToken = localStorage.getItem('chef_super_admin_local_token');
-  if (savedToken) {
-    localToken = savedToken;
-    entrarNoPainel();
-  }
-
-  /* Login */
-  var btnLogin = document.getElementById('btn-entrar-local');
-  if (btnLogin && !savedToken) btnLogin.addEventListener('click', loginLocal);
-
+/* ═══ INICIALIZAÇÃO & UI DINÂMICA ═══ */
+function initAdminPanelUI() {
   /* Logout */
   var btnSair = document.getElementById('btn-sair');
   if (btnSair) btnSair.addEventListener('click', logout);
@@ -2090,12 +2126,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 
-  /* Restaurar aba salva */
-  var savedTab = localStorage.getItem('super_admin_tab');
-  if (savedTab && document.getElementById(savedTab)) {
-    switchTab(savedTab);
-  }
-
   /* Refresh / Sync */
   var btnRefresh = document.getElementById('btn-refresh-data');
   if (btnRefresh) btnRefresh.addEventListener('click', function() { switchTab('sec-dash'); });
@@ -2109,10 +2139,12 @@ document.addEventListener('DOMContentLoaded', function() {
   if (btnWizardNext) btnWizardNext.addEventListener('click', proximoPassoWizard);
   var btnWizardPrev = document.getElementById('btn-wizard-prev');
   if (btnWizardPrev) btnWizardPrev.addEventListener('click', passoAnteriorWizard);
+
   // Add team row
   var btnAddTeam = document.getElementById('btn-add-team-row');
   if (btnAddTeam) btnAddTeam.addEventListener('click', function() {
     var container = document.getElementById('initial-team-list');
+    if (!container) return;
     var row = document.createElement('div');
     row.className = 'initial-team-row';
     row.style.cssText = 'display:flex;gap:0.5rem;margin-bottom:0.5rem;align-items:end;';
@@ -2122,13 +2154,6 @@ document.addEventListener('DOMContentLoaded', function() {
       '<button class="btn-row-action remove-team-row" style="flex-shrink:0;" title="Remover"><i class="fa-solid fa-xmark"></i></button>';
     container.appendChild(row);
     row.querySelector('.remove-team-row').addEventListener('click', function() { row.remove(); });
-  });
-  // Delegate remove-team-row clicks (for initial row)
-  document.addEventListener('click', function(e) {
-    if (e.target.closest('.remove-team-row')) {
-      var row = e.target.closest('.initial-team-row');
-      if (row) row.remove();
-    }
   });
 
   /* Usuários */
@@ -2162,6 +2187,60 @@ document.addEventListener('DOMContentLoaded', function() {
   });
   var btnSalvarAtrib = document.getElementById('btn-salvar-atribuicoes');
   if (btnSalvarAtrib) btnSalvarAtrib.addEventListener('click', salvarAtribuicoes);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  /* Login button */
+  var btnLogin = document.getElementById('btn-entrar-local');
+  if (btnLogin) btnLogin.addEventListener('click', loginLocal);
+
+  /* Global removal delegation */
+  document.addEventListener('click', function(e) {
+    if (e.target.closest('.remove-team-row')) {
+      var row = e.target.closest('.initial-team-row');
+      if (row) row.remove();
+    }
+  });
+
+document.addEventListener('DOMContentLoaded', function() {
+  /* Login screen event listeners */
+  var btnLogin = document.getElementById('btn-entrar-local');
+  if (btnLogin) btnLogin.addEventListener('click', loginLocal);
+
+  var senhaInput = document.getElementById('local-senha');
+  if (senhaInput) {
+    senhaInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        loginLocal();
+      }
+    });
+  }
+
+  var tabLocal = document.getElementById('tab-local');
+  var tabCloud = document.getElementById('tab-cloud');
+  if (tabLocal) tabLocal.addEventListener('click', function() { setLoginMode('local'); });
+  if (tabCloud) tabCloud.addEventListener('click', function() { setLoginMode('cloud'); });
+
+  var btnEntrar = document.getElementById('btn-entrar');
+  if (btnEntrar) btnEntrar.addEventListener('click', function() {
+    showToast('Modo cloud indisponível. Use o login local.', 'warning');
+  });
+
+  /* Global removal delegation */
+  document.addEventListener('click', function(e) {
+    if (e.target.closest('.remove-team-row')) {
+      var row = e.target.closest('.initial-team-row');
+      if (row) row.remove();
+    }
+  });
+
+  /* Auto-autenticação ao carregar a página */
+  var savedToken = localStorage.getItem('chef_super_admin_local_token');
+  if (savedToken) localToken = savedToken;
+
+  entrarNoPainel(false);
+});
 
 /* ═══ TAREFAS E AVISOS DE SUPORTE (SUPER ADMIN) ═══ */
 window.abrirModalNovaTaskSuporte = function() {
@@ -3319,11 +3398,13 @@ function carregarSiteVendas() {
         try { siteVendasConfigs[k] = JSON.parse(cfgs[k]); } catch(e) { siteVendasConfigs[k] = cfgs[k]; }
       }
     });
-    renderSiteVendasTab('sv-tab-conteudo');
+    var savedSub = localStorage.getItem('super_admin_subtab_site_vendas') || 'sv-tab-conteudo';
+    renderSiteVendasTab(savedSub);
   });
 }
 
 function renderSiteVendasTab(tabId) {
+  try { localStorage.setItem('super_admin_subtab_site_vendas', tabId); } catch(e) {}
   var tabs = document.querySelectorAll('.sv-tab-btn');
   var panels = document.querySelectorAll('.sv-tab-panel');
   for (var i = 0; i < tabs.length; i++) {
@@ -3337,6 +3418,33 @@ function renderSiteVendasTab(tabId) {
   else if (tabId === 'sv-tab-gateways') populateSiteGateways();
   else if (tabId === 'sv-tab-tracking') populateSiteTracking();
   else if (tabId === 'sv-tab-consultor') populateSiteConsultor();
+  else if (tabId === 'sv-tab-aparencia') populateSiteAparencia();
+}
+
+function populateSiteAparencia() {
+  var c = siteVendasConfigs;
+  setVal('sv-design-fonte', c.site_design_fonte || 'Outfit');
+  setVal('sv-design-tema', c.site_design_tema || 'flame');
+  setVal('sv-design-logo-tempo', c.site_design_logo_tempo || 0.8);
+  setVal('sv-design-letras-tempo', c.site_design_letras_tempo || 1.2);
+  setVal('sv-design-anim-estilo', c.site_design_anim_estilo || 'explosion');
+}
+
+function salvarSiteDesign() {
+  var configs = {};
+  configs.site_design_fonte = document.getElementById('sv-design-fonte').value;
+  configs.site_design_tema = document.getElementById('sv-design-tema').value;
+  configs.site_design_logo_tempo = parseFloat(document.getElementById('sv-design-logo-tempo').value) || 0.8;
+  configs.site_design_letras_tempo = parseFloat(document.getElementById('sv-design-letras-tempo').value) || 1.2;
+  configs.site_design_anim_estilo = document.getElementById('sv-design-anim-estilo').value;
+
+  apiPost('/api/super/config-global', configs, function(err, data) {
+    if (err || !data || !data.ok) return showToast('Erro ao salvar aparência.', 'danger');
+    showToast('Aparência e Animações salvas com sucesso!', 'success');
+    Object.keys(configs).forEach(function(k) {
+      siteVendasConfigs[k] = configs[k];
+    });
+  });
 }
 
 /* ── CONTEÚDO ──────────────────────────────────── */

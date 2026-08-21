@@ -543,6 +543,38 @@ function resolveTenantFromHost(req) {
   return null;
 }
 
+// ── SEGURANÇA: PARSER DE COOKIES & CABEÇALHOS CSP ─────────────────────────
+app.use((req, res, next) => {
+  req.cookies = {};
+  const cookieHeader = req.headers.cookie;
+  if (cookieHeader) {
+    cookieHeader.split(';').forEach(cookie => {
+      const parts = cookie.split('=');
+      if (parts.length >= 2) {
+        const name = parts[0].trim();
+        const value = parts.slice(1).join('=').trim();
+        req.cookies[name] = decodeURIComponent(value);
+      }
+    });
+  }
+
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+
+  res.setHeader(
+    'Content-Security-Policy',
+    "default-src 'self'; " +
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://appchef.up.railway.app; " +
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; " +
+    "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; " +
+    "img-src 'self' data: blob: https:; " +
+    "connect-src 'self' wss: ws: https://appchef.up.railway.app;"
+  );
+  next();
+});
+
 // --- SAAS MULTI-TENANT SIMULATION ---
 app.use((req, res, next) => {
   const domainTenant = resolveTenantFromHost(req);
@@ -1187,11 +1219,10 @@ io.emit = function (event, ...args) {
 
 const mesasFechando = new Set();
 
-// ── SUPER ADMIN: AUTENTICAÇÃO LOCAL ─────────────────────────────────────
-// Middleware: só aceita JWT emitido por /api/super/login-local com role
-// 'super_admin_local'. Restaura o backend do painel super-admin neste servidor.
+// ── SUPER ADMIN: AUTENTICAÇÃO LOCAL & COOKIE SESSÃO ─────────────────────
+// Middleware: aceita JWT via Cookie HttpOnly, header 'x-super-admin-token' ou query adminToken
 async function superAdminAuth(req, res, next) {
-  const tokenHeader = req.headers['x-super-admin-token'] || req.query.adminToken;
+  const tokenHeader = (req.cookies && req.cookies.super_admin_token) || req.headers['x-super-admin-token'] || req.query.adminToken;
   if (tokenHeader) {
     try {
       const decoded = jwt.verify(tokenHeader, JWT_SECRET);
@@ -1201,7 +1232,7 @@ async function superAdminAuth(req, res, next) {
       }
     } catch (e) { }
   }
-  return res.json({ ok: false, erro: 'Acesso não autorizado. Autentique-se novamente.' });
+  return res.status(401).json({ ok: false, erro: 'Acesso não autorizado. Autentique-se novamente.' });
 }
 
 app.post('/api/super/login-local', async (req, res) => {
@@ -1209,7 +1240,32 @@ app.post('/api/super/login-local', async (req, res) => {
   const ok = await verificarSenhaAdmin(senha);
   if (!ok) return res.json({ ok: false, erro: 'Senha de administrador inválida.' });
   const token = jwt.sign({ role: 'super_admin_local', restaurante_id: 1 }, JWT_SECRET, { expiresIn: '12h' });
+  
+  res.cookie('super_admin_token', token, {
+    httpOnly: true,
+    sameSite: 'Lax',
+    path: '/',
+    maxAge: 12 * 60 * 60 * 1000
+  });
+
   res.json({ ok: true, token });
+});
+
+app.post('/api/super/logout', (req, res) => {
+  res.clearCookie('super_admin_token', { path: '/' });
+  res.json({ ok: true, mensagem: 'Sessão encerrada com sucesso.' });
+});
+
+app.get('/api/super/check-auth', superAdminAuth, (req, res) => {
+  res.json({ ok: true, authenticated: true, superAdmin: req.superAdmin });
+});
+
+app.get('/api/super/panel-template', superAdminAuth, (req, res) => {
+  const panelPath = path.join(__dirname, 'views', 'super-admin-panel.html');
+  if (fs.existsSync(panelPath)) {
+    return res.sendFile(panelPath);
+  }
+  return res.status(404).send('Template do painel não encontrado.');
 });
 
 // ── SUPER ADMIN: GERENCIAMENTO DE CERTIFICADOS (.pfx) ────────────────────
@@ -11997,6 +12053,105 @@ io.on('connection', (socket) => {
   socket.on('ia_get_config', () => {
     socket.emit('ia_config_atual', IA_CONFIG);
   });
+});
+
+app.post('/api/auth/registro', async (req, res) => {
+  const { restauranteNome, nome, email, telefone, senha, chaveRef } = req.body || {};
+  if (!restauranteNome || !nome || !email || !senha) {
+    return res.status(400).json({ success: false, error: 'Preencha todos os campos obrigatórios.' });
+  }
+
+  const emailClean = String(email).trim().toLowerCase();
+  const telFormatado = (telefone || '').trim();
+
+  try {
+    // 1. Verificar se o e-mail já está cadastrado no sistema
+    masterDb.get(`SELECT * FROM usuarios WHERE LOWER(username) = ?`, [emailClean], async (errCheck, existingUser) => {
+      if (errCheck) return res.status(500).json({ success: false, error: 'Erro ao verificar e-mail.' });
+
+      if (existingUser) {
+        // Se a senha bater com o cadastro prévio, permite continuar o onboarding com o restaurante existente
+        const passMatch = await bcrypt.compare(senha, existingUser.password_hash || '');
+        if (passMatch) {
+          const token = jwt.sign({ id: existingUser.id, restaurante_id: existingUser.restaurante_id, role: existingUser.role || 'admin' }, JWT_SECRET, { expiresIn: '12h' });
+          return res.json({ success: true, token, restaurante_id: existingUser.restaurante_id, ja_existia: true });
+        } else {
+          return res.status(400).json({ success: false, error: 'Este e-mail já possui uma conta. Digite a senha correta ou use outro e-mail.' });
+        }
+      }
+
+      // 2. E-mail novo: Criar restaurante trial de 7 dias
+      const hash = await bcrypt.hash(senha, 10);
+      masterDb.run(
+        `INSERT INTO restaurantes (nome, licenca, ativo, telefone, dono_nome, dono_telefone, dono_email) VALUES (?, 'trial', 1, ?, ?, ?, ?)`,
+        [restauranteNome, telFormatado, nome, telFormatado, emailClean],
+        function (errRest) {
+          if (errRest) return res.status(500).json({ success: false, error: 'Erro ao criar restaurante.' });
+
+          const restauranteId = this.lastID;
+
+          // Criar usuário admin do restaurante
+          masterDb.run(
+            `INSERT INTO usuarios (restaurante_id, username, password_hash, role, nome, telefone) VALUES (?, ?, ?, 'admin', ?, ?)`,
+            [restauranteId, emailClean, hash, nome, telFormatado],
+            function (errUser) {
+              if (errUser) {
+                masterDb.run(`DELETE FROM restaurantes WHERE id = ?`, [restauranteId]);
+                return res.status(500).json({ success: false, error: 'E-mail já cadastrado.' });
+              }
+
+              const userId = this.lastID;
+
+              // Vincular Venda a Afiliado se chaveRef for informada
+              if (chaveRef && typeof chaveRef === 'string' && chaveRef.trim()) {
+                const codeClean = chaveRef.trim().toUpperCase();
+                masterDb.get(`SELECT * FROM afiliados WHERE UPPER(codigo_ref) = ? AND status = 'ativo'`, [codeClean], (errAfil, afil) => {
+                  if (!errAfil && afil) {
+                    const comissaoPct = afil.comissao_percentual || 10;
+                    const valorPlanoPadrao = 149.90;
+                    const comissaoVal = (valorPlanoPadrao * comissaoPct) / 100;
+
+                    masterDb.run(
+                      `INSERT INTO afiliado_vendas (afiliado_id, restaurante_id, restaurante_nome, plano, valor_venda, comissao_valor, status) VALUES (?, ?, ?, 'Trial 14 Dias', ?, ?, 'pendente')`,
+                      [afil.id, restauranteId, restauranteNome, valorPlanoPadrao, comissaoVal],
+                      function(errVenda) {
+                        if (!errVenda) {
+                          console.log(`🤝 [Afiliados] Venda registrada para Afiliado #${afil.id} (${afil.codigo_ref}) no Restaurante #${restauranteId}`);
+                        }
+                      }
+                    );
+                  }
+                });
+              }
+
+              // Notificar o Super Admin em tempo real via Socket.IO
+              try {
+                const cadastroNotif = {
+                  restaurante_id: restauranteId,
+                  restauranteNome: restauranteNome,
+                  nome: nome,
+                  email: emailClean,
+                  telefone: telFormatado,
+                  data: getLocalTimestamp()
+                };
+                if (io) io.emit('novo_cadastro_saas', cadastroNotif);
+                celebrarNovoRestaurante(restauranteNome, restauranteId, `${nome} <${emailClean}>`);
+                console.log(`🔔 [SaaS Onboarding] Novo cadastro em andamento: Restaurante #${restauranteId} "${restauranteNome}" | Dono: ${nome} | Tel: ${telFormatado} | Email: ${emailClean}`);
+              } catch (eNotif) {
+                console.error('Erro ao emitir notificacao de novo cadastro saas:', eNotif);
+              }
+
+              // Gerar JWT inicial
+              const token = jwt.sign({ id: userId, restaurante_id: restauranteId, role: 'admin' }, JWT_SECRET, { expiresIn: '12h' });
+              res.json({ success: true, token, restaurante_id: restauranteId });
+            }
+          );
+        }
+      );
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Erro interno.' });
+  }
 });
 
 
