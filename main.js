@@ -6670,25 +6670,52 @@ window.confirmarJuncaoMesasModal = function (mode) {
   if (modal) modal.style.display = 'none';
 };
 
-// --- SISTEMA ANTI-FRAUDE E SOLICITAÇÃO DE SENHA ADMIN / GERENTE ---
+// --- SISTEMA ANTI-FRAUDE E SOLICITAÇÃO DE SENHA ADMIN / GERENTE (TOUCH PIN) ---
 window.pendingAdminAction = null;
+let _pinValidating = false;
+
+window.isUsuarioAdminOuGerente = function () {
+  try {
+    const p = window.crmPerfil || {};
+    const cargo = String(p.cargo || p.funcao || p.role || localStorage.getItem('colaborador_cargo') || localStorage.getItem('usuario_cargo') || localStorage.getItem('user_role') || '').toLowerCase();
+    const nome = String(p.nome || window.loggedInUser || localStorage.getItem('usuario_logado') || '').toLowerCase();
+    if (cargo.includes('admin') || cargo.includes('gerente') || cargo.includes('dono') || cargo.includes('master') || cargo.includes('proprietario') || cargo.includes('supervisor')) return true;
+    if (nome.includes('admin') || nome.includes('gerente') || nome.includes('dono') || nome === 'master') return true;
+  } catch (e) { }
+  return false;
+};
 
 window.solicitarAutorizacaoAdmin = function (titulo, detalhe, callback) {
   window.pendingAdminAction = callback;
+  _pinValidating = false;
+
   const modal = document.getElementById('modal-confirmar-senha-admin');
   const elTitulo = document.getElementById('modal-senha-admin-titulo');
   const elDetalhe = document.getElementById('modal-senha-admin-detalhe');
   const inputSenha = document.getElementById('input-modal-senha-admin');
   const inputMotivo = document.getElementById('input-modal-motivo-admin');
+  const wrapMotivo = document.getElementById('wrap-modal-motivo-admin');
+  const elStatus = document.getElementById('modal-senha-admin-status');
 
   if (elTitulo && titulo) elTitulo.innerText = titulo;
   if (elDetalhe && detalhe) elDetalhe.innerText = detalhe;
-  if (inputSenha) { inputSenha.value = ''; inputSenha.type = 'text'; }
+  if (inputSenha) {
+    inputSenha.value = '';
+    inputSenha.style.borderColor = 'var(--border-color, #334155)';
+    inputSenha.style.boxShadow = 'none';
+  }
   if (inputMotivo) inputMotivo.value = '';
+  if (elStatus) { elStatus.style.display = 'none'; elStatus.innerHTML = ''; }
+
+  // Se o usuário for Dono/Admin/Gerente, motivo é opcional/oculto
+  const isAdmin = window.isUsuarioAdminOuGerente();
+  if (wrapMotivo) {
+    wrapMotivo.style.display = isAdmin ? 'none' : 'block';
+  }
 
   if (modal) {
     modal.style.display = 'flex';
-    setTimeout(() => { if (inputSenha) inputSenha.focus(); }, 100);
+    setTimeout(() => { if (inputSenha) inputSenha.focus(); }, 120);
   }
 };
 
@@ -6696,6 +6723,103 @@ window.fecharModalSenhaAdmin = function () {
   const modal = document.getElementById('modal-confirmar-senha-admin');
   if (modal) modal.style.display = 'none';
   window.pendingAdminAction = null;
+  _pinValidating = false;
+};
+
+window.pinAdminAddDigit = function (digit) {
+  const input = document.getElementById('input-modal-senha-admin');
+  if (!input) return;
+  if (input.value.length >= 12) return;
+  input.value += digit;
+  window.onPinAdminInput(input.value);
+};
+
+window.pinAdminBackspace = function () {
+  const input = document.getElementById('input-modal-senha-admin');
+  if (!input) return;
+  input.value = input.value.slice(0, -1);
+  window.onPinAdminInput(input.value);
+};
+
+window.pinAdminClear = function () {
+  const input = document.getElementById('input-modal-senha-admin');
+  if (input) input.value = '';
+  const elStatus = document.getElementById('modal-senha-admin-status');
+  if (elStatus) { elStatus.style.display = 'none'; elStatus.innerHTML = ''; }
+};
+
+window.onPinAdminInput = function (val) {
+  const pin = (val || '').trim();
+  const elStatus = document.getElementById('modal-senha-admin-status');
+  const input = document.getElementById('input-modal-senha-admin');
+
+  if (pin.length < 4) {
+    if (elStatus) { elStatus.style.display = 'none'; elStatus.innerHTML = ''; }
+    if (input) input.style.borderColor = 'var(--border-color, #334155)';
+    return;
+  }
+
+  if (_pinValidating) return;
+
+  // Validação automática sem precisar apertar confirmar
+  _pinValidating = true;
+
+  const handleValidationResult = (ok) => {
+    if (ok) {
+      if (input) {
+        input.style.borderColor = '#22c55e';
+        input.style.boxShadow = '0 0 12px rgba(34,197,94,0.4)';
+      }
+      if (elStatus) {
+        elStatus.style.display = 'block';
+        elStatus.style.background = 'rgba(34,197,94,0.15)';
+        elStatus.style.color = '#22c55e';
+        elStatus.innerHTML = '<i class="ph-bold ph-check-circle"></i> ✨ PIN Correto! Autorizando ação...';
+      }
+
+      setTimeout(() => {
+        const callback = window.pendingAdminAction;
+        const inputMotivo = document.getElementById('input-modal-motivo-admin');
+        const motivo = (inputMotivo && inputMotivo.value.trim()) ? inputMotivo.value.trim() : 'Autorizado via PIN Touch';
+        window.fecharModalSenhaAdmin();
+        if (typeof callback === 'function') {
+          callback(pin, motivo);
+        }
+        if (typeof window.showToast === 'function') {
+          window.showToast('✨ Autorizado com sucesso!', 'success');
+        }
+      }, 350);
+    } else {
+      _pinValidating = false;
+      if (pin.length >= 6) {
+        if (input) {
+          input.style.borderColor = '#ef4444';
+          input.style.boxShadow = '0 0 12px rgba(239,68,68,0.4)';
+        }
+        if (elStatus) {
+          elStatus.style.display = 'block';
+          elStatus.style.background = 'rgba(239,68,68,0.15)';
+          elStatus.style.color = '#ef4444';
+          elStatus.innerHTML = '<i class="ph-bold ph-warning-circle"></i> PIN incorreto. Tente novamente.';
+        }
+      }
+    }
+  };
+
+  if (typeof socket !== 'undefined' && socket && socket.connected) {
+    socket.emit('validar_pin_admin', { pin: pin }, (res) => {
+      handleValidationResult(res && res.ok);
+    });
+  } else {
+    fetch('/api/validar-pin-admin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin: pin })
+    })
+      .then(r => r.json())
+      .then(data => handleValidationResult(data && data.ok))
+      .catch(() => { _pinValidating = false; });
+  }
 };
 
 window.confirmarSenhaAdminAcao = function () {
@@ -6703,10 +6827,24 @@ window.confirmarSenhaAdminAcao = function () {
   const inputMotivo = document.getElementById('input-modal-motivo-admin');
 
   const senha = inputSenha ? inputSenha.value.trim() : '';
-  const motivo = inputMotivo ? inputMotivo.value.trim() : '';
+  const isAdmin = window.isUsuarioAdminOuGerente();
+  let motivo = inputMotivo ? inputMotivo.value.trim() : '';
 
-  if (!senha) return alert('Por favor, informe a senha de administrador ou PIN.');
-  if (!motivo) return alert('Por favor, informe o motivo/justificativa obrigatoriamente.');
+  if (!senha) {
+    if (typeof window.showToast === 'function') window.showToast('Por favor, digite o PIN ou senha.', 'warning');
+    else alert('Por favor, informe a senha de administrador ou PIN.');
+    if (inputSenha) inputSenha.focus();
+    return;
+  }
+
+  if (!isAdmin && !motivo) {
+    if (typeof window.showToast === 'function') window.showToast('Informe o motivo/justificativa obrigatoriamente.', 'warning');
+    else alert('Por favor, informe o motivo/justificativa obrigatoriamente.');
+    if (inputMotivo) inputMotivo.focus();
+    return;
+  }
+
+  if (!motivo) motivo = 'Autorizado por Admin/Gerente';
 
   const callback = window.pendingAdminAction;
   window.fecharModalSenhaAdmin();

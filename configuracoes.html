@@ -5063,16 +5063,54 @@ border-bottom: 1px solid #eef2f6;
     </div>
   </div>
 
-  <!-- Modal Confirmar Senha Admin -->
-  <div id="modal-confirmar-senha-admin" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:10000; justify-content:center; align-items:center;">
-    <div style="background:white; border-radius:12px; padding:24px; max-width:400px; width:90%; box-shadow:0 4px 20px rgba(0,0,0,0.3);">
-      <h3 id="modal-senha-admin-titulo" style="margin:0 0 8px; color:#1e293b;">Autorização do Administrador</h3>
-      <p id="modal-senha-admin-detalhe" style="margin:0 0 16px; color:#64748b; font-size:14px;">Informe a senha de administrador ou PIN temporário para confirmar esta ação.</p>
-      <input id="input-modal-senha-admin" type="password" placeholder="Senha ou PIN" style="width:100%; padding:10px 12px; border:1px solid #d1d5db; border-radius:8px; margin-bottom:12px; font-size:14px; box-sizing:border-box;" />
-      <input id="input-modal-motivo-admin" type="text" placeholder="Motivo/Justificativa (obrigatório)" style="width:100%; padding:10px 12px; border:1px solid #d1d5db; border-radius:8px; margin-bottom:16px; font-size:14px; box-sizing:border-box;" />
-      <div style="display:flex; gap:10px; justify-content:flex-end;">
-        <button onclick="window.fecharModalSenhaAdmin()" style="padding:8px 16px; background:#e2e8f0; color:#475569; border:none; border-radius:8px; font-weight:600; cursor:pointer;">Cancelar</button>
-        <button onclick="window.confirmarSenhaAdminAcao()" style="padding:8px 16px; background:#ef4444; color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer;">Confirmar</button>
+  <!-- Modal Confirmar Senha Admin (TOUCH PIN & ANTI-FRAUDE) -->
+  <div id="modal-confirmar-senha-admin" style="display:none; position:fixed; inset:0; width:100vw; height:100dvh; background:rgba(0,0,0,0.85); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); z-index:999999; justify-content:center; align-items:center; padding:12px; box-sizing:border-box;">
+    <div style="background:var(--bg-card, #1e293b); border-radius:20px; padding:22px 20px; max-width:380px; width:96%; box-shadow:0 25px 50px -12px rgba(0,0,0,0.5); position:relative; border:1px solid var(--border-color, #334155); color:var(--text-primary, #f8fafc);">
+      <button onclick="window.fecharModalSenhaAdmin()" style="position:absolute; top:14px; right:14px; background:var(--bg-secondary, rgba(255,255,255,0.08)); border:none; font-size:20px; cursor:pointer; color:var(--text-secondary, #94a3b8); width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center;">&times;</button>
+      
+      <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
+        <div style="width:44px; height:44px; border-radius:12px; background:rgba(225,29,72,0.15); border:1px solid rgba(225,29,72,0.3); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+          <i class="ph-bold ph-shield-check" style="color:#e11d48; font-size:24px;"></i>
+        </div>
+        <div>
+          <h3 id="modal-senha-admin-titulo" style="margin:0; color:var(--text-primary, #f8fafc); font-size:16.5px; font-weight:800;">Autorização do Administrador</h3>
+          <span id="modal-senha-admin-subtitulo" style="font-size:11.5px; color:var(--text-secondary, #94a3b8);">Digite o PIN do Gerente / Admin</span>
+        </div>
+      </div>
+
+      <div id="modal-senha-admin-detalhe" style="background:var(--bg-secondary, rgba(255,255,255,0.05)); padding:8px 12px; border-radius:10px; border:1px solid var(--border-color, #334155); margin-bottom:12px; font-size:12px; color:var(--text-secondary, #cbd5e1); line-height:1.35;">
+        Informe a senha de administrador ou PIN temporário para confirmar esta ação.
+      </div>
+
+      <div style="margin-bottom:10px;">
+        <input id="input-modal-senha-admin" type="password" placeholder="••••" maxlength="12" style="width:100%; padding:12px 14px; text-align:center; letter-spacing:6px; font-size:22px; font-weight:800; border:2px solid var(--border-color, #334155); border-radius:12px; box-sizing:border-box; background:var(--bg-main, #0f172a); color:var(--text-primary, #ffffff); outline:none; transition:border-color 0.2s, box-shadow 0.2s;" oninput="window.onPinAdminInput(this.value)" onkeydown="if(event.key==='Enter') window.confirmarSenhaAdminAcao()" />
+      </div>
+
+      <div id="modal-senha-admin-status" style="display:none; padding:6px 10px; border-radius:8px; font-size:12px; font-weight:700; margin-bottom:10px; text-align:center;"></div>
+
+      <div class="pin-touch-grid" style="display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; margin-bottom:14px;">
+        <button type="button" class="pin-key-btn" onclick="window.pinAdminAddDigit('1')">1</button>
+        <button type="button" class="pin-key-btn" onclick="window.pinAdminAddDigit('2')">2</button>
+        <button type="button" class="pin-key-btn" onclick="window.pinAdminAddDigit('3')">3</button>
+        <button type="button" class="pin-key-btn" onclick="window.pinAdminAddDigit('4')">4</button>
+        <button type="button" class="pin-key-btn" onclick="window.pinAdminAddDigit('5')">5</button>
+        <button type="button" class="pin-key-btn" onclick="window.pinAdminAddDigit('6')">6</button>
+        <button type="button" class="pin-key-btn" onclick="window.pinAdminAddDigit('7')">7</button>
+        <button type="button" class="pin-key-btn" onclick="window.pinAdminAddDigit('8')">8</button>
+        <button type="button" class="pin-key-btn" onclick="window.pinAdminAddDigit('9')">9</button>
+        <button type="button" class="pin-key-btn pin-key-action" onclick="window.pinAdminClear()" title="Limpar">C</button>
+        <button type="button" class="pin-key-btn" onclick="window.pinAdminAddDigit('0')">0</button>
+        <button type="button" class="pin-key-btn pin-key-action" onclick="window.pinAdminBackspace()" title="Apagar"><i class="ph ph-backspace"></i></button>
+      </div>
+
+      <div id="wrap-modal-motivo-admin" style="margin-bottom:14px; display:none;">
+        <label style="display:block; font-size:11px; font-weight:700; color:var(--text-secondary, #94a3b8); margin-bottom:4px;">Motivo da Ação (Obrigatório para operadores):</label>
+        <input id="input-modal-motivo-admin" type="text" placeholder="Motivo/Justificativa" style="width:100%; padding:10px 12px; border:1px solid var(--border-color, #334155); border-radius:10px; font-size:12.5px; box-sizing:border-box; background:var(--bg-main, #0f172a); color:var(--text-primary, #ffffff); outline:none;" onkeydown="if(event.key==='Enter') window.confirmarSenhaAdminAcao()" />
+      </div>
+
+      <div style="display:flex; gap:8px; justify-content:flex-end;">
+        <button onclick="window.fecharModalSenhaAdmin()" style="flex:1; padding:10px 14px; background:var(--bg-secondary, rgba(255,255,255,0.08)); color:var(--text-secondary, #94a3b8); border:1px solid var(--border-color, #334155); border-radius:10px; font-weight:600; cursor:pointer; font-size:13px;">Cancelar</button>
+        <button onclick="window.confirmarSenhaAdminAcao()" style="flex:1.3; padding:10px 16px; background:#e11d48; color:white; border:none; border-radius:10px; font-weight:bold; cursor:pointer; font-size:13px; display:flex; align-items:center; justify-content:center; gap:6px; box-shadow:0 4px 12px rgba(225,29,72,0.3);"><i class="ph ph-check-circle" style="font-size:17px;"></i> Autorizar</button>
       </div>
     </div>
   </div>

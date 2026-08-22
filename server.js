@@ -1243,6 +1243,18 @@ async function superAdminAuth(req, res, next) {
   return res.status(401).json({ ok: false, erro: 'Acesso não autorizado. Autentique-se novamente.' });
 }
 
+app.get('/api/super/check-auth', superAdminAuth, (req, res) => {
+  res.json({ ok: true, authenticated: true, superAdmin: req.superAdmin });
+});
+
+app.post('/api/validar-pin-admin', async (req, res) => {
+  const { pin, senha } = req.body || {};
+  const val = pin || senha;
+  if (!val) return res.json({ ok: false, erro: 'Senha ou PIN não informado.' });
+  const ok = await verificarPinOuSenha(val);
+  return res.json({ ok: !!ok, mensagem: ok ? 'Autorizado com sucesso!' : 'Senha ou PIN incorreto.' });
+});
+
 // Anti-brute-force: max 5 senhas erradas por IP a cada 15 min
 const loginAttempts = new Map();
 function loginBloqueado(ip) {
@@ -6340,6 +6352,13 @@ io.on('connection', (socket) => {
   socket.on('garcom_aceitou_chamado', ({ localName, garcomNome }) => {
     io.to(`mesa_${localName}`).emit('garcom_chegando', { garcomNome, localName });
     io.emit('notificacao_garcom', { productName: `${garcomNome} aceitou`, localName, userName: 'Sistema', tipo: 'aceite' });
+  });
+
+  socket.on('validar_pin_admin', async (data, ack) => {
+    const val = (typeof data === 'object' && data !== null) ? (data.pin || data.senha) : data;
+    const ok = await verificarPinOuSenha(val);
+    if (typeof ack === 'function') ack({ ok: !!ok, mensagem: ok ? 'Autorizado!' : 'PIN incorreto.' });
+    else socket.emit('resposta_validar_pin_admin', { ok: !!ok });
   });
 
   socket.on('movimentacao_caixa', (data) => {

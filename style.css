@@ -5201,3 +5201,107 @@ body.force-desktop #resizer-right {
   }
 }
 
+/* ═════════════════════════════════════════════════════════════════════
+   TECLADO TOUCH PIN & MODAL DE AUTORIZAÇÃO ADMIN
+   ═════════════════════════════════════════════════════════════════════ */
+.pin-touch-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.pin-key-btn {
+  height: 50px;
+  background: var(--bg-secondary, #334155);
+  color: var(--text-primary, #f8fafc);
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  border-radius: 12px;
+  font-size: 20px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  user-select: none;
+  touch-action: manipulation;
+  transition: all 0.12s cubic-bezier(0.2, 0.8, 0.2, 1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.pin-key-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.pin-key-btn:active {
+  transform: scale(0.92) !important;
+  background: var(--primary, #fc4b15) !important;
+  color: #ffffff !important;
+}
+
+.pin-key-action {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-secondary, #94a3b8);
+  font-size: 16px;
+}
+
+/* ═════════════════════════════════════════════════════════════════════
+   GARANTIA TOTAL DE VISIBILIDADE DAS BARRAS NO MOBILE (NUNCA SUMIR)
+   ═════════════════════════════════════════════════════════════════════ */
+@media screen and (max-width: 767px), screen and (pointer: coarse) {
+  /* Fixar a barra de navegação no rodapé absoluto da viewport real */
+  #mobile-workspace-tabs,
+  .mobile-tabs {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100vw !important;
+    max-width: 100% !important;
+    height: calc(56px + env(safe-area-inset-bottom, 0px)) !important;
+    padding-bottom: max(6px, env(safe-area-inset-bottom, 0px)) !important;
+    z-index: 99999 !important;
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+
+  /* Barra de Ações Flutuante (Lançar, Parcial, Fechar) - fixada sobre a barra de abas */
+  #mobile-floating-actions,
+  .mobile-floating-actions {
+    position: fixed !important;
+    bottom: calc(56px + env(safe-area-inset-bottom, 0px)) !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100vw !important;
+    max-width: 100% !important;
+    z-index: 99998 !important;
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    padding: 8px 12px !important;
+    background: rgba(255, 255, 255, 0.95) !important;
+    backdrop-filter: blur(20px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+    border-top: 1px solid rgba(0, 0, 0, 0.08) !important;
+    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.08) !important;
+  }
+
+  [data-theme="dark"] #mobile-floating-actions,
+  [data-theme="dark"] .mobile-floating-actions {
+    background: rgba(18, 18, 26, 0.95) !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.3) !important;
+  }
+
+  /* Padding inferior garantido no workspace para o conteúdo nunca ficar oculto sob as barras */
+  .workspace,
+  body.force-mobile .workspace {
+    height: 100dvh !important;
+    min-height: 100dvh !important;
+    max-height: 100dvh !important;
+    padding-bottom: calc(118px + env(safe-area-inset-bottom, 0px)) !important;
+    overflow: hidden !important;
+  }
+}
+
+
