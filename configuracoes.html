@@ -1430,6 +1430,77 @@ border-bottom: 1px solid #eef2f6;
             </button>
           </div>
         </div>
+
+        <!-- Painel de Configuração: Atalhos do App Garçom (Mobile) -->
+        <div style="background: var(--cfg-card-bg); padding: 20px; border-radius: 12px; border: 1px solid var(--cfg-border); margin-top: 16px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <h3 style="margin: 0; color: #fc4b15; font-size: 18px; display: flex; align-items: center; gap: 8px;">
+              <i class="ph-bold ph-device-mobile"></i> Atalhos e Funções Rápidas do App Garçom
+            </h3>
+            <button onclick="window.salvarConfigAtalhosGarcom()" style="padding: 8px 16px; background: #3ab55b; color: white; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+              <i class="ph ph-floppy-disk"></i> Salvar Atalhos
+            </button>
+          </div>
+          <p style="color: var(--cfg-text-muted); font-size: 13.5px; margin-bottom: 18px; line-height: 1.4;">
+            Selecione quais botões e funções de atalho estarão visíveis no painel de deslize rápido do App Garçom no celular/tablet.
+          </p>
+
+          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px;">
+            <!-- Fila de Espera -->
+            <label style="display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.02); border: 1px solid var(--cfg-border); padding: 12px 14px; border-radius: 10px; cursor: pointer;">
+              <input type="checkbox" id="cfg-garcom-fila-espera" checked style="width: 18px; height: 18px; accent-color: #fc4b15;">
+              <div>
+                <strong style="font-size: 14px; display: block; color: var(--cfg-text);">🪑 Fila de Espera por Mesas</strong>
+                <span style="font-size: 11.5px; color: var(--cfg-text-muted);">Adicionar clientes e acomodar na mesa</span>
+              </div>
+            </label>
+
+            <!-- Fila de Preparo -->
+            <label style="display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.02); border: 1px solid var(--cfg-border); padding: 12px 14px; border-radius: 10px; cursor: pointer;">
+              <input type="checkbox" id="cfg-garcom-fila-preparo" checked style="width: 18px; height: 18px; accent-color: #fc4b15;">
+              <div>
+                <strong style="font-size: 14px; display: block; color: var(--cfg-text);">🍳 Fila de Preparo (Status KDS)</strong>
+                <span style="font-size: 11.5px; color: var(--cfg-text-muted);">Consultar situação do pedido p/ cliente</span>
+              </div>
+            </label>
+
+            <!-- Consulta de Preço -->
+            <label style="display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.02); border: 1px solid var(--cfg-border); padding: 12px 14px; border-radius: 10px; cursor: pointer;">
+              <input type="checkbox" id="cfg-garcom-consulta-preco" checked style="width: 18px; height: 18px; accent-color: #fc4b15;">
+              <div>
+                <strong style="font-size: 14px; display: block; color: var(--cfg-text);">🔍 Consultar Preço e Estoque</strong>
+                <span style="font-size: 11.5px; color: var(--cfg-text-muted);">Busca rápida de itens e ingredientes</span>
+              </div>
+            </label>
+
+            <!-- Nova Comanda -->
+            <label style="display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.02); border: 1px solid var(--cfg-border); padding: 12px 14px; border-radius: 10px; cursor: pointer;">
+              <input type="checkbox" id="cfg-garcom-nova-comanda" checked style="width: 18px; height: 18px; accent-color: #fc4b15;">
+              <div>
+                <strong style="font-size: 14px; display: block; color: var(--cfg-text);">👤 Nova Comanda Individual</strong>
+                <span style="font-size: 11.5px; color: var(--cfg-text-muted);">Abrir comanda de cliente avulso</span>
+              </div>
+            </label>
+
+            <!-- Chamar Gerente -->
+            <label style="display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.02); border: 1px solid var(--cfg-border); padding: 12px 14px; border-radius: 10px; cursor: pointer;">
+              <input type="checkbox" id="cfg-garcom-chamar-gerente" checked style="width: 18px; height: 18px; accent-color: #fc4b15;">
+              <div>
+                <strong style="font-size: 14px; display: block; color: var(--cfg-text);">🛎️ Chamar Gerente / Suporte</strong>
+                <span style="font-size: 11.5px; color: var(--cfg-text-muted);">Solicitar auxílio de supervisor</span>
+              </div>
+            </label>
+
+            <!-- Minhas Vendas -->
+            <label style="display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.02); border: 1px solid var(--cfg-border); padding: 12px 14px; border-radius: 10px; cursor: pointer;">
+              <input type="checkbox" id="cfg-garcom-minhas-vendas" checked style="width: 18px; height: 18px; accent-color: #fc4b15;">
+              <div>
+                <strong style="font-size: 14px; display: block; color: var(--cfg-text);">📊 Minhas Vendas do Turno</strong>
+                <span style="font-size: 11.5px; color: var(--cfg-text-muted);">Acompanhar comissão e total vendido</span>
+              </div>
+            </label>
+          </div>
+        </div>
       </div>
 
       <!-- TAB RESOLUÇÃO & ESCALA DE TELA -->

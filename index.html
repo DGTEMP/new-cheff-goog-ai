@@ -803,107 +803,143 @@
 
     <div class="workspace active-tab-mesas">
 
-      <!-- LEFT ACTIONS -->
-      <aside class="left-actions" id="left-panel">
-
-        <!-- RESUMO COMPACTO (MOBILE - AÇÕES) -->
-        <div class="mobile-acoes-summary" id="mobile-acoes-summary">
-          <div class="acoes-summary-mesa">
-            <i class="ph ph-squares-four"></i>
-            <span id="acoes-info-mesa">Nenhuma mesa</span>
+      <!-- LEFT ACTIONS (AUTO-RECOLHÍVEL HOVER/TOUCH) -->
+      <aside class="left-actions auto-collapsible" id="left-panel">
+        <div class="panel-handle panel-handle-left" id="handle-left-panel" onclick="window.toggleLeftPanel && window.toggleLeftPanel(event)" title="Ações Rápidas (Passe o mouse ou toque para expandir)">
+          <div class="panel-handle-pin-btn" id="btn-pin-left-panel" onclick="window.togglePinLeftPanel && window.togglePinLeftPanel(event)" title="Fixar / Auto-Recolher">
+            <i class="ph ph-push-pin" id="icon-pin-left-panel"></i>
           </div>
-          <div class="acoes-summary-dados">
-            <span class="acoes-total" id="acoes-info-total">R$ 0,00</span>
-            <span class="acoes-falta" id="acoes-info-falta">Falta: R$ 0,00</span>
-          </div>
-        </div>
 
-        <div class="action-group">
-          <div class="group-title">Ações</div>
-          <button class="btn-action primary" id="btn-adicionar-produtos" title="Lançar itens de consumo">
-            <i class="ph ph-plus-circle"></i> Lançar
-          </button>
-        </div>
-
-        <div class="action-group">
-          <div class="group-title">Movimentos</div>
-          <div class="btn-grid-2">
-            <button class="btn-action" id="btn-movimento-parcial" title="Receber pagamento parcial">
-              <i class="ph ph-currency-dollar" style="color: #3ab55b;"></i> Parcial
+          <div class="dock-mini-icons-list" id="dock-mini-icons-list">
+            <button class="dock-mini-btn primary" data-mini-id="mini-lancar" onclick="event.stopPropagation(); document.getElementById('btn-adicionar-produtos') && document.getElementById('btn-adicionar-produtos').click()" title="Lançar Produtos (F2)">
+              <i class="ph-bold ph-plus-circle"></i>
             </button>
-            <button class="btn-action" id="btn-movimento-concluir" title="Fechar conta">
-              <i class="ph ph-check" style="color: #3ab55b;"></i> Fechar
+            <button class="dock-mini-btn" data-mini-id="mini-parcial" onclick="event.stopPropagation(); document.getElementById('btn-movimento-parcial') && document.getElementById('btn-movimento-parcial').click()" title="Pagamento Parcial">
+              <i class="ph-bold ph-currency-dollar" style="color: #10b981;"></i>
             </button>
-          </div>
-        </div>
-
-        <div class="action-group">
-          <div class="group-title">Relatórios e Digital</div>
-          <div class="btn-grid-2">
-            <button class="btn-action" id="btn-imprimir-conta" title="Imprimir conferência da conta">
-              <i class="ph ph-printer"></i> Imprimir
+            <button class="dock-mini-btn" data-mini-id="mini-fechar" onclick="event.stopPropagation(); document.getElementById('btn-movimento-concluir') && document.getElementById('btn-movimento-concluir').click()" title="Fechar Conta (F3)">
+              <i class="ph-bold ph-check" style="color: #10b981;"></i>
             </button>
-            <button class="btn-action" id="btn-mostrar-conta-cliente" title="Mostrar conta ao cliente no dispositivo">
-              <i class="ph ph-device-mobile"></i> Cliente
+            <button class="dock-mini-btn" data-mini-id="mini-imprimir" onclick="event.stopPropagation(); document.getElementById('btn-imprimir-conta') && document.getElementById('btn-imprimir-conta').click()" title="Imprimir Conta">
+              <i class="ph ph-printer"></i>
             </button>
-            <button class="btn-action" id="btn-qr-mesa" title="Mostrar QR Code da Mesa para o Cliente">
-              <i class="ph ph-qr-code"></i> QR Code
+            <button class="dock-mini-btn" data-mini-id="mini-cliente" onclick="event.stopPropagation(); document.getElementById('btn-mostrar-conta-cliente') && document.getElementById('btn-mostrar-conta-cliente').click()" title="Ver Conta no Dispositivo">
+              <i class="ph ph-device-mobile"></i>
+            </button>
+            <button class="dock-mini-btn" data-mini-id="mini-qrcode" onclick="event.stopPropagation(); document.getElementById('btn-qr-mesa') && document.getElementById('btn-qr-mesa').click()" title="QR Code da Mesa">
+              <i class="ph ph-qr-code"></i>
+            </button>
+            <button class="dock-mini-btn" data-mini-id="mini-desconto" onclick="event.stopPropagation(); document.getElementById('btn-aplicar-desconto') && document.getElementById('btn-aplicar-desconto').click()" title="Desconto">
+              <i class="ph ph-percent" style="color: #ef4444;"></i>
+            </button>
+            <button class="dock-mini-btn" data-mini-id="mini-juntar" onclick="event.stopPropagation(); document.getElementById('btn-juntar-mesa') && document.getElementById('btn-juntar-mesa').click()" title="Juntar Mesas">
+              <i class="ph ph-arrows-merge" style="color: #f59e0b;"></i>
+            </button>
+            <button class="dock-mini-btn" data-mini-id="mini-chamar" onclick="event.stopPropagation(); document.getElementById('btn-chamar-garcom') && document.getElementById('btn-chamar-garcom').click()" title="Chamar Garçom">
+              <i class="ph ph-bell-ringing" style="color: #3b82f6;"></i>
             </button>
           </div>
         </div>
 
-        <div class="action-group">
-          <div class="group-title">Desconto e Taxa</div>
-          <div class="btn-grid-2">
-            <button class="btn-action" id="btn-aplicar-desconto" title="Aplicar desconto na conta">
-              <i class="ph ph-percent"></i> Desconto
+        <div class="panel-content-inner" id="inner-left-panel">
+          <!-- RESUMO COMPACTO (MOBILE - AÇÕES) -->
+          <div class="mobile-acoes-summary" id="mobile-acoes-summary">
+            <div class="acoes-summary-mesa">
+              <i class="ph ph-squares-four"></i>
+              <span id="acoes-info-mesa">Nenhuma mesa</span>
+            </div>
+            <div class="acoes-summary-dados">
+              <span class="acoes-total" id="acoes-info-total">R$ 0,00</span>
+              <span class="acoes-falta" id="acoes-info-falta">Falta: R$ 0,00</span>
+            </div>
+          </div>
+
+          <div class="action-group">
+            <div class="group-title">Ações</div>
+            <button class="btn-action primary" id="btn-adicionar-produtos" title="Lançar itens de consumo">
+              <i class="ph ph-plus-circle"></i> Lançar
             </button>
-            <button class="btn-action" id="btn-aplicar-servico" title="Serviços ou gorjeta">
-              <i class="ph ph-bell"></i> Serviços
+          </div>
+
+          <div class="action-group">
+            <div class="group-title">Movimentos</div>
+            <div class="btn-grid-2">
+              <button class="btn-action" id="btn-movimento-parcial" title="Receber pagamento parcial">
+                <i class="ph ph-currency-dollar" style="color: #3ab55b;"></i> Parcial
+              </button>
+              <button class="btn-action" id="btn-movimento-concluir" title="Fechar conta">
+                <i class="ph ph-check" style="color: #3ab55b;"></i> Fechar
+              </button>
+            </div>
+          </div>
+
+          <div class="action-group">
+            <div class="group-title">Relatórios e Digital</div>
+            <div class="btn-grid-2">
+              <button class="btn-action" id="btn-imprimir-conta" title="Imprimir conferência da conta">
+                <i class="ph ph-printer"></i> Imprimir
+              </button>
+              <button class="btn-action" id="btn-mostrar-conta-cliente" title="Mostrar conta ao cliente no dispositivo">
+                <i class="ph ph-device-mobile"></i> Cliente
+              </button>
+              <button class="btn-action" id="btn-qr-mesa" title="Mostrar QR Code da Mesa para o Cliente">
+                <i class="ph ph-qr-code"></i> QR Code
+              </button>
+            </div>
+          </div>
+
+          <div class="action-group">
+            <div class="group-title">Desconto e Taxa</div>
+            <div class="btn-grid-2">
+              <button class="btn-action" id="btn-aplicar-desconto" title="Aplicar desconto na conta">
+                <i class="ph ph-percent"></i> Desconto
+              </button>
+              <button class="btn-action" id="btn-aplicar-servico" title="Serviços ou gorjeta">
+                <i class="ph ph-bell"></i> Serviços
+              </button>
+            </div>
+          </div>
+
+          <div class="action-group">
+            <div class="group-title">Visualização</div>
+            <div class="btn-grid-2">
+              <button class="btn-action" id="btn-ver-comissao" title="Calcular taxa de comissão">
+                <i class="ph ph-money"></i> Comissão
+              </button>
+              <button class="btn-action" id="btn-agrupar-itens" title="Alternar agrupamento de produtos idênticos">
+                <i class="ph ph-list-dashes"></i> Agrupar
+              </button>
+            </div>
+          </div>
+
+          <div class="action-group" style="margin-top: auto;">
+            <div class="group-title">Mesas</div>
+            <div class="btn-grid-2">
+              <button class="btn-action" id="btn-alterar-mesa">
+                <i class="ph ph-pencil-simple" style="color: #f39c12;"></i> Alterar
+              </button>
+              <button class="btn-action" id="btn-juntar-mesa">
+                <i class="ph ph-arrows-merge" style="color: #e67e22;"></i> Juntar
+              </button>
+            </div>
+            <button class="btn-action btn-reservar" id="btn-reservar-mesa" title="Reservar a mesa selecionada para um cliente">
+              <i class="ph ph-bookmark-simple"></i> Reservar
+            </button>
+          </div>
+
+          <div class="action-group" style="margin-top: 8px;">
+            <div class="group-title">Comunicação</div>
+            <button class="btn-action btn-chamar-garcom" id="btn-chamar-garcom" title="Chamar garçom para a mesa selecionada">
+              <i class="ph ph-bell-ringing"></i> Chamar Garçom
+            </button>
+          </div>
+
+          <div class="action-group" style="margin-top: 8px;">
+            <button class="btn-action btn-painel-garcom" onclick="window.open('/garcom.html', '_blank')" title="Abrir painel do garçom para lançamento móvel">
+              <i class="ph ph-device-mobile"></i> Garçom
             </button>
           </div>
         </div>
-
-        <div class="action-group">
-          <div class="group-title">Visualização</div>
-          <div class="btn-grid-2">
-            <button class="btn-action" id="btn-ver-comissao" title="Calcular taxa de comissão">
-              <i class="ph ph-money"></i> Comissão
-            </button>
-            <button class="btn-action" id="btn-agrupar-itens" title="Alternar agrupamento de produtos idênticos">
-              <i class="ph ph-list-dashes"></i> Agrupar
-            </button>
-          </div>
-        </div>
-
-        <div class="action-group" style="margin-top: auto;">
-          <div class="group-title">Mesas</div>
-          <div class="btn-grid-2">
-            <button class="btn-action" id="btn-alterar-mesa">
-              <i class="ph ph-pencil-simple" style="color: #f39c12;"></i> Alterar
-            </button>
-            <button class="btn-action" id="btn-juntar-mesa">
-              <i class="ph ph-arrows-merge" style="color: #e67e22;"></i> Juntar
-            </button>
-          </div>
-          <button class="btn-action btn-reservar" id="btn-reservar-mesa" title="Reservar a mesa selecionada para um cliente">
-            <i class="ph ph-bookmark-simple"></i> Reservar
-          </button>
-        </div>
-
-        <div class="action-group" style="margin-top: 8px;">
-          <div class="group-title">Comunicação</div>
-          <button class="btn-action btn-chamar-garcom" id="btn-chamar-garcom" title="Chamar garçom para a mesa selecionada">
-            <i class="ph ph-bell-ringing"></i> Chamar Garçom
-          </button>
-        </div>
-
-        <div class="action-group" style="margin-top: 8px;">
-          <button class="btn-action btn-painel-garcom" onclick="window.open('/garcom.html', '_blank')" title="Abrir painel do garçom para lançamento móvel">
-            <i class="ph ph-device-mobile"></i> Garçom
-          </button>
-        </div>
-
       </aside>
 
       <!-- RESIZER LEFT -->
@@ -1006,31 +1042,26 @@
       <!-- RESIZER RIGHT -->
       <div class="resizer" id="resizer-right"></div>
 
-      <!-- RIGHT PANEL (INFO) -->
-      <aside class="right-info" id="right-panel">
+      <!-- RIGHT PANEL (INFO - AUTO-RECOLHÍVEL HOVER/TOUCH) -->
+      <aside class="right-info auto-collapsible" id="right-panel">
+        <div class="panel-handle panel-handle-right" id="handle-right-panel" onclick="window.toggleRightPanel && window.toggleRightPanel(event)" title="Resumo e Pagamento (Passe o mouse ou toque para expandir)">
+          <div class="panel-handle-pin-btn" id="btn-pin-right-panel" onclick="window.togglePinRightPanel && window.togglePinRightPanel(event)" title="Fixar / Auto-Recolher">
+            <i class="ph ph-push-pin" id="icon-pin-right-panel"></i>
+          </div>
 
-        <!-- Criação rápida de comanda (CRM) -->
-        <div class="info-group" id="quick-comanda-box"
-          style="display: flex; gap: 6px; align-items: center; padding: 10px; margin-bottom: 12px;">
-          <input type="text" id="quick-comanda-nome" placeholder="Nova comanda — nome do cliente"
-            autocomplete="off"
-            style="flex: 1; min-width: 0; padding: 8px 10px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-card); color: var(--text-primary); font-size: 13px;">
-          <button id="btn-quick-nova-comanda" class="btn-action primary" title="Criar comanda com este nome"
-            style="padding: 8px 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-            <i class="ph ph-plus"></i>
-          </button>
+          <div class="dock-mini-icons-list" id="dock-mini-icons-right">
+            <button class="dock-mini-btn" onclick="event.stopPropagation(); window.abrirCheckoutModal && window.abrirCheckoutModal()" title="Finalizar Venda / Pagamento" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important; color: white !important; border: none !important;">
+              <i class="ph-bold ph-receipt"></i>
+            </button>
+            <button class="dock-mini-btn" onclick="event.stopPropagation(); document.getElementById('btn-imprimir-conta') && document.getElementById('btn-imprimir-conta').click()" title="Imprimir Conferência">
+              <i class="ph ph-printer"></i>
+            </button>
+          </div>
+
+          <span class="handle-text">RESUMO</span>
         </div>
 
-        <div class="info-group">
-          <div class="group-title">Informações</div>
-          <div class="info-row">
-            <span>Mesa:</span>
-            <strong id="info-mesa-nome" style="color: #2b5c9e; font-size: 16px;">-</strong>
-          </div>
-          <div class="info-row">
-            <span>Atendente:</span>
-            <span id="info-atendente-nome" style="color: #2b5c9e;">-</span>
-          </div>
+        <div class="panel-content-inner" id="inner-right-panel">
           <div class="info-row" id="row-info-cliente-nome" style="display: none;">
             <span>Cliente:</span>
             <span id="info-cliente-nome" style="color: #fc4b15;">-</span>
@@ -1060,104 +1091,71 @@
             <span>Permanência:</span>
             <span id="info-permanencia" style="color: #2b5c9e;">0min</span>
           </div>
-        </div>
 
-        <div class="info-group summary">
-          <div class="group-title">Resumo</div>
-          <div class="info-row">
-            <span>Produtos:</span>
-            <span class="val purple" id="resumo-produtos">R$ 0,00</span>
-          </div>
-          <div class="info-row">
-            <span>Comissão:</span>
-            <span class="val orange" id="resumo-comissao">R$ 0,00</span>
-          </div>
-          <div class="info-row">
-            <span>Serviços:</span>
-            <span class="val red">R$ 0,00</span>
-          </div>
-          <div class="separator"></div>
-          <div class="info-row">
-            <span>Subtotal:</span>
-            <span class="val purple" id="resumo-subtotal">R$ 0,00</span>
-          </div>
-          <div class="info-row">
-            <span>Descontos:</span>
-            <span class="val red" id="resumo-descontos">R$ 0,00</span>
-          </div>
-          <div class="info-row">
-            <span style="display: flex; align-items: center; gap: 4px;">
-              <input type="checkbox" id="taxa-servico" checked> Taxas/Serviços (10%):
-            </span>
-            <span class="val" id="resumo-taxas">R$ 0,00</span>
-          </div>
-          <div class="separator"></div>
-          <div class="info-row bold">
-            <span>Total:</span>
-            <span class="val green" id="total-pagar-text" style="font-size: 20px;">R$ 0,00</span>
-          </div>
-          <div class="separator"></div>
-
-          <!-- Seção de Pagamento Parcial (Ocultada conforme solicitação) -->
-          <div
-            style="display: none; background: var(--bg-secondary); padding: 10px; border-radius: 8px; margin: 10px 0; border: 1px solid var(--border-color);">
-            <div style="font-size: 12px; font-weight: bold; margin-bottom: 8px; color: var(--text-secondary);">ADICIONAR PAGAMENTO</div>
-            <div style="display: flex; gap: 8px; margin-bottom: 8px;">
-              <select id="metodo-pagamento"
-                style="flex: 1; padding: 8px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 13px;">
-                <option value="Dinheiro">Dinheiro</option>
-                <option value="Pix">Pix</option>
-                <option value="Cartão de Crédito">Crédito</option>
-                <option value="Cartão de Débito">Débito</option>
-                <option value="Fiado / Conta">Fiado / Conta</option>
-              </select>
-              <input type="text" inputmode="decimal" id="valor-pagamento" placeholder="R$ 0,00"
-                style="width: 80px; padding: 8px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 13px;">
-              <button id="btn-add-pagamento"
-                style="padding: 8px; background: #3ab55b; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">+</button>
+          <div class="info-group summary">
+            <div class="group-title">Resumo</div>
+            <div class="info-row">
+              <span>Produtos:</span>
+              <span class="val purple" id="resumo-produtos">R$ 0,00</span>
             </div>
-            <div id="lista-pagamentos-parciais"
-              style="font-size: 13px; color: #666; display: flex; flex-direction: column; gap: 4px;"></div>
-            <!-- Divisão em partes iguais -->
-            <div
-              style="display: flex; gap: 8px; margin-top: 8px; padding-top: 8px; border-top: 1px dashed #ddd; align-items: center;">
-              <span style="font-size: 11.5px; color: #666; white-space: nowrap;">Dividir em:</span>
-              <input type="number" id="split-equal-parts" min="2" max="50" placeholder="Pessoas"
-                style="width: 55px; padding: 4px 6px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 12px;">
-              <button id="btn-split-equal"
-                style="padding: 4px 8px; background: #2f80ed; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11.5px; font-weight: bold; flex: 1;">Calcular</button>
+            <div class="info-row">
+              <span>Comissão:</span>
+              <span class="val orange" id="resumo-comissao">R$ 0,00</span>
+            </div>
+            <div class="info-row">
+              <span>Serviços:</span>
+              <span class="val red">R$ 0,00</span>
+            </div>
+            <div class="separator"></div>
+            <div class="info-row">
+              <span>Subtotal:</span>
+              <span class="val purple" id="resumo-subtotal">R$ 0,00</span>
+            </div>
+            <div class="info-row">
+              <span>Descontos:</span>
+              <span class="val red" id="resumo-descontos">R$ 0,00</span>
+            </div>
+            <div class="info-row">
+              <span style="display: flex; align-items: center; gap: 4px;">
+                <input type="checkbox" id="taxa-servico" checked> Taxas/Serviços (10%):
+              </span>
+              <span class="val" id="resumo-taxas">R$ 0,00</span>
+            </div>
+            <div class="separator"></div>
+            <div class="info-row bold">
+              <span>Total:</span>
+              <span class="val green" id="total-pagar-text" style="font-size: 20px;">R$ 0,00</span>
+            </div>
+            <div class="separator"></div>
+
+            <div class="info-row">
+              <span>Pago:</span>
+              <span class="val green" id="total-pago-text">R$ 0,00</span>
+            </div>
+            <div class="info-row bold">
+              <span>Restante:</span>
+              <span class="val blue" id="falta-pagar-text">R$ 0,00</span>
+            </div>
+            <div class="info-row bold" id="div-troco"
+              style="display: none; border-top: 1px solid var(--border-color); padding-top: 8px; margin-top: 8px;">
+              <span>Troco:</span>
+              <span class="val" id="valor-troco-text" style="color: #e74c3c;">R$ 0,00</span>
+            </div>
+            <div id="div-sugestao-troco"
+              style="font-size: 11.5px; color: #888; text-align: right; display: none; margin-top: 4px; line-height: 1.4;">
             </div>
           </div>
 
-          <div class="info-row">
-            <span>Pago:</span>
-            <span class="val green" id="total-pago-text">R$ 0,00</span>
-          </div>
-          <div class="info-row bold">
-            <span>Restante:</span>
-            <span class="val blue" id="falta-pagar-text">R$ 0,00</span>
-          </div>
-          <div class="info-row bold" id="div-troco"
-            style="display: none; border-top: 1px solid var(--border-color); padding-top: 8px; margin-top: 8px;">
-            <span>Troco:</span>
-            <span class="val" id="valor-troco-text" style="color: #e74c3c;">R$ 0,00</span>
-          </div>
-          <div id="div-sugestao-troco"
-            style="font-size: 11.5px; color: #888; text-align: right; display: none; margin-top: 4px; line-height: 1.4;">
+          <div class="checkout-sticky-footer"
+            style="position: sticky; bottom: -12px; background: var(--bg-secondary); padding: 12px 0; margin: auto -12px -12px -12px; z-index: 10; display: flex; justify-content: center; box-shadow: 0 -10px 20px rgba(247, 249, 250, 0.95);">
+            <div class="info-group" style="margin-bottom: 0; width: calc(100% - 24px);">
+              <button class="btn-checkout" id="btn-finalizar-venda" onclick="window.abrirCheckoutModal()"
+                style="width: 100%; padding: 12px; background: #3ab55b; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px; opacity: 0.5; pointer-events: none;">
+                <i class="ph ph-check-circle" style="font-size: 20px;"></i> Finalizar Venda
+              </button>
+            </div>
           </div>
         </div>
-
-        <div class="checkout-sticky-footer"
-          style="position: sticky; bottom: -12px; background: var(--bg-secondary); padding: 12px 0; margin: auto -12px -12px -12px; z-index: 10; display: flex; justify-content: center; box-shadow: 0 -10px 20px rgba(247, 249, 250, 0.95);">
-          <div class="info-group" style="margin-bottom: 0; width: calc(100% - 24px);">
-            <!-- Injecting checkout button to maintain functionality -->
-            <button class="btn-checkout" id="btn-finalizar-venda" onclick="window.abrirCheckoutModal()"
-              style="width: 100%; padding: 12px; background: #3ab55b; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px; opacity: 0.5; pointer-events: none;">
-              <i class="ph ph-check-circle" style="font-size: 20px;"></i> Finalizar Venda
-            </button>
-          </div>
-        </div>
-
       </aside>
 
     </div>
@@ -3050,6 +3048,94 @@
         Venda</button>
     </div>
   </div>
+  <!-- MODAL DE DIVISÃO DE ITEM COMPARTILHADO EM FRAÇÕES -->
+  <div class="modal-overlay" id="modal-dividir-item-fracao"
+    style="display: none; z-index: 10010; position: fixed; inset: 0; background: rgba(0,0,0,0.68); backdrop-filter: blur(5px); justify-content: center; align-items: center;">
+    <div class="modal"
+      style="width: 540px; max-width: 94%; max-height: 90vh; display: flex; flex-direction: column; padding: 24px; border-radius: 20px; background: var(--bg-card, #ffffff); border: 1px solid var(--border-color, #e2e8f0); box-shadow: 0 25px 60px rgba(0,0,0,0.35); overflow: hidden;">
+      
+      <!-- Header -->
+      <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color, #e2e8f0); padding-bottom: 14px; margin-bottom: 16px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="width: 38px; height: 38px; border-radius: 10px; background: rgba(252,75,21,0.12); color: #fc4b15; display: flex; align-items: center; justify-content: center; font-size: 20px;">
+            <i class="ph-bold ph-divide"></i>
+          </div>
+          <div>
+            <h3 style="margin: 0; font-size: 17px; font-weight: 800; color: var(--text-primary, #0f172a);">Dividir Item em Frações</h3>
+            <span style="font-size: 12px; color: var(--text-secondary, #64748b);">Fracione o valor e atribua a cada comanda</span>
+          </div>
+        </div>
+        <button class="modal-close" onclick="window.fecharModalDividirItemFracao()"
+          style="background: none; border: none; font-size: 24px; cursor: pointer; color: #94a3b8; padding: 4px;">&times;</button>
+      </div>
+
+      <div style="flex: 1; overflow-y: auto; padding-right: 4px; display: flex; flex-direction: column; gap: 16px;">
+        <!-- Card do Item Atual -->
+        <div style="background: var(--bg-secondary, #f8fafc); border: 1.5px solid var(--border-color, #e2e8f0); border-radius: 14px; padding: 14px; display: flex; justify-content: space-between; align-items: center;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span id="modal-fracao-emoji" style="font-size: 28px;">🍽️</span>
+            <div>
+              <strong id="modal-fracao-item-nome" style="font-size: 15px; display: block; color: var(--text-primary, #0f172a);">Produto</strong>
+              <span id="modal-fracao-qtd-original" style="font-size: 12px; color: var(--text-secondary, #64748b);">Qtd: 1 un</span>
+            </div>
+          </div>
+          <div style="text-align: right;">
+            <span style="font-size: 11.5px; color: var(--text-secondary, #64748b); display: block;">Valor Total:</span>
+            <strong id="modal-fracao-item-total" style="font-size: 17px; color: #3ab55b;">R$ 0,00</strong>
+          </div>
+        </div>
+
+        <!-- Seletor de Fração Preset -->
+        <div>
+          <label style="font-size: 13px; font-weight: 700; color: var(--text-primary, #0f172a); display: block; margin-bottom: 8px;">
+            Em quantas frações / partes deseja dividir?
+          </label>
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;" id="grid-preset-fracoes">
+            <button type="button" class="btn-preset-fracao active" id="btn-fracao-preset-2" onclick="window.selecionarPresetFracoes(2)" style="padding: 10px 6px; border-radius: 10px; border: 1.5px solid #fc4b15; background: rgba(252,75,21,0.1); color: #fc4b15; font-weight: 800; font-size: 13px; cursor: pointer; text-align: center;">
+              ½ (2 Partes)
+            </button>
+            <button type="button" class="btn-preset-fracao" id="btn-fracao-preset-3" onclick="window.selecionarPresetFracoes(3)" style="padding: 10px 6px; border-radius: 10px; border: 1px solid var(--border-color, #cbd5e1); background: var(--bg-card, #ffffff); color: var(--text-primary, #0f172a); font-weight: 700; font-size: 13px; cursor: pointer; text-align: center;">
+              ⅓ (3 Partes)
+            </button>
+            <button type="button" class="btn-preset-fracao" id="btn-fracao-preset-4" onclick="window.selecionarPresetFracoes(4)" style="padding: 10px 6px; border-radius: 10px; border: 1px solid var(--border-color, #cbd5e1); background: var(--bg-card, #ffffff); color: var(--text-primary, #0f172a); font-weight: 700; font-size: 13px; cursor: pointer; text-align: center;">
+              ¼ (4 Partes)
+            </button>
+            <button type="button" class="btn-preset-fracao" id="btn-fracao-preset-custom" onclick="window.selecionarPresetFracoes('custom')" style="padding: 10px 6px; border-radius: 10px; border: 1px solid var(--border-color, #cbd5e1); background: var(--bg-card, #ffffff); color: var(--text-primary, #0f172a); font-weight: 700; font-size: 13px; cursor: pointer; text-align: center;">
+              Outro (N)
+            </button>
+          </div>
+          <div id="container-custom-fracoes-qtd" style="display: none; margin-top: 10px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 12.5px; color: var(--text-secondary, #64748b);">Número de pessoas/partes:</span>
+              <input type="number" id="input-custom-num-fracoes" min="2" max="20" value="5" onchange="window.gerarCamposFracoes(parseInt(this.value)||2)" style="width: 70px; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border-color, #cbd5e1); font-weight: 800; font-size: 14px; text-align: center;">
+            </div>
+          </div>
+        </div>
+
+        <!-- Lista de Frações e Atribuição de Comandas -->
+        <div>
+          <label style="font-size: 13px; font-weight: 700; color: var(--text-primary, #0f172a); display: block; margin-bottom: 8px;">
+            Atribuição das Frações por Comanda / Cliente:
+          </label>
+          <div id="container-lista-fracoes-items" style="display: flex; flex-direction: column; gap: 10px;">
+            <!-- Injetado dinamicamente via JS -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer Buttons -->
+      <div style="border-top: 1px solid var(--border-color, #e2e8f0); padding-top: 16px; margin-top: 14px; display: flex; gap: 10px; justify-content: flex-end;">
+        <button type="button" onclick="window.fecharModalDividirItemFracao()" style="padding: 12px 20px; border-radius: 10px; border: 1px solid var(--border-color, #cbd5e1); background: var(--bg-card, #ffffff); color: var(--text-secondary, #64748b); font-weight: 700; cursor: pointer;">
+          Cancelar
+        </button>
+        <button type="button" id="btn-confirmar-divisao-fracao" onclick="window.confirmarDivisaoItemFracao()" style="padding: 12px 24px; border-radius: 10px; border: none; background: linear-gradient(135deg, #fc4b15 0%, #e03a08 100%); color: white; font-weight: 800; font-size: 14px; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 14px rgba(252,75,21,0.3);">
+          <i class="ph-bold ph-check"></i> Confirmar Divisão em Frações
+        </button>
+      </div>
+
+    </div>
+  </div>
+
   <!-- MODAL DE APLICAÇÃO DE DESCONTO COM AUDITORIA -->
   <div class="modal-overlay" id="modal-aplicar-desconto"
     style="display: none; z-index: 10008; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.65); backdrop-filter: blur(4px); justify-content: center; align-items: center;">

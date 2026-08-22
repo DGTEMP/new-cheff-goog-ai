@@ -307,6 +307,81 @@
     .remote-btn.full .rb-icon { flex-shrink: 0; }
     .remote-btn.full .rb-text { display: flex; flex-direction: column; gap: 4px; }
 
+    /* ── Collaborator Remote Control ── */
+    .colab-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      transition: all 0.2s;
+    }
+    .colab-card:hover {
+      border-color: var(--primary);
+    }
+    .colab-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .colab-user {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .colab-avatar {
+      width: 44px;
+      height: 44px;
+      border-radius: 14px;
+      background: var(--primary-light);
+      color: var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      font-weight: 800;
+      position: relative;
+    }
+    .colab-status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      position: absolute;
+      bottom: -2px;
+      right: -2px;
+      border: 2px solid var(--card);
+    }
+    .colab-status-dot.online { background: #10b981; }
+    .colab-status-dot.offline { background: #94a3b8; }
+    .colab-actions-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+    .colab-action-btn {
+      padding: 8px 6px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.03);
+      color: var(--text);
+      font-size: var(--fs-xs);
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.15s;
+    }
+    .colab-action-btn:active { transform: scale(0.95); }
+    .colab-action-btn:hover {
+      background: var(--primary-light);
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+
     /* ── Caixa control card ── */
     .caixa-card {
       background: var(--card);
@@ -867,78 +942,186 @@
       </div>
     </div>
 
-    <!-- CONTROLE REMOTO -->
+    <!-- CONTROLE REMOTO DO CAIXA -->
     <div>
       <div class="sec-title">
         <i class="ph-bold ph-desktop"></i>
         <span>Controle Remoto do Caixa</span>
       </div>
-      <div class="remote-grid">
+
+      <!-- Telas do Sistema -->
+      <div style="font-size: var(--fs-xs); font-weight: 800; color: var(--text-sub); text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px;">
+        Navegação de Telas
+      </div>
+      <div class="remote-grid" style="margin-bottom: 16px;">
+        <button class="remote-btn orange-btn" onclick="comandarNavegacao('index.html')">
+          <div class="rb-icon" style="background: var(--primary-light); color: var(--primary);">
+            <i class="ph-bold ph-armchair"></i>
+          </div>
+          <span class="rb-label">Mesas & Salão</span>
+          <span class="rb-sub">Tela principal de pedidos</span>
+        </button>
+
         <button class="remote-btn blue-btn" onclick="comandarNavegacao('financeiro.html')">
           <div class="rb-icon" style="background: var(--blue-light); color: var(--blue);">
             <i class="ph-bold ph-money"></i>
           </div>
-          <span class="rb-label">Ir para<br>Financeiro</span>
-          <span class="rb-sub">Abre tela de caixa no computador</span>
+          <span class="rb-label">Financeiro & DRE</span>
+          <span class="rb-sub">Caixa, fluxo e sangria</span>
         </button>
 
-        <button class="remote-btn green-btn" onclick="comandarNavegacao('cardapio.html')">
+        <button class="remote-btn green-btn" onclick="comandarNavegacao('fila-pedidos.html')">
           <div class="rb-icon" style="background: var(--green-light); color: var(--green);">
-            <i class="ph-bold ph-book-open"></i>
+            <i class="ph-bold ph-cooking-pot"></i>
           </div>
-          <span class="rb-label">Ir para<br>Cardápio</span>
-          <span class="rb-sub">Exibe o cardápio no caixa</span>
-        </button>
-
-        <button class="remote-btn orange-btn" onclick="comandarNavegacao('configuracoes.html')">
-          <div class="rb-icon" style="background: var(--primary-light); color: var(--primary);">
-            <i class="ph-bold ph-gear"></i>
-          </div>
-          <span class="rb-label">Ir para<br>Config.</span>
-          <span class="rb-sub">Abre configurações no caixa</span>
+          <span class="rb-label">KDS Cozinha</span>
+          <span class="rb-sub">Fila e esteira de preparo</span>
         </button>
 
         <button class="remote-btn purple-btn" onclick="comandarNavegacao('dashboard.html')">
           <div class="rb-icon" style="background: var(--purple-light); color: var(--purple);">
-            <i class="ph-bold ph-squares-four"></i>
+            <i class="ph-bold ph-chart-line-up"></i>
           </div>
-          <span class="rb-label">Ir para<br>Dashboard</span>
-          <span class="rb-sub">Volta para tela principal</span>
+          <span class="rb-label">Dashboard</span>
+          <span class="rb-sub">Relatórios e vendas</span>
+        </button>
+
+        <button class="remote-btn" onclick="comandarNavegacao('cardapio.html')">
+          <div class="rb-icon" style="background: rgba(234,88,12,0.15); color: #ea580c;">
+            <i class="ph-bold ph-book-open"></i>
+          </div>
+          <span class="rb-label">Cardápio</span>
+          <span class="rb-sub">Cardápio digital</span>
+        </button>
+
+        <button class="remote-btn" onclick="comandarNavegacao('configuracoes.html')">
+          <div class="rb-icon" style="background: rgba(100,116,139,0.15); color: #64748b;">
+            <i class="ph-bold ph-gear"></i>
+          </div>
+          <span class="rb-label">Configurações</span>
+          <span class="rb-sub">Painel administrativo</span>
+        </button>
+      </div>
+
+      <!-- Ações Imediatas no Terminal -->
+      <div style="font-size: var(--fs-xs); font-weight: 800; color: var(--text-sub); text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px;">
+        Ações Imediatas no Terminal
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+        <button class="colab-action-btn" onclick="comandarCaixaAcao('recarregar')" style="padding: 14px 10px;">
+          <i class="ph-bold ph-arrows-clockwise" style="font-size: 22px; color: var(--primary);"></i>
+          <span style="font-weight: 800; font-size: 11.5px;">Recarregar (F5)</span>
+        </button>
+
+        <button class="colab-action-btn" onclick="comandarCaixaAcao('tocar_alerta')" style="padding: 14px 10px;">
+          <i class="ph-bold ph-bell-ringing" style="font-size: 22px; color: #f59e0b;"></i>
+          <span style="font-weight: 800; font-size: 11.5px;">Tocar Alerta</span>
+        </button>
+
+        <button class="colab-action-btn" onclick="comandarCaixaAcao('bloquear_tela')" style="padding: 14px 10px;">
+          <i class="ph-bold ph-lock-key" style="font-size: 22px; color: #ef4444;"></i>
+          <span style="font-weight: 800; font-size: 11.5px;">Bloquear Tela</span>
+        </button>
+
+        <button class="colab-action-btn" onclick="comandarCaixaAcao('alternar_tema')" style="padding: 14px 10px;">
+          <i class="ph-bold ph-moon-stars" style="font-size: 22px; color: #8b5cf6;"></i>
+          <span style="font-weight: 800; font-size: 11.5px;">Alternar Tema</span>
+        </button>
+
+        <button class="colab-action-btn" onclick="comandarCaixaAcao('abrir_gaveta')" style="padding: 14px 10px;">
+          <i class="ph-bold ph-receipt" style="font-size: 22px; color: #10b981;"></i>
+          <span style="font-weight: 800; font-size: 11.5px;">Abrir Gaveta</span>
+        </button>
+
+        <button class="colab-action-btn" onclick="comandarCaixaAcao('abrir_fila')" style="padding: 14px 10px;">
+          <i class="ph-bold ph-users-three" style="font-size: 22px; color: #3b82f6;"></i>
+          <span style="font-weight: 800; font-size: 11.5px;">Abrir Fila</span>
         </button>
       </div>
     </div>
 
-    <!-- Meta de vendas -->
-    <div class="meta-input-card">
-      <div class="sec-title" style="margin-bottom:0;">
-        <i class="ph-bold ph-target"></i>
-        <span>Meta de Vendas Diária</span>
+    <!-- CONTROLE REMOTO DE CADA COLABORADOR -->
+    <div>
+      <div class="sec-title" style="display: flex; justify-content: space-between; align-items: center;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <i class="ph-bold ph-users"></i>
+          <span>Controle Remoto de Colaboradores</span>
+        </div>
+        <button class="btn-refresh" onclick="carregarFuncionariosControleRemoto()" style="padding: 4px 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--card); color: var(--text-sub); cursor: pointer; font-size: 12px;">
+          <i class="ph ph-arrows-clockwise"></i> Atualizar
+        </button>
       </div>
-      <div class="form-group">
-        <label class="form-label" for="meta-input">Valor da Meta (R$)</label>
-        <div class="form-row">
-          <input type="number" id="meta-input" class="form-input" placeholder="Ex: 5000" inputmode="numeric">
-          <button class="btn-primary" onclick="salvarMeta()">
+      <div id="lista-controle-colaboradores" style="display: flex; flex-direction: column; gap: 12px;">
+        <div style="text-align: center; color: var(--text-sub); font-size: var(--fs-sm); padding: 16px;">Carregando colaboradores...</div>
+      </div>
+    </div>
+
+    <!-- CUPONS QR & PROMOÇÕES -->
+    <div class="cupons-section-dono">
+      <div class="sec-title" style="display:flex; justify-content:space-between; align-items:center;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <i class="ph-bold ph-ticket" style="color:var(--primary);"></i>
+          <span>Cupons QR & Promoções</span>
+        </div>
+        <button class="btn-primary" onclick="abrirModalCriarCupom()" style="padding:10px 16px; font-size:var(--fs-sm); border-radius:12px; gap:6px;">
+          <i class="ph-bold ph-plus"></i> Novo Cupom QR
+        </button>
+      </div>
+
+      <!-- Resumo Rápido de Cupons -->
+      <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; margin-bottom:12px;">
+        <div class="kpi-card" style="padding:14px; text-align:center;">
+          <span style="font-size:var(--fs-xs); color:var(--text-sub); display:block; font-weight:700;">Ativos</span>
+          <div id="kpi-cupons-ativos" style="font-size:var(--fs-xl); font-weight:900; color:var(--primary);">0</div>
+        </div>
+        <div class="kpi-card" style="padding:14px; text-align:center;">
+          <span style="font-size:var(--fs-xs); color:var(--text-sub); display:block; font-weight:700;">Total Usos</span>
+          <div id="kpi-cupons-usos" style="font-size:var(--fs-xl); font-weight:900; color:var(--green);">0</div>
+        </div>
+        <div class="kpi-card" style="padding:14px; text-align:center;">
+          <span style="font-size:var(--fs-xs); color:var(--text-sub); display:block; font-weight:700;">Vendas c/ QR</span>
+          <div id="kpi-cupons-vendas" style="font-size:var(--fs-xl); font-weight:900; color:var(--blue);">R$ 0</div>
+        </div>
+      </div>
+
+      <!-- Grid de Cupons -->
+      <div id="grid-cupons-dono" style="display:flex; flex-direction:column; gap:12px;">
+        <div style="text-align:center; color:var(--text-sub); font-size:var(--fs-sm); padding:20px;">Carregando cupons...</div>
+      </div>
+    </div>
+
+    <!-- Painel Rápido: Meta Diária & Aviso à Equipe -->
+    <div style="display:grid; grid-template-columns: 1fr; gap:12px;">
+      <!-- Meta de vendas compacta -->
+      <div class="meta-input-card" style="padding:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <div style="display:flex; align-items:center; gap:6px; font-size:var(--fs-sm); font-weight:800;">
+            <i class="ph-bold ph-target" style="color:var(--primary);"></i>
+            <span>Meta de Vendas</span>
+          </div>
+          <span style="font-size:var(--fs-xs); color:var(--text-sub);">Diária</span>
+        </div>
+        <div class="form-row" style="gap:8px;">
+          <input type="number" id="meta-input" class="form-input" placeholder="Ex: 5000" inputmode="numeric" style="padding:10px 14px; font-size:var(--fs-md);">
+          <button class="btn-primary" onclick="salvarMeta()" style="padding:10px 16px; font-size:var(--fs-sm);">
             <i class="ph-bold ph-check"></i> Salvar
           </button>
         </div>
       </div>
-    </div>
 
-    <!-- Aviso urgente para equipe -->
-    <div class="aviso-area">
-      <div class="sec-title" style="margin-bottom:0;">
-        <i class="ph-bold ph-megaphone"></i>
-        <span>Enviar Aviso Urgente</span>
+      <!-- Aviso urgente compacto -->
+      <div class="aviso-area" style="padding:16px;">
+        <div style="display:flex; align-items:center; gap:6px; font-size:var(--fs-sm); font-weight:800; margin-bottom:8px;">
+          <i class="ph-bold ph-megaphone" style="color:#8b5cf6;"></i>
+          <span>Aviso Imediato para Equipe</span>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <input type="text" id="notif-input" class="form-input" placeholder="Ex: Vamos abrir 30 minutos mais cedo hoje!" style="flex:1; padding:10px 14px; font-size:var(--fs-sm);">
+          <button class="btn-aviso" onclick="notificarEquipe()" style="padding:10px 16px; font-size:var(--fs-sm); width:auto; white-space:nowrap;">
+            <i class="ph-bold ph-paper-plane-tilt"></i> Enviar
+          </button>
+        </div>
       </div>
-      <div class="form-group">
-        <label class="form-label" for="notif-input">Digite o aviso</label>
-        <textarea id="notif-input" class="form-input" placeholder="Ex: Pessoal, vamos abrir 30 minutos mais cedo hoje!"></textarea>
-      </div>
-      <button class="btn-aviso" onclick="notificarEquipe()">
-        <i class="ph-bold ph-paper-plane-tilt"></i>
-        Enviar para Toda a Equipe
-      </button>
     </div>
 
     <!-- Ranking de produtos -->
@@ -1129,7 +1312,235 @@
     </div>
   </div>
 
+  <!-- Modal: Enviar Mensagem Direta para Colaborador -->
+  <div id="modal-msg-colaborador" class="modal-overlay hidden">
+    <div class="modal-sheet">
+      <div class="modal-drag"></div>
+      <div class="modal-title-row">
+        <span class="modal-title"><i class="ph-bold ph-chat-circle-dots" style="color:var(--primary);"></i> Mensagem no Celular</span>
+        <button class="modal-close" onclick="fecharModal('modal-msg-colaborador')"><i class="ph-bold ph-x"></i></button>
+      </div>
+      <p class="caixa-modal-desc">Envie um aviso instantâneo que aparecerá na tela do smartphone do colaborador.</p>
+      
+      <input type="hidden" id="msg-colab-target-id">
+      <div class="form-group" style="margin-bottom:14px;">
+        <label class="form-label">Colaborador Destinatário</label>
+        <input type="text" id="msg-colab-target-nome" class="form-input" readonly style="font-weight:800; background:rgba(255,255,255,0.05);">
+      </div>
+
+      <div class="form-group" style="margin-bottom:20px;">
+        <label class="form-label" for="msg-colab-texto">Mensagem / Instrução</label>
+        <textarea id="msg-colab-texto" class="form-input" placeholder="Ex: Atenda com urgência a Mesa 4 ou venha ao balcão..." style="height:100px;"></textarea>
+      </div>
+
+      <div class="confirm-row">
+        <button class="btn-cancel" onclick="fecharModal('modal-msg-colaborador')">Cancelar</button>
+        <button class="btn-confirm" onclick="confirmarEnviarMsgColaborador()">
+          <i class="ph-bold ph-paper-plane-tilt"></i> Enviar Mensagem
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Redirecionar Tela do App Garçom -->
+  <div id="modal-direcionar-colaborador" class="modal-overlay hidden">
+    <div class="modal-sheet">
+      <div class="modal-drag"></div>
+      <div class="modal-title-row">
+        <span class="modal-title"><i class="ph-bold ph-device-mobile" style="color:var(--blue);"></i> Direcionar Tela do App</span>
+        <button class="modal-close" onclick="fecharModal('modal-direcionar-colaborador')"><i class="ph-bold ph-x"></i></button>
+      </div>
+      <p class="caixa-modal-desc">Escolha qual tela será aberta imediatamente no aplicativo móvel do colaborador.</p>
+      
+      <input type="hidden" id="direcionar-colab-target-id">
+      <input type="hidden" id="direcionar-colab-target-nome">
+
+      <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;">
+        <button class="colab-action-btn" onclick="confirmarDirecionarApp('tables')" style="padding: 16px; flex-direction: row; justify-content: flex-start; gap: 14px; text-align: left;">
+          <div style="width: 40px; height: 40px; border-radius: 12px; background: rgba(252,75,21,0.15); color: var(--primary); display: flex; align-items: center; justify-content: center; font-size: 22px;">
+            <i class="ph-bold ph-armchair"></i>
+          </div>
+          <div>
+            <strong style="font-size: var(--fs-md); display: block;">Tela de Mesas & Comandas</strong>
+            <span style="font-size: var(--fs-xs); color: var(--text-sub);">Grade principal do salão</span>
+          </div>
+        </button>
+
+        <button class="colab-action-btn" onclick="confirmarDirecionarApp('esteira')" style="padding: 16px; flex-direction: row; justify-content: flex-start; gap: 14px; text-align: left;">
+          <div style="width: 40px; height: 40px; border-radius: 12px; background: rgba(16,185,129,0.15); color: #10b981; display: flex; align-items: center; justify-content: center; font-size: 22px;">
+            <i class="ph-bold ph-cooking-pot"></i>
+          </div>
+          <div>
+            <strong style="font-size: var(--fs-md); display: block;">Esteira de Pedidos Prontos</strong>
+            <span style="font-size: var(--fs-xs); color: var(--text-sub);">Itens prontos para entrega na mesa</span>
+          </div>
+        </button>
+
+        <button class="colab-action-btn" onclick="confirmarDirecionarApp('atalhos')" style="padding: 16px; flex-direction: row; justify-content: flex-start; gap: 14px; text-align: left;">
+          <div style="width: 40px; height: 40px; border-radius: 12px; background: rgba(59,130,246,0.15); color: #3b82f6; display: flex; align-items: center; justify-content: center; font-size: 22px;">
+            <i class="ph-bold ph-lightning"></i>
+          </div>
+          <div>
+            <strong style="font-size: var(--fs-md); display: block;">Painel de Atalhos Rápidos</strong>
+            <span style="font-size: var(--fs-xs); color: var(--text-sub);">Fila de espera, KDS e vendas</span>
+          </div>
+        </button>
+      </div>
+
+      <button class="btn-cancel" onclick="fecharModal('modal-direcionar-colaborador')" style="width: 100%; padding: 14px;">Fechar</button>
+    </div>
+  </div>
+
+  <!-- Modal: Criar Novo Cupom QR -->
+  <div id="modal-criar-cupom" class="modal-overlay hidden">
+    <div class="modal-sheet" style="max-width: 520px;">
+      <div class="modal-drag"></div>
+      <div class="modal-title-row">
+        <span class="modal-title"><i class="ph-bold ph-ticket" style="color:var(--primary);"></i> Criar Cupom QR</span>
+        <button class="modal-close" onclick="fecharModal('modal-criar-cupom')"><i class="ph-bold ph-x"></i></button>
+      </div>
+      <p class="caixa-modal-desc">Crie um cupom de desconto com QR Code para distribuir em mesas, redes sociais ou WhatsApp.</p>
+
+      <div style="display:flex; flex-direction:column; gap:12px; margin-bottom:18px;">
+        <div class="form-group">
+          <label class="form-label" for="cupom-codigo">Código do Cupom</label>
+          <div style="display:flex; gap:8px;">
+            <input type="text" id="cupom-codigo" class="form-input" placeholder="Ex: PROMO15" style="text-transform:uppercase; font-weight:800; letter-spacing:1px;">
+            <button type="button" class="btn-secondary" onclick="gerarCodigoCupomRandom()" style="padding:10px 14px; font-size:12px; font-weight:700; white-space:nowrap;">
+              <i class="ph-bold ph-shuffle"></i> Gerar
+            </button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="cupom-titulo">Título / Descrição da Promoção</label>
+          <input type="text" id="cupom-titulo" class="form-input" placeholder="Ex: 15% OFF no Almoço de Terça">
+        </div>
+
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+          <div class="form-group">
+            <label class="form-label" for="cupom-tipo">Tipo de Desconto</label>
+            <select id="cupom-tipo" class="form-input">
+              <option value="desconto_porcentagem">Porcentagem (%)</option>
+              <option value="desconto_fixo">Valor em R$ (Fixo)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="cupom-valor">Valor do Desconto</label>
+            <input type="number" id="cupom-valor" class="form-input" placeholder="Ex: 15" step="0.5" min="1">
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+          <div class="form-group">
+            <label class="form-label" for="cupom-limite">Limite de Usos (0 = Ilimitado)</label>
+            <input type="number" id="cupom-limite" class="form-input" placeholder="Ex: 50" min="0" value="0">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="cupom-validade">Validade (Opcional)</label>
+            <input type="date" id="cupom-validade" class="form-input">
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex; gap:10px;">
+        <button class="btn-cancel" onclick="fecharModal('modal-criar-cupom')" style="flex:1; padding:14px;">Cancelar</button>
+        <button class="btn-primary" onclick="salvarNovoCupom()" style="flex:2; padding:14px; justify-content:center; font-weight:800;">
+          <i class="ph-bold ph-qr-code"></i> Criar & Gerar QR Code
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Exportar / Imprimir Plaquinha QR Code -->
+  <div id="modal-exportar-qr" class="modal-overlay hidden">
+    <div class="modal-sheet" style="max-width: 480px;">
+      <div class="modal-drag"></div>
+      <div class="modal-title-row">
+        <span class="modal-title"><i class="ph-bold ph-printer" style="color:var(--primary);"></i> Placa QR Code</span>
+        <button class="modal-close" onclick="fecharModal('modal-exportar-qr')"><i class="ph-bold ph-x"></i></button>
+      </div>
+
+      <!-- Plaquinha de Mesa Estilizada (Pronta para Impressão) -->
+      <div id="flyer-impressao-mesa" style="background:#ffffff; color:#0f172a; border-radius:18px; padding:24px; text-align:center; border:2px solid #e2e8f0; box-shadow:0 10px 30px rgba(0,0,0,0.08); margin-bottom:16px;">
+        <div style="font-size:12px; font-weight:900; letter-spacing:2px; color:#fc4b15; text-transform:uppercase; margin-bottom:4px;" id="qr-flyer-restaurante">CHEF RESTAURANTE</div>
+        <h2 style="font-size:22px; font-weight:900; margin:0 0 6px 0; color:#0f172a;" id="qr-flyer-titulo">PROMOÇÃO ESPECIAL</h2>
+        <p style="font-size:13px; color:#64748b; margin:0 0 16px 0;" id="qr-flyer-sub">Aponte a câmera do seu celular para garantir seu desconto!</p>
+        
+        <div style="display:inline-block; padding:14px; background:#f8fafc; border-radius:16px; border:1.5px dashed #cbd5e1; margin-bottom:14px;">
+          <div id="qr-flyer-canvas-wrapper">
+            <!-- QR Canvas Injected Here -->
+          </div>
+        </div>
+
+        <div style="display:inline-block; padding:6px 18px; background:rgba(252,75,21,0.12); color:#fc4b15; border-radius:20px; font-weight:900; font-size:18px; letter-spacing:1.5px; margin-bottom:10px;" id="qr-flyer-badge">
+          CUPOM: PROMO10
+        </div>
+        <div style="font-size:11px; color:#94a3b8; font-weight:600;" id="qr-flyer-regras">Válido no pedido pelo app ou com o garçom</div>
+      </div>
+
+      <!-- Ações de Exportação -->
+      <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:8px;">
+        <button class="colab-action-btn" onclick="imprimirFlyerMesa()" style="padding:12px 6px;">
+          <i class="ph-bold ph-printer" style="font-size:22px; color:var(--primary);"></i>
+          <span style="font-size:11px; font-weight:800;">Imprimir</span>
+        </button>
+        <button class="colab-action-btn" onclick="baixarQrPng()" style="padding:12px 6px;">
+          <i class="ph-bold ph-download-simple" style="font-size:22px; color:var(--green);"></i>
+          <span style="font-size:11px; font-weight:800;">Baixar PNG</span>
+        </button>
+        <button class="colab-action-btn" onclick="compartilharQrWhatsApp()" style="padding:12px 6px;">
+          <i class="ph-bold ph-whatsapp-logo" style="font-size:22px; color:#25D366;"></i>
+          <span style="font-size:11px; font-weight:800;">WhatsApp</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Desempenho do Cupom -->
+  <div id="modal-desempenho-cupom" class="modal-overlay hidden">
+    <div class="modal-sheet" style="max-width: 550px;">
+      <div class="modal-drag"></div>
+      <div class="modal-title-row">
+        <span class="modal-title"><i class="ph-bold ph-chart-line-up" style="color:var(--blue);"></i> Desempenho do Cupom</span>
+        <button class="modal-close" onclick="fecharModal('modal-desempenho-cupom')"><i class="ph-bold ph-x"></i></button>
+      </div>
+
+      <div style="background:var(--bg-card); border-radius:14px; padding:16px; border:1px solid var(--border); margin-bottom:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <div>
+            <h3 style="margin:0; font-size:var(--fs-lg); font-weight:900;" id="desempenho-cupom-titulo">Título</h3>
+            <span style="font-size:var(--fs-xs); color:var(--text-sub);" id="desempenho-cupom-codigo">CÓDIGO</span>
+          </div>
+          <span id="desempenho-cupom-badge" style="padding:4px 10px; border-radius:12px; font-weight:800; font-size:12px; background:rgba(16,185,129,0.15); color:var(--green);">10% OFF</span>
+        </div>
+
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:12px;">
+          <div style="background:var(--bg); padding:10px; border-radius:10px;">
+            <span style="font-size:11px; color:var(--text-sub); display:block;">Total de Usos</span>
+            <strong style="font-size:18px; color:var(--primary);" id="desempenho-total-usos">0</strong>
+          </div>
+          <div style="background:var(--bg); padding:10px; border-radius:10px;">
+            <span style="font-size:11px; color:var(--text-sub); display:block;">Último Resgate</span>
+            <strong style="font-size:13px; color:var(--text);" id="desempenho-ultimo-resgate">Nunca</strong>
+          </div>
+        </div>
+      </div>
+
+      <div style="font-size:var(--fs-xs); font-weight:800; text-transform:uppercase; color:var(--text-sub); margin-bottom:8px; letter-spacing:0.5px;">
+        Histórico de Resgates
+      </div>
+      <div id="lista-historico-usos-cupom" style="display:flex; flex-direction:column; gap:8px; max-height:220px; overflow-y:auto; margin-bottom:16px;">
+        <div style="text-align:center; color:var(--text-sub); padding:16px; font-size:var(--fs-sm);">Nenhum uso registrado ainda.</div>
+      </div>
+
+      <button class="btn-cancel" onclick="fecharModal('modal-desempenho-cupom')" style="width:100%; padding:14px;">Fechar</button>
+    </div>
+  </div>
+
   <script src="/socket.io.min.js"></script>
+  <script src="/vendor/qrcode/qrcode-generator.js"></script>
+  <script src="/vendor/qrcode/qr-helper.js"></script>
   <script src="/painel-dono.js"></script>
 </body>
 </html>

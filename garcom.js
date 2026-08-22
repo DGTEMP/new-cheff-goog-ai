@@ -97,7 +97,8 @@ let billSelectedIdsForFinalize = []; // FULL items selected
 // --- Routing ---
 window.showView = (id, titleText, pushToHistory = true) => {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-  document.getElementById(`view-${id}`).classList.add('active');
+  const targetView = document.getElementById(`view-${id}`);
+  if (targetView) targetView.classList.add('active');
   document.getElementById('header-title').innerText = titleText;
   
   if (pushToHistory) {
@@ -107,10 +108,15 @@ window.showView = (id, titleText, pushToHistory = true) => {
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   if (id === 'tables') document.getElementById('nav-mesas').classList.add('active');
   if (id === 'esteira') document.getElementById('nav-esteira').classList.add('active');
+  if (id === 'atalhos') {
+    const navAtalhos = document.getElementById('nav-atalhos');
+    if (navAtalhos) navAtalhos.classList.add('active');
+    if (typeof window.carregarAtalhosGarcom === 'function') window.carregarAtalhosGarcom();
+  }
 
   const bottomNav = document.querySelector('.bottom-nav');
   if (bottomNav) {
-    if (id === 'tables' || id === 'esteira') {
+    if (id === 'tables' || id === 'esteira' || id === 'atalhos') {
       bottomNav.style.display = 'flex';
     } else {
       bottomNav.style.display = 'none';
@@ -181,40 +187,49 @@ document.getElementById('btn-logout').onclick = () => {
     window.location.href = '/painel-funcionario.html';
   };
 
-document.getElementById('btn-fullscreen').onclick = async () => {
-  const doc = document.documentElement;
-  const isFullscreen = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
-  
-  if (!isFullscreen) {
-    try {
-      if (screen.orientation && screen.orientation.type && screen.orientation.lock) {
-        await screen.orientation.lock(screen.orientation.type).catch(() => {});
+window.garantirTelaCheia = function() {
+  try {
+    const isFs = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
+    if (!isFs) {
+      const doc = document.documentElement;
+      const rfs = doc.requestFullscreen || doc.webkitRequestFullscreen || doc.mozRequestFullScreen || doc.msRequestFullscreen;
+      if (rfs) {
+        const res = rfs.call(doc);
+        if (res && typeof res.catch === 'function') res.catch(() => {});
       }
-      
-      if (doc.requestFullscreen) {
-        await doc.requestFullscreen();
-      } else if (doc.webkitRequestFullscreen) { /* Safari */
-        await doc.webkitRequestFullscreen();
-      } else if (doc.msRequestFullscreen) { /* IE11 */
-        await doc.msRequestFullscreen();
-      }
-    } catch (err) {
-      console.log(err);
-      alert('Seu navegador não suporta tela cheia nativa. (Ex: iPhones não suportam tela cheia no Safari, adicione à Tela de Início).');
     }
-  } else {
-    if (document.exitFullscreen) {
-      document.exitFullscreen();
-    } else if (document.webkitExitFullscreen) { /* Safari */
-      document.webkitExitFullscreen();
-    } else if (document.msExitFullscreen) { /* IE11 */
-      document.msExitFullscreen();
-    }
-  }
+  } catch (e) {}
 };
+
+// Engaja tela cheia em qualquer interação do usuário
+['click', 'touchstart'].forEach(evt => {
+  document.addEventListener(evt, () => {
+    window.garantirTelaCheia();
+  }, { passive: true });
+});
+
+const btnFullscreenEl = document.getElementById('btn-fullscreen');
+if (btnFullscreenEl) {
+  btnFullscreenEl.onclick = async (e) => {
+    e.stopPropagation();
+    const doc = document.documentElement;
+    const isFullscreen = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
+    
+    if (!isFullscreen) {
+      window.garantirTelaCheia();
+    } else {
+      try {
+        if (document.exitFullscreen) await document.exitFullscreen();
+        else if (document.webkitExitFullscreen) await document.webkitExitFullscreen();
+        else if (document.msExitFullscreen) await document.msExitFullscreen();
+      } catch (err) {}
+    }
+  };
+}
 
 const handleFullscreenChange = () => {
   const icon = document.querySelector('#btn-fullscreen i');
+  if (!icon) return;
   const isFullscreen = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
   if (isFullscreen) {
     icon.className = 'ph ph-corners-in';
@@ -2039,6 +2054,10 @@ window.marcarPendenteResolvido = (idx) => {
 
 document.getElementById('nav-mesas').onclick = () => showView('tables', 'Comanda Mobile');
 document.getElementById('nav-esteira').onclick = () => showView('esteira', 'Prontos para Entrega');
+const navAtalhosBtn = document.getElementById('nav-atalhos');
+if (navAtalhosBtn) {
+  navAtalhosBtn.onclick = () => showView('atalhos', 'Atalhos Rápidos');
+}
 
 // --- QR CODE SCANNER LOGIC ---
 let html5QrCode = null;
@@ -2414,12 +2433,20 @@ function handleSwipe() {
   
   const currentViewId = activeView.id;
   
-  // Apenas permite swipe horizontal nas telas raízes (Mesas e Esteira)
-  if (currentViewId === 'view-tables' && diffX > 0) {
-    // Arrasto para a Esquerda -> Abre a Esteira
-    showView('esteira', 'Prontos para Entrega');
+  // Navegação horizontal por swipe entre Atalhos (esquerda), Mesas (centro) e Esteira (direita)
+  if (currentViewId === 'view-tables') {
+    if (diffX > 0) {
+      // Arrasto para a Esquerda -> Abre a Esteira
+      showView('esteira', 'Prontos para Entrega');
+    } else if (diffX < 0) {
+      // Arrasto para a Direita -> Abre os Atalhos Rápidos
+      showView('atalhos', 'Atalhos Rápidos');
+    }
+  } else if (currentViewId === 'view-atalhos' && diffX > 0) {
+    // Arrasto para a Esquerda -> Volta para as Mesas
+    showView('tables', 'Comanda Mobile');
   } else if (currentViewId === 'view-esteira' && diffX < 0) {
-    // Arrasto para a Direita -> Abre as Mesas
+    // Arrasto para a Direita -> Volta para as Mesas
     showView('tables', 'Comanda Mobile');
   } else if (currentViewId === 'view-menu') {
     // Navegação pelas abas de categorias do Cardápio
@@ -2590,4 +2617,517 @@ document.addEventListener('DOMContentLoaded', () => {
       : '<i class="ph ph-moon"></i>';
   });
 });
+
+// ═════════════════════════════════════════════════════════════════════
+// ⚡ CONTROLADOR DE ATALHOS RÁPIDOS DO APP GARÇOM (MOBILE)
+// ═════════════════════════════════════════════════════════════════════
+
+let cachedFilaEspera = [];
+let cachedPedidosPreparo = [];
+let filtroPreparoAtual = 'todos';
+let buscaPreparoQuery = '';
+
+// 1. Aplicação das Configurações de Atalhos Ativos
+window.applyAtalhosConfig = function() {
+  let atalhosCfg = {
+    fila_espera: true,
+    fila_preparo: true,
+    consulta_preco: true,
+    nova_comanda: true,
+    chamar_gerente: true,
+    minhas_vendas: true
+  };
+
+  try {
+    if (CONFIGS && CONFIGS.garcom_atalhos) {
+      const parsed = typeof CONFIGS.garcom_atalhos === 'string' ? JSON.parse(CONFIGS.garcom_atalhos) : CONFIGS.garcom_atalhos;
+      atalhosCfg = Object.assign(atalhosCfg, parsed);
+    } else {
+      const local = localStorage.getItem('chef_garcom_atalhos_cfg');
+      if (local) atalhosCfg = Object.assign(atalhosCfg, JSON.parse(local));
+    }
+  } catch (e) {}
+
+  const mapCards = {
+    'fila_espera': 'card-atalho-fila-espera',
+    'fila_preparo': 'card-atalho-fila-preparo',
+    'consulta_preco': 'card-atalho-consulta-preco',
+    'nova_comanda': 'card-atalho-nova-comanda',
+    'chamar_gerente': 'card-atalho-chamar-gerente',
+    'minhas_vendas': 'card-atalho-minhas-vendas'
+  };
+
+  Object.keys(mapCards).forEach(key => {
+    const el = document.getElementById(mapCards[key]);
+    if (el) {
+      el.style.display = atalhosCfg[key] === false ? 'none' : 'flex';
+    }
+  });
+};
+
+window.carregarAtalhosGarcom = function() {
+  window.applyAtalhosConfig();
+  if (typeof socket !== 'undefined' && socket) {
+    socket.emit('get_fila_espera');
+    socket.emit('get_pedidos');
+  }
+};
+
+// ── 🪑 2. FILA DE ESPERA POR MESAS ──
+window.abrirFilaEsperaGarcom = function() {
+  const modal = document.getElementById('modal-fila-espera-garcom');
+  if (!modal) return;
+  modal.style.display = 'flex';
+  if (typeof socket !== 'undefined' && socket) socket.emit('get_fila_espera');
+};
+
+window.fecharFilaEsperaGarcom = function() {
+  const modal = document.getElementById('modal-fila-espera-garcom');
+  if (modal) modal.style.display = 'none';
+};
+
+window.abrirModalAddFila = function() {
+  const modal = document.getElementById('modal-add-fila-garcom');
+  if (modal) {
+    document.getElementById('add-fila-nome').value = '';
+    document.getElementById('add-fila-pessoas').value = '2';
+    document.getElementById('add-fila-telefone').value = '';
+    document.getElementById('add-fila-obs').value = '';
+    modal.style.display = 'flex';
+    setTimeout(() => {
+      const inp = document.getElementById('add-fila-nome');
+      if (inp) inp.focus();
+    }, 150);
+  }
+};
+
+window.fecharModalAddFila = function() {
+  const modal = document.getElementById('modal-add-fila-garcom');
+  if (modal) modal.style.display = 'none';
+};
+
+window.salvarNovoFilaEspera = function() {
+  const nome = (document.getElementById('add-fila-nome').value || '').trim();
+  const pessoas = parseInt(document.getElementById('add-fila-pessoas').value || '2', 10);
+  const telefone = (document.getElementById('add-fila-telefone').value || '').trim();
+  const obs = (document.getElementById('add-fila-obs').value || '').trim();
+
+  if (!nome) {
+    showToast('Informe o nome do cliente', '#fc4b15');
+    return;
+  }
+
+  if (typeof socket !== 'undefined' && socket) {
+    socket.emit('adicionar_fila_espera', {
+      cliente_nome: nome,
+      cliente_telefone: telefone,
+      pessoas: pessoas,
+      mesa_preferida: obs,
+      observacao: obs
+    });
+  }
+
+  window.fecharModalAddFila();
+  showToast(`✨ ${nome} adicionado à fila!`, '#3ab55b');
+};
+
+window.renderFilaEsperaGarcom = function(rows) {
+  cachedFilaEspera = rows || [];
+  const badgeCard = document.getElementById('atalho-fila-espera-badge');
+  if (badgeCard) {
+    badgeCard.innerText = `${cachedFilaEspera.length} grupo${cachedFilaEspera.length === 1 ? '' : 's'} aguardando`;
+  }
+  const labelCount = document.getElementById('label-fila-espera-count');
+  if (labelCount) {
+    labelCount.innerText = `${cachedFilaEspera.length} grupo${cachedFilaEspera.length === 1 ? '' : 's'} aguardando`;
+  }
+
+  const container = document.getElementById('lista-fila-espera-garcom');
+  if (!container) return;
+
+  if (cachedFilaEspera.length === 0) {
+    container.innerHTML = '<div style="text-align: center; color: #94a3b8; padding: 40px 10px; font-size: 14px;"><i class="ph ph-armchair" style="font-size: 40px; display: block; margin-bottom: 8px;"></i>Nenhum cliente na fila de espera</div>';
+    return;
+  }
+
+  container.innerHTML = cachedFilaEspera.map((item, idx) => {
+    let diffMin = 0;
+    if (item.criado_em) {
+      const diffMs = Date.now() - new Date(item.criado_em).getTime();
+      diffMin = Math.max(0, Math.floor(diffMs / 60000));
+    }
+
+    const obsText = item.mesa_preferida || item.observacao || '';
+    const telClean = (item.cliente_telefone || '').replace(/\D/g, '');
+
+    return `
+      <div style="background: var(--g-app-bg, #f8fafc); border: 1.5px solid var(--g-border, #e2e8f0); border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 10px;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="width: 30px; height: 30px; border-radius: 50%; background: #2563eb; color: white; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px;">
+              ${idx + 1}º
+            </div>
+            <div>
+              <strong style="font-size: 15px; color: var(--g-text, #0f172a); display: block;">${item.cliente_nome}</strong>
+              <span style="font-size: 12px; color: var(--g-text-muted, #64748b);">
+                <i class="ph ph-users"></i> ${item.pessoas || 2} pessoas ${obsText ? `• <em>${obsText}</em>` : ''}
+              </span>
+            </div>
+          </div>
+          <span style="font-size: 11.5px; font-weight: 700; background: ${diffMin >= 20 ? '#fee2e2' : '#f1f5f9'}; color: ${diffMin >= 20 ? '#dc2626' : '#475569'}; padding: 4px 8px; border-radius: 8px;">
+            <i class="ph ph-clock"></i> Há ${diffMin} min
+          </span>
+        </div>
+
+        <div style="display: flex; gap: 8px; border-top: 1px dashed var(--g-border, #cbd5e1); padding-top: 10px;">
+          <button onclick="window.acomodarClienteFilaDirect(${item.id})" style="flex: 2; padding: 10px; border-radius: 10px; border: none; background: #16a34a; color: white; font-weight: 800; font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+            <i class="ph-bold ph-check"></i> Acomodar na Mesa
+          </button>
+          ${telClean ? `
+            <button onclick="window.open('https://wa.me/55${telClean}?text=' + encodeURIComponent('Olá ${item.cliente_nome}, sua mesa no restaurante está pronta! Pode se dirigir à recepção.'), '_blank')" style="padding: 10px 14px; border-radius: 10px; border: 1.5px solid #bbf7d0; background: #f0fdf4; color: #166534; font-weight: 700; font-size: 13px; cursor: pointer;" title="Notificar WhatsApp">
+              <i class="ph-bold ph-whatsapp-logo" style="font-size: 16px;"></i>
+            </button>
+          ` : ''}
+          <button onclick="window.removerFilaEsperaDirect(${item.id}, '${item.cliente_nome}')" style="padding: 10px 14px; border-radius: 10px; border: 1.5px solid #fecaca; background: #fef2f2; color: #dc2626; font-weight: 700; font-size: 13px; cursor: pointer;" title="Remover da Fila">
+            <i class="ph ph-trash" style="font-size: 16px;"></i>
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
+};
+
+window.acomodarClienteFilaDirect = function(filaId) {
+  if (typeof window.openPickMesaModal === 'function') {
+    window.openPickMesaModal((mesaNome) => {
+      if (typeof socket !== 'undefined' && socket) {
+        socket.emit('acomodar_cliente_fila', { id: filaId, mesa: mesaNome });
+      }
+      window.fecharFilaEsperaGarcom();
+      showToast(`✨ Cliente acomodado na ${mesaNome}!`, '#3ab55b');
+    });
+  }
+};
+
+window.removerFilaEsperaDirect = function(id, nome) {
+  if (confirm(`Deseja remover ${nome} da fila de espera?`)) {
+    if (typeof socket !== 'undefined' && socket) {
+      socket.emit('remover_fila_espera', id);
+    }
+    showToast(`${nome} removido da fila`, '#64748b');
+  }
+};
+
+if (typeof socket !== 'undefined' && socket) {
+  socket.on('fila_espera_atualizada', (rows) => {
+    window.renderFilaEsperaGarcom(rows);
+  });
+}
+
+// ── 🍳 3. FILA DE PREPARO / STATUS DA COZINHA (KDS) ──
+window.abrirFilaPreparoGarcom = function() {
+  const modal = document.getElementById('modal-fila-preparo-garcom');
+  if (!modal) return;
+  modal.style.display = 'flex';
+  if (typeof socket !== 'undefined' && socket) socket.emit('get_pedidos');
+};
+
+window.fecharFilaPreparoGarcom = function() {
+  const modal = document.getElementById('modal-fila-preparo-garcom');
+  if (modal) modal.style.display = 'none';
+};
+
+window.setFiltroPreparo = function(tipo) {
+  filtroPreparoAtual = tipo;
+  document.querySelectorAll('.filtro-preparo-btn').forEach(btn => {
+    btn.style.background = 'white';
+    btn.style.color = '#64748b';
+    btn.classList.remove('active');
+  });
+  const activeBtn = document.getElementById(`filtro-prep-${tipo}`);
+  if (activeBtn) {
+    activeBtn.style.background = '#fc4b15';
+    activeBtn.style.color = 'white';
+    activeBtn.classList.add('active');
+  }
+  window.renderFilaPreparoGarcom();
+};
+
+window.filtrarFilaPreparoGarcom = function(val) {
+  buscaPreparoQuery = (val || '').toLowerCase().trim();
+  window.renderFilaPreparoGarcom();
+};
+
+window.renderFilaPreparoGarcom = function(pedidos) {
+  if (pedidos) cachedPedidosPreparo = pedidos;
+  const container = document.getElementById('lista-fila-preparo-garcom');
+  if (!container) return;
+
+  const total = cachedPedidosPreparo.length;
+  const pendentes = cachedPedidosPreparo.filter(p => !p.status || p.status.toLowerCase() === 'pendente' || p.status.toLowerCase() === 'aguardando' || p.status.toLowerCase() === 'na fila').length;
+  const preparando = cachedPedidosPreparo.filter(p => p.status && p.status.toLowerCase().includes('prepar')).length;
+  const prontos = cachedPedidosPreparo.filter(p => p.status && p.status.toLowerCase() === 'pronto').length;
+
+  if (document.getElementById('count-prep-todos')) document.getElementById('count-prep-todos').innerText = total;
+  if (document.getElementById('count-prep-pendente')) document.getElementById('count-prep-pendente').innerText = pendentes;
+  if (document.getElementById('count-prep-preparando')) document.getElementById('count-prep-preparando').innerText = preparando;
+  if (document.getElementById('count-prep-pronto')) document.getElementById('count-prep-pronto').innerText = prontos;
+
+  const badgeCard = document.getElementById('atalho-fila-preparo-badge');
+  if (badgeCard) {
+    badgeCard.innerText = `${preparando} em preparo • ${prontos} prontos`;
+  }
+
+  let filtrados = cachedPedidosPreparo.filter(p => {
+    const st = (p.status || 'pendente').toLowerCase();
+    if (filtroPreparoAtual === 'pendente') return st === 'pendente' || st === 'aguardando' || st === 'na fila';
+    if (filtroPreparoAtual === 'preparando') return st.includes('prepar');
+    if (filtroPreparoAtual === 'pronto') return st === 'pronto';
+    return true;
+  });
+
+  if (buscaPreparoQuery) {
+    filtrados = filtrados.filter(p => {
+      const mesa = String(p.mesa || '').toLowerCase();
+      const item = String(p.productName || p.produto_nome || p.item || '').toLowerCase();
+      const obs = String(p.observacao || p.obs || '').toLowerCase();
+      return mesa.includes(buscaPreparoQuery) || item.includes(buscaPreparoQuery) || obs.includes(buscaPreparoQuery);
+    });
+  }
+
+  if (filtrados.length === 0) {
+    container.innerHTML = '<div style="text-align: center; color: #94a3b8; padding: 40px 10px; font-size: 14px;"><i class="ph ph-check-circle" style="font-size: 40px; display: block; margin-bottom: 8px; color: #16a34a;"></i>Nenhum pedido neste filtro</div>';
+    return;
+  }
+
+  container.innerHTML = filtrados.map(p => {
+    let diffMin = 0;
+    if (p.createdAt) {
+      const diffMs = Date.now() - new Date(p.createdAt).getTime();
+      diffMin = Math.max(0, Math.floor(diffMs / 60000));
+    }
+
+    const st = (p.status || 'Pendente');
+    let stColor = '#eab308'; // amarelo
+    let stBg = '#fefce8';
+    let stBorder = '#fef08a';
+    let stIcon = 'ph-clock';
+
+    if (st.toLowerCase().includes('prepar')) {
+      stColor = '#2563eb'; stBg = '#eff6ff'; stBorder = '#bfdbfe'; stIcon = 'ph-cooking-pot';
+    } else if (st.toLowerCase() === 'pronto') {
+      stColor = '#16a34a'; stBg = '#f0fdf4'; stBorder = '#bbf7d0'; stIcon = 'ph-check-circle';
+    }
+
+    const prodNome = p.productName || p.produto_nome || p.item || 'Item';
+    const prodEmoji = p.productEmoji || p.emoji || '🍽️';
+    const qtd = p.quantity || p.quantidade || 1;
+    const obs = p.observacao || p.obs || '';
+
+    return `
+      <div style="background: var(--g-card-bg, #ffffff); border: 1.5px solid var(--g-border, #e2e8f0); border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.02);">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span style="font-size: 13px; font-weight: 800; background: #0f172a; color: white; padding: 3px 8px; border-radius: 8px;">${p.mesa || 'Mesa ?'}</span>
+            ${p.garcom ? `<span style="font-size: 11.5px; color: var(--g-text-muted, #64748b);">por <strong>${p.garcom}</strong></span>` : ''}
+          </div>
+          <span style="display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 800; padding: 4px 10px; border-radius: 12px; background: ${stBg}; color: ${stColor}; border: 1px solid ${stBorder};">
+            <i class="ph-bold ${stIcon}"></i> ${st}
+          </span>
+        </div>
+
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 2px;">
+          <div style="font-size: 15px; font-weight: 700; color: var(--g-text, #0f172a);">
+            <span style="margin-right: 4px;">${prodEmoji}</span> ${qtd}x ${prodNome}
+          </div>
+          <span style="font-size: 12px; font-weight: 700; color: ${diffMin >= 20 ? '#dc2626' : '#64748b'};">
+            <i class="ph ph-timer"></i> ${diffMin} min atrás
+          </span>
+        </div>
+
+        ${obs ? `<div style="font-size: 12px; color: #ea580c; background: #fff7ed; padding: 6px 10px; border-radius: 8px; border-left: 3px solid #f97316;"><strong>Obs:</strong> ${obs}</div>` : ''}
+      </div>
+    `;
+  }).join('');
+};
+
+if (typeof socket !== 'undefined' && socket) {
+  socket.on('pedidos_atualizados', (pedidos) => {
+    window.renderFilaPreparoGarcom(pedidos);
+  });
+}
+
+// ── 🔍 4. CONSULTA RÁPIDA DE PREÇO E ESTOQUE ──
+window.abrirConsultaPrecoGarcom = function() {
+  const modal = document.getElementById('modal-consulta-preco-garcom');
+  if (!modal) return;
+  modal.style.display = 'flex';
+  const inp = document.getElementById('input-busca-consulta-preco');
+  if (inp) {
+    inp.value = '';
+    setTimeout(() => inp.focus(), 150);
+  }
+  window.filtrarConsultaPreco('');
+};
+
+window.fecharConsultaPrecoGarcom = function() {
+  const modal = document.getElementById('modal-consulta-preco-garcom');
+  if (modal) modal.style.display = 'none';
+};
+
+window.filtrarConsultaPreco = function(query) {
+  const q = (query || '').toLowerCase().trim();
+  const container = document.getElementById('lista-consulta-preco-garcom');
+  if (!container) return;
+
+  const prods = (typeof MENU !== 'undefined' && Array.isArray(MENU)) ? MENU : [];
+  let filtrados = prods;
+  if (q) {
+    filtrados = prods.filter(p => {
+      const n = (p.nome || '').toLowerCase();
+      const c = (p.categoria || '').toLowerCase();
+      const d = (p.descricao || '').toLowerCase();
+      return n.includes(q) || c.includes(q) || d.includes(q);
+    });
+  }
+
+  if (filtrados.length === 0) {
+    container.innerHTML = '<div style="text-align: center; color: #94a3b8; padding: 30px; font-size: 14px;">Nenhum item encontrado</div>';
+    return;
+  }
+
+  container.innerHTML = filtrados.slice(0, 50).map(p => {
+    const preco = parseFloat(p.preco || 0).toFixed(2).replace('.', ',');
+    const imgHtml = p.imagem
+      ? `<img src="${p.imagem}" style="width: 44px; height: 44px; border-radius: 12px; object-fit: cover;">`
+      : `<div style="width: 44px; height: 44px; border-radius: 12px; background: rgba(252,75,21,0.1); color: #fc4b15; display: flex; align-items: center; justify-content: center; font-size: 24px;">${p.emoji || '🍽️'}</div>`;
+
+    return `
+      <div style="background: var(--g-app-bg, #f8fafc); border: 1px solid var(--g-border, #e2e8f0); border-radius: 14px; padding: 10px 12px; display: flex; align-items: center; gap: 12px;">
+        ${imgHtml}
+        <div style="flex: 1; min-width: 0;">
+          <strong style="font-size: 14px; color: var(--g-text, #0f172a); display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${p.nome}</strong>
+          <span style="font-size: 11.5px; color: var(--g-text-muted, #64748b);">${p.categoria || 'Geral'} ${p.descricao ? `• ${p.descricao.substring(0, 30)}...` : ''}</span>
+        </div>
+        <div style="text-align: right;">
+          <strong style="font-size: 15px; color: #fc4b15;">R$ ${preco}</strong>
+          <span style="font-size: 11px; display: block; color: ${p.estoque === 0 ? '#dc2626' : '#16a34a'}; font-weight: 700;">${p.estoque === 0 ? 'Sem estoque' : 'Disponível'}</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+};
+
+// ── 🛎️ 5. CHAMAR GERENTE / SUPORTE ──
+window.chamarGerenteGarcom = function() {
+  if (confirm('Deseja enviar um chamado urgente para o Gerente / Caixa?')) {
+    const nomeGarcom = (typeof loggedUser !== 'undefined' && loggedUser && loggedUser.nome) ? loggedUser.nome : 'Garçom';
+    if (typeof socket !== 'undefined' && socket) {
+      socket.emit('chamar_garcom_salao', {
+        tipo: 'gerente',
+        origem: 'app_garcom',
+        solicitante: nomeGarcom,
+        mensagem: `🚨 O colaborador ${nomeGarcom} solicitou a presença do Gerente no salão!`
+      });
+    }
+    showToast('🚨 Chamado enviado com sucesso ao Gerente!', '#3ab55b');
+  }
+};
+
+// ── 📊 6. MINHAS VENDAS HOJE ──
+window.abrirMinhasVendasGarcom = function() {
+  const modal = document.getElementById('modal-minhas-vendas-garcom');
+  if (!modal) return;
+  modal.style.display = 'flex';
+
+  const nomeGarcom = (typeof loggedUser !== 'undefined' && loggedUser && loggedUser.nome) ? loggedUser.nome.toLowerCase() : '';
+  const labelTurno = document.getElementById('label-garcom-vendas-turno');
+  if (labelTurno && loggedUser && loggedUser.nome) {
+    labelTurno.innerText = `Turno de ${loggedUser.nome}`;
+  }
+
+  // Calcula pelas comandas/pedidos disponíveis
+  let totalVendido = 0;
+  let totalItens = 0;
+  let totalPedidos = 0;
+
+  if (Array.isArray(cachedPedidosPreparo)) {
+    cachedPedidosPreparo.forEach(p => {
+      if (p.garcom && p.garcom.toLowerCase() === nomeGarcom) {
+        totalPedidos++;
+        totalItens += (p.quantity || 1);
+        totalVendido += parseFloat(p.total || (p.preco * (p.quantity || 1)) || 0);
+      }
+    });
+  }
+
+  const comissao = totalVendido * 0.10;
+
+  if (document.getElementById('garcom-stat-total-vendido')) {
+    document.getElementById('garcom-stat-total-vendido').innerText = `R$ ${totalVendido.toFixed(2).replace('.', ',')}`;
+  }
+  if (document.getElementById('garcom-stat-comissao')) {
+    document.getElementById('garcom-stat-comissao').innerText = `R$ ${comissao.toFixed(2).replace('.', ',')}`;
+  }
+  if (document.getElementById('garcom-stat-pedidos-count')) {
+    document.getElementById('garcom-stat-pedidos-count').innerText = totalPedidos;
+  }
+  if (document.getElementById('garcom-stat-itens-count')) {
+    document.getElementById('garcom-stat-itens-count').innerText = totalItens;
+  }
+};
+
+window.fecharMinhasVendasGarcom = function() {
+  const modal = document.getElementById('modal-minhas-vendas-garcom');
+  if (modal) modal.style.display = 'none';
+};
+
+// ═════════════════════════════════════════════════════════════════════
+// 📡 CONTROLE REMOTO DO COLABORADOR (RECEBE COMANDOS DO DONO)
+// ═════════════════════════════════════════════════════════════════════
+if (typeof socket !== 'undefined' && socket) {
+  socket.on('comando_colaborador_acao', function(data) {
+    if (!data) return;
+    const { funcionario_id, funcionario_nome, acao, payload, solicitadoPor } = data;
+
+    const currentId = (loggedUser && (loggedUser.id || loggedUser.funcionario_id));
+    const currentNome = (loggedUser && (loggedUser.nome || loggedUser.name || '')).toLowerCase().trim();
+    const targetNome = (funcionario_nome || '').toLowerCase().trim();
+
+    const isMe = (funcionario_id && currentId && String(funcionario_id) === String(currentId)) ||
+                 (targetNome && currentNome && (currentNome === targetNome || currentNome.includes(targetNome) || targetNome.includes(currentNome)));
+
+    if (!isMe && funcionario_id !== 'todos') return;
+
+    if (acao === 'mensagem_direta') {
+      const texto = (payload && payload.texto) || 'Mensagem do Dono';
+      try { if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 400]); } catch(e) {}
+      alert(`📢 MENSAGEM DO DONO (${solicitadoPor || 'Administração'}):\n\n${texto}`);
+    } else if (acao === 'chamar_vibrar') {
+      try { if (navigator.vibrate) navigator.vibrate([400, 200, 400, 200, 600]); } catch(e) {}
+      if (typeof showToast === 'function') {
+        showToast(`🚨 ${solicitadoPor || 'O Dono'} está chamando você imediatamente!`, '#e11d48');
+      } else {
+        alert(`🚨 ${solicitadoPor || 'O Dono'} está chamando você imediatamente!`);
+      }
+    } else if (acao === 'redirecionar_view') {
+      const targetView = (payload && payload.view) || 'tables';
+      if (typeof showView === 'function') {
+        const titles = { 'tables': 'Comanda Mobile', 'esteira': 'Prontos para Entrega', 'atalhos': 'Atalhos Rápidos' };
+        showView(targetView, titles[targetView] || 'Chef Garçom');
+        if (typeof showToast === 'function') showToast(`📡 Tela direcionada para ${targetView} pelo Dono`, '#3b82f6');
+      }
+    } else if (acao === 'desconectar_sessao') {
+      alert(`🔒 Sua sessão foi encerrada remotamente por ${solicitadoPor || 'Dono'}.`);
+      try {
+        localStorage.removeItem('chef_garcom_usuario');
+        localStorage.removeItem('chef_garcom_pin');
+        sessionStorage.clear();
+      } catch(e) {}
+      window.location.reload();
+    }
+  });
+}
+
+
 

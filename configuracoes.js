@@ -7061,3 +7061,71 @@ window.salvarMontavel = function() {
       } else { showToast('Erro: ' + (d.error || 'desconhecido'), 'danger'); }
     });
 };
+
+// ═════════════════════════════════════════════════════════════════════
+// ATALHOS DO APP GARÇOM (CONFIGURAÇÃO NO PAINEL ADMIN)
+// ═════════════════════════════════════════════════════════════════════
+window.carregarConfigAtalhosGarcom = function() {
+  fetch('/api/configuracoes')
+    .then(r => r.json())
+    .then(data => {
+      let cfg = {
+        fila_espera: true,
+        fila_preparo: true,
+        consulta_preco: true,
+        nova_comanda: true,
+        chamar_gerente: true,
+        minhas_vendas: true
+      };
+      if (data && data.garcom_atalhos) {
+        try {
+          const parsed = typeof data.garcom_atalhos === 'string' ? JSON.parse(data.garcom_atalhos) : data.garcom_atalhos;
+          cfg = Object.assign(cfg, parsed);
+        } catch(e) {}
+      }
+      if (document.getElementById('cfg-garcom-fila-espera')) document.getElementById('cfg-garcom-fila-espera').checked = cfg.fila_espera !== false;
+      if (document.getElementById('cfg-garcom-fila-preparo')) document.getElementById('cfg-garcom-fila-preparo').checked = cfg.fila_preparo !== false;
+      if (document.getElementById('cfg-garcom-consulta-preco')) document.getElementById('cfg-garcom-consulta-preco').checked = cfg.consulta_preco !== false;
+      if (document.getElementById('cfg-garcom-nova-comanda')) document.getElementById('cfg-garcom-nova-comanda').checked = cfg.nova_comanda !== false;
+      if (document.getElementById('cfg-garcom-chamar-gerente')) document.getElementById('cfg-garcom-chamar-gerente').checked = cfg.chamar_gerente !== false;
+      if (document.getElementById('cfg-garcom-minhas-vendas')) document.getElementById('cfg-garcom-minhas-vendas').checked = cfg.minhas_vendas !== false;
+    })
+    .catch(() => {});
+};
+
+window.salvarConfigAtalhosGarcom = function() {
+  const cfg = {
+    fila_espera: document.getElementById('cfg-garcom-fila-espera') ? document.getElementById('cfg-garcom-fila-espera').checked : true,
+    fila_preparo: document.getElementById('cfg-garcom-fila-preparo') ? document.getElementById('cfg-garcom-fila-preparo').checked : true,
+    consulta_preco: document.getElementById('cfg-garcom-consulta-preco') ? document.getElementById('cfg-garcom-consulta-preco').checked : true,
+    nova_comanda: document.getElementById('cfg-garcom-nova-comanda') ? document.getElementById('cfg-garcom-nova-comanda').checked : true,
+    chamar_gerente: document.getElementById('cfg-garcom-chamar-gerente') ? document.getElementById('cfg-garcom-chamar-gerente').checked : true,
+    minhas_vendas: document.getElementById('cfg-garcom-minhas-vendas') ? document.getElementById('cfg-garcom-minhas-vendas').checked : true
+  };
+
+  localStorage.setItem('chef_garcom_atalhos_cfg', JSON.stringify(cfg));
+
+  fetch('/api/configuracoes', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ garcom_atalhos: JSON.stringify(cfg) })
+  })
+  .then(r => r.json())
+  .then(() => {
+    if (typeof showToast === 'function') {
+      showToast('Atalhos do App Garçom salvos com sucesso!', 'success');
+    } else {
+      alert('Atalhos do App Garçom salvos com sucesso!');
+    }
+  })
+  .catch(err => {
+    if (typeof showToast === 'function') {
+      showToast('Erro ao salvar configurações', 'danger');
+    }
+  });
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+  window.carregarConfigAtalhosGarcom();
+});
+

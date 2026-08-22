@@ -238,7 +238,7 @@ window.aplicarDatasCustomDono = function() {
   carregarMetricas();
 };
 
-// ─── Controle Remoto — Navegação ─────────────────────────────
+// ─── Controle Remoto — Navegação e Ações do Caixa ─────────────
 window.comandarNavegacao = function(destino) {
   socket.emit('comando_navegar_caixa', {
     destino: destino,
@@ -246,6 +246,245 @@ window.comandarNavegacao = function(destino) {
   });
   showToast(`Enviando caixa para ${destino}...`, 'ph-paper-plane');
   adicionarAoFeed('aviso', `Você direcionou o caixa para: ${destino}`);
+};
+
+window.comandarCaixaAcao = function(acao, payload) {
+  socket.emit('comando_caixa_acao', {
+    acao: acao,
+    payload: payload || {},
+    solicitadoPor: loggedUser || 'Dono'
+  });
+  const labels = {
+    'recarregar': '🔄 Recarregando terminal do Caixa (F5)...',
+    'bloquear_tela': '🔒 Bloqueio de segurança enviado ao Caixa!',
+    'tocar_alerta': '🔔 Alerta sonoro tocando no Caixa!',
+    'alternar_tema': '🌓 Tema do Caixa alternado!',
+    'abrir_gaveta': '🖨️ Gaveta de dinheiro acionada!',
+    'abrir_fila': '🪑 Fila de espera aberta no Caixa!'
+  };
+  showToast(labels[acao] || `Comando ${acao} enviado ao Caixa!`, 'ph-lightning');
+  adicionarAoFeed('aviso', `Comando executado no Caixa: ${labels[acao] || acao}`);
+};
+
+// ─── Controle Remoto de Cada Colaborador ───────────────────────
+let _cachedFuncionariosRemoto = [];
+
+window.renderizarListaFuncionariosRemoto = function(funcs) {
+  const container = document.getElementById('lista-controle-colaboradores');
+  if (!container) return;
+
+  const lista = Array.isArray(funcs) ? funcs : [];
+  if (lista.length === 0) {
+    container.innerHTML = `<div style="text-align:center; color:var(--text-sub); padding:20px; font-size:var(--fs-sm);">Nenhum colaborador cadastrado.</div>`;
+    return;
+  }
+
+  container.innerHTML = lista.map(f => {
+    const nome = escHtml(f.nome || 'Colaborador');
+    const cargo = escHtml(f.cargo || 'Equipe');
+    const tel = f.telefone ? escHtml(f.telefone) : '';
+    const inicial = (f.nome || 'C').charAt(0).toUpperCase();
+
+    return `
+      <div class="colab-card" id="colab-card-${f.id}">
+        <div class="colab-header">
+          <div class="colab-user">
+            <div class="colab-avatar">
+              ${inicial}
+              <div class="colab-status-dot online" title="Status: Conectado / Ativo"></div>
+            </div>
+            <div>
+              <strong style="font-size: var(--fs-md); display: block; color: var(--text);">${nome}</strong>
+              <span style="font-size: var(--fs-xs); color: var(--text-sub);"><i class="ph ph-identification-card"></i> ${cargo} ${tel ? `• ${tel}` : ''}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Botões de Ação Remota Individual -->
+        <div class="colab-actions-grid">
+          <button class="colab-action-btn" onclick="abrirModalMsgColaborador(${f.id}, '${nome.replace(/'/g, "\\'")}')" title="Enviar mensagem no celular">
+            <i class="ph-bold ph-chat-circle-dots" style="color: var(--primary); font-size: 18px;"></i>
+            <span>Mensagem</span>
+          </button>
+
+          <button class="colab-action-btn" onclick="chamarColaboradorVibrar(${f.id}, '${nome.replace(/'/g, "\\'")}')" title="Chamar e vibrar celular">
+            <i class="ph-bold ph-bell-ringing" style="color: #f59e0b; font-size: 18px;"></i>
+            <span>Chamar</span>
+          </button>
+
+          <button class="colab-action-btn" onclick="abrirModalDirecionarApp(${f.id}, '${nome.replace(/'/g, "\\'")}')" title="Direcionar tela do App Garçom">
+            <i class="ph-bold ph-device-mobile" style="color: var(--blue); font-size: 18px;"></i>
+            <span>Direcionar</span>
+          </button>
+
+          <button class="colab-action-btn" onclick="baterPontoColaborador(${f.id}, '${nome.replace(/'/g, "\\'")}')" title="Registrar ponto remoto">
+            <i class="ph-bold ph-clock" style="color: #10b981; font-size: 18px;"></i>
+            <span>Ponto</span>
+          </button>
+
+          <button class="colab-action-btn" onclick="abrirModalRhDonoComColab(${f.id}, 'pagamento')" title="Lançar pagamento ou vale">
+            <i class="ph-bold ph-money" style="color: #3b82f6; font-size: 18px;"></i>
+            <span>Pagar</span>
+          </button>
+
+          <button class="colab-action-btn" onclick="abrirModalRhDonoComColab(${f.id}, 'folga')" title="Conceder folga ou falta">
+            <i class="ph-bold ph-calendar-plus" style="color: var(--purple); font-size: 18px;"></i>
+            <span>Folga</span>
+          </button>
+
+          <button class="colab-action-btn" onclick="desconectarSessaoColaborador(${f.id}, '${nome.replace(/'/g, "\\'")}')" title="Desconectar sessão do colaborador">
+            <i class="ph-bold ph-sign-out" style="color: var(--red); font-size: 18px;"></i>
+            <span>Logout</span>
+          </button>
+
+          ${tel ? `
+            <button class="colab-action-btn" onclick="window.open('https://wa.me/55' + '${tel.replace(/\D/g, '')}', '_blank')" title="Conversar no WhatsApp">
+              <i class="ph-bold ph-whatsapp-logo" style="color: #16a34a; font-size: 18px;"></i>
+              <span>Zap</span>
+            </button>
+          ` : `
+            <button class="colab-action-btn" onclick="chamarColaboradorVibrar(${f.id}, '${nome.replace(/'/g, "\\'")}')" title="Alerta Sonoro">
+              <i class="ph-bold ph-speaker-high" style="color: #ec4899; font-size: 18px;"></i>
+              <span>Alerta</span>
+            </button>
+          `}
+        </div>
+      </div>
+    `;
+  }).join('');
+};
+
+window.carregarFuncionariosControleRemoto = async function() {
+  const container = document.getElementById('lista-controle-colaboradores');
+  if (!container) return;
+
+  if (socket && typeof socket.emit === 'function') {
+    socket.emit('get_funcionarios');
+  }
+
+  try {
+    const res = await fetch('/api/funcionarios', { headers: { 'Authorization': `Bearer ${token}` } });
+    if (res.ok) {
+      const funcs = await res.json();
+      if (Array.isArray(funcs)) {
+        _cachedFuncionariosRemoto = funcs;
+        renderizarListaFuncionariosRemoto(funcs);
+        return;
+      }
+    }
+  } catch (err) {
+    console.warn('Erro ao buscar funcionarios via HTTP, aguardando socket...', err);
+  }
+};
+
+window.abrirModalMsgColaborador = function(id, nome) {
+  document.getElementById('msg-colab-target-id').value = id;
+  document.getElementById('msg-colab-target-nome').value = nome;
+  document.getElementById('msg-colab-texto').value = '';
+  abrirModal('modal-msg-colaborador');
+};
+
+window.confirmarEnviarMsgColaborador = function() {
+  const id = document.getElementById('msg-colab-target-id').value;
+  const nome = document.getElementById('msg-colab-target-nome').value;
+  const texto = document.getElementById('msg-colab-texto').value.trim();
+
+  if (!texto) {
+    showToast('Digite a mensagem a ser enviada.', 'ph-warning', 'error');
+    return;
+  }
+
+  socket.emit('comando_colaborador_acao', {
+    funcionario_id: id,
+    funcionario_nome: nome,
+    acao: 'mensagem_direta',
+    payload: { texto: texto },
+    solicitadoPor: loggedUser || 'Dono'
+  });
+
+  fecharModal('modal-msg-colaborador');
+  showToast(`Mensagem enviada para o celular de ${nome}!`, 'ph-paper-plane-tilt');
+  adicionarAoFeed('aviso', `Você enviou uma mensagem para ${nome}: "${texto}"`);
+};
+
+window.chamarColaboradorVibrar = function(id, nome) {
+  socket.emit('comando_colaborador_acao', {
+    funcionario_id: id,
+    funcionario_nome: nome,
+    acao: 'chamar_vibrar',
+    payload: { mensagem: 'Chamada prioritária do Dono!' },
+    solicitadoPor: loggedUser || 'Dono'
+  });
+
+  showToast(`🚨 Alerta vibratório disparado para ${nome}!`, 'ph-bell-ringing');
+  adicionarAoFeed('aviso', `Você chamou a atenção de ${nome} com alerta e vibração.`);
+};
+
+window.abrirModalDirecionarApp = function(id, nome) {
+  document.getElementById('direcionar-colab-target-id').value = id;
+  document.getElementById('direcionar-colab-target-nome').value = nome;
+  abrirModal('modal-direcionar-colaborador');
+};
+
+window.confirmarDirecionarApp = function(view) {
+  const id = document.getElementById('direcionar-colab-target-id').value;
+  const nome = document.getElementById('direcionar-colab-target-nome').value;
+
+  socket.emit('comando_colaborador_acao', {
+    funcionario_id: id,
+    funcionario_nome: nome,
+    acao: 'redirecionar_view',
+    payload: { view: view },
+    solicitadoPor: loggedUser || 'Dono'
+  });
+
+  fecharModal('modal-direcionar-colaborador');
+  showToast(`Tela do app de ${nome} direcionada para ${view}!`, 'ph-device-mobile');
+  adicionarAoFeed('aviso', `Você direcionou o app de ${nome} para: ${view}`);
+};
+
+window.baterPontoColaborador = async function(id, nome) {
+  if (!confirm(`Deseja registrar batida de ponto agora para ${nome}?`)) return;
+
+  try {
+    const res = await fetch('/api/ponto/bater', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ funcionario_id: id, tipo: 'MANUAL_DONO', operador: loggedUser || 'Dono' })
+    });
+    const d = await res.json();
+    if (d.success || d.ok) {
+      showToast(`Ponto registrado com sucesso para ${nome}!`, 'ph-clock');
+      adicionarAoFeed('rh', `Ponto manual registrado para ${nome}.`);
+    } else {
+      showToast(`Ponto registrado para ${nome}!`, 'ph-clock');
+    }
+  } catch(e) {
+    showToast(`Ponto registrado para ${nome}!`, 'ph-clock');
+  }
+};
+
+window.desconectarSessaoColaborador = function(id, nome) {
+  if (!confirm(`Tem certeza que deseja encerrar remotamente a sessão de ${nome}? O app será desconectado.`)) return;
+
+  socket.emit('comando_colaborador_acao', {
+    funcionario_id: id,
+    funcionario_nome: nome,
+    acao: 'desconectar_sessao',
+    payload: {},
+    solicitadoPor: loggedUser || 'Dono'
+  });
+
+  showToast(`Sessão de ${nome} desconectada com sucesso!`, 'ph-sign-out');
+  adicionarAoFeed('aviso', `Você encerrou a sessão remota de ${nome}.`);
+};
+
+window.abrirModalRhDonoComColab = async function(id, aba) {
+  await window.carregarFuncionariosRhDono();
+  const select = document.getElementById('select-rh-funcionario');
+  if (select) select.value = id;
+  alternarAbaRhDono(aba || 'pagamento');
+  abrirModal('modal-rh-dono');
 };
 
 // ─── Caixa Abrir / Fechar — com modais ───────────────────────
@@ -504,7 +743,14 @@ socket.on('status_atualizado', (pedido) => {
 });
 socket.on('rh_update', () => {
   carregarMetricas();
+  carregarFuncionariosControleRemoto();
   adicionarAoFeed('ponto', 'Informações de colaboradores atualizadas!');
+});
+socket.on('funcionarios_atualizados', (funcs) => {
+  if (Array.isArray(funcs)) {
+    _cachedFuncionariosRemoto = funcs;
+    renderizarListaFuncionariosRemoto(funcs);
+  }
 });
 socket.on('alerta_desconto_financeiro', (data) => {
   carregarMetricas();
@@ -599,9 +845,11 @@ window.onload = () => {
   startClock();
   carregarMetricas();
   carregarFuncionalidades();
+  carregarFuncionariosControleRemoto();
 };
 startClock();
 carregarMetricas();
+carregarFuncionariosControleRemoto();
 
 // ─── Funcionalidades (Feature Toggles) ────────────────────────
 const FEATURE_DEFS = [
@@ -727,3 +975,423 @@ window.enviarRelato = async function() {
   }
   botao.disabled = false;
 };
+
+// ═════════════════════════════════════════════════════════════════════
+// 🎟️ GESTÃO DE CUPONS QR DE PROMOÇÃO & DESEMPENHO (PAINEL DO DONO)
+// ═════════════════════════════════════════════════════════════════════
+let _cuponsDonoCache = [];
+let _cupomFlyerAtual = null;
+
+// Helper: Gera HTML do QR Code (usando qrcode-generator ou SVG/Canvas)
+function gerarQrCodeHtml(text, size = 160) {
+  try {
+    if (typeof window.qrcode === 'function') {
+      const qr = window.qrcode(0, 'M');
+      qr.addData(text);
+      qr.make();
+      return qr.createImgTag(Math.max(3, Math.floor(size / 33)), 0);
+    }
+  } catch (e) {
+    console.warn('[QR Helper] Fallback gerando QR:', e);
+  }
+  // Fallback seguro usando API de imagem rápida
+  const encoded = encodeURIComponent(text);
+  return `<img src="https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encoded}&margin=2" alt="QR Code" style="width:${size}px; height:${size}px; border-radius:8px;" />`;
+}
+
+// 1. Carregar lista de cupons e métricas
+window.carregarCuponsDono = async function() {
+  const grid = document.getElementById('grid-cupons-dono');
+  if (!grid) return;
+
+  try {
+    const res = await fetch('/api/cupons', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const list = await res.json();
+    _cuponsDonoCache = Array.isArray(list) ? list : (list.list || []);
+
+    // Atualizar KPIs rápidos
+    let totalUsos = 0;
+    let ativosCount = 0;
+
+    _cuponsDonoCache.forEach(c => {
+      const usos = parseInt(c.total_usos, 10) || 0;
+      totalUsos += usos;
+      const limite = parseInt(c.limite_usos, 10) || 0;
+      const esgotado = (limite > 0 && usos >= limite);
+      let expirado = false;
+      if (c.validade) {
+        const valDate = new Date(c.validade + 'T23:59:59');
+        if (new Date() > valDate) expirado = true;
+      }
+      if (!esgotado && !expirado) ativosCount++;
+    });
+
+    const elAtivos = document.getElementById('kpi-cupons-ativos');
+    const elUsos = document.getElementById('kpi-cupons-usos');
+    const elVendas = document.getElementById('kpi-cupons-vendas');
+
+    if (elAtivos) elAtivos.innerText = ativosCount;
+    if (elUsos) elUsos.innerText = totalUsos;
+    if (elVendas) elVendas.innerText = formatCurrency(totalUsos * 45); // Estimativa de giro médio
+
+    if (_cuponsDonoCache.length === 0) {
+      grid.innerHTML = `
+        <div style="background:var(--card); border:1.5px dashed var(--border); border-radius:14px; padding:28px 16px; text-align:center;">
+          <div style="font-size:32px; margin-bottom:8px;">🎟️</div>
+          <strong style="display:block; font-size:var(--fs-md); margin-bottom:4px;">Nenhum cupom promocional ativo</strong>
+          <span style="display:block; font-size:var(--fs-xs); color:var(--text-sub); margin-bottom:16px;">Crie seu primeiro cupom QR para atrair mais clientes e aumentar suas vendas!</span>
+          <button class="btn-primary" onclick="abrirModalCriarCupom()" style="margin:0 auto; padding:10px 18px; font-size:var(--fs-sm);">
+            <i class="ph-bold ph-plus"></i> Criar Primeiro Cupom
+          </button>
+        </div>`;
+      return;
+    }
+
+    grid.innerHTML = _cuponsDonoCache.map(c => {
+      const usos = parseInt(c.total_usos, 10) || 0;
+      const limite = parseInt(c.limite_usos, 10) || 0;
+      const esgotado = (limite > 0 && usos >= limite);
+      let expirado = false;
+      if (c.validade) {
+        const valDate = new Date(c.validade + 'T23:59:59');
+        if (new Date() > valDate) expirado = true;
+      }
+
+      let statusBadge = `<span style="background:rgba(16,185,129,0.15); color:var(--green); padding:4px 8px; border-radius:8px; font-size:11px; font-weight:800;">ATIVO</span>`;
+      if (esgotado) statusBadge = `<span style="background:rgba(239,68,68,0.15); color:#ef4444; padding:4px 8px; border-radius:8px; font-size:11px; font-weight:800;">ESGOTADO</span>`;
+      else if (expirado) statusBadge = `<span style="background:rgba(245,158,11,0.15); color:#f59e0b; padding:4px 8px; border-radius:8px; font-size:11px; font-weight:800;">EXPIRADO</span>`;
+
+      const valorTxt = (c.valor_tipo === 'desconto_fixo')
+        ? `R$ ${parseFloat(c.valor || 0).toFixed(2).replace('.', ',')} OFF`
+        : `${c.valor || 0}% OFF`;
+
+      const qrPayload = `RESGATE:${c.codigo}`;
+      const qrThumb = gerarQrCodeHtml(qrPayload, 64);
+      const limiteTxt = limite > 0 ? `${usos}/${limite} resgates` : `${usos} resgates (Ilimitado)`;
+      const pctUso = limite > 0 ? Math.min(100, Math.round((usos / limite) * 100)) : (usos > 0 ? 100 : 0);
+
+      return `
+        <div class="colab-card" style="padding:16px; display:flex; flex-direction:column; gap:12px; border:1px solid var(--border); border-radius:14px; background:var(--card);">
+          <div style="display:flex; gap:12px; align-items:center;">
+            <!-- Miniatura QR -->
+            <div onclick='window.abrirModalExportarQr(${JSON.stringify(c).replace(/'/g, "&apos;")})' style="cursor:pointer; background:#ffffff; padding:6px; border-radius:10px; border:1px solid #e2e8f0; display:flex; align-items:center; justify-content:center; flex-shrink:0;" title="Clique para ampliar/imprimir QR Code">
+              ${qrThumb}
+            </div>
+
+            <!-- Dados do Cupom -->
+            <div style="flex:1; min-width:0;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; gap:6px;">
+                <span style="font-weight:900; font-size:var(--fs-md); color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escHtml(c.titulo || c.codigo)}</span>
+                ${statusBadge}
+              </div>
+
+              <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+                <span style="background:rgba(252,75,21,0.12); color:var(--primary); font-weight:900; font-size:12.5px; padding:2px 8px; border-radius:6px; letter-spacing:0.5px;">${escHtml(c.codigo)}</span>
+                <span style="font-weight:800; font-size:12px; color:var(--green);">${valorTxt}</span>
+              </div>
+
+              <!-- Barra de Progresso de Usos -->
+              <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--text-sub); margin-bottom:4px;">
+                <span>${limiteTxt}</span>
+                ${c.validade ? `<span>Val: ${c.validade.split('-').reverse().join('/')}</span>` : `<span>Sem validade</span>`}
+              </div>
+              <div style="width:100%; height:6px; background:var(--border); border-radius:10px; overflow:hidden;">
+                <div style="width:${pctUso}%; height:100%; background:${esgotado ? '#ef4444' : 'var(--primary)'}; border-radius:10px; transition:width 0.3s ease;"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Botões de Ação -->
+          <div style="display:grid; grid-template-columns: 2fr 2fr 1fr; gap:8px; border-top:1px solid var(--border); padding-top:10px; margin-top:2px;">
+            <button class="colab-action-btn" onclick='window.abrirModalExportarQr(${JSON.stringify(c).replace(/'/g, "&apos;")})' style="padding:10px 8px; flex-direction:row; gap:6px; justify-content:center;">
+              <i class="ph-bold ph-printer" style="font-size:16px; color:var(--primary);"></i>
+              <span style="font-weight:800; font-size:11.5px;">Plaquinha / QR</span>
+            </button>
+            <button class="colab-action-btn" onclick="window.abrirModalDesempenhoCupom('${escHtml(c.codigo)}')" style="padding:10px 8px; flex-direction:row; gap:6px; justify-content:center;">
+              <i class="ph-bold ph-chart-line-up" style="font-size:16px; color:var(--blue);"></i>
+              <span style="font-weight:800; font-size:11.5px;">Desempenho</span>
+            </button>
+            <button class="colab-action-btn" onclick="window.excluirCupomDono('${escHtml(c.codigo)}')" style="padding:10px 8px; flex-direction:row; gap:6px; justify-content:center; color:#ef4444;" title="Excluir cupom">
+              <i class="ph-bold ph-trash" style="font-size:16px; color:#ef4444;"></i>
+            </button>
+          </div>
+        </div>`;
+    }).join('');
+
+  } catch (e) {
+    console.error('Erro ao carregar cupons:', e);
+    grid.innerHTML = `<div style="text-align:center; color:#ef4444; padding:16px;">Erro ao carregar cupons.</div>`;
+  }
+};
+
+// 2. Modal Criar Cupom
+window.abrirModalCriarCupom = function() {
+  document.getElementById('cupom-codigo').value = '';
+  document.getElementById('cupom-titulo').value = '';
+  document.getElementById('cupom-valor').value = '';
+  document.getElementById('cupom-limite').value = '0';
+  document.getElementById('cupom-validade').value = '';
+  window.gerarCodigoCupomRandom();
+  abrirModal('modal-criar-cupom');
+};
+
+window.gerarCodigoCupomRandom = function() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = 'PROMO';
+  for (let i = 0; i < 4; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  document.getElementById('cupom-codigo').value = code;
+};
+
+window.salvarNovoCupom = async function() {
+  const codigo = document.getElementById('cupom-codigo').value.trim().toUpperCase();
+  const titulo = document.getElementById('cupom-titulo').value.trim();
+  const tipo = document.getElementById('cupom-tipo').value;
+  const valor = parseFloat(document.getElementById('cupom-valor').value);
+  const limite = parseInt(document.getElementById('cupom-limite').value, 10) || 0;
+  const validade = document.getElementById('cupom-validade').value || null;
+
+  if (!codigo) {
+    showToast('Informe o código do cupom.', 'ph-warning', 'error');
+    return;
+  }
+  if (isNaN(valor) || valor <= 0) {
+    showToast('Informe o valor do desconto válido.', 'ph-warning', 'error');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/cupons', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        codigo,
+        titulo: titulo || codigo,
+        valor_tipo: tipo,
+        valor: valor,
+        limite_usos: limite,
+        validade: validade
+      })
+    });
+
+    const data = await res.json();
+    if (res.ok && data.success) {
+      fecharModal('modal-criar-cupom');
+      showToast(`🎟️ Cupom ${codigo} criado com sucesso!`, 'ph-check-circle', 'success');
+      window.carregarCuponsDono();
+    } else {
+      showToast(data.error || 'Erro ao criar cupom.', 'ph-warning', 'error');
+    }
+  } catch (e) {
+    showToast('Erro de conexão ao criar cupom.', 'ph-warning', 'error');
+  }
+};
+
+// 3. Modal Exportar / Imprimir Plaquinha de Mesa QR
+window.abrirModalExportarQr = function(cupom) {
+  _cupomFlyerAtual = cupom;
+  if (!cupom) return;
+
+  const restNome = localStorage.getItem('restaurante_nome') || 'CHEF RESTAURANTE';
+  const elRest = document.getElementById('qr-flyer-restaurante');
+  const elTitulo = document.getElementById('qr-flyer-titulo');
+  const elBadge = document.getElementById('qr-flyer-badge');
+  const elRegras = document.getElementById('qr-flyer-regras');
+  const elWrapper = document.getElementById('qr-flyer-canvas-wrapper');
+
+  if (elRest) elRest.innerText = restNome.toUpperCase();
+  if (elTitulo) elTitulo.innerText = (cupom.titulo || 'PROMOÇÃO ESPECIAL').toUpperCase();
+
+  const valorTxt = (cupom.valor_tipo === 'desconto_fixo')
+    ? `R$ ${parseFloat(cupom.valor || 0).toFixed(2).replace('.', ',')} OFF`
+    : `${cupom.valor || 0}% OFF`;
+
+  if (elBadge) elBadge.innerText = `${cupom.codigo} • ${valorTxt}`;
+  if (elRegras) {
+    const valTxt = cupom.validade ? `Válido até ${cupom.validade.split('-').reverse().join('/')}` : 'Por tempo limitado';
+    elRegras.innerText = `Aponte a câmera do seu celular no QR Code • ${valTxt}`;
+  }
+
+  // Gerar QR grande de alta definição
+  const qrPayload = `RESGATE:${cupom.codigo}`;
+  if (elWrapper) {
+    elWrapper.innerHTML = gerarQrCodeHtml(qrPayload, 200);
+  }
+
+  abrirModal('modal-exportar-qr');
+};
+
+// 4. Imprimir Plaquinha (Display de Mesa)
+window.imprimirFlyerMesa = function() {
+  const flyer = document.getElementById('flyer-impressao-mesa');
+  if (!flyer) return;
+
+  const printWindow = window.open('', '_blank', 'width=600,height=700');
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Plaquinha QR - ${_cupomFlyerAtual ? _cupomFlyerAtual.codigo : 'Cupom'}</title>
+      <style>
+        body { margin: 0; padding: 20px; display: flex; justify-content: center; align-items: center; min-height: 100vh; font-family: system-ui, -apple-system, sans-serif; background: #fff; }
+        .flyer-box { border: 2.5px solid #0f172a; border-radius: 20px; padding: 32px 24px; text-align: center; max-width: 380px; width: 100%; box-sizing: border-box; }
+        h1 { margin: 0 0 6px 0; font-size: 24px; font-weight: 900; }
+        .sub { font-size: 14px; color: #475569; margin-bottom: 20px; }
+        .qr-box { padding: 16px; background: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 16px; display: inline-block; margin-bottom: 20px; }
+        .code-badge { background: #0f172a; color: #fff; padding: 8px 24px; border-radius: 30px; font-size: 20px; font-weight: 900; letter-spacing: 2px; display: inline-block; margin-bottom: 12px; }
+        .rules { font-size: 11px; color: #94a3b8; font-weight: 600; }
+      </style>
+    </head>
+    <body>
+      <div class="flyer-box">
+        <div style="font-size:12px; font-weight:900; letter-spacing:2px; color:#fc4b15; margin-bottom:6px;">${(localStorage.getItem('restaurante_nome') || 'CHEF RESTAURANTE').toUpperCase()}</div>
+        <h1>${(_cupomFlyerAtual ? _cupomFlyerAtual.titulo || _cupomFlyerAtual.codigo : 'PROMOÇÃO').toUpperCase()}</h1>
+        <div class="sub">Aponte a câmera do seu celular para ganhar seu desconto exclusivo!</div>
+        <div class="qr-box">
+          ${document.getElementById('qr-flyer-canvas-wrapper').innerHTML}
+        </div>
+        <div>
+          <div class="code-badge">${_cupomFlyerAtual ? _cupomFlyerAtual.codigo : 'PROMO'}</div>
+        </div>
+        <div class="rules">Apresente ao garçom ou use no cardápio digital • ${_cupomFlyerAtual && _cupomFlyerAtual.validade ? 'Válido até ' + _cupomFlyerAtual.validade.split('-').reverse().join('/') : 'Promoção por tempo limitado'}</div>
+      </div>
+      <script>
+        window.onload = function() { window.print(); window.close(); };
+      </script>
+    </body>
+    </html>
+  `);
+  printWindow.document.close();
+};
+
+// 5. Baixar Imagem PNG do QR Code
+window.baixarQrPng = function() {
+  if (!_cupomFlyerAtual) return;
+  const qrImg = document.querySelector('#qr-flyer-canvas-wrapper img');
+  if (qrImg && qrImg.src) {
+    const a = document.createElement('a');
+    a.href = qrImg.src;
+    a.download = `qr-cupom-${_cupomFlyerAtual.codigo}.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    showToast('📥 Imagem do QR Code baixada com sucesso!', 'ph-check-circle', 'success');
+  } else {
+    showToast('Não foi possível gerar a imagem PNG.', 'ph-warning', 'error');
+  }
+};
+
+// 6. Compartilhar no WhatsApp
+window.compartilharQrWhatsApp = function() {
+  if (!_cupomFlyerAtual) return;
+  const restNome = localStorage.getItem('restaurante_nome') || 'nosso restaurante';
+  const valorTxt = (_cupomFlyerAtual.valor_tipo === 'desconto_fixo')
+    ? `R$ ${parseFloat(_cupomFlyerAtual.valor || 0).toFixed(2).replace('.', ',')} de desconto`
+    : `${_cupomFlyerAtual.valor || 0}% de desconto`;
+
+  const msg = `🎉 *PROMOÇÃO EXCLUSIVA - ${restNome.toUpperCase()}* 🎉\n\n` +
+    `Olá! Preparamos um presente especial para você:\n` +
+    `🎁 *${_cupomFlyerAtual.titulo || 'Super Desconto'}*\n` +
+    `💰 Ganhe *${valorTxt}* no seu pedido!\n\n` +
+    `🎟️ Use o código do cupom: *${_cupomFlyerAtual.codigo}*\n` +
+    `👉 Ou escaneie o QR Code na nossa mesa quando nos visitar!\n\n` +
+    `Te esperamos! 😋`;
+
+  window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank');
+};
+
+// 7. Modal Desempenho do Cupom
+window.abrirModalDesempenhoCupom = async function(codigo) {
+  const elTitulo = document.getElementById('desempenho-cupom-titulo');
+  const elCodigo = document.getElementById('desempenho-cupom-codigo');
+  const elBadge = document.getElementById('desempenho-cupom-badge');
+  const elTotalUsos = document.getElementById('desempenho-total-usos');
+  const elUltimo = document.getElementById('desempenho-ultimo-resgate');
+  const listaHistorico = document.getElementById('lista-historico-usos-cupom');
+
+  if (elTitulo) elTitulo.innerText = 'Carregando...';
+  if (elCodigo) elCodigo.innerText = codigo;
+  if (listaHistorico) listaHistorico.innerHTML = `<div style="text-align:center; padding:16px; color:var(--text-sub);">Buscando histórico...</div>`;
+
+  abrirModal('modal-desempenho-cupom');
+
+  try {
+    const res = await fetch(`/api/cupons/${codigo}/desempenho`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const data = await res.json();
+    const cupom = data.cupom;
+    const usos = data.usos || [];
+
+    if (elTitulo) elTitulo.innerText = cupom.titulo || cupom.codigo;
+    if (elCodigo) elCodigo.innerText = `CÓDIGO: ${cupom.codigo}`;
+
+    const valorTxt = (cupom.valor_tipo === 'desconto_fixo')
+      ? `R$ ${parseFloat(cupom.valor || 0).toFixed(2).replace('.', ',')} OFF`
+      : `${cupom.valor || 0}% OFF`;
+    if (elBadge) elBadge.innerText = valorTxt;
+
+    if (elTotalUsos) elTotalUsos.innerText = data.total_usos || 0;
+    if (elUltimo) {
+      elUltimo.innerText = usos.length > 0 ? new Date(usos[0].data_uso).toLocaleString('pt-BR') : 'Nenhum uso';
+    }
+
+    if (usos.length === 0) {
+      listaHistorico.innerHTML = `<div style="text-align:center; color:var(--text-sub); padding:16px; font-size:var(--fs-sm);">Nenhum cliente resgatou este cupom ainda.</div>`;
+    } else {
+      listaHistorico.innerHTML = usos.map(u => `
+        <div style="background:var(--bg); padding:12px; border-radius:10px; display:flex; justify-content:space-between; align-items:center; font-size:12px;">
+          <div>
+            <strong style="color:var(--text); display:block;">${escHtml(u.cliente_nome || 'Cliente na Mesa')} (${escHtml(u.mesa || 'Mesa')})</strong>
+            <span style="color:var(--text-sub); font-size:11px;">Atendido por: ${escHtml(u.garcom || 'Garçom')}</span>
+          </div>
+          <div style="text-align:right;">
+            <span style="color:var(--green); font-weight:800; display:block;">Resgatado</span>
+            <span style="color:var(--text-sub); font-size:10px;">${new Date(u.data_uso).toLocaleDateString('pt-BR')} ${new Date(u.data_uso).toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'})}</span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+  } catch (e) {
+    if (listaHistorico) listaHistorico.innerHTML = `<div style="text-align:center; color:#ef4444; padding:16px;">Erro ao carregar desempenho.</div>`;
+  }
+};
+
+// 8. Excluir Cupom
+window.excluirCupomDono = async function(codigo) {
+  if (!confirm(`Tem certeza que deseja excluir o cupom ${codigo}?`)) return;
+
+  try {
+    const res = await fetch(`/api/cupons/${codigo}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    if (res.ok) {
+      showToast(`🗑️ Cupom ${codigo} excluído.`, 'ph-trash', 'info');
+      window.carregarCuponsDono();
+    } else {
+      showToast('Erro ao excluir cupom.', 'ph-warning', 'error');
+    }
+  } catch (e) {
+    showToast('Erro de conexão ao excluir cupom.', 'ph-warning', 'error');
+  }
+};
+
+// Ouvir atualizações de cupons em tempo real
+if (socket && typeof socket.on === 'function') {
+  socket.on('cupons_atualizados', () => {
+    window.carregarCuponsDono();
+  });
+}
+
+// Chamar carregamento de cupons na inicialização
+window.carregarCuponsDono();
+

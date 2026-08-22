@@ -196,6 +196,178 @@ window.alterarComandaItemDirect = (itemId, currentComanda) => {
   }
 };
 
+// ═════════════════════════════════════════════════════════════════════
+// ➗ DIVISÃO DE ITENS COMPARTILHADOS EM FRAÇÕES E ATRIBUIÇÃO A COMANDAS
+// ═════════════════════════════════════════════════════════════════════
+let currentItemFracao = null;
+let currentPresetFracoes = 2;
+
+window.abrirModalDividirItemFracao = (itemId, productName, productEmoji, totalVal, qty) => {
+  const modal = document.getElementById('modal-dividir-item-fracao');
+  if (!modal) return;
+
+  currentItemFracao = {
+    id: itemId,
+    nome: productName,
+    emoji: productEmoji || '🍽️',
+    total: parseFloat(totalVal || 0),
+    qty: parseFloat(qty || 1)
+  };
+
+  const emojiEl = document.getElementById('modal-fracao-emoji');
+  if (emojiEl) emojiEl.innerText = currentItemFracao.emoji;
+  const nomeEl = document.getElementById('modal-fracao-item-nome');
+  if (nomeEl) nomeEl.innerText = currentItemFracao.nome;
+  const qtdEl = document.getElementById('modal-fracao-qtd-original');
+  if (qtdEl) qtdEl.innerText = `Qtd: ${currentItemFracao.qty} un`;
+  const totalEl = document.getElementById('modal-fracao-item-total');
+  if (totalEl) totalEl.innerText = `R$ ${currentItemFracao.total.toFixed(2).replace('.', ',')}`;
+
+  window.selecionarPresetFracoes(2);
+  modal.style.display = 'flex';
+};
+
+window.fecharModalDividirItemFracao = () => {
+  const modal = document.getElementById('modal-dividir-item-fracao');
+  if (modal) modal.style.display = 'none';
+  currentItemFracao = null;
+};
+
+window.selecionarPresetFracoes = (qtd) => {
+  const isCustom = qtd === 'custom';
+  currentPresetFracoes = isCustom ? parseInt(document.getElementById('input-custom-num-fracoes').value || 5, 10) : qtd;
+
+  document.querySelectorAll('#grid-preset-fracoes .btn-preset-fracao').forEach(btn => {
+    btn.style.borderColor = 'var(--border-color, #cbd5e1)';
+    btn.style.background = 'var(--bg-card, #ffffff)';
+    btn.style.color = 'var(--text-primary, #0f172a)';
+    btn.classList.remove('active');
+  });
+
+  const activeBtnId = isCustom ? 'btn-fracao-preset-custom' : `btn-fracao-preset-${qtd}`;
+  const activeBtn = document.getElementById(activeBtnId);
+  if (activeBtn) {
+    activeBtn.style.borderColor = '#fc4b15';
+    activeBtn.style.background = 'rgba(252,75,21,0.1)';
+    activeBtn.style.color = '#fc4b15';
+    activeBtn.classList.add('active');
+  }
+
+  const customBox = document.getElementById('container-custom-fracoes-qtd');
+  if (customBox) customBox.style.display = isCustom ? 'block' : 'none';
+
+  window.gerarCamposFracoes(currentPresetFracoes);
+};
+
+window.gerarCamposFracoes = (numPartes) => {
+  const container = document.getElementById('container-lista-fracoes-items');
+  if (!container || !currentItemFracao) return;
+
+  const n = Math.max(2, Math.min(20, numPartes || 2));
+  currentPresetFracoes = n;
+
+  const valorPorParte = currentItemFracao.total / n;
+  const qtdPorParte = currentItemFracao.qty / n;
+
+  // Extrair comandas ativas na mesa atual
+  const comandasAtivas = [];
+  if (window.mesaAtual && Array.isArray(window.mesaAtual.items)) {
+    window.mesaAtual.items.forEach(o => {
+      const c = (o.mesa_comanda || '').trim();
+      if (c && !comandasAtivas.includes(c)) comandasAtivas.push(c);
+    });
+  }
+
+  let html = '';
+  for (let i = 0; i < n; i++) {
+    const fracaoStr = n === 2 ? '½' : (n === 3 ? '⅓' : (n === 4 ? '¼' : `${i + 1}/${n}`));
+    const percent = ((1 / n) * 100).toFixed(0);
+
+    const suggestedComanda = comandasAtivas[i] || '';
+
+    html += `
+      <div class="fracao-item-row" style="background: var(--bg-card, #ffffff); border: 1.5px solid var(--border-color, #e2e8f0); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-weight: 800; font-size: 13.5px; color: var(--text-primary, #0f172a); display: flex; align-items: center; gap: 6px;">
+            <span style="background: #2563eb; color: white; border-radius: 6px; padding: 2px 7px; font-size: 12px; font-weight: 800;">${fracaoStr}</span>
+            Fração ${i + 1} (${percent}%)
+          </span>
+          <div style="display: flex; align-items: center; gap: 4px;">
+            <span style="font-size: 12px; color: var(--text-secondary, #64748b);">Valor:</span>
+            <strong style="color: #3ab55b; font-size: 14px;">R$ ${valorPorParte.toFixed(2).replace('.', ',')}</strong>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <div style="flex: 1;">
+            <select class="select-fracao-comanda" data-index="${i}" data-fracao="${fracaoStr}" data-valor="${valorPorParte}" data-qtd="${qtdPorParte}" onchange="window.onFracaoComandaChange(this, ${i})" style="width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border-color, #cbd5e1); font-size: 13px; font-weight: 600; background: var(--bg-secondary, #f8fafc); color: var(--text-primary, #0f172a);">
+              <option value="" ${!suggestedComanda ? 'selected' : ''}>🪑 Manter Compartilhado na Mesa</option>
+              ${comandasAtivas.map(c => `<option value="${c}" ${c === suggestedComanda ? 'selected' : ''}>👤 Comanda: ${c}</option>`).join('')}
+              <option value="__NOVA__">➕ Criar Nova Comanda...</option>
+            </select>
+          </div>
+          <input type="text" class="input-nova-comanda-fracao" id="input-nova-comanda-fracao-${i}" placeholder="Nome do cliente/comanda" style="display: none; flex: 1; padding: 8px 10px; border-radius: 8px; border: 1.5px solid #fc4b15; font-size: 13px; font-weight: 600; color: #fc4b15; background: #fff7ed;">
+        </div>
+      </div>
+    `;
+  }
+
+  container.innerHTML = html;
+};
+
+window.onFracaoComandaChange = (sel, idx) => {
+  const inputNova = document.getElementById(`input-nova-comanda-fracao-${idx}`);
+  if (!inputNova) return;
+  if (sel.value === '__NOVA__') {
+    inputNova.style.display = 'block';
+    setTimeout(() => inputNova.focus(), 50);
+  } else {
+    inputNova.style.display = 'none';
+  }
+};
+
+window.confirmarDivisaoItemFracao = () => {
+  if (!currentItemFracao) return;
+
+  const rows = document.querySelectorAll('#container-lista-fracoes-items .select-fracao-comanda');
+  if (rows.length < 2) {
+    alert('É necessário dividir em pelo menos 2 frações.');
+    return;
+  }
+
+  const fracoes = [];
+  for (let i = 0; i < rows.length; i++) {
+    const sel = rows[i];
+    const fracaoStr = sel.getAttribute('data-fracao') || `${i + 1}/${rows.length}`;
+    const valor = parseFloat(sel.getAttribute('data-valor') || 0);
+    const qtd = parseFloat(sel.getAttribute('data-qtd') || 1);
+
+    let comanda = sel.value;
+    if (comanda === '__NOVA__') {
+      const inp = document.getElementById(`input-nova-comanda-fracao-${i}`);
+      comanda = (inp && inp.value) ? inp.value.trim() : `Comanda ${i + 1}`;
+    }
+
+    fracoes.push({
+      fracaoStr,
+      valor,
+      qtd,
+      comandaName: comanda || null
+    });
+  }
+
+  socket.emit('dividir_item_fracoes', {
+    itemId: currentItemFracao.id,
+    fracoes: fracoes,
+    operador: window.crmPerfil ? window.crmPerfil.nome : 'Caixa'
+  });
+
+  window.fecharModalDividirItemFracao();
+  if (typeof showToast === 'function') {
+    showToast('✨ Item dividido em frações e atribuído com sucesso!', '#3ab55b');
+  }
+};
+
 window.switchMobileTab = (tabId) => {
   const ws = document.querySelector('.workspace');
   if (!ws) return;
@@ -1672,8 +1844,9 @@ function renderOrders() {
              <td>${order.userName || 'Caixa'}</td>
              <td>
                 ${isPaid ? '' : `
-                   <i class="ph ph-user-switch" style="color: #2b5c9e; cursor: pointer; margin-right: 8px;" title="Atribuir / Mover Comanda" onclick="window.alterarComandaItemDirect(${order.id}, '${order.mesa_comanda || ''}')"></i>
-                   <i class="ph ph-trash" style="color: #eb5757; cursor: pointer;" title="Remover item do pedido" onclick="window.removerItemPedido('${order.id}')"></i>
+                   <i class="ph-bold ph-divide" style="color: #ea580c; cursor: pointer; margin-right: 8px; font-size: 16px;" title="Dividir este item em frações (½, ⅓, ¼, etc.) e atribuir a comandas" onclick="window.abrirModalDividirItemFracao(${order.id}, '${(order.productName || 'Produto').replace(/'/g, "\\'")}', '${order.productEmoji || '🍽️'}', ${totalVal}, ${(order.quantity || 1)})"></i>
+                   <i class="ph ph-user-switch" style="color: #2b5c9e; cursor: pointer; margin-right: 8px; font-size: 16px;" title="Atribuir / Mover Comanda" onclick="window.alterarComandaItemDirect(${order.id}, '${order.mesa_comanda || ''}')"></i>
+                   <i class="ph ph-trash" style="color: #eb5757; cursor: pointer; font-size: 16px;" title="Remover item do pedido" onclick="window.removerItemPedido('${order.id}')"></i>
                 `}
              </td>
            </tr>
@@ -7720,6 +7893,50 @@ socket.on('navegar_para', function(data) {
   setTimeout(function() { window.location.href = '/' + destino; }, 2000);
 });
 
+// ── Controle Remoto pelo Dono: Ações Instantâneas no Caixa ──
+socket.on('comando_caixa_acao', function(data) {
+  if (!data || !data.acao) return;
+  const acao = data.acao;
+  const solicitadoPor = data.solicitadoPor || 'Dono';
+
+  if (acao === 'recarregar') {
+    if (typeof showToast === 'function') showToast(`📡 ${solicitadoPor} recarregou o sistema...`, '#fc4b15');
+    setTimeout(() => window.location.reload(), 1200);
+  } else if (acao === 'bloquear_tela') {
+    if (typeof window.fecharTodosModaisEPopups === 'function') window.fecharTodosModaisEPopups();
+    if (typeof window.abrirModalSenhaAdmin === 'function') {
+      window.abrirModalSenhaAdmin('Terminal bloqueado remotamente pelo Dono', () => {});
+    } else {
+      alert(`🔒 Terminal bloqueado remotamente por ${solicitadoPor}`);
+    }
+  } else if (acao === 'tocar_alerta') {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.6);
+    } catch(e) {}
+    if (typeof showToast === 'function') showToast(`🔔 Chamada de atenção do Dono (${solicitadoPor})!`, '#e11d48');
+  } else if (acao === 'alternar_tema') {
+    if (window.ChefTheme && typeof window.ChefTheme.toggle === 'function') {
+      window.ChefTheme.toggle();
+    }
+  } else if (acao === 'abrir_gaveta') {
+    if (typeof window.abrirGavetaDinheiro === 'function') window.abrirGavetaDinheiro();
+    if (typeof showToast === 'function') showToast(`🖨️ Gaveta acionada por ${solicitadoPor}`, '#16a34a');
+  } else if (acao === 'abrir_fila') {
+    if (typeof window.abrirFilaEsperaModal === 'function') window.abrirFilaEsperaModal();
+  } else if (acao === 'abrir_relatorio') {
+    if (typeof window.abrirRelatoriosModal === 'function') window.abrirRelatoriosModal();
+  }
+});
+
 // ── Aviso Urgente do Dono para a Equipe ──
 socket.on('aviso_dono', function(data) {
   var texto = data && data.texto;
@@ -8127,33 +8344,37 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
-// === REDIMENSIONAMENTO COMPLETO DE BARRAS LATERAIS E REORDENAÇÃO DE GRUPOS DE BOTÕES ===
+// === REDIMENSIONAMENTO COMPLETO DE BARRAS LATERAIS E REORDENAÇÃO DE BOTÕES E DOCK ===
 document.addEventListener('DOMContentLoaded', () => {
   const leftPanel = document.getElementById('left-panel');
   const rightPanel = document.getElementById('right-panel');
+  const innerLeftPanel = document.getElementById('inner-left-panel');
+  const dockMiniList = document.getElementById('dock-mini-icons-list');
   const resizerLeft = document.getElementById('resizer-left');
   const resizerRight = document.getElementById('resizer-right');
 
-  // 1. Restaurar larguras personalizadas salvas pelo colaborador
-  const savedLeftW = parseInt(localStorage.getItem('chef_left_panel_width'), 10);
-  if (savedLeftW && leftPanel) {
-    leftPanel.style.setProperty('width', savedLeftW + 'px', 'important');
-    if (savedLeftW <= 130) leftPanel.classList.add('is-compact');
-  }
+  // 1. Restaurar larguras expandidas personalizadas salvas pelo colaborador
+  const savedLeftW = parseInt(localStorage.getItem('chef_left_expanded_width'), 10) || 290;
+  document.documentElement.style.setProperty('--left-expanded-width', savedLeftW + 'px');
+  if (leftPanel) leftPanel.style.setProperty('--left-expanded-width', savedLeftW + 'px');
 
-  const savedRightW = parseInt(localStorage.getItem('chef_right_panel_width'), 10);
-  if (savedRightW && rightPanel) {
-    rightPanel.style.setProperty('width', savedRightW + 'px', 'important');
-  }
+  const savedRightW = parseInt(localStorage.getItem('chef_right_expanded_width'), 10) || 320;
+  document.documentElement.style.setProperty('--right-expanded-width', savedRightW + 'px');
+  if (rightPanel) rightPanel.style.setProperty('--right-expanded-width', savedRightW + 'px');
 
-  // Helper universal de redimensionamento (Mouse e Touch)
+  // Helper universal de redimensionamento da largura expandida (Mouse e Touch)
   const setupSidebarResizer = (resizer, panel, isLeft) => {
     if (!resizer || !panel) return;
 
     const startResize = (clientX) => {
       const startX = clientX;
-      const startW = panel.getBoundingClientRect().width;
+      const currentWidthStr = getComputedStyle(document.documentElement)
+        .getPropertyValue(isLeft ? '--left-expanded-width' : '--right-expanded-width')
+        .trim();
+      const startW = parseInt(currentWidthStr, 10) || (isLeft ? 290 : 320);
+
       resizer.classList.add('dragging');
+      panel.classList.add('expanded'); // mantem expandido enquanto ajusta o tamanho
       document.body.style.cursor = 'col-resize';
       document.body.style.userSelect = 'none';
 
@@ -8161,15 +8382,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const currentX = moveEv.touches ? moveEv.touches[0].clientX : moveEv.clientX;
         const delta = currentX - startX;
         const newW = isLeft
-          ? Math.max(50, Math.min(650, startW + delta))
-          : Math.max(180, Math.min(650, startW - delta));
+          ? Math.max(220, Math.min(700, startW + delta))
+          : Math.max(240, Math.min(700, startW - delta));
 
-        panel.style.setProperty('width', newW + 'px', 'important');
-        if (isLeft) {
-          if (newW <= 130) panel.classList.add('is-compact');
-          else panel.classList.remove('is-compact');
-        }
-        localStorage.setItem(isLeft ? 'chef_left_panel_width' : 'chef_right_panel_width', newW);
+        const varName = isLeft ? '--left-expanded-width' : '--right-expanded-width';
+        document.documentElement.style.setProperty(varName, newW + 'px');
+        panel.style.setProperty(varName, newW + 'px');
+        localStorage.setItem(isLeft ? 'chef_left_expanded_width' : 'chef_right_expanded_width', newW);
       };
 
       const onEnd = () => {
@@ -8178,8 +8397,13 @@ document.addEventListener('DOMContentLoaded', () => {
         document.removeEventListener('touchmove', onMove);
         document.removeEventListener('touchend', onEnd);
         resizer.classList.remove('dragging');
+        panel.classList.remove('expanded');
         document.body.style.cursor = '';
         document.body.style.userSelect = '';
+        if (typeof window.showToast === 'function') {
+          const finalW = localStorage.getItem(isLeft ? 'chef_left_expanded_width' : 'chef_right_expanded_width');
+          window.showToast(`📐 Largura expandida ajustada para ${finalW}px`, 'info');
+        }
       };
 
       document.addEventListener('mousemove', onMove);
@@ -8204,22 +8428,54 @@ document.addEventListener('DOMContentLoaded', () => {
   setupSidebarResizer(resizerLeft, leftPanel, true);
   setupSidebarResizer(resizerRight, rightPanel, false);
 
-  // 2. Reordenação Magnética dos Grupos de Botões (SortableJS)
-  if (leftPanel) {
+  // 2. Reordenação dos Botões Mini na Barra Recolhida (Dock Mini)
+  if (dockMiniList) {
+    // Restaurar ordem salva do dock mini
+    try {
+      const savedMiniOrder = JSON.parse(localStorage.getItem('chef_dock_mini_order'));
+      if (Array.isArray(savedMiniOrder) && savedMiniOrder.length > 0) {
+        savedMiniOrder.forEach(miniId => {
+          const btn = dockMiniList.querySelector(`[data-mini-id="${miniId}"]`);
+          if (btn) dockMiniList.appendChild(btn);
+        });
+      }
+    } catch(e) {}
+
+    // Inicializar Sortable no Dock Mini
+    if (typeof Sortable !== 'undefined') {
+      Sortable.create(dockMiniList, {
+        animation: 200,
+        ghostClass: 'sortable-ghost',
+        dragClass: 'sortable-drag',
+        forceFallback: true,
+        fallbackTolerance: 3,
+        onEnd: () => {
+          const miniOrder = Array.from(dockMiniList.querySelectorAll('.dock-mini-btn'))
+            .map(b => b.getAttribute('data-mini-id'))
+            .filter(Boolean);
+          localStorage.setItem('chef_dock_mini_order', JSON.stringify(miniOrder));
+        }
+      });
+    }
+  }
+
+  // 3. Reordenação dos Grupos e Botões do Painel Interno (#inner-left-panel)
+  const targetInnerPanel = innerLeftPanel || leftPanel;
+  if (targetInnerPanel) {
     // Adicionar botão de Reset de Ordem se não existir
     if (!document.getElementById('btn-reset-order-actions')) {
       const resetWrapper = document.createElement('div');
       resetWrapper.id = 'wrapper-reset-order-actions';
-      resetWrapper.style.cssText = 'padding: 10px 0; text-align: center; margin-top: auto; flex-shrink: 0;';
+      resetWrapper.style.cssText = 'padding: 14px 0 8px; text-align: center; margin-top: auto; flex-shrink: 0;';
       resetWrapper.innerHTML = `
-        <button id="btn-reset-order-actions" onclick="window.resetarOrdemAcoes()" title="Restaurar a ordem padrão dos botões" style="background: var(--bg-secondary); border: 1px dashed var(--border-color); color: var(--text-secondary); font-size: 11px; padding: 6px 12px; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; font-weight: 600; transition: all 0.2s;">
-          <i class="ph ph-arrow-counter-clockwise"></i> Resetar Ordem dos Botões
+        <button id="btn-reset-order-actions" onclick="window.resetarOrdemAcoes()" title="Restaurar a ordem padrão dos botões" style="background: var(--bg-secondary); border: 1.5px dashed var(--border-color); color: var(--text-secondary); font-size: 11.5px; padding: 8px 14px; border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-weight: 700; transition: all 0.2s;">
+          <i class="ph-bold ph-arrow-counter-clockwise"></i> Restaurar Ordem dos Botões
         </button>`;
-      leftPanel.appendChild(resetWrapper);
+      targetInnerPanel.appendChild(resetWrapper);
     }
 
     // Identificar e preparar cabeçalhos para arraste
-    leftPanel.querySelectorAll('.action-group').forEach((grp, idx) => {
+    targetInnerPanel.querySelectorAll('.action-group').forEach((grp, idx) => {
       if (!grp.getAttribute('data-group-id')) {
         grp.setAttribute('data-group-id', 'grp-' + idx);
       }
@@ -8229,27 +8485,26 @@ document.addEventListener('DOMContentLoaded', () => {
         title.style.display = 'flex';
         title.style.justifyContent = 'space-between';
         title.style.alignItems = 'center';
-        title.innerHTML += '<i class="ph ph-dots-six-vertical" style="color:#fc4b15; font-size:16px;"></i>';
+        title.innerHTML += '<i class="ph ph-dots-six-vertical" style="color:#fc4b15; font-size:16px;" title="Arrastar grupo"></i>';
       }
     });
 
-    // Aplicar ordem salva anteriormente
+    // Aplicar ordem de grupos salva anteriormente
     try {
-      const savedOrder = JSON.parse(localStorage.getItem('chef_left_actions_group_order'));
-      if (Array.isArray(savedOrder) && savedOrder.length > 0) {
+      const savedGroupOrder = JSON.parse(localStorage.getItem('chef_left_actions_group_order'));
+      if (Array.isArray(savedGroupOrder) && savedGroupOrder.length > 0) {
         const resetWrapper = document.getElementById('wrapper-reset-order-actions');
-        savedOrder.forEach(grpId => {
-          const el = leftPanel.querySelector(`[data-group-id="${grpId}"]`);
-          if (el && resetWrapper) leftPanel.insertBefore(el, resetWrapper);
-          else if (el) leftPanel.appendChild(el);
+        savedGroupOrder.forEach(grpId => {
+          const el = targetInnerPanel.querySelector(`[data-group-id="${grpId}"]`);
+          if (el && resetWrapper) targetInnerPanel.insertBefore(el, resetWrapper);
+          else if (el) targetInnerPanel.appendChild(el);
         });
       }
     } catch(err){}
 
-    // 3. Inicializar SortableJS com efeito Ímã, Rolagem Suave para Cima/Baixo e Botões Independentes
+    // Sortable nos Grupos e Botões
     if (typeof Sortable !== 'undefined') {
-      // Reordenação dos Grupos
-      Sortable.create(leftPanel, {
+      Sortable.create(targetInnerPanel, {
         animation: 250,
         easing: 'cubic-bezier(0.2, 0, 0, 1)',
         draggable: '.action-group',
@@ -8264,22 +8519,23 @@ document.addEventListener('DOMContentLoaded', () => {
         scrollSensitivity: 100,
         scrollSpeed: 20,
         onEnd: () => {
-          const order = Array.from(leftPanel.querySelectorAll('.action-group'))
+          const order = Array.from(targetInnerPanel.querySelectorAll('.action-group'))
             .map(el => el.getAttribute('data-group-id'))
             .filter(Boolean);
           localStorage.setItem('chef_left_actions_group_order', JSON.stringify(order));
         }
       });
 
-      // Reordenação Independente dos Botões dentro dos Grupos
-      leftPanel.querySelectorAll('.btn-grid-2, .action-group').forEach((container, containerIdx) => {
+      // Reordenação Independente de Qualquer Botão entre/dentro dos Grupos
+      targetInnerPanel.querySelectorAll('.btn-grid-2, .action-group').forEach((container, containerIdx) => {
         container.querySelectorAll('.btn-action').forEach((btn, btnIdx) => {
           if (!btn.getAttribute('data-btn-id')) {
             btn.setAttribute('data-btn-id', btn.id || ('btn-' + containerIdx + '-' + btnIdx));
           }
+          btn.setAttribute('draggable', 'true');
         });
 
-        // Restaurar ordem de botões por grupo
+        // Restaurar ordem salva dos botões
         const groupKey = 'chef_btn_order_' + (container.id || containerIdx);
         try {
           const savedBtns = JSON.parse(localStorage.getItem(groupKey));
@@ -8316,11 +8572,98 @@ document.addEventListener('DOMContentLoaded', () => {
 
 window.resetarOrdemAcoes = function() {
   localStorage.removeItem('chef_left_actions_group_order');
+  localStorage.removeItem('chef_dock_mini_order');
+  localStorage.removeItem('chef_left_expanded_width');
+  localStorage.removeItem('chef_right_expanded_width');
   Object.keys(localStorage).forEach(k => {
     if (k.startsWith('chef_btn_order_')) localStorage.removeItem(k);
   });
   location.reload();
 };
+
+// ═════════════════════════════════════════════════════════════════════
+// CONTROLADOR DE PAINÉIS AUTO-RECOLHÍVEIS (MOUSE HOVER & TOUCH)
+// ═════════════════════════════════════════════════════════════════════
+window.toggleLeftPanel = function(e) {
+  if (e) e.stopPropagation();
+  const panel = document.getElementById('left-panel');
+  if (!panel) return;
+  panel.classList.toggle('expanded');
+};
+
+window.toggleRightPanel = function(e) {
+  if (e) e.stopPropagation();
+  const panel = document.getElementById('right-panel');
+  if (!panel) return;
+  panel.classList.toggle('expanded');
+};
+
+window.togglePinLeftPanel = function(e) {
+  if (e) e.stopPropagation();
+  const panel = document.getElementById('left-panel');
+  const btn = document.getElementById('btn-pin-left-panel');
+  const icon = document.getElementById('icon-pin-left-panel');
+  if (!panel) return;
+
+  const isPinned = panel.classList.toggle('pinned');
+  if (btn) btn.classList.toggle('pinned', isPinned);
+  if (icon) icon.className = isPinned ? 'ph-bold ph-push-pin-slash' : 'ph ph-push-pin';
+  localStorage.setItem('chef_left_panel_pinned', isPinned ? '1' : '0');
+
+  if (typeof window.showToast === 'function') {
+    window.showToast(isPinned ? '📌 Painel Ações fixado aberto' : '🔄 Painel Ações em modo auto-recolhível', 'info');
+  }
+};
+
+window.togglePinRightPanel = function(e) {
+  if (e) e.stopPropagation();
+  const panel = document.getElementById('right-panel');
+  const btn = document.getElementById('btn-pin-right-panel');
+  const icon = document.getElementById('icon-pin-right-panel');
+  if (!panel) return;
+
+  const isPinned = panel.classList.toggle('pinned');
+  if (btn) btn.classList.toggle('pinned', isPinned);
+  if (icon) icon.className = isPinned ? 'ph-bold ph-push-pin-slash' : 'ph ph-push-pin';
+  localStorage.setItem('chef_right_panel_pinned', isPinned ? '1' : '0');
+
+  if (typeof window.showToast === 'function') {
+    window.showToast(isPinned ? '📌 Painel Resumo fixado aberto' : '🔄 Painel Resumo em modo auto-recolhível', 'info');
+  }
+};
+
+// Inicialização e restauração do estado de fixação
+document.addEventListener('DOMContentLoaded', () => {
+  const leftPanel = document.getElementById('left-panel');
+  const rightPanel = document.getElementById('right-panel');
+  const btnPinLeft = document.getElementById('btn-pin-left-panel');
+  const iconPinLeft = document.getElementById('icon-pin-left-panel');
+  const btnPinRight = document.getElementById('btn-pin-right-panel');
+  const iconPinRight = document.getElementById('icon-pin-right-panel');
+
+  if (leftPanel && localStorage.getItem('chef_left_panel_pinned') === '1') {
+    leftPanel.classList.add('pinned');
+    if (btnPinLeft) btnPinLeft.classList.add('pinned');
+    if (iconPinLeft) iconPinLeft.className = 'ph-bold ph-push-pin-slash';
+  }
+
+  if (rightPanel && localStorage.getItem('chef_right_panel_pinned') === '1') {
+    rightPanel.classList.add('pinned');
+    if (btnPinRight) btnPinRight.classList.add('pinned');
+    if (iconPinRight) iconPinRight.className = 'ph-bold ph-push-pin-slash';
+  }
+
+  // Fechar painéis ao tocar/clicar fora no workspace em telas touch
+  document.addEventListener('click', (ev) => {
+    if (leftPanel && !leftPanel.contains(ev.target) && leftPanel.classList.contains('expanded')) {
+      leftPanel.classList.remove('expanded');
+    }
+    if (rightPanel && !rightPanel.contains(ev.target) && rightPanel.classList.contains('expanded')) {
+      rightPanel.classList.remove('expanded');
+    }
+  });
+});
+
 
 
 
