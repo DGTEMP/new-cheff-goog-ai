@@ -1054,64 +1054,81 @@ function renderOrders() {
   const mesasEmFechamento = [];
   const mesasReservadas = [];
 
-  if (window.allMesas) {
-    window.allMesas.forEach(mesa => {
-      if (!groupedOrders[mesa.nome]) {
-        // Check if orders were grouped under a mesa_grupo that contains this exact mesa name (e.g. "Mesa 1 + Mesa 2")
-        const groupKey = Object.keys(groupedOrders).find(key => {
-          const parts = key.split(/\s*\+\s*/);
-          return parts.includes(mesa.nome);
-        });
-        if (groupKey && !mesa.nome.includes('Delivery')) {
-          const group = groupedOrders[groupKey];
-          if (contasSolicitadas.has(mesa.nome)) {
-            contasPedidas.push({ ...group, isGroup: true, originalMesa: mesa });
-          } else if (group.status === 'Concluído' || group.status === 'Pronto') {
-            mesasEmFechamento.push({ ...group, isGroup: true, originalMesa: mesa });
-          } else {
-            mesasOcupadas.push({ ...group, isGroup: true, originalMesa: mesa });
-          }
-        } else if (!mesa.nome.includes('Delivery')) {
-          if (mesa.status === 'Reservada') {
-            mesasReservadas.push({ ...mesa, isGroup: false });
-          } else if (mesa.status === 'Ocupada') {
-            mesasOcupadas.push({
-              mesaName: mesa.nome,
-              nome: mesa.nome,
-              isGroup: true,
-              status: 'Aberto',
-              items: [],
-              total: 0,
-              totalBruto: 0,
-              userName: 'Caixa',
-              observacao: mesa.observacao,
-              originalMesa: mesa
-            });
-          } else {
-            mesasDisponiveis.push({ ...mesa, isGroup: false });
-          }
-        }
-      } else {
-        const group = groupedOrders[mesa.nome];
-        if (contasSolicitadas.has(mesa.nome)) {
-          contasPedidas.push({ ...group, isGroup: true, originalMesa: mesa });
-        } else if (group.status === 'Concluído' || group.status === 'Pronto') {
-          mesasEmFechamento.push({ ...group, isGroup: true, originalMesa: mesa });
-        } else {
-          mesasOcupadas.push({ ...group, isGroup: true, originalMesa: mesa });
-        }
-        delete groupedOrders[mesa.nome];
+  // Deduplicar mesas da lista mestra
+  const uniqueAllMesas = [];
+  const seenAllMesas = new Set();
+  if (window.allMesas && Array.isArray(window.allMesas)) {
+    window.allMesas.forEach(m => {
+      const nm = String(m.nome || m.mesaName || '').trim();
+      if (nm && !seenAllMesas.has(nm.toLowerCase())) {
+        seenAllMesas.add(nm.toLowerCase());
+        uniqueAllMesas.push(m);
       }
     });
   }
 
-  Object.values(groupedOrders).forEach(group => {
-    if (contasSolicitadas.has(group.mesaName)) {
-      contasPedidas.push({ ...group, isGroup: true });
+  // Rastrear todas as mesas/grupos já alocadas para evitar qualquer duplicata
+  const mesasAlocadas = new Set();
+
+  function alocarMesa(item, categoria) {
+    if (!item) return;
+    const nome = String(item.mesaName || item.nome || '').trim();
+    if (!nome) return;
+
+    // Verificar se a mesa ou qualquer uma das mesas do grupo já foi alocada
+    const partes = nome.split(/\s*\+\s*/).map(p => p.trim().toLowerCase());
+    const jaAlocada = partes.some(p => mesasAlocadas.has(p));
+    if (jaAlocada) return;
+
+    // Registrar todas as partes como alocadas
+    partes.forEach(p => mesasAlocadas.add(p));
+    mesasAlocadas.add(nome.toLowerCase());
+
+    if (categoria === 'pedida') contasPedidas.push(item);
+    else if (categoria === 'fechamento') mesasEmFechamento.push(item);
+    else if (categoria === 'ocupada') mesasOcupadas.push(item);
+    else if (categoria === 'reservada') mesasReservadas.push(item);
+    else if (categoria === 'disponivel') mesasDisponiveis.push(item);
+  }
+
+  // 1. Processar primeiro pedidos agrupados (mesas ocupadas / com consumo real)
+  Object.keys(groupedOrders).forEach(groupKey => {
+    const group = groupedOrders[groupKey];
+    const nome = String(group.mesaName || groupKey).trim();
+    if (!nome || nome.includes('Delivery')) return;
+
+    if (contasSolicitadas.has(nome) || groupKey.split(/\s*\+\s*/).some(p => contasSolicitadas.has(p.trim()))) {
+      alocarMesa({ ...group, isGroup: true }, 'pedida');
     } else if (group.status === 'Concluído' || group.status === 'Pronto') {
-      mesasEmFechamento.push({ ...group, isGroup: true });
+      alocarMesa({ ...group, isGroup: true }, 'fechamento');
     } else {
-      mesasOcupadas.push({ ...group, isGroup: true });
+      alocarMesa({ ...group, isGroup: true }, 'ocupada');
+    }
+  });
+
+  // 2. Processar mesas cadastradas no sistema que ainda não foram alocadas
+  uniqueAllMesas.forEach(mesa => {
+    const nome = String(mesa.nome || '').trim();
+    if (!nome || nome.includes('Delivery')) return;
+    if (mesasAlocadas.has(nome.toLowerCase())) return;
+
+    if (mesa.status === 'Reservada') {
+      alocarMesa({ ...mesa, isGroup: false }, 'reservada');
+    } else if (mesa.status === 'Ocupada') {
+      alocarMesa({
+        mesaName: mesa.nome,
+        nome: mesa.nome,
+        isGroup: true,
+        status: 'Aberto',
+        items: [],
+        total: 0,
+        totalBruto: 0,
+        userName: 'Caixa',
+        observacao: mesa.observacao,
+        originalMesa: mesa
+      }, 'ocupada');
+    } else {
+      alocarMesa({ ...mesa, isGroup: false }, 'disponivel');
     }
   });
 

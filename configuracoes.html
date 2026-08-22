@@ -85,16 +85,85 @@
       height: calc(100vh - 58px);
       margin-top: 58px;
     }
-
     .config-sidebar {
-      width: 220px;
+      width: 240px;
       background: var(--cfg-sidebar-bg);
-      padding: 20px 12px;
+      padding: 14px 10px 24px;
       display: flex;
       flex-direction: column;
       gap: 6px;
       transition: width 0.3s ease, padding 0.3s ease;
-      overflow: hidden;
+      overflow-y: auto;
+      overflow-x: hidden;
+      border-right: 1px solid var(--cfg-border, #27272a);
+      box-sizing: border-box;
+      scrollbar-width: thin;
+    }
+
+    .config-sidebar-search-wrap {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: var(--cfg-sidebar-bg);
+      padding: 0 0 10px 0;
+      border-bottom: 1px solid var(--cfg-border, #e4e4e7);
+      margin-bottom: 8px;
+    }
+
+    [data-theme="dark"] .config-sidebar-search-wrap {
+      border-bottom-color: #27272a;
+    }
+
+    .config-search-box {
+      position: relative;
+      display: flex;
+      align-items: center;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .config-search-box input {
+      width: 100%;
+      padding: 8px 28px 8px 30px;
+      border-radius: 8px;
+      border: 1px solid var(--cfg-border, #e4e4e7);
+      background: var(--cfg-input-bg, #fff);
+      color: var(--cfg-text, #18181b);
+      font-size: 12px;
+      outline: none;
+      box-sizing: border-box;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .config-search-box input:focus {
+      border-color: var(--cfg-primary, #fc4b15);
+      box-shadow: 0 0 0 2px rgba(252, 75, 21, 0.15);
+    }
+
+    .config-search-box i.search-icon {
+      position: absolute;
+      left: 9px;
+      color: var(--cfg-text-muted, #71717a);
+      font-size: 14px;
+      pointer-events: none;
+    }
+
+    .config-search-box button.clear-btn {
+      position: absolute;
+      right: 6px;
+      background: none;
+      border: none;
+      color: var(--cfg-text-muted, #71717a);
+      cursor: pointer;
+      font-size: 14px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 2px;
+    }
+
+    .config-search-box button.clear-btn:hover {
+      color: var(--cfg-text, #18181b);
     }
 
     .config-sidebar.collapsed {
@@ -110,40 +179,32 @@
 
     .group-title {
       font-size: 11px;
+      font-weight: 700;
       text-transform: uppercase;
-      color: #888;
+      color: var(--cfg-text-muted, #888);
       padding: 8px 10px 4px;
-      letter-spacing: 1px;
+      letter-spacing: 0.8px;
       cursor: pointer;
       user-select: none;
       display: flex;
       justify-content: space-between;
       align-items: center;
+      border-radius: 6px;
+      transition: background 0.15s, color 0.15s;
     }
+
     .action-group.collapsed .admin-tab-btn {
       display: none !important;
     }
 
-    /* Acordeão de categorias: título clicável, uma categoria aberta por vez */
     .action-group {
       transition: opacity 0.15s;
-    }
-
-    .action-group .group-title {
-      cursor: pointer;
-      user-select: none;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      border-radius: 8px;
-      padding: 6px 8px;
-      margin-bottom: 4px;
-      transition: background 0.15s;
+      margin-bottom: 6px;
     }
 
     .action-group .group-title:hover {
       background: var(--cfg-hover-bg);
+      color: var(--cfg-text);
     }
 
     .action-group .group-title::after {
@@ -165,7 +226,7 @@
       display: flex;
       align-items: center;
       gap: 10px;
-      padding: 10px 14px;
+      padding: 8px 12px;
       border-radius: 8px;
       border: none;
       background: transparent;
@@ -173,7 +234,7 @@
       cursor: pointer;
       width: 100%;
       text-align: left;
-      font-size: 14px;
+      font-size: 13px;
       transition: background 0.15s;
     }
 
@@ -191,28 +252,44 @@
     .admin-tab-btn {
       display: flex;
       align-items: center;
-      gap: 10px;
-      padding: 10px 14px;
+      gap: 9px;
+      padding: 8px 12px;
       border-radius: 8px;
-      border: none;
+      border: 1px solid transparent;
       background: transparent;
-      color: var(--cfg-sidebar-text);
+      color: var(--cfg-sidebar-text, #52525b);
       cursor: pointer;
       width: 100%;
       text-align: left;
-      font-size: 14px;
-      transition: background 0.15s;
+      font-size: 13px;
+      font-weight: 500;
+      transition: all 0.15s ease;
+      box-sizing: border-box;
+      position: relative;
     }
 
     .admin-tab-btn:hover {
       background: var(--cfg-hover-bg);
-      color: var(--cfg-text);
+      color: var(--cfg-text, #18181b);
+      transform: translateX(2px);
     }
 
     .admin-tab-btn.active {
-      background: rgba(252, 75, 21, 0.15);
-      color: #fc4b15;
-      font-weight: bold;
+      background: rgba(252, 75, 21, 0.12) !important;
+      color: #fc4b15 !important;
+      font-weight: 700 !important;
+      border-color: rgba(252, 75, 21, 0.25) !important;
+    }
+
+    .admin-tab-btn.active::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 15%;
+      height: 70%;
+      width: 3px;
+      background: #fc4b15;
+      border-radius: 0 4px 4px 0;
     }
 
     .main-workspace {
@@ -1138,6 +1215,38 @@ border-bottom: 1px solid #eef2f6;
       if (res === 'compact') target = '88%';
       else if (res === 'standard') target = '100%';
       else if (res === 'large') target = '118%';
+      .admin-tab-content.active {
+        padding-bottom: 20px !important;
+      }
+    }
+
+    /* ══════════ iPAD MINI (768×1024 / 1024×768) ══════════ */
+    @media screen and (min-width: 700px) and (max-width: 900px) and (orientation: portrait) {
+      .config-sidebar { width: 200px !important; }
+      .admin-tab-btn { min-height: 44px !important; font-size: 13.5px !important; }
+      .btn-action { min-height: 44px !important; }
+      .action-group .group-title { min-height: 40px; }
+      .main-workspace { padding: 16px !important; }
+      /* Tabelas rolam horizontalmente sem estourar */
+      .tab-table-scroll, .table-container { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    }
+
+    @media screen and (min-width: 901px) and (max-width: 1100px) and (orientation: landscape) and (max-height: 860px) {
+      .config-sidebar { width: 180px !important; }
+      .admin-tab-btn { min-height: 42px !important; }
+      .config-header { height: 52px !important; padding: 10px 18px !important; }
+      .config-layout { margin-top: 52px !important; height: calc(100vh - 52px) !important; }
+    }
+</style>
+
+  <script>
+    (function () {
+      const res = localStorage.getItem('chef_app_resolution') || 'auto';
+      const zoom = localStorage.getItem('chef_app_zoom_percent') || '100';
+      let target = '';
+      if (res === 'compact') target = '88%';
+      else if (res === 'standard') target = '100%';
+      else if (res === 'large') target = '118%';
       else if (res === 'touch') target = '112%';
       else if (res === 'custom') target = zoom + '%';
       if (target) document.documentElement.style.zoom = target;
@@ -1148,11 +1257,6 @@ border-bottom: 1px solid #eef2f6;
   <script src="/broadcast.js"></script>
   <script src="/i18n.js"></script>
 <link rel="icon" href="/icons/icon.ico">
-  <link rel="manifest" href="/manifest.json">
-<meta name="theme-color" content="#fc4b15">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Chef Cozinha">
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
 </head>
 
@@ -1176,6 +1280,13 @@ border-bottom: 1px solid #eef2f6;
 
     <!-- SIDEBAR -->
     <aside class="config-sidebar">
+      <div class="config-sidebar-search-wrap">
+        <div class="config-search-box">
+          <i class="ph ph-magnifying-glass search-icon"></i>
+          <input type="text" id="config-sidebar-search" placeholder="Buscar opções... ( / )" autocomplete="off" />
+          <button id="config-sidebar-search-clear" class="clear-btn" title="Limpar busca"><i class="ph ph-x-circle"></i></button>
+        </div>
+      </div>
       <div class="action-group">
         <div class="group-title">Sistema</div>
         <button class="admin-tab-btn" data-tab="gerais">

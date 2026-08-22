@@ -399,6 +399,79 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // ── BUSCA RÁPIDA DE CONFIGURAÇÕES NA SIDEBAR ──
+  const searchInput = document.getElementById('config-sidebar-search');
+  const searchClear = document.getElementById('config-sidebar-search-clear');
+  const allTabBtns = Array.from(document.querySelectorAll('.admin-tab-btn'));
+  const allGroups = Array.from(document.querySelectorAll('.action-group'));
+
+  allTabBtns.forEach(btn => {
+    btn.dataset.origHtml = btn.innerHTML;
+  });
+
+  function filtrarAbas(termo) {
+    const q = (termo || '').trim().toLowerCase();
+    if (searchClear) searchClear.style.display = q ? 'flex' : 'none';
+
+    if (!q) {
+      allTabBtns.forEach(btn => {
+        btn.style.display = '';
+      });
+      allGroups.forEach(grp => {
+        grp.style.display = '';
+      });
+      return;
+    }
+
+    allGroups.forEach(grp => {
+      let grupoTemMatch = false;
+      const btns = grp.querySelectorAll('.admin-tab-btn');
+      btns.forEach(btn => {
+        const texto = btn.innerText.toLowerCase();
+        const tabId = (btn.dataset.tab || '').toLowerCase();
+        const match = texto.includes(q) || tabId.includes(q);
+
+        if (match) {
+          btn.style.display = 'flex';
+          grupoTemMatch = true;
+        } else {
+          btn.style.display = 'none';
+        }
+      });
+
+      if (grupoTemMatch) {
+        grp.style.display = 'block';
+        grp.classList.remove('collapsed');
+      } else {
+        grp.style.display = 'none';
+      }
+    });
+  }
+
+  if (searchInput) {
+    searchInput.addEventListener('input', (e) => filtrarAbas(e.target.value));
+    if (searchClear) {
+      searchClear.addEventListener('click', () => {
+        searchInput.value = '';
+        filtrarAbas('');
+        searchInput.focus();
+      });
+    }
+
+    // Atalho de teclado: '/' ou 'Ctrl+K' para buscar
+    document.addEventListener('keydown', (e) => {
+      if ((e.key === '/' && document.activeElement !== searchInput && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k')) {
+        e.preventDefault();
+        searchInput.focus();
+        searchInput.select();
+      } else if (e.key === 'Escape' && document.activeElement === searchInput) {
+        searchInput.value = '';
+        filtrarAbas('');
+        searchInput.blur();
+      }
+    });
+  }
+
   // Comanda Add Button CRM Listener
   const addComandaBtn = document.getElementById('btn-admin-add-comanda');
   if (addComandaBtn) {

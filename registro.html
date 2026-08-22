@@ -1,5 +1,6 @@
 ﻿<!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -35,7 +36,7 @@
 
     body {
       background-color: var(--bg);
-      background-image: 
+      background-image:
         radial-gradient(at 0% 0%, rgba(252, 75, 21, 0.08) 0px, transparent 50%),
         radial-gradient(at 100% 100%, rgba(59, 130, 246, 0.05) 0px, transparent 50%);
       color: var(--text);
@@ -82,8 +83,15 @@
     }
 
     @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: translateY(0); }
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
 
     .logo-icon {
@@ -147,7 +155,8 @@
       padding-left: 42px;
     }
 
-    input, select {
+    input,
+    select {
       width: 100%;
       padding: 12px 14px;
       border: 1px solid var(--border);
@@ -164,7 +173,8 @@
       color: #475569;
     }
 
-    input:focus, select:focus {
+    input:focus,
+    select:focus {
       border-color: var(--primary);
       box-shadow: 0 0 0 3px rgba(252, 75, 21, 0.18);
     }
@@ -180,6 +190,7 @@
         grid-template-columns: 1fr;
         gap: 0;
       }
+
       .container {
         padding: 28px 20px;
       }
@@ -252,8 +263,8 @@
     }
 
     .pico-dia-btn {
-      background: rgba(255,255,255,0.06);
-      border: 1px solid var(--border, rgba(255,255,255,0.15));
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border, rgba(255, 255, 255, 0.15));
       color: var(--text-muted);
       border-radius: 999px;
       padding: 7px 14px;
@@ -261,7 +272,12 @@
       cursor: pointer;
       transition: all 0.15s ease;
     }
-    .pico-dia-btn:hover { border-color: var(--primary); color: var(--text-color, inherit); }
+
+    .pico-dia-btn:hover {
+      border-color: var(--primary);
+      color: var(--text-color, inherit);
+    }
+
     .pico-dia-btn.ativo {
       background: linear-gradient(135deg, var(--primary), var(--primary-hover, var(--primary)));
       border-color: transparent;
@@ -279,6 +295,7 @@
       text-align: center;
       transition: color 0.2s;
     }
+
     .link:hover {
       color: var(--primary);
     }
@@ -413,6 +430,7 @@
   <meta name="apple-mobile-web-app-title" content="Chef Cozinha">
   <link rel="apple-touch-icon" href="/icons/icon-192.png">
 </head>
+
 <body>
 
   <!-- PASSO 1: REGISTRO DA CONTA -->
@@ -428,7 +446,8 @@
         <label for="restauranteNome">Nome do Restaurante *</label>
         <div class="input-wrapper">
           <i class="ph ph-storefront"></i>
-          <input type="text" id="restauranteNome" placeholder="Ex: Pizzaria Bella Italia" required autocomplete="organization">
+          <input type="text" id="restauranteNome" placeholder="Ex: Pizzaria Bella Italia" required
+            autocomplete="organization">
         </div>
       </div>
 
@@ -465,7 +484,8 @@
       </div>
 
       <div class="form-group">
-        <label><i class="ph ph-chart-line-up"></i> Quais os dias mais movimentados? <small style="opacity:0.7;">(opcional)</small></label>
+        <label><i class="ph ph-chart-line-up"></i> Quais os dias mais movimentados? <small
+            style="opacity:0.7;">(opcional)</small></label>
         <div id="picoDias" style="display:flex;gap:6px;flex-wrap:wrap;">
           <button type="button" class="pico-dia-btn" data-dia="0">Dom</button>
           <button type="button" class="pico-dia-btn" data-dia="1">Seg</button>
@@ -480,11 +500,14 @@
       <div class="form-group">
         <label style="opacity:0.9;">Horário de maior movimento <small style="opacity:0.7;">(opcional)</small></label>
         <div style="display:flex;align-items:center;gap:8px;">
-          <input type="time" id="picoHoraInicio" style="flex:1;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);border-radius:10px;padding:0.6rem;color:inherit;">
+          <input type="time" id="picoHoraInicio"
+            style="flex:1;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);border-radius:10px;padding:0.6rem;color:inherit;">
           <span style="opacity:0.6;">até</span>
-          <input type="time" id="picoHoraFim" style="flex:1;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);border-radius:10px;padding:0.6rem;color:inherit;">
+          <input type="time" id="picoHoraFim"
+            style="flex:1;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);border-radius:10px;padding:0.6rem;color:inherit;">
         </div>
-        <small style="opacity:0.55;font-size:0.72rem;display:block;margin-top:4px;">Isso ajuda a gente a preparar o servidor para o seu pico — nada de sistema cair no dia cheio! 😉</small>
+        <small style="opacity:0.55;font-size:0.72rem;display:block;margin-top:4px;">Isso ajuda a gente a preparar o
+          servidor para o seu pico — nada de sistema cair no dia cheio! 😉</small>
       </div>
 
       <button type="submit" id="btnSubmitRegistro">
@@ -502,11 +525,13 @@
       <span class="passo-num">2</span>
       <h1 style="margin:0;">Cadastre sua equipe</h1>
     </div>
-    <p class="subtitle">Adicione os colaboradores para começar a operação. O Dono e o Gerente são os perfis principais.</p>
+    <p class="subtitle">Adicione os colaboradores para começar a operação. O Dono e o Gerente são os perfis principais.
+    </p>
 
     <div class="sucesso-banner" id="contaCriadaBanner">
       <i class="ph-bold ph-check-circle" style="font-size:18px; flex-shrink:0;"></i>
-      <span id="contaCriadaTexto">Conta criada com sucesso! Agora configure sua equipe para liberar todos os acessos.</span>
+      <span id="contaCriadaTexto">Conta criada com sucesso! Agora configure sua equipe para liberar todos os
+        acessos.</span>
     </div>
 
     <!-- SEÇÃO SLUG (OPCIONAL) -->
@@ -517,12 +542,14 @@
           <strong>Link personalizado do restaurante</strong>
         </div>
       </div>
-      <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">Escolha um endereço próprio para acessar o painel. <em>Opcional — pode configurar depois.</em></p>
+      <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">Escolha um endereço próprio para
+        acessar o painel. <em>Opcional — pode configurar depois.</em></p>
       <div class="form-group" style="margin-bottom: 0;">
         <label for="slugInput">Seu link personalizado</label>
         <div class="input-wrapper">
           <i class="ph ph-link"></i>
-          <input type="text" id="slugInput" placeholder="meu-restaurante" style="padding-left: 42px;" maxlength="40" autocomplete="off">
+          <input type="text" id="slugInput" placeholder="meu-restaurante" style="padding-left: 42px;" maxlength="40"
+            autocomplete="off">
         </div>
         <div id="slugPreview" style="font-size: 12px; color: var(--text-muted); margin-top: 6px; display: none;"></div>
         <div id="slugStatus" style="font-size: 12px; margin-top: 4px; display: none;"></div>
@@ -606,7 +633,7 @@
     </button>
     <div class="error-msg" id="equipeError"></div>
     <div style="text-align: center;">
-      <a class="link" id="linkPular">Pular por enquanto (configurar depois)</a>
+      <a class="link" id="linkPular">Pular por enquanto (pode configurar depois, mas é menos prático)</a>
     </div>
   </div>
 
@@ -614,221 +641,221 @@
   <script src="/fullscreen.js"></script>
 
   <script>
-  (function() {
-    const passo1 = document.getElementById('passo1');
-    const passoEquipe = document.getElementById('passoEquipe');
-    const errorMsg = document.getElementById('errorMsg');
-    const equipeError = document.getElementById('equipeError');
-    const telInput = document.getElementById('telefone');
+    (function () {
+      const passo1 = document.getElementById('passo1');
+      const passoEquipe = document.getElementById('passoEquipe');
+      const errorMsg = document.getElementById('errorMsg');
+      const equipeError = document.getElementById('equipeError');
+      const telInput = document.getElementById('telefone');
 
-    // Máscara de Telefone / WhatsApp (XX) XXXXX-XXXX
-    if (telInput) {
-      telInput.addEventListener('input', function(e) {
-        let v = e.target.value.replace(/\D/g, '');
-        if (v.length > 11) v = v.slice(0, 11);
-        if (v.length > 6) {
-          e.target.value = `(${v.slice(0,2)}) ${v.slice(2,7)}-${v.slice(7)}`;
-        } else if (v.length > 2) {
-          e.target.value = `(${v.slice(0,2)}) ${v.slice(2)}`;
-        } else if (v.length > 0) {
-          e.target.value = `(${v}`;
+      // Máscara de Telefone / WhatsApp (XX) XXXXX-XXXX
+      if (telInput) {
+        telInput.addEventListener('input', function (e) {
+          let v = e.target.value.replace(/\D/g, '');
+          if (v.length > 11) v = v.slice(0, 11);
+          if (v.length > 6) {
+            e.target.value = `(${v.slice(0, 2)}) ${v.slice(2, 7)}-${v.slice(7)}`;
+          } else if (v.length > 2) {
+            e.target.value = `(${v.slice(0, 2)}) ${v.slice(2)}`;
+          } else if (v.length > 0) {
+            e.target.value = `(${v}`;
+          }
+        });
+      }
+
+      // ── Salvar Rascunho da Equipe em Tempo Real ──
+      function salvarRascunho() {
+        try {
+          const extras = [];
+          document.querySelectorAll('#eqExtras .equipe-card').forEach(card => {
+            extras.push({
+              nome: card.querySelector('.eq-extra-nome')?.value || '',
+              usuario: card.querySelector('.eq-extra-user')?.value || '',
+              senha: card.querySelector('.eq-extra-pass')?.value || '',
+              cargo: card.querySelector('.eq-extra-cargo')?.value || 'Garçom',
+              valor_hora: card.querySelector('.eq-extra-valor')?.value || '0'
+            });
+          });
+
+          const draft = {
+            donoNome: document.getElementById('eqDonoNome').value,
+            donoUser: document.getElementById('eqDonoUser').value,
+            donoPass: document.getElementById('eqDonoPass').value,
+            gerenNome: document.getElementById('eqGerenNome').value,
+            gerenUser: document.getElementById('eqGerenUser').value,
+            gerenPass: document.getElementById('eqGerenPass').value,
+            extras: extras
+          };
+
+          localStorage.setItem('chef_onboarding_draft', JSON.stringify(draft));
+        } catch (e) { }
+      }
+
+      // Escutar inputs da etapa 2 para salvar rascunho
+      passoEquipe.addEventListener('input', salvarRascunho);
+
+      // ── Validação de Slug em tempo real ──
+      let slugCheckTimeout = null;
+      const slugInput = document.getElementById('slugInput');
+      const slugPreview = document.getElementById('slugPreview');
+      const slugStatus = document.getElementById('slugStatus');
+
+      slugInput.addEventListener('input', () => {
+        let raw = slugInput.value.trim().toLowerCase()
+          .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+          .replace(/[^a-z0-9-]/g, '')
+          .replace(/-+/g, '-').replace(/^-|-$/g, '');
+        slugInput.value = raw;
+
+        if (!raw || raw.length < 2) {
+          slugPreview.style.display = 'none';
+          slugStatus.style.display = 'none';
+          return;
+        }
+
+        slugPreview.style.display = 'block';
+        slugPreview.innerHTML = `<i class="ph ph-link"></i> Link: <strong>https://${raw}.chefcozinha.com.br</strong>`;
+        slugPreview.style.color = 'var(--text-muted)';
+
+        slugStatus.style.display = 'block';
+        slugStatus.innerHTML = '<i class="ph ph-spinner ph-spin"></i> Verificando disponibilidade...';
+        slugStatus.style.color = 'var(--text-muted)';
+
+        clearTimeout(slugCheckTimeout);
+        slugCheckTimeout = setTimeout(async () => {
+          try {
+            const rid = localStorage.getItem('restaurante_id') || '0';
+            const res = await fetch(`/api/auth/check-slug?slug=${encodeURIComponent(raw)}&restaurante_id=${rid}`);
+            const data = await res.json();
+            if (data.available) {
+              slugStatus.innerHTML = '<i class="ph ph-check-circle"></i> Disponível!';
+              slugStatus.style.color = 'var(--success)';
+              slugPreview.style.color = 'var(--success)';
+            } else {
+              slugStatus.innerHTML = `<i class="ph ph-x-circle"></i> ${data.error || 'Indisponível'}`;
+              slugStatus.style.color = 'var(--danger)';
+              slugPreview.style.color = 'var(--text-muted)';
+            }
+          } catch (e) {
+            slugStatus.innerHTML = '<i class="ph ph-warning"></i> Erro ao verificar';
+            slugStatus.style.color = 'var(--text-muted)';
+          }
+        }, 500);
+      });
+
+      // ── Passo 1: Criar conta ──
+      // Dias de pico: seleção múltipla
+      document.querySelectorAll('#picoDias .pico-dia-btn').forEach(btn => {
+        btn.addEventListener('click', () => btn.classList.toggle('ativo'));
+      });
+
+      document.getElementById('registroForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const restauranteNome = document.getElementById('restauranteNome').value.trim();
+        const nome = document.getElementById('nome').value.trim();
+        const telefone = document.getElementById('telefone').value.trim();
+        const email = document.getElementById('email').value.trim();
+        const senha = document.getElementById('senha').value;
+        // Horário de pico informado no onboarding (ajuda o balanceamento do servidor)
+        const pico_dias = Array.from(document.querySelectorAll('#picoDias .pico-dia-btn.ativo')).map(b => parseInt(b.dataset.dia, 10));
+        const pico_hora_inicio = document.getElementById('picoHoraInicio').value || null;
+        const pico_hora_fim = document.getElementById('picoHoraFim').value || null;
+
+        errorMsg.style.display = 'none';
+        const btn = document.getElementById('btnSubmitRegistro');
+        btn.innerHTML = '<i class="ph ph-spinner ph-spin"></i> Criando ambiente...';
+        btn.disabled = true;
+
+        try {
+          const res = await fetch('/api/auth/registro', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ restauranteNome, nome, email, telefone, senha, pico_dias, pico_hora_inicio, pico_hora_fim })
+          });
+          const data = await res.json();
+          if (data.success) {
+            // Salvar dados de autenticação e etapa
+            localStorage.setItem('chef_token', data.token);
+            localStorage.setItem('restaurante_id', data.restaurante_id);
+            localStorage.setItem('chef_credentials', JSON.stringify({ cargo: 'admin' }));
+
+            // Salvar estado para recuperação caso recarregue a página
+            localStorage.setItem('chef_onboarding_step', '2');
+            localStorage.setItem('chef_onboarding_restaurante_nome', restauranteNome);
+            localStorage.setItem('chef_onboarding_dono_nome', nome);
+            localStorage.setItem('chef_onboarding_dono_email', email);
+            localStorage.setItem('chef_onboarding_dono_tel', telefone);
+            localStorage.setItem('chef_onboarding_dono_senha', senha);
+
+            iniciarOnboardingEquipe(nome, email, senha, false);
+          } else {
+            errorMsg.textContent = data.error || 'Erro ao criar conta.';
+            errorMsg.style.display = 'block';
+          }
+        } catch (err) {
+          errorMsg.textContent = 'Erro de conexão com o servidor.';
+          errorMsg.style.display = 'block';
+        } finally {
+          btn.innerHTML = '<i class="ph ph-sparkle"></i> Começar Trial Gratuito';
+          btn.disabled = false;
         }
       });
-    }
 
-    // ── Salvar Rascunho da Equipe em Tempo Real ──
-    function salvarRascunho() {
-      try {
-        const extras = [];
-        document.querySelectorAll('#eqExtras .equipe-card').forEach(card => {
-          extras.push({
-            nome: card.querySelector('.eq-extra-nome')?.value || '',
-            usuario: card.querySelector('.eq-extra-user')?.value || '',
-            senha: card.querySelector('.eq-extra-pass')?.value || '',
-            cargo: card.querySelector('.eq-extra-cargo')?.value || 'Garçom',
-            valor_hora: card.querySelector('.eq-extra-valor')?.value || '0'
-          });
-        });
+      // ── Passo 2: Onboarding equipe ──
+      function iniciarOnboardingEquipe(nomeDono, emailDono, senhaDono, isRestored) {
+        passo1.style.display = 'none';
+        passoEquipe.style.display = 'flex';
+        passoEquipe.style.flexDirection = 'column';
 
-        const draft = {
-          donoNome: document.getElementById('eqDonoNome').value,
-          donoUser: document.getElementById('eqDonoUser').value,
-          donoPass: document.getElementById('eqDonoPass').value,
-          gerenNome: document.getElementById('eqGerenNome').value,
-          gerenUser: document.getElementById('eqGerenUser').value,
-          gerenPass: document.getElementById('eqGerenPass').value,
-          extras: extras
-        };
+        const banner = document.getElementById('contaCriadaBanner');
+        banner.classList.add('visible');
+        if (isRestored) {
+          document.getElementById('contaCriadaTexto').textContent = 'Progresso restaurado! Continue o cadastro da sua equipe.';
+        }
 
-        localStorage.setItem('chef_onboarding_draft', JSON.stringify(draft));
-      } catch (e) { }
-    }
+        // Preenchimento inicial do Dono
+        const userSugestao = (emailDono || '').split('@')[0] || 'admin';
+        if (!document.getElementById('eqDonoNome').value) document.getElementById('eqDonoNome').value = nomeDono || '';
+        if (!document.getElementById('eqDonoUser').value) document.getElementById('eqDonoUser').value = emailDono || userSugestao;
+        if (!document.getElementById('eqDonoPass').value) document.getElementById('eqDonoPass').value = senhaDono || '';
 
-    // Escutar inputs da etapa 2 para salvar rascunho
-    passoEquipe.addEventListener('input', salvarRascunho);
-
-    // ── Validação de Slug em tempo real ──
-    let slugCheckTimeout = null;
-    const slugInput = document.getElementById('slugInput');
-    const slugPreview = document.getElementById('slugPreview');
-    const slugStatus = document.getElementById('slugStatus');
-
-    slugInput.addEventListener('input', () => {
-      let raw = slugInput.value.trim().toLowerCase()
-        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^a-z0-9-]/g, '')
-        .replace(/-+/g, '-').replace(/^-|-$/g, '');
-      slugInput.value = raw;
-
-      if (!raw || raw.length < 2) {
-        slugPreview.style.display = 'none';
-        slugStatus.style.display = 'none';
-        return;
-      }
-
-      slugPreview.style.display = 'block';
-      slugPreview.innerHTML = `<i class="ph ph-link"></i> Link: <strong>https://${raw}.chefcozinha.com.br</strong>`;
-      slugPreview.style.color = 'var(--text-muted)';
-
-      slugStatus.style.display = 'block';
-      slugStatus.innerHTML = '<i class="ph ph-spinner ph-spin"></i> Verificando disponibilidade...';
-      slugStatus.style.color = 'var(--text-muted)';
-
-      clearTimeout(slugCheckTimeout);
-      slugCheckTimeout = setTimeout(async () => {
+        // Tentar restaurar rascunho anterior
         try {
-          const rid = localStorage.getItem('restaurante_id') || '0';
-          const res = await fetch(`/api/auth/check-slug?slug=${encodeURIComponent(raw)}&restaurante_id=${rid}`);
-          const data = await res.json();
-          if (data.available) {
-            slugStatus.innerHTML = '<i class="ph ph-check-circle"></i> Disponível!';
-            slugStatus.style.color = 'var(--success)';
-            slugPreview.style.color = 'var(--success)';
-          } else {
-            slugStatus.innerHTML = `<i class="ph ph-x-circle"></i> ${data.error || 'Indisponível'}`;
-            slugStatus.style.color = 'var(--danger)';
-            slugPreview.style.color = 'var(--text-muted)';
+          const draftStr = localStorage.getItem('chef_onboarding_draft');
+          if (draftStr) {
+            const draft = JSON.parse(draftStr);
+            if (draft.donoNome) document.getElementById('eqDonoNome').value = draft.donoNome;
+            if (draft.donoUser) document.getElementById('eqDonoUser').value = draft.donoUser;
+            if (draft.donoPass) document.getElementById('eqDonoPass').value = draft.donoPass;
+            if (draft.gerenNome) document.getElementById('eqGerenNome').value = draft.gerenNome;
+            if (draft.gerenUser) document.getElementById('eqGerenUser').value = draft.gerenUser;
+            if (draft.gerenPass) document.getElementById('eqGerenPass').value = draft.gerenPass;
+
+            // Restaurar colaboradores extras
+            if (Array.isArray(draft.extras) && draft.extras.length > 0) {
+              document.getElementById('eqExtras').innerHTML = '';
+              draft.extras.forEach(ext => {
+                criarCardExtra(ext);
+              });
+            }
           }
-        } catch (e) {
-          slugStatus.innerHTML = '<i class="ph ph-warning"></i> Erro ao verificar';
-          slugStatus.style.color = 'var(--text-muted)';
+        } catch (e) { }
+
+        if (!isRestored) {
+          document.getElementById('eqGerenNome').focus();
         }
-      }, 500);
-    });
-
-    // ── Passo 1: Criar conta ──
-    // Dias de pico: seleção múltipla
-    document.querySelectorAll('#picoDias .pico-dia-btn').forEach(btn => {
-      btn.addEventListener('click', () => btn.classList.toggle('ativo'));
-    });
-
-    document.getElementById('registroForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const restauranteNome = document.getElementById('restauranteNome').value.trim();
-      const nome = document.getElementById('nome').value.trim();
-      const telefone = document.getElementById('telefone').value.trim();
-      const email = document.getElementById('email').value.trim();
-      const senha = document.getElementById('senha').value;
-      // Horário de pico informado no onboarding (ajuda o balanceamento do servidor)
-      const pico_dias = Array.from(document.querySelectorAll('#picoDias .pico-dia-btn.ativo')).map(b => parseInt(b.dataset.dia, 10));
-      const pico_hora_inicio = document.getElementById('picoHoraInicio').value || null;
-      const pico_hora_fim = document.getElementById('picoHoraFim').value || null;
-
-      errorMsg.style.display = 'none';
-      const btn = document.getElementById('btnSubmitRegistro');
-      btn.innerHTML = '<i class="ph ph-spinner ph-spin"></i> Criando ambiente...';
-      btn.disabled = true;
-
-      try {
-        const res = await fetch('/api/auth/registro', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ restauranteNome, nome, email, telefone, senha, pico_dias, pico_hora_inicio, pico_hora_fim })
-        });
-        const data = await res.json();
-        if (data.success) {
-          // Salvar dados de autenticação e etapa
-          localStorage.setItem('chef_token', data.token);
-          localStorage.setItem('restaurante_id', data.restaurante_id);
-          localStorage.setItem('chef_credentials', JSON.stringify({ cargo: 'admin' }));
-          
-          // Salvar estado para recuperação caso recarregue a página
-          localStorage.setItem('chef_onboarding_step', '2');
-          localStorage.setItem('chef_onboarding_restaurante_nome', restauranteNome);
-          localStorage.setItem('chef_onboarding_dono_nome', nome);
-          localStorage.setItem('chef_onboarding_dono_email', email);
-          localStorage.setItem('chef_onboarding_dono_tel', telefone);
-          localStorage.setItem('chef_onboarding_dono_senha', senha);
-
-          iniciarOnboardingEquipe(nome, email, senha, false);
-        } else {
-          errorMsg.textContent = data.error || 'Erro ao criar conta.';
-          errorMsg.style.display = 'block';
-        }
-      } catch (err) {
-        errorMsg.textContent = 'Erro de conexão com o servidor.';
-        errorMsg.style.display = 'block';
-      } finally {
-        btn.innerHTML = '<i class="ph ph-sparkle"></i> Começar Trial Gratuito';
-        btn.disabled = false;
-      }
-    });
-
-    // ── Passo 2: Onboarding equipe ──
-    function iniciarOnboardingEquipe(nomeDono, emailDono, senhaDono, isRestored) {
-      passo1.style.display = 'none';
-      passoEquipe.style.display = 'flex';
-      passoEquipe.style.flexDirection = 'column';
-      
-      const banner = document.getElementById('contaCriadaBanner');
-      banner.classList.add('visible');
-      if (isRestored) {
-        document.getElementById('contaCriadaTexto').textContent = 'Progresso restaurado! Continue o cadastro da sua equipe.';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       }
 
-      // Preenchimento inicial do Dono
-      const userSugestao = (emailDono || '').split('@')[0] || 'admin';
-      if (!document.getElementById('eqDonoNome').value) document.getElementById('eqDonoNome').value = nomeDono || '';
-      if (!document.getElementById('eqDonoUser').value) document.getElementById('eqDonoUser').value = emailDono || userSugestao;
-      if (!document.getElementById('eqDonoPass').value) document.getElementById('eqDonoPass').value = senhaDono || '';
+      let extraCount = 0;
 
-      // Tentar restaurar rascunho anterior
-      try {
-        const draftStr = localStorage.getItem('chef_onboarding_draft');
-        if (draftStr) {
-          const draft = JSON.parse(draftStr);
-          if (draft.donoNome) document.getElementById('eqDonoNome').value = draft.donoNome;
-          if (draft.donoUser) document.getElementById('eqDonoUser').value = draft.donoUser;
-          if (draft.donoPass) document.getElementById('eqDonoPass').value = draft.donoPass;
-          if (draft.gerenNome) document.getElementById('eqGerenNome').value = draft.gerenNome;
-          if (draft.gerenUser) document.getElementById('eqGerenUser').value = draft.gerenUser;
-          if (draft.gerenPass) document.getElementById('eqGerenPass').value = draft.gerenPass;
-
-          // Restaurar colaboradores extras
-          if (Array.isArray(draft.extras) && draft.extras.length > 0) {
-            document.getElementById('eqExtras').innerHTML = '';
-            draft.extras.forEach(ext => {
-              criarCardExtra(ext);
-            });
-          }
-        }
-      } catch (e) { }
-
-      if (!isRestored) {
-        document.getElementById('eqGerenNome').focus();
-      }
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-
-    let extraCount = 0;
-
-    function criarCardExtra(dados) {
-      extraCount++;
-      const id = extraCount;
-      const card = document.createElement('div');
-      card.className = 'equipe-card';
-      card.id = 'extra-' + id;
-      card.innerHTML = `
+      function criarCardExtra(dados) {
+        extraCount++;
+        const id = extraCount;
+        const card = document.createElement('div');
+        card.className = 'equipe-card';
+        card.id = 'extra-' + id;
+        card.innerHTML = `
         <div class="equipe-card-header">
           <div class="equipe-card-title">
             <span class="badge badge-extra">COLABORADOR #${id}</span>
@@ -878,142 +905,140 @@
         </div>
       `;
 
-      card.querySelector('.btn-remove-card').addEventListener('click', () => {
-        card.remove();
-        salvarRascunho();
-      });
-
-      document.getElementById('eqExtras').appendChild(card);
-      return card;
-    }
-
-    document.getElementById('btnAddColab').addEventListener('click', () => {
-      const card = criarCardExtra();
-      salvarRascunho();
-      const inputNome = card.querySelector('.eq-extra-nome');
-      if (inputNome) inputNome.focus();
-    });
-
-    function limparEstadoOnboarding() {
-      localStorage.removeItem('chef_onboarding_step');
-      localStorage.removeItem('chef_onboarding_restaurante_nome');
-      localStorage.removeItem('chef_onboarding_dono_nome');
-      localStorage.removeItem('chef_onboarding_dono_email');
-      localStorage.removeItem('chef_onboarding_dono_tel');
-      localStorage.removeItem('chef_onboarding_dono_senha');
-      localStorage.removeItem('chef_onboarding_draft');
-    }
-
-    document.getElementById('btnSalvarEquipe').addEventListener('click', async () => {
-      equipeError.style.display = 'none';
-      const token = localStorage.getItem('chef_token');
-      const restauranteId = localStorage.getItem('restaurante_id');
-      if (!token) { 
-        equipeError.textContent = 'Sessão expirada. Volte e faça login.'; 
-        equipeError.style.display = 'block'; 
-        return; 
-      }
-
-      const equipe = [];
-
-      // Dono (obrigatorio)
-      const dNome = document.getElementById('eqDonoNome').value.trim();
-      const dUser = document.getElementById('eqDonoUser').value.trim();
-      const dPass = document.getElementById('eqDonoPass').value.trim();
-      if (dNome && dUser && dPass) {
-        equipe.push({ nome: dNome, usuario: dUser, senha: dPass, cargo: 'Admin', status: 'Ativo' });
-      }
-
-      // Gerente (obrigatorio)
-      const gNome = document.getElementById('eqGerenNome').value.trim();
-      const gUser = document.getElementById('eqGerenUser').value.trim();
-      const gPass = document.getElementById('eqGerenPass').value.trim();
-      if (gNome && gUser && gPass) {
-        equipe.push({ nome: gNome, usuario: gUser, senha: gPass, cargo: 'Gerente', status: 'Ativo' });
-      }
-
-      // Extras
-      let extrasComErro = false;
-      document.querySelectorAll('#eqExtras .equipe-card').forEach(card => {
-        const n = card.querySelector('.eq-extra-nome').value.trim();
-        const u = card.querySelector('.eq-extra-user').value.trim();
-        const p = card.querySelector('.eq-extra-pass').value.trim();
-        const c = card.querySelector('.eq-extra-cargo').value.trim() || 'Garçom';
-        const v = parseFloat(card.querySelector('.eq-extra-valor').value) || 0;
-        
-        if (n || u || p) {
-          if (!n || !u || !p) {
-            extrasComErro = true;
-          } else {
-            equipe.push({ nome: n, usuario: u, senha: p, cargo: c, valor_hora: v, status: 'Pendente' });
-          }
-        }
-      });
-
-      if (extrasComErro) {
-        equipeError.textContent = 'Preencha todos os campos do colaborador extra ou remova-o.';
-        equipeError.style.display = 'block';
-        return;
-      }
-
-      if (equipe.length === 0) {
-        equipeError.textContent = 'Cadastre pelo menos o Dono ou Gerente.';
-        equipeError.style.display = 'block';
-        return;
-      }
-
-      const btn = document.getElementById('btnSalvarEquipe');
-      btn.innerHTML = '<i class="ph ph-spinner ph-spin"></i> Salvando equipe...';
-      btn.disabled = true;
-
-      try {
-        const slug = document.getElementById('slugInput').value.trim();
-        const res = await fetch('/api/auth/equipe-onboarding', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-          body: JSON.stringify({ restaurante_id: restauranteId, equipe, slug: slug || undefined })
+        card.querySelector('.btn-remove-card').addEventListener('click', () => {
+          card.remove();
+          salvarRascunho();
         });
-        const data = await res.json();
-        if (data.success) {
-          limparEstadoOnboarding();
-          btn.innerHTML = '<i class="ph ph-check"></i> Equipe salva! Entrando...';
-          setTimeout(() => {
-            window.location.href = '/index.html';
-          }, 400);
-        } else {
-          equipeError.textContent = data.error || 'Erro ao salvar equipe.';
+
+        document.getElementById('eqExtras').appendChild(card);
+        return card;
+      }
+
+      document.getElementById('btnAddColab').addEventListener('click', () => {
+        const card = criarCardExtra();
+        salvarRascunho();
+        const inputNome = card.querySelector('.eq-extra-nome');
+        if (inputNome) inputNome.focus();
+      });
+
+      function limparEstadoOnboarding() {
+        localStorage.removeItem('chef_onboarding_step');
+        localStorage.removeItem('chef_onboarding_restaurante_nome');
+        localStorage.removeItem('chef_onboarding_dono_nome');
+        localStorage.removeItem('chef_onboarding_dono_email');
+        localStorage.removeItem('chef_onboarding_dono_tel');
+        localStorage.removeItem('chef_onboarding_dono_senha');
+        localStorage.removeItem('chef_onboarding_draft');
+      }
+
+      document.getElementById('btnSalvarEquipe').addEventListener('click', async () => {
+        equipeError.style.display = 'none';
+        const token = localStorage.getItem('chef_token');
+        const restauranteId = localStorage.getItem('restaurante_id');
+        if (!token) {
+          equipeError.textContent = 'Sessão expirada. Volte e faça login.';
+          equipeError.style.display = 'block';
+          return;
+        }
+
+        const equipe = [];
+
+        // Dono (obrigatorio)
+        const dNome = document.getElementById('eqDonoNome').value.trim();
+        const dUser = document.getElementById('eqDonoUser').value.trim();
+        const dPass = document.getElementById('eqDonoPass').value.trim();
+        if (dNome && dUser && dPass) {
+          equipe.push({ nome: dNome, usuario: dUser, senha: dPass, cargo: 'Admin', status: 'Ativo' });
+        }
+
+        // Gerente (obrigatorio)
+        const gNome = document.getElementById('eqGerenNome').value.trim();
+        const gUser = document.getElementById('eqGerenUser').value.trim();
+        const gPass = document.getElementById('eqGerenPass').value.trim();
+        if (gNome && gUser && gPass) {
+          equipe.push({ nome: gNome, usuario: gUser, senha: gPass, cargo: 'Gerente', status: 'Ativo' });
+        }
+
+        // Extras
+        let extrasComErro = false;
+        document.querySelectorAll('#eqExtras .equipe-card').forEach(card => {
+          const n = card.querySelector('.eq-extra-nome').value.trim();
+          const u = card.querySelector('.eq-extra-user').value.trim();
+          const p = card.querySelector('.eq-extra-pass').value.trim();
+          const c = card.querySelector('.eq-extra-cargo').value.trim() || 'Garçom';
+          const v = parseFloat(card.querySelector('.eq-extra-valor').value) || 0;
+
+          if (n || u || p) {
+            if (!n || !u || !p) {
+              extrasComErro = true;
+            } else {
+              equipe.push({ nome: n, usuario: u, senha: p, cargo: c, valor_hora: v, status: 'Pendente' });
+            }
+          }
+        });
+
+        if (extrasComErro) {
+          equipeError.textContent = 'Preencha todos os campos do colaborador extra ou remova-o.';
+          equipeError.style.display = 'block';
+          return;
+        }
+
+        if (equipe.length === 0) {
+          equipeError.textContent = 'Cadastre pelo menos o Dono ou Gerente.';
+          equipeError.style.display = 'block';
+          return;
+        }
+
+        const btn = document.getElementById('btnSalvarEquipe');
+        btn.innerHTML = '<i class="ph ph-spinner ph-spin"></i> Salvando equipe...';
+        btn.disabled = true;
+
+        try {
+          const slug = document.getElementById('slugInput').value.trim();
+          const res = await fetch('/api/auth/equipe-onboarding', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: JSON.stringify({ restaurante_id: restauranteId, equipe, slug: slug || undefined })
+          });
+          const data = await res.json();
+          if (data.success) {
+            limparEstadoOnboarding();
+            btn.innerHTML = '<i class="ph ph-check"></i> Equipe salva! Entrando...';
+            setTimeout(() => {
+              window.location.href = '/index.html';
+            }, 400);
+          } else {
+            equipeError.textContent = data.error || 'Erro ao salvar equipe.';
+            equipeError.style.display = 'block';
+            btn.innerHTML = '<i class="ph ph-check"></i> Salvar equipe e começar';
+            btn.disabled = false;
+          }
+        } catch (err) {
+          equipeError.textContent = 'Erro de conexão ao salvar equipe.';
           equipeError.style.display = 'block';
           btn.innerHTML = '<i class="ph ph-check"></i> Salvar equipe e começar';
           btn.disabled = false;
         }
-      } catch (err) {
-        equipeError.textContent = 'Erro de conexão ao salvar equipe.';
-        equipeError.style.display = 'block';
-        btn.innerHTML = '<i class="ph ph-check"></i> Salvar equipe e começar';
-        btn.disabled = false;
+      });
+
+      document.getElementById('linkPular').addEventListener('click', (e) => {
+        e.preventDefault();
+        limparEstadoOnboarding();
+        window.location.href = '/index.html';
+      });
+
+      // ── Verificar se já estava na Etapa 2 ao recarregar a página ──
+      const stepAtual = localStorage.getItem('chef_onboarding_step');
+      const tokenAtual = localStorage.getItem('chef_token');
+      if (stepAtual === '2' && tokenAtual) {
+        const savedNome = localStorage.getItem('chef_onboarding_dono_nome') || '';
+        const savedEmail = localStorage.getItem('chef_onboarding_dono_email') || '';
+        const savedSenha = localStorage.getItem('chef_onboarding_dono_senha') || '';
+        iniciarOnboardingEquipe(savedNome, savedEmail, savedSenha, true);
       }
-    });
-
-    document.getElementById('linkPular').addEventListener('click', (e) => {
-      e.preventDefault();
-      limparEstadoOnboarding();
-      window.location.href = '/index.html';
-    });
-
-    // ── Verificar se já estava na Etapa 2 ao recarregar a página ──
-    const stepAtual = localStorage.getItem('chef_onboarding_step');
-    const tokenAtual = localStorage.getItem('chef_token');
-    if (stepAtual === '2' && tokenAtual) {
-      const savedNome = localStorage.getItem('chef_onboarding_dono_nome') || '';
-      const savedEmail = localStorage.getItem('chef_onboarding_dono_email') || '';
-      const savedSenha = localStorage.getItem('chef_onboarding_dono_senha') || '';
-      iniciarOnboardingEquipe(savedNome, savedEmail, savedSenha, true);
-    }
-  })();
+    })();
   </script>
 
 </body>
+
 </html>
-
-
-
