@@ -9,6 +9,7 @@ const path = require('path');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { exec } = require('child_process');
+const { createLoadControl } = require('../load-control');
 
 module.exports = function (app, masterDb, sqlite3, options) {
   const { JWT_SECRET, superAdminAuth, io } = options;
@@ -19,6 +20,16 @@ module.exports = function (app, masterDb, sqlite3, options) {
   const metricSocketCount = options.metricSocketCount;
   const ifoodApi = options.ifoodApi;
   const ifoodDeps = options.ifoodDeps;
+
+  // Inicializa Controle de Carga
+  const loadControl = createLoadControl({ masterDb });
+  try {
+    loadControl.init(() => {
+      loadControl.startMonitor();
+    });
+  } catch (e) {
+    console.error('[LoadControl Init Error]', e);
+  }
 
   function getTenantDbPath(tenantId) {
     const tid = parseInt(tenantId) || 1;
@@ -752,6 +763,12 @@ module.exports = function (app, masterDb, sqlite3, options) {
     dbFiles.forEach(f => {
       try { totalDbSize += fsSync.statSync(f).size; } catch (e) { }
     });
+
+    const os = require('os');
+    const isWin = process.platform === 'win32';
+    const isMac = process.platform === 'darwin';
+    const platLabel = isWin ? 'Windows' : (isMac ? 'macOS' : 'Linux');
+
     res.json({
       ok: true,
       status: {
@@ -767,6 +784,10 @@ module.exports = function (app, masterDb, sqlite3, options) {
         },
         node: process.version,
         plataforma: process.platform,
+        plataforma_label: platLabel,
+        arch: process.arch,
+        cpus: os.cpus().length,
+        hostname: os.hostname(),
         pid: process.pid,
         dataHora: new Date().toISOString()
       }
@@ -1098,12 +1119,21 @@ module.exports = function (app, masterDb, sqlite3, options) {
       const restantes = Math.max(0, maxTenants - tenantsAtivos);
       const percentual = maxTenants > 0 ? Math.round((tenantsAtivos / maxTenants) * 100) : 0;
 
+      const isWin = process.platform === 'win32';
+      const isMac = process.platform === 'darwin';
+      const platLabel = isWin ? 'Windows' : (isMac ? 'macOS' : 'Linux');
+
       res.json({
         ok: true,
         server: {
           totalRamMB, freeRamMB, usedRamMB: totalRamMB - freeRamMB, processMB,
           socketsAtivos, tenantsTotal, tenantsAtivos,
-          node: process.version, plataforma: process.platform,
+          node: process.version,
+          plataforma: process.platform,
+          plataforma_label: platLabel,
+          arch: process.arch,
+          cpus: os.cpus().length,
+          hostname: os.hostname(),
           uptime: Math.floor(process.uptime())
         },
         capacidade: { maxTenants, ramPorTenantMB, restantes, percentual, maxTenantsHard },
@@ -1112,6 +1142,95 @@ module.exports = function (app, masterDb, sqlite3, options) {
       });
     } catch (e) {
       res.json({ ok: false, erro: e.message });
+    }
+  });
+
+  // ═══════════════════════════════════════════════════════════════
+  // CONTROLE DE CARGA (CHAVE SUPER ADMIN & CIRCUIT BREAKER)
+  // ═══════════════════════════════════════════════════════════════
+
+  app.get('/api/super/load-control', superAdminAuth, async (req, res) => {
+    try {
+      const state = loadControl.getState();
+      const metrics = loadControl.getMetrics();
+      const fila = loadControl.getFilaSnapshot();
+      const overrides = loadControl.getTenantOverrides();
+
+      const rests = await new Promise((resolve) => {
+        masterDb.all(`SELECT id, nome, ativo FROM restaurantes ORDER BY id`, [], (e, r) => resolve(e ? [] : (r || [])));
+      });
+
+      const tenantsList = rests.map(r => {
+        const ppm = loadControl.getTenantOrdersPerMin(r.id);
+        const modoEfetivo = loadControl.getModoEfetivoTenant(r.id);
+        return {
+          id: r.id,
+          nome: r.nome,
+          ativo: !!r.ativo,
+          pedidos_min: ppm,
+          modo_efetivo: modoEfetivo,
+          override: overrides[r.id] || null,
+          eventos_ativos: 0,
+          pico_cadastrado: {}
+        };
+      });
+
+      res.json({
+        ok: true,
+        controle: {
+          modo_efetivo: state.mode,
+          modo_base: state.baseMode,
+          auto_ativo: state.autoActive,
+          auto_enabled: state.autoEnabled,
+          limites: {
+            lagThresholdMs: state.lagThresholdMs,
+            sustainedMs: state.sustainedMs,
+            recoveryLagMs: state.recoveryLagMs,
+            recoverySustainedMs: state.recoverySustainedMs,
+            maxRssMB: state.maxRssMB
+          },
+          spike: {
+            limite: state.spikeThreshold,
+            cooldownMin: state.spikeCooldownMin
+          }
+        },
+        metricas: {
+          chegadas_min: metrics.chegadas_min || 0,
+          aceitos_min: metrics.aceitos_min || 0,
+          enfileirados_min: metrics.enfileirados_min || 0,
+          processados_min: metrics.processados_min || 0,
+          recusados_min: metrics.recusados_min || 0,
+          event_loop_lag_ms: metrics.lag_ms || 0,
+          event_loop_lag_max_ms_5min: metrics.lag_max_5min || 0,
+          rss_mb: Math.round(process.memoryUsage().rss / 1048576),
+          tenants_com_fila: fila.tenants_com_fila || []
+        },
+        tenants: tenantsList
+      });
+    } catch (err) {
+      res.json({ ok: false, erro: err.message });
+    }
+  });
+
+  app.post('/api/super/load-control', superAdminAuth, (req, res) => {
+    try {
+      loadControl.setConfig(req.body || {}, (err) => {
+        if (err) return res.json({ ok: false, erro: err.message });
+        res.json({ ok: true, state: loadControl.getState() });
+      });
+    } catch (err) {
+      res.json({ ok: false, erro: err.message });
+    }
+  });
+
+  app.post('/api/super/load-control/tenant', superAdminAuth, (req, res) => {
+    try {
+      const { restaurante_id, modo } = req.body;
+      if (!restaurante_id) return res.json({ ok: false, erro: 'restaurante_id obrigatório.' });
+      loadControl.setTenantOverride(restaurante_id, modo || null);
+      res.json({ ok: true, restaurante_id, modo: modo || null });
+    } catch (err) {
+      res.json({ ok: false, erro: err.message });
     }
   });
 
@@ -1198,22 +1317,36 @@ module.exports = function (app, masterDb, sqlite3, options) {
     }
   });
 
-  // POST /api/super/exec — comandos seguros (allowlist)
-  const CMD_BLOCKLIST_RX = [/\brm\s+-rf\s+\/\b/, /\bmkfs\b/, /\bdd\s+.*of=\/dev\//, /\b:(){ :\|:& };:/, /\bcurl\b.*\|\s*bash/, /\bwget\b.*\|\s*bash/, /\bshutdown\b/, /\breboot\b/, /\binit\s+[06]\b/];
-  const CMD_DENY_CHARS_RX = /[;&|`$(){}!<>]/;
-  const CMD_ALLOW_RX = /^(ls|cat|head|tail|wc|df|du|free|uptime|ps|top|netstat|ss|ip|ifconfig|ping|host|dig|date|pwd|whoami|id|env|node|npm|npx|pm2|sqlite3|git|docker|cat\s)/;
+  // POST /api/super/exec — comandos seguros (allowlist cross-platform)
+  const CMD_BLOCKLIST_RX = [
+    /\brm\s+-rf\s+\/\b/,
+    /\bmkfs\b/,
+    /\bdd\s+.*of=\/dev\//,
+    /\b:(){ :\|:& };:/,
+    /\bformat\s+[a-z]:/i,
+    /\bdrop\s+database\b/i
+  ];
+  const CMD_ALLOW_RX = /^(ls|dir|cat|type|head|tail|wc|df|du|free|uptime|ps|top|tasklist|systeminfo|wmic|netstat|ss|ip|ifconfig|ipconfig|ping|host|dig|date|time|ver|hostname|pwd|whoami|id|env|node|npm|npx|pm2|sqlite3|git|docker|echo|curl|cls|clear)/i;
 
   app.post('/api/super/exec', superAdminAuth, (req, res) => {
     const { command } = req.body;
     if (!command || typeof command !== 'string') return res.json({ ok: false, erro: 'Comando obrigatório.' });
-    if (command.length > 300) return res.json({ ok: false, erro: 'Máx 300 caracteres.' });
-    if (CMD_DENY_CHARS_RX.test(command)) return res.json({ ok: false, erro: 'Caracteres proibidos (; & | ` $ etc).' });
+    if (command.length > 500) return res.json({ ok: false, erro: 'Máx 500 caracteres.' });
     if (CMD_BLOCKLIST_RX.some(rx => rx.test(command))) return res.json({ ok: false, erro: 'Comando bloqueado por segurança.' });
-    if (!CMD_ALLOW_RX.test(command.trim())) return res.json({ ok: false, erro: 'Comando não permitido. Use: ls, cat, df, free, uptime, ps, node, npm, pm2, sqlite3, git, docker...' });
+    if (!CMD_ALLOW_RX.test(command.trim())) return res.json({ ok: false, erro: 'Comando não permitido por política de segurança.' });
 
     console.log(`[SuperAdmin Exec] ${req.superAdmin?.role || 'admin'}: ${command.substring(0, 200)}`);
-    exec(command, { cwd: path.join(__dirname, '..'), timeout: 30000, maxBuffer: 1024 * 1024 }, (error, stdout, stderr) => {
-      res.json({ ok: !error, stdout: (stdout || '').substring(0, 10000), stderr: (stderr || '').substring(0, 5000), exitCode: error ? (error.code || 1) : 0, command: command.substring(0, 300) });
+    const isWin = process.platform === 'win32';
+    const shellOpt = isWin ? 'cmd.exe' : '/bin/bash';
+
+    exec(command, { cwd: path.join(__dirname, '..'), timeout: 30000, maxBuffer: 2 * 1024 * 1024, shell: shellOpt }, (error, stdout, stderr) => {
+      res.json({
+        ok: !error,
+        stdout: (stdout || '').substring(0, 20000),
+        stderr: (stderr || '').substring(0, 10000),
+        exitCode: error ? (error.code || 1) : 0,
+        command: command.substring(0, 300)
+      });
     });
   });
 

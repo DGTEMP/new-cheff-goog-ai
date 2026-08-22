@@ -4878,3 +4878,326 @@ body {
   color: #f8fafc;
   background: rgba(255, 255, 255, 0.1);
 }
+
+/* ═════════════════════════════════════════════════════════════════════
+   SISTEMA NATIVO IOS (APPLE HIG) & CONTROLE UNIVERSAL DE VIEW MODE
+   Otimizado para iPhone SE (375x667), iPad Mini 4 (768x1024 / 1024x768)
+   e Suporte Completo a Forçar Mobile / Desktop em Qualquer Resolução
+   ═════════════════════════════════════════════════════════════════════ */
+
+/* 1. TIPOGRAFIA & BASE NATIVA IOS (SF PRO SYSTEM STACK) */
+body, button, input, select, textarea {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "SF UI Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Safe Area Insets Globais */
+:root {
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+}
+
+/* Suporte a toque elástico e momentum scroll do iOS */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mesas-scroll, .products-table-wrapper, .itens-mesa-scroll, .modal-body, .sidebar {
+  -webkit-overflow-scrolling: touch !important;
+}
+
+/* Microinterações e feedback tátil tipo iOS */
+button:not(:disabled):active, 
+.card-mesa:active, 
+.action-btn:active, 
+.toolbar-btn:active, 
+.mobile-tab-btn:active,
+.btn-category-chip:active {
+  transform: scale(0.96) !important;
+  transition: transform 0.1s cubic-bezier(0.2, 0.8, 0.2, 1) !important;
+}
+
+/* 2. CABEÇALHO / TOPBAR GLASSMORPHISM IOS */
+.topbar, .top-menubar {
+  backdrop-filter: blur(25px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(25px) saturate(180%) !important;
+  border-bottom: 0.5px solid rgba(0, 0, 0, 0.12) !important;
+  padding-top: max(8px, env(safe-area-inset-top, 0px)) !important;
+  padding-left: max(12px, env(safe-area-inset-left, 0px)) !important;
+  padding-right: max(12px, env(safe-area-inset-right, 0px)) !important;
+}
+
+[data-theme="light"] .topbar, [data-theme="light"] .top-menubar {
+  background: rgba(255, 255, 255, 0.86) !important;
+}
+
+[data-theme="dark"] .topbar, [data-theme="dark"] .top-menubar {
+  background: rgba(18, 18, 26, 0.86) !important;
+  border-bottom: 0.5px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+/* 3. BARRA DE NAVEGAÇÃO INFERIOR IOS (MOBILE TABS) */
+.mobile-tabs {
+  backdrop-filter: blur(30px) saturate(190%) !important;
+  -webkit-backdrop-filter: blur(30px) saturate(190%) !important;
+  height: calc(58px + env(safe-area-inset-bottom, 0px)) !important;
+  padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+  border-top: 0.5px solid rgba(0, 0, 0, 0.12) !important;
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.06) !important;
+  z-index: 1000 !important;
+}
+
+[data-theme="light"] .mobile-tabs {
+  background: rgba(255, 255, 255, 0.88) !important;
+}
+
+[data-theme="dark"] .mobile-tabs {
+  background: rgba(18, 18, 26, 0.88) !important;
+  border-top: 0.5px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+.mobile-tab-btn {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 3px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  color: var(--text-muted, #8e8e93) !important;
+  transition: all 0.2s ease !important;
+}
+
+.mobile-tab-btn i {
+  font-size: 22px !important;
+  transition: transform 0.2s ease !important;
+}
+
+.mobile-tab-btn.active {
+  color: var(--primary, #fc4b15) !important;
+  font-weight: 700 !important;
+}
+
+.mobile-tab-btn.active i {
+  transform: translateY(-2px) !important;
+}
+
+/* 4. MODAIS TIPO BOTTOM SHEET NATIVO IOS NO MOBILE */
+@media (max-width: 767px) {
+  .modal-overlay.active .modal-content,
+  body.force-mobile .modal-overlay.active .modal-content {
+    border-radius: 24px 24px 0 0 !important;
+    max-height: 90vh !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-top: auto !important;
+    margin-bottom: 0 !important;
+    padding-bottom: max(20px, env(safe-area-inset-bottom, 0px)) !important;
+    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.3) !important;
+    animation: iosSheetSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  }
+}
+
+@keyframes iosSheetSlideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+/* 5. FORÇAR MODO MOBILE (force-mobile) EM QUALQUER RESOLUÇÃO */
+body.force-mobile .mobile-tabs {
+  display: flex !important;
+}
+
+body.force-mobile .resizer,
+body.force-mobile #resizer-left,
+body.force-mobile #resizer-right {
+  display: none !important;
+}
+
+body.force-mobile .workspace {
+  flex-direction: column !important;
+  flex: 1 1 100% !important;
+  padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)) !important;
+  padding-top: 54px !important;
+  overflow: hidden !important;
+}
+
+body.force-mobile .workspace.active-tab-mesas .left-actions,
+body.force-mobile .workspace.active-tab-mesas .right-info,
+body.force-mobile .workspace.active-tab-mesas .products-container,
+body.force-mobile .workspace.active-tab-mesas #products-section-container,
+body.force-mobile .workspace.active-tab-mesas .middle-v-splitter {
+  display: none !important;
+}
+
+body.force-mobile .workspace.active-tab-mesas .main-workspace,
+body.force-mobile .workspace.active-tab-mesas #mesas-section-container,
+body.force-mobile .workspace.active-tab-mesas .mesas-container {
+  flex: 1 1 100% !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+}
+
+body.force-mobile .workspace.active-tab-mesas .mesas-scroll {
+  flex: 1 !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  padding: 8px 10px 20px !important;
+}
+
+body.force-mobile .workspace.active-tab-pedido .left-actions,
+body.force-mobile .workspace.active-tab-pedido .mesas-container,
+body.force-mobile .workspace.active-tab-pedido .middle-v-splitter,
+body.force-mobile .workspace.active-tab-pedido .right-info {
+  display: none !important;
+}
+
+body.force-mobile .workspace.active-tab-pedido .main-workspace,
+body.force-mobile .workspace.active-tab-pedido .products-container {
+  flex: 1 1 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+}
+
+body.force-mobile .workspace.active-tab-pedido .products-table-wrapper {
+  flex: 1 !important;
+  overflow-y: auto !important;
+  padding: 8px !important;
+}
+
+body.force-mobile .workspace.active-tab-acoes .main-workspace,
+body.force-mobile .workspace.active-tab-acoes .mesas-container,
+body.force-mobile .workspace.active-tab-acoes .products-container,
+body.force-mobile .workspace.active-tab-acoes .middle-v-splitter {
+  display: none !important;
+}
+
+body.force-mobile .workspace.active-tab-acoes .left-actions,
+body.force-mobile .workspace.active-tab-acoes .right-info {
+  flex: 1 1 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow-y: auto !important;
+}
+
+body.force-mobile .mobile-floating-actions {
+  display: flex !important;
+}
+
+/* 6. FORÇAR MODO DESKTOP (force-desktop) EM QUALQUER RESOLUÇÃO */
+body.force-desktop .mobile-tabs,
+body.force-desktop .mobile-floating-actions,
+body.force-desktop .mobile-mesa-info-card,
+body.force-desktop .mobile-acoes-summary {
+  display: none !important;
+}
+
+body.force-desktop .workspace {
+  flex-direction: row !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  flex: 1 !important;
+  overflow: hidden !important;
+}
+
+body.force-desktop .left-actions,
+body.force-desktop .main-workspace,
+body.force-desktop .right-info,
+body.force-desktop .mesas-container,
+body.force-desktop .products-container {
+  display: flex !important;
+}
+
+body.force-desktop .resizer,
+body.force-desktop #resizer-left,
+body.force-desktop #resizer-right {
+  display: flex !important;
+}
+
+/* 7. OTIMIZAÇÃO ESPECÍFICA PARA IPHONE SE (Telas pequenas: largura <= 380px) */
+@media screen and (max-width: 380px) {
+  .topbar {
+    padding-left: 6px !important;
+    padding-right: 6px !important;
+    gap: 4px !important;
+  }
+
+  .topbar .toolbar-btn {
+    width: 32px !important;
+    height: 32px !important;
+    font-size: 14px !important;
+  }
+
+  #modality-indicator-badge {
+    display: none !important;
+  }
+
+  .mesas-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+  }
+
+  .card-mesa {
+    min-height: 80px !important;
+    padding: 8px !important;
+    border-radius: 12px !important;
+  }
+
+  .card-mesa .mesa-numero {
+    font-size: 16px !important;
+  }
+
+  .card-mesa .mesa-valor {
+    font-size: 13px !important;
+  }
+
+  .mobile-tabs {
+    height: calc(52px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  .mobile-tab-btn span {
+    font-size: 10px !important;
+  }
+}
+
+/* 8. OTIMIZAÇÃO ESPECÍFICA PARA IPAD MINI 4 (768x1024 portrait / 1024x768 landscape) */
+@media screen and (min-width: 768px) and (max-width: 1024px) {
+  /* Em iPad Portrait (768px): Mesas fluidas em 3 colunas e alvos de toque generosos */
+  .mesas-grid {
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)) !important;
+    gap: 12px !important;
+  }
+
+  .card-mesa {
+    min-height: 100px !important;
+    border-radius: 16px !important;
+    padding: 12px !important;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.06) !important;
+  }
+
+  .action-btn, .toolbar-btn, .btn-primary, .btn-secondary {
+    min-height: 42px !important; /* Apple HIG 44px touch ergonomics */
+  }
+
+  .left-actions {
+    min-width: 200px !important;
+    max-width: 240px !important;
+  }
+
+  .right-info {
+    min-width: 280px !important;
+    max-width: 320px !important;
+  }
+}
+

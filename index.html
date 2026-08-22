@@ -5,7 +5,11 @@
 
 
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Chef Cozinha">
+  <link rel="apple-touch-icon" href="/icons/icon.ico">
   <link rel="icon" href="/icons/icon.ico">
   <link rel="manifest" href="/manifest.json">
 
@@ -633,6 +637,9 @@
         title="Configurações e RH"><i class="ph ph-gear"></i></button>
       <button class="toolbar-btn" id="btn-theme-toggle-top" onclick="if(window.ChefTheme) window.ChefTheme.toggle()" title="Alternar Tema (Claro / Escuro)">
         <i class="ph ph-sun" id="theme-toggle-icon"></i>
+      </button>
+      <button class="toolbar-btn btn-view-mode-toggle" id="btn-view-mode-toggle" onclick="if(window.ChefViewMode) window.ChefViewMode.toggle()" title="Alternar Visualização (Auto / Mobile / Desktop)">
+        <i class="ph ph-arrows-clockwise" id="view-mode-icon"></i>
       </button>
       <div id="modality-indicator-badge"
         style="margin-left:auto; display:flex; align-items:center; gap:6px; background:#fc4b1522; border:1px solid #fc4b1544; color:#fc4b15; padding:6px 12px; border-radius:100px; font-size:12px; font-weight:700; text-transform:uppercase; font-family:'Outfit',sans-serif; margin-right: 16px;">

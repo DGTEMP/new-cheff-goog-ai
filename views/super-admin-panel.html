@@ -861,45 +861,45 @@
               </div>
             </div>
           </div>
-        </div>
 
-        <!-- Balanceamento por Restaurante -->
-        <div class="card" style="margin-top: 1.5rem; padding: 1.5rem;">
-          <h4 style="margin-bottom: 0.5rem;"><i class="fa-solid fa-scale-balanced"></i> Balanceamento por Restaurante</h4>
-          <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem;">
-            Demanda ao vivo por restaurante, horário de pico informado no cadastro e modo individual.
-            O modo <strong>Evento</strong> reduz o peso das operações do restaurante durante picos declarados;
-            <strong>Fila</strong> coloca os pedidos em fila durável; <strong>Global</strong> segue a chave geral.
-          </p>
-          <div style="overflow-x: auto;">
-            <table class="table" style="width: 100%; font-size: 0.85rem;">
-              <thead>
-                <tr>
-                  <th>Restaurante</th>
-                  <th>Pedidos/min</th>
-                  <th>Pico cadastrado</th>
-                  <th>Eventos ativos</th>
-                  <th>Modo efetivo</th>
-                  <th>Ajuste fino</th>
-                </tr>
-              </thead>
-              <tbody id="lc-tenants-tbody">
-                <tr><td colspan="6" style="color: var(--text-muted);">Carregando...</td></tr>
-              </tbody>
-            </table>
-          </div>
-          <hr style="border-color: var(--border-color); opacity: 0.3; margin: 1rem 0;" />
-          <div style="display: flex; align-items: end; gap: 1rem; flex-wrap: wrap;">
-            <div>
-              <label style="display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.35rem;">Limiar de alta demanda por restaurante (pedidos/min)</label>
-              <input type="number" id="lc-spike-threshold" min="1" style="width: 110px;" />
+          <!-- Balanceamento por Restaurante -->
+          <div class="card" style="margin-top: 1.5rem; padding: 1.5rem;">
+            <h4 style="margin-bottom: 0.5rem;"><i class="fa-solid fa-scale-balanced"></i> Balanceamento por Restaurante</h4>
+            <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem;">
+              Demanda ao vivo por restaurante, horário de pico informado no cadastro e modo individual.
+              O modo <strong>Evento</strong> reduz o peso das operações do restaurante durante picos declarados;
+              <strong>Fila</strong> coloca os pedidos em fila durável; <strong>Global</strong> segue a chave geral.
+            </p>
+            <div style="overflow-x: auto;">
+              <table class="table" style="width: 100%; font-size: 0.85rem;">
+                <thead>
+                  <tr>
+                    <th>Restaurante</th>
+                    <th>Pedidos/min</th>
+                    <th>Pico cadastrado</th>
+                    <th>Eventos ativos</th>
+                    <th>Modo efetivo</th>
+                    <th>Ajuste fino</th>
+                  </tr>
+                </thead>
+                <tbody id="lc-tenants-tbody">
+                  <tr><td colspan="6" style="color: var(--text-muted);">Carregando...</td></tr>
+                </tbody>
+              </table>
             </div>
-            <div>
-              <label style="display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.35rem;">Cooldown da celebração (min)</label>
-              <input type="number" id="lc-spike-cooldown" min="0" style="width: 110px;" />
+            <hr style="border-color: var(--border-color); opacity: 0.3; margin: 1rem 0;" />
+            <div style="display: flex; align-items: end; gap: 1rem; flex-wrap: wrap;">
+              <div>
+                <label style="display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.35rem;">Limiar de alta demanda por restaurante (pedidos/min)</label>
+                <input type="number" id="lc-spike-threshold" min="1" style="width: 110px;" />
+              </div>
+              <div>
+                <label style="display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.35rem;">Cooldown da celebração (min)</label>
+                <input type="number" id="lc-spike-cooldown" min="0" style="width: 110px;" />
+              </div>
+              <button class="btn btn-sm btn-primary" id="btn-lc-spike-save"><i class="fa-solid fa-check"></i> Salvar limiar</button>
+              <small style="color: var(--text-muted);">Ao cruzar esse ritmo, o dono recebe o aviso "Uau, seu negócio está bombando!" e pode declarar um evento.</small>
             </div>
-            <button class="btn btn-sm btn-primary" id="btn-lc-spike-save"><i class="fa-solid fa-check"></i> Salvar limiar</button>
-            <small style="color: var(--text-muted);">Ao cruzar esse ritmo, o dono recebe o aviso "Uau, seu negócio está bombando!" e pode declarar um evento.</small>
           </div>
         </div>
 
@@ -2213,17 +2213,13 @@
             <div
               style="display:flex;gap:6px;margin-bottom:24px;background:rgba(0,0,0,0.2);padding:5px;border-radius:12px;flex-wrap:wrap;">
               <button class="sv-tab-btn active" data-sv-tab="sv-tab-conteudo"
-                onclick="renderSiteVendasTab('sv-tab-conteudo')"
-                style="flex:1;min-width:120px;padding:10px 16px;border-radius:8px;border:none;background:var(--primary);color:#fff;font-weight:600;font-size:13px;cursor:pointer;"><i
+                onclick="renderSiteVendasTab('sv-tab-conteudo')"><i
                   class="fa-solid fa-pen-to-square"></i> Conteúdos</button>
-              <button class="sv-tab-btn" data-sv-tab="sv-tab-planos" onclick="renderSiteVendasTab('sv-tab-planos')"
-                style="flex:1;min-width:120px;padding:10px 16px;border-radius:8px;border:none;background:transparent;color:var(--text-muted);font-weight:600;font-size:13px;cursor:pointer;"><i
+              <button class="sv-tab-btn" data-sv-tab="sv-tab-planos" onclick="renderSiteVendasTab('sv-tab-planos')"><i
                   class="fa-solid fa-tags"></i> Planos</button>
-              <button class="sv-tab-btn" data-sv-tab="sv-tab-gateways" onclick="renderSiteVendasTab('sv-tab-gateways')"
-                style="flex:1;min-width:120px;padding:10px 16px;border-radius:8px;border:none;background:transparent;color:var(--text-muted);font-weight:600;font-size:13px;cursor:pointer;"><i
+              <button class="sv-tab-btn" data-sv-tab="sv-tab-gateways" onclick="renderSiteVendasTab('sv-tab-gateways')"><i
                   class="fa-solid fa-credit-card"></i> Gateways</button>
               <button class="sv-tab-btn" data-sv-tab="sv-tab-consultor"
-                onclick="renderSiteVendasTab('sv-tab-consultor')"
                 style="flex:1;min-width:120px;padding:10px 16px;border-radius:8px;border:none;background:transparent;color:var(--text-muted);font-weight:600;font-size:13px;cursor:pointer;"><i
                   class="fa-brands fa-whatsapp"></i> Consultor</button>
             </div>

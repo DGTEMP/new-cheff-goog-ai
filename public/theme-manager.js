@@ -1,10 +1,14 @@
 /**
- * theme-manager.js — Gerenciador Universal de Temas & Tecla Coringa ESC (Chef Cozinha)
+ * theme-manager.js — Gerenciador Universal de Temas, View Mode (Desktop/Mobile) & Tecla Coringa ESC (Chef Cozinha)
  */
 (function () {
+  'use strict';
+
   var STORAGE_KEY = 'chef_theme';
   var CUSTOM_THEME_KEY = 'chef_custom_theme_config';
+  var VIEW_MODE_KEY = 'chef_view_mode'; // 'auto' | 'mobile' | 'desktop'
 
+  /* ═══ 1. MODO CLARO / ESCURO (TEMA) ═══ */
   function getSavedTheme() {
     try {
       var saved = localStorage.getItem(STORAGE_KEY);
@@ -50,9 +54,88 @@
     try { localStorage.setItem(STORAGE_KEY, validTheme); } catch (e) { }
     try { localStorage.setItem('chef_garcom_theme', validTheme); } catch (e) { }
     updateThemeUI(validTheme);
+    if (_lastCfg) applyCustomTheme(_lastCfg);
     window.dispatchEvent(new CustomEvent('chef_theme_changed', { detail: { theme: validTheme } }));
   }
 
+  /* ═══ 2. VIEW MODE SWITCHER (DESKTOP / MOBILE / AUTO) ═══ */
+  function getViewMode() {
+    try {
+      var m = localStorage.getItem(VIEW_MODE_KEY);
+      if (m === 'mobile' || m === 'desktop' || m === 'auto') return m;
+    } catch (e) { }
+    return 'auto';
+  }
+
+  function updateViewModeUI(mode) {
+    var btns = document.querySelectorAll('#btn-view-mode-toggle, .btn-view-mode-toggle');
+    btns.forEach(function (btn) {
+      var icon = btn.querySelector('#view-mode-icon') || btn.querySelector('i') || btn;
+      var text = btn.querySelector('.view-mode-text');
+      if (mode === 'mobile') {
+        if (icon) {
+          icon.className = icon.className.includes('fa-') ? 'fa-solid fa-mobile-screen-button' : 'ph-bold ph-device-mobile';
+          icon.style.color = 'var(--primary, #fc4b15)';
+        }
+        if (text) text.textContent = 'Mobile';
+        btn.setAttribute('title', 'Visualização: Mobile Forçado (Clique para mudar)');
+        btn.classList.add('active');
+      } else if (mode === 'desktop') {
+        if (icon) {
+          icon.className = icon.className.includes('fa-') ? 'fa-solid fa-desktop' : 'ph-bold ph-desktop';
+          icon.style.color = 'var(--primary, #fc4b15)';
+        }
+        if (text) text.textContent = 'Desktop';
+        btn.setAttribute('title', 'Visualização: Desktop Forçado (Clique para mudar)');
+        btn.classList.add('active');
+      } else {
+        if (icon) {
+          icon.className = icon.className.includes('fa-') ? 'fa-solid fa-arrows-rotate' : 'ph ph-arrows-clockwise';
+          icon.style.color = '';
+        }
+        if (text) text.textContent = 'Auto';
+        btn.setAttribute('title', 'Visualização: Automática / Responsiva (Clique para forçar Mobile)');
+        btn.classList.remove('active');
+      }
+    });
+  }
+
+  function applyViewMode(mode) {
+    var validMode = (mode === 'mobile' || mode === 'desktop') ? mode : 'auto';
+    var docEl = document.documentElement;
+    var body = document.body;
+
+    docEl.classList.remove('force-mobile', 'force-desktop');
+    if (body) body.classList.remove('force-mobile', 'force-desktop');
+
+    if (validMode === 'mobile') {
+      docEl.classList.add('force-mobile');
+      if (body) body.classList.add('force-mobile');
+      if (typeof window.switchMobileTab === 'function') {
+        setTimeout(function () { window.switchMobileTab('mesas'); }, 50);
+      }
+    } else if (validMode === 'desktop') {
+      docEl.classList.add('force-desktop');
+      if (body) body.classList.add('force-desktop');
+    }
+
+    try { localStorage.setItem(VIEW_MODE_KEY, validMode); } catch (e) { }
+    updateViewModeUI(validMode);
+    window.dispatchEvent(new CustomEvent('chef_view_mode_changed', { detail: { mode: validMode } }));
+  }
+
+  function toggleViewMode() {
+    var curr = getViewMode();
+    var next = (curr === 'auto') ? 'mobile' : (curr === 'mobile' ? 'desktop' : 'auto');
+    applyViewMode(next);
+    var label = (next === 'mobile') ? '📱 Modo Mobile Forçado' : (next === 'desktop' ? '🖥️ Modo Desktop Forçado' : '🔄 Modo Automático (Responsivo)');
+    if (typeof window.showToast === 'function') {
+      window.showToast(label, 'info');
+    }
+    return next;
+  }
+
+  /* ═══ 3. PERSONALIZAÇÃO GLOBAL DO SUPER ADMIN (CORES, FONTES, SIZES) ═══ */
   function isLightColor(hex) {
     try {
       var h = String(hex || '').replace('#', '');
@@ -67,7 +150,7 @@
   function applyCustomTheme(cfg) {
     if (!cfg || typeof cfg !== 'object') return;
     _lastCfg = cfg;
-    try { localStorage.setItem(CUSTOM_THEME_KEY, JSON.stringify(cfg)); } catch(e) {}
+    try { localStorage.setItem(CUSTOM_THEME_KEY, JSON.stringify(cfg)); } catch (e) { }
 
     var styleEl = document.getElementById('chef-custom-theme-vars');
     if (!styleEl) {
@@ -76,52 +159,67 @@
       document.head.appendChild(styleEl);
     }
 
-    /* Cores do tema custom aplicadas SOMENTE ao modo correspondente à luminância
-       do fundo escolhido: tema claro não é mais contaminado por cores escuras. */
-    var darkBase = !isLightColor(cfg.bgColor);
-    var css = darkBase ? '[data-theme="dark"] {\n' : '[data-theme="light"] {\n';
-    if (cfg.primary) css += '  --primary: ' + cfg.primary + ';\n';
-    if (cfg.primaryHover) css += '  --primary-hover: ' + cfg.primaryHover + ';\n';
-    if (cfg.bgHeader) css += '  --bg-header: ' + cfg.bgHeader + ';\n';
-    if (cfg.textHeader) css += '  --text-header: ' + cfg.textHeader + ';\n';
-    if (cfg.bgSidebar) css += '  --bg-sidebar: ' + cfg.bgSidebar + ';\n';
-    if (cfg.textSidebar) css += '  --text-sidebar: ' + cfg.textSidebar + ';\n';
-    if (cfg.bgColor) css += '  --bg-color: ' + cfg.bgColor + ';\n';
-    if (cfg.bgCard) css += '  --bg-card: ' + cfg.bgCard + ';\n';
-    if (cfg.textPrimary) css += '  --text-primary: ' + cfg.textPrimary + ';\n';
-    if (cfg.textSecondary) css += '  --text-secondary: ' + cfg.textSecondary + ';\n';
-    if (cfg.borderColor) css += '  --border-color: ' + cfg.borderColor + ';\n';
-    if (cfg.btnPrimaryBg) css += '  --btn-primary-bg: ' + cfg.btnPrimaryBg + ';\n';
-    if (cfg.btnPrimaryText) css += '  --btn-primary-text: ' + cfg.btnPrimaryText + ';\n';
-    if (cfg.fontBody) css += '  --font-family: "' + cfg.fontBody + '", sans-serif;\n';
-    if (cfg.fontHeading) css += '  --font-heading: "' + cfg.fontHeading + '", sans-serif;\n';
-    if (cfg.borderRadius) css += '  --radius-lg: ' + cfg.borderRadius + '; --radius-md: ' + cfg.borderRadius + ';\n';
-    css += '}\n';
+    var rules = [];
 
-    /* Tamanhos e posições valem para os DOIS temas */
-    var sizes = ':root {\n';
-    if (cfg.fontSizeScale) sizes += '  --fs-scale: ' + cfg.fontSizeScale + ';\n';
-    if (cfg.btnScale) sizes += '  --btn-scale: ' + cfg.btnScale + ';\n';
-    if (cfg.cardPadY) sizes += '  --card-pad-y: ' + cfg.cardPadY + ';\n';
-    if (cfg.cardPadX) sizes += '  --card-pad-x: ' + cfg.cardPadX + ';\n';
-    if (cfg.modalWidth) sizes += '  --modal-max-w: ' + cfg.modalWidth + ';\n';
-    if (cfg.modalPosition) sizes += '  --modal-align: ' + cfg.modalPosition + ';\n';
-    sizes += '}\n';
+    // 1. Variáveis globais no :root, body e html
+    var rootVars = [];
+    if (cfg.primary) {
+      rootVars.push('--primary: ' + cfg.primary + ' !important;');
+      rootVars.push('--primary-rgb: ' + hexToRgb(cfg.primary) + ' !important;');
+      rootVars.push('--btn-primary-bg: ' + (cfg.btnPrimaryBg || cfg.primary) + ' !important;');
+    }
+    if (cfg.primaryHover) {
+      rootVars.push('--primary-hover: ' + cfg.primaryHover + ' !important;');
+    }
+    if (cfg.btnPrimaryText) {
+      rootVars.push('--btn-primary-text: ' + cfg.btnPrimaryText + ' !important;');
+    }
+    if (cfg.fontBody) {
+      rootVars.push('--font-family: "' + cfg.fontBody + '", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif !important;');
+    }
+    if (cfg.fontHeading) {
+      rootVars.push('--font-heading: "' + cfg.fontHeading + '", -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif !important;');
+    }
+    if (cfg.borderRadius) {
+      rootVars.push('--radius-lg: ' + cfg.borderRadius + ' !important;');
+      rootVars.push('--radius-md: ' + cfg.borderRadius + ' !important;');
+      rootVars.push('--border-radius-base: ' + cfg.borderRadius + ' !important;');
+    }
+    if (cfg.fontSizeScale) rootVars.push('--fs-scale: ' + cfg.fontSizeScale + ';');
+    if (cfg.btnScale) rootVars.push('--btn-scale: ' + cfg.btnScale + ';');
+    if (cfg.cardPadY) rootVars.push('--card-pad-y: ' + cfg.cardPadY + ';');
+    if (cfg.cardPadX) rootVars.push('--card-pad-x: ' + cfg.cardPadX + ';');
+    if (cfg.modalWidth) rootVars.push('--modal-max-w: ' + cfg.modalWidth + ';');
+    if (cfg.modalPosition) rootVars.push('--modal-align: ' + cfg.modalPosition + ';');
 
-    /* Regras agressivas de tamanho só entram se houver valor não-padrão,
-       para o layout original nunca ser distorcido sem intenção. */
-    var tamanhosCustom = (cfg.fontSizeScale && cfg.fontSizeScale !== '1') ||
-      (cfg.btnScale && cfg.btnScale !== '1') ||
-      (cfg.cardPadY && cfg.cardPadY !== '10px') ||
-      (cfg.cardPadX && cfg.cardPadX !== '12px') ||
-      (cfg.modalWidth && cfg.modalWidth !== 'none');
-    try {
-      document.documentElement.setAttribute('data-chef-sizes', tamanhosCustom ? 'on' : 'off');
-      if (document.body) document.body.classList.toggle('chef-sizes-on', !!tamanhosCustom);
-    } catch (e) { }
+    if (rootVars.length) {
+      rules.push(':root, body, html {\n  ' + rootVars.join('\n  ') + '\n}');
+    }
 
-    styleEl.innerHTML = css + sizes;
+    // 2. Cores específicas de fundo / texto
+    var themeVars = [];
+    if (cfg.bgHeader) themeVars.push('--bg-header: ' + cfg.bgHeader + ';');
+    if (cfg.textHeader) themeVars.push('--text-header: ' + cfg.textHeader + ';');
+    if (cfg.bgSidebar) themeVars.push('--bg-sidebar: ' + cfg.bgSidebar + ';');
+    if (cfg.textSidebar) themeVars.push('--text-sidebar: ' + cfg.textSidebar + ';');
+    if (cfg.bgColor) themeVars.push('--bg-color: ' + cfg.bgColor + '; --bg-main: ' + cfg.bgColor + ';');
+    if (cfg.bgCard) themeVars.push('--bg-card: ' + cfg.bgCard + ';');
+    if (cfg.textPrimary) themeVars.push('--text-primary: ' + cfg.textPrimary + '; --text-main: ' + cfg.textPrimary + ';');
+    if (cfg.textSecondary) themeVars.push('--text-secondary: ' + cfg.textSecondary + '; --text-muted: ' + cfg.textSecondary + ';');
+    if (cfg.borderColor) themeVars.push('--border-color: ' + cfg.borderColor + ';');
 
+    if (themeVars.length) {
+      var isDarkBg = !isLightColor(cfg.bgColor);
+      if (isDarkBg) {
+        rules.push('[data-theme="dark"], body.theme-dark, body.dark-mode {\n  ' + themeVars.join('\n  ') + '\n}');
+      } else {
+        rules.push('[data-theme="light"], body.theme-light, :root:not([data-theme="dark"]) {\n  ' + themeVars.join('\n  ') + '\n}');
+      }
+    }
+
+    styleEl.innerHTML = rules.join('\n\n');
+
+    // Fontes do Google
     if (cfg.fontBody && !document.getElementById('font-body-' + cfg.fontBody)) {
       var fontLink = document.createElement('link');
       fontLink.id = 'font-body-' + cfg.fontBody;
@@ -137,16 +235,37 @@
       document.head.appendChild(fontLinkH);
     }
 
-    styleEl.innerHTML = css + sizes;
+    var tamanhosCustom = (cfg.fontSizeScale && cfg.fontSizeScale !== '1') ||
+      (cfg.btnScale && cfg.btnScale !== '1') ||
+      (cfg.cardPadY && cfg.cardPadY !== '10px') ||
+      (cfg.cardPadX && cfg.cardPadX !== '12px') ||
+      (cfg.modalWidth && cfg.modalWidth !== 'none');
+    try {
+      document.documentElement.setAttribute('data-chef-sizes', tamanhosCustom ? 'on' : 'off');
+      if (document.body) document.body.classList.toggle('chef-sizes-on', !!tamanhosCustom);
+    } catch (e) { }
+
     renderCoringa(cfg);
     window.dispatchEvent(new CustomEvent('chef_custom_theme_applied', { detail: cfg }));
   }
 
-  /* ═══ ÍCONE CORINGA: função e posição definidas pelo super admin ═══ */
+  function hexToRgb(hex) {
+    try {
+      var h = String(hex || '').replace('#', '');
+      if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+      var r = parseInt(h.substr(0, 2), 16) || 252;
+      var g = parseInt(h.substr(2, 2), 16) || 75;
+      var b = parseInt(h.substr(4, 2), 16) || 21;
+      return r + ', ' + g + ', ' + b;
+    } catch (e) { return '252, 75, 21'; }
+  }
+
+  /* ═══ 4. ÍCONE CORINGA ═══ */
   function executarAcaoCoringa(cfg) {
     var a = cfg.action || 'url';
     var t = cfg.target || '';
     if (a === 'tema') { window.ChefTheme.toggle(); return; }
+    if (a === 'view_mode') { window.ChefViewMode.toggle(); return; }
     if (a === 'recarregar') { location.reload(); return; }
     if (a === 'fila') {
       if (typeof window.abrirFilaEsperaModal === 'function') window.abrirFilaEsperaModal();
@@ -157,7 +276,6 @@
       try { (new Function(t))(); } catch (e) { console.error('[ChefTheme] Coringa JS:', e); }
       return;
     }
-    /* padrão: url / página interna */
     if (/^https?:\/\//i.test(t)) window.open(t, '_blank');
     else if (t) location.href = t;
   }
@@ -169,7 +287,7 @@
     if (!c || c.enabled === false || !c.icon) return;
 
     var pos = c.position || 'float-br';
-    if (pos.indexOf('topbar') === 0 && !document.querySelector('.top-menubar')) return;
+    if (pos.indexOf('topbar') === 0 && !document.querySelector('.top-menubar') && !document.querySelector('.topbar') && !document.querySelector('.toolbar')) return;
     if (pos.indexOf('float') === 0 && !document.body) return;
 
     var btn = document.createElement('button');
@@ -188,7 +306,7 @@
     });
 
     if (pos === 'topbar-left' || pos === 'topbar-right') {
-      var bar = document.querySelector('.top-menubar');
+      var bar = document.querySelector('.top-menubar') || document.querySelector('.toolbar') || document.querySelector('.topbar');
       if (!bar) return;
       if (pos === 'topbar-left') bar.insertBefore(btn, bar.firstChild);
       else bar.appendChild(btn);
@@ -201,7 +319,7 @@
     try {
       var cached = localStorage.getItem(CUSTOM_THEME_KEY);
       if (cached) applyCustomTheme(JSON.parse(cached));
-    } catch(e) {}
+    } catch (e) { }
 
     fetch('/api/public/theme')
       .then(function (res) { return res.json(); })
@@ -210,10 +328,10 @@
           applyCustomTheme(data.theme);
         }
       })
-      .catch(function () {});
+      .catch(function () { });
   }
 
-  /* ═══ TECLA CORINGA ESC (FECHAR QUALQUER MODAL / POPUP / OVERLAY) ═══ */
+  /* ═══ 5. TECLA CORINGA ESC (FECHAR QUALQUER MODAL / POPUP / OVERLAY) ═══ */
   function fecharTodosModaisEPopups() {
     var activeModals = document.querySelectorAll('.modal.active, .modal-overlay.active, .modal-backdrop.active, [class*="modal"].active, [class*="overlay"].active');
     for (var i = 0; i < activeModals.length; i++) {
@@ -258,30 +376,29 @@
 
   window.fecharTodosModaisEPopups = fecharTodosModaisEPopups;
 
-  document.addEventListener('keydown', function(evt) {
+  document.addEventListener('keydown', function (evt) {
     if (evt.key === 'Escape' || evt.keyCode === 27) {
       fecharTodosModaisEPopups();
     }
   });
 
-  document.addEventListener('DOMContentLoaded', function() {
+  /* ═══ 6. INICIALIZAÇÃO ═══ */
+  var initialTheme = getSavedTheme();
+  document.documentElement.setAttribute('data-theme', initialTheme);
+
+  var initialViewMode = getViewMode();
+  if (initialViewMode === 'mobile') document.documentElement.classList.add('force-mobile');
+  else if (initialViewMode === 'desktop') document.documentElement.classList.add('force-desktop');
+
+  document.addEventListener('DOMContentLoaded', function () {
     var saved = getSavedTheme();
     updateThemeUI(saved);
+    applyViewMode(getViewMode());
+
     if (_lastCfg) {
-      try {
-        var tOn = (_lastCfg.fontSizeScale && _lastCfg.fontSizeScale !== '1') ||
-          (_lastCfg.btnScale && _lastCfg.btnScale !== '1') ||
-          (_lastCfg.cardPadY && _lastCfg.cardPadY !== '10px') ||
-          (_lastCfg.cardPadX && _lastCfg.cardPadX !== '12px') ||
-          (_lastCfg.modalWidth && _lastCfg.modalWidth !== 'none');
-        document.body.classList.toggle('chef-sizes-on', !!tOn);
-      } catch (e) { }
       renderCoringa(_lastCfg);
     }
   });
-
-  var initialTheme = getSavedTheme();
-  document.documentElement.setAttribute('data-theme', initialTheme);
 
   window.ChefTheme = {
     get: getSavedTheme,
@@ -296,21 +413,25 @@
     reloadGlobal: fetchAndApplyGlobalTheme
   };
 
+  window.ChefViewMode = {
+    get: getViewMode,
+    set: applyViewMode,
+    toggle: toggleViewMode
+  };
+
   fetchAndApplyGlobalTheme();
 
-  // Propagacao em tempo real: super admin salva -> servidor emite tema_global_atualizado
+  // Propagação WebSocket em tempo real
   var temaSocketTries = 0;
   function bindTemaSocket() {
-    if (temaSocketTries++ > 20) return;
-    if (!window.socket && typeof io === 'function') {
-      try { window.socket = io(); } catch (e) { }
-    }
-    if (!window.socket) {
+    if (temaSocketTries++ > 30) return;
+    var sock = window.socket || (typeof io === 'function' ? io() : null);
+    if (!sock) {
       setTimeout(bindTemaSocket, 1500);
       return;
     }
     try {
-      window.socket.on('tema_global_atualizado', function (theme) {
+      sock.on('tema_global_atualizado', function (theme) {
         applyCustomTheme(theme);
       });
     } catch (e) { }
