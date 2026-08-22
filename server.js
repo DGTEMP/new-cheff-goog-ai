@@ -13237,7 +13237,8 @@ app.post('/api/super/deploy-commit', superAdminAuth, (req, res) => {
   const { exec: execCb } = require('child_process');
   const safeHash = String(hash).replace(/[^a-f0-9]/gi, '');
 
-  execCb(`git fetch origin && git checkout ${safeHash}`, (err, stdout, stderr) => {
+  // Stash local changes first to avoid "Your local changes would be overwritten" error
+  execCb(`git stash && git fetch origin && git checkout ${safeHash}`, (err, stdout, stderr) => {
     if (err) return res.json({ ok: false, erro: 'Erro ao alternar para o commit: ' + (stderr || err.message) });
 
     const reloadResult = [];
@@ -13275,4 +13276,161 @@ app.post('/api/super/deploy-commit', superAdminAuth, (req, res) => {
   });
 });
 
+
+// ══════════════════════════════════════════════════════════════════════
+// ── SUPER ADMIN: SUPABASE CONFIG ─────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════
+
+// GET — carrega configuração do Supabase
+app.get('/api/super/supabase-config', superAdminAuth, (req, res) => {
+  masterDb.all(`SELECT key, value FROM super_config WHERE key LIKE 'supabase_%'`, [], (err, rows) => {
+    const config = {};
+    (rows || []).forEach(r => { config[r.key] = r.value; });
+    res.json({
+      ok: true,
+      config: {
+        url: config.supabase_url || '',
+        anon_key: config.supabase_anon_key || '',
+        service_role_key: config.supabase_service_role_key || '',
+        enabled: config.supabase_enabled || 'false'
+      }
+    });
+  });
+});
+
+// POST — salva configuração do Supabase
+app.post('/api/super/supabase-config', superAdminAuth, (req, res) => {
+  const { url, anon_key, service_role_key, enabled } = req.body || {};
+  const campos = {
+    supabase_url: (url || '').trim(),
+    supabase_anon_key: (anon_key || '').trim(),
+    supabase_service_role_key: (service_role_key || '').trim(),
+    supabase_enabled: enabled ? 'true' : 'false'
+  };
+  masterDb.serialize(() => {
+    Object.keys(campos).forEach(k => {
+      masterDb.run(`INSERT OR REPLACE INTO super_config (key, value) VALUES (?, ?)`, [k, campos[k]]);
+    });
+  });
+  res.json({ ok: true, mensagem: 'Configuração do Supabase salva com sucesso!' });
+});
+
+// POST — testa conexão com Supabase
+app.post('/api/super/supabase-test', superAdminAuth, async (req, res) => {
+  const { url, anon_key } = req.body || {};
+  if (!url || !anon_key) return res.json({ ok: false, erro: 'URL e Anon Key são obrigatórios para testar.' });
+
+  try {
+    const testUrl = url.replace(/\/+$/, '') + '/rest/v1/';
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+
+    const response = await fetch(testUrl, {
+      method: 'GET',
+      headers: {
+        'apikey': anon_key,
+        'Authorization': 'Bearer ' + anon_key
+      },
+      signal: controller.signal
+    });
+    clearTimeout(timeout);
+
+    if (response.ok || response.status === 200) {
+      res.json({ ok: true, mensagem: 'Conexão com Supabase bem-sucedida!', status: response.status });
+    } else {
+      res.json({ ok: false, erro: `Supabase respondeu com status ${response.status}: ${response.statusText}` });
+    }
+  } catch (e) {
+    res.json({ ok: false, erro: 'Falha ao conectar: ' + (e.message || 'Timeout ou URL inválida') });
+  }
+});
+
+// ══════════════════════════════════════════════════════════════════════
+// ── SUPER ADMIN: MULTI-SERVER / BALANCEAMENTO DE CARGA ───────────────
+// ══════════════════════════════════════════════════════════════════════
+
+// GET — lista servidores configurados
+app.get('/api/super/servers', superAdminAuth, (req, res) => {
+  masterDb.get(`SELECT value FROM super_config WHERE key = 'multi_servers'`, [], (err, row) => {
+    let servers = [];
+    try { servers = JSON.parse((row || {}).value || '[]'); } catch(e) {}
+    masterDb.get(`SELECT value FROM super_config WHERE key = 'lb_strategy'`, [], (err2, row2) => {
+      const strategy = (row2 || {}).value || 'round_robin';
+      res.json({ ok: true, servers, strategy });
+    });
+  });
+});
+
+// POST — adiciona/atualiza servidor
+app.post('/api/super/servers', superAdminAuth, (req, res) => {
+  const { nome, url, porta, peso, id } = req.body || {};
+  if (!nome || !url) return res.json({ ok: false, erro: 'Nome e URL são obrigatórios.' });
+
+  masterDb.get(`SELECT value FROM super_config WHERE key = 'multi_servers'`, [], (err, row) => {
+    let servers = [];
+    try { servers = JSON.parse((row || {}).value || '[]'); } catch(e) {}
+
+    if (id) {
+      servers = servers.map(s => s.id === id ? { ...s, nome, url: url.replace(/\/+$/, ''), porta: porta || '', peso: parseInt(peso) || 1 } : s);
+    } else {
+      servers.push({
+        id: 'srv_' + Date.now(),
+        nome,
+        url: url.replace(/\/+$/, ''),
+        porta: porta || '',
+        peso: parseInt(peso) || 1,
+        criado_em: new Date().toISOString()
+      });
+    }
+
+    masterDb.run(`INSERT OR REPLACE INTO super_config (key, value) VALUES ('multi_servers', ?)`, [JSON.stringify(servers)], () => {
+      res.json({ ok: true, mensagem: id ? 'Servidor atualizado!' : 'Servidor adicionado!', servers });
+    });
+  });
+});
+
+// DELETE — remove servidor
+app.delete('/api/super/servers', superAdminAuth, (req, res) => {
+  const { id } = req.body || {};
+  if (!id) return res.json({ ok: false, erro: 'ID do servidor é obrigatório.' });
+
+  masterDb.get(`SELECT value FROM super_config WHERE key = 'multi_servers'`, [], (err, row) => {
+    let servers = [];
+    try { servers = JSON.parse((row || {}).value || '[]'); } catch(e) {}
+    servers = servers.filter(s => s.id !== id);
+    masterDb.run(`INSERT OR REPLACE INTO super_config (key, value) VALUES ('multi_servers', ?)`, [JSON.stringify(servers)], () => {
+      res.json({ ok: true, mensagem: 'Servidor removido!', servers });
+    });
+  });
+});
+
+// POST — salva estratégia de balanceamento
+app.post('/api/super/servers/strategy', superAdminAuth, (req, res) => {
+  const { strategy } = req.body || {};
+  if (!strategy) return res.json({ ok: false, erro: 'Estratégia é obrigatória.' });
+  masterDb.run(`INSERT OR REPLACE INTO super_config (key, value) VALUES ('lb_strategy', ?)`, [strategy], () => {
+    res.json({ ok: true, mensagem: 'Estratégia de balanceamento salva!' });
+  });
+});
+
+// POST — testa conectividade de um servidor
+app.post('/api/super/servers/test', superAdminAuth, async (req, res) => {
+  const { url, porta } = req.body || {};
+  if (!url) return res.json({ ok: false, erro: 'URL é obrigatória.' });
+
+  try {
+    const testUrl = porta ? `${url.replace(/\/+$/, '')}:${porta}/` : `${url.replace(/\/+$/, '')}/`;
+    const inicio = Date.now();
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+
+    const response = await fetch(testUrl, { method: 'GET', signal: controller.signal });
+    clearTimeout(timeout);
+    const latencia = Date.now() - inicio;
+
+    res.json({ ok: true, status: response.status, latencia: latencia + 'ms', mensagem: `Servidor respondeu em ${latencia}ms (HTTP ${response.status})` });
+  } catch (e) {
+    res.json({ ok: false, erro: 'Falha ao conectar: ' + (e.message || 'Timeout ou URL inválida') });
+  }
+});
 
