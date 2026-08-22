@@ -36,8 +36,15 @@
     if (document.body) {
       document.body.classList.remove('theme-dark', 'theme-light');
       document.body.classList.add('theme-' + validTheme);
-      /* Sincroniza com o sistema global dark-mode.css (fullscreen.js) para os dois nunca divergirem */
       document.body.classList.toggle('dark-mode', validTheme === 'dark');
+    }
+    if (validTheme === 'dark') {
+      if (!document.querySelector('link[href*="dark-mode.css"]')) {
+        var dmLink = document.createElement('link');
+        dmLink.rel = 'stylesheet';
+        dmLink.href = '/dark-mode.css';
+        document.head.appendChild(dmLink);
+      }
     }
     document.documentElement.classList.toggle('dark-mode', validTheme === 'dark');
     try { localStorage.setItem(STORAGE_KEY, validTheme); } catch (e) { }

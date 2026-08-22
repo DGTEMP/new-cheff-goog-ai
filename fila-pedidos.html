@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 
 <head>
@@ -13,6 +13,8 @@
   <link rel="stylesheet" href="/vendor/phosphor/src/regular/style.css">
   <link rel="stylesheet" href="/vendor/phosphor/src/bold/style.css">
   <link rel="stylesheet" href="/vendor/phosphor/src/fill/style.css">
+  <link rel="stylesheet" href="/dark-mode.css">
+  <script src="/theme-manager.js"></script>
   <script src="/vendor/morphdom/morphdom.min.js"></script>
   <script src="/locales.js"></script>
   <script src="/broadcast.js"></script>
@@ -34,7 +36,7 @@
     <!-- LEFT SIDEBAR (SECTORS - OCULTO NO MOBILE) -->
     <aside class="sidebar-sectors">
       <div style="width: 100%; display: flex; flex-direction: column;">
-        <button class="status-btn" onclick="toggleSidebarSectors()" title="Filtro de Fila" style="border: 1px solid #1a73e8 !important; background: #e8f0fe !important; width: 100%; padding: 12px 0; border-radius: 8px;">
+        <button class="status-btn" onclick="toggleSidebarSectors()" title="Filtro de Fila" style="width: 100%; padding: 12px 0; border-radius: 8px;">
           <i class="ph ph-funnel" style="color: #1a73e8; font-size: 24px;"></i>
           <span id="current-sector-label-sidebar" style="color: #1a73e8; font-weight: 700; margin-top: 4px;">Todos</span>
         </button>
@@ -48,8 +50,8 @@
         </div>
       </div>
 
-      <div style="margin-top: auto; padding-top: 16px; border-top: 1px solid #eef2f6; width: 100%;">
-        <a href="/index.html" style="margin-top: auto; padding: 16px; text-decoration: none; color: gray; display: flex; flex-direction: column; align-items: center; gap: 8px;">
+      <div style="margin-top: auto; padding-top: 16px; border-top: 1px solid var(--border-color, #eef2f6); width: 100%;">
+        <a href="/index.html" style="margin-top: auto; padding: 16px; text-decoration: none; color: var(--text-secondary, gray); display: flex; flex-direction: column; align-items: center; gap: 8px;">
           <i class="ph ph-house" style="font-size: 36px;"></i>
           <span>Caixa</span>
         </a>
@@ -61,7 +63,7 @@
     <main class="main-content">
 
       <!-- CONTENT BODY -->
-      <div class="content-body" style="background: white;">
+      <div class="content-body">
 
         <!-- QUEUE SECTION (CARDS / LIST) -->
         <div class="queue-section">

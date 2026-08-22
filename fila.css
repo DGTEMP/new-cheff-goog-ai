@@ -1799,3 +1799,188 @@
     font-size: 11px;
   }
 }
+
+
+/* ════════════════════════════════════════════════════════════════
+   MONITORES ULTRAWIDE / SUPER ULTRAWIDE
+   Tier UW1 ≥1921px | UW2 ≥2561px | UW3 ≥3841px
+   Fila da cozinha: mais densidade legível, sem linhas gigantes
+   ════════════════════════════════════════════════════════════════ */
+
+/* ─── Tier UW1: Ultrawide base (2560×1080 / 2560×1440) ─── */
+@media screen and (min-width: 1921px) {
+  :root {
+    --queue-font-scale: 1.15;
+    --col-width-quantidade: 150px;
+    --col-width-produto: 480px;
+    --col-width-local: 280px;
+    --col-width-pronto: 140px;
+  }
+
+  /* Modo lista: limita a linha de leitura e centraliza o bloco */
+  .queue-list:not(.modo-tv),
+  .queue-header {
+    max-width: 2000px;
+    width: calc(100% - 16px);
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .queue-item {
+    min-height: 56px;
+    max-height: 110px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+
+  /* Botões de ação com tamanho mínimo/máximo confortáveis */
+  .btn-pronto,
+  .btn-chamar {
+    width: 58px;
+    height: 42px;
+    max-height: 48px;
+  }
+
+  .btn-reverter {
+    width: 42px;
+    height: 42px;
+    max-height: 48px;
+  }
+
+  .action-btn,
+  .status-btn,
+  .sector-btn {
+    min-height: 40px;
+  }
+
+  /* Barras laterais fixas um pouco mais largas */
+  .app-container.sidebar-mode-fixa .sidebar-sectors {
+    width: 130px !important;
+  }
+
+  .app-container.sidebar-mode-fixa .right-panel-status {
+    width: 100px !important;
+  }
+
+  /* Modais de configuração ganham respiro */
+  .fila-settings-card {
+    width: 400px;
+  }
+
+  .modal-setor-card {
+    max-width: 500px;
+  }
+}
+
+/* ─── Tier UW2: Super ultrawide (3440×1440) ─── */
+@media screen and (min-width: 2561px) {
+  :root {
+    --queue-font-scale: 1.3;
+    --col-width-quantidade: 170px;
+    --col-width-produto: 560px;
+    --col-width-local: 320px;
+    --col-width-pronto: 160px;
+  }
+
+  .queue-list:not(.modo-tv),
+  .queue-header {
+    max-width: 2600px;
+  }
+
+  /* Modo TV: tiles maiores e mais legíveis à distância */
+  .queue-list.modo-tv {
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)) !important;
+    gap: 12px !important;
+    padding: 12px !important;
+  }
+
+  .queue-list.modo-tv .queue-item {
+    padding: 14px 16px !important;
+  }
+
+  .btn-pronto,
+  .btn-chamar {
+    width: 66px;
+    height: 46px;
+  }
+
+  .btn-reverter {
+    width: 46px;
+    height: 46px;
+  }
+
+  .app-container.sidebar-mode-fixa .sidebar-sectors {
+    width: 150px !important;
+  }
+
+  .app-container.sidebar-mode-fixa .right-panel-status {
+    width: 115px !important;
+  }
+
+  .fila-settings-card {
+    width: 460px;
+  }
+
+  .modal-setor-card {
+    max-width: 560px;
+  }
+}
+
+/* ─── Tier UW3: Super ultrawide duplo 4K (5120×1440 / 5120×2160) ─── */
+@media screen and (min-width: 3841px) {
+  :root {
+    --queue-font-scale: 1.5;
+    --col-width-quantidade: 190px;
+    --col-width-produto: 640px;
+    --col-width-local: 360px;
+    --col-width-pronto: 180px;
+  }
+
+  .queue-list:not(.modo-tv),
+  .queue-header {
+    max-width: 3200px;
+  }
+
+  .queue-item {
+    border-radius: 14px;
+    margin-bottom: 6px;
+  }
+
+  .queue-list.modo-tv {
+    grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)) !important;
+    gap: 16px !important;
+    padding: 16px !important;
+  }
+
+  .queue-list.modo-tv .queue-item {
+    padding: 18px 20px !important;
+    border-radius: 14px !important;
+  }
+
+  .btn-pronto,
+  .btn-chamar {
+    width: 76px;
+    height: 52px;
+  }
+
+  .btn-reverter {
+    width: 52px;
+    height: 52px;
+  }
+
+  .app-container.sidebar-mode-fixa .sidebar-sectors {
+    width: 180px !important;
+  }
+
+  .app-container.sidebar-mode-fixa .right-panel-status {
+    width: 135px !important;
+  }
+
+  .fila-settings-card {
+    width: 520px;
+  }
+
+  .modal-setor-card {
+    max-width: 620px;
+  }
+}

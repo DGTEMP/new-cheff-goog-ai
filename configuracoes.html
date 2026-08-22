@@ -217,13 +217,15 @@
 
     .main-workspace {
       flex: 1;
-      background: #fff;
+      background: var(--cfg-card-bg, #fff);
+      color: var(--cfg-text, #18181b);
       padding: 24px;
       display: flex;
       flex-direction: column;
       overflow: hidden;
       height: 100%;
       min-height: 0;
+      box-sizing: border-box;
     }
 
     .admin-tab-content {
@@ -233,6 +235,7 @@
       overflow: hidden;
       height: 100%;
       min-height: 0;
+      box-sizing: border-box;
     }
 
     .admin-tab-content.active {
@@ -243,6 +246,8 @@
       height: 100% !important;
       overflow-x: hidden !important;
       overflow-y: auto !important;
+      box-sizing: border-box !important;
+      scroll-behavior: smooth;
       animation: tabFadeIn 0.15s ease;
     }
 
@@ -264,10 +269,11 @@
       flex: 1;
       min-height: 0;
       overflow-y: auto;
-      border: 1px solid #eee;
+      border: 1px solid var(--cfg-border, #eee);
       border-radius: 8px;
       width: 100%;
-      background: #ffffff;
+      background: var(--cfg-card-bg, #ffffff);
+      scroll-behavior: smooth;
     }
 
     .tab-table-scroll table thead tr {
@@ -5080,55 +5086,37 @@ border-bottom: 1px solid #eef2f6;
     <script src="/fuzzy-search.js"></script>
     <script src="/vendor/sortablejs/Sortable.min.js"></script>
     <script type="module" src="configuracoes.js"></script>
-<script src="/fullscreen.js"></script>
-<script>
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/service-worker.js')
-    .then(function(reg) { console.log('PWA pronto:', reg.scope); })
-    .catch(function(err) { console.log('Erro SW:', err); });
-}
-</script>
-<script>
-/* Acordeão das categorias da sidebar: uma categoria aberta por vez */
-(function() {
-  function abrirSomente(grupo) {
-    document.querySelectorAll('.action-group').forEach(function(g) {
-      if (g !== grupo) g.classList.add('collapsed');
-    });
-    if (grupo) grupo.classList.remove('collapsed');
-  }
+    <script src="/fullscreen.js"></script>
+    <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/service-worker.js')
+        .then(function(reg) { console.log('PWA pronto:', reg.scope); })
+        .catch(function(err) { console.log('Erro SW:', err); });
+    }
+    </script>
+    <script>
+    /* Acordeão das categorias da sidebar: permite navegação fluida */
+    (function() {
+      document.querySelectorAll('.action-group .group-title').forEach(function(titulo) {
+        titulo.addEventListener('click', function() {
+          var grupo = titulo.closest('.action-group');
+          if (grupo) grupo.classList.toggle('collapsed');
+        });
+      });
 
-  document.querySelectorAll('.action-group .group-title').forEach(function(titulo) {
-    titulo.addEventListener('click', function() {
-      var grupo = titulo.closest('.action-group');
-      var estavaAberto = !grupo.classList.contains('collapsed');
-      abrirSomente(estavaAberto ? null : grupo);
-    });
-  });
+      document.addEventListener('click', function(e) {
+        var btn = e.target && e.target.closest ? e.target.closest('.admin-tab-btn') : null;
+        if (!btn) return;
+        var grupo = btn.closest('.action-group');
+        if (grupo) grupo.classList.remove('collapsed');
+      });
 
-  document.addEventListener('click', function(e) {
-    var btn = e.target.closest('.admin-tab-btn');
-    if (!btn) return;
-    var grupo = btn.closest('.action-group');
-    if (grupo) abrirSomente(grupo);
-  }, true);
-
-  var ativo = document.querySelector('.admin-tab-btn.active');
-  if (ativo && ativo.closest('.action-group')) {
-    abrirSomente(ativo.closest('.action-group'));
-  } else {
-    var primeiro = document.querySelector('.action-group');
-    if (primeiro) primeiro.classList.remove('collapsed');
-  }
-})();
-</script>
+      var ativo = document.querySelector('.admin-tab-btn.active');
+      if (ativo && ativo.closest('.action-group')) {
+        ativo.closest('.action-group').classList.remove('collapsed');
+      }
+    })();
+    </script>
 </body>
 
 </html>
-
-
-
-
-
-
-

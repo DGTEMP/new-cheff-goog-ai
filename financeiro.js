@@ -197,23 +197,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     tbody.innerHTML = stats.historico.map(h => {
-      let color = '#333';
+      let color = 'var(--fin-text, #e2e8f0)';
       let tipoTag = h.tipo;
       if (h.tipo === 'Entrada' || h.tipo === 'Suprimento') color = '#3ab55b';
       if (h.tipo === 'Sangria') color = '#eb5757';
       if (h.tipo === 'Desconto') {
         color = '#dc2626';
-        tipoTag = `<span style="background: #fef2f2; color: #dc2626; padding: 3px 8px; border-radius: 6px; font-size: 11.5px; font-weight: bold;"><i class="ph ph-percent"></i> Desconto</span>`;
+        tipoTag = `<span style="background: rgba(239,68,68,0.15); color: #f87171; padding: 3px 8px; border-radius: 6px; font-size: 11.5px; font-weight: bold;"><i class="ph ph-percent"></i> Desconto</span>`;
       }
       
       const dataFormatada = new Date(h.data).toLocaleString('pt-BR');
 
-      return `<tr style="border-bottom: 1px solid #eee;">
-        <td style="padding: 12px;">#${h.id}</td>
+      return `<tr style="border-bottom: 1px solid var(--fin-border, rgba(255,255,255,0.06));">
+        <td style="padding: 12px; color: var(--fin-text-muted, #94a3b8);">#${h.id}</td>
         <td style="padding: 12px; font-weight: bold; color: ${color};">${tipoTag}</td>
-        <td style="padding: 12px;">${h.descricao || '-'}</td>
-        <td style="padding: 12px;">${h.forma_pagamento || '-'}</td>
-        <td style="padding: 12px; color: gray;">${dataFormatada}</td>
+        <td style="padding: 12px; color: var(--fin-text, #f1f5f9);">${h.descricao || '-'}</td>
+        <td style="padding: 12px; color: var(--fin-text-muted, #94a3b8);">${h.forma_pagamento || '-'}</td>
+        <td style="padding: 12px; color: var(--fin-text-muted, #94a3b8);">${dataFormatada}</td>
         <td style="padding: 12px; color: ${color}; font-weight: bold;">R$ ${h.valor.toFixed(2).replace('.', ',')}</td>
       </tr>`;
     }).join('');

@@ -555,6 +555,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     content.classList.add('active');
     content.style.display = 'flex';
+    content.scrollTop = 0;
 
     // Auto-scroll sidebar button into view (mobile horizontal scroll)
     btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
@@ -570,22 +571,35 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Lazy-load specific tab data on demand
-    if (tabId === 'dispositivos') window.carregarGerenciadorDispositivos();
-    if (tabId === 'metricas') window.carregarMetricasGarcons();
-    if (tabId === 'formas-pagamento' && window.carregarFormasPagamento) window.carregarFormasPagamento();
-    if (tabId === 'pins') socket.emit('listar_pins_temporarios');
+    if (tabId === 'perfil' && socket && typeof socket.emit === 'function') socket.emit('get_restaurante_config');
+    if (tabId === 'dispositivos' && typeof window.carregarGerenciadorDispositivos === 'function') window.carregarGerenciadorDispositivos();
+    if (tabId === 'metricas' && typeof window.carregarMetricasGarcons === 'function') window.carregarMetricasGarcons();
+    if (tabId === 'formas-pagamento' && typeof window.carregarFormasPagamento === 'function') window.carregarFormasPagamento();
+    if (tabId === 'pins' && socket && typeof socket.emit === 'function') socket.emit('listar_pins_temporarios');
     if (tabId === 'promocoes') {
-      socket.emit('get_cupons_list');
+      if (socket && typeof socket.emit === 'function') socket.emit('get_cupons_list');
       if (typeof initDiasGrid === 'function' && !_diasGridInit) { _diasGridInit = true; initDiasGrid(); }
     }
     if (tabId === 'fidelidade') {
       setTimeout(() => { if (window.gerarQrCheckin) window.gerarQrCheckin(true); }, 300);
     }
+    if (tabId === 'rh') {
+      if (typeof emitGetRhData === 'function') emitGetRhData();
+      if (socket && typeof socket.emit === 'function') socket.emit('get_relatorio_caixa');
+    }
+    if (tabId === 'gerenciar-notas' && typeof window.carregarTodasNotasNfce === 'function') {
+      window.carregarTodasNotasNfce(1);
+    }
+    if (tabId === 'jogos' && typeof initAdminJogos === 'function') initAdminJogos();
+    if (tabId === 'montaveis' && typeof initAdminMontaveis === 'function') initAdminMontaveis();
+    if (tabId === 'inteligencia' && socket && typeof socket.emit === 'function') socket.emit('ia_get_config');
 
     // Update title
     const elTitulo = document.getElementById('titulo-aba');
     if (elTitulo) elTitulo.innerText = btn.innerText.trim();
   }
+
+  window.activateTab = activateTab;
 
   /* Navegação por DELEGAÇÃO no documento: mesmo que qualquer outra
      inicialização desta página falhe, clicar numa seção SEMPRE troca a aba. */
@@ -6279,9 +6293,12 @@ socket.on('restaurante_config_salvo', () => {
 })();
 
 // Load perfil data when tab is clicked
-document.querySelector('.admin-tab-btn[data-tab="perfil"]').addEventListener('click', () => {
-  socket.emit('get_restaurante_config');
-});
+const btnPerfilAdmin = document.querySelector('.admin-tab-btn[data-tab="perfil"]');
+if (btnPerfilAdmin) {
+  btnPerfilAdmin.addEventListener('click', () => {
+    if (socket && typeof socket.emit === 'function') socket.emit('get_restaurante_config');
+  });
+}
 
 // ── PINs TEMPORARIOS ──
 (function() {

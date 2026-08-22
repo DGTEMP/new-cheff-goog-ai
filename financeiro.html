@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="/vendor/phosphor/src/regular/style.css">
   <link rel="stylesheet" href="/vendor/phosphor/src/bold/style.css">
   <link rel="stylesheet" href="/vendor/phosphor/src/fill/style.css">
+  <link rel="stylesheet" href="/dark-mode.css">
   <script src="/theme-manager.js"></script>
   <style>
     :root, [data-theme="light"] {
@@ -48,12 +49,12 @@
       height: 100vh;
       height: 100dvh;
       overflow: hidden;
-      background: #f8fafc;
+      background: var(--fin-bg);
     }
     aside.sidebar {
       width: 250px;
-      background: #ffffff;
-      border-right: 1px solid #e2e8f0;
+      background: var(--fin-card);
+      border-right: 1px solid var(--fin-border);
       display: flex;
       flex-direction: column;
       padding: 20px 16px;

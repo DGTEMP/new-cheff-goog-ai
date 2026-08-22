@@ -5112,6 +5112,7 @@ window.checkoutModalToggleTouchMode = (forcedState) => {
   const btn = document.getElementById('checkout-modal-toggle-touch-btn');
   const standardContainer = document.getElementById('checkout-modal-standard-container');
   const touchContainer = document.getElementById('checkout-modal-touch-container');
+  const isDark = document.body.classList.contains('dark-mode') || document.documentElement.getAttribute('data-theme') === 'dark';
 
   if (btn) {
     if (window.checkoutModalTouchModeActive) {
@@ -5177,6 +5178,7 @@ window.checkoutModalUpdateTouchVisor = () => {
 };
 
 window.checkoutModalSelectTouchMethod = (metodo) => {
+  window.checkoutModalSelectedMethod = metodo;
   const selectMetodo = document.getElementById('checkout-modal-metodo');
   if (selectMetodo) {
     selectMetodo.value = metodo;
@@ -7581,24 +7583,17 @@ socket.on('aviso_dono', function(data) {
   avisoEl._timeout = setTimeout(function() { avisoEl.style.opacity = '0'; }, 8000);
 });
 
-
-
-// Registrar sessão do dispositivo com usuário logado
-if (typeof socket !== 'undefined' && socket.emit) {
-  const currentLoggedUser = localStorage.getItem('logged_user') || localStorage.getItem('usuarioLogado') || 'Operador Caixa';
-  socket.emit('registrar_sessao', { nome: currentLoggedUser, cargo: 'Caixa / PDV' });
+// --- IA CAIXA: Alertas Inteligentes, Manobras & Zoom de Cards ---
+function removerAlertaIA(btnOuEl) {
+  const card = btnOuEl.closest ? btnOuEl.closest('.ia-card, [data-pedido-id]') : btnOuEl;
+  if (card && card.remove) {
+    card.remove();
+  }
+  if (typeof window.atualizarEstadoPainelIA === 'function') {
+    window.atualizarEstadoPainelIA();
+  }
 }
 
-if (typeof socket !== 'undefined') { socket.on('connect', () => window.enviarRegistroSessaoDetalhado()); window.enviarRegistroSessaoDetalhado(); }
-
-// Registrar auditoria de navegação no main.js
-if (typeof socket !== 'undefined' && socket.on) {
-  socket.on('connect', () => {
-    socket.emit('registrar_acesso_pagina', { pagina: window.location.pathname, titulo: document.title, autorizado: true });
-  });
-}
-
-// --- IA CAIXA: Alertas de espera longa ---
 if (typeof socket !== 'undefined' && socket.on) {
   socket.on('ia_alerta_caixa', (data) => {
     const { nivel, mesa, produto, minutos, mensagem, sugestoes, pedidoId } = data;
@@ -7618,23 +7613,27 @@ if (typeof socket !== 'undefined' && socket.on) {
 
     // Painel de alertas persistente no PDV
     const painel = document.getElementById('ia-alertas-panel') || criarPainelAlertasIA();
-    const existing = painel.querySelector(`[data-pedido-id="${pedidoId}"]`);
+    const body = document.getElementById('ia-alertas-body') || painel;
+    const existing = body.querySelector(`[data-pedido-id="${pedidoId}"]`);
     if (existing) existing.remove();
 
     const alerta = document.createElement('div');
+    alerta.className = 'ia-card';
     alerta.setAttribute('data-pedido-id', pedidoId);
-    alerta.style.cssText = `background:#0f172a;border:1px solid #334155;border-left:4px solid ${bgColor};padding:12px;border-radius:8px;margin-bottom:8px;position:relative;`;
+    alerta.style.borderLeft = `4px solid ${bgColor}`;
     alerta.innerHTML = `
-      <div style="font-weight:800;font-size:13px;color:#f8fafc;margin-bottom:4px;display:flex;align-items:center;gap:4px;"><span style="color:${bgColor}">${icon}</span> Mesa ${escHtml(mesa)} - <span style="color:${bgColor}">${nivel.toUpperCase()}</span></div>
-      <div style="font-size:12px;color:#e2e8f0;margin-bottom:6px;line-height:1.4;">${escHtml(mensagem)}</div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;">
-        ${sugestoes.map(s => `<button onclick="window.socket.emit('ia_resposta_sugestao',{tipo:'${nivel === 'critico' ? 'espera_critica' : 'espera_alerta'}',mesa:${escJs(mesa)},pedidoId:${pedidoId},resposta:${escJs(s.toLowerCase().replace(/\s+/g, '_'))}});this.closest('div[style]').remove();" style="padding:6px 10px;background:#1e293b;color:#f8fafc;border:1px solid ${bgColor};border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">${escHtml(s)}</button>`).join('')}
+      <div class="ia-card-title"><span style="color:${bgColor};display:flex;align-items:center;">${icon}</span> Mesa ${escHtml(mesa)} - <span style="color:${bgColor}">${nivel.toUpperCase()}</span></div>
+      <div class="ia-card-desc">${escHtml(mensagem)}</div>
+      <div class="ia-card-actions">
+        ${(sugestoes || []).map(s => `<button class="ia-card-btn" onclick="window.socket.emit('ia_resposta_sugestao',{tipo:'${nivel === 'critico' ? 'espera_critica' : 'espera_alerta'}',mesa:${escJs(mesa)},pedidoId:${pedidoId},resposta:${escJs(s.toLowerCase().replace(/\s+/g, '_'))}});removerAlertaIA(this);" style="background:#1e293b;color:#f8fafc;border-color:${bgColor};"><i class="ph ph-check"></i> ${escHtml(s)}</button>`).join('')}
       </div>
-      <button onclick="this.closest('div[style]').remove()" style="position:absolute;top:8px;right:8px;background:none;border:none;color:#94a3b8;cursor:pointer;font-size:16px;"><i class="ph ph-x"></i></button>`;
-    painel.appendChild(alerta);
+      <button class="ia-card-close" onclick="removerAlertaIA(this)" title="Dispensar alerta"><i class="ph ph-x"></i></button>`;
+    
+    body.appendChild(alerta);
+    if (typeof window.atualizarEstadoPainelIA === 'function') window.atualizarEstadoPainelIA();
 
     // Auto-remover após 5 minutos
-    setTimeout(() => { if (alerta.parentElement) alerta.remove(); }, 300000);
+    setTimeout(() => { if (alerta.parentElement) removerAlertaIA(alerta); }, 300000);
   });
 
   socket.on('ia_pedido_especial', (data) => {
@@ -7669,35 +7668,41 @@ if (typeof socket !== 'undefined' && socket.on) {
     }
 
     const painel = document.getElementById('ia-alertas-panel') || criarPainelAlertasIA();
-    const existing = painel.querySelector(`[data-pedido-id="${pedidoId}"]`);
+    const body = document.getElementById('ia-alertas-body') || painel;
+    const existing = body.querySelector(`[data-pedido-id="${pedidoId}"]`);
     if (existing) existing.remove();
 
     const alerta = document.createElement('div');
+    alerta.className = 'ia-card';
     alerta.setAttribute('data-pedido-id', pedidoId);
-    alerta.style.cssText = `background:#0f172a;border:1px solid #334155;border-left:4px solid ${bgColor};padding:12px;border-radius:8px;margin-bottom:8px;position:relative;`;
+    alerta.style.borderLeft = `4px solid ${bgColor}`;
     alerta.innerHTML = `
-      <div style="font-weight:800;font-size:13px;color:#f8fafc;margin-bottom:4px;display:flex;align-items:center;gap:4px;"><i class="ph ph-fire" style="color:${bgColor}"></i> MANOBRA - Mesa ${escHtml(mesa)}</div>
-      <div style="font-size:12px;color:#e2e8f0;margin-bottom:4px;line-height:1.4;">${escHtml(mensagem)}</div>
-      ${temParcial ? `<div style="font-size:11px;color:#cbd5e1;margin-bottom:6px;">Itens prontos: ${escHtml(itensProntos)} | Pendentes: ${escHtml(itensPendentes)}</div>` : ''}
-      <div style="font-size:11px;color:${bgColor};font-weight:700;margin-bottom:8px;">Setor: ${escHtml(setor)}</div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;">
-        <button onclick="window.socket.emit('ia_manobra_confirmar',{pedidoId:${pedidoId},mesa:${escJs(mesa)},produto:${escJs(produto)},minutos:${minutos},acao:'solicitar_entrada'});this.closest('div[style]').innerHTML='<div style=\\'padding:8px;color:#34d399;font-weight:600;font-size:12px;display:flex;align-items:center;gap:4px;\\'><i class=\\'ph ph-check-circle\\'></i> Entrada solicitada ao garçom!</div>';" style="padding:6px 10px;background:#ea580c;color:white;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:4px;"><i class="ph ph-bowl-food"></i> Solicitar entrada ao garçom</button>
-        <button onclick="window.socket.emit('ia_manobra_confirmar',{pedidoId:${pedidoId},mesa:${escJs(mesa)},produto:${escJs(produto)},minutos:${minutos},acao:'informar_cliente'});this.closest('div[style]').innerHTML='<div style=\\'padding:8px;color:#60a5fa;font-weight:600;font-size:12px;display:flex;align-items:center;gap:4px;\\'><i class=\\'ph ph-info\\'></i> Cliente informado sobre o atraso.</div>';" style="padding:6px 10px;background:#1e293b;color:#60a5fa;border:1px solid #3b82f6;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:4px;"><i class="ph ph-info"></i> Informar cliente</button>
+      <div class="ia-card-title"><i class="ph ph-fire" style="color:${bgColor}"></i> MANOBRA - Mesa ${escHtml(mesa)}</div>
+      <div class="ia-card-desc">${escHtml(mensagem)}</div>
+      ${temParcial ? `<div class="ia-card-info">Itens prontos: ${escHtml(itensProntos)} | Pendentes: ${escHtml(itensPendentes)}</div>` : ''}
+      <div class="ia-card-info" style="color:${bgColor};font-weight:700;">Setor: ${escHtml(setor || 'Cozinha')}</div>
+      <div class="ia-card-actions">
+        <button class="ia-card-btn" onclick="window.socket.emit('ia_manobra_confirmar',{pedidoId:${pedidoId},mesa:${escJs(mesa)},produto:${escJs(produto)},minutos:${minutos},acao:'solicitar_entrada'});this.closest('.ia-card').innerHTML='<div style=\'padding:8px;color:#34d399;font-weight:600;font-size:calc(12px * var(--ia-scale, 1));display:flex;align-items:center;gap:4px;\'><i class=\'ph ph-check-circle\'></i> Entrada solicitada ao garçom!</div>';setTimeout(()=>removerAlertaIA(this),2000);" style="background:#ea580c;color:white;"><i class="ph ph-bowl-food"></i> Solicitar entrada ao garçom</button>
+        <button class="ia-card-btn" onclick="window.socket.emit('ia_manobra_confirmar',{pedidoId:${pedidoId},mesa:${escJs(mesa)},produto:${escJs(produto)},minutos:${minutos},acao:'informar_cliente'});this.closest('.ia-card').innerHTML='<div style=\'padding:8px;color:#60a5fa;font-weight:600;font-size:calc(12px * var(--ia-scale, 1));display:flex;align-items:center;gap:4px;\'><i class=\'ph ph-info\'></i> Cliente informado sobre o atraso.</div>';setTimeout(()=>removerAlertaIA(this),2000);" style="background:#1e293b;color:#60a5fa;border-color:#3b82f6;"><i class="ph ph-info"></i> Informar cliente</button>
       </div>
-      <button onclick="this.closest('div[style]').remove()" style="position:absolute;top:8px;right:8px;background:none;border:none;color:#94a3b8;cursor:pointer;font-size:16px;"><i class="ph ph-x"></i></button>`;
-    painel.appendChild(alerta);
+      <button class="ia-card-close" onclick="removerAlertaIA(this)" title="Dispensar manobra"><i class="ph ph-x"></i></button>`;
+    
+    body.appendChild(alerta);
+    if (typeof window.atualizarEstadoPainelIA === 'function') window.atualizarEstadoPainelIA();
 
-    setTimeout(() => { if (alerta.parentElement) alerta.remove(); }, 300000);
+    setTimeout(() => { if (alerta.parentElement) removerAlertaIA(alerta); }, 300000);
   });
-
 
   // --- IA: Remover alerta quando pedido eh resolvido ---
   socket.on('ia_pedido_resolvido', (data) => {
     const { pedidoId, status } = data;
-    const painel = document.getElementById('ia-alertas-panel');
-    if (painel) {
-      const existing = painel.querySelector('[data-pedido-id="' + pedidoId + '"]');
-      if (existing) existing.remove();
+    const body = document.getElementById('ia-alertas-body') || document.getElementById('ia-alertas-panel');
+    if (body) {
+      const existing = body.querySelector('[data-pedido-id="' + pedidoId + '"]');
+      if (existing) {
+        existing.remove();
+        if (typeof window.atualizarEstadoPainelIA === 'function') window.atualizarEstadoPainelIA();
+      }
     }
   });
 
@@ -7716,24 +7721,75 @@ if (typeof socket !== 'undefined' && socket.on) {
 }
 
 function criarPainelAlertasIA() {
-  const panel = document.createElement('div');
+  let panel = document.getElementById('ia-alertas-panel');
+  if (panel) return panel;
+
+  panel = document.createElement('div');
   panel.id = 'ia-alertas-panel';
-  panel.style.cssText = 'position:fixed;bottom:80px;right:16px;width:340px;max-height:400px;overflow-y:auto;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,0.4);z-index:9000;padding:12px;display:flex;flex-direction:column;gap:4px;background: var(--bg-card);';
-  panel.innerHTML = '<div style="font-weight:700;font-size:13px;padding:4px 0 8px;display:flex;align-items:center;gap:6px;"><i class="ph ph-robot"></i> Alertas Inteligentes</div>';
+
+  // Escala inicial de fontes e botões
+  let iaScale = parseFloat(localStorage.getItem('ia_alertas_scale')) || 1.0;
+  panel.style.setProperty('--ia-scale', iaScale);
+
+  panel.innerHTML = `
+    <div class="ia-alertas-header" id="ia-alertas-header">
+      <div class="ia-header-left">
+        <i class="ph ph-robot ia-robot-icon"></i>
+        <span>Alertas Inteligentes</span>
+        <span id="ia-alertas-header-badge" class="ia-count-badge">0</span>
+      </div>
+      <div class="ia-header-actions">
+        <button id="ia-btn-font-down" class="ia-tool-btn" title="Diminuir letras e botões (a-)">
+          <i class="ph ph-text-aa"></i><span style="font-size:9px;margin-left:-2px;font-weight:900;">-</span>
+        </button>
+        <button id="ia-btn-font-up" class="ia-tool-btn" title="Aumentar letras e botões (A+)">
+          <i class="ph ph-text-aa"></i><span style="font-size:9px;margin-left:-2px;font-weight:900;">+</span>
+        </button>
+        <button id="ia-btn-minimize" class="ia-tool-btn" title="Minimizar para botão flutuante">
+          <i class="ph ph-caret-down"></i>
+        </button>
+        <button id="ia-btn-close" class="ia-tool-btn" title="Fechar">
+          <i class="ph ph-x"></i>
+        </button>
+      </div>
+    </div>
+    <div id="ia-alertas-body" class="ia-alertas-body">
+      <div id="ia-alertas-empty" class="ia-alertas-empty">
+        <div class="ia-empty-icon-wrap">
+          <i class="ph ph-check-circle"></i>
+        </div>
+        <div class="ia-empty-title">Tudo sob controle!</div>
+        <div class="ia-empty-desc">Nenhum alerta ou atraso pendente no momento.</div>
+      </div>
+    </div>
+  `;
+
   document.body.appendChild(panel);
 
+  // Restaurar dimensões salvas
   try {
     const w = localStorage.getItem('ia_alerta_w'), h = localStorage.getItem('ia_alerta_h');
     if (w) { panel.style.width = w + 'px'; panel.style.maxWidth = 'none'; }
     if (h) { panel.style.height = h + 'px'; panel.style.maxHeight = 'none'; }
   } catch (e) { }
 
-  /* ── Alça de redimensionamento (canto inferior esquerdo) ── */
+  /* ── Botões de Zoom de Letras e Botões ── */
+  function aplicarEscala(nova) {
+    iaScale = Math.min(1.8, Math.max(0.75, Math.round(nova * 100) / 100));
+    panel.style.setProperty('--ia-scale', iaScale);
+    try { localStorage.setItem('ia_alertas_scale', iaScale); } catch (e) {}
+  }
+
+  const btnDown = panel.querySelector('#ia-btn-font-down');
+  const btnUp = panel.querySelector('#ia-btn-font-up');
+  if (btnDown) btnDown.onclick = (e) => { e.stopPropagation(); aplicarEscala(iaScale - 0.1); };
+  if (btnUp) btnUp.onclick = (e) => { e.stopPropagation(); aplicarEscala(iaScale + 0.1); };
+
+  /* ── Alça de redimensionamento ── */
   const handle = document.createElement('div');
   handle.title = 'Arraste para ajustar o tamanho';
   handle.style.cssText = 'position:absolute;left:0;bottom:0;width:18px;height:18px;cursor:nwse-resize;z-index:2;';
   handle.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16"><path d="M14 14L6 6M14 9l-5 5M9 14l5-5" stroke="#94a3b8" stroke-width="1.8" stroke-linecap="round"/></svg>';
-  panel.style.position = 'fixed';
   panel.appendChild(handle);
 
   let resizing = false;
@@ -7765,62 +7821,92 @@ function criarPainelAlertasIA() {
   document.addEventListener('mouseup', pararResize);
   document.addEventListener('touchend', pararResize);
 
-  /* ── Colapso automático em ícone após período sem atividade ── */
-  const TEMPO_COLAPSO_MS = 15000;
-  let timerColapso = null;
+  /* ── Ícone Flutuante / Botão de Acesso Rápido ── */
+  let icone = document.getElementById('ia-alertas-icon');
+  if (!icone) {
+    icone = document.createElement('button');
+    icone.id = 'ia-alertas-icon';
+    icone.title = 'Alertas Inteligentes';
+    icone.style.cssText = 'display:none;position:fixed;bottom:80px;right:16px;width:46px;height:46px;border-radius:50%;border:none;background:#1e293b;color:#fbbf24;font-size:22px;cursor:pointer;z-index:9000;box-shadow:0 4px 16px rgba(0,0,0,0.35);align-items:center;justify-content:center;';
+    icone.innerHTML = '<i class="ph ph-robot"></i><span id="ia-alertas-badge" style="display:none;position:absolute;top:-4px;right:-4px;min-width:18px;height:18px;border-radius:9px;background:#ef4444;color:#fff;font-size:10px;font-weight:800;line-height:18px;text-align:center;">0</span>';
+    document.body.appendChild(icone);
+  }
 
-  const icone = document.createElement('button');
-  icone.id = 'ia-alertas-icon';
-  icone.title = 'Alertas Inteligentes';
-  icone.style.cssText = 'display:none;position:fixed;bottom:80px;right:16px;width:46px;height:46px;border-radius:50%;border:none;background:#1e293b;color:#fbbf24;font-size:22px;cursor:pointer;z-index:9000;box-shadow:0 4px 16px rgba(0,0,0,0.35);align-items:center;justify-content:center;';
-  icone.innerHTML = '<i class="ph ph-robot"></i><span id="ia-alertas-badge" style="display:none;position:absolute;top:-4px;right:-4px;min-width:18px;height:18px;border-radius:9px;background:#ef4444;color:#fff;font-size:10px;font-weight:800;line-height:18px;text-align:center;">0</span>';
-  icone.addEventListener('click', () => {
-    painelIA.colapsado = false;
+  function abrirPainel() {
     icone.style.display = 'none';
     panel.style.display = 'flex';
-    agendarColapso();
-  });
-  document.body.appendChild(icone);
+    try { localStorage.setItem('ia_alerta_minimized', 'false'); } catch (e) {}
+    atualizarEstado();
+  }
 
-  function colapsar() {
-    if (painelIA.colapsado || !panel.querySelector('[data-pedido-id]')) return;
-    painelIA.colapsado = true;
+  function minimizarPainel() {
     panel.style.display = 'none';
-    atualizarBadge();
     icone.style.display = 'flex';
-  }
-  function agendarColapso() {
-    clearTimeout(timerColapso);
-    timerColapso = setTimeout(colapsar, TEMPO_COLAPSO_MS);
-  }
-  function atualizarBadge() {
-    const n = panel.querySelectorAll('[data-pedido-id]').length;
-    const b = document.getElementById('ia-alertas-badge');
-    if (!b) return;
-    b.textContent = String(n);
-    b.style.display = n > 0 ? 'block' : 'none';
-    if (n === 0 && painelIA.colapsado) { icone.style.display = 'none'; }
+    try { localStorage.setItem('ia_alerta_minimized', 'true'); } catch (e) {}
+    atualizarEstado();
   }
 
-  const painelIA = { colapsado: false, _timer: timerColapso };
-  panel._agendarColapsoIA = agendarColapso;
-  panel._atualizarBadgeIA = atualizarBadge;
+  icone.onclick = abrirPainel;
 
-  /* Novos alertas reabrem o painel, atualizam o badge e reagendam o colapso */
-  new MutationObserver(() => {
-    if (painelIA.colapsado) {
-      painelIA.colapsado = false;
-      icone.style.display = 'none';
-      panel.style.display = 'flex';
+  const btnMin = panel.querySelector('#ia-btn-minimize');
+  if (btnMin) btnMin.onclick = (e) => { e.stopPropagation(); minimizarPainel(); };
+
+  const btnClose = panel.querySelector('#ia-btn-close');
+  if (btnClose) btnClose.onclick = (e) => { e.stopPropagation(); minimizarPainel(); };
+
+  /* ── Atualização do Estado, Badges e Empty State ── */
+  function atualizarEstado() {
+    const body = panel.querySelector('#ia-alertas-body');
+    const emptyState = panel.querySelector('#ia-alertas-empty');
+    const cards = body ? body.querySelectorAll('[data-pedido-id]') : [];
+    const count = cards.length;
+
+    const headerBadge = panel.querySelector('#ia-alertas-header-badge');
+    if (headerBadge) {
+      headerBadge.textContent = count;
+      if (count > 0) {
+        headerBadge.classList.add('has-alerts');
+      } else {
+        headerBadge.classList.remove('has-alerts');
+      }
     }
-    atualizarBadge();
-    agendarColapso();
-  }).observe(panel, { childList: true });
 
-  panel.addEventListener('mouseenter', agendarColapso);
-  agendarColapso();
+    const iconBadge = document.getElementById('ia-alertas-badge');
+    if (iconBadge) {
+      iconBadge.textContent = count;
+      iconBadge.style.display = count > 0 ? 'block' : 'none';
+    }
+
+    if (emptyState) {
+      emptyState.style.display = count === 0 ? 'flex' : 'none';
+    }
+
+    // Se chegar um novo alerta enquanto minimizado, restaura o painel automaticamente
+    if (count > 0 && panel.style.display === 'none') {
+      abrirPainel();
+    }
+  }
+
+  window.atualizarEstadoPainelIA = atualizarEstado;
+  atualizarEstado();
+
+  // Se o colaborador havia minimizado previamente e não tem alertas ativos, respeita
+  try {
+    const wasMin = localStorage.getItem('ia_alerta_minimized') === 'true';
+    if (wasMin) {
+      minimizarPainel();
+    }
+  } catch (e) {}
 
   return panel;
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => {
+    try { criarPainelAlertasIA(); } catch (e) {}
+  });
+} else {
+  try { criarPainelAlertasIA(); } catch (e) {}
 }
 
 // --- IA Toast Queue (prevents stacking) ---
