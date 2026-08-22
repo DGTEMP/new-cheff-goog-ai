@@ -142,7 +142,7 @@ module.exports = function(socket, io, db, helpers) {
       }
       
       db.run(
-        `INSERT INTO turnos_caixa (fundo_troco, data_abertura) VALUES (?, datetime('now', 'localtime'))`,
+        `INSERT INTO turnos_caixa (fundo_troco, status, data_abertura) VALUES (?, 'Aberto', datetime('now', 'localtime'))`,
         [fundo_troco],
         function (err) {
           if (!err) {

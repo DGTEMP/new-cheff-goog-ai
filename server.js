@@ -223,14 +223,22 @@ const JWT_SECRET = process.env.JWT_SECRET || 'chef-cozinha-sec-' + require('cryp
 function verificarSenhaAdmin(senha) {
   return new Promise((resolve) => {
     if (!senha) return resolve(false);
-    masterDb.all(`SELECT password_hash FROM usuarios WHERE role = 'admin' AND ativo = 1`, [], async (err, users) => {
-      if (err || !users || users.length === 0) return resolve(false);
-      for (const user of users) {
+    masterDb.get(`SELECT valor FROM configuracoes_global WHERE chave = 'super_admin_senha_hash'`, [], async (errC, rowC) => {
+      if (!errC && rowC && rowC.valor) {
         try {
-          if (await bcrypt.compare(senha, user.password_hash)) return resolve(true);
+          if (await bcrypt.compare(String(senha), rowC.valor)) return resolve(true);
         } catch (e) { }
+        return resolve(false);
       }
-      resolve(false);
+      masterDb.all(`SELECT password_hash FROM usuarios WHERE role = 'admin' AND ativo = 1`, [], async (err, users) => {
+        if (err || !users || users.length === 0) return resolve(false);
+        for (const user of users) {
+          try {
+            if (await bcrypt.compare(senha, user.password_hash)) return resolve(true);
+          } catch (e) { }
+        }
+        resolve(false);
+      });
     });
   });
 }
@@ -1235,15 +1243,41 @@ async function superAdminAuth(req, res, next) {
   return res.status(401).json({ ok: false, erro: 'Acesso não autorizado. Autentique-se novamente.' });
 }
 
+// Anti-brute-force: max 5 senhas erradas por IP a cada 15 min
+const loginAttempts = new Map();
+function loginBloqueado(ip) {
+  const rec = loginAttempts.get(ip);
+  if (!rec) return false;
+  if (Date.now() - rec.inicio > 15 * 60 * 1000) { loginAttempts.delete(ip); return false; }
+  return rec.falhas >= 5;
+}
+function registrarFalhaLogin(ip) {
+  const rec = loginAttempts.get(ip);
+  if (!rec || Date.now() - rec.inicio > 15 * 60 * 1000) {
+    loginAttempts.set(ip, { inicio: Date.now(), falhas: 1 });
+  } else {
+    rec.falhas++;
+  }
+}
+
 app.post('/api/super/login-local', async (req, res) => {
+  const rawIp = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1').replace('::ffff:', '');
+  if (loginBloqueado(rawIp)) {
+    return res.status(429).json({ ok: false, erro: 'Muitas tentativas. Aguarde 15 minutos.' });
+  }
   const senha = req.body && req.body.senha;
   const ok = await verificarSenhaAdmin(senha);
-  if (!ok) return res.json({ ok: false, erro: 'Senha de administrador inválida.' });
+  if (!ok) {
+    registrarFalhaLogin(rawIp);
+    return res.json({ ok: false, erro: 'Senha de administrador inválida.' });
+  }
+  loginAttempts.delete(rawIp);
   const token = jwt.sign({ role: 'super_admin_local', restaurante_id: 1 }, JWT_SECRET, { expiresIn: '12h' });
   
   res.cookie('super_admin_token', token, {
     httpOnly: true,
     sameSite: 'Lax',
+    secure: isHttps,
     path: '/',
     maxAge: 12 * 60 * 60 * 1000
   });
@@ -1867,6 +1901,29 @@ app.post('/api/super/config-global', superAdminAuth, (req, res) => {
     });
   });
   res.json({ ok: true, mensagem: 'Configurações salvas com sucesso!' });
+});
+
+// Tema Global: salva config e propaga em tempo real para todos os clientes conectados
+app.post('/api/super/theme-custom', superAdminAuth, (req, res) => {
+  const theme = req.body && req.body.theme;
+  if (!theme || typeof theme !== 'object' || !Object.keys(theme).length) {
+    return res.json({ ok: false, erro: 'Tema inválido.' });
+  }
+  const valor = JSON.stringify(theme);
+  masterDb.run("INSERT INTO configuracoes_global (chave, valor) VALUES ('custom_theme', ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor", [valor], (err) => {
+    if (err) return res.json({ ok: false, erro: err.message });
+    try { io.emit('tema_global_atualizado', theme); } catch (e) { }
+    res.json({ ok: true, mensagem: 'Tema Global salvo e propagado em tempo real!' });
+  });
+});
+
+// Tema Global público: leitura apenas de cores/fontes (sem dados sensíveis)
+app.get('/api/public/theme', (req, res) => {
+  masterDb.get("SELECT valor FROM configuracoes_global WHERE chave = 'custom_theme'", [], (err, row) => {
+    if (err || !row || !row.valor) return res.json({ ok: true, theme: null });
+    try { return res.json({ ok: true, theme: JSON.parse(row.valor) }); }
+    catch (e) { return res.json({ ok: true, theme: null }); }
+  });
 });
 
 // ── SUPER ADMIN: MENSAGENS / BROADCAST ──────────────────────────────
@@ -12997,6 +13054,7 @@ app.post('/api/super/plugins', superAdminAuth, (req, res) => {
 });
 
 // GET /api/super/commits — Lista os últimos 15 commits do repositório Git
+// Cada commit vem anotado com status (estavel/quebrado) e nota rápida salvas pelo super admin.
 app.get('/api/super/commits', superAdminAuth, (req, res) => {
   const { exec } = require('child_process');
   exec('git log -n 15 --pretty=format:"%h|%s|%an|%ar"', (err, stdout) => {
@@ -13011,8 +13069,145 @@ app.get('/api/super/commits', superAdminAuth, (req, res) => {
         data: parts[3] || 'Recente'
       };
     });
-    res.json({ ok: true, commits });
+    masterDb.get(`SELECT valor FROM configuracoes_global WHERE chave = 'commit_meta'`, [], (errM, rowM) => {
+      let meta = {};
+      if (!errM && rowM && rowM.valor) { try { meta = JSON.parse(rowM.valor); } catch (e) { } }
+      commits.forEach(c => {
+        const m = meta[c.hash];
+        if (m) { c.status = m.status || null; c.nota = m.nota || ''; }
+      });
+      res.json({ ok: true, commits });
+    });
   });
+});
+
+// POST /api/super/commits/meta — Marca commit como estável/quebrado e salva nota rápida
+app.post('/api/super/commits/meta', superAdminAuth, (req, res) => {
+  const { hash } = req.body || {};
+  const status = req.body && req.body.status !== undefined ? req.body.status : null;
+  const nota = req.body && req.body.nota !== undefined ? String(req.body.nota).slice(0, 500) : null;
+  const safeHash = String(hash || '').replace(/[^a-f0-9]/gi, '');
+  if (!safeHash) return res.json({ ok: false, erro: 'Hash do commit é obrigatório.' });
+  if (status !== null && !['estavel', 'quebrado', ''].includes(status)) {
+    return res.json({ ok: false, erro: 'Status inválido. Use "estavel", "quebrado" ou "".' });
+  }
+  masterDb.get(`SELECT valor FROM configuracoes_global WHERE chave = 'commit_meta'`, [], (err, row) => {
+    let meta = {};
+    if (!err && row && row.valor) { try { meta = JSON.parse(row.valor); } catch (e) { } }
+    const atual = meta[safeHash] || {};
+    if (status !== null) atual.status = status || null;
+    if (nota !== null) atual.nota = nota;
+    atual.ts = Date.now();
+    meta[safeHash] = atual;
+    const valor = JSON.stringify(meta);
+    masterDb.run(`INSERT INTO configuracoes_global (chave, valor) VALUES ('commit_meta', ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor`, [valor], (errS) => {
+      if (errS) return res.json({ ok: false, erro: errS.message });
+      res.json({ ok: true, mensagem: 'Commit atualizado.', meta: meta[safeHash] });
+    });
+  });
+});
+
+// ── SUPER ADMIN: ALTERAR SENHA ──────────────────────────────────────
+// Salva hash dedicado em configuracoes_global; a partir daí só a nova senha abre o painel.
+app.post('/api/super/alterar-senha', superAdminAuth, async (req, res) => {
+  try {
+    const { senha_atual, nova_senha } = req.body || {};
+    if (!senha_atual || !nova_senha) return res.json({ ok: false, erro: 'Informe a senha atual e a nova senha.' });
+    if (String(nova_senha).length < 8) return res.json({ ok: false, erro: 'A nova senha deve ter pelo menos 8 caracteres.' });
+    if (String(nova_senha).length > 72) return res.json({ ok: false, erro: 'A nova senha deve ter no máximo 72 caracteres.' });
+    const okAtual = await verificarSenhaAdmin(String(senha_atual));
+    if (!okAtual) return res.json({ ok: false, erro: 'Senha atual incorreta.' });
+    const hash = await bcrypt.hash(String(nova_senha), 10);
+    masterDb.run(`INSERT INTO configuracoes_global (chave, valor) VALUES ('super_admin_senha_hash', ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor`, [hash], function(err) {
+      if (err) return res.json({ ok: false, erro: err.message });
+      try { if (typeof registrarAuditLog === 'function') registrarAuditLog(null, 'super_admin', 'ALTERAR_SENHA_ADMIN', 'Senha do super admin alterada via painel', req); } catch (e) { }
+      res.json({ ok: true, mensagem: 'Senha alterada com sucesso! Use a nova senha no próximo login.' });
+    });
+  } catch (e) {
+    res.json({ ok: false, erro: e.message });
+  }
+});
+
+// ── RESTAURANTE: REPORTAR PROBLEMA → vira tarefa para a equipe de suporte ──
+// Middleware local de autenticação de suporte (autossuficiente para o bundle prod)
+const relatoSuporteAuth = (req, res, next) => {
+  const token = req.headers['x-suporte-token'];
+  if (!token) return res.json({ ok: false, erro: 'Token de suporte não fornecido.' });
+  try {
+    const decoded = jwt.verify(token, process.env.SUPORTE_JWT_SECRET || 'chef-suporte-secret-key-2026');
+    req.suporteId = decoded.id;
+    req.suporteData = decoded;
+    next();
+  } catch (e) { res.json({ ok: false, erro: 'Sessão de suporte inválida ou expirada.' }); }
+};
+
+app.post('/api/dono/reportar-problema', (req, res) => {
+  const authHeader = req.headers['authorization'];
+  if (!authHeader) return res.status(403).json({ ok: false, erro: 'Nenhum token fornecido.' });
+  const token = authHeader.split(' ')[1];
+  jwt.verify(token, JWT_SECRET, (errToken, decoded) => {
+    if (errToken || !decoded) return res.status(401).json({ ok: false, erro: 'Sessão expirada ou token inválido.' });
+    if (decoded.role !== 'admin' && decoded.role !== 'gerente') return res.status(403).json({ ok: false, erro: 'Acesso não autorizado.' });
+
+    const { titulo, descricao, categoria, prioridade } = req.body || {};
+    if (!titulo || String(titulo).trim().length < 4 || String(titulo).trim().length > 120) return res.json({ ok: false, erro: 'Informe um título de 4 a 120 caracteres.' });
+    if (!descricao || String(descricao).trim().length < 5 || String(descricao).trim().length > 1500) return res.json({ ok: false, erro: 'Descreva o problema em até 1500 caracteres.' });
+    const cat = ['bug', 'duvida', 'sugestao', 'outro'].includes(categoria) ? categoria : 'outro';
+    const pri = ['baixa', 'media', 'alta'].includes(prioridade) ? prioridade : 'media';
+    const tenantId = decoded.restaurante_id || 1;
+
+    masterDb.get(`SELECT nome FROM restaurantes WHERE id = ?`, [tenantId], (errR, rowR) => {
+      const nomeRestaurante = (errR || !rowR) ? ('Restaurante #' + tenantId) : rowR.nome;
+      const descFinal = `[RELATO ${cat.toUpperCase()} • prioridade ${pri.toUpperCase()}] ${String(titulo).trim()}\nRestaurante: ${nomeRestaurante}\n\n${String(descricao).trim()}`;
+      masterDb.run(`INSERT INTO tarefas_suporte (suporte_id, tipo, descricao, restaurante_id, pontos, status, criada_em) VALUES (NULL, 'relato_restaurante', ?, ?, 15, 'pendente', datetime('now','localtime'))`,
+        [descFinal, tenantId],
+        function(err) {
+          if (err) return res.json({ ok: false, erro: err.message });
+          try {
+            io.emit('nova_tarefa_suporte', { id: this.lastID, restaurante_id: tenantId, restaurante_nome: nomeRestaurante, titulo: String(titulo).trim(), categoria: cat, prioridade: pri });
+          } catch (e) {}
+          res.json({ ok: true, id: this.lastID, mensagem: 'Relato enviado! Nossa equipe de suporte já foi notificada.' });
+        }
+      );
+    });
+  });
+});
+
+// GET /api/suporte/tarefas-relatadas - Fila de relatos enviados pelos restaurantes (não assumidos)
+app.get('/api/suporte/tarefas-relatadas', relatoSuporteAuth, (req, res) => {
+  masterDb.all(`SELECT t.*, r.nome as restaurante_nome FROM tarefas_suporte t LEFT JOIN restaurantes r ON t.restaurante_id = r.id WHERE t.tipo = 'relato_restaurante' AND t.status = 'pendente' AND t.suporte_id IS NULL ORDER BY t.criada_em DESC LIMIT 50`,
+    [], (err, rows) => {
+      if (err) return res.json({ ok: false, erro: err.message });
+      res.json({ ok: true, relatos: rows || [] });
+    }
+  );
+});
+
+// POST /api/suporte/assumir-relato - Atendente assume um relato da fila
+app.post('/api/suporte/assumir-relato', relatoSuporteAuth, (req, res) => {
+  const { id } = req.body || {};
+  if (!id) return res.json({ ok: false, erro: 'ID do relato obrigatório.' });
+  masterDb.run(`UPDATE tarefas_suporte SET suporte_id = ? WHERE id = ? AND tipo = 'relato_restaurante' AND status = 'pendente' AND suporte_id IS NULL`,
+    [req.suporteId, parseInt(id)], function(err) {
+      if (err) return res.json({ ok: false, erro: err.message });
+      if (this.changes === 0) return res.json({ ok: false, erro: 'Relato não disponível (já assumido por outro atendente).' });
+      res.json({ ok: true, mensagem: 'Relato assumido! Ele agora está nas suas tarefas.' });
+    }
+  );
+});
+
+// POST /api/suporte/concluir-tarefa - Atendente conclui uma das suas tarefas
+app.post('/api/suporte/concluir-tarefa', relatoSuporteAuth, (req, res) => {
+  const { id } = req.body || {};
+  if (!id) return res.json({ ok: false, erro: 'ID da tarefa obrigatório.' });
+  masterDb.run(`UPDATE tarefas_suporte SET status = 'concluida', concluida_em = datetime('now','localtime') WHERE id = ? AND suporte_id = ? AND status IN ('pendente','aviso')`,
+    [parseInt(id), req.suporteId], function(err) {
+      if (err) return res.json({ ok: false, erro: err.message });
+      if (this.changes === 0) return res.json({ ok: false, erro: 'Tarefa não encontrada ou já concluída.' });
+      masterDb.run(`UPDATE equipe_suporte SET xp = xp + 10 WHERE id = ?`, [req.suporteId]);
+      res.json({ ok: true, mensagem: 'Tarefa concluída! +10 XP' });
+    }
+  );
 });
 
 // POST /api/super/deploy-commit — Executa deploy zero-downtime para um commit específico

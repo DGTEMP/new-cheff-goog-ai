@@ -9,100 +9,154 @@
           <h2>Super Admin</h2>
         </div>
         <div class="sidebar-menu">
-          <div class="menu-item active" data-target="sec-dash">
-            <i class="fa-solid fa-chart-line"></i>
-            <span>Dashboard</span>
+          <div class="menu-categoria aberta" data-cat="visao">
+            <div class="cat-header"><i class="fa-solid fa-chart-line"></i><span>Visão Geral</span><i class="fa-solid fa-chevron-down cat-seta"></i></div>
+            <div class="cat-itens">
+              <div class="menu-item active" data-target="sec-dash">
+                <i class="fa-solid fa-chart-line"></i>
+                <span>Dashboard</span>
+              </div>
+              <div class="menu-item" data-target="sec-bi">
+                <i class="fa-solid fa-chart-pie"></i>
+                <span>BI / Franquias</span>
+              </div>
+            </div>
           </div>
-          <div class="menu-item" data-target="sec-bi">
-            <i class="fa-solid fa-chart-pie"></i>
-            <span>BI / Franquias</span>
+
+          <div class="menu-categoria" data-cat="gestao">
+            <div class="cat-header"><i class="fa-solid fa-store"></i><span>Restaurantes &amp; Clientes</span><i class="fa-solid fa-chevron-down cat-seta"></i></div>
+            <div class="cat-itens">
+              <div class="menu-item" data-target="sec-restaurantes">
+                <i class="fa-solid fa-store"></i>
+                <span>Restaurantes</span>
+              </div>
+              <div class="menu-item" data-target="sec-usuarios">
+                <i class="fa-solid fa-users-gear"></i>
+                <span>Usuários</span>
+              </div>
+              <div class="menu-item" data-target="sec-clientes">
+                <i class="fa-solid fa-users"></i>
+                <span>Clientes</span>
+              </div>
+              <div class="menu-item" data-target="sec-features-restaurante">
+                <i class="fa-solid fa-sliders"></i>
+                <span>Features Restaurante</span>
+              </div>
+            </div>
           </div>
-          <div class="menu-item" data-target="sec-restaurantes">
-            <i class="fa-solid fa-store"></i>
-            <span>Restaurantes</span>
+
+          <div class="menu-categoria" data-cat="equipe">
+            <div class="cat-header"><i class="fa-solid fa-headset"></i><span>Equipe &amp; Parceiros</span><i class="fa-solid fa-chevron-down cat-seta"></i></div>
+            <div class="cat-itens">
+              <div class="menu-item" data-target="sec-suporte">
+                <i class="fa-solid fa-headset"></i>
+                <span>Equipe de Suporte</span>
+              </div>
+              <div class="menu-item" data-target="sec-afiliados" id="menu-item-afiliados">
+                <i class="fa-solid fa-handshake"></i>
+                <span>Afiliados & Parceiros</span>
+              </div>
+              <div class="menu-item" data-target="sec-site-vendas">
+                <i class="fa-solid fa-bullseye"></i>
+                <span>Site de Vendas</span>
+              </div>
+            </div>
           </div>
-          <div class="menu-item" data-target="sec-usuarios">
-            <i class="fa-solid fa-users-gear"></i>
-            <span>Usuários</span>
+
+          <div class="menu-categoria" data-cat="infra">
+            <div class="cat-header"><i class="fa-solid fa-server"></i><span>Infraestrutura</span><i class="fa-solid fa-chevron-down cat-seta"></i></div>
+            <div class="cat-itens">
+              <div class="menu-item" data-target="sec-servidor">
+                <i class="fa-solid fa-server"></i>
+                <span>Servidor</span>
+              </div>
+              <div class="menu-item" data-target="sec-capacidade">
+                <i class="fa-solid fa-chart-area"></i>
+                <span>Pico &amp; Capacidade</span>
+              </div>
+              <div class="menu-item" data-target="sec-load-control" id="menu-item-load-control">
+                <i class="fa-solid fa-sliders"></i>
+                <span>Controle de Carga</span>
+                <span id="lc-menu-badge" style="display:none;margin-left:auto;background:var(--danger);color:#fff;font-size:0.6rem;padding:2px 7px;border-radius:99px;font-weight:700;">AUTO</span>
+              </div>
+              <div class="menu-item" data-target="sec-instancias">
+                <i class="fa-solid fa-server"></i>
+                <span>Instâncias On-Premise</span>
+                <span class="menu-badge" id="offline-count-badge" style="display:none;">0</span>
+              </div>
+              <div class="menu-item" data-target="sec-dominios">
+                <i class="fa-solid fa-globe"></i>
+                <span>Domínios</span>
+              </div>
+              <div class="menu-item" data-target="sec-licencas" id="menu-item-licencas">
+                <i class="fa-solid fa-key"></i>
+                <span>Licenças &amp; Telemetria</span>
+              </div>
+            </div>
           </div>
-          <div class="menu-item" data-target="sec-suporte">
-            <i class="fa-solid fa-headset"></i>
-            <span>Equipe de Suporte</span>
+
+          <div class="menu-categoria" data-cat="sistema">
+            <div class="cat-header"><i class="fa-solid fa-gear"></i><span>Sistema &amp; Aparência</span><i class="fa-solid fa-chevron-down cat-seta"></i></div>
+            <div class="cat-itens">
+              <div class="menu-item" data-target="sec-config">
+                <i class="fa-solid fa-gear"></i>
+                <span>Configurações</span>
+              </div>
+              <div class="menu-item" data-target="sec-funcoes">
+                <i class="fa-solid fa-toggle-on"></i>
+                <span>Funções</span>
+              </div>
+              <div class="menu-item" data-target="sec-tema-custom">
+                <i class="fa-solid fa-palette"></i>
+                <span>Aparência &amp; Tema Global</span>
+              </div>
+              <div class="menu-item" data-target="sec-plugins-modulos" id="menu-item-plugins">
+                <i class="fa-solid fa-puzzle-piece"></i>
+                <span>Plugins & Módulos</span>
+              </div>
+              <div class="menu-item" data-target="sec-mensagens">
+                <i class="fa-solid fa-bullhorn"></i>
+                <span>Mensagens</span>
+              </div>
+            </div>
           </div>
-          <div class="menu-item" data-target="sec-servidor">
-            <i class="fa-solid fa-server"></i>
-            <span>Servidor</span>
+
+          <div class="menu-categoria" data-cat="seguranca">
+            <div class="cat-header"><i class="fa-solid fa-shield-halved"></i><span>Segurança &amp; TI</span><i class="fa-solid fa-chevron-down cat-seta"></i></div>
+            <div class="cat-itens">
+              <div class="menu-item" data-target="sec-seguranca-waf" id="menu-item-seguranca">
+                <i class="fa-solid fa-shield-halved"></i>
+                <span>Segurança & WAF</span>
+              </div>
+              <div class="menu-item" data-target="sec-logs" id="menu-item-logs">
+                <i class="fa-solid fa-file-invoice"></i>
+                <span>Logs do Sistema</span>
+              </div>
+              <div class="menu-item menu-item-alert" data-target="sec-recuperar-acesso">
+                <i class="fa-solid fa-user-shield"></i>
+                <span>Recuperar Acesso</span>
+                <span class="menu-badge">SOS</span>
+              </div>
+              <div class="menu-item" data-target="sec-alterar-senha" id="menu-item-alterar-senha">
+                <i class="fa-solid fa-user-lock"></i>
+                <span>Alterar Senha</span>
+              </div>
+            </div>
           </div>
-          <div class="menu-item" data-target="sec-capacidade">
-            <i class="fa-solid fa-chart-area"></i>
-            <span>Pico &amp; Capacidade</span>
-          </div>
-          <div class="menu-item" data-target="sec-mensagens">
-            <i class="fa-solid fa-bullhorn"></i>
-            <span>Mensagens</span>
-          </div>
-          <div class="menu-item" data-target="sec-logs" id="menu-item-logs">
-            <i class="fa-solid fa-file-invoice"></i>
-            <span>Logs do Sistema</span>
-          </div>
-          <div class="menu-item" data-target="sec-config">
-            <i class="fa-solid fa-gear"></i>
-            <span>Configurações</span>
-          </div>
-          <div class="menu-item" data-target="sec-funcoes">
-            <i class="fa-solid fa-toggle-on"></i>
-            <span>Funções</span>
-          </div>
-          <div class="menu-item" data-target="sec-features-restaurante">
-            <i class="fa-solid fa-sliders"></i>
-            <span>Features Restaurante</span>
-          </div>
-          <div class="menu-item" data-target="sec-dominios">
-            <i class="fa-solid fa-globe"></i>
-            <span>Domínios</span>
-          </div>
-          <div class="menu-item" data-target="sec-licencas" id="menu-item-licencas">
-            <i class="fa-solid fa-key"></i>
-            <span>Licenças &amp; Telemetria</span>
-          </div>
-          <div class="menu-item menu-item-alert" data-target="sec-recuperar-acesso">
-            <i class="fa-solid fa-user-shield"></i>
-            <span>Recuperar Acesso</span>
-            <span class="menu-badge">SOS</span>
-          </div>
-          <div class="menu-item" data-target="sec-clientes">
-            <i class="fa-solid fa-users"></i>
-            <span>Clientes</span>
-          </div>
-          <div class="menu-item" data-target="sec-instancias">
-            <i class="fa-solid fa-server"></i>
-            <span>Instâncias On-Premise</span>
-            <span class="menu-badge" id="offline-count-badge" style="display:none;">0</span>
-          </div>
-          <div class="menu-item" data-target="sec-site-vendas">
-            <i class="fa-solid fa-bullseye"></i>
-            <span>Site de Vendas</span>
-          </div>
-          <div class="menu-item" data-target="sec-afiliados" id="menu-item-afiliados">
-            <i class="fa-solid fa-handshake"></i>
-            <span>Afiliados & Parceiros</span>
-          </div>
-          <div class="menu-item" data-target="sec-seguranca-waf" id="menu-item-seguranca">
-            <i class="fa-solid fa-shield-halved"></i>
-            <span>Segurança & WAF</span>
-          </div>
-          <div class="menu-item" data-target="sec-deploy-updates" id="menu-item-deploy">
-            <i class="fa-solid fa-rocket"></i>
-            <span>Deploy & Atualizações</span>
-            <span class="menu-badge" style="background:#22c55e;">Zero-Downtime</span>
-          </div>
-          <div class="menu-item" data-target="sec-plugins-modulos" id="menu-item-plugins">
-            <i class="fa-solid fa-puzzle-piece"></i>
-            <span>Plugins & Módulos</span>
-          </div>
-          <div class="menu-item" data-target="sec-terminal">
-            <i class="fa-solid fa-terminal"></i>
-            <span>Terminal</span>
+
+          <div class="menu-categoria" data-cat="devops">
+            <div class="cat-header"><i class="fa-solid fa-rocket"></i><span>DevOps</span><i class="fa-solid fa-chevron-down cat-seta"></i></div>
+            <div class="cat-itens">
+              <div class="menu-item" data-target="sec-deploy-updates" id="menu-item-deploy">
+                <i class="fa-solid fa-rocket"></i>
+                <span>Deploy & Atualizações</span>
+                <span class="menu-badge" style="background:#22c55e;">Zero-Downtime</span>
+              </div>
+              <div class="menu-item" data-target="sec-terminal">
+                <i class="fa-solid fa-terminal"></i>
+                <span>Terminal</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -137,6 +191,10 @@
           </div>
         </div>
         <div class="header-actions">
+          <button class="btn-action" id="btn-theme-toggle-super" onclick="if(window.ChefTheme) window.ChefTheme.toggle()" title="Alternar Modo Claro / Escuro">
+            <i class="fa-solid fa-sun" id="theme-toggle-icon-super"></i>
+            <span id="theme-toggle-text-super">Modo Claro</span>
+          </button>
           <button class="btn-action" id="btn-refresh-data">
             <i class="fa-solid fa-rotate"></i>
             <span>Sincronizar</span>
@@ -630,6 +688,218 @@
                 <i class="fa-solid fa-rotate"></i><span>Atualizar</span>
               </button>
             </div>
+          </div>
+        </div>
+
+        <!-- ════ SEÇÃO: CONTROLE DE CARGA (CHAVE SUPER ADMIN) ════ -->
+        <div class="content-section" id="sec-load-control">
+          <div class="stats-grid" style="margin-bottom:1.5rem;">
+            <div class="stat-card" id="lc-card-modo">
+              <div class="stat-icon"><i class="fa-solid fa-key"></i></div>
+              <div class="stat-meta"><span>Modo Efetivo</span>
+                <h3 id="lc-modo-atual">--</h3>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon"
+                style="background:rgba(59,130,246,0.15);color:var(--info);box-shadow:0 0 15px rgba(59,130,246,0.2);"><i
+                  class="fa-solid fa-bolt"></i></div>
+              <div class="stat-meta"><span>Pedidos/min</span>
+                <h3 id="lc-pedidos-min">--</h3>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon"
+                style="background:rgba(245,158,11,0.15);color:var(--warning);box-shadow:0 0 15px rgba(245,158,11,0.2);"><i
+                  class="fa-solid fa-heart-pulse"></i></div>
+              <div class="stat-meta"><span>Event Loop Lag</span>
+                <h3 id="lc-lag">--</h3>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon"
+                style="background:rgba(139,92,246,0.15);color:#c084fc;box-shadow:0 0 15px rgba(139,92,246,0.2);"><i
+                  class="fa-solid fa-layer-group"></i></div>
+              <div class="stat-meta"><span>Fila (tenants)</span>
+                <h3 id="lc-fila">--</h3>
+              </div>
+            </div>
+          </div>
+
+          <!-- Chave de modos -->
+          <div
+            style="margin-top:1.5rem;background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;padding:1.5rem;">
+            <h4 style="font-family:'Outfit',sans-serif;margin-bottom:0.5rem;"><i class="fa-solid fa-sliders"
+                style="color:var(--primary);"></i> Chave de Operação</h4>
+            <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:1rem;">Gire a chave para proteger o sistema
+              em dias de pico (ex.: 100 restaurantes em evento). Nenhum pedido é perdido: no modo fila eles ficam
+              gravados em banco e são processados automaticamente.</p>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0.8rem;" id="lc-modos-grid">
+              <button class="btn-action lc-modo-btn" data-modo="normal"
+                style="display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:1rem;border:2px solid var(--border-color);border-radius:12px;background:rgba(0,0,0,0.2);cursor:pointer;text-align:left;">
+                <strong style="color:white;"><i class="fa-solid fa-circle-check" style="color:var(--success);"></i>
+                  Normal</strong>
+                <span style="font-size:0.72rem;color:var(--text-muted);">Operação padrão, tudo ligado.</span>
+              </button>
+              <button class="btn-action lc-modo-btn" data-modo="evento"
+                style="display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:1rem;border:2px solid var(--border-color);border-radius:12px;background:rgba(0,0,0,0.2);cursor:pointer;text-align:left;">
+                <strong style="color:white;"><i class="fa-solid fa-champagne-glasses" style="color:var(--info);"></i>
+                  Evento / Pico</strong>
+                <span style="font-size:0.72rem;color:var(--text-muted);">Aceita tudo, modo leve: sem push e sem
+                  broadcasts extras.</span>
+              </button>
+              <button class="btn-action lc-modo-btn" data-modo="spool"
+                style="display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:1rem;border:2px solid var(--border-color);border-radius:12px;background:rgba(0,0,0,0.2);cursor:pointer;text-align:left;">
+                <strong style="color:white;"><i class="fa-solid fa-layer-group" style="color:var(--warning);"></i>
+                  Fila Durável</strong>
+                <span style="font-size:0.72rem;color:var(--text-muted);">Pedidos gravados na fila do banco e
+                  processados em background com retry.</span>
+              </button>
+              <button class="btn-action lc-modo-btn" data-modo="manutencao"
+                style="display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:1rem;border:2px solid var(--border-color);border-radius:12px;background:rgba(0,0,0,0.2);cursor:pointer;text-align:left;">
+                <strong style="color:white;"><i class="fa-solid fa-octagon-exclamation" style="color:var(--danger);"></i>
+                  Manutenção</strong>
+                <span style="font-size:0.72rem;color:var(--text-muted);">Bloqueia novos pedidos com aviso claro ao
+                  operador.</span>
+              </button>
+            </div>
+            <div id="lc-auto-badge"
+              style="display:none;margin-top:1rem;padding:0.7rem 1rem;border-radius:10px;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.35);font-size:0.8rem;color:var(--danger);">
+              <i class="fa-solid fa-robot"></i> <strong>Circuit breaker automático ATIVO</strong> — o sistema desceu
+              temporariamente para fila durável devido à sobrecarga e voltará sozinho quando normalizar.
+            </div>
+          </div>
+
+          <!-- Circuit breaker automático -->
+          <div
+            style="margin-top:1.5rem;background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;padding:1.5rem;">
+            <h4 style="font-family:'Outfit',sans-serif;margin-bottom:1rem;"><i class="fa-solid fa-robot"
+                style="color:var(--info);"></i> Circuit Breaker Automático</h4>
+            <label
+              style="display:flex;align-items:center;gap:0.6rem;font-size:0.85rem;cursor:pointer;margin-bottom:1rem;">
+              <input type="checkbox" id="lc-auto-enabled" style="width:18px;height:18px;accent-color:var(--primary);">
+              Ativar proteção automática (desce para fila quando o servidor fica sobrecarregado e volta sozinho)
+            </label>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1rem;">
+              <div>
+                <label style="font-size:0.72rem;color:var(--text-muted);">Lag crítico do event loop (ms)</label>
+                <input type="number" id="lc-lag-threshold" min="100" step="100"
+                  style="width:100%;margin-top:4px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;padding:0.55rem;color:white;">
+              </div>
+              <div>
+                <label style="font-size:0.72rem;color:var(--text-muted);">Sustentado por (ms)</label>
+                <input type="number" id="lc-sustained" min="1000" step="1000"
+                  style="width:100%;margin-top:4px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;padding:0.55rem;color:white;">
+              </div>
+              <div>
+                <label style="font-size:0.72rem;color:var(--text-muted);">Lag de recuperação (ms)</label>
+                <input type="number" id="lc-recovery-lag" min="50" step="50"
+                  style="width:100%;margin-top:4px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;padding:0.55rem;color:white;">
+              </div>
+              <div>
+                <label style="font-size:0.72rem;color:var(--text-muted);">Recuperado por (ms)</label>
+                <input type="number" id="lc-recovery-sustained" min="5000" step="5000"
+                  style="width:100%;margin-top:4px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;padding:0.55rem;color:white;">
+              </div>
+              <div>
+                <label style="font-size:0.72rem;color:var(--text-muted);">RAM máxima (MB, 0 = off)</label>
+                <input type="number" id="lc-max-rss" min="0" step="128"
+                  style="width:100%;margin-top:4px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;padding:0.55rem;color:white;">
+              </div>
+            </div>
+            <div style="margin-top:1rem;display:flex;gap:0.6rem;flex-wrap:wrap;">
+              <button class="btn-action btn-primary-action" id="btn-lc-save">
+                <i class="fa-solid fa-floppy-disk"></i><span>Salvar Configuração</span>
+              </button>
+              <button class="btn-action" id="btn-lc-refresh"
+                style="background:rgba(255,255,255,0.08);border:1px solid var(--border-color);color:white;">
+                <i class="fa-solid fa-rotate"></i><span>Atualizar Métricas</span>
+              </button>
+              <label
+                style="display:flex;align-items:center;gap:0.45rem;font-size:0.78rem;color:var(--text-muted);cursor:pointer;">
+                <input type="checkbox" id="lc-autorefresh" checked
+                  style="accent-color:var(--primary);width:15px;height:15px;"> Auto-atualizar (5s)
+              </label>
+            </div>
+          </div>
+
+          <!-- Detalhe da janela de métricas -->
+          <div
+            style="margin-top:1.5rem;background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;padding:1.5rem;">
+            <h4 style="font-family:'Outfit',sans-serif;margin-bottom:1rem;"><i class="fa-solid fa-chart-simple"
+                style="color:var(--success);"></i> Janela Recente (últimos 60s)</h4>
+            <div class="stats-grid" style="gap:1rem;">
+              <div class="stat-card">
+                <div class="stat-meta"><span>Aceitos direto</span>
+                  <h3 id="lc-m-aceitos" style="color:var(--success);">--</h3>
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-meta"><span>Enfileirados</span>
+                  <h3 id="lc-m-enfileirados" style="color:var(--warning);">--</h3>
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-meta"><span>Processados da fila</span>
+                  <h3 id="lc-m-processados" style="color:var(--info);">--</h3>
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-meta"><span>Recusados</span>
+                  <h3 id="lc-m-recusados" style="color:var(--danger);">--</h3>
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-meta"><span>Lag máx (5min)</span>
+                  <h3 id="lc-m-lagmax">--</h3>
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-meta"><span>Ram do processo</span>
+                  <h3 id="lc-m-rss">--</h3>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Balanceamento por Restaurante -->
+        <div class="card" style="margin-top: 1.5rem; padding: 1.5rem;">
+          <h4 style="margin-bottom: 0.5rem;"><i class="fa-solid fa-scale-balanced"></i> Balanceamento por Restaurante</h4>
+          <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem;">
+            Demanda ao vivo por restaurante, horário de pico informado no cadastro e modo individual.
+            O modo <strong>Evento</strong> reduz o peso das operações do restaurante durante picos declarados;
+            <strong>Fila</strong> coloca os pedidos em fila durável; <strong>Global</strong> segue a chave geral.
+          </p>
+          <div style="overflow-x: auto;">
+            <table class="table" style="width: 100%; font-size: 0.85rem;">
+              <thead>
+                <tr>
+                  <th>Restaurante</th>
+                  <th>Pedidos/min</th>
+                  <th>Pico cadastrado</th>
+                  <th>Eventos ativos</th>
+                  <th>Modo efetivo</th>
+                  <th>Ajuste fino</th>
+                </tr>
+              </thead>
+              <tbody id="lc-tenants-tbody">
+                <tr><td colspan="6" style="color: var(--text-muted);">Carregando...</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <hr style="border-color: var(--border-color); opacity: 0.3; margin: 1rem 0;" />
+          <div style="display: flex; align-items: end; gap: 1rem; flex-wrap: wrap;">
+            <div>
+              <label style="display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.35rem;">Limiar de alta demanda por restaurante (pedidos/min)</label>
+              <input type="number" id="lc-spike-threshold" min="1" style="width: 110px;" />
+            </div>
+            <div>
+              <label style="display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.35rem;">Cooldown da celebração (min)</label>
+              <input type="number" id="lc-spike-cooldown" min="0" style="width: 110px;" />
+            </div>
+            <button class="btn btn-sm btn-primary" id="btn-lc-spike-save"><i class="fa-solid fa-check"></i> Salvar limiar</button>
+            <small style="color: var(--text-muted);">Ao cruzar esse ritmo, o dono recebe o aviso "Uau, seu negócio está bombando!" e pode declarar um evento.</small>
           </div>
         </div>
 
@@ -1504,6 +1774,36 @@
           </div>
         </div>
 
+        <!-- ════ SEÇÃO: ALTERAR SENHA ════ -->
+        <div class="content-section" id="sec-alterar-senha">
+          <div style="padding: 20px; max-width: 560px;">
+            <h2 style="margin-bottom:6px;"><i class="fa-solid fa-user-lock"></i> Alterar Senha de Super Admin</h2>
+            <p style="color:#999;font-size:13px;margin-bottom:20px;">Após alterar, a nova senha passa a ser a única válida para acessar este painel.</p>
+
+            <div class="card" style="padding: 1.5rem;">
+              <label style="display:block;font-size:12px;font-weight:700;margin-bottom:6px;">Senha atual</label>
+              <input type="password" id="senha-atual-input" autocomplete="current-password"
+                style="width:100%;box-sizing:border-box;padding:12px 14px;border-radius:10px;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text);margin-bottom:16px;">
+
+              <label style="display:block;font-size:12px;font-weight:700;margin-bottom:6px;">Nova senha</label>
+              <input type="password" id="senha-nova-input" autocomplete="new-password" placeholder="Mínimo de 8 caracteres"
+                style="width:100%;box-sizing:border-box;padding:12px 14px;border-radius:10px;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text);margin-bottom:4px;">
+              <div id="forca-senha-barra" style="height:6px;background:var(--border-color);border-radius:99px;overflow:hidden;margin-bottom:6px;">
+                <div id="forca-senha-fill" style="height:100%;width:0%;background:#ef4444;transition:all .25s;"></div>
+              </div>
+              <small id="forca-senha-txt" style="color:#999;font-size:11.5px;display:block;margin-bottom:16px;">Use letras maiúsculas, minúsculas, números e símbolos.</small>
+
+              <label style="display:block;font-size:12px;font-weight:700;margin-bottom:6px;">Confirmar nova senha</label>
+              <input type="password" id="senha-confirma-input" autocomplete="new-password"
+                style="width:100%;box-sizing:border-box;padding:12px 14px;border-radius:10px;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text);margin-bottom:18px;">
+
+              <button id="btn-alterar-senha" class="btn-primary" style="width:100%;padding:13px;border:none;border-radius:10px;background:linear-gradient(135deg,#ff5722,#e64a19);color:#fff;font-weight:800;cursor:pointer;">
+                <i class="fa-solid fa-key"></i> Salvar Nova Senha
+              </button>
+            </div>
+          </div>
+        </div>
+
         <!-- ════ SEÇÃO 10: TERMINAL ════ -->
         <div class="content-section" id="sec-terminal">
           <div style="padding: 20px;">
@@ -2279,11 +2579,515 @@
               </div>
             </div>
           </div>
-        </div>
+          </div>
 
-      </div>
-    </div>
-  </div>
+        <!-- Seções movidas para dentro de .content-body (correção de abas invisíveis) -->
+          <!-- ════ SEÇÃO: DEPLOY & ATUALIZAÇÕES ZERO-DOWNTIME ════ -->
+          <div class="content-section" id="sec-deploy-updates">
+            <div class="info-banner" style="border-left-color: #22c55e;">
+              <i class="fa-solid fa-rocket" style="color: #22c55e;"></i>
+              <div class="info-banner-content">
+                <h4>Deploy Sem Quedas (Zero-Downtime Hot Swap)</h4>
+                <p>Gerencie atualizações do sistema por commit específico sem desconectar garçons, caixas ou clientes. O
+                  servidor sincroniza os arquivos e recarrega os módulos em tempo de execução.</p>
+              </div>
+            </div>
+
+            <!-- Card de Ação Principal -->
+            <div
+              style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;padding:1.5rem;margin-bottom:1.5rem;">
+              <div
+                style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.2rem;flex-wrap:wrap;gap:10px;">
+                <div>
+                  <h3 style="margin:0;font-size:1.3rem;"><i class="fa-solid fa-code-commit" style="color:#6366f1;"></i>
+                    Commits no Repositório (Git)</h3>
+                  <p style="margin:0.2rem 0 0 0;font-size:0.85rem;color:var(--text-muted);">Selecione a versão/commit
+                    desejado para atualizar o ambiente ao vivo.</p>
+                </div>
+                <button class="btn-action btn-primary-action" onclick="carregarCommitsGit()">
+                  <i class="fa-solid fa-rotate"></i> Sincronizar Commits
+                </button>
+              </div>
+
+              <div style="overflow-x:auto;">
+                <table class="custom-table" id="commits-table">
+                  <thead>
+                    <tr>
+                      <th>Commit</th>
+                      <th>Mensagem / Nota</th>
+                      <th>Status</th>
+                      <th>Autor</th>
+                      <th>Data</th>
+                      <th style="width:200px;">Ação de Deploy</th>
+                    </tr>
+                  </thead>
+                  <tbody id="commits-tbody">
+                    <tr>
+                      <td colspan="6" style="text-align:center;color:var(--text-muted);padding:20px;">Clique em
+                        Sincronizar Commits...</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- ════ SEÇÃO: PLUGINS & MÓDULOS EXPANSÍVEIS ════ -->
+          <div class="content-section" id="sec-plugins-modulos">
+            <div class="info-banner" style="border-left-color: #a855f7;">
+              <i class="fa-solid fa-puzzle-piece" style="color: #a855f7;"></i>
+              <div class="info-banner-content">
+                <h4>Central de Plugins & Módulos Extras</h4>
+                <p>Instale, ative ou desative extensões avançadas (iFood, Balanças ECF, KDS Inteligente, Pagamentos PIX
+                  Automáticos, WhatsApp Bot) para todos ou restaurantes específicos.</p>
+              </div>
+            </div>
+
+            <!-- Grid de Plugins -->
+            <div class="stats-grid" id="plugins-grid"
+              style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.2rem; margin-bottom: 1.5rem;">
+
+              <!-- Plugin iFood -->
+              <div
+                style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;padding:1.5rem;display:flex;flex-direction:column;justify-content:space-between;">
+                <div>
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                    <span style="font-size:24px;">🛵</span>
+                    <span class="badge badge-ativo" id="plugin-status-ifood">Ativo (Global)</span>
+                  </div>
+                  <h4 style="margin:0 0 6px 0;font-size:1.1rem;">iFood Integrado Direct</h4>
+                  <p style="font-size:0.85rem;color:var(--text-muted);margin:0 0 16px 0;">Integração nativa de pedidos,
+                    cardápio e cancelamento automático com o iFood.</p>
+                </div>
+                <button class="btn-action" style="width:100%;background:#a855f7;color:white;"
+                  onclick="togglePluginStatus('ifood')">
+                  <i class="fa-solid fa-sliders"></i> Gerenciar Plugin iFood
+                </button>
+              </div>
+
+              <!-- Plugin WhatsApp Bot -->
+              <div
+                style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;padding:1.5rem;display:flex;flex-direction:column;justify-content:space-between;">
+                <div>
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                    <span style="font-size:24px;">💬</span>
+                    <span class="badge badge-ativo" id="plugin-status-whatsapp">Ativo (Global)</span>
+                  </div>
+                  <h4 style="margin:0 0 6px 0;font-size:1.1rem;">WhatsApp Bot Atendimento</h4>
+                  <p style="font-size:0.85rem;color:var(--text-muted);margin:0 0 16px 0;">Disparo de notificação de
+                    pedido pronto e robô de pedidos automáticos.</p>
+                </div>
+                <button class="btn-action" style="width:100%;background:#22c55e;color:white;"
+                  onclick="togglePluginStatus('whatsapp')">
+                  <i class="fa-solid fa-sliders"></i> Gerenciar Plugin WhatsApp
+                </button>
+              </div>
+
+              <!-- Plugin Balança Serial -->
+              <div
+                style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;padding:1.5rem;display:flex;flex-direction:column;justify-content:space-between;">
+                <div>
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                    <span style="font-size:24px;">⚖️</span>
+                    <span class="badge badge-ativo" id="plugin-status-balanca">Ativo (Global)</span>
+                  </div>
+                  <h4 style="margin:0 0 6px 0;font-size:1.1rem;">Balança Self-Service / Kilo</h4>
+                  <p style="font-size:0.85rem;color:var(--text-muted);margin:0 0 16px 0;">Conexão direta com balanças
+                    Toledo, Filizola e Urano via Serial/USB.</p>
+                </div>
+                <button class="btn-action" style="width:100%;background:#3b82f6;color:white;"
+                  onclick="togglePluginStatus('balanca')">
+                  <i class="fa-solid fa-sliders"></i> Gerenciar Plugin Balança
+                </button>
+              </div>
+
+            </div>
+          </div>
+
+
+          <!-- ════ SEÇÃO: APARÊNCIA & TEMA GLOBAL ════ -->
+          <div class="content-section" id="sec-tema-custom">
+            <div class="info-banner" style="border-left-color: #ec4899;">
+              <i class="fa-solid fa-palette" style="color: #ec4899;"></i>
+              <div class="info-banner-content">
+                <h4>Estúdio de Personalização Global de Temas</h4>
+                <p>Personalize as cores de cada seção, cabeçalho, barra lateral, cards, botões, fontes e estilos de borda. As alterações salvas são aplicadas instantaneamente em todos os PDVs e aparelhos conectados via WebSockets em tempo real.</p>
+              </div>
+            </div>
+
+            <!-- Presets Rápidos -->
+            <div style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;padding:1.5rem;margin-bottom:1.5rem;">
+              <h3 style="margin:0 0 1rem 0;font-size:1.1rem;"><i class="fa-solid fa-wand-magic-sparkles" style="color:#ec4899;"></i> Estilos Prontos em 1-Clique</h3>
+              <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(170px, 1fr));gap:12px;">
+                <div onclick="aplicarPresetTema('chef_orange')" style="cursor:pointer;background:linear-gradient(135deg,#0f172a,#1e293b);border:2px solid #fc4b15;border-radius:12px;padding:12px;text-align:center;">
+                  <div style="display:flex;justify-content:center;gap:6px;margin-bottom:8px;">
+                    <span style="width:16px;height:16px;border-radius:50%;background:#fc4b15;display:inline-block;"></span>
+                    <span style="width:16px;height:16px;border-radius:50%;background:#0f172a;display:inline-block;"></span>
+                    <span style="width:16px;height:16px;border-radius:50%;background:#1e293b;display:inline-block;"></span>
+                  </div>
+                  <strong style="font-size:0.85rem;color:white;">Chef Orange Premium</strong>
+                </div>
+
+                <div onclick="aplicarPresetTema('midnight_dark')" style="cursor:pointer;background:linear-gradient(135deg,#0b0f19,#111827);border:2px solid #f59e0b;border-radius:12px;padding:12px;text-align:center;">
+                  <div style="display:flex;justify-content:center;gap:6px;margin-bottom:8px;">
+                    <span style="width:16px;height:16px;border-radius:50%;background:#ff5722;display:inline-block;"></span>
+                    <span style="width:16px;height:16px;border-radius:50%;background:#0b0f19;display:inline-block;"></span>
+                    <span style="width:16px;height:16px;border-radius:50%;background:#f59e0b;display:inline-block;"></span>
+                  </div>
+                  <strong style="font-size:0.85rem;color:white;">Midnight Luxury Dark</strong>
+                </div>
+
+                <div onclick="aplicarPresetTema('emerald_green')" style="cursor:pointer;background:linear-gradient(135deg,#064e3b,#022c22);border:2px solid #10b981;border-radius:12px;padding:12px;text-align:center;">
+                  <div style="display:flex;justify-content:center;gap:6px;margin-bottom:8px;">
+                    <span style="width:16px;height:16px;border-radius:50%;background:#10b981;display:inline-block;"></span>
+                    <span style="width:16px;height:16px;border-radius:50%;background:#064e3b;display:inline-block;"></span>
+                    <span style="width:16px;height:16px;border-radius:50%;background:#ffffff;display:inline-block;"></span>
+                  </div>
+                  <strong style="font-size:0.85rem;color:white;">Emerald Clean Green</strong>
+                </div>
+
+                <div onclick="aplicarPresetTema('royal_purple')" style="cursor:pointer;background:linear-gradient(135deg,#0f0d1b,#1e1b4b);border:2px solid #8b5cf6;border-radius:12px;padding:12px;text-align:center;">
+                  <div style="display:flex;justify-content:center;gap:6px;margin-bottom:8px;">
+                    <span style="width:16px;height:16px;border-radius:50%;background:#8b5cf6;display:inline-block;"></span>
+                    <span style="width:16px;height:16px;border-radius:50%;background:#0f0d1b;display:inline-block;"></span>
+                    <span style="width:16px;height:16px;border-radius:50%;background:#a855f7;display:inline-block;"></span>
+                  </div>
+                  <strong style="font-size:0.85rem;color:white;">Royal Purple Tech</strong>
+                </div>
+
+                <div onclick="aplicarPresetTema('nordic_light')" style="cursor:pointer;background:linear-gradient(135deg,#ffffff,#f8fafc);border:2px solid #3b82f6;border-radius:12px;padding:12px;text-align:center;">
+                  <div style="display:flex;justify-content:center;gap:6px;margin-bottom:8px;">
+                    <span style="width:16px;height:16px;border-radius:50%;background:#3b82f6;display:inline-block;"></span>
+                    <span style="width:16px;height:16px;border-radius:50%;background:#f8fafc;display:inline-block;"></span>
+                    <span style="width:16px;height:16px;border-radius:50%;background:#1e293b;display:inline-block;"></span>
+                  </div>
+                  <strong style="font-size:0.85rem;color:#1e293b;">Nordic Minimalist Light</strong>
+                </div>
+
+                <div onclick="aplicarPresetTema('ocean_blue')" style="cursor:pointer;background:linear-gradient(135deg,#0f172a,#1e3a8a);border:2px solid #06b6d4;border-radius:12px;padding:12px;text-align:center;">
+                  <div style="display:flex;justify-content:center;gap:6px;margin-bottom:8px;">
+                    <span style="width:16px;height:16px;border-radius:50%;background:#06b6d4;display:inline-block;"></span>
+                    <span style="width:16px;height:16px;border-radius:50%;background:#1e3a8a;display:inline-block;"></span>
+                    <span style="width:16px;height:16px;border-radius:50%;background:#ffffff;display:inline-block;"></span>
+                  </div>
+                  <strong style="font-size:0.85rem;color:white;">Ocean Blue Executive</strong>
+                </div>
+
+                <div onclick="aplicarPresetTema('sunset_light')" style="cursor:pointer;background:linear-gradient(135deg,#fff7ed,#ffedd5);border:2px solid #ea580c;border-radius:12px;padding:12px;text-align:center;">
+                  <div style="display:flex;justify-content:center;gap:6px;margin-bottom:8px;">
+                    <span style="width:16px;height:16px;border-radius:50%;background:#ea580c;display:inline-block;"></span>
+                    <span style="width:16px;height:16px;border-radius:50%;background:#fff7ed;display:inline-block;"></span>
+                    <span style="width:16px;height:16px;border-radius:50%;background:#92400e;display:inline-block;"></span>
+                  </div>
+                  <strong style="font-size:0.85rem;color:#7c2d12;">Sunset Warm Light</strong>
+                </div>
+
+                <div onclick="aplicarPresetTema('rose_dark')" style="cursor:pointer;background:linear-gradient(135deg,#120709,#241019);border:2px solid #f43f5e;border-radius:12px;padding:12px;text-align:center;">
+                  <div style="display:flex;justify-content:center;gap:6px;margin-bottom:8px;">
+                    <span style="width:16px;height:16px;border-radius:50%;background:#f43f5e;display:inline-block;"></span>
+                    <span style="width:16px;height:16px;border-radius:50%;background:#241019;display:inline-block;"></span>
+                    <span style="width:16px;height:16px;border-radius:50%;background:#fda4af;display:inline-block;"></span>
+                  </div>
+                  <strong style="font-size:0.85rem;color:white;">Rose Velvet Dark</strong>
+                </div>
+              </div>
+            </div>
+
+            <!-- Formulário de Personalização Avançada & Live Preview -->
+            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(320px, 1fr));gap:1.5rem;">
+              <!-- Coluna de Configuração -->
+              <div style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;padding:1.5rem;">
+                <h3 style="margin:0 0 1.2rem 0;font-size:1.1rem;"><i class="fa-solid fa-sliders" style="color:#6366f1;"></i> Ajustes de Cores por Seção</h3>
+                
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1rem;">
+                  <div class="form-group">
+                    <label style="font-size:0.8rem;font-weight:600;display:block;margin-bottom:4px;">Cor Primária / Acento</label>
+                    <input type="color" id="theme-primary" value="#fc4b15" onchange="atualizarLivePreviewTema()" style="width:100%;height:38px;border-radius:8px;border:1px solid var(--border-color);cursor:pointer;background:none;">
+                  </div>
+                  <div class="form-group">
+                    <label style="font-size:0.8rem;font-weight:600;display:block;margin-bottom:4px;">Cor Primária (Hover)</label>
+                    <input type="color" id="theme-primary-hover" value="#e03e0a" onchange="atualizarLivePreviewTema()" style="width:100%;height:38px;border-radius:8px;border:1px solid var(--border-color);cursor:pointer;background:none;">
+                  </div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1rem;">
+                  <div class="form-group">
+                    <label style="font-size:0.8rem;font-weight:600;display:block;margin-bottom:4px;">Fundo do Cabeçalho</label>
+                    <input type="color" id="theme-bg-header" value="#1a1a2e" onchange="atualizarLivePreviewTema()" style="width:100%;height:38px;border-radius:8px;border:1px solid var(--border-color);cursor:pointer;background:none;">
+                  </div>
+                  <div class="form-group">
+                    <label style="font-size:0.8rem;font-weight:600;display:block;margin-bottom:4px;">Texto do Cabeçalho</label>
+                    <input type="color" id="theme-text-header" value="#ffffff" onchange="atualizarLivePreviewTema()" style="width:100%;height:38px;border-radius:8px;border:1px solid var(--border-color);cursor:pointer;background:none;">
+                  </div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1rem;">
+                  <div class="form-group">
+                    <label style="font-size:0.8rem;font-weight:600;display:block;margin-bottom:4px;">Fundo da Barra Lateral</label>
+                    <input type="color" id="theme-bg-sidebar" value="#1e1e2e" onchange="atualizarLivePreviewTema()" style="width:100%;height:38px;border-radius:8px;border:1px solid var(--border-color);cursor:pointer;background:none;">
+                  </div>
+                  <div class="form-group">
+                    <label style="font-size:0.8rem;font-weight:600;display:block;margin-bottom:4px;">Texto da Barra Lateral</label>
+                    <input type="color" id="theme-text-sidebar" value="#a1a1aa" onchange="atualizarLivePreviewTema()" style="width:100%;height:38px;border-radius:8px;border:1px solid var(--border-color);cursor:pointer;background:none;">
+                  </div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1rem;">
+                  <div class="form-group">
+                    <label style="font-size:0.8rem;font-weight:600;display:block;margin-bottom:4px;">Fundo da Página</label>
+                    <input type="color" id="theme-bg-color" value="#0f172a" onchange="atualizarLivePreviewTema()" style="width:100%;height:38px;border-radius:8px;border:1px solid var(--border-color);cursor:pointer;background:none;">
+                  </div>
+                  <div class="form-group">
+                    <label style="font-size:0.8rem;font-weight:600;display:block;margin-bottom:4px;">Fundo dos Cards</label>
+                    <input type="color" id="theme-bg-card" value="#1e293b" onchange="atualizarLivePreviewTema()" style="width:100%;height:38px;border-radius:8px;border:1px solid var(--border-color);cursor:pointer;background:none;">
+                  </div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1rem;">
+                  <div class="form-group">
+                    <label style="font-size:0.8rem;font-weight:600;display:block;margin-bottom:4px;">Texto Principal</label>
+                    <input type="color" id="theme-text-primary" value="#f8fafc" onchange="atualizarLivePreviewTema()" style="width:100%;height:38px;border-radius:8px;border:1px solid var(--border-color);cursor:pointer;background:none;">
+                  </div>
+                  <div class="form-group">
+                    <label style="font-size:0.8rem;font-weight:600;display:block;margin-bottom:4px;">Texto Secundário</label>
+                    <input type="color" id="theme-text-secondary" value="#94a3b8" onchange="atualizarLivePreviewTema()" style="width:100%;height:38px;border-radius:8px;border:1px solid var(--border-color);cursor:pointer;background:none;">
+                  </div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1.5rem;">
+                  <div class="form-group">
+                    <label style="font-size:0.8rem;font-weight:600;display:block;margin-bottom:4px;">Cor de Bordas</label>
+                    <input type="color" id="theme-border-color" value="#334155" onchange="atualizarLivePreviewTema()" style="width:100%;height:38px;border-radius:8px;border:1px solid var(--border-color);cursor:pointer;background:none;">
+                  </div>
+                  <div class="form-group">
+                    <label style="font-size:0.8rem;font-weight:600;display:block;margin-bottom:4px;">Fundo Botão Principal</label>
+                    <input type="color" id="theme-btn-bg" value="#fc4b15" onchange="atualizarLivePreviewTema()" style="width:100%;height:38px;border-radius:8px;border:1px solid var(--border-color);cursor:pointer;background:none;">
+                  </div>
+                </div>
+
+                <h3 style="margin:1.5rem 0 1rem 0;font-size:1.1rem;"><i class="fa-solid fa-font" style="color:#a855f7;"></i> Tipografia &amp; Bordas</h3>
+                
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1rem;">
+                  <div class="form-group">
+                    <label style="font-size:0.8rem;font-weight:600;display:block;margin-bottom:4px;">Fonte do Corpo</label>
+                    <select id="theme-font-body" onchange="atualizarLivePreviewTema()" class="form-control" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-card);color:var(--text-main);">
+                      <option value="Inter">Inter (Padrão)</option>
+                      <option value="Roboto">Roboto</option>
+                      <option value="Open Sans">Open Sans</option>
+                      <option value="Montserrat">Montserrat</option>
+                      <option value="Poppins">Poppins</option>
+                      <option value="Nunito">Nunito</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label style="font-size:0.8rem;font-weight:600;display:block;margin-bottom:4px;">Fonte dos Títulos</label>
+                    <select id="theme-font-heading" onchange="atualizarLivePreviewTema()" class="form-control" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-card);color:var(--text-main);">
+                      <option value="Outfit">Outfit (Padrão)</option>
+                      <option value="Montserrat">Montserrat</option>
+                      <option value="Poppins">Poppins</option>
+                      <option value="Space Grotesk">Space Grotesk</option>
+                      <option value="Playfair Display">Playfair Display</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="form-group" style="margin-bottom:1.5rem;">
+                  <label style="font-size:0.8rem;font-weight:600;display:block;margin-bottom:4px;">Estilo das Bordas (Radius)</label>
+                  <select id="theme-border-radius" onchange="atualizarLivePreviewTema()" class="form-control" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-card);color:var(--text-main);">
+                    <option value="4px">4px — Reto / Clássico</option>
+                    <option value="8px">8px — Padronizado Moderno</option>
+                    <option value="14px" selected>14px — Arredondado Elegante</option>
+                    <option value="20px">20px — Pill Soft / Curvado</option>
+                  </select>
+                </div>
+
+                <h3 style="margin:1.5rem 0 1rem 0;font-size:1.1rem;"><i class="fa-solid fa-up-right-and-down-left-from-center" style="color:#0ea5e9;"></i> Tamanho &amp; Espaçamento</h3>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1rem;">
+                  <div class="form-group">
+                    <label style="font-size:0.8rem;font-weight:600;display:block;margin-bottom:4px;">Tamanho dos Textos</label>
+                    <select id="theme-fs-scale" onchange="atualizarLivePreviewTema()" class="form-control" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-card);color:var(--text-main);">
+                      <option value="0.9">Pequeno (90%)</option>
+                      <option value="0.95">Compacto (95%)</option>
+                      <option value="1" selected>Normal (100%)</option>
+                      <option value="1.1">Grande (110%)</option>
+                      <option value="1.2">Muito Grande (120%)</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label style="font-size:0.8rem;font-weight:600;display:block;margin-bottom:4px;">Tamanho dos Botões</label>
+                    <select id="theme-btn-scale" onchange="atualizarLivePreviewTema()" class="form-control" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-card);color:var(--text-main);">
+                      <option value="0.85">Compactos</option>
+                      <option value="1" selected>Normais</option>
+                      <option value="1.15">Grandes (toque fácil)</option>
+                      <option value="1.3">Extra Grandes</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1rem;">
+                  <div class="form-group">
+                    <label style="font-size:0.8rem;font-weight:600;display:block;margin-bottom:4px;">Espaçamento dos Cards</label>
+                    <select id="theme-card-size" onchange="atualizarLivePreviewTema()" class="form-control" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-card);color:var(--text-main);">
+                      <option value="compacto">Compacto</option>
+                      <option value="normal" selected>Normal</option>
+                      <option value="espacoso">Espaçoso</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label style="font-size:0.8rem;font-weight:600;display:block;margin-bottom:4px;">Largura Máxima dos Modais</label>
+                    <select id="theme-modal-width" onchange="atualizarLivePreviewTema()" class="form-control" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-card);color:var(--text-main);">
+                      <option value="none" selected>Padrão do sistema</option>
+                      <option value="520px">Estreito (520px)</option>
+                      <option value="800px">Largo (800px)</option>
+                      <option value="96vw">Ocupar a tela (96vw)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="form-group" style="margin-bottom:1.5rem;">
+                  <label style="font-size:0.8rem;font-weight:600;display:block;margin-bottom:4px;">Posição Vertical dos Modais</label>
+                  <select id="theme-modal-pos" onchange="atualizarLivePreviewTema()" class="form-control" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-card);color:var(--text-main);">
+                    <option value="center" selected>Centro da tela</option>
+                    <option value="flex-start">Topo da tela</option>
+                    <option value="flex-end">Base da tela (estilo celular)</option>
+                  </select>
+                </div>
+
+                <h3 style="margin:1.5rem 0 1rem 0;font-size:1.1rem;"><i class="fa-solid fa-bolt" style="color:#f59e0b;"></i> Ícone Coringa</h3>
+                <p style="font-size:0.82rem;color:var(--text-muted);margin:0 0 12px 0;">Um botão de atalho universal que aparece em todas as telas. Você define o ícone, o que ele faz e onde fica.</p>
+
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+                  <input type="checkbox" id="theme-coringa-enabled" checked onchange="atualizarLivePreviewTema()" style="width:18px;height:18px;cursor:pointer;">
+                  <label for="theme-coringa-enabled" style="font-size:0.85rem;font-weight:600;cursor:pointer;">Ativar ícone coringa em todas as telas</label>
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1rem;">
+                  <div class="form-group">
+                    <label style="font-size:0.8rem;font-weight:600;display:block;margin-bottom:4px;">Ícone</label>
+                    <select id="theme-coringa-icon" onchange="atualizarLivePreviewTema()" class="form-control" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-card);color:var(--text-main);">
+                      <option value="">Sem ícone (oculto)</option>
+                      <option value="ph ph-lightning">Raio ⚡ Ações rápidas</option>
+                      <option value="ph ph-bell-ringing">Sino — Chamar / Avisos</option>
+                      <option value="ph ph-headset">Headset — Suporte</option>
+                      <option value="ph ph-phone-call">Telefone</option>
+                      <option value="ph ph-magnifying-glass">Lupa — Buscar</option>
+                      <option value="ph ph-list-plus">Lista + — Pedidos</option>
+                      <option value="ph ph-users-three">Equipe</option>
+                      <option value="ph ph-calendar-plus">Agenda</option>
+                      <option value="ph ph-clock-counter-clockwise">Histórico</option>
+                      <option value="ph ph-star">Estrela — Favoritos</option>
+                      <option value="ph ph-gear">Engrenagem</option>
+                      <option value="ph ph-qrcode">QR Code</option>
+                      <option value="ph ph-basket">Cesta</option>
+                      <option value="ph ph-sun">Sol / Tema</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label style="font-size:0.8rem;font-weight:600;display:block;margin-bottom:4px;">Função do Ícone</label>
+                    <select id="theme-coringa-action" onchange="window.atualizarCampoCoringa(); atualizarLivePreviewTema();" class="form-control" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-card);color:var(--text-main);">
+                      <option value="url">Abrir página ou URL</option>
+                      <option value="tema">Alternar tema claro/escuro</option>
+                      <option value="fila">Abrir Fila de Espera</option>
+                      <option value="recarregar">Recarregar a página</option>
+                      <option value="js">Executar JavaScript personalizado</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="form-group" id="wrap-coringa-target" style="margin-bottom:1rem;">
+                  <label id="lbl-coringa-target" style="font-size:0.8rem;font-weight:600;display:block;margin-bottom:4px;">URL ou página interna (ex.: /garcom.html)</label>
+                  <input type="text" id="theme-coringa-target" oninput="atualizarLivePreviewTema()" placeholder="/garcom.html ou https://..." class="form-control" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-input);color:var(--text-main);">
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1rem;">
+                  <div class="form-group">
+                    <label style="font-size:0.8rem;font-weight:600;display:block;margin-bottom:4px;">Posição na Tela</label>
+                    <select id="theme-coringa-position" onchange="atualizarLivePreviewTema()" class="form-control" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-card);color:var(--text-main);">
+                      <option value="float-br" selected>Canto inferior direito</option>
+                      <option value="float-bl">Canto inferior esquerdo</option>
+                      <option value="topbar-left">Barra superior · esquerda</option>
+                      <option value="topbar-right">Barra superior · direita</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label style="font-size:0.8rem;font-weight:600;display:block;margin-bottom:4px;">Texto ao passar o mouse</label>
+                    <input type="text" id="theme-coringa-title" oninput="atualizarLivePreviewTema()" placeholder="Atalho personalizado" class="form-control" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-input);color:var(--text-main);">
+                  </div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1.5rem;">
+                  <div class="form-group">
+                    <label style="font-size:0.8rem;font-weight:600;display:block;margin-bottom:4px;">Cor do Ícone</label>
+                    <input type="color" id="theme-coringa-color" value="#ffffff" onchange="atualizarLivePreviewTema()" style="width:100%;height:38px;border-radius:8px;border:1px solid var(--border-color);cursor:pointer;background:none;">
+                  </div>
+                  <div class="form-group">
+                    <label style="font-size:0.8rem;font-weight:600;display:block;margin-bottom:4px;">Cor de Fundo do Ícone</label>
+                    <input type="color" id="theme-coringa-bg" value="#fc4b15" onchange="atualizarLivePreviewTema()" style="width:100%;height:38px;border-radius:8px;border:1px solid var(--border-color);cursor:pointer;background:none;">
+                  </div>
+                </div>
+
+                <div style="display:flex;gap:10px;margin-top:1.5rem;">
+                  <button class="btn-action btn-primary-action" onclick="salvarTemaCustomGlobal()" style="flex:1;background:linear-gradient(135deg,#ec4899,#d946ef);color:white;">
+                    <i class="fa-solid fa-floppy-disk"></i> Salvar e Aplicar Globalmente
+                  </button>
+                  <button class="btn-action" onclick="restaurarTemaPadraoGlobal()" style="background:rgba(255,255,255,0.1);color:white;">
+                    <i class="fa-solid fa-rotate-left"></i> Restaurar Padrão
+                  </button>
+                </div>
+              </div>
+
+              <!-- Coluna do Simulador / Live Preview em Tempo Real -->
+              <div style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;padding:1.5rem;display:flex;flex-direction:column;">
+                <h3 style="margin:0 0 1rem 0;font-size:1.1rem;"><i class="fa-solid fa-desktop" style="color:#22c55e;"></i> Live Preview em Tempo Real</h3>
+                <p style="font-size:0.85rem;color:var(--text-muted);margin:0 0 1rem 0;">Visualize exatamente como o PDV, caixa e garçons verão o sistema com suas alterações.</p>
+
+                <!-- Container Mockup da Interface -->
+                <div id="theme-live-preview-box" style="flex:1;border:1px solid var(--border-color);border-radius:12px;overflow:hidden;background:#0f172a;display:flex;flex-direction:column;">
+                  <!-- Header Mockup -->
+                  <div id="prev-header" style="background:#1a1a2e;color:#ffffff;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;font-size:0.8rem;font-weight:600;border-bottom:1px solid rgba(255,255,255,0.1);">
+                    <span id="prev-header-title">👑 Chef Cozinha — Sistema de Restaurante</span>
+                    <span style="display:flex;align-items:center;gap:6px;">
+                      <span id="prev-coringa" style="display:none;align-items:center;justify-content:center;width:22px;height:22px;border-radius:6px;font-size:13px;box-shadow:0 2px 6px rgba(0,0,0,0.3);"></span>
+                      <span style="background:rgba(255,255,255,0.2);padding:2px 8px;border-radius:10px;font-size:0.7rem;">Mesa #04</span>
+                    </span>
+                  </div>
+
+                  <!-- Body Container -->
+                  <div style="display:flex;flex:1;">
+                    <!-- Sidebar Mockup -->
+                    <div id="prev-sidebar" style="width:110px;background:#1e1e2e;padding:10px;display:flex;flex-direction:column;gap:6px;border-right:1px solid rgba(255,255,255,0.1);">
+                      <div id="prev-side-item1" style="background:rgba(255,255,255,0.1);padding:6px 8px;border-radius:6px;font-size:0.75rem;color:#ffffff;">🍔 Lanches</div>
+                      <div id="prev-side-item2" style="padding:6px 8px;border-radius:6px;font-size:0.75rem;color:#a1a1aa;">🍕 Pizzas</div>
+                      <div id="prev-side-item3" style="padding:6px 8px;border-radius:6px;font-size:0.75rem;color:#a1a1aa;">🥤 Bebidas</div>
+                    </div>
+
+                    <!-- Main Work Area Mockup -->
+                    <div id="prev-main" style="flex:1;background:#0f172a;padding:12px;display:flex;flex-direction:column;gap:10px;">
+                      <div id="prev-card1" style="background:#1e293b;border:1px solid #334155;border-radius:10px;padding:10px;">
+                        <h5 id="prev-card-title" style="margin:0 0 4px 0;font-size:0.9rem;color:#f8fafc;">X-Burguer Especial</h5>
+                        <p id="prev-card-desc" style="margin:0 0 8px 0;font-size:0.75rem;color:#94a3b8;">Hambúrguer artesanal 180g, queijo cheddar e bacon.</p>
+                        <div style="display:flex;justify-content:space-between;align-items:center;">
+                          <strong id="prev-price" style="color:#fc4b15;font-size:0.95rem;">R$ 32,90</strong>
+                          <button id="prev-btn" style="background:#fc4b15;color:#ffffff;border:none;padding:4px 10px;border-radius:6px;font-size:0.75rem;font-weight:600;cursor:pointer;">+ Adicionar</button>
+                        </div>
+                      </div>
+
+                      <div id="prev-card2" style="background:#1e293b;border:1px solid #334155;border-radius:10px;padding:10px;">
+                        <span id="prev-subtext" style="font-size:0.75rem;color:#94a3b8;">Resumo da Conta</span>
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;">
+                          <strong id="prev-total-text" style="font-size:0.85rem;color:#f8fafc;">Total Pedido:</strong>
+                          <strong id="prev-total-val" style="font-size:0.9rem;color:#22c55e;">R$ 32,90</strong>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          </div>
+
 
   <!-- ── MODAL: NOVO/EDITAR MEMBRO SUPORTE ───────────────────── -->
   <div class="modal-overlay" id="modal-suporte">
@@ -2961,6 +3765,7 @@
             class="fa-solid fa-bullhorn"></i> Transmitir Aviso</button>
       </div>
     </div>
+  </div>
     <!-- MODAL: EDITAR METAS E COMISSÃO DO VENDEDOR / AFILIADO -->
     <div class="modal-overlay" id="modal-editar-meta-comissao">
       <div class="modal-content" style="max-width:480px; width:92%;">
@@ -2994,6 +3799,7 @@
               class="fa-solid fa-floppy-disk"></i> Salvar Alterações</button>
         </div>
       </div>
+    </div>
       <!-- MODAL: AUDITORIA E LOGS ANTI-FRAUDE DOS ATENDENTES/PARCEIROS -->
       <div class="modal-overlay" id="modal-audit-logs">
         <div class="modal-content" style="max-width:780px; width:94%;">
@@ -3025,6 +3831,8 @@
               </table>
             </div>
           </div>
+        </div>
+      </div>
           <!-- MODAL: CRIAR NOVA MISSÃO SURPRESA / PROMOÇÃO RELÂMPAGO -->
           <div class="modal-overlay" id="modal-criar-missao-surpresa">
             <div class="modal-content" style="max-width:540px; width:92%;">
@@ -3066,126 +3874,5 @@
             </div>
           </div>
 
-          <!-- ════ SEÇÃO: DEPLOY & ATUALIZAÇÕES ZERO-DOWNTIME ════ -->
-          <div class="content-section" id="sec-deploy-updates" style="display:none;">
-            <div class="info-banner" style="border-left-color: #22c55e;">
-              <i class="fa-solid fa-rocket" style="color: #22c55e;"></i>
-              <div class="info-banner-content">
-                <h4>Deploy Sem Quedas (Zero-Downtime Hot Swap)</h4>
-                <p>Gerencie atualizações do sistema por commit específico sem desconectar garçons, caixas ou clientes. O
-                  servidor sincroniza os arquivos e recarrega os módulos em tempo de execução.</p>
-              </div>
-            </div>
-
-            <!-- Card de Ação Principal -->
-            <div
-              style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;padding:1.5rem;margin-bottom:1.5rem;">
-              <div
-                style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.2rem;flex-wrap:wrap;gap:10px;">
-                <div>
-                  <h3 style="margin:0;font-size:1.3rem;"><i class="fa-solid fa-code-commit" style="color:#6366f1;"></i>
-                    Commits no Repositório (Git)</h3>
-                  <p style="margin:0.2rem 0 0 0;font-size:0.85rem;color:var(--text-muted);">Selecione a versão/commit
-                    desejado para atualizar o ambiente ao vivo.</p>
-                </div>
-                <button class="btn-action btn-primary-action" onclick="carregarCommitsGit()">
-                  <i class="fa-solid fa-rotate"></i> Sincronizar Commits
-                </button>
-              </div>
-
-              <div style="overflow-x:auto;">
-                <table class="custom-table" id="commits-table">
-                  <thead>
-                    <tr>
-                      <th>Commit</th>
-                      <th>Mensagem</th>
-                      <th>Autor</th>
-                      <th>Data</th>
-                      <th style="width:200px;">Ação de Deploy</th>
-                    </tr>
-                  </thead>
-                  <tbody id="commits-tbody">
-                    <tr>
-                      <td colspan="5" style="text-align:center;color:var(--text-muted);padding:20px;">Clique em
-                        Sincronizar Commits...</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-
-          <!-- ════ SEÇÃO: PLUGINS & MÓDULOS EXPANSÍVEIS ════ -->
-          <div class="content-section" id="sec-plugins-modulos" style="display:none;">
-            <div class="info-banner" style="border-left-color: #a855f7;">
-              <i class="fa-solid fa-puzzle-piece" style="color: #a855f7;"></i>
-              <div class="info-banner-content">
-                <h4>Central de Plugins & Módulos Extras</h4>
-                <p>Instale, ative ou desative extensões avançadas (iFood, Balanças ECF, KDS Inteligente, Pagamentos PIX
-                  Automáticos, WhatsApp Bot) para todos ou restaurantes específicos.</p>
-              </div>
-            </div>
-
-            <!-- Grid de Plugins -->
-            <div class="stats-grid" id="plugins-grid"
-              style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.2rem; margin-bottom: 1.5rem;">
-
-              <!-- Plugin iFood -->
-              <div
-                style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;padding:1.5rem;display:flex;flex-direction:column;justify-space:between;">
-                <div>
-                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-                    <span style="font-size:24px;">🛵</span>
-                    <span class="badge badge-ativo" id="plugin-status-ifood">Ativo (Global)</span>
-                  </div>
-                  <h4 style="margin:0 0 6px 0;font-size:1.1rem;">iFood Integrado Direct</h4>
-                  <p style="font-size:0.85rem;color:var(--text-muted);margin:0 0 16px 0;">Integração nativa de pedidos,
-                    cardápio e cancelamento automático com o iFood.</p>
-                </div>
-                <button class="btn-action" style="width:100%;background:#a855f7;color:white;"
-                  onclick="togglePluginStatus('ifood')">
-                  <i class="fa-solid fa-sliders"></i> Gerenciar Plugin iFood
-                </button>
-              </div>
-
-              <!-- Plugin WhatsApp Bot -->
-              <div
-                style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;padding:1.5rem;display:flex;flex-direction:column;justify-space:between;">
-                <div>
-                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-                    <span style="font-size:24px;">💬</span>
-                    <span class="badge badge-ativo" id="plugin-status-whatsapp">Ativo (Global)</span>
-                  </div>
-                  <h4 style="margin:0 0 6px 0;font-size:1.1rem;">WhatsApp Bot Atendimento</h4>
-                  <p style="font-size:0.85rem;color:var(--text-muted);margin:0 0 16px 0;">Disparo de notificação de
-                    pedido pronto e robô de pedidos automáticos.</p>
-                </div>
-                <button class="btn-action" style="width:100%;background:#22c55e;color:white;"
-                  onclick="togglePluginStatus('whatsapp')">
-                  <i class="fa-solid fa-sliders"></i> Gerenciar Plugin WhatsApp
-                </button>
-              </div>
-
-              <!-- Plugin Balança Serial -->
-              <div
-                style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;padding:1.5rem;display:flex;flex-direction:column;justify-space:between;">
-                <div>
-                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-                    <span style="font-size:24px;">⚖️</span>
-                    <span class="badge badge-ativo" id="plugin-status-balanca">Ativo (Global)</span>
-                  </div>
-                  <h4 style="margin:0 0 6px 0;font-size:1.1rem;">Balança Self-Service / Kilo</h4>
-                  <p style="font-size:0.85rem;color:var(--text-muted);margin:0 0 16px 0;">Conexão direta com balanças
-                    Toledo, Filizola e Urano via Serial/USB.</p>
-                </div>
-                <button class="btn-action" style="width:100%;background:#3b82f6;color:white;"
-                  onclick="togglePluginStatus('balanca')">
-                  <i class="fa-solid fa-sliders"></i> Gerenciar Plugin Balança
-                </button>
-              </div>
-
-            </div>
-          </div>
 
 
-</div>

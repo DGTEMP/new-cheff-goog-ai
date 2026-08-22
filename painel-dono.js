@@ -523,6 +523,77 @@ socket.on('dono_acao_erro', (data) => {
   showToast(data.mensagem || 'Erro ao executar ação.', 'ph-warning', 'error');
 });
 
+// ─── Alta Demanda: "Uau, seu negócio está bombando!" ─────────────
+let _modalDemandaAberto = false;
+
+function mostrarCelebracaoDemanda(data) {
+  if (_modalDemandaAberto) return;
+  _modalDemandaAberto = true;
+  const ppm = (data && data.pedidos_por_minuto) || '';
+  const overlay = document.createElement('div');
+  overlay.id = 'modal-demanda-alta';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(10,10,20,0.75);backdrop-filter:blur(6px);z-index:99999;display:flex;align-items:center;justify-content:center;padding:1rem;';
+  overlay.innerHTML = `
+    <div style="background:linear-gradient(160deg,#1e1b4b,#312e81);border:1px solid rgba(250,204,21,0.4);border-radius:24px;max-width:420px;width:100%;padding:2rem;text-align:center;color:#fff;font-family:inherit;box-shadow:0 25px 80px rgba(0,0,0,0.6);">
+      <div style="font-size:3.5rem;line-height:1;margin-bottom:0.5rem;">🎉</div>
+      <h2 style="font-size:1.5rem;font-weight:800;margin:0 0 0.35rem;background:linear-gradient(90deg,#facc15,#fb923c);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;">Uau, seu negócio está bombando!</h2>
+      <p style="font-size:0.85rem;color:#c7d2fe;margin:0 0 1.25rem;">
+        ${ppm ? `Detectamos <strong style="color:#fff;">${ppm} pedidos por minuto</strong> por aqui. ` : ''}Você está tendo algum evento específico hoje?
+      </p>
+      <div style="display:flex;flex-direction:column;gap:0.6rem;">
+        <button id="btn-evento-sim" style="background:linear-gradient(90deg,#f59e0b,#f97316);border:none;border-radius:12px;padding:0.8rem;color:#fff;font-weight:700;font-size:0.9rem;cursor:pointer;">🎉 Sim, é um evento!</button>
+        <input id="input-evento-desc" type="text" placeholder="Ex.: Festa, show, happy hour..." maxlength="200"
+          style="display:none;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);border-radius:10px;padding:0.65rem 0.8rem;color:#fff;font-size:0.85rem;">
+        <input id="input-evento-horas" type="number" min="1" max="72" value="4" placeholder="Duração (horas)"
+          style="display:none;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);border-radius:10px;padding:0.65rem 0.8rem;color:#fff;font-size:0.85rem;">
+        <button id="btn-evento-confirmar" style="display:none;background:var(--primary,#6366f1);border:none;border-radius:12px;padding:0.8rem;color:#fff;font-weight:700;font-size:0.9rem;cursor:pointer;">Confirmar evento</button>
+        <button id="btn-evento-nao" style="background:transparent;border:1px solid rgba(255,255,255,0.25);border-radius:12px;padding:0.7rem;color:#c7d2fe;font-size:0.85rem;cursor:pointer;">Não, só movimento mesmo 😄</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  const inputDesc = overlay.querySelector('#input-evento-desc');
+  const inputHoras = overlay.querySelector('#input-evento-horas');
+  const btnConfirmar = overlay.querySelector('#btn-evento-confirmar');
+  const btnSim = overlay.querySelector('#btn-evento-sim');
+  const btnNao = overlay.querySelector('#btn-evento-nao');
+
+  btnSim.addEventListener('click', () => {
+    btnSim.style.display = 'none';
+    inputDesc.style.display = 'block';
+    inputHoras.style.display = 'block';
+    btnConfirmar.style.display = 'block';
+    inputDesc.focus();
+  });
+
+  btnConfirmar.addEventListener('click', async () => {
+    const descricao = inputDesc.value.trim();
+    const duracao_horas = parseFloat(inputHoras.value) || 4;
+    btnConfirmar.disabled = true;
+    try {
+      await fetch('/api/evento-pico', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (localStorage.getItem('chef_token') || '') },
+        body: JSON.stringify({ descricao, duracao_horas })
+      });
+      adicionarAoFeed('aviso', '🎉 Evento declarado! Sistema otimizado para o pico.');
+    } catch (e) { }
+    fechar();
+  });
+
+  btnNao.addEventListener('click', () => fechar());
+  overlay.addEventListener('click', (ev) => { if (ev.target === overlay) fechar(); });
+
+  function fechar() {
+    _modalDemandaAberto = false;
+    overlay.remove();
+  }
+}
+
+socket.on('demanda_alta', (data) => {
+  mostrarCelebracaoDemanda(data);
+});
+
 // ─── Inicialização ────────────────────────────────────────────
 window.onload = () => {
   startClock();
@@ -589,4 +660,70 @@ window.toggleFeatureDono = async function(key, value) {
   } catch (e) {
     showToast('Erro ao salvar funcionalidade', 'ph-warning', 'error');
   }
+};
+
+
+// ── Reportar Problema → Suporte ─────────────────────────────
+let _relatoPrioridade = 'media';
+
+window.abrirModalRelato = function() {
+  var m = document.getElementById('modal-relato');
+  if (!m) return;
+  m.style.display = 'flex';
+  var fb = document.getElementById('relato-feedback');
+  if (fb) fb.style.display = 'none';
+};
+
+window.fecharModalRelato = function() {
+  var m = document.getElementById('modal-relato');
+  if (m) m.style.display = 'none';
+};
+
+window.selecionarPrioridade = function(pri, btn) {
+  _relatoPrioridade = pri;
+  document.querySelectorAll('.relato-pri').forEach(function(b) { b.classList.remove('ativa'); });
+  if (btn) btn.classList.add('ativa');
+};
+
+window.enviarRelato = async function() {
+  var titulo = document.getElementById('relato-titulo');
+  var descricao = document.getElementById('relato-descricao');
+  var categoria = document.getElementById('relato-categoria');
+  var feedback = document.getElementById('relato-feedback');
+  var botao = document.getElementById('btn-enviar-relato');
+  if (!titulo || !descricao || !botao) return;
+
+  var mostrarFeedback = function(msg, tipo) {
+    if (!feedback) return;
+    feedback.textContent = msg;
+    feedback.className = 'relato-feedback ' + tipo;
+    feedback.style.display = 'block';
+  };
+
+  if (!titulo.value.trim() || !descricao.value.trim()) {
+    mostrarFeedback('Preencha o título e a descrição do problema.', 'erro');
+    return;
+  }
+
+  botao.disabled = true;
+  try {
+    const res = await fetch('/api/dono/reportar-problema', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ titulo: titulo.value.trim(), descricao: descricao.value.trim(), categoria: categoria ? categoria.value : 'outro', prioridade: _relatoPrioridade })
+    });
+    const data = await res.json();
+    if (data && data.ok) {
+      mostrarFeedback(data.mensagem || 'Relato enviado com sucesso!', 'sucesso');
+      titulo.value = '';
+      descricao.value = '';
+      setTimeout(function() { fecharModalRelato(); }, 2200);
+      showToast('Relato enviado ao suporte', 'ph-lifebuoy', 'success');
+    } else {
+      mostrarFeedback((data && data.erro) || 'Não foi possível enviar o relato.', 'erro');
+    }
+  } catch (e) {
+    mostrarFeedback('Erro de conexão. Tente novamente.', 'erro');
+  }
+  botao.disabled = false;
 };

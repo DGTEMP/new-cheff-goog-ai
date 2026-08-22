@@ -505,21 +505,38 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Emits para popular as outras abas (mesas, funcionarios, etc)
-  // O main.js já cuida da listagem na UI se as IDs baterem, 
-  // mas como o main.js só emite ao clicar no botão antigo, emitimos aqui:
-  socket.emit('get_mesas');
-  socket.emit('get_funcionarios');
-  socket.emit('get_clientes');
-  socket.emit('get_promocoes');
+  // Protegidos: se o socket cair, NÃO pode abortar a inicialização
+  // da navegação (era isso que deixava a página "presa" numa aba só).
+  try {
+    if (socket && typeof socket.emit === 'function') {
+      socket.emit('get_mesas');
+      socket.emit('get_funcionarios');
+      socket.emit('get_clientes');
+      socket.emit('get_promocoes');
+    } else {
+      console.warn('[config] socket indisponível ao abrir as configurações.');
+    }
+  } catch (e) {
+    console.error('[config] erro nos emits iniciais:', e);
+  }
 
   // Aba control
   const STORAGE_KEY = 'config_active_tab';
 
   function activateTab(tabId, skipSave) {
     if (!tabId) return;
-    const btn = document.querySelector('.admin-tab-btn[data-tab="' + tabId + '"]');
-    const content = document.getElementById('admin-tab-' + tabId);
-    if (!btn || !content) return;
+    let btn = document.querySelector('.admin-tab-btn[data-tab="' + tabId + '"]');
+    let content = document.getElementById('admin-tab-' + tabId);
+    /* Aba salva no localStorage pode não existir mais (renomeada/removida
+       entre atualizações). Sem isso a página abre SEM nenhuma aba ativa e o
+       usuário fica "preso" — obrigado a limpar os dados do navegador. */
+    if (!btn || !content) {
+      try { localStorage.removeItem(STORAGE_KEY); localStorage.removeItem('admin_active_tab'); } catch (e) {}
+      if (window.location.hash) history.replaceState(null, '', window.location.pathname);
+      if (tabId === 'gerais') return;
+      activateTab('gerais', true);
+      return;
+    }
 
     document.querySelectorAll('.admin-tab-btn').forEach(b => {
       b.classList.remove('active');
@@ -527,6 +544,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     btn.classList.add('active');
     btn.style.fontWeight = 'bold';
+    /* Garante que o grupo da aba ativa esteja expandido no acordeão */
+    const grp = btn.closest('.action-group');
+    if (grp) grp.classList.remove('collapsed');
 
     document.querySelectorAll('.admin-tab-content').forEach(c => {
       c.classList.remove('active');
@@ -542,8 +562,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // Persist state
     if (!skipSave) {
       try { localStorage.setItem(STORAGE_KEY, tabId); } catch (e) {}
+      /* pushState em vez de replaceState: o gesto de VOLTAR do iPhone/Android
+         navega entre as seções em vez de sair do app. */
       if (window.location.hash !== '#' + tabId) {
-        history.replaceState(null, '', '#' + tabId);
+        history.pushState({ tab: tabId }, '', '#' + tabId);
       }
     }
 
@@ -565,16 +587,35 @@ document.addEventListener('DOMContentLoaded', () => {
     if (elTitulo) elTitulo.innerText = btn.innerText.trim();
   }
 
-  document.querySelectorAll('.admin-tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      activateTab(btn.getAttribute('data-tab'));
-    });
+  /* Navegação por DELEGAÇÃO no documento: mesmo que qualquer outra
+     inicialização desta página falhe, clicar numa seção SEMPRE troca a aba. */
+  document.addEventListener('click', (e) => {
+    const btn = e.target && e.target.closest ? e.target.closest('.admin-tab-btn') : null;
+    if (btn) {
+      const tab = btn.getAttribute('data-tab');
+      if (tab) activateTab(tab);
+    }
   });
 
   // Tab priority: URL param > hash > localStorage (current + legacy) > default
   const urlParams = new URLSearchParams(window.location.search);
   const targetTab = urlParams.get('tab') || window.location.hash.replace('#', '') || localStorage.getItem(STORAGE_KEY) || localStorage.getItem('admin_active_tab') || 'gerais';
-  activateTab(targetTab, true);
+  try {
+    activateTab(targetTab, true);
+  } catch (e) {
+    console.error('[config] falha ao ativar aba inicial:', e);
+    try { activateTab('gerais', true); } catch (e2) { }
+  }
+
+  /* Voltar/avançar do navegador (e gesto de borda no iOS PWA) troca de aba */
+  window.addEventListener('hashchange', () => {
+    const h = window.location.hash.replace('#', '');
+    if (h) activateTab(h, true);
+  });
+  window.addEventListener('popstate', () => {
+    const h = window.location.hash.replace('#', '');
+    activateTab(h || 'gerais', true);
+  });
 
 });
 
@@ -5763,15 +5804,14 @@ window.baixarXmlNfce = function(id) {
 
 
 
-// Sidebar Accordion Logic (Beautiful Version)
+// Sidebar Accordion Logic
 document.addEventListener('DOMContentLoaded', () => {
   const groups = document.querySelectorAll('.action-group');
   groups.forEach(group => {
-    // Collapse all by default unless it contains an active tab
-    if (!group.querySelector('.admin-tab-btn.active')) {
-      group.classList.add('collapsed');
-    }
-    
+    /* Todos os grupos começam EXPANDIDOS: seção escondida é seção que o
+       operador não encontra. O título continua permitindo recolher. */
+    group.classList.remove('collapsed');
+
     const title = group.querySelector('.group-title');
     if (title) {
       // Add phosphor icon for the caret
@@ -5779,7 +5819,7 @@ document.addEventListener('DOMContentLoaded', () => {
       icon.className = 'ph ph-caret-down accordion-icon';
       icon.style.transition = 'transform 0.3s ease';
       icon.style.fontSize = '14px';
-      
+
       // If initially collapsed, rotate icon
       if (group.classList.contains('collapsed')) {
         icon.style.transform = 'rotate(-90deg)';

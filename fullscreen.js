@@ -11,7 +11,15 @@
 
   // ─── DARK MODE STATE ─────────────────────────────────────────────────────────
   var DARK_KEY = 'chef_garcom_theme';
-  var isDark = localStorage.getItem(DARK_KEY) === 'dark';
+  // Unificado: prefere a chave do theme-manager (chef_theme) para os dois sistemas nunca divergirem
+  var isDark = (function() {
+    try {
+      var t = localStorage.getItem('chef_theme');
+      if (t === 'dark') return true;
+      if (t === 'light') return false;
+    } catch (e) { }
+    return localStorage.getItem(DARK_KEY) === 'dark';
+  })();
 
   // Apply immediately on load (before DOMContentLoaded to avoid flash)
   if (isDark) document.documentElement.classList.add('dark-mode-pre');
@@ -101,6 +109,9 @@
     e.preventDefault(); e.stopPropagation();
     isDark = !isDark;
     localStorage.setItem(DARK_KEY, isDark ? 'dark' : 'light');
+    try { localStorage.setItem('chef_theme', isDark ? 'dark' : 'light'); } catch (err) { }
+    // Mantém o sistema do theme-manager alinhado quando a página usa os dois
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
     applyDarkMode(isDark);
     // Sync garcom.js button if present
     var garcomBtn = document.getElementById('btn-theme-toggle');

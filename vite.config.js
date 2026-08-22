@@ -8,7 +8,10 @@ import legacy from '@vitejs/plugin-legacy';
 const copyRootStatics = () => ({
   name: 'copy-root-statics',
   closeBundle() {
-    const files = ['style.css', 'fila.css', 'dark-mode.css', 'broadcast.js'];
+    const files = [
+      'style.css', 'fila.css', 'dark-mode.css', 'broadcast.js',
+      'main.js', 'auth.js', 'fuzzy-search.js'
+    ];
     for (const f of files) {
       const src = resolve(__dirname, f);
       const dest = resolve(__dirname, 'dist', f);

@@ -31,10 +31,12 @@ async function startServer() {
   console.log(`==================================================\n`);
 
   // Executa backend Node e servidor Vite em paralelo com autorestart
-  currentChild = spawn('npx', ['concurrently', '--kill-others-on-fail', 'node server.js', 'vite --host'], {
-    stdio: 'inherit',
-    shell: true,
-    cwd: __dirname
+  currentChild = spawn(process.execPath, ['server.js'], { stdio: 'inherit', cwd: __dirname });
+  const viteCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+  const viteChild = spawn(viteCmd, ['vite', '--host'], { stdio: 'inherit', cwd: __dirname, shell: true });
+
+  viteChild.on('exit', () => {
+    if (!isShuttingDown && currentChild) currentChild.kill();
   });
 
   currentChild.on('exit', async (code, signal) => {

@@ -710,6 +710,69 @@ function salvarCadastroParceiro() {
 }
 
 /* ═══ CENTRAL DE NOTIFICAÇÕES EM TEMPO REAL & MISSÕES SURPRESA ═══ */
+
+
+// ── Relatos de Restaurantes ─────────────────────────────────
+function escHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function(c) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
+
+function carregarRelatosRestaurantes() {
+  apiGet('/api/suporte/tarefas-relatadas', function(err, data) {
+    var lista = document.getElementById('relatos-lista');
+    var badge = document.getElementById('relatos-count-badge');
+    if (err || !data || !data.ok) {
+      if (lista) lista.innerHTML = '<div class="empty-state" style="padding:1rem;"><p>Não foi possível carregar os relatos.</p></div>';
+      return;
+    }
+    var relatos = data.relatos || [];
+    if (badge) {
+      badge.textContent = relatos.length;
+      badge.style.display = relatos.length > 0 ? 'inline-block' : 'none';
+    }
+    if (!lista) return;
+    if (relatos.length === 0) {
+      lista.innerHTML = '<div class="empty-state" style="padding:1rem;"><p>Nenhum relato pendente. Tudo tranquilo! 🎉</p></div>';
+      return;
+    }
+    var h = '';
+    relatos.forEach(function(r) {
+      var desc = String(r.descricao || '');
+      var linhas = desc.split('\n');
+      var tituloRelato = linhas[0] || 'Relato';
+      var corpo = linhas.slice(1).join('\n').trim();
+      var priAlta = /\bprioridade ALTA\b/i.test(linhas[0] || '');
+      var borda = priAlta ? 'border-left:4px solid #ef4444;' : 'border-left:4px solid var(--warning,#f59e0b);';
+      h += '<div class="relato-item card" style="' + borda + 'padding:12px 14px;margin-bottom:10px;">'
+        + '<div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap;">'
+        + '<div style="flex:1;min-width:220px;">'
+        + '<strong style="font-size:0.9rem;">' + escHtml(tituloRelato) + '</strong>'
+        + (r.restaurante_nome ? ' <span style="color:var(--text-muted);font-size:0.78rem;">• ' + escHtml(r.restaurante_nome) + '</span>' : '')
+        + '<div style="color:var(--text-sub);font-size:0.8rem;white-space:pre-wrap;margin-top:6px;">' + escHtml(corpo) + '</div>'
+        + '<small style="color:var(--text-muted);">' + (r.criada_em ? new Date(r.criada_em.replace(' ','T')).toLocaleString('pt-BR') : '') + '</small>'
+        + '</div>'
+        + '<button class="btn btn-primary" style="white-space:nowrap;" onclick="assumirRelato(' + r.id + ')"><i class="fa-solid fa-hand"></i> Assumir</button>'
+        + '</div></div>';
+    });
+    lista.innerHTML = h;
+  });
+}
+
+window.assumirRelato = function(id) {
+  apiPost('/api/suporte/assumir-relato', { id: id }, function(err, data) {
+    if ((err || !data.ok)) { showToast((data && data.erro) || 'Erro ao assumir relato', 'error'); return; }
+    showToast(data.mensagem || 'Relato assumido!', 'success');
+    carregarRelatosRestaurantes();
+    carregarAtividades();
+  });
+};
+
+window.concluirMinhaTarefa = function(id) {
+  apiPost('/api/suporte/concluir-tarefa', { id: id }, function(err, data) {
+    if (err || !data || !data.ok) { showToast((data && data.erro) || 'Erro ao concluir tarefa', 'error'); return; }
+    showToast(data.mensagem || 'Tarefa concluída!', 'success');
+    carregarAtividades();
+  });
+};
+
 var _suporteSocket = null;
 function initSuporteRealtimeSockets() {
   if (typeof io === 'undefined') return;
@@ -717,9 +780,13 @@ function initSuporteRealtimeSockets() {
   try {
     _suporteSocket = io();
     _suporteSocket.on('nova_missao_surpresa', function(data) {
-      showToast('🔥 PROMOÇÃO SURPRESA: ' + data.titulo + ' (Bônus R$ ' + parseFloat(data.recompensa_valor || 0).toFixed(2) + ')', 'warning');
+      showToast('?? PROMOÇÃO SURPRESA: ' + data.titulo + ' (Bônus R$ ' + parseFloat(data.recompensa_valor || 0).toFixed(2) + ')', 'warning');
       carregarMissoesSurpresa();
       carregarNotificacoesSuporte();
+    });
+    _suporteSocket.on('nova_tarefa_suporte', function(data) {
+      showToast('Novo relato de ' + (data.restaurante_nome || 'restaurante') + ': ' + data.titulo, 'warning');
+      carregarRelatosRestaurantes();
     });
   } catch(e) { console.error('Erro ao conectar socket de suporte:', e); }
 }
@@ -823,4 +890,8 @@ document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('login-senha').addEventListener('keydown', function(e) {
     if (e.key === 'Enter') loginSuporte();
   });
+
+  if (typeof suporteToken !== 'undefined' && suporteToken && typeof carregarRelatosRestaurantes === 'function') {
+    carregarRelatosRestaurantes();
+  }
 });

@@ -769,14 +769,22 @@ masterDb.serialize(() => {
 function verificarSenhaAdmin(senha) {
   return new Promise((resolve) => {
     if (!senha) return resolve(false);
-    masterDb.all(`SELECT password_hash FROM usuarios WHERE role = 'admin' AND ativo = 1`, [], async (err, users) => {
-      if (err || !users || users.length === 0) return resolve(false);
-      for (const user of users) {
+    masterDb.get(`SELECT valor FROM configuracoes_global WHERE chave = 'super_admin_senha_hash'`, [], async (errC, rowC) => {
+      if (!errC && rowC && rowC.valor) {
         try {
-          if (await bcrypt.compare(senha, user.password_hash)) return resolve(true);
-        } catch(e) {}
+          if (await bcrypt.compare(String(senha), rowC.valor)) return resolve(true);
+        } catch (e) { }
+        return resolve(false);
       }
-      resolve(false);
+      masterDb.all(`SELECT password_hash FROM usuarios WHERE role = 'admin' AND ativo = 1`, [], async (err, users) => {
+        if (err || !users || users.length === 0) return resolve(false);
+        for (const user of users) {
+          try {
+            if (await bcrypt.compare(senha, user.password_hash)) return resolve(true);
+          } catch(e) {}
+        }
+        resolve(false);
+      });
     });
   });
 }
@@ -796,12 +804,60 @@ async function superAdminAuth(req, res, next) {
   return res.json({ ok: false, erro: 'Acesso não autorizado. Autentique-se novamente.' });
 }
 
+// Anti-brute-force: max 5 senhas erradas por IP a cada 15 min
+const loginAttempts = new Map();
+function loginBloqueado(ip) {
+  const rec = loginAttempts.get(ip);
+  if (!rec) return false;
+  if (Date.now() - rec.inicio > 15 * 60 * 1000) { loginAttempts.delete(ip); return false; }
+  return rec.falhas >= 5;
+}
+function registrarFalhaLogin(ip) {
+  const rec = loginAttempts.get(ip);
+  if (!rec || Date.now() - rec.inicio > 15 * 60 * 1000) {
+    loginAttempts.set(ip, { inicio: Date.now(), falhas: 1 });
+  } else {
+    rec.falhas++;
+  }
+}
+
 app.post('/api/super/login-local', async (req, res) => {
+  const rawIp = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1').replace('::ffff:', '');
+  if (loginBloqueado(rawIp)) {
+    return res.status(429).json({ ok: false, erro: 'Muitas tentativas. Aguarde 15 minutos.' });
+  }
   const senha = req.body && req.body.senha;
   const ok = await verificarSenhaAdmin(senha);
-  if (!ok) return res.json({ ok: false, erro: 'Senha de administrador inválida.' });
+  if (!ok) {
+    registrarFalhaLogin(rawIp);
+    return res.json({ ok: false, erro: 'Senha de administrador inválida.' });
+  }
+  loginAttempts.delete(rawIp);
   const token = jwt.sign({ role: 'super_admin_local', restaurante_id: 1 }, JWT_SECRET, { expiresIn: '12h' });
   res.json({ ok: true, token });
+});
+
+// Tema Global: salva config e propaga em tempo real
+app.post('/api/super/theme-custom', superAdminAuth, (req, res) => {
+  const theme = req.body && req.body.theme;
+  if (!theme || typeof theme !== 'object' || !Object.keys(theme).length) {
+    return res.json({ ok: false, erro: 'Tema invalido.' });
+  }
+  const valor = JSON.stringify(theme);
+  masterDb.run("INSERT INTO configuracoes_global (chave, valor) VALUES ('custom_theme', ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor", [valor], (err) => {
+    if (err) return res.json({ ok: false, erro: err.message });
+    try { io.emit('tema_global_atualizado', theme); } catch (e) { }
+    res.json({ ok: true, mensagem: 'Tema Global salvo e propagado em tempo real!' });
+  });
+});
+
+// Tema Global publico: leitura apenas de cores/fontes (sem dados sensiveis)
+app.get('/api/public/theme', (req, res) => {
+  masterDb.get("SELECT valor FROM configuracoes_global WHERE chave = 'custom_theme'", [], (err, row) => {
+    if (err || !row || !row.valor) return res.json({ ok: true, theme: null });
+    try { return res.json({ ok: true, theme: JSON.parse(row.valor) }); }
+    catch (e) { return res.json({ ok: true, theme: null }); }
+  });
 });
 
 app.get('/api/super/certs', superAdminAuth, (req, res) => {
@@ -1099,6 +1155,403 @@ setTimeout(() => { enviarTelemetriaRemota(); }, 3000);
 setInterval(() => { enviarTelemetriaRemota(); }, 5 * 60 * 1000);
 setTimeout(() => { aplicarSeedAdmin().then(() => processarFilaSync()); }, 2500);
 setInterval(() => processarFilaSync(), 60 * 1000);
+
+// ─── SUPER ADMIN: EXEC (terminal de comandos com seguranca) ───
+const { exec } = require('child_process');
+const CMD_BLOCKLIST = [
+  /\brm\s+-rf\s+\/\b/,           // rm -rf /
+  /\bmkfs\b/,                     // formatacao de disco (Linux)
+  /\bdd\s+.*of=\/dev\//,          // dd direto em disco
+  /\bcurl\b.*\|\s*bash/,         // pipe remoto para bash
+  /\bwget\b.*\|\s*bash/,
+  /\bchmod\s+777\s+\//,          // chmod global
+  /\bshutdown\b/i,                // desligar servidor
+  /\breboot\b/i,
+  /\binit\s+[06]\b/,
+  /\bformat\s+[a-z]:/i,           // format C:
+  /\bdiskpart\b/i,                // particionamento
+  /\bdel\s+(\/[sfq]+\s+)+[a-z]:\\\s*$/i,   // del /S /Q na raiz de disco
+  /\brd\s+\/s\s+\/q\s+[a-z]:\\\s*$/i,    // rd /S /Q na raiz de disco
+  /\bvssadmin\b.*delete/i,        // apagar shadow copies
+  /\bbcdedit\b/i,                 // boot config
+  /\bcipher\s+\/w/i               // wipe de disco
+];
+// Endpoint exclusivo do super admin: operadores do shell (&, |, >, aspas,
+// parenteses) sao necessarios para os comandos rapidos do terminal.
+const CMD_DENY_CHARS = /[\r\n\0]/;
+
+app.post('/api/super/exec', superAdminAuth, (req, res) => {
+  const { command } = req.body;
+  if (!command || typeof command !== 'string') return res.json({ ok: false, erro: 'Comando obrigatorio.' });
+  if (command.length > 300) return res.json({ ok: false, erro: 'Comando muito longo (max 300 chars).' });
+  if (CMD_DENY_CHARS.test(command)) return res.json({ ok: false, erro: 'Comando invalido.' });
+  if (CMD_BLOCKLIST.some(rx => rx.test(command))) return res.json({ ok: false, erro: 'Comando bloqueado por seguranca.' });
+
+  // Allowlist com comandos Windows e Linux usados na administracao do servidor
+  const allowedCmds = /^(ls|cat|head|tail|wc|df|du|free|uptime|ps|top|netstat|ss|ip|ifconfig|ping|host|dig|nslookup|date|pwd|whoami|id|env|printenv|node|npm|npx|pm2|sqlite3|git|docker|dir|type|echo|tasklist|taskkill|systeminfo|wmic|ipconfig|hostname|ver|where|findstr|find|sc|net|cd|chdir|vol|driverquery|getmac|openfiles|quser|query|reg|wevtutil|powercfg|schtasks)\b/;
+  if (!allowedCmds.test(command.trim())) {
+    return res.json({ ok: false, erro: 'Comando nao esta na lista de permitidos. Permitidos: dir, type, tasklist, systeminfo, netstat, ipconfig, node, npm, pm2, sqlite3, git, docker...' });
+  }
+
+  console.log(`[SuperAdmin Exec] ${req.superAdmin?.role || 'admin'}: ${command.substring(0, 200)}`);
+  exec(command, { cwd: __dirname, timeout: 30000, maxBuffer: 1024 * 1024, windowsHide: true }, (error, stdout, stderr) => {
+    const out = (stdout || '').substring(0, 10000);
+    const err = (stderr || '').substring(0, 5000);
+    res.json({ ok: !error, stdout: out, stderr: err, exitCode: error ? (error.code || 1) : 0, command: command.substring(0, 300) });
+  });
+});
+// ─── FEATURES POR TENANT + HELPERS DE BANCOS (portados do dev) ───
+const featurePlans = require('./feature-plans');
+const tenantFeatures = new Map();
+const tenantSocketCounts = new Map();
+const TENANT_FEATURES_REFRESH_MS = 30000;
+
+function getTenantDbPath(tenantId) {
+  return path.join(__dirname, `database_${tenantId}.sqlite`);
+}
+
+function listarBancosTenant() {
+  try {
+    return fsSync.readdirSync(__dirname)
+      .filter(f => /^database_(\d+)\.sqlite$/.test(f))
+      .map(f => path.join(__dirname, f))
+      .filter(p => fsSync.existsSync(p));
+  } catch (e) { return []; }
+}
+
+function safeInt(v, min = 0, max = 2147483647) { const n = parseInt(v, 10); return isNaN(n) ? min : Math.max(min, Math.min(max, n)); }
+
+// Recarrega o snapshot de features de todos os tenants (sincrono depois disso)
+function loadAllTenantFeatures() {
+  return new Promise((resolve) => {
+    masterDb.all(`SELECT id, licenca FROM restaurantes`, [], (err, rests) => {
+      masterDb.all(`SELECT restaurante_id, overrides_json FROM tenant_features`, [], (err2, ovs) => {
+        const ovMap = {};
+        (ovs || []).forEach((o) => {
+          try { ovMap[o.restaurante_id] = JSON.parse(o.overrides_json) || {}; } catch (e) { ovMap[o.restaurante_id] = {}; }
+        });
+        const map = new Map();
+        (rests || []).forEach((r) => {
+          map.set(r.id, featurePlans.resolveFeatures(r.licenca, ovMap[r.id]));
+        });
+        tenantFeatures.clear();
+        map.forEach((f, tid) => tenantFeatures.set(tid, f));
+        resolve();
+      });
+    });
+  });
+}
+
+function getTenantFeaturesSync(tid) {
+  return tenantFeatures.get(tid) || featurePlans.getPlanDefaults('premium');
+}
+
+function isTenantFeatureEnabled(tid, feature) {
+  const f = tenantFeatures.get(tid);
+  if (!f) return true;
+  return !!f[feature];
+}
+
+// ─── BLOCO PORTADO DA REGIÃO PRÉ-CORTE DO DEV (sync-prod descarta essa parte) ───
+function celebrarNovoRestaurante(nome, id, dono) {
+  const frames = ['🎉', '🎊', '✨', '🏆', '🌟', '🎆', '🎇'];
+  let f = 0;
+  const spinner = setInterval(() => {
+    process.stdout.write(`\r  ${frames[f % frames.length]}  Processando novo cliente... `);
+    f++;
+  }, 120);
+
+  setTimeout(() => {
+    clearInterval(spinner);
+    process.stdout.write('\r\x1b[2K\r');
+
+    const ts = new Date().toLocaleTimeString('pt-BR');
+    const banner = [
+      '',
+      `${ANSI.yellow}${ANSI.bright}  ╔══════════════════════════════════════════════════╗${ANSI.reset}`,
+      `${ANSI.yellow}${ANSI.bright}  ║   🏆  NOVO RESTAURANTE CADASTRADO  🏆            ║${ANSI.reset}`,
+      `${ANSI.yellow}${ANSI.bright}  ╠══════════════════════════════════════════════════╣${ANSI.reset}`,
+      `${ANSI.yellow}  ║${ANSI.reset}  ${ANSI.cyan}🏪 Nome:${ANSI.reset}   ${ANSI.bright}${nome}${ANSI.reset}`,
+      `${ANSI.yellow}  ║${ANSI.reset}  ${ANSI.green}🆔 ID:${ANSI.reset}     #${id}`,
+      dono ? `${ANSI.yellow}  ║${ANSI.reset}  ${ANSI.magenta}👤 Dono:${ANSI.reset}   ${dono}` : null,
+      `${ANSI.yellow}  ║${ANSI.reset}  ${ANSI.dim}🕐 Hora:${ANSI.reset}   ${ts}`,
+      `${ANSI.yellow}${ANSI.bright}  ╚══════════════════════════════════════════════════╝${ANSI.reset}`,
+      `  ${ANSI.green}${ANSI.bright}🎊 Bem-vindo ao ecossistema Chef Cozinha SaaS! 🎊${ANSI.reset}`,
+      '',
+    ].filter(Boolean).join('\n');
+
+    originalLog.apply(console, [banner]);
+
+    // Confete ASCII
+    const confete = '  ✦ ★ ✦ ★ ✦ ★ ✦ ★ ✦ ★ ✦ ★ ✦ ★ ✦ ★ ✦ ★ ✦ ★ ✦';
+    let c = 0;
+    const rain = setInterval(() => {
+      c++;
+      const colors = [ANSI.yellow, ANSI.cyan, ANSI.magenta, ANSI.green];
+      const col = colors[c % colors.length];
+      process.stdout.write(`\r${col}${confete}${ANSI.reset}`);
+      if (c >= 10) {
+        clearInterval(rain);
+        process.stdout.write('\r\x1b[2K\r');
+        originalLog.apply(console, [`${ANSI.dim}────────────────────────────────────────────────────────${ANSI.reset}`]);
+      }
+    }, 150);
+  }, 800);
+}
+
+
+const ANSI = {
+  reset: "\x1b[0m",
+  bright: "\x1b[1m",
+  dim: "\x1b[2m",
+  green: "\x1b[32m",
+  yellow: "\x1b[33m",
+  cyan: "\x1b[36m",
+  magenta: "\x1b[35m",
+  red: "\x1b[31m",
+  blue: "\x1b[34m",
+  white: "\x1b[37m",
+  bgBlue: "\x1b[44m\x1b[37m",
+  bgCyan: "\x1b[46m\x1b[30m",
+  bgMagenta: "\x1b[45m\x1b[37m",
+  bgGreen: "\x1b[42m\x1b[30m"
+};
+
+
+
+const serverStartTime = Date.now();
+function getEfficiencyStars() {
+  const memRssMb = process.memoryUsage().rss / (1024 * 1024);
+  if (memRssMb < 150) return "⭐⭐⭐⭐⭐ [100% EXCELENTE]";
+  if (memRssMb < 300) return "⭐⭐⭐⭐ [95% ÓTIMO]";
+  if (memRssMb < 500) return "⭐⭐⭐ [85% BOM]";
+  return "⭐⭐ [ATENÇÃO RESTRIÇÃO]";
+}
+
+function localizarFuncionarioLogin(usuario, cb) {
+  const q = `SELECT * FROM funcionarios WHERE LOWER(TRIM(usuario)) = LOWER(TRIM(?)) OR LOWER(TRIM(nome)) = LOWER(TRIM(?))`;
+  db.get(q, [usuario, usuario], (err, row) => {
+    if (!err && row) {
+      if (!row.restaurante_id) row.restaurante_id = tenantContext.getStore() || 1;
+      return cb(row);
+    }
+    masterDb.all(`SELECT id FROM restaurantes WHERE ativo = 1`, [], (e, rests) => {
+      if (e || !rests || !rests.length) return cb(null);
+      let i = 0;
+      const atual = tenantContext.getStore() || 1;
+      const next = () => {
+        while (i < rests.length) {
+          const tid = parseInt(rests[i++].id, 10);
+          if (!Number.isFinite(tid) || tid <= 0 || tid === atual) continue;
+          const dbPath = path.join(__dirname, `database_${tid}.sqlite`);
+          if (!fsSync.existsSync(dbPath)) continue;
+          const tdb = new sqlite3.Database(dbPath);
+          tdb.get(q, [usuario, usuario], (e2, row2) => {
+            tdb.close();
+            if (!e2 && row2) {
+              if (!row2.restaurante_id) row2.restaurante_id = tid;
+              return cb(row2);
+            }
+            next();
+          });
+          return;
+        }
+        cb(null);
+      };
+      next();
+    });
+  });
+}
+
+let BASE_DOMAIN = (process.env.BASE_DOMAIN || 'chefcozinha.com.br').toLowerCase();
+const domainMap = new Map(); // custom_domain → tenant_id
+const slugMap = new Map();   // slug → tenant_id
+let domainMapLoaded = false;
+
+function loadDomainMaps() {
+  return new Promise((resolve) => {
+    masterDb.all(`SELECT id, slug, custom_domain FROM restaurantes WHERE ativo = 1`, [], (err, rows) => {
+      if (err) return resolve();
+      domainMap.clear();
+      slugMap.clear();
+      (rows || []).forEach(r => {
+        if (r.custom_domain && r.custom_domain.trim()) {
+          domainMap.set(r.custom_domain.trim().toLowerCase(), r.id);
+        }
+        if (r.slug && r.slug.trim()) {
+          slugMap.set(r.slug.trim().toLowerCase(), r.id);
+        }
+      });
+      domainMapLoaded = true;
+      resolve();
+    });
+  });
+}
+
+function metricAddSocket(socket) {
+  if (socket._metricCounted) return;
+  socket._metricCounted = true;
+  const tid = socket.restaurante_id || 1;
+  tenantSocketCounts.set(tid, (tenantSocketCounts.get(tid) || 0) + 1);
+}
+function metricRemoveSocket(socket) {
+  if (!socket._metricCounted) return;
+  socket._metricCounted = false;
+  const tid = socket.restaurante_id || 1;
+  const c = (tenantSocketCounts.get(tid) || 1) - 1;
+  if (c <= 0) tenantSocketCounts.delete(tid);
+  else tenantSocketCounts.set(tid, c);
+}
+function metricSocketCount(tid) {
+  return tenantSocketCounts.get(tid) || 0;
+}
+
+function getLocalDateStr(d) {
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+// Amostra o pico de sockets por tenant/hora e persiste no masterDb
+function samplePicos() {
+  const now = new Date();
+  const dia = getLocalDateStr(now);
+  const hora = now.getHours();
+  tenantSocketCounts.forEach((count, tid) => {
+    masterDb.run(
+      `INSERT INTO metrica_picos (restaurante_id, dia, hora, sockets) VALUES (?, ?, ?, ?)
+       ON CONFLICT(restaurante_id, dia, hora) DO UPDATE SET sockets = MAX(sockets, excluded.sockets)`,
+      [tid, dia, hora, count]
+    );
+  });
+}
+
+function seedTenantDb(db, restauranteNome, done) {
+  const onErr = (e) => { if (e) console.error('[Seed] Erro:', e.message); };
+  db.serialize(() => {
+  db.run(`
+    CREATE TABLE IF NOT EXISTS afiliados (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      nome TEXT NOT NULL,
+      email TEXT UNIQUE NOT NULL,
+      telefone TEXT,
+      codigo_ref TEXT UNIQUE NOT NULL,
+      comissao_percentual REAL DEFAULT 10,
+      chave_pix TEXT,
+      status TEXT DEFAULT 'ativo',
+      password_hash TEXT,
+      created_at DATETIME DEFAULT (datetime('now', 'localtime'))
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS afiliado_vendas (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      afiliado_id INTEGER NOT NULL,
+      restaurante_id INTEGER,
+      restaurante_nome TEXT,
+      plano TEXT,
+      valor_venda REAL DEFAULT 0,
+      comissao_valor REAL DEFAULT 0,
+      status TEXT DEFAULT 'pendente',
+      created_at DATETIME DEFAULT (datetime('now', 'localtime')),
+      FOREIGN KEY (afiliado_id) REFERENCES afiliados(id)
+    )
+  `);
+
+    for (let i = 1; i <= 6; i++) {
+      db.run(`INSERT OR IGNORE INTO mesas (nome, status, observacao) VALUES (?, 'Disponível', NULL)`, ['Mesa ' + i], onErr);
+    }
+    if (restauranteNome) {
+      db.run(`INSERT OR REPLACE INTO configuracoes (chave, valor) VALUES ('nome_restaurante', ?)`, [restauranteNome], onErr);
+    }
+    const defaultMethods = [
+      ['Dinheiro', 'dinheiro', 0.0, 0, 1, 'ph-currency-dollar', 1],
+      ['Cartão de Crédito', 'credito', 2.5, 30, 1, 'ph-credit-card', 2],
+      ['Cartão de Débito', 'debito', 1.2, 1, 1, 'ph-credit-card', 3],
+      ['PIX', 'pix', 0.0, 0, 1, 'ph-qr-code', 4]
+    ];
+    db.get('SELECT COUNT(*) as c FROM formas_pagamento', [], (e, r) => {
+      if (!e && r && r.c === 0) {
+        const q = 'INSERT INTO formas_pagamento (nome, tipo, taxa, prazo_dias, ativo, icone, ordem) VALUES (?, ?, ?, ?, ?, ?, ?)';
+        defaultMethods.forEach(m => db.run(q, m, onErr));
+      }
+    });
+  }, done || (() => {}));
+}
+
+// Cria um banco de tenant novo com schema vazio + dados iniciais (sem copiar database_1.sqlite)
+function createFreshTenantDb(dbPath, restauranteNome) {
+  return new Promise((resolve) => {
+    const newDb = new sqlite3.Database(dbPath, (err) => {
+      if (err) { console.error('[Tenant] Erro ao criar banco:', err.message); return resolve(newDb); }
+      newDb.run('PRAGMA journal_mode = WAL;');
+      newDb.run('PRAGMA synchronous = NORMAL;');
+      newDb.run('PRAGMA busy_timeout = 5000;');
+      const refPath = path.join(__dirname, 'database_1.sqlite');
+      if (fsSync.existsSync(refPath)) {
+        syncTenantSchema(newDb, refPath, () => {
+          seedTenantDb(newDb, restauranteNome, () => resolve(newDb));
+        });
+      } else {
+        seedTenantDb(newDb, restauranteNome, () => resolve(newDb));
+      }
+    });
+  });
+}
+
+function resolveTenantId(req) {
+  const authHeader = req.headers['authorization'] || '';
+  const token = authHeader.split(' ')[1];
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      const tid = parseInt(decoded && decoded.restaurante_id, 10);
+      if (Number.isFinite(tid) && tid > 0) return tid;
+    } catch (e) { }
+  }
+  const fromQuery = parseInt(req.query.restaurante_id, 10);
+  if (Number.isFinite(fromQuery) && fromQuery > 0) return fromQuery;
+  const fromBody = parseInt((req.body || {}).restaurante_id, 10);
+  if (Number.isFinite(fromBody) && fromBody > 0) return fromBody;
+  return null;
+}
+
+function withTenant(req, cb) {
+  const tid = resolveTenantId(req);
+  if (tid !== null) tenantContext.run(tid, cb);
+  else cb();
+}
+
+
+let isMatrixAnimating = false;
+let pendingLogs = [];
+let tableGames = {};
+
+const deploymentConfig = require('./deployment-config');
+const instanceIdentity = require('./instance-identity');
+
+async function verificarPinOuSenha(valor) {
+  if (!valor) return false;
+  if (await verificarSenhaAdmin(valor)) return true;
+  const pinResult = await verificarPinTemporario(valor);
+  return pinResult.ok;
+}
+
+function verificarPinTemporario(pin) {
+  return new Promise((resolve) => {
+    if (!pin || typeof pin !== 'string') return resolve({ ok: false });
+    const pinUpper = pin.trim().toUpperCase();
+    db.get(`SELECT * FROM pins_temporarios WHERE pin = ? AND ativo = 1`, [pinUpper], (err, row) => {
+      if (err || !row) return resolve({ ok: false });
+      if (row.tipo_expiracao !== 'sessao' && row.expira_em && row.expira_em !== 'SESSION') {
+        if (new Date(row.expira_em) < new Date()) return resolve({ ok: false });
+      }
+      if (row.usos_atual >= row.max_usos) return resolve({ ok: false });
+      db.run(`UPDATE pins_temporarios SET usos_atual = usos_atual + 1 WHERE id = ?`, [row.id], () => {});
+      resolve({ ok: true, pin: row });
+    });
+  });
+}
 
 // Copiar todo o conteúdo do server.js original a partir da linha dos db.serialize
 // (A lógica de tabelas e sockets é idêntica ao server.js de desenvolvimento)

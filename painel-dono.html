@@ -112,6 +112,38 @@
       transition: all 0.2s;
       font-size: 22px;
     }
+    .btn-reportar-problema {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 16px;
+      border-radius: 14px;
+      cursor: pointer;
+      display: flex; align-items: center; gap: 8px;
+      font-weight: 700; font-size: var(--fs-sm);
+      transition: all 0.2s;
+    }
+    .btn-reportar-problema i { font-size: 18px; color: #f59e0b; }
+    .btn-reportar-problema:hover { background: rgba(245,158,11,0.12); border-color: #f59e0b; }
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.65); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 16px; }
+    .modal-relato-box { background: var(--bg-card); border: 1px solid var(--border); border-radius: 20px; padding: 24px; width: 100%; max-width: 460px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+    .modal-relato-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+    .modal-relato-header h3 { margin: 0; font-size: var(--fs-lg); display: flex; align-items: center; gap: 10px; }
+    .modal-relato-header i { color: #f59e0b; }
+    .modal-fechar { background: none; border: none; color: var(--text-sub); font-size: 26px; cursor: pointer; line-height: 1; }
+    .modal-fechar:hover { color: var(--text); }
+    .modal-relato-sub { color: var(--text-sub); font-size: var(--fs-sm); margin: 0 0 16px; }
+    .relato-label { display: block; font-size: var(--fs-xs); font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-sub); margin: 14px 0 6px; }
+    .relato-input { width: 100%; background: var(--bg-input, rgba(255,255,255,0.05)); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; color: var(--text); font-size: var(--fs-sm); font-family: inherit; resize: vertical; box-sizing: border-box; }
+    .relato-input:focus { outline: none; border-color: #f59e0b; }
+    .relato-prioridade-row { display: flex; gap: 8px; }
+    .relato-pri { flex: 1; padding: 10px; border-radius: 12px; border: 1px solid var(--border); background: transparent; color: var(--text-sub); cursor: pointer; font-weight: 700; font-size: var(--fs-sm); transition: all 0.15s; }
+    .relato-pri.ativa { background: #f59e0b22; border-color: #f59e0b; color: #f59e0b; }
+    .relato-feedback { margin-top: 14px; padding: 10px 14px; border-radius: 12px; font-size: var(--fs-sm); }
+    .relato-feedback.sucesso { background: rgba(34,197,94,0.12); color: #22c55e; }
+    .relato-feedback.erro { background: rgba(239,68,68,0.12); color: #ef4444; }
+    .relato-enviar { width: 100%; margin-top: 18px; padding: 14px; border: none; border-radius: 14px; background: linear-gradient(135deg, #f59e0b, #ea580c); color: #fff; font-size: var(--fs-md); font-weight: 800; cursor: pointer; transition: opacity 0.2s; }
+    .relato-enviar:disabled { opacity: 0.55; cursor: not-allowed; }
     .btn-logout:active { background: var(--red-light); color: var(--red); }
 
     /* ── Main layout ── */
@@ -631,7 +663,20 @@
       background: white; border-radius: 50%; transition: .3s;
     }
     .feature-toggle input:checked ~ .thumb { left: 23px; }
-  </style>
+  
+  /* ══════════ iPAD MINI (768×1024 / 1024×768) ══════════ */
+  @media screen and (min-width: 700px) and (max-width: 900px) and (orientation: portrait) {
+    header { padding: 14px 18px; }
+    .header-title { font-size: var(--fs-xl); }
+    main { padding: 18px; max-width: 720px; margin: 0 auto; width: 100%; box-sizing: border-box; }
+    .btn-periodo, .btn-reportar-problema { min-height: 44px; }
+    [style*="grid-template-columns"] { grid-template-columns: repeat(2, 1fr) !important; }
+  }
+
+  @media screen and (min-width: 901px) and (max-width: 1100px) and (orientation: landscape) {
+    main { padding: 16px 24px; }
+    .btn-periodo, .btn-reportar-problema { min-height: 42px; }
+  }</style>
 </head>
 <body>
 
@@ -657,10 +702,47 @@
         </div>
       </div>
     </div>
-    <button class="btn-logout" onclick="efetuarLogout()" title="Sair do Painel">
-      <i class="ph-bold ph-sign-out"></i>
-    </button>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <button class="btn-reportar-problema" onclick="abrirModalRelato()" title="Reportar problema ao suporte">
+        <i class="ph-bold ph-lifebuoy"></i> <span>Reportar Problema</span>
+      </button>
+      <button class="btn-logout" onclick="efetuarLogout()" title="Sair do Painel">
+        <i class="ph-bold ph-sign-out"></i>
+      </button>
+    </div>
   </header>
+
+  <!-- Modal: Reportar Problema -->
+  <div id="modal-relato" class="modal-overlay" style="display:none;">
+    <div class="modal-relato-box">
+      <div class="modal-relato-header">
+        <h3><i class="ph-bold ph-lifebuoy"></i> Reportar Problema</h3>
+        <button class="modal-fechar" onclick="fecharModalRelato()">&times;</button>
+      </div>
+      <p class="modal-relato-sub">Descreva o que aconteceu. Sua equipe de suporte recebe na hora como tarefa.</p>
+      <label class="relato-label">Categoria</label>
+      <select id="relato-categoria" class="relato-input">
+        <option value="bug">Bug / Erro no sistema</option>
+        <option value="duvida">Dúvida de uso</option>
+        <option value="sugestao">Sugestão</option>
+        <option value="outro">Outro</option>
+      </select>
+      <label class="relato-label">Prioridade</label>
+      <div class="relato-prioridade-row">
+        <button type="button" class="relato-pri ativa" data-pri="baixa" onclick="selecionarPrioridade('baixa', this)">Baixa</button>
+        <button type="button" class="relato-pri" data-pri="media" onclick="selecionarPrioridade('media', this)">Média</button>
+        <button type="button" class="relato-pri" data-pri="alta" onclick="selecionarPrioridade('alta', this)">Alta</button>
+      </div>
+      <label class="relato-label">Título</label>
+      <input id="relato-titulo" class="relato-input" type="text" maxlength="120" placeholder="Ex.: Impressora não imprime pedidos da cozinha">
+      <label class="relato-label">Descrição</label>
+      <textarea id="relato-descricao" class="relato-input" rows="4" maxlength="1500" placeholder="O que aconteceu? O que você esperava que acontecesse?"></textarea>
+      <div id="relato-feedback" class="relato-feedback" style="display:none;"></div>
+      <button class="relato-enviar" id="btn-enviar-relato" onclick="enviarRelato()">
+        <i class="ph-bold ph-paper-plane-tilt"></i> Enviar para o Suporte
+      </button>
+    </div>
+  </div>
 
   <main>
 

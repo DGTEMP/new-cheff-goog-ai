@@ -1,4 +1,4 @@
-const CACHE = 'chef-cozinha-v3';
+const CACHE = 'chef-cozinha-v4';
 
 self.addEventListener('install', event => {
   self.skipWaiting();
@@ -30,7 +30,7 @@ self.addEventListener('fetch', event => {
   // API calls: network first, fallback to cache
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(
-      fetch(event.request).then(res => {
+      fetch(event.request, { cache: 'no-cache' }).then(res => {
         const clone = res.clone();
         caches.open(CACHE).then(cache => cache.put(event.request, clone));
         return res;
@@ -43,7 +43,7 @@ self.addEventListener('fetch', event => {
   // Garante que atualizações/buílds novos sempre apareçam.
   if (event.request.mode === 'navigate') {
     event.respondWith(
-      fetch(event.request).then(res => {
+      fetch(event.request, { cache: 'no-cache' }).then(res => {
         const clone = res.clone();
         caches.open(CACHE).then(cache => cache.put(event.request, clone));
         return res;
@@ -56,7 +56,7 @@ self.addEventListener('fetch', event => {
   if (url.pathname.startsWith('/assets/')) {
     event.respondWith(
       caches.match(event.request).then(cached => {
-        const fetchPromise = fetch(event.request).then(res => {
+        const fetchPromise = fetch(event.request, { cache: 'no-cache' }).then(res => {
           if (res && res.ok) {
             const clone = res.clone();
             caches.open(CACHE).then(cache => cache.put(event.request, clone));
@@ -69,18 +69,17 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Demais arquivos raiz: stale-while-revalidate
+  // Demais arquivos raiz (main.js, style.css, páginas...): NETWORK FIRST com
+  // fallback ao cache. Garante que melhorias apareçam imediatamente; o cache
+  // só é usado quando o servidor está inacessível (offline).
   event.respondWith(
-    caches.match(event.request).then(cached => {
-      const fetchPromise = fetch(event.request).then(res => {
-        if (res && res.ok) {
-          const clone = res.clone();
-          caches.open(CACHE).then(cache => cache.put(event.request, clone));
-        }
-        return res;
-      }).catch(() => cached);
-      return cached || fetchPromise;
-    })
+    fetch(event.request, { cache: 'no-cache' }).then(res => {
+      if (res && res.ok) {
+        const clone = res.clone();
+        caches.open(CACHE).then(cache => cache.put(event.request, clone));
+      }
+      return res;
+    }).catch(() => caches.match(event.request))
   );
 });
 

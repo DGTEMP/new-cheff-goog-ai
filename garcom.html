@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Comanda Mobile | Chef Cozinha</title>
@@ -10,18 +9,47 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <!-- Dynamic GTAG & Meta Pixel Tracking -->
   <script src="/tracking-loader.js"></script>
+  <script src="/theme-manager.js"></script>
   <script>if (window.ChefTracking) window.ChefTracking.init('colaborador');</script>
   <link rel="stylesheet" href="/vendor/phosphor/src/regular/style.css">
   <link rel="stylesheet" href="/vendor/phosphor/src/bold/style.css">
   <link rel="stylesheet" href="/vendor/phosphor/src/fill/style.css">
   <style>
+    :root, [data-theme="light"] {
+      --g-bg: #e2e8f0;
+      --g-app-bg: #f8fafc;
+      --g-card-bg: #ffffff;
+      --g-text: #0f172a;
+      --g-text-muted: #64748b;
+      --g-border: #e2e8f0;
+      --g-header-bg: #ffffff;
+    }
+
+    [data-theme="dark"] {
+      --g-bg: #09090b;
+      --g-app-bg: #0f172a;
+      --g-card-bg: #1e293b;
+      --g-text: #f8fafc;
+      --g-text-muted: #94a3b8;
+      --g-border: #334155;
+      --g-header-bg: #1e293b;
+    }
+
     * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-    body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background: #0f172a; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; color: #1e293b; }
+    body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background: var(--g-bg); display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; color: var(--g-text); }
     
-    #app { width: 100%; max-width: 900px; height: 100vh; height: 100dvh; background: #f8fafc; display: flex; flex-direction: column; position: relative; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.35); transition: all 0.3s ease; padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+    #app { width: 100%; max-width: 900px; height: 100vh; height: 100dvh; background: var(--g-app-bg); display: flex; flex-direction: column; position: relative; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.35); transition: all 0.3s ease; padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
     
     @media (min-width: 768px) {
       #app { height: 94vh; border-radius: 28px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); }
+    }
+
+    @media (min-width: 600px) and (max-width: 1024px) {
+      #app {
+        max-width: 100% !important;
+        height: 100dvh !important;
+        border-radius: 0 !important;
+      }
     }
     
     header { background: #ffffff; height: 64px; display: flex; align-items: center; padding: 0 16px; border-bottom: 1px solid #e2e8f0; z-index: 10; flex-shrink: 0; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }

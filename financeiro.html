@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 
@@ -11,8 +11,25 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/vendor/phosphor/src/regular/style.css">
   <link rel="stylesheet" href="/vendor/phosphor/src/bold/style.css">
-  <link rel="stylesheet" href="/vendor/phosphor/src/fill/style.css">
+  <link rel="stylesheet" href="/vendor/phosphor/src/fill/style.css">
+  <script src="/theme-manager.js"></script>
   <style>
+    :root, [data-theme="light"] {
+      --fin-bg: #f8fafc;
+      --fin-card: #ffffff;
+      --fin-text: #0f172a;
+      --fin-text-muted: #64748b;
+      --fin-border: #e2e8f0;
+    }
+
+    [data-theme="dark"] {
+      --fin-bg: #0f172a;
+      --fin-card: #1e293b;
+      --fin-text: #f8fafc;
+      --fin-text-muted: #94a3b8;
+      --fin-border: #334155;
+    }
+
     * { box-sizing: border-box; }
     html, body {
       margin: 0;
@@ -20,7 +37,8 @@
       height: 100vh !important;
       height: 100dvh !important;
       overflow: hidden !important;
-      background: #f8fafc;
+      background: var(--fin-bg);
+      color: var(--fin-text);
       font-family: 'Inter', system-ui, -apple-system, sans-serif;
     }
     .app-container {

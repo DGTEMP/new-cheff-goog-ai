@@ -251,6 +251,24 @@
       text-align: center;
     }
 
+    .pico-dia-btn {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid var(--border, rgba(255,255,255,0.15));
+      color: var(--text-muted);
+      border-radius: 999px;
+      padding: 7px 14px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .pico-dia-btn:hover { border-color: var(--primary); color: var(--text-color, inherit); }
+    .pico-dia-btn.ativo {
+      background: linear-gradient(135deg, var(--primary), var(--primary-hover, var(--primary)));
+      border-color: transparent;
+      color: #fff;
+      font-weight: 600;
+    }
+
     .link {
       margin-top: 18px;
       display: inline-block;
@@ -444,6 +462,29 @@
           <i class="ph ph-lock-key"></i>
           <input type="password" id="senha" placeholder="••••••••" required autocomplete="new-password">
         </div>
+      </div>
+
+      <div class="form-group">
+        <label><i class="ph ph-chart-line-up"></i> Quais os dias mais movimentados? <small style="opacity:0.7;">(opcional)</small></label>
+        <div id="picoDias" style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button type="button" class="pico-dia-btn" data-dia="0">Dom</button>
+          <button type="button" class="pico-dia-btn" data-dia="1">Seg</button>
+          <button type="button" class="pico-dia-btn" data-dia="2">Ter</button>
+          <button type="button" class="pico-dia-btn" data-dia="3">Qua</button>
+          <button type="button" class="pico-dia-btn" data-dia="4">Qui</button>
+          <button type="button" class="pico-dia-btn" data-dia="5">Sex</button>
+          <button type="button" class="pico-dia-btn" data-dia="6">Sáb</button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label style="opacity:0.9;">Horário de maior movimento <small style="opacity:0.7;">(opcional)</small></label>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <input type="time" id="picoHoraInicio" style="flex:1;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);border-radius:10px;padding:0.6rem;color:inherit;">
+          <span style="opacity:0.6;">até</span>
+          <input type="time" id="picoHoraFim" style="flex:1;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);border-radius:10px;padding:0.6rem;color:inherit;">
+        </div>
+        <small style="opacity:0.55;font-size:0.72rem;display:block;margin-top:4px;">Isso ajuda a gente a preparar o servidor para o seu pico — nada de sistema cair no dia cheio! 😉</small>
       </div>
 
       <button type="submit" id="btnSubmitRegistro">
@@ -676,6 +717,11 @@
     });
 
     // ── Passo 1: Criar conta ──
+    // Dias de pico: seleção múltipla
+    document.querySelectorAll('#picoDias .pico-dia-btn').forEach(btn => {
+      btn.addEventListener('click', () => btn.classList.toggle('ativo'));
+    });
+
     document.getElementById('registroForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const restauranteNome = document.getElementById('restauranteNome').value.trim();
@@ -683,7 +729,11 @@
       const telefone = document.getElementById('telefone').value.trim();
       const email = document.getElementById('email').value.trim();
       const senha = document.getElementById('senha').value;
-      
+      // Horário de pico informado no onboarding (ajuda o balanceamento do servidor)
+      const pico_dias = Array.from(document.querySelectorAll('#picoDias .pico-dia-btn.ativo')).map(b => parseInt(b.dataset.dia, 10));
+      const pico_hora_inicio = document.getElementById('picoHoraInicio').value || null;
+      const pico_hora_fim = document.getElementById('picoHoraFim').value || null;
+
       errorMsg.style.display = 'none';
       const btn = document.getElementById('btnSubmitRegistro');
       btn.innerHTML = '<i class="ph ph-spinner ph-spin"></i> Criando ambiente...';
@@ -693,7 +743,7 @@
         const res = await fetch('/api/auth/registro', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ restauranteNome, nome, email, telefone, senha })
+          body: JSON.stringify({ restauranteNome, nome, email, telefone, senha, pico_dias, pico_hora_inicio, pico_hora_fim })
         });
         const data = await res.json();
         if (data.success) {

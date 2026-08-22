@@ -5,16 +5,48 @@
   <meta charset="UTF-8">
   <title>Configurações | Chef Cozinha</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="stylesheet" href="/vendor/phosphor/src/regular/style.css">
+  <script src="/theme-manager.js"></script>
+  <link rel="stylesheet" href="/vendor/phosphor/src/regular/style.css">
   <link rel="stylesheet" href="/vendor/phosphor/src/bold/style.css">
   <link rel="stylesheet" href="/vendor/phosphor/src/fill/style.css">
   <!-- QR Code local (funciona sem internet) -->
   <script src="/vendor/qrcode/qrcode-generator.js"></script>
   <script src="/vendor/qrcode/qr-helper.js"></script>
   <style>
+    :root, [data-theme="light"] {
+      --cfg-bg: #f4f4f5;
+      --cfg-header-bg: #ffffff;
+      --cfg-header-text: #18181b;
+      --cfg-sidebar-bg: #ffffff;
+      --cfg-sidebar-text: #52525b;
+      --cfg-card-bg: #ffffff;
+      --cfg-text: #18181b;
+      --cfg-text-muted: #71717a;
+      --cfg-border: #e4e4e7;
+      --cfg-input-bg: #ffffff;
+      --cfg-primary: #fc4b15;
+      --cfg-hover-bg: rgba(0, 0, 0, 0.05);
+    }
+
+    [data-theme="dark"] {
+      --cfg-bg: #09090b;
+      --cfg-header-bg: #121218;
+      --cfg-header-text: #f4f4f5;
+      --cfg-sidebar-bg: #121218;
+      --cfg-sidebar-text: #a1a1aa;
+      --cfg-card-bg: #18181b;
+      --cfg-text: #f4f4f5;
+      --cfg-text-muted: #a1a1aa;
+      --cfg-border: #27272a;
+      --cfg-input-bg: #09090b;
+      --cfg-primary: #ff5722;
+      --cfg-hover-bg: rgba(255, 255, 255, 0.08);
+    }
+
     body {
       font-family: 'Inter', sans-serif;
-      background: #f4f4f5;
+      background: var(--cfg-bg);
+      color: var(--cfg-text);
       margin: 0;
       display: flex;
       flex-direction: column;
@@ -22,8 +54,9 @@
     }
 
     .config-header {
-      background: #1a1a2e;
-      color: white;
+      background: var(--cfg-header-bg);
+      color: var(--cfg-header-text);
+      border-bottom: 1px solid var(--cfg-border);
       padding: 16px 28px;
       display: flex;
       justify-content: space-between;
@@ -55,7 +88,7 @@
 
     .config-sidebar {
       width: 220px;
-      background: #1e1e2e;
+      background: var(--cfg-sidebar-bg);
       padding: 20px 12px;
       display: flex;
       flex-direction: column;
@@ -91,6 +124,43 @@
       display: none !important;
     }
 
+    /* Acordeão de categorias: título clicável, uma categoria aberta por vez */
+    .action-group {
+      transition: opacity 0.15s;
+    }
+
+    .action-group .group-title {
+      cursor: pointer;
+      user-select: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      border-radius: 8px;
+      padding: 6px 8px;
+      margin-bottom: 4px;
+      transition: background 0.15s;
+    }
+
+    .action-group .group-title:hover {
+      background: var(--cfg-hover-bg);
+    }
+
+    .action-group .group-title::after {
+      content: '\25BE';
+      font-size: 11px;
+      opacity: 0.7;
+      transition: transform 0.2s;
+    }
+
+    .action-group.collapsed .group-title::after {
+      transform: rotate(-90deg);
+    }
+
+    .action-group.collapsed .group-title {
+      margin-bottom: 0;
+    }
+
     .btn-action {
       display: flex;
       align-items: center;
@@ -99,7 +169,7 @@
       border-radius: 8px;
       border: none;
       background: transparent;
-      color: #ccc;
+      color: var(--cfg-sidebar-text);
       cursor: pointer;
       width: 100%;
       text-align: left;
@@ -108,8 +178,8 @@
     }
 
     .btn-action:hover {
-      background: rgba(255, 255, 255, 0.08);
-      color: white;
+      background: var(--cfg-hover-bg);
+      color: var(--cfg-text);
     }
 
     .btn-action.active {
@@ -126,7 +196,7 @@
       border-radius: 8px;
       border: none;
       background: transparent;
-      color: #ccc;
+      color: var(--cfg-sidebar-text);
       cursor: pointer;
       width: 100%;
       text-align: left;
@@ -135,8 +205,8 @@
     }
 
     .admin-tab-btn:hover {
-      background: rgba(255, 255, 255, 0.08);
-      color: white;
+      background: var(--cfg-hover-bg);
+      color: var(--cfg-text);
     }
 
     .admin-tab-btn.active {
@@ -750,6 +820,12 @@ border-bottom: 1px solid #eef2f6;
 
     /* ══════ TIER 1: SMARTPHONE & MOBILE / 540p (≤640px) ══════ */
     @media (max-width: 640px) {
+      /* Impede o Safari de inflar fontes em aparelhos com texto grande */
+      html {
+        -webkit-text-size-adjust: 100%;
+        text-size-adjust: 100%;
+      }
+
       .config-header {
         padding: 6px 10px !important;
         height: 48px !important;
@@ -834,6 +910,15 @@ border-bottom: 1px solid #eef2f6;
         box-shadow: 0 4px 10px rgba(252, 75, 21, 0.3) !important;
       }
 
+      /* No mobile os grupos viram pills numa barra deslizante: o acordeão
+         de grupos NÃO pode esconder botões, senão fica impossível navegar */
+      .action-group.collapsed .admin-tab-btn {
+        display: flex !important;
+      }
+      .action-group.collapsed .group-title {
+        margin-bottom: 0 !important;
+      }
+
       /* Workspace e Áreas de Conteúdo */
       .main-workspace {
         height: 100% !important;
@@ -858,10 +943,11 @@ border-bottom: 1px solid #eef2f6;
         overflow-y: auto !important;
         overflow-x: hidden !important;
         -webkit-overflow-scrolling: touch !important;
+        overscroll-behavior: contain !important;
         flex: 1 !important;
         min-height: 0 !important;
         height: 100% !important;
-        padding-bottom: 40px !important;
+        padding-bottom: calc(40px + env(safe-area-inset-bottom, 0px)) !important;
       }
       .admin-tab-content.active:has(.tab-table-scroll),
       .admin-tab-content.active:has(table) {
@@ -874,6 +960,8 @@ border-bottom: 1px solid #eef2f6;
         gap: 10px !important;
       }
 
+      /* Linhas flex viram wrap para caber na tela, mas sem virar blocos
+         gigantes: nada é forçado a 100% de largura aqui */
       .admin-tab-content div[style*="display: flex"],
       .admin-tab-content div[style*="display:flex"],
       .admin-tab-content div[style*="display: grid"],
@@ -883,16 +971,35 @@ border-bottom: 1px solid #eef2f6;
         max-width: 100% !important;
       }
 
-      .admin-tab-content div[style*="background"],
       .admin-tab-content .card-config,
-      .admin-tab-content .config-card {
-        width: 100% !important;
+      .admin-tab-content .config-card,
+      .admin-tab-content > div {
         max-width: 100% !important;
         box-sizing: border-box !important;
-        padding: 12px !important;
       }
 
-      /* Inputs, Selects e Textareas em 100% de Largura */
+      /* Elementos com largura fixa grande (inline) não podem estourar a tela */
+      .admin-tab-content [style*="width"],
+      .modal-overlay [style*="width"],
+      #header-right-actions [style*="width"] {
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+      }
+      .modal-overlay > div:first-child {
+        max-width: 96vw !important;
+        max-height: 88dvh !important;
+      }
+
+      /* Mídias embutidas (QR codes, previews, mapas) acompanham a largura */
+      .admin-tab-content img,
+      .admin-tab-content iframe,
+      .admin-tab-content canvas,
+      .admin-tab-content video {
+        max-width: 100% !important;
+        height: auto !important;
+      }
+
+      /* Inputs, Selects e Textareas em 100% de Largura (toque fácil) */
       .admin-tab-content input[type="text"],
       .admin-tab-content input[type="number"],
       .admin-tab-content input[type="password"],
@@ -906,17 +1013,27 @@ border-bottom: 1px solid #eef2f6;
         max-width: 100% !important;
         box-sizing: border-box !important;
         min-height: 44px !important;
-        font-size: 14px !important;
+        font-size: 16px !important; /* 16px+ evita zoom automático do iOS ao focar */
         padding: 10px 12px !important;
       }
 
-      /* Botões de Ação para Toque Fácil */
-      .admin-tab-btn,
+      /* Botões principais: toque fácil (44px) */
       .btn-action,
       .promo-btn,
-      .admin-tab-content button {
+      .admin-tab-btn {
         min-height: 44px !important;
         font-size: 14px !important;
+        box-sizing: border-box !important;
+        touch-action: manipulation;
+      }
+
+      /* Botões pequenos/auxiliares dentro das abas: compactos para não
+         dominarem a tela em aparelhos com zoom/fonte grande */
+      .admin-tab-content button:not(.btn-action):not(.promo-btn):not(.admin-tab-btn) {
+        min-height: 36px !important;
+        max-height: 48px !important;
+        font-size: 13px !important;
+        padding: 8px 12px !important;
         box-sizing: border-box !important;
         touch-action: manipulation;
       }
@@ -932,7 +1049,23 @@ border-bottom: 1px solid #eef2f6;
       }
       .tab-table-scroll table,
       .promo-table { 
-        min-width: 420px !important; 
+        min-width: 380px !important; 
+      }
+
+      /* Tabela SEM wrapper próprio vira bloco rolável (não estoura a aba) */
+      .admin-tab-content table {
+        display: block;
+        max-width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      /* Dentro de wrappers o comportamento normal permanece */
+      .tab-table-scroll table,
+      .promo-table-wrap table,
+      .promo-table {
+        display: revert;
+        overflow: revert;
       }
 
       /* Modais em Dispositivos Móveis */
@@ -970,6 +1103,24 @@ border-bottom: 1px solid #eef2f6;
       .admin-tab-content.active {
         padding-bottom: 20px !important;
       }
+    }
+
+    /* ══════════ iPAD MINI (768×1024 / 1024×768) ══════════ */
+    @media screen and (min-width: 700px) and (max-width: 900px) and (orientation: portrait) {
+      .config-sidebar { width: 200px !important; }
+      .admin-tab-btn { min-height: 44px !important; font-size: 13.5px !important; }
+      .btn-action { min-height: 44px !important; }
+      .action-group .group-title { min-height: 40px; }
+      .main-workspace { padding: 16px !important; }
+      /* Tabelas rolam horizontalmente sem estourar */
+      .tab-table-scroll, .table-container { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    }
+
+    @media screen and (min-width: 901px) and (max-width: 1100px) and (orientation: landscape) and (max-height: 860px) {
+      .config-sidebar { width: 180px !important; }
+      .admin-tab-btn { min-height: 42px !important; }
+      .config-header { height: 52px !important; padding: 10px 18px !important; }
+      .config-layout { margin-top: 52px !important; height: calc(100vh - 52px) !important; }
     }
 </style>
 
@@ -1140,11 +1291,11 @@ border-bottom: 1px solid #eef2f6;
 
       <!-- TAB ATALHOS DE TECLADO -->
       <div class="admin-tab-content" id="admin-tab-atalhos" style="display: none; flex-direction: column; gap: 16px;">
-        <div style="background: #1e1e2e; padding: 20px; border-radius: 12px; border: 1px solid #2a2a3c;">
+        <div style="background: var(--cfg-card-bg); padding: 20px; border-radius: 12px; border: 1px solid var(--cfg-border);">
           <h3 style="margin-top: 0; color: #fc4b15; font-size: 18px; display: flex; align-items: center; gap: 8px;">
             <i class="ph ph-keyboard"></i> Personalização das Teclas de Atalho
           </h3>
-          <p style="color: #a0a0b0; font-size: 13.5px; margin-bottom: 20px; line-height: 1.4;">
+          <p style="color: var(--cfg-text-muted); font-size: 13.5px; margin-bottom: 20px; line-height: 1.4;">
             Configure as teclas para que sua equipe continue operando com os mesmos atalhos que usavam no sistema
             anterior (Ex: F1, F2, F8, F10, etc).
           </p>
@@ -1155,9 +1306,9 @@ border-bottom: 1px solid #eef2f6;
           </div>
 
           <div
-            style="display: flex; gap: 12px; justify-content: flex-end; border-top: 1px solid #2a2a3c; padding-top: 16px;">
+            style="display: flex; gap: 12px; justify-content: flex-end; border-top: 1px solid var(--cfg-border); padding-top: 16px;">
             <button onclick="window.restaurarAtalhosPadrao()"
-              style="padding: 10px 18px; background: #2a2a3c; color: #ffffff; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 6px;">
+              style="padding: 10px 18px; background: var(--cfg-border); color: #ffffff; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 6px;">
               <i class="ph ph-arrow-counter-clockwise"></i> Restaurar Padrões (F1 - F12)
             </button>
           </div>
@@ -1167,11 +1318,11 @@ border-bottom: 1px solid #eef2f6;
       <!-- TAB RESOLUÇÃO & ESCALA DE TELA -->
       <div id="admin-tab-resolucao" class="admin-tab-content"
         style="display:none; flex-direction:column; overflow-y:auto; padding-right: 8px;">
-        <div style="background: #1e1e2e; padding: 24px; border-radius: 14px; border: 1px solid #2a2a3c; color: white;">
+        <div style="background: var(--cfg-card-bg); padding: 24px; border-radius: 14px; border: 1px solid var(--cfg-border); color: white;">
           <h3 style="margin-top:0; color: #fc4b15; font-size: 20px; display:flex; align-items:center; gap:10px;">
             <i class="ph ph-monitor" style="font-size: 26px;"></i> Otimização de Resolução &amp; Escala da Tela
           </h3>
-          <p style="color: #a0a0b0; font-size: 14px; margin-bottom: 24px; line-height: 1.5;">
+          <p style="color: var(--cfg-text-muted); font-size: 14px; margin-bottom: 24px; line-height: 1.5;">
             Escolha o perfil de resolução adequado ao seu monitor, notebook ou tablet. O sistema ajustará dinamicamente
             o tamanho das tabelas, botões, ícones e fontes para maximizar o aproveitamento de tela e garantir a
             usabilidade mais fluida possível.
@@ -1309,7 +1460,7 @@ border-bottom: 1px solid #eef2f6;
 
           <!-- BOTÃO DE APLICAR E PREVIEW -->
           <div
-            style="display:flex; justify-content:space-between; align-items:center; border-top: 1px solid #2a2a3c; padding-top: 20px;">
+            style="display:flex; justify-content:space-between; align-items:center; border-top: 1px solid var(--cfg-border); padding-top: 20px;">
             <div style="font-size: 13px; color: #888;">
               <i class="ph ph-info"></i> A configuração é aplicada instantaneamente em todas as telas e salva no
               dispositivo.
@@ -2871,7 +3022,7 @@ border-bottom: 1px solid #eef2f6;
           </div>
 
           <!-- Summary Cards -->
-          <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-bottom: 16px;">
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 16px;">
             <div style="background: #ebf5ff; border: 1px solid #cce5ff; padding: 12px; border-radius: 8px; text-align: center;">
               <span style="font-size: 10px; text-transform: uppercase; color: #555; display:block; margin-bottom: 4px;">Turno</span>
               <strong id="rh-turno-desc" style="font-size: 14px; color: #004085;">Fechado</strong>
@@ -3927,11 +4078,11 @@ border-bottom: 1px solid #eef2f6;
 <div id="admin-tab-maquininhas" class="admin-tab-content"
         style="display:none; flex-direction:column; gap:20px; overflow-y:auto; padding-right: 8px;">
 
-        <div style="background: #1e1e2e; padding: 24px; border-radius: 14px; border: 1px solid #2a2a3c; color: white;">
+        <div style="background: var(--cfg-card-bg); padding: 24px; border-radius: 14px; border: 1px solid var(--cfg-border); color: white;">
           <h3 style="margin-top:0; color: #fc4b15; font-size: 20px; display:flex; align-items:center; gap:10px;">
             <i class="ph ph-credit-card" style="font-size: 26px;"></i> Integração com Maquininha de Cartão
           </h3>
-          <p style="color: #a0a0b0; font-size: 14px; margin-bottom: 24px; line-height: 1.6;">
+          <p style="color: var(--cfg-text-muted); font-size: 14px; margin-bottom: 24px; line-height: 1.6;">
             Conecte sua maquininha para enviar cobranças diretamente do caixa ao terminal, sem digitar o valor manualmente.
           </p>
 
@@ -3939,11 +4090,11 @@ border-bottom: 1px solid #eef2f6;
 
             <!-- SELETOR DE PROVEDOR -->
             <div style="display:flex; flex-direction:column; gap:8px;">
-              <label style="font-size:13px; color:#ccc; font-weight:600; display:flex; align-items:center; gap:6px;">
+              <label style="font-size:13px; color:var(--cfg-text-muted); font-weight:600; display:flex; align-items:center; gap:6px;">
                 <i class="ph ph-plugs-connected"></i> Provedor / Operadora
               </label>
               <select id="mp-integracao-provedor"
-                style="padding:12px; border-radius:8px; border:1px solid #3a3a4c; background:#2a2a3c; color:white; font-size:14px; outline:none; cursor:pointer;">
+                style="padding:12px; border-radius:8px; border:1px solid #3a3a4c; background:var(--cfg-border); color:white; font-size:14px; outline:none; cursor:pointer;">
                 <option value="none">🚫 Sem Integração (Registro Manual)</option>
                 <option value="mercadopago">🔵 Mercado Pago Point (Smart / Pro)</option>
                 <option value="stone">🟢 Stone / Ton (TEF Local)</option>
@@ -3954,7 +4105,7 @@ border-bottom: 1px solid #eef2f6;
 
             <!-- CAMPOS MERCADO PAGO -->
             <div id="mp-config-fields" style="display: none; flex-direction: column; gap: 16px; background:#16162a; border-radius:10px; padding:18px; border:1px solid #3a3a4c;">
-              <div style="display:flex; align-items:center; gap:8px; padding-bottom:12px; border-bottom:1px solid #2a2a3c;">
+              <div style="display:flex; align-items:center; gap:8px; padding-bottom:12px; border-bottom:1px solid var(--cfg-border);">
                 <span style="font-size:22px;">🔵</span>
                 <div>
                   <div style="font-weight:700; color:#fff; font-size:15px;">Mercado Pago Point</div>
@@ -3962,22 +4113,22 @@ border-bottom: 1px solid #eef2f6;
                 </div>
               </div>
               <div style="display:flex; flex-direction:column; gap:6px;">
-                <label style="font-size:13px; color:#ccc; font-weight:600;">Access Token (Produção)</label>
+                <label style="font-size:13px; color:var(--cfg-text-muted); font-weight:600;">Access Token (Produção)</label>
                 <input type="password" id="mp-config-token" placeholder="TEST-XXXX ou APP_USR-XXXX..."
-                  style="padding:10px; border-radius:8px; border:1px solid #3a3a4c; background:#2a2a3c; color:white; font-size:13px; outline:none; width:100%; box-sizing:border-box;">
+                  style="padding:10px; border-radius:8px; border:1px solid #3a3a4c; background:var(--cfg-border); color:white; font-size:13px; outline:none; width:100%; box-sizing:border-box;">
                 <small style="color:#888; font-size:11px;">Token de produção privado obtido no painel de desenvolvedores do Mercado Pago.</small>
               </div>
               <div style="display:flex; flex-direction:column; gap:6px;">
-                <label style="font-size:13px; color:#ccc; font-weight:600;">Device ID (Serial da Maquininha)</label>
+                <label style="font-size:13px; color:var(--cfg-text-muted); font-weight:600;">Device ID (Serial da Maquininha)</label>
                 <input type="text" id="mp-config-device" placeholder="Ex: A12B34CD5678"
-                  style="padding:10px; border-radius:8px; border:1px solid #3a3a4c; background:#2a2a3c; color:white; font-size:13px; outline:none; width:100%; box-sizing:border-box;">
+                  style="padding:10px; border-radius:8px; border:1px solid #3a3a4c; background:var(--cfg-border); color:white; font-size:13px; outline:none; width:100%; box-sizing:border-box;">
                 <small style="color:#888; font-size:11px;">Número de série da maquininha Point. Encontrado no menu Integração do próprio aparelho.</small>
               </div>
             </div>
 
             <!-- CAMPOS STONE / TON -->
             <div id="stone-config-fields" style="display: none; flex-direction: column; gap: 16px; background:#16162a; border-radius:10px; padding:18px; border:1px solid #3a3a4c;">
-              <div style="display:flex; align-items:center; gap:8px; padding-bottom:12px; border-bottom:1px solid #2a2a3c;">
+              <div style="display:flex; align-items:center; gap:8px; padding-bottom:12px; border-bottom:1px solid var(--cfg-border);">
                 <span style="font-size:22px;">🟢</span>
                 <div>
                   <div style="font-weight:700; color:#fff; font-size:15px;">Stone / Ton</div>
@@ -3989,22 +4140,22 @@ border-bottom: 1px solid #eef2f6;
                 Baixe em: <a href="https://sdkweb.stone.com.br" target="_blank" style="color:#74c69d;">sdkweb.stone.com.br</a>
               </div>
               <div style="display:flex; flex-direction:column; gap:6px;">
-                <label style="font-size:13px; color:#ccc; font-weight:600;">Stone Code (Código do Estabelecimento)</label>
+                <label style="font-size:13px; color:var(--cfg-text-muted); font-weight:600;">Stone Code (Código do Estabelecimento)</label>
                 <input type="text" id="stone-config-stonecode" placeholder="Ex: 1234567890"
-                  style="padding:10px; border-radius:8px; border:1px solid #3a3a4c; background:#2a2a3c; color:white; font-size:13px; outline:none; width:100%; box-sizing:border-box;">
+                  style="padding:10px; border-radius:8px; border:1px solid #3a3a4c; background:var(--cfg-border); color:white; font-size:13px; outline:none; width:100%; box-sizing:border-box;">
                 <small style="color:#888; font-size:11px;">Código único do estabelecimento fornecido pela Stone/Ton no cadastro.</small>
               </div>
               <div style="display:flex; flex-direction:column; gap:6px;">
-                <label style="font-size:13px; color:#ccc; font-weight:600;">Porta Local do Stone Client</label>
+                <label style="font-size:13px; color:var(--cfg-text-muted); font-weight:600;">Porta Local do Stone Client</label>
                 <input type="number" id="stone-config-porta" placeholder="Ex: 8080" value="8080"
-                  style="padding:10px; border-radius:8px; border:1px solid #3a3a4c; background:#2a2a3c; color:white; font-size:13px; outline:none; width:100%; box-sizing:border-box;">
+                  style="padding:10px; border-radius:8px; border:1px solid #3a3a4c; background:var(--cfg-border); color:white; font-size:13px; outline:none; width:100%; box-sizing:border-box;">
                 <small style="color:#888; font-size:11px;">Porta TCP em que o Stone Client TEF está escutando localmente. Padrão: 8080.</small>
               </div>
             </div>
 
             <!-- CAMPOS PAGBANK / PAGSEGURO -->
             <div id="pagbank-config-fields" style="display: none; flex-direction: column; gap: 16px; background:#16162a; border-radius:10px; padding:18px; border:1px solid #3a3a4c;">
-              <div style="display:flex; align-items:center; gap:8px; padding-bottom:12px; border-bottom:1px solid #2a2a3c;">
+              <div style="display:flex; align-items:center; gap:8px; padding-bottom:12px; border-bottom:1px solid var(--cfg-border);">
                 <span style="font-size:22px;">🟠</span>
                 <div>
                   <div style="font-weight:700; color:#fff; font-size:15px;">PagBank / PagSeguro</div>
@@ -4016,22 +4167,22 @@ border-bottom: 1px solid #eef2f6;
                 <a href="https://dev.pagbank.com.br" target="_blank" style="color:#ffab40;">dev.pagbank.com.br</a>
               </div>
               <div style="display:flex; flex-direction:column; gap:6px;">
-                <label style="font-size:13px; color:#ccc; font-weight:600;">Token de Integração PagBank</label>
+                <label style="font-size:13px; color:var(--cfg-text-muted); font-weight:600;">Token de Integração PagBank</label>
                 <input type="password" id="pagbank-config-token" placeholder="Bearer Token de produção..."
-                  style="padding:10px; border-radius:8px; border:1px solid #3a3a4c; background:#2a2a3c; color:white; font-size:13px; outline:none; width:100%; box-sizing:border-box;">
+                  style="padding:10px; border-radius:8px; border:1px solid #3a3a4c; background:var(--cfg-border); color:white; font-size:13px; outline:none; width:100%; box-sizing:border-box;">
                 <small style="color:#888; font-size:11px;">Token gerado no painel de desenvolvedores do PagBank. Uso em produção.</small>
               </div>
               <div style="display:flex; flex-direction:column; gap:6px;">
-                <label style="font-size:13px; color:#ccc; font-weight:600;">ID do Terminal (Terminal Serial)</label>
+                <label style="font-size:13px; color:var(--cfg-text-muted); font-weight:600;">ID do Terminal (Terminal Serial)</label>
                 <input type="text" id="pagbank-config-terminal" placeholder="Ex: PGS0000001"
-                  style="padding:10px; border-radius:8px; border:1px solid #3a3a4c; background:#2a2a3c; color:white; font-size:13px; outline:none; width:100%; box-sizing:border-box;">
+                  style="padding:10px; border-radius:8px; border:1px solid #3a3a4c; background:var(--cfg-border); color:white; font-size:13px; outline:none; width:100%; box-sizing:border-box;">
                 <small style="color:#888; font-size:11px;">Número de série do terminal PagBank Smart (encontrado no menu do aparelho).</small>
               </div>
             </div>
 
             <!-- CAMPOS SiTef GENÉRICO -->
             <div id="sitef-config-fields" style="display: none; flex-direction: column; gap: 16px; background:#16162a; border-radius:10px; padding:18px; border:1px solid #3a3a4c;">
-              <div style="display:flex; align-items:center; gap:8px; padding-bottom:12px; border-bottom:1px solid #2a2a3c;">
+              <div style="display:flex; align-items:center; gap:8px; padding-bottom:12px; border-bottom:1px solid var(--cfg-border);">
                 <span style="font-size:22px;">⚙️</span>
                 <div>
                   <div style="font-weight:700; color:#fff; font-size:15px;">SiTef Genérico</div>
@@ -4044,26 +4195,26 @@ border-bottom: 1px solid #eef2f6;
               </div>
               <div style="display:grid; grid-template-columns:1fr 120px; gap:12px;">
                 <div style="display:flex; flex-direction:column; gap:6px;">
-                  <label style="font-size:13px; color:#ccc; font-weight:600;">IP do Servidor SiTef</label>
+                  <label style="font-size:13px; color:var(--cfg-text-muted); font-weight:600;">IP do Servidor SiTef</label>
                   <input type="text" id="sitef-config-ip" placeholder="Ex: 192.168.1.10 ou 127.0.0.1"
-                    style="padding:10px; border-radius:8px; border:1px solid #3a3a4c; background:#2a2a3c; color:white; font-size:13px; outline:none; width:100%; box-sizing:border-box;">
+                    style="padding:10px; border-radius:8px; border:1px solid #3a3a4c; background:var(--cfg-border); color:white; font-size:13px; outline:none; width:100%; box-sizing:border-box;">
                 </div>
                 <div style="display:flex; flex-direction:column; gap:6px;">
-                  <label style="font-size:13px; color:#ccc; font-weight:600;">Porta TCP</label>
+                  <label style="font-size:13px; color:var(--cfg-text-muted); font-weight:600;">Porta TCP</label>
                   <input type="number" id="sitef-config-porta" placeholder="4096" value="4096"
-                    style="padding:10px; border-radius:8px; border:1px solid #3a3a4c; background:#2a2a3c; color:white; font-size:13px; outline:none; width:100%; box-sizing:border-box;">
+                    style="padding:10px; border-radius:8px; border:1px solid #3a3a4c; background:var(--cfg-border); color:white; font-size:13px; outline:none; width:100%; box-sizing:border-box;">
                 </div>
               </div>
               <div style="display:flex; flex-direction:column; gap:6px;">
-                <label style="font-size:13px; color:#ccc; font-weight:600;">Número do Terminal</label>
+                <label style="font-size:13px; color:var(--cfg-text-muted); font-weight:600;">Número do Terminal</label>
                 <input type="text" id="sitef-config-terminal" placeholder="Ex: 00000001 (8 dígitos)"
-                  style="padding:10px; border-radius:8px; border:1px solid #3a3a4c; background:#2a2a3c; color:white; font-size:13px; outline:none; width:100%; box-sizing:border-box;">
+                  style="padding:10px; border-radius:8px; border:1px solid #3a3a4c; background:var(--cfg-border); color:white; font-size:13px; outline:none; width:100%; box-sizing:border-box;">
                 <small style="color:#888; font-size:11px;">Número do terminal TEF configurado no servidor SiTef. Geralmente 8 dígitos.</small>
               </div>
               <div style="display:flex; flex-direction:column; gap:6px;">
-                <label style="font-size:13px; color:#ccc; font-weight:600;">Código do Estabelecimento</label>
+                <label style="font-size:13px; color:var(--cfg-text-muted); font-weight:600;">Código do Estabelecimento</label>
                 <input type="text" id="sitef-config-estabelecimento" placeholder="Ex: 12345678 (EC)"
-                  style="padding:10px; border-radius:8px; border:1px solid #3a3a4c; background:#2a2a3c; color:white; font-size:13px; outline:none; width:100%; box-sizing:border-box;">
+                  style="padding:10px; border-radius:8px; border:1px solid #3a3a4c; background:var(--cfg-border); color:white; font-size:13px; outline:none; width:100%; box-sizing:border-box;">
                 <small style="color:#888; font-size:11px;">Código do estabelecimento comercial fornecido pela operadora (Cielo, Getnet, Rede, etc).</small>
               </div>
             </div>
@@ -4083,27 +4234,27 @@ border-bottom: 1px solid #eef2f6;
         </div>
 
         <!-- GUIA DE INTEGRAÇÃO -->
-        <div style="background: #1e1e2e; padding: 24px; border-radius: 14px; border: 1px solid #2a2a3c; color: white;">
-          <h4 style="margin-top:0; color:#ccc; font-size:15px; display:flex; align-items:center; gap:8px;">
+        <div style="background: var(--cfg-card-bg); padding: 24px; border-radius: 14px; border: 1px solid var(--cfg-border); color: white;">
+          <h4 style="margin-top:0; color:var(--cfg-text-muted); font-size:15px; display:flex; align-items:center; gap:8px;">
             <i class="ph ph-book-open" style="color:#fc4b15;"></i> Guia Rápido de Integração
           </h4>
           <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:14px;">
-            <div style="background:#16162a; border-radius:10px; padding:14px; border:1px solid #2a2a3c;">
+            <div style="background:#16162a; border-radius:10px; padding:14px; border:1px solid var(--cfg-border);">
               <div style="font-size:18px; margin-bottom:6px;">🔵</div>
               <div style="font-weight:700; color:#fff; font-size:13px; margin-bottom:4px;">Mercado Pago</div>
               <div style="color:#888; font-size:12px; line-height:1.5;">Acesse mercadopago.com.br → Seu negócio → Point → Integrar. Gere o Access Token e anote o Device ID da maquininha.</div>
             </div>
-            <div style="background:#16162a; border-radius:10px; padding:14px; border:1px solid #2a2a3c;">
+            <div style="background:#16162a; border-radius:10px; padding:14px; border:1px solid var(--cfg-border);">
               <div style="font-size:18px; margin-bottom:6px;">🟢</div>
               <div style="font-weight:700; color:#fff; font-size:13px; margin-bottom:4px;">Stone / Ton</div>
               <div style="color:#888; font-size:12px; line-height:1.5;">Instale o Stone Client TEF no PC do caixa. Seu Stone Code é enviado por e-mail no cadastro. Porta padrão: 8080.</div>
             </div>
-            <div style="background:#16162a; border-radius:10px; padding:14px; border:1px solid #2a2a3c;">
+            <div style="background:#16162a; border-radius:10px; padding:14px; border:1px solid var(--cfg-border);">
               <div style="font-size:18px; margin-bottom:6px;">🟠</div>
               <div style="font-weight:700; color:#fff; font-size:13px; margin-bottom:4px;">PagBank</div>
               <div style="color:#888; font-size:12px; line-height:1.5;">Acesse minha-conta.pagseguro.com.br → Integrações → Gerar token de produção. Terminal ID impresso no aparelho.</div>
             </div>
-            <div style="background:#16162a; border-radius:10px; padding:14px; border:1px solid #2a2a3c;">
+            <div style="background:#16162a; border-radius:10px; padding:14px; border:1px solid var(--cfg-border);">
               <div style="font-size:18px; margin-bottom:6px;">⚙️</div>
               <div style="font-weight:700; color:#fff; font-size:13px; margin-bottom:4px;">SiTef (Cielo/Getnet/Rede)</div>
               <div style="color:#888; font-size:12px; line-height:1.5;">Solicite o servidor SiTef à sua operadora ou integrador. Configure o IP e porta na rede local do estabelecimento.</div>
@@ -4683,34 +4834,34 @@ border-bottom: 1px solid #eef2f6;
 
   <!-- MODAL PERFIL DA MESA -->
   <div class="modal-overlay" id="modal-perfil-mesa" style="display: none; z-index: 100000; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); justify-content: center; align-items: center;">
-    <div class="modal-content" style="background: #1e1e2e; padding: 25px; border-radius: 12px; border: 1px solid #2a2a3c; width: 400px; max-width: 90%; color: #fff; text-align: center; position: relative;">
+    <div class="modal-content" style="background: var(--cfg-card-bg); padding: 25px; border-radius: 12px; border: 1px solid var(--cfg-border); width: 400px; max-width: 90%; color: #fff; text-align: center; position: relative;">
       <h3 style="margin-top: 0; color: #fc4b15; margin-bottom: 20px;" id="perfil-mesa-titulo">Perfil da Mesa</h3>
       
       <div style="background: #fff; padding: 15px; border-radius: 8px; display: inline-block; margin-bottom: 20px;">
         <canvas id="canvas-perfil-qrcode" width="200" height="200"></canvas>
       </div>
       
-      <div style="text-align: left; background: #2a2a3c; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+      <div style="text-align: left; background: var(--cfg-border); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
         <strong style="color: #94a3b8; display: block; margin-bottom: 5px;"><i class="ph ph-users"></i> Últimos Usuários:</strong>
         <div id="perfil-mesa-clientes" style="font-size: 14px; color: #cbd5e1; min-height: 20px;">Carregando...</div>
       </div>
       
-      <div style="text-align: left; background: #2a2a3c; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+      <div style="text-align: left; background: var(--cfg-border); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
         <strong style="color: #94a3b8; display: block; margin-bottom: 5px;"><i class="ph ph-star"></i> Itens Mais Pedidos:</strong>
         <div id="perfil-mesa-itens" style="font-size: 14px; color: #cbd5e1; min-height: 20px;">Carregando...</div>
       </div>
       
-      <div style="text-align: left; background: #2a2a3c; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+      <div style="text-align: left; background: var(--cfg-border); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
         <strong style="color: #94a3b8; display: block; margin-bottom: 5px;"><i class="ph ph-currency-dollar"></i> Ticket Médio:</strong>
         <div id="perfil-mesa-ticket" style="font-size: 18px; color: #10b981; font-weight: bold;">R$ 0,00</div>
       </div>
       
-      <div style="text-align: left; background: #2a2a3c; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+      <div style="text-align: left; background: var(--cfg-border); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
         <strong style="color: #94a3b8; display: block; margin-bottom: 5px;"><i class="ph ph-clock-countdown"></i> Permanência:</strong>
         <div id="perfil-mesa-permanencia" style="font-size: 18px; color: #38bdf8; font-weight: bold;">Carregando...</div>
       </div>
       
-      <div style="text-align: left; background: #2a2a3c; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+      <div style="text-align: left; background: var(--cfg-border); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
         <strong style="color: #94a3b8; display: block; margin-bottom: 5px;"><i class="ph ph-user-circle"></i> Consumo por Cliente:</strong>
         <div id="perfil-mesa-clientes-detalhe" style="font-size: 13px; color: #cbd5e1; min-height: 20px;">Carregando...</div>
       </div>
@@ -4936,6 +5087,40 @@ if ('serviceWorker' in navigator) {
     .then(function(reg) { console.log('PWA pronto:', reg.scope); })
     .catch(function(err) { console.log('Erro SW:', err); });
 }
+</script>
+<script>
+/* Acordeão das categorias da sidebar: uma categoria aberta por vez */
+(function() {
+  function abrirSomente(grupo) {
+    document.querySelectorAll('.action-group').forEach(function(g) {
+      if (g !== grupo) g.classList.add('collapsed');
+    });
+    if (grupo) grupo.classList.remove('collapsed');
+  }
+
+  document.querySelectorAll('.action-group .group-title').forEach(function(titulo) {
+    titulo.addEventListener('click', function() {
+      var grupo = titulo.closest('.action-group');
+      var estavaAberto = !grupo.classList.contains('collapsed');
+      abrirSomente(estavaAberto ? null : grupo);
+    });
+  });
+
+  document.addEventListener('click', function(e) {
+    var btn = e.target.closest('.admin-tab-btn');
+    if (!btn) return;
+    var grupo = btn.closest('.action-group');
+    if (grupo) abrirSomente(grupo);
+  }, true);
+
+  var ativo = document.querySelector('.admin-tab-btn.active');
+  if (ativo && ativo.closest('.action-group')) {
+    abrirSomente(ativo.closest('.action-group'));
+  } else {
+    var primeiro = document.querySelector('.action-group');
+    if (primeiro) primeiro.classList.remove('collapsed');
+  }
+})();
 </script>
 </body>
 

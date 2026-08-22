@@ -13,10 +13,11 @@
     rel="stylesheet">
   <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css">
+  <script src="/theme-manager.js"></script>
 
   <style>
     /* ── SISTEMA DE DESIGN & VARIÁVEIS ────────────────────────── */
-    :root {
+    :root, [data-theme="dark"] {
       --bg-dark: #0f111a;
       --bg-card: rgba(30, 32, 50, 0.65);
       --bg-card-hover: rgba(40, 43, 67, 0.85);
@@ -38,8 +39,22 @@
       --info: #3b82f6;
       --info-glow: rgba(59, 130, 246, 0.2);
 
+      --card-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
       --sidebar-width: 260px;
-      --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    [data-theme="light"] {
+      --bg-dark: #f8fafc;
+      --bg-card: #ffffff;
+      --bg-card-hover: #f1f5f9;
+      --border-color: #e2e8f0;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --primary: #fc4b15;
+      --primary-hover: #e03e0a;
+      --primary-glow: rgba(252, 75, 21, 0.25);
+      --card-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
     }
 
     /* ── RESET & PADRÕES ──────────────────────────────────────── */
@@ -315,6 +330,65 @@
       padding: 1.5rem 0.8rem;
       flex-grow: 1;
       overflow-y: auto;
+    }
+
+    .menu-categoria {
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      overflow: hidden;
+      background: rgba(255,255,255,0.02);
+    }
+
+    .cat-header {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      padding: 0.75rem 1rem;
+      font-size: 0.82rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      cursor: pointer;
+      user-select: none;
+      transition: var(--transition);
+    }
+
+    .cat-header:hover {
+      color: white;
+      background: rgba(255, 87, 34, 0.08);
+    }
+
+    .cat-header > i:first-child {
+      color: var(--primary);
+      width: 18px;
+      text-align: center;
+    }
+
+    .cat-seta {
+      margin-left: auto;
+      font-size: 0.7rem;
+      transition: transform 0.25s ease;
+    }
+
+    .menu-categoria.aberta .cat-seta {
+      transform: rotate(180deg);
+    }
+
+    .cat-itens {
+      display: none;
+      flex-direction: column;
+      gap: 0.15rem;
+      padding: 0.3rem 0.5rem 0.5rem;
+    }
+
+    .menu-categoria.aberta .cat-itens {
+      display: flex;
+    }
+
+    .menu-categoria.aberta .cat-header {
+      color: white;
+      background: rgba(255, 87, 34, 0.06);
     }
 
     .menu-item {

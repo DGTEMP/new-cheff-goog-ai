@@ -164,7 +164,10 @@ function loginLocal() {
 }
 
 function entrarNoPainel(isExplicitLogin) {
-  fetch('/api/super/panel-template', { credentials: 'same-origin' })
+  var headers = {};
+  if (localToken) headers['x-super-admin-token'] = localToken;
+
+  fetch('/api/super/panel-template', { credentials: 'same-origin', headers: headers })
     .then(function(res) {
       if (res.ok) return res.text();
       throw new Error('Acesso não autorizado.');
@@ -544,6 +547,7 @@ function switchTab(targetId) {
     'sec-features-restaurante': ['Features Restaurante', 'Configure funcionalidades operacionais por restaurante'],
     'sec-dominios': ['Domínios', 'Configure subdomínios e domínios próprios por restaurante'],
     'sec-capacidade': ['Pico & Capacidade', 'Métricas de uso do servidor e capacidade'],
+    'sec-load-control': ['Controle de Carga', 'Chave de operação, fila durável de pedidos e circuit breaker automático'],
     'sec-licencas': ['Licenças & Telemetria', 'Chaves de ativação e telemetria dos estabelecimentos'],
     'sec-recuperar-acesso': ['Recuperar Acesso', 'Redefina email e senha de clientes'],
     'sec-clientes': ['Clientes', 'Perfil completo de todos os clientes da plataforma'],
@@ -554,14 +558,27 @@ function switchTab(targetId) {
     'sec-afiliados': ['Afiliados & Parceiros', 'Gerenciamento completo da rede de revenda, cadastros e comissões'],
     'sec-seguranca-waf': ['Segurança & WAF', 'Firewall, proteção Anti-DDoS, Rate Limiter e bloqueio de IPs'],
     'sec-deploy-updates': ['Deploy & Atualizações', 'Gerenciamento de versões Git e Hot Swap sem quedas'],
-    'sec-plugins-modulos': ['Plugins & Módulos', 'Central de extensões avançadas (iFood, Balança, WhatsApp Bot)']
+    'sec-plugins-modulos': ['Plugins & Módulos', 'Central de extensões avançadas (iFood, Balança, WhatsApp Bot)'],
+    'sec-tema-custom': ['Aparência & Tema Global', 'Estúdio de personalização de cores, botões, fontes e marcas'],
+    'sec-alterar-senha': ['Alterar Senha', 'Atualize a senha de acesso ao painel super admin']
   };
 
   for (var i = 0; i < items.length; i++) {
-    items[i].className = items[i].getAttribute('data-target') === targetId ? 'menu-item active' : 'menu-item';
+    var alvo = items[i].getAttribute('data-target') === targetId;
+    items[i].classList.toggle('active', alvo);
   }
   for (var j = 0; j < sections.length; j++) {
-    sections[j].className = sections[j].id === targetId ? 'content-section active' : 'content-section';
+    sections[j].classList.toggle('active', sections[j].id === targetId);
+  }
+
+  /* Acordeão: abre a categoria da aba ativa e recolhe as demais */
+  var itemAtivo = document.querySelector('.menu-item.active');
+  if (itemAtivo) {
+    var catAtiva = itemAtivo.closest('.menu-categoria');
+    if (catAtiva && !catAtiva.classList.contains('aberta')) {
+      document.querySelectorAll('.menu-categoria.aberta').forEach(function(c) { c.classList.remove('aberta'); });
+      catAtiva.classList.add('aberta');
+    }
   }
 
   /* Persistir aba atual */
@@ -590,6 +607,7 @@ function switchTab(targetId) {
   else if (targetId === 'sec-usuarios') carregarUsuarios();
   else if (targetId === 'sec-servidor') { carregarServidor(); carregarCerts(); }
   else if (targetId === 'sec-mensagens') carregarMensagens();
+  else if (targetId === 'sec-tema-custom') carregarTemaCustomGlobal();
   else if (targetId === 'sec-logs') carregarLogs(0);
   else if (targetId === 'sec-config') carregarConfig();
   else if (targetId === 'sec-licencas') carregarLicencas();
@@ -599,6 +617,7 @@ function switchTab(targetId) {
    else if (targetId === 'sec-features-restaurante') renderFeaturesRestaurante();
    else if (targetId === 'sec-dominios') renderDominios();
    else if (targetId === 'sec-capacidade') renderCapacidade();
+   else if (targetId === 'sec-load-control') renderLoadControl();
    else if (targetId === 'sec-terminal') { resetInactivityTimer(); }
    else if (targetId === 'sec-instancias') carregarInstancias();
    else if (targetId === 'sec-site-vendas') carregarSiteVendas();
@@ -609,25 +628,42 @@ function switchTab(targetId) {
 }
 
 /* ═══ DEPLOY ZERO-DOWNTIME & COMMITS ═══ */
+function corDotCommit(status) {
+  if (status === 'estavel') return '#22c55e';
+  if (status === 'quebrado') return '#ef4444';
+  return '#64748b';
+}
+
 window.carregarCommitsGit = function() {
   apiGet('/api/super/commits', function(err, data) {
     var tbody = document.getElementById('commits-tbody');
     if (!tbody) return;
     if (err || !data || !data.ok) {
-      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--danger);padding:20px;">Falha ao carregar commits: ' + (data ? data.erro : 'Erro de conexão') + '</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--danger);padding:20px;">Falha ao carregar commits: ' + (data ? data.erro : 'Erro de conexão') + '</td></tr>';
       return;
     }
     var list = data.commits || [];
     if (list.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:20px;">Nenhum commit encontrado no histórico.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:20px;">Nenhum commit encontrado no histórico.</td></tr>';
       return;
     }
     var html = '';
     for (var i = 0; i < list.length; i++) {
       var c = list[i];
+      var dotTitle = c.status === 'estavel' ? 'Versão estável' : (c.status === 'quebrado' ? 'Quebrado (problema reportado)' : 'Sem marcação');
+      var notaInput = '<input id="commit-nota-' + escapeHtml(c.hash) + '" type="text" value="' + escapeHtml(c.nota || '') + '" placeholder="Nota rápida..." ' +
+        'style="width:100%;margin-top:6px;padding:5px 8px;border-radius:8px;border:1px solid var(--border-color);background:rgba(255,255,255,0.06);color:var(--text-primary);font-size:11.5px;" ' +
+        'onkeydown="if(event.key===\'Enter\'){event.preventDefault();this.blur();}" onchange="salvarCommitNota(\'' + escapeHtml(c.hash) + '\', this.value)" />';
       html += '<tr>' +
         '<td><code style="background:rgba(255,255,255,0.1);padding:4px 8px;border-radius:6px;color:#a855f7;">' + escapeHtml(c.hash) + '</code></td>' +
-        '<td style="font-weight:600;color:white;">' + escapeHtml(c.mensagem) + '</td>' +
+        '<td style="font-weight:600;color:white;">' + escapeHtml(c.mensagem) + notaInput + '</td>' +
+        '<td style="white-space:nowrap;">' +
+          '<div style="display:flex;align-items:center;gap:7px;">' +
+            '<span id="commit-dot-' + escapeHtml(c.hash) + '" title="' + dotTitle + '" style="width:12px;height:12px;border-radius:50%;flex-shrink:0;display:inline-block;background:' + corDotCommit(c.status) + ';box-shadow:0 0 6px ' + corDotCommit(c.status) + '66;"></span>' +
+            '<button title="Marcar como estável" onclick="marcarCommitStatus(\'' + escapeHtml(c.hash) + '\',\'estavel\')" style="padding:3px 9px;border-radius:6px;border:1px solid #22c55e;background:' + (c.status === 'estavel' ? '#22c55e' : 'transparent') + ';color:' + (c.status === 'estavel' ? '#fff' : '#22c55e') + ';cursor:pointer;font-size:11px;font-weight:700;">✓ Estável</button>' +
+            '<button title="Marcar como quebrado" onclick="marcarCommitStatus(\'' + escapeHtml(c.hash) + '\',\'quebrado\')" style="padding:3px 9px;border-radius:6px;border:1px solid #ef4444;background:' + (c.status === 'quebrado' ? '#ef4444' : 'transparent') + ';color:' + (c.status === 'quebrado' ? '#fff' : '#ef4444') + ';cursor:pointer;font-size:11px;font-weight:700;">✕ Quebrado</button>' +
+          '</div>' +
+        '</td>' +
         '<td><small style="color:var(--text-muted);">' + escapeHtml(c.autor) + '</small></td>' +
         '<td><small style="color:var(--text-muted);">' + escapeHtml(c.data) + '</small></td>' +
         '<td>' +
@@ -638,6 +674,27 @@ window.carregarCommitsGit = function() {
       '</tr>';
     }
     tbody.innerHTML = html;
+  });
+};
+
+window.marcarCommitStatus = function(hash, status) {
+  apiPost('/api/super/commits/meta', { hash: hash, status: status }, function(err, data) {
+    if (err || !data || !data.ok) {
+      showToast('Erro ao marcar commit: ' + (data ? data.erro : 'Erro de conexão'), 'danger');
+      return;
+    }
+    showToast(status === 'estavel' ? 'Commit marcado como versão estável ✓' : 'Commit marcado como quebrado ✕', status === 'estavel' ? 'success' : 'warning');
+    carregarCommitsGit();
+  });
+};
+
+window.salvarCommitNota = function(hash, nota) {
+  apiPost('/api/super/commits/meta', { hash: hash, nota: nota }, function(err, data) {
+    if (err || !data || !data.ok) {
+      showToast('Erro ao salvar nota: ' + (data ? data.erro : 'Erro de conexão'), 'danger');
+      return;
+    }
+    showToast('Nota salva.', 'success');
   });
 };
 
@@ -2101,6 +2158,16 @@ function initAdminPanelUI() {
   var btnSair = document.getElementById('btn-sair');
   if (btnSair) btnSair.addEventListener('click', logout);
 
+  /* Acordeão de categorias da sidebar */
+  document.querySelectorAll('.cat-header').forEach(function(h) {
+    h.addEventListener('click', function() {
+      var cat = h.closest('.menu-categoria');
+      var jaAberta = cat.classList.contains('aberta');
+      document.querySelectorAll('.menu-categoria.aberta').forEach(function(c) { c.classList.remove('aberta'); });
+      if (!jaAberta) cat.classList.add('aberta');
+    });
+  });
+
   /* Sidebar nav */
   var menuItems = document.querySelectorAll('.menu-item');
   for (var i = 0; i < menuItems.length; i++) {
@@ -3035,6 +3102,239 @@ window.salvarMissaoSurpresa = function() {
   if (btnRefreshCap) {
     btnRefreshCap.addEventListener('click', function() { renderCapacidade(); });
   }
+
+  /* ═══ CONTROLE DE CARGA (CHAVE SUPER ADMIN) ═══ */
+  var _lcAutoTimer = null;
+
+  function lcModoLabel(m) {
+    return { normal: 'Normal', evento: 'Evento / Pico', spool: 'Fila Durável', manutencao: 'Manutenção' }[m] || m;
+  }
+
+  window.renderLoadControl = function(keepSilent) {
+    apiGet('/api/super/load-control', function(err, data) {
+      if (err || !data || !data.ok) {
+        if (!keepSilent) showToast('Erro ao carregar controle de carga: ' + (err ? err.message : (data ? data.erro : 'Sem resposta')), 'danger');
+        return;
+      }
+      var c = data.controle || {};
+      var m = data.metricas || {};
+
+      // Modo efetivo + cores do cartão principal
+      var modo = c.modo_efetivo || 'normal';
+      var modoEl = document.getElementById('lc-modo-atual');
+      if (modoEl) {
+        var label = lcModoLabel(modo);
+        if (c.auto_ativo && modo === 'spool' && (c.modo_base || '') !== 'spool') label += ' (auto)';
+        modoEl.textContent = label;
+      }
+      var cardModo = document.getElementById('lc-card-modo');
+      if (cardModo) {
+        var icon = cardModo.querySelector('.stat-icon');
+        var cor = { normal: 'var(--success)', evento: 'var(--info)', spool: 'var(--warning)', manutencao: 'var(--danger)' }[modo] || 'var(--primary)';
+        var fundo = { normal: 'rgba(16,185,129,0.15)', evento: 'rgba(59,130,246,0.15)', spool: 'rgba(245,158,11,0.15)', manutencao: 'rgba(239,68,68,0.15)' }[modo] || '';
+        cardModo.style.boxShadow = '0 0 18px ' + cor + '33';
+        cardModo.style.borderColor = cor;
+        if (icon) { icon.style.background = fundo; icon.style.color = cor; }
+      }
+
+      // Destaca botão do modo BASE ativo
+      var btns = document.querySelectorAll('.lc-modo-btn');
+      for (var i = 0; i < btns.length; i++) {
+        var ativo = btns[i].getAttribute('data-modo') === (c.modo_base || 'normal');
+        btns[i].style.borderColor = ativo ? 'var(--primary)' : 'var(--border-color)';
+        btns[i].style.background = ativo ? 'rgba(99,102,241,0.12)' : 'rgba(0,0,0,0.2)';
+      }
+
+      // Badge AUTO no menu + banner
+      var badge = document.getElementById('lc-menu-badge');
+      var banner = document.getElementById('lc-auto-badge');
+      var autoOn = !!c.auto_ativo;
+      if (badge) badge.style.display = autoOn ? '' : 'none';
+      if (banner) banner.style.display = autoOn ? '' : 'none';
+
+      // Métricas principais
+      setTextById('lc-pedidos-min', String(m.chegadas_min || 0));
+      setTextById('lc-lag', (m.event_loop_lag_ms || 0) + ' ms');
+      var filaTxt = String((m.tenants_com_fila || []).length);
+      setTextById('lc-fila', filaTxt);
+
+      // Janela recente
+      setTextById('lc-m-aceitos', String(m.aceitos_min || 0));
+      setTextById('lc-m-enfileirados', String(m.enfileirados_min || 0));
+      setTextById('lc-m-processados', String(m.processados_min || 0));
+      setTextById('lc-m-recusados', String(m.recusados_min || 0));
+      setTextById('lc-m-lagmax', (m.event_loop_lag_max_ms_5min || 0) + ' ms');
+      setTextById('lc-m-rss', (m.rss_mb || 0) + ' MB');
+
+      // Balanceamento por restaurante
+      renderTenantsBalanceamento(data.tenants || []);
+
+      // Limiar de alta demanda (só atualiza campos não editados)
+      var sp = c.spike || {};
+      var inpSpike = document.getElementById('lc-spike-threshold');
+      if (inpSpike && !inpSpike.dataset.touched) inpSpike.value = sp.limite !== undefined ? sp.limite : 30;
+      var inpCd = document.getElementById('lc-spike-cooldown');
+      if (inpCd && !inpCd.dataset.touched) inpCd.value = sp.cooldownMin !== undefined ? sp.cooldownMin : 45;
+
+      // Formulário do breaker (só atualiza campos não editados pelo usuário)
+      var chk = document.getElementById('lc-auto-enabled');
+      if (chk && !chk.dataset.touched) chk.checked = !!c.auto_enabled;
+      var lim = c.limites || {};
+      var mapIn = { 'lc-lag-threshold': 'lagThresholdMs', 'lc-sustained': 'sustainedMs', 'lc-recovery-lag': 'recoveryLagMs', 'lc-recovery-sustained': 'recoverySustainedMs', 'lc-max-rss': 'maxRssMB' };
+      Object.keys(mapIn).forEach(function(id) {
+        var inp = document.getElementById(id);
+        if (inp && !inp.dataset.touched) inp.value = lim[mapIn[id]] !== undefined ? lim[mapIn[id]] : '';
+      });
+    });
+  };
+
+  window.girarChaveLoadControl = function(modo) {
+    var confirmar = {
+      manutencao: 'Bloquear NOVOS pedidos em TODOS os restaurantes? Os operadores verão aviso de manutenção.',
+      spool: 'Ativar Fila Durável? Pedidos serão aceitos e processados em background (nenhum pedido é perdido).',
+      evento: 'Ativar modo Evento/Pico? Push notifications e broadcasts extras serão desligados.',
+      normal: 'Voltar à operação NORMAL?'
+    };
+    if (!confirm(confirmar[modo] || 'Confirmar mudança de modo?')) return;
+    apiPost('/api/super/load-control', { baseMode: modo }, function(err, data) {
+      if (err || !data || !data.ok) {
+        showToast('Falha ao girar a chave: ' + (err ? err.message : (data ? data.erro : 'Sem resposta')), 'danger');
+        return;
+      }
+      showToast('Chave alterada para: ' + lcModoLabel(modo), 'success');
+      renderLoadControl(true);
+    });
+  };
+
+  var DIAS_SEMANA_LC = { 0: 'Dom', 1: 'Seg', 2: 'Ter', 3: 'Qua', 4: 'Qui', 5: 'Sex', 6: 'Sáb' };
+
+  function renderTenantsBalanceamento(tenants) {
+    var tbody = document.getElementById('lc-tenants-tbody');
+    if (!tbody) return;
+    if (!tenants.length) {
+      tbody.innerHTML = '<tr><td colspan="6" style="color: var(--text-muted);">Nenhum restaurante cadastrado.</td></tr>';
+      return;
+    }
+    var html = '';
+    tenants.forEach(function(t) {
+      var pico = t.pico_cadastrado || {};
+      var diasTxt = (pico.dias || []).map(function(d) { return DIAS_SEMANA_LC[d] || d; }).join(', ');
+      var picoTxt = diasTxt ? (diasTxt + (pico.inicio ? ' · ' + pico.inicio + '–' + (pico.fim || '?') : '')) : '<span style="color: var(--text-muted);">—</span>';
+      var corPpm = t.pedidos_min >= 30 ? 'var(--danger)' : (t.pedidos_min >= 10 ? 'var(--warning)' : 'var(--text-muted)');
+      var evTxt = t.eventos_ativos > 0
+        ? '<span style="color: var(--warning); font-weight: 600;">🎉 ' + t.eventos_ativos + '</span>'
+        : '<span style="color: var(--text-muted);">—</span>';
+      var sel = '<select class="form-select form-select-sm lc-tenant-override" data-rid="' + t.id + '" style="min-width: 120px;">' +
+        '<option value=""' + (!t.override ? ' selected' : '') + '>🌐 Global</option>' +
+        '<option value="normal"' + (t.override === 'normal' ? ' selected' : '') + '>Normal</option>' +
+        '<option value="evento"' + (t.override === 'evento' ? ' selected' : '') + '>Evento</option>' +
+        '<option value="spool"' + (t.override === 'spool' ? ' selected' : '') + '>Fila</option>' +
+        '</select>';
+      html += '<tr>' +
+        '<td>' + escHtml(t.nome || ('#' + t.id)) + (!t.ativo ? ' <span style="color: var(--text-muted); font-size: 0.75rem;">(inativo)</span>' : '') + '</td>' +
+        '<td style="font-weight: 700; color: ' + corPpm + ';">' + t.pedidos_min + '/min</td>' +
+        '<td>' + picoTxt + '</td>' +
+        '<td style="text-align: center;">' + evTxt + '</td>' +
+        '<td><span style="font-size: 0.78rem; padding: 2px 8px; border-radius: 999px; background: rgba(99,102,241,0.15);">' + lcModoLabel(t.modo_efetivo) + '</span></td>' +
+        '<td>' + sel + '</td>' +
+        '</tr>';
+    });
+    tbody.innerHTML = html;
+  }
+
+  window.salvarOverrideTenantLC = function(restauranteId, modo) {
+    apiPost('/api/super/load-control/tenant', { restaurante_id: restauranteId, modo: modo || null }, function(err, data) {
+      if (err || !data || !data.ok) {
+        showToast('Falha ao aplicar modo ao restaurante: ' + (err ? err.message : (data ? data.erro : 'Sem resposta')), 'danger');
+        return;
+      }
+      showToast(modo ? ('Restaurante #' + restauranteId + ' em modo: ' + lcModoLabel(modo)) : ('Restaurante #' + restauranteId + ' voltou ao modo global.'), 'success');
+      renderLoadControl(true);
+    });
+  };
+
+  window.salvarConfigLoadControl = function() {
+    var payload = {
+      autoEnabled: !!(document.getElementById('lc-auto-enabled') || {}).checked,
+      lagThresholdMs: parseInt((document.getElementById('lc-lag-threshold') || {}).value, 10),
+      sustainedMs: parseInt((document.getElementById('lc-sustained') || {}).value, 10),
+      recoveryLagMs: parseInt((document.getElementById('lc-recovery-lag') || {}).value, 10),
+      recoverySustainedMs: parseInt((document.getElementById('lc-recovery-sustained') || {}).value, 10),
+      maxRssMB: parseInt((document.getElementById('lc-max-rss') || {}).value, 10)
+    };
+    Object.keys(payload).forEach(function(k) { if (isNaN(payload[k])) delete payload[k]; });
+    apiPost('/api/super/load-control', payload, function(err, data) {
+      if (err || !data || !data.ok) {
+        showToast('Falha ao salvar: ' + (err ? err.message : (data ? data.erro : 'Sem resposta')), 'danger');
+        return;
+      }
+      showToast('Proteção automática atualizada!', 'success');
+      renderLoadControl(true);
+    });
+  };
+
+  window.salvarSpikeLoadControl = function() {
+    var payload = {
+      spikeThreshold: parseInt((document.getElementById('lc-spike-threshold') || {}).value, 10),
+      spikeCooldownMin: parseInt((document.getElementById('lc-spike-cooldown') || {}).value, 10)
+    };
+    Object.keys(payload).forEach(function(k) { if (isNaN(payload[k])) delete payload[k]; });
+    if (!Object.keys(payload).length) return;
+    apiPost('/api/super/load-control', payload, function(err, data) {
+      if (err || !data || !data.ok) {
+        showToast('Falha ao salvar limiar: ' + (err ? err.message : (data ? data.erro : 'Sem resposta')), 'danger');
+        return;
+      }
+      showToast('Limiar de alta demanda atualizado!', 'success');
+      renderLoadControl(true);
+    });
+  };
+
+  (function setupLoadControlEvents() {
+    var grid = document.getElementById('lc-modos-grid');
+    if (grid) {
+      grid.addEventListener('click', function(ev) {
+        var btn = ev.target.closest ? ev.target.closest('.lc-modo-btn') : null;
+        if (btn) girarChaveLoadControl(btn.getAttribute('data-modo'));
+      });
+    }
+    var btnSave = document.getElementById('btn-lc-save');
+    if (btnSave) btnSave.addEventListener('click', salvarConfigLoadControl);
+    var btnRef = document.getElementById('btn-lc-refresh');
+    if (btnRef) btnRef.addEventListener('click', function() { renderLoadControl(true); });
+    var tbTenants = document.getElementById('lc-tenants-tbody');
+    if (tbTenants) {
+      tbTenants.addEventListener('change', function(ev) {
+        var sel = ev.target.closest ? ev.target.closest('.lc-tenant-override') : null;
+        if (sel) salvarOverrideTenantLC(sel.getAttribute('data-rid'), sel.value || null);
+      });
+    }
+    var btnSpike = document.getElementById('btn-lc-spike-save');
+    if (btnSpike) btnSpike.addEventListener('click', salvarSpikeLoadControl);
+    ['lc-spike-threshold', 'lc-spike-cooldown'].forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) el.addEventListener('input', function() { el.dataset.touched = '1'; });
+    });
+    ['lc-auto-enabled', 'lc-lag-threshold', 'lc-sustained', 'lc-recovery-lag', 'lc-recovery-sustained', 'lc-max-rss'].forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) el.addEventListener('input', function() { el.dataset.touched = '1'; });
+    });
+    var chkAR = document.getElementById('lc-autorefresh');
+    if (chkAR) {
+      chkAR.addEventListener('change', function() {
+        if (_lcAutoTimer) { clearInterval(_lcAutoTimer); _lcAutoTimer = null; }
+        if (chkAR.checked) startLcAuto();
+      });
+    }
+    function startLcAuto() {
+      _lcAutoTimer = setInterval(function() {
+        var sec = document.getElementById('sec-load-control');
+        if (sec && sec.className.indexOf('active') !== -1) renderLoadControl(true);
+      }, 5000);
+    }
+    startLcAuto();
+  })();
+
 
   /* ═══ RENDER DOMÍNIOS ═══ */
   var _baseDomain = 'chefcozinha.com.br';
@@ -4457,3 +4757,414 @@ var btnRefreshRestFeat = document.getElementById('btn-refresh-rest-feat');
 if (btnRefreshRestFeat) {
   btnRefreshRestFeat.addEventListener('click', function() { renderFeaturesRestaurante(); });
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   ESTÚDIO DE PERSONALIZAÇÃO GLOBAL DE TEMAS (SUPER ADMIN)
+   ══════════════════════════════════════════════════════════════════ */
+
+var _TAMANHOS_PADRAO = {
+  fontSizeScale: '1',
+  btnScale: '1',
+  cardPadY: '10px',
+  cardPadX: '12px',
+  modalWidth: 'none',
+  modalPosition: 'center'
+};
+
+var _PRESETS_TEMA = {
+  chef_orange: {
+    primary: '#fc4b15',
+    primaryHover: '#e03e0a',
+    bgHeader: '#1a1a2e',
+    textHeader: '#ffffff',
+    bgSidebar: '#1e1e2e',
+    textSidebar: '#c3c3d5',
+    bgColor: '#0f172a',
+    bgCard: '#1e293b',
+    textPrimary: '#f8fafc',
+    textSecondary: '#a8b3c5',
+    borderColor: '#334155',
+    btnPrimaryBg: '#fc4b15',
+    btnPrimaryText: '#ffffff',
+    fontBody: 'Inter',
+    fontHeading: 'Outfit',
+    borderRadius: '14px',
+    modo: 'escuro'
+  },
+  midnight_dark: {
+    primary: '#ff5722',
+    primaryHover: '#f4511e',
+    bgHeader: '#0b0f19',
+    textHeader: '#fbbf24',
+    bgSidebar: '#111827',
+    textSidebar: '#9ca3af',
+    bgColor: '#070a12',
+    bgCard: '#111827',
+    textPrimary: '#f3f4f6',
+    textSecondary: '#9ca3af',
+    borderColor: '#374151',
+    btnPrimaryBg: '#ff5722',
+    btnPrimaryText: '#ffffff',
+    fontBody: 'Roboto',
+    fontHeading: 'Poppins',
+    borderRadius: '12px',
+    modo: 'escuro'
+  },
+  emerald_green: {
+    primary: '#10b981',
+    primaryHover: '#059669',
+    bgHeader: '#064e3b',
+    textHeader: '#ffffff',
+    bgSidebar: '#032c22',
+    textSidebar: '#6ee7b7',
+    bgColor: '#022c22',
+    bgCard: '#064e3b',
+    textPrimary: '#ecfdf5',
+    textSecondary: '#99f6e4',
+    borderColor: '#0f766e',
+    btnPrimaryBg: '#10b981',
+    btnPrimaryText: '#ffffff',
+    fontBody: 'Open Sans',
+    fontHeading: 'Montserrat',
+    borderRadius: '16px',
+    modo: 'escuro'
+  },
+  royal_purple: {
+    primary: '#8b5cf6',
+    primaryHover: '#7c3aed',
+    bgHeader: '#17132b',
+    textHeader: '#d8b4fe',
+    bgSidebar: '#1e1b4b',
+    textSidebar: '#a5b4fc',
+    bgColor: '#0c0918',
+    bgCard: '#1e1b4b',
+    textPrimary: '#f5f3ff',
+    textSecondary: '#c7bffd',
+    borderColor: '#4c46a8',
+    btnPrimaryBg: '#8b5cf6',
+    btnPrimaryText: '#ffffff',
+    fontBody: 'Inter',
+    fontHeading: 'Space Grotesk',
+    borderRadius: '14px',
+    modo: 'escuro'
+  },
+  nordic_light: {
+    primary: '#2563eb',
+    primaryHover: '#1d4ed8',
+    bgHeader: '#ffffff',
+    textHeader: '#1e293b',
+    bgSidebar: '#f8fafc',
+    textSidebar: '#475569',
+    bgColor: '#f1f5f9',
+    bgCard: '#ffffff',
+    textPrimary: '#0f172a',
+    textSecondary: '#475569',
+    borderColor: '#dbe3ec',
+    btnPrimaryBg: '#2563eb',
+    btnPrimaryText: '#ffffff',
+    fontBody: 'Inter',
+    fontHeading: 'Montserrat',
+    borderRadius: '8px',
+    modo: 'claro'
+  },
+  ocean_blue: {
+    primary: '#06b6d4',
+    primaryHover: '#0891b2',
+    bgHeader: '#1e3a8a',
+    textHeader: '#ffffff',
+    bgSidebar: '#101a38',
+    textSidebar: '#94a3b8',
+    bgColor: '#0b132b',
+    bgCard: '#1c2541',
+    textPrimary: '#f0f9ff',
+    textSecondary: '#9fc5d8',
+    borderColor: '#3a506b',
+    btnPrimaryBg: '#06b6d4',
+    btnPrimaryText: '#04202b',
+    fontBody: 'Poppins',
+    fontHeading: 'Outfit',
+    borderRadius: '14px',
+    modo: 'escuro'
+  },
+  sunset_light: {
+    primary: '#ea580c',
+    primaryHover: '#c2410c',
+    bgHeader: '#fff7ed',
+    textHeader: '#7c2d12',
+    bgSidebar: '#fffbeb',
+    textSidebar: '#92400e',
+    bgColor: '#fff7ed',
+    bgCard: '#ffffff',
+    textPrimary: '#431407',
+    textSecondary: '#9a3412',
+    borderColor: '#fbd8b0',
+    btnPrimaryBg: '#ea580c',
+    btnPrimaryText: '#ffffff',
+    fontBody: 'Nunito',
+    fontHeading: 'Poppins',
+    borderRadius: '16px',
+    modo: 'claro'
+  },
+  rose_dark: {
+    primary: '#f43f5e',
+    primaryHover: '#e11d48',
+    bgHeader: '#1c0d13',
+    textHeader: '#fda4af',
+    bgSidebar: '#180a10',
+    textSidebar: '#f9a8d4',
+    bgColor: '#120709',
+    bgCard: '#241019',
+    textPrimary: '#fff1f2',
+    textSecondary: '#fda4af',
+    borderColor: '#582436',
+    btnPrimaryBg: '#f43f5e',
+    btnPrimaryText: '#ffffff',
+    fontBody: 'Inter',
+    fontHeading: 'Playfair Display',
+    borderRadius: '18px',
+    modo: 'escuro'
+  }
+};
+
+window.obterConfigTemaDosInputs = function() {
+  var cardSize = (document.getElementById('theme-card-size') || {}).value || 'normal';
+  var cardMap = { compacto: ['8px', '10px'], normal: ['10px', '12px'], espacoso: ['16px', '20px'] };
+  var cm = cardMap[cardSize] || cardMap.normal;
+  var coringaAtivo = document.getElementById('theme-coringa-enabled');
+  return {
+    primary: document.getElementById('theme-primary')?.value || '#fc4b15',
+    primaryHover: document.getElementById('theme-primary-hover')?.value || '#e03e0a',
+    bgHeader: document.getElementById('theme-bg-header')?.value || '#1a1a2e',
+    textHeader: document.getElementById('theme-text-header')?.value || '#ffffff',
+    bgSidebar: document.getElementById('theme-bg-sidebar')?.value || '#1e1e2e',
+    textSidebar: document.getElementById('theme-text-sidebar')?.value || '#a1a1aa',
+    bgColor: document.getElementById('theme-bg-color')?.value || '#0f172a',
+    bgCard: document.getElementById('theme-bg-card')?.value || '#1e293b',
+    textPrimary: document.getElementById('theme-text-primary')?.value || '#f8fafc',
+    textSecondary: document.getElementById('theme-text-secondary')?.value || '#94a3b8',
+    borderColor: document.getElementById('theme-border-color')?.value || '#334155',
+    btnPrimaryBg: document.getElementById('theme-btn-bg')?.value || '#fc4b15',
+    btnPrimaryText: '#ffffff',
+    fontBody: document.getElementById('theme-font-body')?.value || 'Inter',
+    fontHeading: document.getElementById('theme-font-heading')?.value || 'Outfit',
+    borderRadius: document.getElementById('theme-border-radius')?.value || '14px',
+    fontSizeScale: (document.getElementById('theme-fs-scale') || {}).value || '1',
+    btnScale: (document.getElementById('theme-btn-scale') || {}).value || '1',
+    cardPadY: cm[0],
+    cardPadX: cm[1],
+    modalWidth: (document.getElementById('theme-modal-width') || {}).value || 'none',
+    modalPosition: (document.getElementById('theme-modal-pos') || {}).value || 'center',
+    coringa: {
+      enabled: !coringaAtivo || coringaAtivo.checked,
+      icon: (document.getElementById('theme-coringa-icon') || {}).value || '',
+      action: (document.getElementById('theme-coringa-action') || {}).value || 'url',
+      target: (document.getElementById('theme-coringa-target') || {}).value || '',
+      position: (document.getElementById('theme-coringa-position') || {}).value || 'float-br',
+      color: (document.getElementById('theme-coringa-color') || {}).value || '#ffffff',
+      bg: (document.getElementById('theme-coringa-bg') || {}).value || '#1e293b',
+      title: (document.getElementById('theme-coringa-title') || {}).value || 'Atalho personalizado'
+    }
+  };
+};
+
+function _preencherInputsTema(t) {
+  var set = function(id, v) { var el = document.getElementById(id); if (el && typeof v !== 'undefined' && v !== null) el.value = v; };
+  set('theme-primary', t.primary); set('theme-primary-hover', t.primaryHover);
+  set('theme-bg-header', t.bgHeader); set('theme-text-header', t.textHeader);
+  set('theme-bg-sidebar', t.bgSidebar); set('theme-text-sidebar', t.textSidebar);
+  set('theme-bg-color', t.bgColor); set('theme-bg-card', t.bgCard);
+  set('theme-text-primary', t.textPrimary); set('theme-text-secondary', t.textSecondary);
+  set('theme-border-color', t.borderColor); set('theme-btn-bg', t.btnPrimaryBg);
+  set('theme-font-body', t.fontBody); set('theme-font-heading', t.fontHeading);
+  set('theme-border-radius', t.borderRadius);
+  set('theme-fs-scale', t.fontSizeScale || '1');
+  set('theme-btn-scale', t.btnScale || '1');
+  var cardKey = 'normal';
+  if (t.cardPadY === '8px') cardKey = 'compacto';
+  else if (t.cardPadY === '16px') cardKey = 'espacoso';
+  set('theme-card-size', cardKey);
+  set('theme-modal-width', t.modalWidth || 'none');
+  set('theme-modal-pos', t.modalPosition || 'center');
+  var c = t.coringa || {};
+  var chk = document.getElementById('theme-coringa-enabled');
+  if (chk) chk.checked = c.enabled !== false;
+  set('theme-coringa-icon', c.icon || '');
+  set('theme-coringa-action', c.action || 'url');
+  set('theme-coringa-target', c.target || '');
+  set('theme-coringa-position', c.position || 'float-br');
+  set('theme-coringa-color', c.color || '#ffffff');
+  set('theme-coringa-bg', c.bg || '#1e293b');
+  set('theme-coringa-title', c.title || 'Atalho personalizado');
+}
+
+window.atualizarLivePreviewTema = function() {
+  var cfg = window.obterConfigTemaDosInputs();
+  
+  var header = document.getElementById('prev-header');
+  if (header) { header.style.background = cfg.bgHeader; header.style.color = cfg.textHeader; }
+
+  var sidebar = document.getElementById('prev-sidebar');
+  if (sidebar) { sidebar.style.background = cfg.bgSidebar; }
+
+  var sideItem1 = document.getElementById('prev-side-item1');
+  if (sideItem1) { sideItem1.style.color = cfg.textSidebar; }
+  var sideItem2 = document.getElementById('prev-side-item2');
+  var sideItem3 = document.getElementById('prev-side-item3');
+  if (sideItem2) { sideItem2.style.color = cfg.textSidebar; }
+  if (sideItem3) { sideItem3.style.color = cfg.textSidebar; }
+
+  var main = document.getElementById('prev-main');
+  if (main) { main.style.background = cfg.bgColor; main.style.fontSize = (parseFloat(cfg.fontSizeScale || '1') * 100) + '%'; }
+
+  var card1 = document.getElementById('prev-card1');
+  var card2 = document.getElementById('prev-card2');
+  if (card1) { card1.style.background = cfg.bgCard; card1.style.borderColor = cfg.borderColor; card1.style.borderRadius = cfg.borderRadius; card1.style.padding = cfg.cardPadY + ' ' + cfg.cardPadX; }
+  if (card2) { card2.style.background = cfg.bgCard; card2.style.borderColor = cfg.borderColor; card2.style.borderRadius = cfg.borderRadius; card2.style.padding = cfg.cardPadY + ' ' + cfg.cardPadX; }
+
+  var title = document.getElementById('prev-card-title');
+  if (title) { title.style.color = cfg.textPrimary; title.style.fontFamily = cfg.fontHeading + ', sans-serif'; }
+
+  var desc = document.getElementById('prev-card-desc');
+  if (desc) { desc.style.color = cfg.textSecondary; desc.style.fontFamily = cfg.fontBody + ', sans-serif'; }
+
+  var price = document.getElementById('prev-price');
+  if (price) { price.style.color = cfg.primary; }
+
+  var btn = document.getElementById('prev-btn');
+  if (btn) {
+    btn.style.background = cfg.btnPrimaryBg;
+    btn.style.color = cfg.btnPrimaryText;
+    btn.style.borderRadius = cfg.borderRadius;
+    var bs = parseFloat(cfg.btnScale || '1');
+    btn.style.minHeight = Math.round(30 * bs) + 'px';
+    btn.style.fontSize = '';
+  }
+
+  var totalText = document.getElementById('prev-total-text');
+  if (totalText) { totalText.style.color = cfg.textPrimary; }
+
+  /* Preview do ícone coringa no cabeçalho do mockup */
+  var prevCor = document.getElementById('prev-coringa');
+  if (prevCor) {
+    if (cfg.coringa && cfg.coringa.enabled && cfg.coringa.icon) {
+      prevCor.style.display = 'inline-flex';
+      prevCor.innerHTML = '<i class="' + cfg.coringa.icon + '" style="color:' + cfg.coringa.color + ';"></i>';
+      prevCor.style.background = cfg.coringa.bg;
+      var posTxt = { 'topbar-left': 'Barra · esquerda', 'topbar-right': 'Barra · direita', 'float-br': 'Canto inf. direito', 'float-bl': 'Canto inf. esquerdo' };
+      prevCor.title = 'Coringa: ' + (posTxt[cfg.coringa.position] || cfg.coringa.position);
+    } else {
+      prevCor.style.display = 'none';
+    }
+  }
+
+  if (window.ChefTheme && typeof window.ChefTheme.applyCustom === 'function') {
+    window.ChefTheme.applyCustom(cfg);
+  }
+};
+
+window.aplicarPresetTema = function(key) {
+  var preset = _PRESETS_TEMA[key];
+  if (!preset) return;
+
+  var completo = Object.assign({}, preset, _TAMANHOS_PADRAO);
+  _preencherInputsTema(completo);
+
+  window.atualizarCampoCoringa();
+  window.atualizarLivePreviewTema();
+  showToast('Preset "' + key + '" carregado! Clique em "Salvar" para aplicar em todo o sistema.', 'info');
+};
+
+window.atualizarCampoCoringa = function() {
+  var a = (document.getElementById('theme-coringa-action') || {}).value;
+  var w = document.getElementById('wrap-coringa-target');
+  if (!w) return;
+  if (a === 'tema' || a === 'fila' || a === 'recarregar') {
+    w.style.display = 'none';
+  } else {
+    w.style.display = 'block';
+    var lbl = document.getElementById('lbl-coringa-target');
+    if (lbl) lbl.textContent = (a === 'js') ? 'Código JavaScript a executar' : 'URL ou página interna (ex.: /garcom.html)';
+  }
+};
+
+window.salvarTemaCustomGlobal = function() {
+  var cfg = window.obterConfigTemaDosInputs();
+  apiPost('/api/super/theme-custom', { theme: cfg }, function(err, data) {
+    if (err || !data || !data.ok) {
+      showToast('Erro ao salvar tema customizado: ' + (err ? err.message : (data ? data.erro : 'Falha')), 'danger');
+      return;
+    }
+    showToast('✨ Tema Global salvo e propagado em tempo real!', 'success');
+  });
+};
+
+window.restaurarTemaPadraoGlobal = function() {
+  window.aplicarPresetTema('chef_orange');
+  window.salvarTemaCustomGlobal();
+};
+
+window.carregarTemaCustomGlobal = function() {
+  fetch('/api/public/theme')
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+      if (data && data.ok && data.theme) {
+        _preencherInputsTema(Object.assign({}, data.theme));
+        window.atualizarCampoCoringa();
+        window.atualizarLivePreviewTema();
+      }
+    })
+    .catch(function() {});
+};
+
+
+// ─── ALTERAR SENHA SUPER ADMIN ───
+function initAlterarSenha() {
+  var inputNova = document.getElementById('senha-nova-input');
+  var fill = document.getElementById('forca-senha-fill');
+  var txt = document.getElementById('forca-senha-txt');
+  if (!inputNova || !fill) return;
+
+  inputNova.addEventListener('input', function() {
+    var v = inputNova.value;
+    var pontos = 0;
+    if (v.length >= 8) pontos++;
+    if (v.length >= 12) pontos++;
+    if (/[a-z]/.test(v) && /[A-Z]/.test(v)) pontos++;
+    if (/[0-9]/.test(v)) pontos++;
+    if (/[^a-zA-Z0-9]/.test(v)) pontos++;
+    var pct = Math.min(100, pontos * 20);
+    fill.style.width = pct + '%';
+    if (pontos <= 2) { fill.style.background = '#ef4444'; txt.textContent = v ? 'Senha fraca — adicione maiúsculas, números ou símbolos.' : 'Use letras maiúsculas, minúsculas, números e símbolos.'; }
+    else if (pontos === 3) { fill.style.background = '#f59e0b'; txt.textContent = 'Senha média.'; }
+    else { fill.style.background = '#22c55e'; txt.textContent = 'Senha forte.'; }
+  });
+
+  var btn = document.getElementById('btn-alterar-senha');
+  if (!btn) return;
+  btn.addEventListener('click', async function() {
+    var atual = document.getElementById('senha-atual-input').value;
+    var nova = document.getElementById('senha-nova-input').value;
+    var conf = document.getElementById('senha-confirma-input').value;
+    if (!atual || !nova) { showToast('Preencha a senha atual e a nova senha.', 'warning'); return; }
+    if (nova.length < 8) { showToast('A nova senha deve ter pelo menos 8 caracteres.', 'warning'); return; }
+    if (nova !== conf) { showToast('As senhas não coincidem.', 'danger'); return; }
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Salvando...';
+    apiPost('/api/super/alterar-senha', { senha_atual: atual, nova_senha: nova }, function(err, r) {
+      if (!err && r && r.ok) {
+        showToast(r.mensagem || 'Senha alterada com sucesso!', 'success');
+        document.getElementById('senha-atual-input').value = '';
+        document.getElementById('senha-nova-input').value = '';
+        document.getElementById('senha-confirma-input').value = '';
+        fill.style.width = '0%';
+        txt.textContent = 'Use letras maiúsculas, minúsculas, números e símbolos.';
+      } else {
+        showToast((r && r.erro) || 'Erro ao alterar senha.', 'danger');
+      }
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa-solid fa-key"></i> Salvar Nova Senha';
+    });
+  });
+}
+document.addEventListener('DOMContentLoaded', initAlterarSenha);

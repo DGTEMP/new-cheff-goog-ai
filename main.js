@@ -472,24 +472,34 @@ function showActionPopup(actions, x, y) {
   }, { once: true });
 }
 
-// --- LONG PRESS + SWIPE NO CARD DA MESA ---
+// --- LONG PRESS + SWIPE + ARRASTE NO CARD DA MESA / ITEM ---
+// Toque rápido = selecionar | Segurar curto (soltar ~0,5s) = menu de contexto
+// Segurar 1s sem soltar = modo arraste (mesa→mesa ou item→mesa)
 (function initGestures() {
-  let longPressTimer = null;
+  let menuTimer = null;
+  let dragTimer = null;
   let touchStartX = 0;
   let touchStartY = 0;
   let touchStartTime = 0;
   let didMove = false;
+  let menuReady = false;
+
+  /* ── Estado do arraste por toque ── */
+  const drag = { ativo: false, tipo: null, nome: null, itemId: null, origem: null, ghost: null, alvo: null };
+  window._chefArrastarArmado = false;
+  let armadoExpira = null;
 
   function getMesaItem(el) {
     return el.closest('.mesa-item');
   }
 
+  function ehMesaReal(card) {
+    return !!(card && card.getAttribute('data-status') && card.id && card.id.indexOf('mesa-card-') === 0);
+  }
+
   function getMesaName(card) {
     if (!card) return null;
-    const data = card.getAttribute('data-mesa') || card.getAttribute('data-nome');
-    if (data) return data;
-    const nameEl = card.querySelector('.mesa-nome, .mesa-name, span');
-    return nameEl ? nameEl.textContent.trim() : null;
+    return card.getAttribute('data-mesa') || card.getAttribute('data-nome');
   }
 
   function getMesaItemName(card) {
@@ -502,76 +512,253 @@ function showActionPopup(actions, x, y) {
     return { nome: nome };
   }
 
+  function grupoStatus(st) {
+    if (st === 'reservada') return 'reservada';
+    if (st === 'ocupada' || st === 'fechamento' || st === 'solicitada') return 'ocupada';
+    return 'livre';
+  }
+
+  function clickDepoisDoCard(card, btnId) {
+    card.click();
+    setTimeout(() => { const b = document.getElementById(btnId); if (b) b.click(); }, 250);
+  }
+
+  /* ══════════ ARRASTE POR TOQUE (1s de pressão) ══════════ */
+
+  function criarGhost(origem, x, y) {
+    let g;
+    if (origem.tagName === 'TR') {
+      g = document.createElement('div');
+      const txt = (origem.cells && origem.cells[1] ? origem.cells[1].innerText : origem.innerText).trim().split('\n')[0];
+      g.style.cssText = 'background:#1e293b;color:#f8fafc;padding:8px 14px;border-radius:999px;font-size:13px;font-weight:700;box-shadow:0 8px 24px rgba(0,0,0,.45);max-width:240px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+      g.textContent = txt;
+    } else {
+      g = origem.cloneNode(true);
+      g.removeAttribute('id');
+      const r = origem.getBoundingClientRect();
+      g.style.cssText += `position:fixed;z-index:99999;width:${r.width}px;margin:0;pointer-events:none;opacity:.92;transform:scale(1.04);box-shadow:0 12px 32px rgba(0,0,0,.5);transition:none;`;
+    }
+    g.style.left = (x - 30) + 'px';
+    g.style.top = (y - 30) + 'px';
+    document.body.appendChild(g);
+    return g;
+  }
+
+  function iniciarArraste(origem, tipo, nome, itemId, x, y) {
+    if (drag.ativo) return;
+    drag.ativo = true;
+    drag.tipo = tipo;               // 'table' | 'item'
+    drag.nome = nome || null;
+    drag.itemId = itemId || null;
+    drag.origem = origem;
+    origem.classList.add('dragging-chef');
+    if (navigator.vibrate) navigator.vibrate([40, 40, 40]);
+    drag.ghost = criarGhost(origem, x, y);
+    document.body.style.userSelect = 'none';
+  }
+
+  function marcarAlvo(el, x, y) {
+    const under = document.elementFromPoint(x, y);
+    const alvo = under ? under.closest('.mesa-item[data-status]') : null;
+    const valido = alvo && !(drag.tipo === 'table' && alvo === drag.origem) && alvo.id !== 'nova-comanda-card';
+    if (drag.alvo && drag.alvo !== valido) drag.alvo.classList.remove('drag-over');
+    drag.alvo = valido ? alvo : null;
+    if (drag.alvo) drag.alvo.classList.add('drag-over');
+  }
+
+  async function finalizarArraste(x, y) {
+    if (!drag.ativo) return;
+    const { tipo, nome, itemId, origem } = drag;
+    const alvoEl = drag.alvo;
+    if (alvoEl) alvoEl.classList.remove('drag-over');
+    if (drag.ghost) drag.ghost.remove();
+    if (origem) origem.classList.remove('dragging-chef');
+    document.body.style.userSelect = 'none';
+    Object.assign(drag, { ativo: false, tipo: null, nome: null, itemId: null, origem: null, ghost: null, alvo: null });
+
+    if (!alvoEl) return;
+    const alvoNome = getMesaName(alvoEl);
+    if (!alvoNome) return;
+    const operador = window.crmPerfil ? window.crmPerfil.nome : 'Desconhecido';
+
+    try {
+      if (tipo === 'table') {
+        if (alvoNome === nome) return;
+        const isOccupied = window.ordersData && window.ordersData.some(o =>
+          (o.mesa_grupo === alvoNome || o.localName === alvoNome) && o.status !== 'Finalizado' && o.status !== 'Cancelado' && o.status !== 'Pago'
+        );
+        if (isOccupied) {
+          if (await chefConfirm('Mover para Comanda', `A ${alvoNome} já está ocupada. Deseja mover os pedidos da ${nome} para uma comanda na ${alvoNome} e liberar a ${nome}?`)) {
+            socket.emit('transferir_mesa', { mesaAtual: nome, novaMesa: alvoNome, operador });
+          }
+        } else {
+          if (await chefConfirm('Transferir mesa', 'Mover ' + nome + ' para ' + alvoNome + '?')) {
+            socket.emit('transferir_mesa', { mesaAtual: nome, novaMesa: alvoNome, operador });
+          }
+        }
+      } else if (tipo === 'item') {
+        if (await chefConfirm('Transferir item', 'Mover este item para ' + alvoNome + '?')) {
+          socket.emit('transferir_item', { itemId: itemId, novaMesa: alvoNome, operador: operador });
+        }
+      }
+    } catch (e) { }
+  }
+
+  /* Menu de contexto → opção Mover arma o próximo toque como arraste */
+  window.armaModoArraste = function () {
+    window._chefArrastarArmado = true;
+    clearTimeout(armadoExpira);
+    armadoExpira = setTimeout(() => { window._chefArrastarArmado = false; }, 8000);
+    if (window.showToastIA) showToastIA('Agora toque e segure o que deseja mover — ou apenas toque na mesa de destino', '#fc4b15');
+  };
+
+  /* ══════════ MENU DE CONTEXTO POR STATUS ══════════ */
+
+  function montarMenuMesa(card) {
+    const st = grupoStatus((card.getAttribute('data-status') || '').toLowerCase());
+    const actions = [];
+
+    if (st === 'reservada') {
+      actions.push({ id: 'editar-reserva', icon: 'ph-pencil-simple', label: 'Editar Reserva', cls: 'primary', fn: () => clickDepoisDoCard(card, 'btn-reservar-mesa') });
+      actions.push({
+        id: 'cancelar-reserva', icon: 'ph-x-circle', label: 'Cancelar Reserva', cls: 'danger', fn: async () => {
+          const nomeM = getMesaName(card);
+          if (await chefConfirm('Cancelar reserva', 'Liberar a ' + nomeM + '?')) {
+            socket.emit('cancelar_reserva', { mesaName: nomeM });
+          }
+        }
+      });
+      actions.push({ id: 'lancar', icon: 'ph-plus-circle', label: 'Ocupar Agora', cls: '', fn: () => clickDepoisDoCard(card, 'btn-adicionar-produtos') });
+    } else if (st === 'ocupada') {
+      actions.push({ id: 'lancar', icon: 'ph-plus-circle', label: 'Lançar Itens', cls: 'primary', fn: () => clickDepoisDoCard(card, 'btn-adicionar-produtos') });
+      actions.push({ id: 'parcial', icon: 'ph-currency-dollar', label: 'Pagamento Parcial', cls: 'success', fn: () => clickDepoisDoCard(card, 'btn-movimento-parcial') });
+      actions.push({ id: 'fechar', icon: 'ph-check-circle', label: 'Fechar Conta', cls: '', fn: () => clickDepoisDoCard(card, 'btn-movimento-concluir') });
+      actions.push({ id: 'sep-a', sep: true });
+      actions.push({ id: 'qr', icon: 'ph-qr-code', label: 'QR Code Mesa', cls: '', fn: () => clickDepoisDoCard(card, 'btn-qr-mesa') });
+      actions.push({ id: 'cancelar', icon: 'ph-x-circle', label: 'Cancelar Mesa', cls: 'danger', fn: () => clickDepoisDoCard(card, 'btn-cancelar-mesa-direct') });
+    } else {
+      actions.push({ id: 'lancar', icon: 'ph-plus-circle', label: 'Ocupar Mesa', cls: 'primary', fn: () => clickDepoisDoCard(card, 'btn-adicionar-produtos') });
+      actions.push({ id: 'reservar', icon: 'ph-bookmark-simple', label: 'Reservar Mesa', cls: 'purple', fn: () => clickDepoisDoCard(card, 'btn-reservar-mesa') });
+      actions.push({ id: 'qr', icon: 'ph-qr-code', label: 'QR Code', cls: '', fn: () => clickDepoisDoCard(card, 'btn-qr-mesa') });
+    }
+
+    actions.push({ id: 'sep-b', sep: true });
+    actions.push({ id: 'mover', icon: 'ph-arrows-out-cardinal', label: 'Mover / Transferir…', cls: '', fn: () => { window.armaModoArraste(); } });
+    return actions;
+  }
+
+  function mostrarMenuMesaOuItem(card, itemRow, x, y) {
+    let actions;
+    const rect = (card || itemRow).getBoundingClientRect();
+    if (card) {
+      actions = montarMenuMesa(card);
+    } else {
+      const idAttr = itemRow.getAttribute('data-item-id');
+      if (!idAttr) return;
+      const id = parseInt(idAttr);
+      actions = [
+        { id: 'comanda', icon: 'ph-user-switch', label: 'Mover Comanda', cls: 'primary', fn: () => { window.alterarComandaItemDirect && window.alterarComandaItemDirect(id, ''); } },
+        { id: 'excluir', icon: 'ph-trash', label: 'Excluir Item', cls: 'danger', fn: () => { window.removerItemPedido && window.removerItemPedido(id); } },
+        { id: 'sep-c', sep: true },
+        { id: 'mover-item', icon: 'ph-arrows-out-cardinal', label: 'Mover para outra mesa…', cls: '', fn: () => { window.armaModoArraste(); } }
+      ];
+    }
+    showActionPopup(actions, rect.left + rect.width / 2, rect.top + rect.height / 2);
+  }
+
+  function limparTimers() {
+    clearTimeout(menuTimer); clearTimeout(dragTimer);
+    menuTimer = null; dragTimer = null;
+  }
+
+  /* ══════════ LISTENERS GLOBAIS ══════════ */
+
   document.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1) return;
     if (e.target.closest('button, a, input, select, .btn-action, .btn-pronto, .btn-chamar, .btn-reverter, .mobile-float-btn')) return;
-    const card = getMesaItem(e.target);
+    let card = getMesaItem(e.target);
     const itemRow = e.target.closest('.product-item-row');
+    if (card && !ehMesaReal(card)) card = null;
     if (!card && !itemRow) return;
 
     touchStartX = e.touches[0].clientX;
     touchStartY = e.touches[0].clientY;
     touchStartTime = Date.now();
     didMove = false;
+    menuReady = false;
 
-    longPressTimer = setTimeout(() => {
+    /* Modo armado pelo menu ("Mover / Transferir"): arrasta no toque direto */
+    if (window._chefArrastarArmado) {
+      window._chefArrastarArmado = false;
+      clearTimeout(armadoExpira);
+      const x = touchStartX, y = touchStartY;
+      if (card) iniciarArraste(card, 'table', getMesaName(card), null, x, y);
+      else if (itemRow) iniciarArraste(itemRow, 'item', null, parseInt(itemRow.getAttribute('data-item-id')), x, y);
+      return;
+    }
+
+    menuTimer = setTimeout(() => {
       if (didMove) return;
-      if (navigator.vibrate) navigator.vibrate(30);
+      if (navigator.vibrate) navigator.vibrate(15);
+      menuReady = true; // soltando agora abre o menu; continuando segura entra em arraste
+    }, 450);
 
-      if (card) {
-        const mesaData = getMesaItemName(card);
-        const status = card.classList.contains('ocupada') || card.classList.contains('status-aberta') ? 'ocupada' : 'livre';
-        const actions = [];
-        if (status === 'ocupada') {
-          actions.push({ id: 'lancar', icon: 'ph-plus-circle', label: 'Lançar Itens', cls: 'primary', fn: () => { card.click(); setTimeout(() => { const b = document.getElementById('btn-adicionar-produtos'); if (b) b.click(); }, 200); } });
-          actions.push({ id: 'parcial', icon: 'ph-currency-dollar', label: 'Pagamento Parcial', cls: 'success', fn: () => { card.click(); setTimeout(() => { const b = document.getElementById('btn-movimento-parcial'); if (b) b.click(); }, 200); } });
-          actions.push({ id: 'fechar', icon: 'ph-check-circle', label: 'Fechar Conta', cls: '', fn: () => { card.click(); setTimeout(() => { const b = document.getElementById('btn-movimento-concluir'); if (b) b.click(); }, 200); } });
-          actions.push({ id: 'qr', icon: 'ph-qr-code', label: 'QR Code Mesa', cls: '', fn: () => { card.click(); setTimeout(() => { const b = document.getElementById('btn-qr-mesa'); if (b) b.click(); }, 200); } });
-          actions.push({ id: 'sep1', sep: true });
-          actions.push({ id: 'cancelar', icon: 'ph-x-circle', label: 'Cancelar Mesa', cls: 'danger', fn: () => { card.click(); setTimeout(() => { const b = document.getElementById('btn-cancelar-mesa-direct'); if (b) b.click(); }, 200); } });
-        } else {
-          actions.push({ id: 'reservar', icon: 'ph-bookmark-simple', label: 'Reservar Mesa', cls: 'purple', fn: () => { card.click(); setTimeout(() => { const b = document.getElementById('btn-reservar-mesa'); if (b) b.click(); }, 200); } });
-          actions.push({ id: 'qr', icon: 'ph-qr-code', label: 'QR Code', cls: 'primary', fn: () => { card.click(); setTimeout(() => { const b = document.getElementById('btn-qr-mesa'); if (b) b.click(); }, 200); } });
-        }
-        const rect = card.getBoundingClientRect();
-        showActionPopup(actions, rect.left + rect.width / 2, rect.top + rect.height / 2);
-      } else if (itemRow) {
-        const orderId = itemRow.getAttribute('ondragstart')?.match(/\d+/)?.[0];
-        if (!orderId) { longPressTimer = null; return; }
-        const id = parseInt(orderId);
-        const actions = [
-          { id: 'comanda', icon: 'ph-user-switch', label: 'Mover Comanda', cls: 'primary', fn: () => { window.alterarComandaItemDirect && window.alterarComandaItemDirect(id, ''); } },
-          { id: 'excluir', icon: 'ph-trash', label: 'Excluir Item', cls: 'danger', fn: () => { window.removerItemPedido && window.removerItemPedido(id); } }
-        ];
-        const rect = itemRow.getBoundingClientRect();
-        showActionPopup(actions, rect.left + rect.width / 2, rect.top + rect.height / 2);
-      }
-
-      longPressTimer = null;
-    }, 500);
+    dragTimer = setTimeout(() => {
+      menuTimer = null;
+      menuReady = false;
+      const x = e.touches[0].clientX, y = e.touches[0].clientY;
+      if (card) iniciarArraste(card, 'table', getMesaName(card), null, x, y);
+      else if (itemRow) iniciarArraste(itemRow, 'item', null, parseInt(itemRow.getAttribute('data-item-id')), x, y);
+    }, 1000);
   }, { passive: true });
 
   document.addEventListener('touchmove', (e) => {
-    if (!longPressTimer) return;
-    const dx = Math.abs(e.touches[0].clientX - touchStartX);
-    const dy = Math.abs(e.touches[0].clientY - touchStartY);
+    const x = e.touches[0].clientX, y = e.touches[0].clientY;
+    if (drag.ativo) {
+      if (e.cancelable) e.preventDefault();
+      if (drag.ghost) { drag.ghost.style.left = (x - 30) + 'px'; drag.ghost.style.top = (y - 30) + 'px'; }
+      marcarAlvo(null, x, y);
+      return;
+    }
+    if (!menuTimer && !dragTimer) return;
+    const dx = Math.abs(x - touchStartX);
+    const dy = Math.abs(y - touchStartY);
     if (dx > 10 || dy > 10) {
       didMove = true;
-      clearTimeout(longPressTimer);
-      longPressTimer = null;
+      menuReady = false;
+      limparTimers();
     }
-  }, { passive: true });
+  }, { passive: false });
 
   document.addEventListener('touchend', (e) => {
-    if (longPressTimer) {
-      clearTimeout(longPressTimer);
-      longPressTimer = null;
+    if (drag.ativo) {
+      const t = e.changedTouches[0];
+      finalizarArraste(t.clientX, t.clientY);
+      didMove = false;
+      return;
+    }
+
+    const segurouParaMenu = menuReady;
+    limparTimers();
+
+    if (segurouParaMenu) {
+      const card0 = getMesaItem(e.target);
+      const card = ehMesaReal(card0) ? card0 : null;
+      const itemRow = e.target.closest('.product-item-row');
+      if (card || itemRow) {
+        const rect = (card || itemRow).getBoundingClientRect();
+        mostrarMenuMesaOuItem(card, itemRow, rect.left + rect.width / 2, rect.top + rect.height / 2);
+        didMove = false;
+        return;
+      }
     }
 
     if (didMove) return;
     const elapsed = Date.now() - touchStartTime;
     if (elapsed > 400) return;
 
-    const mesaCard = getMesaItem(e.target);
+    const mesaCard0 = getMesaItem(e.target);
+    const mesaCard = ehMesaReal(mesaCard0) ? mesaCard0 : null;
     if (mesaCard) {
       const touchEndX = e.changedTouches[0].clientX;
       const dx = touchEndX - touchStartX;
@@ -595,7 +782,7 @@ function showActionPopup(actions, x, y) {
       const dx = touchEndX - touchStartX;
       if (Math.abs(dx) > 60) {
         if (navigator.vibrate) navigator.vibrate(20);
-        const orderId = itemRow.getAttribute('ondragstart')?.match(/\d+/)?.[0];
+        const orderId = itemRow.getAttribute('data-item-id');
         if (orderId) {
           if (dx > 0) {
             window.alterarComandaItemDirect && window.alterarComandaItemDirect(parseInt(orderId), '');
@@ -605,6 +792,12 @@ function showActionPopup(actions, x, y) {
         }
       }
     }
+  }, { passive: true });
+
+  document.addEventListener('touchcancel', () => {
+    limparTimers();
+    menuReady = false;
+    if (drag.ativo) finalizarArraste(-100, -100);
   }, { passive: true });
 })();
 
@@ -709,22 +902,25 @@ window.onDropMesa = async (e, targetMesa) => {
 
   if (type === 'table') {
     const draggedMesa = e.dataTransfer.getData('mesa');
-    if (draggedMesa === targetMesa) return;
+    if (!draggedMesa || draggedMesa === targetMesa) return;
 
     // Check if targetMesa is occupied or not by looking at window.ordersData
-    const isOccupied = window.ordersData && window.ordersData.some(o => (o.mesa_grupo || o.localName) === targetMesa && o.status !== 'Finalizado');
+    const isOccupied = window.ordersData && window.ordersData.some(o =>
+      (o.mesa_grupo === targetMesa || o.localName === targetMesa) && o.status !== 'Finalizado' && o.status !== 'Cancelado' && o.status !== 'Pago'
+    );
+
+    const operador = window.crmPerfil ? window.crmPerfil.nome : 'Desconhecido';
 
     if (isOccupied) {
-      const operador = window.crmPerfil ? window.crmPerfil.nome : 'Desconhecido';
-      const choice = await chefPrompt('Juntar mesas', '1 = Mover itens (mesa origem fica livre)\n2 = Unir mesas (ambas ficam ocupadas)', '1');
-      if (choice === '1') {
-        socket.emit('transferir_mesas_itens', { mesaA: draggedMesa, mesaB: targetMesa, operador });
-      } else if (choice === '2') {
-        socket.emit('juntar_mesas', { mesaA: draggedMesa, mesaB: targetMesa, operador });
+      if (await chefConfirm(
+        'Mover para Comanda',
+        `A ${targetMesa} já está ocupada. Deseja mover os pedidos da ${draggedMesa} para uma comanda na ${targetMesa} e liberar a ${draggedMesa}?`
+      )) {
+        socket.emit('transferir_mesa', { mesaAtual: draggedMesa, novaMesa: targetMesa, operador });
       }
     } else {
       if (await chefConfirm('Transferir mesa', 'Mover ' + draggedMesa + ' para ' + targetMesa + '?')) {
-        socket.emit('transferir_mesa', { mesaAtual: draggedMesa, novaMesa: targetMesa, operador: window.crmPerfil ? window.crmPerfil.nome : 'Desconhecido' });
+        socket.emit('transferir_mesa', { mesaAtual: draggedMesa, novaMesa: targetMesa, operador });
       }
     }
   } else if (type === 'item') {
@@ -983,7 +1179,7 @@ function renderOrders() {
               <span class="mesa-id">${escHtml(entry.comanda)}</span>
               <i class="ph ph-receipt mesa-icon" style="color: #fc4b15;"></i>
             </div>
-            <div class="mesa-client" style="color:#64748b;"><i class="ph ph-armchair" style="margin-right:3px;"></i> ${escHtml(entry.mesaName)}</div>
+            <div class="mesa-client" style="color: var(--text-secondary);"><i class="ph ph-armchair" style="margin-right:3px;"></i> ${escHtml(entry.mesaName)}</div>
             <div class="mesa-client">${entry.items} item(s)</div>
             <div class="mesa-value">R$ ${entry.total.toFixed(2).replace('.', ',')}</div>
           </div>
@@ -1055,7 +1251,7 @@ function renderOrders() {
 
       html += `
           <div class="mesa-item status-${statusClass}" id="mesa-card-${uid}" style="position: relative;" data-mesa="${nome}" data-status="${statusClass}" draggable="true" ondragstart="window.onDragStartTable(event, '${nome}')" ondragover="event.preventDefault(); this.classList.add('drag-over');" ondragleave="this.classList.remove('drag-over');" ondrop="window.onDropMesa(event, '${nome}'); this.classList.remove('drag-over');">
-            ${statusClass === 'solicitada' ? '<div style="position: absolute; top: -8px; right: -8px; background: white; border-radius: 50%; padding: 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); display: flex;"><i class="ph ph-receipt" style="color: #3498db;"></i></div>' : ''}
+            ${statusClass === 'solicitada' ? '<div style="position: absolute; top: -8px; right: -8px; background: var(--bg-card); border-radius: 50%; padding: 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); display: flex;"><i class="ph ph-receipt" style="color: #3498db;"></i></div>' : ''}
             <div class="mesa-header-info">
               <span class="mesa-id">${nome}</span>
               <i class="ph ${iconClass} mesa-icon" style="color: ${iconColor};"></i>
@@ -1362,6 +1558,9 @@ function renderOrders() {
 
       window.mesaAtual = item;
       window.descontoAdicional = 0;
+      if (typeof window.renderItensRecolhidosMesas === 'function') {
+        try { window.renderItensRecolhidosMesas(); } catch (e) { }
+      }
       if (leftActionsContainer) {
         leftActionsContainer.style.opacity = '1';
         leftActionsContainer.style.pointerEvents = 'auto';
@@ -1372,7 +1571,7 @@ function renderOrders() {
       }
 
       if (!item.isGroup) {
-        if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: gray; padding: 20px;">Mesa ${item.status === 'Reservada' ? 'Reservada' : 'Livre'}</td></tr>`;
+        if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 20px;">Mesa ${item.status === 'Reservada' ? 'Reservada' : 'Livre'}</td></tr>`;
         updateSummaryValue('resumo-produtos', 0);
         updateSummaryValue('resumo-comissao', 0);
         updateSummaryValue('resumo-subtotal', 0);
@@ -1442,7 +1641,7 @@ function renderOrders() {
           : '';
 
         itemsHTML += `
-           <tr style="${isPaid ? 'opacity: 0.5; background: #f9f9f9;' : ''}" draggable="true" ondragstart="window.onDragStartItem(event, ${order.id}, '${order.mesa_comanda || ''}')" class="product-item-row" data-item-id="${order.id}" data-item-name="${(order.productName || 'Produto').replace(/"/g, '&quot;')}" data-item-status="${order.status || ''}">
+           <tr style="${isPaid ? 'opacity: 0.5;' : ''}" draggable="true" ondragstart="window.onDragStartItem(event, ${order.id}, '${order.mesa_comanda || ''}')" class="product-item-row" data-item-id="${order.id}" data-item-name="${(order.productName || 'Produto').replace(/"/g, '&quot;')}" data-item-status="${order.status || ''}">
              <td>${String(idx + 1).padStart(3, '0')}</td>
              <td style="${isPaid ? 'text-decoration: line-through;' : ''}">
                ${order.productEmoji || ''} ${order.productName || 'Produto'}
@@ -1763,7 +1962,7 @@ function renderOrders() {
           const totalVal = parseFloat(String(order.total).replace(',', '.'));
           const isPaid = order.status === 'Pago';
           modalItemsHTML += `
-                 <tr style="${isPaid ? 'opacity: 0.5; background: #f9f9f9;' : ''}">
+                 <tr style="${isPaid ? 'opacity: 0.5; background: var(--bg-secondary);' : ''}">
                    <td style="padding: 8px 4px; ${isPaid ? 'text-decoration: line-through;' : ''}">${order.productEmoji || ''} ${order.productName || 'Produto'} ${isPaid ? '<strong style="color: #3ab55b; margin-left: 8px;">(PAGO)</strong>' : ''}</td>
                    <td style="padding: 8px 4px; text-align: center;">${order.quantity || 1}</td>
                    <td style="padding: 8px 4px; text-align: right; font-weight: 600; color: #3ab55b;">R$ ${totalVal.toFixed(2).replace('.', ',')}</td>
@@ -2055,7 +2254,7 @@ socket.on('mesa_finalizada', ({ mesaName }) => {
   const rightPanel = document.querySelector('.right-panel');
   if (rightPanel) {
     const itemsContainer = document.getElementById('panel-items');
-    if (itemsContainer) itemsContainer.innerHTML = '<div style="padding: 20px; text-align: center; color: gray;">Mesa Paga / Finalizada</div>';
+    if (itemsContainer) itemsContainer.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--text-muted);">Mesa Paga / Finalizada</div>';
 
     const panelHeader = document.querySelector('.panel-header h2');
     if (panelHeader) panelHeader.innerText = 'Mesa Paga';
@@ -2090,10 +2289,18 @@ socket.on('atualizacao_caixa', () => {
   socket.emit('get_relatorios');
 });
 
+socket.on('caixa_aberto_sucesso', () => {
+  const overlay = document.getElementById('caixa-overlay');
+  const span = document.getElementById('status-caixa-name');
+  if (overlay) overlay.style.display = 'none';
+  if (span) span.innerText = 'Caixa Aberto';
+  socket.emit('get_mesas');
+});
+
 socket.on('estado_caixa', (turno) => {
   const overlay = document.getElementById('caixa-overlay');
   const span = document.getElementById('status-caixa-name');
-  if (turno) {
+  if (turno && (turno.status === 'Aberto' || turno.id || !turno.data_fechamento)) {
     if (overlay) overlay.style.display = 'none';
     if (span) span.innerText = 'Caixa Aberto';
     console.log("Caixa está aberto:", turno);
@@ -2106,6 +2313,7 @@ socket.on('estado_caixa', (turno) => {
 
 document.addEventListener('DOMContentLoaded', () => {
   // Inicialização essencial de dados (evita chamadas duplicadas ao backend)
+  socket.emit('get_mesas');
   socket.emit('get_estado_caixa');
   socket.emit('get_produtos');
   socket.emit('get_funcionarios');
@@ -2622,7 +2830,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!menu) {
       menu = document.createElement('div');
       menu.id = 'pdv-quick-context-menu';
-      menu.style.cssText = 'display: none; position: fixed; z-index: 10005; background: #ffffff; border-radius: 16px; box-shadow: 0 16px 40px rgba(0,0,0,0.22), 0 2px 8px rgba(0,0,0,0.08); border: 1px solid rgba(0,0,0,0.08); width: 260px; overflow: hidden; padding: 6px; user-select: none; font-family: inherit; transition: opacity 0.15s ease, transform 0.15s ease; cubic-bezier(0.16, 1, 0.3, 1);';
+      menu.style.cssText = 'display: none; position: fixed; z-index: 10005; background: var(--bg-card); border-radius: 16px; box-shadow: 0 16px 40px rgba(0,0,0,0.22), 0 2px 8px rgba(0,0,0,0.08); border: 1px solid rgba(0,0,0,0.08); width: 260px; overflow: hidden; padding: 6px; user-select: none; font-family: inherit; transition: opacity 0.15s ease, transform 0.15s ease; cubic-bezier(0.16, 1, 0.3, 1);';
       document.body.appendChild(menu);
     }
 
@@ -2903,9 +3111,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.pdvCurrentCategory = categoryName;
     window.renderPdvMenu();
     window.scrollToActiveCategoryPill();
-  };
-
-  window.renderPdvMenu = () => {
+  };  window.renderPdvMenu = () => {
     if (!window.allProducts) return;
     const catsDiv = document.getElementById('pdv-categories');
     const itemsDiv = document.getElementById('pdv-menu-items');
@@ -3015,7 +3221,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div onclick="${canEditPrice ? `event.stopPropagation(); window.pdvEditPriceInline(${p.id});` : ''}" title="${canEditPrice ? 'Clique para alterar o valor' : ''}">
                   ${hasPromo ? `<span style="color:#94a3b8; font-size:11px; text-decoration:line-through; margin-right:4px;">R$ ${Number(p.preco || 0).toFixed(2).replace('.', ',')}</span>` : ''}
                   <span style="color: ${hasPromo ? '#dc2626' : priceColor}; font-size: 14.5px; font-weight: 800;">R$ ${Number(currentPrice).toFixed(2).replace('.', ',')}</span>
-                  ${canEditPrice ? `<i class="ph ph-pencil-simple" style="font-size: 11px; color: #64748b; margin-left: 2px;"></i>` : ''}
+                  ${canEditPrice ? `<i class="ph ph-pencil-simple" style="font-size: 11px; color: var(--text-secondary); margin-left: 2px;"></i>` : ''}
                 </div>
 
                ${isSelected ? `
@@ -3072,7 +3278,7 @@ document.addEventListener('DOMContentLoaded', () => {
               <div style="display: flex; align-items: center; gap: 4px;" onclick="${canEditPrice ? `event.stopPropagation(); window.pdvEditPriceInline(${p.id});` : ''}" title="${canEditPrice ? 'Clique para alterar o valor' : ''}">
                 ${hasPromo ? `<span style="color:#94a3b8; font-size:11px; text-decoration:line-through;">R$ ${Number(p.preco || 0).toFixed(2).replace('.', ',')}</span>` : ''}
                 <span style="color: ${hasPromo ? '#dc2626' : priceColor}; font-size: 14px; font-weight: 800;">R$ ${Number(currentPrice).toFixed(2).replace('.', ',')}</span>
-                ${canEditPrice ? `<i class="ph ph-pencil-simple" style="font-size: 11px; color: #64748b; margin-left: 2px;"></i>` : ''}
+                ${canEditPrice ? `<i class="ph ph-pencil-simple" style="font-size: 11px; color: var(--text-secondary); margin-left: 2px;"></i>` : ''}
               </div>
 
              ${isSelected ? `
@@ -3289,11 +3495,11 @@ document.addEventListener('DOMContentLoaded', () => {
             <div style="flex: 1; display: flex; flex-direction: column; margin-right: 8px;">
               <strong style="font-size: 16px;">${escHtml(item.nome)}</strong>
               <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
-                <span style="color: gray; font-size: 13px;">R$</span>
-                <input type="number" min="0" step="0.01" value="${item.preco.toFixed(2)}" onchange="window.pdvSetPreco(${idx}, this.value)" style="width: 74px; padding: 2px 4px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
-                <span style="color: gray; font-size: 13px;">x ${item.quantity}</span>
+                <span style="color: var(--text-muted); font-size: 13px;">R$</span>
+                <input type="number" min="0" step="0.01" value="${item.preco.toFixed(2)}" onchange="window.pdvSetPreco(${idx}, this.value)" style="width: 74px; padding: 2px 4px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 13px;">
+                <span style="color: var(--text-muted); font-size: 13px;">x ${item.quantity}</span>
               </div>
-              <input type="text" maxlength="140" placeholder="Observação (opcional)" value="${escHtml(item.observations || '')}" oninput="window.pdvSetObservacao(${idx}, this.value)" style="width: 100%; margin-top: 4px; padding: 3px 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px; box-sizing: border-box;">
+              <input type="text" maxlength="140" placeholder="Observação (opcional)" value="${escHtml(item.observations || '')}" oninput="window.pdvSetObservacao(${idx}, this.value)" style="width: 100%; margin-top: 4px; padding: 3px 6px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 12px; box-sizing: border-box;">
               ${item.composicoes && item.composicoes.length > 0 ? '<div style="display:flex;flex-wrap:wrap;gap:2px;margin-top:3px;">' + item.composicoes.map(c => '<span style="background:#dbeafe;color:#1e40af;padding:1px 5px;border-radius:3px;font-size:10px;font-weight:600;">' + escHtml(typeof c === 'object' ? (c.categoria + ': ' + c.opcao) : c) + '</span>').join('') + '</div>' : ''}
             </div>
             <div style="display: flex; align-items: center; gap: 8px;">
@@ -3304,7 +3510,7 @@ document.addEventListener('DOMContentLoaded', () => {
           </li>
         `;
       }).join('');
-      if (window.pdvCart.length === 0) cartList.innerHTML = '<li style="text-align:center; padding: 20px; color: gray;">Carrinho vazio</li>';
+      if (window.pdvCart.length === 0) cartList.innerHTML = '<li style="text-align:center; padding: 20px; color: var(--text-muted);">Carrinho vazio</li>';
     }
 
     if (typeof window.renderPdvMenu === 'function') {
@@ -3696,7 +3902,7 @@ socket.on('funcionarios_atualizados', (funcs) => {
         <td style="padding: 10px;">${escHtml(f.nome)}</td>
         <td style="padding: 10px;">${escHtml(f.usuario)}</td>
         <td style="padding: 10px; text-align: right;">
-          <select id="cargo-pendente-${f.id}" style="padding: 6px; border-radius: 6px; border: 1px solid #ccc; margin-right: 8px; font-family: Inter;">
+          <select id="cargo-pendente-${f.id}" style="padding: 6px; border-radius: 6px; border: 1px solid var(--border-color); margin-right: 8px; font-family: Inter;">
             <option value="Garçom">Garçom</option>
             <option value="Caixa">Caixa</option>
             <option value="Cozinha">Cozinha</option>
@@ -3708,7 +3914,7 @@ socket.on('funcionarios_atualizados', (funcs) => {
           <button onclick="window.recusarFuncionario(${f.id})" style="color: white; background: #eb5757; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: bold;"><i class="ph ph-x"></i> Recusar</button>
         </td>
       </tr>
-    `).join('') || `<tr><td colspan="3" style="padding: 10px; text-align: center; color: gray;">Nenhum cadastro pendente</td></tr>`;
+    `).join('') || `<tr><td colspan="3" style="padding: 10px; text-align: center; color: var(--text-muted);">Nenhum cadastro pendente</td></tr>`;
 
   listAtivos.innerHTML = ativos.map(f => `
       <tr style="border-bottom: 1px solid #eee;">
@@ -4183,7 +4389,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       printWindow.document.write(`
         <html><head><style>
-          body { font-family: monospace; padding: 20px; width: 300px; color: #000; background: #fff; }
+          body { font-family: monospace; padding: 20px; width: 300px; color: #000; background: var(--bg-card); }
           .center { text-align: center; }
           .bold { font-weight: bold; }
           .divider { border-bottom: 1px dashed #000; margin: 10px 0; }
@@ -4751,6 +4957,31 @@ if (btnSalvarNovaComanda) {
     modalNovaComanda.style.display = 'none';
   };
 }
+
+/* Criação rápida de comanda pela barra lateral direita */
+const quickComandaBtn = document.getElementById('btn-quick-nova-comanda');
+const quickComandaInput = document.getElementById('quick-comanda-nome');
+
+function criarComandaRapida() {
+  if (!quickComandaInput) return;
+  const nome = quickComandaInput.value.trim();
+  if (!nome) {
+    quickComandaInput.focus();
+    return alert('Digite o nome do cliente para criar a comanda.');
+  }
+  socket.emit('nova_comanda_crm', { nome, telefone: '' });
+  quickComandaInput.value = '';
+}
+
+if (quickComandaBtn) quickComandaBtn.onclick = criarComandaRapida;
+if (quickComandaInput) {
+  quickComandaInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      criarComandaRapida();
+    }
+  });
+}
 });
 
 socket.on('comanda_criada_sucesso', ({ nomeMesa }) => {
@@ -5018,7 +5249,7 @@ window.atualizarOpcoesPagamentoModal = function () {
       return `
         <button type="button" class="touch-method-btn" data-method="${f.nome}"
           onclick="window.checkoutModalSelectTouchMethod('${f.nome}')"
-          style="padding: 10px 4px; border: 2px solid #e2e8f0; border-radius: 10px; font-size: 12px; font-weight: bold; background: white; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; transition: all 0.2s;">
+          style="padding: 10px 4px; border: 2px solid var(--border-color); border-radius: 10px; font-size: 12px; font-weight: bold; background: var(--bg-card); cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; transition: all 0.2s;">
           <i class="ph ${iconeClass}" style="font-size: 20px; color: ${cor};"></i>
           ${f.nome}
         </button>
@@ -5479,19 +5710,19 @@ window.renderCustomNfceTable = () => {
 
     tbody.innerHTML += `
       <tr>
-        <td style="padding: 6px; border-bottom: 1px solid #cbd5e1;">
-          <input type="text" value="${item.nome}" onchange="window.editarItemCustomNfce(${index}, 'nome', this.value)" style="width: 100%; padding: 4px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 11px;">
+        <td style="padding: 6px; border-bottom: 1px solid var(--border-color);">
+          <input type="text" value="${item.nome}" onchange="window.editarItemCustomNfce(${index}, 'nome', this.value)" style="width: 100%; padding: 4px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px;">
         </td>
-        <td style="padding: 6px; text-align: center; border-bottom: 1px solid #cbd5e1;">
-          <input type="number" step="0.01" value="${item.quantidade}" onchange="window.editarItemCustomNfce(${index}, 'quantidade', this.value)" style="width: 100%; padding: 4px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 11px; text-align: center;">
+        <td style="padding: 6px; text-align: center; border-bottom: 1px solid var(--border-color);">
+          <input type="number" step="0.01" value="${item.quantidade}" onchange="window.editarItemCustomNfce(${index}, 'quantidade', this.value)" style="width: 100%; padding: 4px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; text-align: center;">
         </td>
-        <td style="padding: 6px; text-align: right; border-bottom: 1px solid #cbd5e1;">
-          <input type="number" step="0.01" value="${item.preco.toFixed(2)}" onchange="window.editarItemCustomNfce(${index}, 'preco', this.value)" style="width: 100%; padding: 4px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 11px; text-align: right;">
+        <td style="padding: 6px; text-align: right; border-bottom: 1px solid var(--border-color);">
+          <input type="number" step="0.01" value="${item.preco.toFixed(2)}" onchange="window.editarItemCustomNfce(${index}, 'preco', this.value)" style="width: 100%; padding: 4px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; text-align: right;">
         </td>
-        <td style="padding: 6px; text-align: right; border-bottom: 1px solid #cbd5e1;">
+        <td style="padding: 6px; text-align: right; border-bottom: 1px solid var(--border-color);">
           R$ ${totalItem.toFixed(2).replace('.', ',')}
         </td>
-        <td style="padding: 6px; text-align: center; border-bottom: 1px solid #cbd5e1;">
+        <td style="padding: 6px; text-align: center; border-bottom: 1px solid var(--border-color);">
           <button onclick="window.removerItemCustomNfce(${index})" style="background: none; border: none; color: #ef4444; cursor: pointer; font-size: 14px;"><i class="ph ph-trash"></i></button>
         </td>
       </tr>
@@ -5940,12 +6171,12 @@ window.renderGuiaAtalhosUI = function () {
       const curKey = shortcuts[actKey] || window.DEFAULT_SHORTCUTS[actKey];
 
       html += `
-        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+        <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 12px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
           <div style="display: flex; align-items: center; gap: 10px;">
             <i class="ph ${info.icon}" style="font-size: 20px; color: #fc4b15;"></i>
             <span style="font-size: 13px; font-weight: 600; color: #1e293b;">${info.title}</span>
           </div>
-          <button onclick="window.iniciarGravacaoAtalho('${actKey}', this)" style="padding: 6px 14px; background: #f1f5f9; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 8px; font-family: monospace; font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.2s ease;">
+          <button onclick="window.iniciarGravacaoAtalho('${actKey}', this)" style="padding: 6px 14px; background: var(--bg-secondary); color: #0f172a; border: 1px solid var(--border-color); border-radius: 8px; font-family: monospace; font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.2s ease;">
             ${curKey}
           </button>
         </div>
@@ -6205,10 +6436,39 @@ document.addEventListener('keydown', (e) => {
     let isCollapsed = false;
     let savedHeightPercent = 45;
 
+    function renderItensRecolhidos() {
+      const strip = document.getElementById('mesas-collapsed-items');
+      if (!strip) return;
+      const m = window.mesaAtual;
+      if (!m || !m.items || !m.items.length) {
+        strip.innerHTML = '<span class="mi-vazio">Nenhuma mesa selecionada</span>';
+        return;
+      }
+      let total = 0, qtd = 0;
+      const grupos = {};
+      m.items.forEach(o => {
+        if (o.status === 'Pago') return;
+        const t = parseFloat(String(o.total).replace(',', '.')) || 0;
+        total += t;
+        qtd += (o.quantity || 1);
+        const k = o.productName || 'Produto';
+        if (!grupos[k]) grupos[k] = { emoji: o.productEmoji || '', q: 0 };
+        grupos[k].q += (o.quantity || 1);
+      });
+      const chips = Object.entries(grupos).map(([nome, g]) =>
+        `<span class="mi-chip">${g.emoji} ${g.q}× ${escHtml(nome)}</span>`).join('');
+      strip.innerHTML =
+        `<span class="mi-mesa">${escHtml(m.mesaName || m.nome || 'Mesa')}</span>${chips}` +
+        `<span class="mi-total">R$ ${total.toFixed(2).replace('.', ',')} · ${qtd} iten${qtd === 1 ? '' : 's'}</span>`;
+    }
+    window.renderItensRecolhidosMesas = renderItensRecolhidos;
+
     function toggleMesasSection() {
       isCollapsed = !isCollapsed;
+      mesasContainer.classList.toggle('mesas-recolhida', isCollapsed);
       if (isCollapsed) {
-        mesasContainer.style.flex = '0 0 34px';
+        mesasContainer.style.flex = '0 0 auto';
+        renderItensRecolhidos();
         if (iconToggle) iconToggle.className = 'ph ph-caret-down';
         if (labelToggle) labelToggle.innerText = 'Expandir';
       } else {
@@ -6331,7 +6591,7 @@ window.abrirModalJuntarMesas = function () {
 
     listaOrdenada.forEach(nomeMesa => {
       html += `
-        <div class="card-juntar-target" data-mesa="${nomeMesa}" onclick="window.selecionarMesaTargetJuntar('${nomeMesa}', this)" style="padding: 12px; background: white; border: 1.5px solid #e2e8f0; border-radius: 10px; cursor: pointer; text-align: center; transition: all 0.15s; user-select: none;">
+        <div class="card-juntar-target" data-mesa="${nomeMesa}" onclick="window.selecionarMesaTargetJuntar('${nomeMesa}', this)" style="padding: 12px; background: var(--bg-card); border: 1.5px solid var(--border-color); border-radius: 10px; cursor: pointer; text-align: center; transition: all 0.15s; user-select: none;">
           <div style="font-weight: 700; font-size: 14px; color: #1e293b; display: flex; align-items: center; justify-content: center; gap: 6px;">
             <i class="ph ph-table" style="color: #fc4b15;"></i> ${nomeMesa}
           </div>
@@ -6555,9 +6815,9 @@ socket.on('connected_devices', (devices) => {
     const tempoStr = d.tempoConectadoStr || 'Pouco tempo';
 
     return `
-      <div style="padding: 12px; background: white; border: 1.5px solid #e2e8f0; border-radius: 12px; margin-bottom: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+      <div style="padding: 12px; background: var(--bg-card); border: 1.5px solid var(--border-color); border-radius: 12px; margin-bottom: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); display: flex; align-items: center; justify-content: space-between; gap: 12px;">
         <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
-          <div style="width: 42px; height: 42px; border-radius: 10px; background: #f1f5f9; color: #334155; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0;">
+          <div style="width: 42px; height: 42px; border-radius: 10px; background: var(--bg-secondary); color: #334155; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0;">
             <i class="ph ${iconClass}"></i>
           </div>
           <div style="display: flex; flex-direction: column; gap: 2px;">
@@ -6565,8 +6825,8 @@ socket.on('connected_devices', (devices) => {
               <strong style="font-size: 14px; color: #0f172a;">${userStr}</strong>
               <span style="font-size: 11px; background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 12px; font-weight: 700;">${cargoStr}</span>
             </div>
-            <span style="font-size: 12px; font-weight: 600; color: #475569;">📱 ${modelStr}</span>
-            <span style="font-size: 11px; color: #64748b;">🌐 IP: ${d.ip} | ${osStr}</span>
+            <span style="font-size: 12px; font-weight: 600; color: var(--text-secondary);">📱 ${modelStr}</span>
+            <span style="font-size: 11px; color: var(--text-secondary);">🌐 IP: ${d.ip} | ${osStr}</span>
           </div>
         </div>
         
@@ -6690,8 +6950,8 @@ if (typeof socket !== 'undefined' && socket) {
       printBtn.onclick = () => window.imprimirDanfeNfce(res.notaId);
 
       const popup = document.createElement('div');
-      popup.style.cssText = 'position: fixed; bottom: 25px; right: 25px; background: white; border-left: 6px solid #27ae60; border-radius: 12px; padding: 18px; box-shadow: 0 10px 30px rgba(0,0,0,0.25); z-index: 100000; font-family: sans-serif; max-width: 380px; animation: slideIn 0.3s ease;';
-      popup.innerHTML = '<h4 style="margin:0 0 8px 0; color:#1e293b; font-size:16px;">✅ NFC-e Emitida!</h4><p style="margin:0; font-size:14px; color:#475569;">A Nota Fiscal foi autorizada pela SEFAZ.</p>';
+      popup.style.cssText = 'position: fixed; bottom: 25px; right: 25px; background: var(--bg-card); border-left: 6px solid #27ae60; border-radius: 12px; padding: 18px; box-shadow: 0 10px 30px rgba(0,0,0,0.25); z-index: 100000; font-family: sans-serif; max-width: 380px; animation: slideIn 0.3s ease;';
+      popup.innerHTML = '<h4 style="margin:0 0 8px 0; color:#1e293b; font-size:16px;">✅ NFC-e Emitida!</h4><p style="margin:0; font-size:14px; color: var(--text-secondary);">A Nota Fiscal foi autorizada pela SEFAZ.</p>';
       popup.appendChild(printBtn);
       document.body.appendChild(popup);
 
@@ -6755,12 +7015,12 @@ window.filtrarNotasNfce = function () {
     const badgeColor = n.status === 'Autorizada' ? '#27ae60' : (n.status === 'Cancelada' ? '#eb5757' : '#f39c12');
 
     return `
-      <tr style="border-bottom: 1px solid #edf2f7;">
+      <tr style="border-bottom: 1px solid var(--border-color);">
         <td style="padding: 10px; font-weight: bold;">Nº ${String(n.numero_nota).padStart(6, '0')}</td>
         <td style="padding: 10px; font-size: 12px; color: #555;">${dataFmt}</td>
         <td style="padding: 10px; font-weight: 500;">${n.localName || 'Mesa'}</td>
-        <td style="padding: 10px; font-size: 12px; color: #333;">${cpfFmt}</td>
-        <td style="padding: 10px; font-weight: bold; color: #2d3748;">${valFmt}</td>
+        <td style="padding: 10px; font-size: 12px; color: var(--text-primary);">${cpfFmt}</td>
+        <td style="padding: 10px; font-weight: bold; color: var(--text-primary);">${valFmt}</td>
         <td style="padding: 10px; text-align: center;">
           <span style="background: ${badgeColor}; color: white; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: bold;">
             ${n.status || 'Autorizada'}
@@ -6961,16 +7221,16 @@ function renderFilaEsperaTabela(rows) {
       <tr style="border-bottom: 1px solid #f1f5f9; transition: background 0.15s;">
         <td style="padding: 12px 10px; font-weight: 700; color: #0f172a;">
           <div style="display: flex; align-items: center; gap: 8px;">
-            <span style="background: #f1f5f9; color: #475569; border-radius: 50%; width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; flex-shrink: 0;">${index + 1}</span>
+            <span style="background: var(--bg-secondary); color: var(--text-secondary); border-radius: 50%; width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; flex-shrink: 0;">${index + 1}</span>
             <div>
               <div>${escHtml(r.cliente_nome)}</div>
-              ${r.cliente_telefone ? `<div style="font-weight: normal; font-size: 11.5px; color: #64748b; margin-top: 2px;"><i class="ph ph-whatsapp-logo" style="color: #25d366;"></i> ${escHtml(r.cliente_telefone)}</div>` : ''}
+              ${r.cliente_telefone ? `<div style="font-weight: normal; font-size: 11.5px; color: var(--text-secondary); margin-top: 2px;"><i class="ph ph-whatsapp-logo" style="color: #25d366;"></i> ${escHtml(r.cliente_telefone)}</div>` : ''}
             </div>
           </div>
         </td>
         <td style="padding: 12px 10px; text-align: center; font-weight: 800; color: #d97706; font-size: 14px;">${r.pessoas || 2}p</td>
         <td style="padding: 12px 10px;">${statusTag}</td>
-        <td style="padding: 12px 10px; font-size: 12px; color: #475569;">${escHtml(prefObs)}</td>
+        <td style="padding: 12px 10px; font-size: 12px; color: var(--text-secondary);">${escHtml(prefObs)}</td>
         <td style="padding: 12px 10px; text-align: center;">
           <div style="display: flex; gap: 6px; justify-content: center; flex-wrap: wrap;">
             <button onclick="window.acomodarClienteFilaPrompt(${r.id}, '${escHtml(r.cliente_nome).replace(/'/g, "\\'")}')" title="Acomodar na Mesa" style="background: #10b981; color: white; border: none; padding: 6px 10px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 11.5px; display: flex; align-items: center; gap: 4px; transition: 0.15s;">
@@ -6986,7 +7246,7 @@ function renderFilaEsperaTabela(rows) {
                 <i class="ph ph-whatsapp-logo"></i> Chamar
               </button>
             ` : ''}
-            <button onclick="window.removerClienteFilaEspera(${r.id})" title="Remover da Fila" style="background: #f1f5f9; color: #64748b; border: 1px solid #cbd5e1; padding: 6px 9px; border-radius: 6px; cursor: pointer; font-size: 11px; transition: 0.15s;">
+            <button onclick="window.removerClienteFilaEspera(${r.id})" title="Remover da Fila" style="background: var(--bg-secondary); color: var(--text-secondary); border: 1px solid var(--border-color); padding: 6px 9px; border-radius: 6px; cursor: pointer; font-size: 11px; transition: 0.15s;">
               <i class="ph ph-trash"></i>
             </button>
           </div>
@@ -7110,7 +7370,7 @@ function renderQrPedidosPendentesList() {
     const itemsHtml = items.map(item => `
       <div style="font-size: 13.5px; color: #334155; margin-bottom: 4px; display: flex; justify-content: space-between; font-weight: 500;">
         <span>${item.quantity}x ${item.productEmoji || '🍽️'} ${item.productName}</span>
-        <span style="color: #64748b;">R$ ${(parseFloat(String(item.total).replace(',', '.')) * item.quantity).toFixed(2).replace('.', ',')}</span>
+        <span style="color: var(--text-secondary);">R$ ${(parseFloat(String(item.total).replace(',', '.')) * item.quantity).toFixed(2).replace('.', ',')}</span>
       </div>
     `).join('');
 
@@ -7138,12 +7398,12 @@ function renderQrPedidosPendentesList() {
           </button>`;
 
     return `
-      <div style="background: #f8fafc; border: 1px solid ${needsValidation ? '#f59e0b' : '#e2e8f0'}; border-radius: 12px; padding: 16px; margin-bottom: 12px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.02);">
+      <div style="background: var(--bg-secondary); border: 1px solid ${needsValidation ? '#f59e0b' : '#e2e8f0'}; border-radius: 12px; padding: 16px; margin-bottom: 12px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.02);">
         ${validationBanner}
-        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed #e2e8f0; padding-bottom: 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed var(--border-color); padding-bottom: 8px;">
           <div>
             <strong style="color: #0f172a; font-size: 15px;">${order.mesa}</strong>
-            <span style="font-size: 13px; color: #64748b; margin-left: 6px;">Cliente: ${order.cliente_nome}${order.cliente_telefone ? ' · ' + order.cliente_telefone : ''}</span>
+            <span style="font-size: 13px; color: var(--text-secondary); margin-left: 6px;">Cliente: ${order.cliente_nome}${order.cliente_telefone ? ' · ' + order.cliente_telefone : ''}</span>
             ${order.cliente_nome ? `<div style="margin-top: 4px;"><span style="background: #f3e8ff; color: #7c3aed; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: bold;">Comanda - ${order.cliente_nome}</span></div>` : ''}
           </div>
           <span style="font-size: 11.5px; color: #94a3b8;">${new Date(order.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
@@ -7153,7 +7413,7 @@ function renderQrPedidosPendentesList() {
           ${itemsHtml}
         </div>
         
-        <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px dashed #e2e8f0; padding-top: 8px; margin-top: 4px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px dashed var(--border-color); padding-top: 8px; margin-top: 4px;">
           <div>
             ${paymentLabel}
           </div>
@@ -7268,8 +7528,8 @@ if (btnPrintQr) {
           <title>Imprimir QR Code - ${mesaNome}</title>
           <style>
             body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }
-            h1 { color: #333; margin-bottom: 20px; font-size: 32px; }
-            img { width: 350px; height: 350px; border: 2px solid #ccc; border-radius: 10px; padding: 15px; }
+            h1 { color: var(--text-primary); margin-bottom: 20px; font-size: 32px; }
+            img { width: 350px; height: 350px; border: 2px solid var(--border-color); border-radius: 10px; padding: 15px; }
             p { font-size: 18px; color: #666; margin-top: 15px; }
           </style>
         </head>
@@ -7363,15 +7623,14 @@ if (typeof socket !== 'undefined' && socket.on) {
 
     const alerta = document.createElement('div');
     alerta.setAttribute('data-pedido-id', pedidoId);
-    alerta.style.cssText = `background:${bgColor}11;border-left:4px solid ${bgColor};padding:12px;border-radius:8px;margin-bottom:8px;`;
+    alerta.style.cssText = `background:#0f172a;border:1px solid #334155;border-left:4px solid ${bgColor};padding:12px;border-radius:8px;margin-bottom:8px;position:relative;`;
     alerta.innerHTML = `
-      <div style="font-weight:700;font-size:13px;color:${bgColor};margin-bottom:4px;display:flex;align-items:center;gap:4px;">${icon} Mesa ${escHtml(mesa)} - ${nivel.toUpperCase()}</div>
-      <div style="font-size:12px;color:#475569;margin-bottom:6px;">${escHtml(mensagem)}</div>
+      <div style="font-weight:800;font-size:13px;color:#f8fafc;margin-bottom:4px;display:flex;align-items:center;gap:4px;"><span style="color:${bgColor}">${icon}</span> Mesa ${escHtml(mesa)} - <span style="color:${bgColor}">${nivel.toUpperCase()}</span></div>
+      <div style="font-size:12px;color:#e2e8f0;margin-bottom:6px;line-height:1.4;">${escHtml(mensagem)}</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
-        ${sugestoes.map(s => `<button onclick="window.socket.emit('ia_resposta_sugestao',{tipo:'${nivel === 'critico' ? 'espera_critica' : 'espera_alerta'}',mesa:${escJs(mesa)},pedidoId:${pedidoId},resposta:${escJs(s.toLowerCase().replace(/\s+/g, '_'))}});this.closest('div[style]').remove();" style="padding:6px 10px;background:${bgColor}22;color:${bgColor};border:1px solid ${bgColor}44;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;">${escHtml(s)}</button>`).join('')}
+        ${sugestoes.map(s => `<button onclick="window.socket.emit('ia_resposta_sugestao',{tipo:'${nivel === 'critico' ? 'espera_critica' : 'espera_alerta'}',mesa:${escJs(mesa)},pedidoId:${pedidoId},resposta:${escJs(s.toLowerCase().replace(/\s+/g, '_'))}});this.closest('div[style]').remove();" style="padding:6px 10px;background:#1e293b;color:#f8fafc;border:1px solid ${bgColor};border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">${escHtml(s)}</button>`).join('')}
       </div>
       <button onclick="this.closest('div[style]').remove()" style="position:absolute;top:8px;right:8px;background:none;border:none;color:#94a3b8;cursor:pointer;font-size:16px;"><i class="ph ph-x"></i></button>`;
-    alerta.style.position = 'relative';
     painel.appendChild(alerta);
 
     // Auto-remover após 5 minutos
@@ -7415,15 +7674,15 @@ if (typeof socket !== 'undefined' && socket.on) {
 
     const alerta = document.createElement('div');
     alerta.setAttribute('data-pedido-id', pedidoId);
-    alerta.style.cssText = `background:${bgColor}11;border-left:4px solid ${bgColor};padding:12px;border-radius:8px;margin-bottom:8px;position:relative;`;
+    alerta.style.cssText = `background:#0f172a;border:1px solid #334155;border-left:4px solid ${bgColor};padding:12px;border-radius:8px;margin-bottom:8px;position:relative;`;
     alerta.innerHTML = `
-      <div style="font-weight:700;font-size:13px;color:${bgColor};margin-bottom:4px;display:flex;align-items:center;gap:4px;"><i class="ph ph-fire"></i> MANOBRA - Mesa ${escHtml(mesa)}</div>
-      <div style="font-size:12px;color:#475569;margin-bottom:4px;">${escHtml(mensagem)}</div>
-      ${temParcial ? `<div style="font-size:11px;color:#94a3b8;margin-bottom:6px;">Itens prontos: ${escHtml(itensProntos)} | Pendentes: ${escHtml(itensPendentes)}</div>` : ''}
-      <div style="font-size:11px;color:${bgColor};font-weight:600;margin-bottom:8px;">Setor: ${escHtml(setor)}</div>
+      <div style="font-weight:800;font-size:13px;color:#f8fafc;margin-bottom:4px;display:flex;align-items:center;gap:4px;"><i class="ph ph-fire" style="color:${bgColor}"></i> MANOBRA - Mesa ${escHtml(mesa)}</div>
+      <div style="font-size:12px;color:#e2e8f0;margin-bottom:4px;line-height:1.4;">${escHtml(mensagem)}</div>
+      ${temParcial ? `<div style="font-size:11px;color:#cbd5e1;margin-bottom:6px;">Itens prontos: ${escHtml(itensProntos)} | Pendentes: ${escHtml(itensPendentes)}</div>` : ''}
+      <div style="font-size:11px;color:${bgColor};font-weight:700;margin-bottom:8px;">Setor: ${escHtml(setor)}</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
-        <button onclick="window.socket.emit('ia_manobra_confirmar',{pedidoId:${pedidoId},mesa:${escJs(mesa)},produto:${escJs(produto)},minutos:${minutos},acao:'solicitar_entrada'});this.closest('div[style]').innerHTML='<div style=\\'padding:8px;color:${bgColor};font-weight:600;font-size:12px;display:flex;align-items:center;gap:4px;\\'><i class=\\'ph ph-check-circle\\'></i> Entrada solicitada ao garçom!</div>';" style="padding:6px 10px;background:${bgColor};color:white;border:1px solid ${bgColor};border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:4px;"><i class="ph ph-bowl-food"></i> Solicitar entrada ao garçom</button>
-        <button onclick="window.socket.emit('ia_manobra_confirmar',{pedidoId:${pedidoId},mesa:${escJs(mesa)},produto:${escJs(produto)},minutos:${minutos},acao:'informar_cliente'});this.closest('div[style]').innerHTML='<div style=\\'padding:8px;color:#3b82f6;font-weight:600;font-size:12px;display:flex;align-items:center;gap:4px;\\'><i class=\\'ph ph-info\\'></i> Cliente informado sobre o atraso.</div>';" style="padding:6px 10px;background:#3b82f622;color:#3b82f6;border:1px solid #3b82f644;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:4px;"><i class="ph ph-info"></i> Informar cliente</button>
+        <button onclick="window.socket.emit('ia_manobra_confirmar',{pedidoId:${pedidoId},mesa:${escJs(mesa)},produto:${escJs(produto)},minutos:${minutos},acao:'solicitar_entrada'});this.closest('div[style]').innerHTML='<div style=\\'padding:8px;color:#34d399;font-weight:600;font-size:12px;display:flex;align-items:center;gap:4px;\\'><i class=\\'ph ph-check-circle\\'></i> Entrada solicitada ao garçom!</div>';" style="padding:6px 10px;background:#ea580c;color:white;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:4px;"><i class="ph ph-bowl-food"></i> Solicitar entrada ao garçom</button>
+        <button onclick="window.socket.emit('ia_manobra_confirmar',{pedidoId:${pedidoId},mesa:${escJs(mesa)},produto:${escJs(produto)},minutos:${minutos},acao:'informar_cliente'});this.closest('div[style]').innerHTML='<div style=\\'padding:8px;color:#60a5fa;font-weight:600;font-size:12px;display:flex;align-items:center;gap:4px;\\'><i class=\\'ph ph-info\\'></i> Cliente informado sobre o atraso.</div>';" style="padding:6px 10px;background:#1e293b;color:#60a5fa;border:1px solid #3b82f6;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:4px;"><i class="ph ph-info"></i> Informar cliente</button>
       </div>
       <button onclick="this.closest('div[style]').remove()" style="position:absolute;top:8px;right:8px;background:none;border:none;color:#94a3b8;cursor:pointer;font-size:16px;"><i class="ph ph-x"></i></button>`;
     painel.appendChild(alerta);
@@ -7449,7 +7708,7 @@ if (typeof socket !== 'undefined' && socket.on) {
       if (painel) {
         painel.innerHTML = dicas.map(d => {
           const icone = d.tipo === 'alerta' ? '<i class="ph ph-warning"></i>' : d.tipo === 'acao' ? '<i class="ph ph-target"></i>' : d.tipo === 'dica' ? '<i class="ph ph-lightbulb"></i>' : '<i class="ph ph-info"></i>';
-          return `<div style="padding:8px 12px;font-size:12px;color:#475569;">${icone} ${escHtml(d.texto)}</div>`;
+          return `<div style="padding:8px 12px;font-size:12px;color:#cbd5e1;">${icone} ${escHtml(d.texto)}</div>`;
         }).join('');
       }
     }
@@ -7459,9 +7718,108 @@ if (typeof socket !== 'undefined' && socket.on) {
 function criarPainelAlertasIA() {
   const panel = document.createElement('div');
   panel.id = 'ia-alertas-panel';
-  panel.style.cssText = 'position:fixed;bottom:80px;right:16px;width:340px;max-height:400px;overflow-y:auto;background:white;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,0.15);z-index:9000;padding:12px;display:flex;flex-direction:column;gap:4px;';
-  panel.innerHTML = '<div style="font-weight:700;font-size:13px;color:#1e293b;padding:4px 0 8px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;gap:6px;"><i class="ph ph-robot"></i> Alertas Inteligentes</div>';
+  panel.style.cssText = 'position:fixed;bottom:80px;right:16px;width:340px;max-height:400px;overflow-y:auto;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,0.4);z-index:9000;padding:12px;display:flex;flex-direction:column;gap:4px;background: var(--bg-card);';
+  panel.innerHTML = '<div style="font-weight:700;font-size:13px;padding:4px 0 8px;display:flex;align-items:center;gap:6px;"><i class="ph ph-robot"></i> Alertas Inteligentes</div>';
   document.body.appendChild(panel);
+
+  try {
+    const w = localStorage.getItem('ia_alerta_w'), h = localStorage.getItem('ia_alerta_h');
+    if (w) { panel.style.width = w + 'px'; panel.style.maxWidth = 'none'; }
+    if (h) { panel.style.height = h + 'px'; panel.style.maxHeight = 'none'; }
+  } catch (e) { }
+
+  /* ── Alça de redimensionamento (canto inferior esquerdo) ── */
+  const handle = document.createElement('div');
+  handle.title = 'Arraste para ajustar o tamanho';
+  handle.style.cssText = 'position:absolute;left:0;bottom:0;width:18px;height:18px;cursor:nwse-resize;z-index:2;';
+  handle.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16"><path d="M14 14L6 6M14 9l-5 5M9 14l5-5" stroke="#94a3b8" stroke-width="1.8" stroke-linecap="round"/></svg>';
+  panel.style.position = 'fixed';
+  panel.appendChild(handle);
+
+  let resizing = false;
+  const iniciarResize = (cx, cy) => {
+    resizing = true;
+    const r = panel.getBoundingClientRect();
+    panel._rw = r.width; panel._rh = r.height;
+    handle._sx = cx; handle._sy = cy;
+    document.body.style.userSelect = 'none';
+  };
+  const moverResize = (cx, cy) => {
+    if (!resizing) return;
+    const nw = Math.min(Math.max(260, panel._rw + (handle._sx - cx)), window.innerWidth * 0.95);
+    const nh = Math.min(Math.max(160, panel._rh + (handle._sy - cy)), window.innerHeight * 0.85);
+    panel.style.width = nw + 'px'; panel.style.maxWidth = 'none';
+    panel.style.height = nh + 'px'; panel.style.maxHeight = 'none';
+  };
+  const pararResize = () => {
+    if (!resizing) return;
+    resizing = false;
+    document.body.style.userSelect = '';
+    const r = panel.getBoundingClientRect();
+    try { localStorage.setItem('ia_alerta_w', Math.round(r.width)); localStorage.setItem('ia_alerta_h', Math.round(r.height)); } catch (e) { }
+  };
+  handle.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); iniciarResize(e.clientX, e.clientY); });
+  handle.addEventListener('touchstart', (e) => { const t = e.touches[0]; iniciarResize(t.clientX, t.clientY); }, { passive: true });
+  document.addEventListener('mousemove', (e) => moverResize(e.clientX, e.clientY));
+  document.addEventListener('touchmove', (e) => { if (!resizing) return; const t = e.touches[0]; moverResize(t.clientX, t.clientY); }, { passive: true });
+  document.addEventListener('mouseup', pararResize);
+  document.addEventListener('touchend', pararResize);
+
+  /* ── Colapso automático em ícone após período sem atividade ── */
+  const TEMPO_COLAPSO_MS = 15000;
+  let timerColapso = null;
+
+  const icone = document.createElement('button');
+  icone.id = 'ia-alertas-icon';
+  icone.title = 'Alertas Inteligentes';
+  icone.style.cssText = 'display:none;position:fixed;bottom:80px;right:16px;width:46px;height:46px;border-radius:50%;border:none;background:#1e293b;color:#fbbf24;font-size:22px;cursor:pointer;z-index:9000;box-shadow:0 4px 16px rgba(0,0,0,0.35);align-items:center;justify-content:center;';
+  icone.innerHTML = '<i class="ph ph-robot"></i><span id="ia-alertas-badge" style="display:none;position:absolute;top:-4px;right:-4px;min-width:18px;height:18px;border-radius:9px;background:#ef4444;color:#fff;font-size:10px;font-weight:800;line-height:18px;text-align:center;">0</span>';
+  icone.addEventListener('click', () => {
+    painelIA.colapsado = false;
+    icone.style.display = 'none';
+    panel.style.display = 'flex';
+    agendarColapso();
+  });
+  document.body.appendChild(icone);
+
+  function colapsar() {
+    if (painelIA.colapsado || !panel.querySelector('[data-pedido-id]')) return;
+    painelIA.colapsado = true;
+    panel.style.display = 'none';
+    atualizarBadge();
+    icone.style.display = 'flex';
+  }
+  function agendarColapso() {
+    clearTimeout(timerColapso);
+    timerColapso = setTimeout(colapsar, TEMPO_COLAPSO_MS);
+  }
+  function atualizarBadge() {
+    const n = panel.querySelectorAll('[data-pedido-id]').length;
+    const b = document.getElementById('ia-alertas-badge');
+    if (!b) return;
+    b.textContent = String(n);
+    b.style.display = n > 0 ? 'block' : 'none';
+    if (n === 0 && painelIA.colapsado) { icone.style.display = 'none'; }
+  }
+
+  const painelIA = { colapsado: false, _timer: timerColapso };
+  panel._agendarColapsoIA = agendarColapso;
+  panel._atualizarBadgeIA = atualizarBadge;
+
+  /* Novos alertas reabrem o painel, atualizam o badge e reagendam o colapso */
+  new MutationObserver(() => {
+    if (painelIA.colapsado) {
+      painelIA.colapsado = false;
+      icone.style.display = 'none';
+      panel.style.display = 'flex';
+    }
+    atualizarBadge();
+    agendarColapso();
+  }).observe(panel, { childList: true });
+
+  panel.addEventListener('mouseenter', agendarColapso);
+  agendarColapso();
+
   return panel;
 }
 
@@ -7613,7 +7971,7 @@ document.addEventListener('DOMContentLoaded', () => {
       resetWrapper.id = 'wrapper-reset-order-actions';
       resetWrapper.style.cssText = 'padding: 10px 0; text-align: center; margin-top: auto; flex-shrink: 0;';
       resetWrapper.innerHTML = `
-        <button id="btn-reset-order-actions" onclick="window.resetarOrdemAcoes()" title="Restaurar a ordem padrão dos botões" style="background: #f8fafc; border: 1px dashed #cbd5e1; color: #64748b; font-size: 11px; padding: 6px 12px; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; font-weight: 600; transition: all 0.2s;">
+        <button id="btn-reset-order-actions" onclick="window.resetarOrdemAcoes()" title="Restaurar a ordem padrão dos botões" style="background: var(--bg-secondary); border: 1px dashed var(--border-color); color: var(--text-secondary); font-size: 11px; padding: 6px 12px; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; font-weight: 600; transition: all 0.2s;">
           <i class="ph ph-arrow-counter-clockwise"></i> Resetar Ordem dos Botões
         </button>`;
       leftPanel.appendChild(resetWrapper);
