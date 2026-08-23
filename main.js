@@ -7823,13 +7823,12 @@ const btnPrintQr = document.getElementById('btn-print-qr-mesa');
 
 if (btnQrMesa) {
   btnQrMesa.addEventListener('click', () => {
-    const mesaLabel = document.getElementById('info-mesa-nome');
-    if (!mesaLabel || mesaLabel.innerText === '-' || mesaLabel.innerText.trim() === '') {
+    const _mesa = window.mesaAtual;
+    const mesaNome = _mesa ? (_mesa.isGroup ? _mesa.mesaName : _mesa.nome) : '';
+    if (!mesaNome || mesaNome.trim() === '') {
       alert('Selecione uma mesa primeiro clicando nela.');
       return;
     }
-
-    const mesaNome = mesaLabel.innerText.trim();
     if (titleQrMesa) titleQrMesa.innerHTML = `<i class="ph ph-qr-code" style="font-size: 24px;"></i> Cardápio Digital - ${escHtml(mesaNome)}`;
 
     // Generate QR Code pointing to cardapio.html
@@ -7848,7 +7847,9 @@ if (btnQrMesa) {
 
 if (btnPrintQr) {
   btnPrintQr.addEventListener('click', () => {
-    const mesaNome = document.getElementById('info-mesa-nome').innerText.trim();
+    const _m = window.mesaAtual;
+    const mesaNome = _m ? (_m.isGroup ? _m.mesaName : _m.nome) : '';
+    if (!mesaNome) { alert('Selecione uma mesa primeiro clicando nela.'); return; }
     const qrSrc = imgQrMesa.src;
 
     const printWindow = window.open('', '_blank');
