@@ -207,6 +207,87 @@
       .modal-content { padding: 16px; }
       .cal-day { font-size: 12px; min-height: 36px; }
     }
+
+    /* ════════════════════════════════════════════════════════════
+       DESKTOP / MONITORES ULTRAWIDE
+       Tier UW1 ≥1921px | UW2 ≥2561px | UW3 ≥3841px
+       ════════════════════════════════════════════════════════════ */
+
+    /* ─── Desktop padrão (≥1280px): painel mais largo e reorganizado ─── */
+    @media (min-width: 1280px) {
+      #dashboard-view {
+        max-width: 1100px;
+        gap: 26px;
+      }
+      /* Relógio de ponto ao lado das métricas: aproveita a horizontal */
+      #dashboard-view > .clock-card {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        align-items: center;
+        justify-content: start;
+        column-gap: 40px;
+        text-align: left;
+        padding: 32px 44px;
+      }
+      #dashboard-view > .clock-card .clock-time {
+        font-size: 72px;
+        margin-bottom: 0;
+        line-height: 1;
+        grid-row: 1 / span 2;
+      }
+      #dashboard-view > .clock-card .clock-status {
+        margin-bottom: 12px;
+      }
+      #dashboard-view > .clock-card .btn-main {
+        justify-self: start;
+        max-width: 420px;
+      }
+      .metrics-grid { grid-template-columns: repeat(4, 1fr); }
+      .metric-card { min-height: 150px; max-height: 200px; justify-content: center; }
+      .btn-main { min-height: 52px; max-height: 68px; }
+      .modal-content { max-width: 460px; }
+      .cal-day { min-height: 56px; }
+    }
+
+    /* ─── Tier UW1: Ultrawide base (≥1921px) ─── */
+    @media (min-width: 1921px) {
+      #dashboard-view { max-width: 1300px; gap: 30px; }
+      body { padding-top: 48px; }
+      .header-info h1 { font-size: 28px; }
+      #dashboard-view > .clock-card .clock-time { font-size: 84px; }
+      .metric-value { font-size: 30px; }
+      .metric-label { font-size: 14px; }
+      .metrics-grid { gap: 20px; }
+      .section-title { font-size: 21px; }
+      .modal-content { max-width: 540px; }
+      .cal-grid { max-width: 900px; margin: 0 auto; width: 100%; }
+      .cal-day { min-height: 64px; }
+      .vale-item, .pagamento-item { padding: 18px 20px; }
+    }
+
+    /* ─── Tier UW2: Super ultrawide (≥2561px) ─── */
+    @media (min-width: 2561px) {
+      #dashboard-view { max-width: 1600px; }
+      #dashboard-view > .clock-card { padding: 40px 56px; column-gap: 56px; }
+      #dashboard-view > .clock-card .clock-time { font-size: 96px; }
+      .header-info h1 { font-size: 32px; }
+      .metric-value { font-size: 34px; }
+      .metrics-grid { gap: 24px; }
+      .cal-grid { max-width: 1100px; }
+      .cal-day { min-height: 76px; font-size: 16px; }
+      .modal-content { max-width: 620px; }
+    }
+
+    /* ─── Tier UW3: Super ultrawide duplo 4K (≥3841px) ─── */
+    @media (min-width: 3841px) {
+      #dashboard-view { max-width: 1900px; gap: 36px; }
+      #dashboard-view > .clock-card .clock-time { font-size: 112px; }
+      .metric-value { font-size: 40px; }
+      .metrics-grid { gap: 28px; }
+      .cal-grid { max-width: 1300px; }
+      .cal-day { min-height: 88px; }
+      .modal-content { max-width: 700px; }
+    }
   </style>
   <script src="/socket.io/socket.io.js"></script>
   <script src="/locales.js"></script>

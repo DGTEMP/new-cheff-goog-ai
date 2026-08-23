@@ -751,6 +751,80 @@
   @media screen and (min-width: 901px) and (max-width: 1100px) and (orientation: landscape) {
     main { padding: 16px 24px; }
     .btn-periodo, .btn-reportar-problema { min-height: 42px; }
+  }
+
+  /* ══════════ DESKTOP / ULTRAWIDE ══════════ */
+
+  /* ─── Desktop padrão (≥1280px): coluna mais larga, modais centrados ─── */
+  @media screen and (min-width: 1280px) {
+    main {
+      max-width: 960px;
+      padding: 24px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px 20px;
+      align-items: start;
+    }
+    /* Emparelhamento das seções em duas colunas */
+    main > div:nth-child(1) { grid-column: 1 / -1; } /* Filtros de período */
+    main > div:nth-child(2) { grid-column: 1 / -1; } /* KPIs */
+    main > div:nth-child(3),
+    main > div.equipe-card { grid-column: auto; }
+    main > div:nth-child(4),
+    main > div:nth-child(5),
+    main > div:nth-child(6),
+    main > div:nth-child(7),
+    main > div:nth-child(8) { grid-column: auto; }
+    main > div:nth-child(9),
+    main > div:nth-child(10) { grid-column: 1 / -1; } /* Funcionalidades + Feed */
+    /* Botões com tamanho mínimo/máximo */
+    .btn-periodo { min-height: 44px; max-height: 56px; padding: 10px 22px; }
+    .btn-primary { max-height: 60px; }
+    .remote-btn { min-height: 96px; max-height: 140px; }
+    /* Bottom sheets viram diálogos centrados no desktop */
+    .modal-overlay { align-items: center !important; }
+    .modal-sheet { max-width: 680px; border-radius: var(--radius-lg); margin: 0 auto; }
+  }
+
+  /* ─── Tier UW1: Ultrawide base (≥1921px / 2560×1080+) ─── */
+  @media screen and (min-width: 1921px) {
+    main { max-width: 1440px; gap: 22px 26px; padding: 28px; }
+    header { padding: 16px 32px; }
+    .header-title { font-size: var(--fs-xl); }
+    /* KPIs: faturamento ocupa a linha toda; mesas e ticket dividem */
+    .kpi-grid { grid-template-columns: repeat(4, 1fr) !important; gap: 16px; }
+    .kpi-card.full { grid-column: 1 / -1 !important; }
+    .kpi-grid > .kpi-card:not(.full) { grid-column: span 2 !important; }
+    /* Controle remoto em uma linha de 4 */
+    .remote-grid { grid-template-columns: repeat(4, 1fr) !important; }
+    .remote-btn.full { grid-column: span 2; }
+    /* Cards de formulário lado a lado com altura equilibrada */
+    .form-input { min-height: 52px; max-height: 64px; font-size: var(--fs-lg); }
+    .modal-relato-box { max-width: 560px; }
+    .modal-sheet { max-width: 780px; }
+    .sec-title { font-size: var(--fs-lg); }
+  }
+
+  /* ─── Tier UW2: Super ultrawide (≥2561px / 3440×1440) ─── */
+  @media screen and (min-width: 2561px) {
+    main { max-width: 1760px; gap: 26px 30px; padding: 32px; border-radius: 20px; }
+    header { padding: 18px 40px; }
+    .kpi-grid { gap: 20px !important; }
+    .kpi-value { font-size: clamp(var(--fs-xxl), 3vw, 56px); }
+    .remote-btn { min-height: 120px; }
+    .features-grid { grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)) !important; gap: 16px; }
+    .feed-card { max-height: 420px; }
+    .modal-sheet { max-width: 860px; }
+  }
+
+  /* ─── Tier UW3: Super ultrawide duplo 4K (≥3841px) ─── */
+  @media screen and (min-width: 3841px) {
+    main { max-width: 2100px; gap: 30px 36px; padding: 40px; }
+    header { padding: 20px 56px; }
+    .kpi-grid { gap: 24px !important; }
+    .remote-btn { min-height: 150px; max-height: 200px; }
+    .ranking-item, .feed-card { font-size: var(--fs-lg); }
+    .modal-sheet { max-width: 960px; }
   }</style>
 </head>
 <body>

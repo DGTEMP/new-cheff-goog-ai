@@ -6027,41 +6027,12 @@ window.baixarXmlNfce = function(id) {
 
 
 // Sidebar Accordion Logic
-document.addEventListener('DOMContentLoaded', () => {
-  const groups = document.querySelectorAll('.action-group');
-  groups.forEach(group => {
-    /* Todos os grupos começam EXPANDIDOS: seção escondida é seção que o
-       operador não encontra. O título continua permitindo recolher. */
-    group.classList.remove('collapsed');
-
-    const title = group.querySelector('.group-title');
-    if (title) {
-      // Add phosphor icon for the caret
-      const icon = document.createElement('i');
-      icon.className = 'ph ph-caret-down accordion-icon';
-      icon.style.transition = 'transform 0.3s ease';
-      icon.style.fontSize = '14px';
-
-      // If initially collapsed, rotate icon
-      if (group.classList.contains('collapsed')) {
-        icon.style.transform = 'rotate(-90deg)';
-      }
-      
-      title.appendChild(icon);
-
-      title.addEventListener('click', () => {
-        const isCollapsed = group.classList.contains('collapsed');
-        
-        if (isCollapsed) {
-          group.classList.remove('collapsed');
-          icon.style.transform = 'rotate(0deg)';
-        } else {
-          group.classList.add('collapsed');
-          icon.style.transform = 'rotate(-90deg)';
-        }
-      });
-    }
-  });
+/* O acordeão dos grupos da sidebar (.action-group / .group-title) é controlado
+   por UM ÚNICO handler no script inline do configuracoes.html. Antes havia dois
+   handlers (este bloco + o inline) togglando 'collapsed' no mesmo clique,
+   cancelando um ao outro — por isso os grupos não recolhiam. Não duplicar.
+   O indicador visual é o caret do CSS (.group-title::after), rotacionado
+   automaticamente pela classe .collapsed. */
 
   // ==========================================
   // AI COMBO GENERATOR - Redução Tributária
@@ -6200,7 +6171,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Also refresh the promocoes list
     socket.emit('get_promocoes');
   };
-});
 
 // === CONSUMO CONFIG ===
 socket.on('consumo_config_data', ({ configs, produtos }) => {
