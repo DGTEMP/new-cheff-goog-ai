@@ -1,0 +1,232 @@
+/* ═════════════════════════════════════════════════════════════════════
+   CHEF COZINHA — CAMADA RESPONSIVA "NATIVE APP"
+   Deixa o app totalmente responsivo e com cara de app nativo em qualquer
+   resolução. Toda regra aqui é chaveada por classes no <body> (chef-ui-*)
+   para vencer a especificidade dos !important do style.css original.
+   ═════════════════════════════════════════════════════════════════════ */
+
+/* ── 1. FLUIDEZ BASE (densidade adapta suavemente ao viewport) ── */
+:root {
+  --app-fluid-pad: clamp(8px, 0.9vw, 16px);
+  --app-fluid-gap: clamp(6px, 0.6vw, 12px);
+}
+
+/* ── 2. MODO TABLET (768px – 1100px): painéis viram gavetas ──
+   Ativado via body.chef-ui-tablet (JS). Os painéis laterais saem do fluxo
+   e deslizam por cima do conteúdo, acionados pelos FABs flutuantes. */
+body.chef-ui-tablet .workspace {
+  gap: 0 !important;
+}
+
+body.chef-ui-tablet .main-workspace {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+}
+
+/* Esconde os resizers laterais (não fazem sentido em gaveta) */
+body.chef-ui-tablet #resizer-left,
+body.chef-ui-tablet #resizer-right,
+body.chef-ui-tablet .resizer {
+  display: none !important;
+}
+
+/* Painel ESQUERDO como gaveta (fora da tela quando recolhido) */
+body.chef-ui-tablet .left-actions.auto-collapsible {
+  position: fixed !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  width: min(86vw, 340px) !important;
+  max-width: 340px !important;
+  padding: 0 !important;
+  z-index: 12000 !important;
+  background: var(--bg-secondary) !important;
+  border-right: 1px solid var(--border-color) !important;
+  box-shadow: none !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  transform: translateX(-105%) !important;
+  transition: transform .28s cubic-bezier(.16, 1, .3, 1), box-shadow .28s ease !important;
+  visibility: visible !important;
+}
+
+/* Painel DIREITO como gaveta (fora da tela quando recolhido) */
+body.chef-ui-tablet .right-info.auto-collapsible {
+  position: fixed !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  right: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  width: min(90vw, 360px) !important;
+  max-width: 360px !important;
+  padding: 0 !important;
+  z-index: 12000 !important;
+  background: var(--bg-secondary) !important;
+  border-left: 1px solid var(--border-color) !important;
+  box-shadow: none !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  transform: translateX(105%) !important;
+  transition: transform .28s cubic-bezier(.16, 1, .3, 1), box-shadow .28s ease !important;
+  visibility: visible !important;
+}
+
+/* Estado aberto: desliza para dentro */
+body.chef-ui-tablet .left-actions.auto-collapsible.expanded {
+  transform: translateX(0) !important;
+  box-shadow: 6px 0 32px rgba(0, 0, 0, .28) !important;
+}
+
+body.chef-ui-tablet .right-info.auto-collapsible.expanded {
+  transform: translateX(0) !important;
+  box-shadow: -6px 0 32px rgba(0, 0, 0, .28) !important;
+}
+
+/* Esconde a "alça" de mini-ícones e mostra o conteúdo completo na gaveta */
+body.chef-ui-tablet .left-actions.auto-collapsible .panel-handle,
+body.chef-ui-tablet .right-info.auto-collapsible .panel-handle {
+  display: none !important;
+}
+
+body.chef-ui-tablet .left-actions.auto-collapsible.expanded .panel-content-inner,
+body.chef-ui-tablet .right-info.auto-collapsible.expanded .panel-content-inner {
+  display: flex !important;
+  flex-direction: column !important;
+  width: 100% !important;
+  padding: 12px !important;
+  box-sizing: border-box !important;
+}
+
+/* FABs flutuantes (visíveis só no modo tablet) */
+.chef-drawer-fab {
+  display: none;
+  position: fixed;
+  z-index: 11800;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  width: 60px;
+  height: 60px;
+  border: none;
+  border-radius: 18px;
+  color: #fff;
+  font-family: var(--font-family);
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: .2px;
+  cursor: pointer;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, .32);
+  transition: transform .15s ease, filter .15s ease;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.chef-drawer-fab i {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.chef-drawer-fab:active {
+  transform: scale(.93);
+  filter: brightness(1.08);
+}
+
+#chef-fab-acoes {
+  left: 16px;
+  bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(135deg, #ff6a2b, #fc4b15);
+}
+
+#chef-fab-resumo {
+  right: 16px;
+  bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(135deg, #34d399, #059669);
+}
+
+body.chef-ui-tablet .chef-drawer-fab {
+  display: flex;
+}
+
+/* Backdrop das gavetas */
+#chef-drawer-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 11999;
+  background: rgba(15, 23, 42, .42);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+  opacity: 0;
+  transition: opacity .25s ease;
+}
+
+#chef-drawer-backdrop.show {
+  display: block;
+  opacity: 1;
+}
+
+/* ── 3. MODO ULTRAWIDE (>= 1600px): app centralizado tipo janela nativa ── */
+@media (min-width: 1600px) {
+  body.chef-ui-wide {
+    background:
+      radial-gradient(1200px 700px at 50% -12%, rgba(252, 75, 21, .10), transparent 60%),
+      linear-gradient(180deg, var(--bg-secondary), var(--bg-color));
+  }
+
+  body.chef-ui-wide .chef-app {
+    max-width: 1560px;
+    margin: 0 auto;
+    height: 100dvh;
+    border-radius: 22px;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+    box-shadow:
+      0 30px 80px rgba(0, 0, 0, .28),
+      0 2px 0 rgba(255, 255, 255, .04) inset;
+  }
+}
+
+/* ── 4. MOBILE (<= 767px): tabela de produtos rola na horizontal ── */
+@media (max-width: 767px) {
+  .products-table-wrapper {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .products-table {
+    min-width: 560px;
+  }
+
+  .products-table th,
+  .products-table td {
+    padding: 12px 10px !important;
+    font-size: 14px !important;
+  }
+
+  /* Grid de mesas um pouco mais compacto no celular */
+  .mesas-grid-layout {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)) !important;
+    gap: 8px !important;
+  }
+
+  .mesa-icon {
+    font-size: 26px !important;
+  }
+}
+
+/* ── 5. NOTEBOOK COMPACTO (<= 1279px, acima de tablet): respira mais ── */
+@media (min-width: 1101px) and (max-width: 1279px) {
+  .top-toolbar {
+    gap: 6px !important;
+    padding: 8px 10px !important;
+  }
+
+  .toolbar-btn {
+    min-width: 48px !important;
+    padding: 8px 8px !important;
+  }
+}
