@@ -2,7 +2,10 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Autoatendimento | Chef Cozinha</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -193,6 +196,164 @@
       position: fixed; bottom: 0; left: 0; height: 4px; background: var(--primary); z-index: 300;
       transition: width 0.1s linear; opacity: 0.6;
     }
+
+    /* ══════ TELA INICIAL DO TOTEM (personalizável em totem-config.html) ══════ */
+    #totem-home {
+      position: fixed; inset: 0; z-index: 500;
+      display: none; flex-direction: column; align-items: center; justify-content: center;
+      gap: 18px; text-align: center; padding: 40px;
+      cursor: pointer; user-select: none; -webkit-user-select: none;
+      overscroll-behavior: none; touch-action: manipulation;
+      overflow-y: auto;
+    }
+    #totem-home.visible { display: flex; }
+    #totem-home .home-logo { max-height: 180px; max-width: 60vw; object-fit: contain; display: none; filter: drop-shadow(0 10px 30px rgba(0,0,0,0.35)); }
+    #totem-home .home-icon-fallback { font-size: 110px; line-height: 1; opacity: 0.95; filter: drop-shadow(0 10px 30px rgba(0,0,0,0.35)); }
+    #totem-home h2.home-titulo {
+      color: #fff; font-size: clamp(34px, 6vw, 64px); font-weight: 800; letter-spacing: -0.02em;
+      text-shadow: 0 4px 24px rgba(0,0,0,0.45); margin: 0;
+    }
+    #totem-home p.home-subtitulo {
+      color: rgba(255,255,255,0.85); font-size: clamp(16px, 2.6vw, 26px); font-weight: 500;
+      max-width: 720px; text-shadow: 0 2px 12px rgba(0,0,0,0.4); margin: 0; line-height: 1.45;
+    }
+    #totem-home .home-cta {
+      margin-top: 14px; padding: 20px 56px; border-radius: 999px; border: none;
+      background: var(--primary); color: #fff; font-size: clamp(17px, 2.4vw, 24px); font-weight: 800;
+      cursor: pointer; box-shadow: 0 12px 36px rgba(0,0,0,0.35), inset 0 -3px 0 rgba(0,0,0,0.15);
+      display: inline-flex; align-items: center; gap: 12px; animation: pulseCta 2s ease-in-out infinite;
+    }
+    @keyframes pulseCta { 0%,100% { transform: scale(1); } 50% { transform: scale(1.04); } }
+    #totem-home .home-footer {
+      position: absolute; bottom: 22px; left: 0; right: 0;
+      color: rgba(255,255,255,0.55); font-size: 13px; font-weight: 600; letter-spacing: 0.04em;
+    }
+    .th-principal { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+
+    /* ── Seções da tela inicial (destaques / cartão custom / categorias) ── */
+    #home-secoes { width: 100%; max-width: 1180px; display: flex; flex-direction: column; gap: 22px; margin-top: 10px; }
+    #home-secoes .sec-bloco h4 {
+      color: rgba(255,255,255,0.75); font-size: 13px; font-weight: 800; text-transform: uppercase;
+      letter-spacing: 1.5px; margin-bottom: 10px; text-align: left; text-shadow: 0 1px 6px rgba(0,0,0,0.4);
+    }
+    .destaques-row { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 6px; scrollbar-width: none; }
+    .destaques-row::-webkit-scrollbar { display: none; }
+    .mini-card {
+      flex-shrink: 0; width: 150px; padding: 14px 12px; border-radius: 18px;
+      background: rgba(255,255,255,0.96); box-shadow: 0 8px 24px rgba(0,0,0,0.28);
+      cursor: pointer; transition: transform 0.15s; text-align: center;
+      display: flex; flex-direction: column; gap: 4px; align-items: center;
+    }
+    .mini-card:active { transform: scale(0.96); }
+    .mini-card .mc-emoji { font-size: 38px; line-height: 1; }
+    .mini-card .mc-nome { font-size: 13px; font-weight: 700; color: #0f172a; line-height: 1.25; max-height: 33px; overflow: hidden; }
+    .mini-card .mc-preco { font-size: 15px; font-weight: 800; color: var(--primary); }
+    #card-custom {
+      display: none; width: 100%; border: none; border-radius: 20px; overflow: hidden;
+      min-height: 120px; cursor: pointer; position: relative; text-align: left;
+      background: linear-gradient(135deg, rgba(255,255,255,0.18), rgba(255,255,255,0.06));
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    }
+    #card-custom .cc-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+    #card-custom .cc-corpo { position: relative; padding: 20px 24px; display: flex; align-items: center; gap: 16px; }
+    #card-custom .cc-emoji { font-size: 44px; line-height: 1; filter: drop-shadow(0 3px 8px rgba(0,0,0,0.3)); }
+    #card-custom .cc-titulo { color: #fff; font-size: clamp(17px, 2.4vw, 26px); font-weight: 800; text-shadow: 0 2px 10px rgba(0,0,0,0.45); }
+    #card-custom .cc-texto { color: rgba(255,255,255,0.88); font-size: clamp(13px, 1.7vw, 17px); font-weight: 500; margin-top: 4px; text-shadow: 0 1px 8px rgba(0,0,0,0.45); }
+    #sec-categorias { display: flex; flex-wrap: wrap; gap: 10px; }
+    #sec-categorias .cat-bolha {
+      padding: 12px 22px; border-radius: 999px; border: 2px solid rgba(255,255,255,0.35);
+      background: rgba(255,255,255,0.12); color: #fff; font-size: clamp(14px, 1.8vw, 18px); font-weight: 700;
+      cursor: pointer; backdrop-filter: blur(6px); transition: all 0.15s;
+    }
+    #sec-categorias .cat-bolha:hover { background: rgba(255,255,255,0.25); }
+    #sec-categorias .cat-bolha:active { transform: scale(0.95); }
+
+    /* ── LAYOUT 1: CLÁSSICO (centralizado) ── */
+    #totem-home.layout-classico .th-principal { align-items: center; text-align: center; }
+
+    /* ── LAYOUT 2: SPLIT (marca à esquerda, ação à direita) ── */
+    #totem-home.layout-split .th-principal {
+      flex-direction: row !important; justify-content: space-between; align-items: center;
+      width: 100%; max-width: 1280px; gap: 40px; text-align: left;
+    }
+    #totem-home.layout-split .th-brand { display: flex; flex-direction: column; gap: 14px; max-width: 55%; align-items: flex-start; text-align: left; }
+    #totem-home.layout-split .th-brand .home-logo { max-width: 380px; }
+    #totem-home.layout-split .home-cta { margin-top: 0; font-size: clamp(19px, 2.6vw, 28px); padding: 24px 60px; }
+    #totem-home.layout-split .th-acoes { display: flex; flex-direction: column; align-items: flex-end; gap: 16px; }
+
+    /* ── LAYOUT 3: MINIMALISTA (discreto, canto inferior) ── */
+    #totem-home.layout-minimal { justify-content: flex-end; align-items: flex-start; text-align: left; padding: 48px 64px; }
+    #totem-home.layout-minimal .home-logo,
+    #totem-home.layout-minimal .home-icon-fallback { display: none !important; }
+    #totem-home.layout-minimal h2.home-titulo { font-size: clamp(26px, 4vw, 44px); }
+    #totem-home.layout-minimal p.home-subtitulo { font-size: clamp(14px, 1.9vw, 19px); }
+    #totem-home.layout-minimal #home-secoes { display: none; }
+    #totem-home.layout-minimal .th-principal { align-items: flex-start; }
+    #totem-home.layout-minimal .home-footer { left: 64px; right: auto; }
+
+    /* ── LAYOUT 4: VITRINE (produtos em destaque como protagonista) ── */
+    #totem-home.layout-vitrine { justify-content: flex-start; align-items: stretch; text-align: left; padding: 36px 48px 90px; }
+    #totem-home.layout-vitrine .th-principal { flex-direction: row; align-items: center; gap: 22px; width: 100%; }
+    #totem-home.layout-vitrine .th-brand { display: flex; align-items: center; gap: 18px; flex: 1; }
+    #totem-home.layout-vitrine .home-logo { max-height: 84px; max-width: 220px; }
+    #totem-home.layout-vitrine .home-icon-fallback { font-size: 54px; }
+    #totem-home.layout-vitrine h2.home-titulo { font-size: clamp(22px, 3vw, 38px); }
+    #totem-home.layout-vitrine p.home-subtitulo { display: none; }
+    #totem-home.layout-vitrine .th-acoes { flex-shrink: 0; }
+    #totem-home.layout-vitrine .home-cta { margin-top: 0; padding: 16px 34px; font-size: clamp(15px, 1.9vw, 20px); }
+    #totem-home.layout-vitrine .home-logo,
+    #totem-home.layout-vitrine .home-icon-fallback { display: block; }
+    #totem-home.layout-vitrine .home-icon-fallback { display: block; }
+    #totem-home.layout-vitrine #home-secoes { flex: 1; margin-top: 26px; }
+    #totem-home.layout-vitrine .destaques-row { flex-wrap: wrap; overflow: visible; }
+    #totem-home.layout-vitrine .mini-card { width: calc(25% - 9px); padding: 20px 14px; }
+    #totem-home.layout-vitrine .mini-card .mc-emoji { font-size: 50px; }
+    #totem-home.layout-vitrine .mini-card .mc-nome { font-size: 14.5px; }
+    #totem-home.layout-vitrine .mini-card .mc-preco { font-size: 17px; }
+    #totem-home.layout-vitrine #card-custom { order: -1; }
+
+    /* ══════ PROTETOR DE TELA (slides no tempo ocioso) ══════ */
+    #totem-screensaver {
+      position: fixed; inset: 0; z-index: 900; display: none;
+      flex-direction: column; align-items: center; justify-content: flex-end;
+      background: #000; cursor: pointer; user-select: none; -webkit-user-select: none;
+      animation: ssFadeIn 0.6s ease;
+    }
+    #totem-screensaver.visible { display: flex; }
+    @keyframes ssFadeIn { from { opacity: 0; } to { opacity: 1; } }
+    #totem-screensaver .ss-bg {
+      position: absolute; inset: 0; background-size: cover; background-position: center;
+      transition: opacity 0.8s ease;
+    }
+    #totem-screensaver .ss-veu {
+      position: absolute; inset: 0;
+      background: linear-gradient(to top, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.25) 45%, rgba(0,0,0,0.35) 100%);
+    }
+    #totem-screensaver .ss-conteudo {
+      position: relative; z-index: 2; text-align: center; padding: 0 40px 130px; max-width: 900px;
+    }
+    #totem-screensaver h3#slide-titulo {
+      color: #fff; font-size: clamp(30px, 5vw, 58px); font-weight: 800; letter-spacing: -0.02em;
+      text-shadow: 0 4px 26px rgba(0,0,0,0.6); margin-bottom: 12px; line-height: 1.15;
+    }
+    #totem-screensaver p#slide-subtitulo {
+      color: rgba(255,255,255,0.9); font-size: clamp(16px, 2.4vw, 24px); font-weight: 500;
+      text-shadow: 0 2px 14px rgba(0,0,0,0.55); line-height: 1.45;
+    }
+    #totem-screensaver .ss-cta {
+      position: absolute; bottom: 46px; left: 50%; transform: translateX(-50%); z-index: 3;
+      padding: 16px 42px; border-radius: 999px; border: none;
+      background: var(--primary); color: #fff; font-size: clamp(15px, 2vw, 21px); font-weight: 800;
+      display: inline-flex; align-items: center; gap: 10px;
+      box-shadow: 0 10px 32px rgba(0,0,0,0.45); animation: pulseCta 2s ease-in-out infinite;
+    }
+    #totem-screensaver #slide-dots {
+      position: absolute; top: 30px; right: 40px; z-index: 3; display: flex; gap: 8px;
+    }
+    #totem-screensaver #slide-dots .dot {
+      width: 10px; height: 10px; border-radius: 999px; background: rgba(255,255,255,0.35); transition: all 0.3s;
+    }
+    #totem-screensaver #slide-dots .dot.on { background: #fff; width: 26px; }
   </style>
 </head>
 <body>
@@ -267,15 +428,69 @@
     </div>
   </div>
 
+  <!-- Tela inicial do totem: conteúdo configurável no módulo Totem (totem-config.html).
+       É até aqui que o cliente volta: nenhum botão "voltar" sai do totem —
+       somente o dono libera o dispositivo pelo Painel do Dono. -->
+  <div id="totem-home">
+    <div class="th-principal">
+      <div class="th-brand">
+        <img id="home-logo-img" class="home-logo" src="" alt="" />
+        <i id="home-icon-fallback" class="ph-fill ph-hamburger home-icon-fallback"></i>
+        <h2 id="home-titulo" class="home-titulo">Bem-vindo!</h2>
+        <p id="home-subtitulo" class="home-subtitulo">Toque em qualquer lugar para montar seu pedido</p>
+      </div>
+      <div class="th-acoes">
+        <button class="home-cta" type="button"><i class="ph-bold ph-hand-tap"></i> Toque para começar</button>
+      </div>
+    </div>
+
+    <div id="home-secoes">
+      <div class="sec-bloco" id="sec-destaques-bloco" style="display:none;">
+        <h4 id="sec-destaques-titulo">Destaques da casa</h4>
+        <div id="sec-destaques-row" class="destaques-row"></div>
+      </div>
+      <button id="card-custom" type="button">
+        <img id="cc-imagem" class="cc-img" src="" alt="" style="display:none;" />
+        <span class="cc-corpo">
+          <span id="cc-emoji" class="cc-emoji"></span>
+          <span>
+            <span id="cc-titulo" class="cc-titulo" style="display:block;"></span>
+            <span id="cc-texto" class="cc-texto" style="display:block;"></span>
+          </span>
+        </span>
+      </button>
+      <div class="sec-bloco" id="sec-categorias-bloco" style="display:none;">
+        <h4>Navegue por categoria</h4>
+        <div id="sec-categorias"></div>
+      </div>
+    </div>
+
+    <div class="home-footer"><i class="ph ph-storefront"></i> Autoatendimento Chef Cozinha</div>
+  </div>
+
+  <!-- Protetor de tela: slides rotativos no tempo ocioso, convidando o cliente a pedir -->
+  <div id="totem-screensaver">
+    <div id="ss-bg-a" class="ss-bg"></div>
+    <div id="ss-bg-b" class="ss-bg" style="opacity:0;"></div>
+    <div class="ss-veu"></div>
+    <div id="slide-dots"></div>
+    <div class="ss-conteudo">
+      <h3 id="slide-titulo"></h3>
+      <p id="slide-subtitulo"></p>
+    </div>
+    <button class="ss-cta" type="button"><i class="ph-bold ph-hand-tap"></i> Toque para pedir</button>
+  </div>
+
   <div id="disabled-screen" class="disabled-screen" style="display:none;">
     <i class="ph ph-storefront"></i>
-    <h2>Autoatendimento indisponível</h2>
-    <p>O totem está desativado neste momento.<br/>Por favor, chame um atendente.</p>
+    <h2 id="disabled-title">Autoatendimento indisponível</h2>
+    <p id="disabled-desc">O totem está desativado neste momento.<br/>Por favor, chame um atendente.</p>
   </div>
 
   <div id="idle-progress" class="idle-progress" style="width:0%;"></div>
 
   <script src="/socket.io.min.js"></script>
+  <script src="/totem.js"></script>
   
 </body>
 </html>

@@ -16,7 +16,7 @@ window.showToast = function(msg, type, duration) {
   const icons = { success: 'ph-check-circle', warning: 'ph-warning', error: 'ph-x-circle', info: 'ph-info' };
   const icon = icons[type] || icons.info;
   const toast = document.createElement('div');
-  toast.style.cssText = 'position:fixed;top:20px;right:20px;z-index:999999;background:#fff;border-left:4px solid ' + bg + ';border-radius:10px;padding:14px 18px;box-shadow:0 8px 30px rgba(0,0,0,0.12);display:flex;align-items:center;gap:10px;animation:slideInRight .3s ease;max-width:380px;font-family:system-ui,-apple-system,sans-serif;font-size:13px;color:#1e293b;';
+  toast.style.cssText = 'position:fixed;top:20px;right:20px;z-index:999999;background:var(--cfg-card-bg,#fff);border-left:4px solid ' + bg + ';border-radius:10px;padding:14px 18px;box-shadow:0 8px 30px rgba(0,0,0,0.12);display:flex;align-items:center;gap:10px;animation:slideInRight .3s ease;max-width:380px;font-family:system-ui,-apple-system,sans-serif;font-size:13px;color:var(--cfg-text,#1e293b);';
   toast.innerHTML = '<i class="ph ' + icon + '" style="color:' + bg + ';font-size:20px;flex-shrink:0;"></i><span style="flex:1;">' + msg + '</span>';
   document.body.appendChild(toast);
   setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.4s'; }, duration || 4000);
@@ -6669,29 +6669,29 @@ function initFuncionalidadesTab() {
   if (!container) return;
 
   container.innerHTML = `
-    <div style="background:#f9f9f9; padding:20px; border-radius:12px; border:1px solid #eee; margin-bottom:20px;">
+    <div style="background:var(--cfg-subtle-bg); padding:20px; border-radius:12px; border:1px solid var(--cfg-border); margin-bottom:20px;">
       <h3 style="margin-top:0; color:#fc4b15;"><i class="ph ph-toggle-left"></i> Funcionalidades do Restaurante</h3>
-      <p style="color:#666; font-size:14px; margin-bottom:20px;">
+      <p style="color:var(--cfg-text-muted); font-size:14px; margin-bottom:20px;">
         Ative ou desative funcionalidades específicas do seu restaurante. As alterações são aplicadas imediatamente em todas as telas.
       </p>
-      <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:16px;" id="features-grid"></div>
+      <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:12px;" id="features-grid"></div>
     </div>
   `;
 
   const grid = document.getElementById('features-grid');
   grid.innerHTML = features.map(f => `
-    <div style="background:white; border:1px solid #e5e7eb; border-radius:12px; padding:16px; display:flex; align-items:flex-start; gap:14px; transition: all 0.2s;" id="feature-card-${f.key}">
-      <div style="width:44px; height:44px; border-radius:10px; background:${f.color}15; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
-        <i class="ph ${f.icon}" style="font-size:22px; color:${f.color};"></i>
+    <div style="background:var(--cfg-card-bg); border:1px solid var(--cfg-border); border-radius:12px; padding:14px; display:flex; align-items:flex-start; gap:12px; transition: all 0.2s;" id="feature-card-${f.key}">
+      <div style="width:40px; height:40px; border-radius:10px; background:${f.color}15; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+        <i class="ph ${f.icon}" style="font-size:21px; color:${f.color};"></i>
       </div>
       <div style="flex:1; min-width:0;">
-        <div style="font-weight:700; font-size:14px; color:#1f2937; margin-bottom:4px;">${f.label}</div>
-        <div style="font-size:12.5px; color:#6b7280; line-height:1.4;">${f.desc}</div>
+        <div style="font-weight:700; font-size:13.5px; color:var(--cfg-text); margin-bottom:3px;">${f.label}</div>
+        <div style="font-size:12px; color:var(--cfg-text-muted); line-height:1.4;">${f.desc}</div>
       </div>
-      <label style="position:relative; display:inline-block; width:48px; height:26px; flex-shrink:0; cursor:pointer;">
+      <label style="position:relative; display:inline-block; width:44px; height:24px; flex-shrink:0; cursor:pointer;">
         <input type="checkbox" id="chk-${f.key}" data-feature-key="${f.key}" style="opacity:0; width:0; height:0;" onchange="window.toggleFeatureConfig('${f.key}', this.checked)">
         <span style="position:absolute; inset:0; background-color:#d1d5db; border-radius:26px; transition:.3s;"></span>
-        <span style="position:absolute; height:20px; width:20px; left:3px; bottom:3px; background-color:white; border-radius:50%; transition:.3s;"></span>
+        <span style="position:absolute; height:18px; width:18px; left:3px; bottom:3px; background-color:white; border-radius:50%; transition:.3s;"></span>
       </label>
     </div>
   `).join('');

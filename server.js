@@ -4717,6 +4717,27 @@ db.serialize(() => {
   db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('qr_order_flow', 'caixa')`);
   db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('qr_pix_key', '')`);
   db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('qr_pix_name', '')`);
+  // ══════ MÓDULO TOTEM (autoatendimento kiosk — upsell SaaS) ══════
+  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('totem_enabled', 'false')`);
+  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('totem_mesa', 'Totem 1')`);
+  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('totem_idle_timeout', '45')`);
+  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('totem_home_titulo', 'Bem-vindo!')`);
+  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('totem_home_subtitulo', 'Toque em qualquer lugar para montar seu pedido')`);
+  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('totem_home_cor', '#fc4b15')`);
+  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('totem_home_fundo_tipo', 'gradiente')`);
+  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('totem_home_fundo_valor', '#0f172a,#293548')`);
+  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('totem_home_logo', '')`);
+  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('totem_home_layout', 'classico')`);
+  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('totem_sec_destaques', 'true')`);
+  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('totem_sec_categorias', 'true')`);
+  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('totem_card_emoji', '')`);
+  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('totem_card_titulo', '')`);
+  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('totem_card_texto', '')`);
+  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('totem_card_imagem', '')`);
+  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('totem_card_categoria', '')`);
+  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('totem_screensaver_enabled', 'true')`);
+  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('totem_screensaver_segundos', '20')`);
+  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('totem_slides_json', '[]')`);
   db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('hub_delivery_config', '{"enabled":false,"canais":[{"nome":"iFood","ativo":true},{"nome":"Rappi","ativo":true},{"nome":"Uber Eats","ativo":true},{"nome":"Mucho","ativo":true},{"nome":"Próprio","ativo":true}],"taxa":"0.00","tempo":45}')`);
 
   // Feature toggles do restaurante
@@ -6497,6 +6518,15 @@ io.on('connection', (socket) => {
     // data: { mesa, cliente_nome, itens, valor_total, pago_pix, chave_pix, cliente_id, comanda_nome, is_fila, requires_validacao, mesa_origem }
     const { mesa, cliente_nome, itens, valor_total, pago_pix, chave_pix, cliente_id, comanda_nome, is_fila, requires_validacao, mesa_origem } = data;
     const needsValidation = requires_validacao ? 1 : 0;
+
+    // ══════ GATE DO MÓDULO TOTEM (upsell SaaS) ══════
+    // Pedidos vindos do totem (origem marcada ou pseudo-mesa "Totem ...") só passam
+    // se a feature 'totem' estiver contratada E o dono tiver o módulo ligado.
+    const _ehTotem = (data && data.origem === 'totem') || /^totem/i.test(String(mesa || ''));
+    if (_ehTotem && !isTenantFeatureEnabled(tenantContext.getStore() || 1, 'totem')) {
+      console.log(`[Totem] Pedido bloqueado: módulo não contratado (tenant ${tenantContext.getStore() || 1}).`);
+      return socket.emit('criar_pedido_qr_resposta', { success: false, error: 'Módulo Totem de Autoatendimento não habilitado para este estabelecimento.' });
+    }
 
     function insertPedido() {
       const itensStr = JSON.stringify(itens);
@@ -10533,6 +10563,55 @@ app.get('/api/config', (req, res) => {
   });
 });
 
+// ══════ TOTEM: status + personalização da tela inicial (página pública do kiosk) ══════
+app.get('/api/totem/status', (req, res) => {
+  withTenant(req, () => {
+    const tid = tenantContext.getStore() || 1;
+    const featureAtiva = isTenantFeatureEnabled(tid, 'totem');
+    db.all(`SELECT chave, valor FROM configuracoes WHERE chave LIKE 'totem_%'`, [], (err, rows) => {
+      if (err) return res.status(500).json({ error: 'Erro ao ler configurações do totem.' });
+      const cfg = {};
+      (rows || []).forEach(r => { cfg[r.chave] = r.valor; });
+      const enabledDono = cfg.totem_enabled === 'true';
+      let slides = [];
+      try { slides = JSON.parse(cfg.totem_slides_json || '[]'); } catch (e) { slides = []; }
+      if (!Array.isArray(slides)) slides = [];
+      res.json({
+        feature_ativa: !!featureAtiva,
+        enabled: enabledDono,
+        ativo: !!featureAtiva && enabledDono,
+        mesa: cfg.totem_mesa || 'Totem 1',
+        idle_timeout_min: parseInt(cfg.totem_idle_timeout, 10) || 45,
+        personalizacao: {
+          titulo: cfg.totem_home_titulo || 'Bem-vindo!',
+          subtitulo: cfg.totem_home_subtitulo || 'Toque em qualquer lugar para montar seu pedido',
+          cor: cfg.totem_home_cor || '#fc4b15',
+          fundo_tipo: cfg.totem_home_fundo_tipo || 'gradiente',
+          fundo_valor: cfg.totem_home_fundo_valor || '#0f172a,#293548',
+          logo: cfg.totem_home_logo || '',
+          layout: ['classico', 'split', 'minimal', 'vitrine'].includes(cfg.totem_home_layout) ? cfg.totem_home_layout : 'classico',
+          secoes: {
+            destaques: cfg.totem_sec_destaques !== 'false',
+            categorias: cfg.totem_sec_categorias !== 'false',
+            card: {
+              emoji: cfg.totem_card_emoji || '',
+              titulo: cfg.totem_card_titulo || '',
+              texto: cfg.totem_card_texto || '',
+              imagem: cfg.totem_card_imagem || '',
+              categoria: cfg.totem_card_categoria || ''
+            }
+          },
+          screensaver: {
+            enabled: cfg.totem_screensaver_enabled !== 'false',
+            segundos: Math.max(5, parseInt(cfg.totem_screensaver_segundos, 10) || 20),
+            slides: slides.filter(s => s && (s.imagem || s.titulo))
+          }
+        }
+      });
+    });
+  });
+});
+
 app.post('/api/config', verificarToken, (req, res) => {
   const configs = req.body;
   if (!configs) return res.status(400).send('Dados inválidos');
@@ -12251,6 +12330,37 @@ io.on('connection', (socket) => {
     console.log(`[Dono Remoto] Navegação → ${destino} (por ${solicitadoPor || '?'})`);
     io.to(`restaurante_${_donoTenantId}`).emit('navegar_para', { destino, solicitadoPor });
     socket.emit('dono_acao_concluida', { mensagem: `✅ Caixa direcionado para: ${destino}` });
+  });
+
+  // ── Controle Remoto: Ação direcionada a um colaborador específico ──
+  // Repassa o comando para toda a sala do restaurante; cada app filtra localmente
+  // pelo próprio funcionario_id (ver garcom.js).
+  socket.on('comando_colaborador_acao', (data) => {
+    const { funcionario_id, acao, solicitadoPor } = data || {};
+    if (!funcionario_id || !acao) return socket.emit('dono_acao_erro', { mensagem: 'Comando de colaborador inválido.' });
+    console.log(`[Dono Remoto] Colaborador #${funcionario_id} → ${acao} (por ${solicitadoPor || '?'})`);
+    io.to(`restaurante_${_donoTenantId}`).emit('comando_colaborador_acao', data);
+    socket.emit('dono_acao_concluida', { mensagem: `✅ Comando "${acao}" enviado ao colaborador.` });
+  });
+
+  // ── Totem: transformar um dispositivo específico em kiosk de autoatendimento ──
+  // Enviado direto ao socket.id do dispositivo (lista vem de get_connected_devices).
+  socket.on('dono_ativar_totem_dispositivo', (data) => {
+    const { device_id } = data || {};
+    if (!device_id) return socket.emit('dono_acao_erro', { mensagem: 'Dispositivo inválido.' });
+    if (!isTenantFeatureEnabled(_donoTenantId, 'totem')) {
+      return socket.emit('dono_acao_erro', { mensagem: 'O módulo Totem de Autoatendimento não está contratado para este estabelecimento. Fale com o suporte para ativar o upsell.' });
+    }
+    io.to(String(device_id)).emit('ir_para_totem', { solicitadoPor: 'Dono' });
+    socket.emit('dono_acao_concluida', { mensagem: '✅ Dispositivo direcionado ao Modo Totem. Ele ficará bloqueado até você liberá-lo.' });
+  });
+
+  // ── Totem: liberar o dispositivo (única saída para o cliente) ──
+  socket.on('dono_liberar_totem_dispositivo', (data) => {
+    const { device_id } = data || {};
+    if (!device_id) return socket.emit('dono_acao_erro', { mensagem: 'Dispositivo inválido.' });
+    io.to(String(device_id)).emit('totem_liberado', { solicitadoPor: 'Dono' });
+    socket.emit('dono_acao_concluida', { mensagem: '🔓 Dispositivo liberado do Modo Totem.' });
   });
 
   // ── RH: Registrar pagamento para colaborador ──

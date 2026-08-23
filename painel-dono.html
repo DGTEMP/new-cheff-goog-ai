@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -739,7 +739,7 @@
     }
     .feature-toggle input:checked ~ .thumb { left: 23px; }
   
-  /* ══════════ iPAD MINI (768×1024 / 1024×768) ══════════ */
+  /* â•â•â•â•â•â•â•â•â•â• iPAD MINI (768×1024 / 1024×768) â•â•â•â•â•â•â•â•â•â• */
   @media screen and (min-width: 700px) and (max-width: 900px) and (orientation: portrait) {
     header { padding: 14px 18px; }
     .header-title { font-size: var(--fs-xl); }
@@ -753,7 +753,7 @@
     .btn-periodo, .btn-reportar-problema { min-height: 42px; }
   }
 
-  /* ══════════ DESKTOP / ULTRAWIDE ══════════ */
+  /* â•â•â•â•â•â•â•â•â•â• DESKTOP / ULTRAWIDE â•â•â•â•â•â•â•â•â•â• */
 
   /* ─── Desktop padrão (≥1280px): coluna mais larga, modais centrados ─── */
   @media screen and (min-width: 1280px) {
@@ -825,6 +825,107 @@
     .remote-btn { min-height: 150px; max-height: 200px; }
     .ranking-item, .feed-card { font-size: var(--fs-lg); }
     .modal-sheet { max-width: 960px; }
+  }
+
+  /* â•â•â•â•â•â•â•â•â•â• SELETOR DE LAYOUT DO PAINEL (3 opções configuráveis) â•â•â•â•â•â•â•â•â•â• */
+  .layout-switcher {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+  }
+  .ls-label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    color: var(--text-sub);
+  }
+  .ls-options {
+    display: inline-flex;
+    gap: 4px;
+    padding: 4px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+  }
+  .ls-btn {
+    padding: 8px 14px;
+    border: none;
+    border-radius: 9px;
+    background: transparent;
+    color: var(--text-sub);
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+  }
+  .ls-btn:hover { background: rgba(255,255,255,0.06); color: var(--text); }
+  .ls-btn.active {
+    background: var(--primary);
+    color: #ffffff;
+    box-shadow: 0 2px 10px rgba(252, 75, 21, 0.35);
+  }
+
+  /* Colaborador vira cartão clicável que abre o modal de funções */
+  .colab-card-click {
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between;
+    cursor: pointer;
+    user-select: none;
+    padding: 12px 16px;
+  }
+  .colab-card-click:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(0,0,0,0.10); border-color: var(--primary); }
+  .colab-card-click:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+  .colab-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .colab-info strong { font-size: var(--fs-md); color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .colab-info span { font-size: var(--fs-xs); color: var(--text-sub); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .colab-chevron { color: var(--text-sub); font-size: 18px; flex-shrink: 0; transition: transform 0.15s ease; }
+  .colab-card-click:hover .colab-chevron { transform: translateX(3px); color: var(--primary); }
+
+  /* LAYOUT COMPACTO: coluna única estreita em qualquer tela grande */
+  @media screen and (min-width: 1280px) {
+    body[data-layout-dono="compacto"] main {
+      display: block;
+      max-width: 780px;
+      padding: 24px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    body[data-layout-dono="compacto"] main > div { grid-column: auto !important; }
+    body[data-layout-dono="compacto"] .kpi-grid { grid-template-columns: repeat(2, 1fr) !important; }
+    body[data-layout-dono="compacto"] .kpi-card.full,
+    body[data-layout-dono="compacto"] .kpi-grid > .kpi-card:not(.full) { grid-column: span 1 !important; }
+    body[data-layout-dono="compacto"] .modal-sheet { max-width: 640px; }
+  }
+
+  /* LAYOUT DASHBOARD: duas colunas já em telas médias + painel largo */
+  @media screen and (min-width: 1100px) {
+    body[data-layout-dono="dashboard"] main {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px 22px;
+      align-items: start;
+      max-width: 1240px;
+    }
+    body[data-layout-dono="dashboard"] main > div:nth-child(1),
+    body[data-layout-dono="dashboard"] main > div:nth-child(2),
+    body[data-layout-dono="dashboard"] main > div:nth-child(9),
+    body[data-layout-dono="dashboard"] main > div:nth-child(10) { grid-column: 1 / -1; }
+  }
+  @media screen and (min-width: 1280px) {
+    body[data-layout-dono="dashboard"] main { max-width: 1320px; gap: 22px 24px; }
+    body[data-layout-dono="dashboard"] .kpi-grid { grid-template-columns: repeat(4, 1fr) !important; gap: 14px; }
+    body[data-layout-dono="dashboard"] .kpi-card.full { grid-column: 1 / -1 !important; }
+    body[data-layout-dono="dashboard"] .kpi-grid > .kpi-card:not(.full) { grid-column: span 2 !important; }
+    body[data-layout-dono="dashboard"] .features-grid { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
   }</style>
 </head>
 <body>
@@ -916,6 +1017,16 @@
         </button>
       </div>
 
+      <!-- Seletor de Layout do Painel -->
+      <div class="layout-switcher">
+        <span class="ls-label"><i class="ph ph-layout"></i> Layout:</span>
+        <div class="ls-options" role="group" aria-label="Escolher layout do painel">
+          <button type="button" class="ls-btn" data-ls-layout="compacto" onclick="definirLayoutDono('compacto')" title="Coluna única estreita, tudo empilhado"><i class="ph-bold ph-rows"></i> Compacto</button>
+          <button type="button" class="ls-btn" data-ls-layout="confortavel" onclick="definirLayoutDono('confortavel')" title="Duas colunas equilibradas em telas grandes (padrão)"><i class="ph-bold ph-columns"></i> Confortável</button>
+          <button type="button" class="ls-btn" data-ls-layout="dashboard" onclick="definirLayoutDono('dashboard')" title="Painel largo com mais conteúdo por linha"><i class="ph-bold ph-cards"></i> Dashboard</button>
+        </div>
+      </div>
+
       <div id="container-datas-custom" style="display:none; flex-direction:column; gap:12px; margin-top:12px; background:var(--card); padding:20px; border-radius:var(--radius-lg); border:1px solid var(--border);">
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
           <div class="form-group">
@@ -963,7 +1074,7 @@
         <!-- Mesas -->
         <div class="kpi-card">
           <div class="kpi-label">
-            <span>🍽️ Mesas</span>
+            <span>ðŸ½ï¸ Mesas</span>
             <div class="kpi-icon orange"><i class="ph-fill ph-house-line"></i></div>
           </div>
           <div id="kpi-mesas" class="kpi-value" style="color: var(--primary);">0</div>
@@ -1074,6 +1185,15 @@
           </div>
           <span class="rb-label">Configurações</span>
           <span class="rb-sub">Painel administrativo</span>
+        </button>
+
+        <button class="remote-btn" onclick="abrirModalTotemDispositivos()" style="position: relative;">
+          <div class="rb-icon" style="background: rgba(14,165,233,0.15); color: #0ea5e9;">
+            <i class="ph-bold ph-monitor-play"></i>
+          </div>
+          <span class="rb-label">Modo Totem</span>
+          <span class="rb-sub">Autoatendimento no dispositivo</span>
+          <span id="totem-badge-ativo" style="display:none; position:absolute; top:8px; right:10px; background:#22c55e; color:#fff; font-size:9px; font-weight:800; padding:2px 7px; border-radius:999px;">ATIVO</span>
         </button>
       </div>
 
@@ -1325,7 +1445,7 @@
           <select id="rh-pagamento-forma" class="form-input">
             <option value="Dinheiro">💵 Dinheiro</option>
             <option value="Pix">📱 Pix</option>
-            <option value="Transferência">🏦 Transferência</option>
+            <option value="Transferência">ðŸ¦ Transferência</option>
           </select>
         </div>
         <div class="form-group" style="margin-bottom:20px;">
@@ -1371,7 +1491,7 @@
           <select id="rh-folga-tipo" class="form-input">
             <option value="Escala">📅 Folga da Escala</option>
             <option value="Feriado">🎉 Feriado compensado</option>
-            <option value="Outro">📝 Outro motivo</option>
+            <option value="Outro">ðŸ“ Outro motivo</option>
           </select>
         </div>
         <div class="form-group" style="margin-bottom:20px;">
@@ -1383,6 +1503,64 @@
         </button>
       </div>
 
+    </div>
+  </div>
+
+  <!-- Modal: Funções Remotas do Colaborador (abre ao clicar no cartão) -->
+  <div id="modal-funcoes-colaborador" class="modal-overlay hidden">
+    <div class="modal-sheet" style="max-width: 480px;">
+      <div class="modal-drag"></div>
+      <div class="modal-title-row">
+        <span class="modal-title"><i class="ph-bold ph-user-gear" style="color:var(--primary);"></i> Controle Remoto</span>
+        <button class="modal-close" onclick="fecharModal('modal-funcoes-colaborador')"><i class="ph-bold ph-x"></i></button>
+      </div>
+
+      <input type="hidden" id="funcoes-colab-target-id">
+      <div style="display:flex; align-items:center; gap:12px; background:rgba(255,255,255,0.04); border:1px solid var(--border); border-radius:14px; padding:14px; margin-bottom:14px;">
+        <div class="colab-avatar" id="funcoes-colab-avatar">C</div>
+        <div style="min-width:0;">
+          <strong id="funcoes-colab-nome" style="font-size:var(--fs-md); display:block; color:var(--text);">—</strong>
+          <span id="funcoes-colab-cargo" style="font-size:var(--fs-xs); color:var(--text-sub);">—</span>
+        </div>
+      </div>
+      <p class="caixa-modal-desc" style="margin-bottom:14px;">Escolha uma ação remota para executar neste colaborador.</p>
+
+      <div class="colab-actions-grid" id="funcoes-colab-grid">
+        <button class="colab-action-btn" onclick="executarAcaoColaborador('mensagem')" title="Enviar mensagem no celular">
+          <i class="ph-bold ph-chat-circle-dots" style="color: var(--primary); font-size: 18px;"></i>
+          <span>Mensagem</span>
+        </button>
+        <button class="colab-action-btn" onclick="executarAcaoColaborador('chamar')" title="Chamar e vibrar celular">
+          <i class="ph-bold ph-bell-ringing" style="color: #f59e0b; font-size: 18px;"></i>
+          <span>Chamar</span>
+        </button>
+        <button class="colab-action-btn" onclick="executarAcaoColaborador('direcionar')" title="Direcionar tela do App Garçom">
+          <i class="ph-bold ph-device-mobile" style="color: var(--blue); font-size: 18px;"></i>
+          <span>Direcionar</span>
+        </button>
+        <button class="colab-action-btn" onclick="executarAcaoColaborador('ponto')" title="Registrar ponto remoto">
+          <i class="ph-bold ph-clock" style="color: #10b981; font-size: 18px;"></i>
+          <span>Ponto</span>
+        </button>
+        <button class="colab-action-btn" onclick="executarAcaoColaborador('pagamento')" title="Lançar pagamento ou vale">
+          <i class="ph-bold ph-money" style="color: #3b82f6; font-size: 18px;"></i>
+          <span>Pagar</span>
+        </button>
+        <button class="colab-action-btn" onclick="executarAcaoColaborador('folga')" title="Conceder folga ou falta">
+          <i class="ph-bold ph-calendar-plus" style="color: var(--purple); font-size: 18px;"></i>
+          <span>Folga</span>
+        </button>
+        <button class="colab-action-btn" onclick="executarAcaoColaborador('logout')" title="Desconectar sessão do colaborador">
+          <i class="ph-bold ph-sign-out" style="color: var(--red); font-size: 18px;"></i>
+          <span>Logout</span>
+        </button>
+        <button class="colab-action-btn" onclick="executarAcaoColaborador('zap')" title="WhatsApp ou Alerta Sonoro">
+          <i class="ph-bold ph-whatsapp-logo" style="color: #16a34a; font-size: 18px;"></i>
+          <span>Zap</span>
+        </button>
+      </div>
+
+      <button class="btn-cancel" onclick="fecharModal('modal-funcoes-colaborador')" style="width: 100%; padding: 12px; margin-top: 14px;">Fechar</button>
     </div>
   </div>
 
@@ -1609,6 +1787,32 @@
       </div>
 
       <button class="btn-cancel" onclick="fecharModal('modal-desempenho-cupom')" style="width:100%; padding:14px;">Fechar</button>
+    </div>
+  </div>
+
+  <!-- Modal: Modo Totem — escolher dispositivo -->
+  <div id="modal-totem-dispositivo" class="modal-overlay hidden">
+    <div class="modal-sheet">
+      <div class="modal-drag"></div>
+      <div class="modal-title-row">
+        <span class="modal-title"><i class="ph-bold ph-monitor-play" style="color:#0ea5e9;"></i> Modo Totem</span>
+        <button class="modal-close" onclick="fecharModal('modal-totem-dispositivo')"><i class="ph-bold ph-x"></i></button>
+      </div>
+      <p style="font-size:var(--fs-sm); color:var(--text-sub); margin-bottom:12px; line-height:1.5;">
+        Escolha qual dispositivo conectado será o totem de autoatendimento. Ele ficará
+        <strong>bloqueado para o cliente</strong> (sem sair pelo botão voltar) até você liberá-lo aqui.
+      </p>
+      <div id="lista-totem-dispositivos" style="display:flex; flex-direction:column; gap:8px; max-height:320px; overflow-y:auto; margin-bottom:12px;">
+        <div style="text-align:center; color:var(--text-sub); padding:16px; font-size:var(--fs-sm);">Carregando dispositivos...</div>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <button class="btn-cancel" onclick="window.location.href='totem-config.html'" style="flex:1; padding:12px;">
+          <i class="ph-bold ph-paint-brush"></i> Personalizar Totem
+        </button>
+        <button class="btn-confirm" onclick="carregarListaDispositivosTotem()" style="flex:1; padding:12px;">
+          <i class="ph-bold ph-arrows-clockwise"></i> Atualizar lista
+        </button>
+      </div>
     </div>
   </div>
 

@@ -1,4 +1,4 @@
-// painel-dono.js - Owner Mobile Dashboard Logic (v2 - 60+ Acessível)
+﻿// painel-dono.js - Owner Mobile Dashboard Logic (v2 - 60+ Acessível)
 
 // (Segurança) Escapa valor para conteúdo HTML.
 function escHtml(v) {
@@ -194,7 +194,7 @@ async function carregarMetricas() {
           rankingList.innerHTML = data.topProdutos.map((p, idx) => `
             <div class="ranking-item">
               <span class="ranking-pos">${idx + 1}º</span>
-              <span class="rk-name">${escHtml(p.productEmoji || '🍽️')} ${escHtml(p.productName)}</span>
+              <span class="rk-name">${escHtml(p.productEmoji || 'ðŸ½ï¸')} ${escHtml(p.productName)}</span>
               <span class="rk-val">${p.quantidade}x</span>
             </div>
           `).join('');
@@ -259,11 +259,100 @@ window.comandarCaixaAcao = function(acao, payload) {
     'bloquear_tela': '🔒 Bloqueio de segurança enviado ao Caixa!',
     'tocar_alerta': '🔔 Alerta sonoro tocando no Caixa!',
     'alternar_tema': '🌓 Tema do Caixa alternado!',
-    'abrir_gaveta': '🖨️ Gaveta de dinheiro acionada!',
+    'abrir_gaveta': 'ðŸ–¨ï¸ Gaveta de dinheiro acionada!',
     'abrir_fila': '🪑 Fila de espera aberta no Caixa!'
   };
   showToast(labels[acao] || `Comando ${acao} enviado ao Caixa!`, 'ph-lightning');
   adicionarAoFeed('aviso', `Comando executado no Caixa: ${labels[acao] || acao}`);
+};
+
+// ─── Modo Totem — transformar um dispositivo em kiosk de autoatendimento ──
+let _totemDevicesCb = null;
+socket.on('connected_devices', (lista) => {
+  if (typeof _totemDevicesCb === 'function') _totemDevicesCb(lista || []);
+});
+
+window.abrirModalTotemDispositivos = function() {
+  abrirModal('modal-totem-dispositivo');
+  carregarListaDispositivosTotem();
+};
+
+window.carregarListaDispositivosTotem = function() {
+  const container = document.getElementById('lista-totem-dispositivos');
+  if (!container) return;
+  container.innerHTML = `<div style="text-align:center; color:var(--text-sub); padding:16px; font-size:var(--fs-sm);">Carregando dispositivos...</div>`;
+  fetch('/api/totem/status', { headers: { 'Authorization': `Bearer ${localStorage.getItem('chef_token')}` } })
+    .then(r => r.json())
+    .then(st => {
+      const avisoUpsell = document.getElementById('aviso-upsell-totem');
+      if (avisoUpsell) avisoUpsell.style.display = (st && st.feature_ativa === false) ? 'block' : 'none';
+      _totemDevicesCb = (lista) => renderizarDispositivosTotem(lista, st);
+      socket.emit('get_connected_devices');
+    })
+    .catch(() => {
+      _totemDevicesCb = (lista) => renderizarDispositivosTotem(lista, null);
+      socket.emit('get_connected_devices');
+    });
+};
+
+function renderizarDispositivosTotem(lista, statusTotem) {
+  const container = document.getElementById('lista-totem-dispositivos');
+  if (!container) return;
+
+  const badge = document.getElementById('totem-badge-ativo');
+  if (badge) {
+    const haTotem = (lista || []).some(d =>
+      String(d.device || '').toLowerCase().includes('totem') ||
+      String(d.cargo || '').toLowerCase().includes('totem') ||
+      String(d.user || '').toLowerCase().includes('totem'));
+    badge.style.display = haTotem ? 'inline-block' : 'none';
+  }
+
+  if (!lista || lista.length === 0) {
+    container.innerHTML = `<div style="text-align:center; color:var(--text-sub); padding:20px; font-size:var(--fs-sm);">
+      Nenhum dispositivo conectado agora.<br/>Abra o sistema no aparelho/tablet que virará totem e atualize a lista.</div>`;
+    return;
+  }
+
+  const featureAtiva = !statusTotem || statusTotem.feature_ativa !== false;
+
+  container.innerHTML = lista.map(d => {
+    const ehTotem = String(d.device || '').toLowerCase().includes('totem') ||
+      String(d.cargo || '').toLowerCase().includes('totem') ||
+      String(d.user || '').toLowerCase().includes('totem');
+    const icone = d.isMobile ? 'ph-device-mobile' : 'ph-desktop-tower';
+    return `
+      <div style="display:flex; align-items:center; gap:10px; padding:10px 12px; border:1px solid var(--border); border-radius:12px; background:var(--bg);">
+        <i class="ph-bold ${icone}" style="font-size:20px; color:${ehTotem ? '#0ea5e9' : 'var(--text-sub)'};"></i>
+        <div style="flex:1; min-width:0;">
+          <div style="font-weight:800; font-size:12.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escHtml(d.model || d.browser || 'Dispositivo')}</div>
+          <div style="font-size:10.5px; color:var(--text-sub);">${escHtml(d.user || 'Visitante')} • ${escHtml(d.os || '')} • ${escHtml(d.tempoConectadoStr || '')}</div>
+        </div>
+        ${ehTotem
+          ? `<button onclick="donoLiberarTotem('${d.id}')" style="padding:8px 12px; border:none; border-radius:10px; background:#f59e0b; color:#fff; font-weight:800; font-size:11px; cursor:pointer; display:flex; align-items:center; gap:5px;"><i class="ph-bold ph-lock-open"></i> Liberar</button>`
+          : `<button onclick="donoAtivarTotem('${d.id}')" ${featureAtiva ? '' : 'disabled style="opacity:0.5;"'} style="padding:8px 12px; border:none; border-radius:10px; background:#0ea5e9; color:#fff; font-weight:800; font-size:11px; cursor:pointer; display:flex; align-items:center; gap:5px;"><i class="ph-bold ph-monitor-play"></i> Virar Totem</button>`}
+      </div>`;
+  }).join('');
+
+  if (!featureAtiva) {
+    container.insertAdjacentHTML('beforeend',
+      `<div id="aviso-upsell-totem" style="background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.35); color:#ef4444; padding:10px 12px; border-radius:12px; font-size:11.5px; line-height:1.5; margin-top:4px;">
+        <strong>Upsell não contratado:</strong> o módulo Totem de Autoatendimento não está ativo neste plano.
+        Fale com o suporte Chef Cozinha para contratar.
+      </div>`);
+  }
+}
+
+window.donoAtivarTotem = function(deviceId) {
+  socket.emit('dono_ativar_totem_dispositivo', { device_id: deviceId });
+  showToast('Direcionando dispositivo ao Modo Totem...', 'ph-monitor-play');
+  adicionarAoFeed('aviso', 'Você ativou o Modo Totem em um dispositivo.');
+};
+
+window.donoLiberarTotem = function(deviceId) {
+  socket.emit('dono_liberar_totem_dispositivo', { device_id: deviceId });
+  showToast('Liberando dispositivo do Modo Totem...', 'ph-lock-open');
+  adicionarAoFeed('aviso', 'Você liberou um dispositivo do Modo Totem.');
 };
 
 // ─── Controle Remoto de Cada Colaborador ───────────────────────
@@ -286,73 +375,85 @@ window.renderizarListaFuncionariosRemoto = function(funcs) {
     const inicial = (f.nome || 'C').charAt(0).toUpperCase();
 
     return `
-      <div class="colab-card" id="colab-card-${f.id}">
-        <div class="colab-header">
-          <div class="colab-user">
-            <div class="colab-avatar">
-              ${inicial}
-              <div class="colab-status-dot online" title="Status: Conectado / Ativo"></div>
-            </div>
-            <div>
-              <strong style="font-size: var(--fs-md); display: block; color: var(--text);">${nome}</strong>
-              <span style="font-size: var(--fs-xs); color: var(--text-sub);"><i class="ph ph-identification-card"></i> ${cargo} ${tel ? `• ${tel}` : ''}</span>
-            </div>
+      <div class="colab-card colab-card-click" id="colab-card-${f.id}" role="button" tabindex="0"
+           onclick="abrirModalFuncoesColaborador(${f.id})"
+           onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();abrirModalFuncoesColaborador(${f.id});}"
+           title="Abrir funções remotas de ${nome}">
+        <div class="colab-user">
+          <div class="colab-avatar">
+            ${inicial}
+            <div class="colab-status-dot online" title="Status: Conectado / Ativo"></div>
+          </div>
+          <div class="colab-info">
+            <strong>${nome}</strong>
+            <span><i class="ph ph-identification-card"></i> ${cargo}${tel ? ` • ${tel}` : ''}</span>
           </div>
         </div>
-
-        <!-- Botões de Ação Remota Individual -->
-        <div class="colab-actions-grid">
-          <button class="colab-action-btn" onclick="abrirModalMsgColaborador(${f.id}, '${nome.replace(/'/g, "\\'")}')" title="Enviar mensagem no celular">
-            <i class="ph-bold ph-chat-circle-dots" style="color: var(--primary); font-size: 18px;"></i>
-            <span>Mensagem</span>
-          </button>
-
-          <button class="colab-action-btn" onclick="chamarColaboradorVibrar(${f.id}, '${nome.replace(/'/g, "\\'")}')" title="Chamar e vibrar celular">
-            <i class="ph-bold ph-bell-ringing" style="color: #f59e0b; font-size: 18px;"></i>
-            <span>Chamar</span>
-          </button>
-
-          <button class="colab-action-btn" onclick="abrirModalDirecionarApp(${f.id}, '${nome.replace(/'/g, "\\'")}')" title="Direcionar tela do App Garçom">
-            <i class="ph-bold ph-device-mobile" style="color: var(--blue); font-size: 18px;"></i>
-            <span>Direcionar</span>
-          </button>
-
-          <button class="colab-action-btn" onclick="baterPontoColaborador(${f.id}, '${nome.replace(/'/g, "\\'")}')" title="Registrar ponto remoto">
-            <i class="ph-bold ph-clock" style="color: #10b981; font-size: 18px;"></i>
-            <span>Ponto</span>
-          </button>
-
-          <button class="colab-action-btn" onclick="abrirModalRhDonoComColab(${f.id}, 'pagamento')" title="Lançar pagamento ou vale">
-            <i class="ph-bold ph-money" style="color: #3b82f6; font-size: 18px;"></i>
-            <span>Pagar</span>
-          </button>
-
-          <button class="colab-action-btn" onclick="abrirModalRhDonoComColab(${f.id}, 'folga')" title="Conceder folga ou falta">
-            <i class="ph-bold ph-calendar-plus" style="color: var(--purple); font-size: 18px;"></i>
-            <span>Folga</span>
-          </button>
-
-          <button class="colab-action-btn" onclick="desconectarSessaoColaborador(${f.id}, '${nome.replace(/'/g, "\\'")}')" title="Desconectar sessão do colaborador">
-            <i class="ph-bold ph-sign-out" style="color: var(--red); font-size: 18px;"></i>
-            <span>Logout</span>
-          </button>
-
-          ${tel ? `
-            <button class="colab-action-btn" onclick="window.open('https://wa.me/55' + '${tel.replace(/\D/g, '')}', '_blank')" title="Conversar no WhatsApp">
-              <i class="ph-bold ph-whatsapp-logo" style="color: #16a34a; font-size: 18px;"></i>
-              <span>Zap</span>
-            </button>
-          ` : `
-            <button class="colab-action-btn" onclick="chamarColaboradorVibrar(${f.id}, '${nome.replace(/'/g, "\\'")}')" title="Alerta Sonoro">
-              <i class="ph-bold ph-speaker-high" style="color: #ec4899; font-size: 18px;"></i>
-              <span>Alerta</span>
-            </button>
-          `}
-        </div>
+        <i class="ph-bold ph-caret-right colab-chevron"></i>
       </div>
     `;
   }).join('');
 };
+
+// ─── Modal de Funções do Colaborador ───────────────────────────
+window.abrirModalFuncoesColaborador = function(id) {
+  const f = _cachedFuncionariosRemoto.find(x => String(x.id) === String(id));
+  if (!f) return;
+  const alvoId = document.getElementById('funcoes-colab-target-id');
+  if (!alvoId) return;
+  alvoId.value = f.id;
+  document.getElementById('funcoes-colab-nome').textContent = f.nome || 'Colaborador';
+  document.getElementById('funcoes-colab-cargo').textContent =
+    `${f.cargo || 'Equipe'}${f.telefone ? ' • ' + f.telefone : ''}`;
+  document.getElementById('funcoes-colab-avatar').innerHTML =
+    `${escHtml((f.nome || 'C').charAt(0).toUpperCase())}<div class="colab-status-dot online" title="Status: Conectado / Ativo"></div>`;
+  abrirModal('modal-funcoes-colaborador');
+};
+
+window.executarAcaoColaborador = function(acao) {
+  const id = document.getElementById('funcoes-colab-target-id').value;
+  const f = _cachedFuncionariosRemoto.find(x => String(x.id) === String(id));
+  if (!f) return;
+  const nome = f.nome || 'Colaborador';
+  fecharModal('modal-funcoes-colaborador');
+
+  switch (acao) {
+    case 'mensagem':   abrirModalMsgColaborador(f.id, nome); break;
+    case 'chamar':     chamarColaboradorVibrar(f.id, nome); break;
+    case 'direcionar': abrirModalDirecionarApp(f.id, nome); break;
+    case 'ponto':      baterPontoColaborador(f.id, nome); break;
+    case 'pagamento':  abrirModalRhDonoComColab(f.id, 'pagamento'); break;
+    case 'folga':      abrirModalRhDonoComColab(f.id, 'folga'); break;
+    case 'logout':     desconectarSessaoColaborador(f.id, nome); break;
+    case 'zap': {
+      const tel = String(f.telefone || '').replace(/\D/g, '');
+      if (tel.length >= 10) {
+        window.open('https://wa.me/55' + tel, '_blank');
+      } else {
+        showToast('Sem telefone cadastrado — enviando alerta sonoro.', 'ph-speaker-high', 'info');
+        chamarColaboradorVibrar(f.id, nome);
+      }
+      break;
+    }
+  }
+};
+
+// ─── Seletor de Layout do Painel (3 opções configuráveis) ──────
+window.definirLayoutDono = function(layout) {
+  const permitidos = ['compacto', 'confortavel', 'dashboard'];
+  if (!permitidos.includes(layout)) layout = 'confortavel';
+  try { localStorage.setItem('dono_layout', layout); } catch (e) { }
+  document.body.setAttribute('data-layout-dono', layout);
+  document.querySelectorAll('.ls-btn[data-ls-layout]').forEach(b => {
+    b.classList.toggle('active', b.getAttribute('data-ls-layout') === layout);
+  });
+};
+
+(function restaurarLayoutDono() {
+  let salvo = 'confortavel';
+  try { salvo = localStorage.getItem('dono_layout') || 'confortavel'; } catch (e) { }
+  definirLayoutDono(salvo);
+})();
 
 window.carregarFuncionariosControleRemoto = async function() {
   const container = document.getElementById('lista-controle-colaboradores');
@@ -755,7 +856,7 @@ socket.on('funcionarios_atualizados', (funcs) => {
 socket.on('alerta_desconto_financeiro', (data) => {
   carregarMetricas();
   if (data && data.valor) {
-    adicionarAoFeed('venda', `⚠️ Desconto R$${parseFloat(data.valor).toFixed(2)} por ${data.operador} em ${data.localName}`);
+    adicionarAoFeed('venda', `âš ï¸ Desconto R$${parseFloat(data.valor).toFixed(2)} por ${data.operador} em ${data.localName}`);
   }
 });
 
@@ -976,9 +1077,9 @@ window.enviarRelato = async function() {
   botao.disabled = false;
 };
 
-// ═════════════════════════════════════════════════════════════════════
-// 🎟️ GESTÃO DE CUPONS QR DE PROMOÇÃO & DESEMPENHO (PAINEL DO DONO)
-// ═════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ðŸŽŸï¸ GESTÃO DE CUPONS QR DE PROMOÇÃO & DESEMPENHO (PAINEL DO DONO)
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 let _cuponsDonoCache = [];
 let _cupomFlyerAtual = null;
 
@@ -1039,7 +1140,7 @@ window.carregarCuponsDono = async function() {
     if (_cuponsDonoCache.length === 0) {
       grid.innerHTML = `
         <div style="background:var(--card); border:1.5px dashed var(--border); border-radius:14px; padding:28px 16px; text-align:center;">
-          <div style="font-size:32px; margin-bottom:8px;">🎟️</div>
+          <div style="font-size:32px; margin-bottom:8px;">ðŸŽŸï¸</div>
           <strong style="display:block; font-size:var(--fs-md); margin-bottom:4px;">Nenhum cupom promocional ativo</strong>
           <span style="display:block; font-size:var(--fs-xs); color:var(--text-sub); margin-bottom:16px;">Crie seu primeiro cupom QR para atrair mais clientes e aumentar suas vendas!</span>
           <button class="btn-primary" onclick="abrirModalCriarCupom()" style="margin:0 auto; padding:10px 18px; font-size:var(--fs-sm);">
@@ -1183,7 +1284,7 @@ window.salvarNovoCupom = async function() {
     const data = await res.json();
     if (res.ok && data.success) {
       fecharModal('modal-criar-cupom');
-      showToast(`🎟️ Cupom ${codigo} criado com sucesso!`, 'ph-check-circle', 'success');
+      showToast(`ðŸŽŸï¸ Cupom ${codigo} criado com sucesso!`, 'ph-check-circle', 'success');
       window.carregarCuponsDono();
     } else {
       showToast(data.error || 'Erro ao criar cupom.', 'ph-warning', 'error');
@@ -1297,9 +1398,9 @@ window.compartilharQrWhatsApp = function() {
 
   const msg = `🎉 *PROMOÇÃO EXCLUSIVA - ${restNome.toUpperCase()}* 🎉\n\n` +
     `Olá! Preparamos um presente especial para você:\n` +
-    `🎁 *${_cupomFlyerAtual.titulo || 'Super Desconto'}*\n` +
+    `ðŸŽ *${_cupomFlyerAtual.titulo || 'Super Desconto'}*\n` +
     `💰 Ganhe *${valorTxt}* no seu pedido!\n\n` +
-    `🎟️ Use o código do cupom: *${_cupomFlyerAtual.codigo}*\n` +
+    `ðŸŽŸï¸ Use o código do cupom: *${_cupomFlyerAtual.codigo}*\n` +
     `👉 Ou escaneie o QR Code na nossa mesa quando nos visitar!\n\n` +
     `Te esperamos! 😋`;
 
@@ -1375,7 +1476,7 @@ window.excluirCupomDono = async function(codigo) {
     });
 
     if (res.ok) {
-      showToast(`🗑️ Cupom ${codigo} excluído.`, 'ph-trash', 'info');
+      showToast(`ðŸ—‘ï¸ Cupom ${codigo} excluído.`, 'ph-trash', 'info');
       window.carregarCuponsDono();
     } else {
       showToast('Erro ao excluir cupom.', 'ph-warning', 'error');

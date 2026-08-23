@@ -49,7 +49,7 @@
     const isStrictAdmin = ['admin', 'administrador', 'gerente'].includes(cargo);
     
     // If accessing config or dashboard, needs strict admin
-    if ((path.includes('configuracoes.html') || path.includes('dashboard.html')) && !isStrictAdmin) {
+    if ((path.includes('configuracoes.html') || path.includes('dashboard.html') || path.includes('totem-config.html')) && !isStrictAdmin) {
       if (isGarcom) window.location.href = '/garcom.html';
       else if (isCozinha) window.location.href = '/fila-pedidos.html';
       else window.location.href = '/index.html';

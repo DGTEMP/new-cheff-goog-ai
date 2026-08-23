@@ -1,0 +1,387 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Personalização do Totem | Chef Cozinha</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/vendor/phosphor/src/regular/style.css">
+  <link rel="stylesheet" href="/vendor/phosphor/src/bold/style.css">
+  <link rel="stylesheet" href="/vendor/phosphor/src/fill/style.css">
+  <script src="/auth.js"></script>
+  <style>
+    :root {
+      --primary: #fc4b15;
+      --bg: #f4f5f7;
+      --card: #ffffff;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+    body { background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    .page-header {
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      color: #fff; padding: 18px 28px;
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      position: sticky; top: 0; z-index: 50;
+    }
+    .page-header h1 { font-size: 19px; font-weight: 800; display: flex; align-items: center; gap: 10px; }
+    .page-header h1 i { color: var(--primary); font-size: 24px; }
+    .btn-voltar {
+      padding: 9px 16px; background: rgba(255,255,255,0.1); color: #fff;
+      border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; cursor: pointer;
+      font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 6px; text-decoration: none;
+    }
+    .btn-voltar:hover { background: rgba(255,255,255,0.18); }
+
+    .layout { display: grid; grid-template-columns: minmax(340px, 520px) 1fr; gap: 22px; max-width: 1400px; margin: 24px auto; padding: 0 24px; }
+    @media (max-width: 980px) { .layout { grid-template-columns: 1fr; } }
+
+    .banner-upsell {
+      display: none; max-width: 1400px; margin: 20px auto 0; padding: 14px 20px;
+      background: #fff7ed; border: 1px solid #fdba74; border-radius: 12px;
+      color: #9a3412; font-size: 13.5px; line-height: 1.55; align-items: center; gap: 12px;
+    }
+    .banner-upsell i { font-size: 22px; color: #ea580c; }
+
+    .card {
+      background: var(--card); border-radius: 14px; border: 1px solid var(--border);
+      padding: 20px; margin-bottom: 18px;
+    }
+    .card h3 {
+      font-size: 15px; font-weight: 800; margin-bottom: 4px;
+      display: flex; align-items: center; gap: 8px; color: #0ea5e9;
+    }
+    .card p.hint { font-size: 12.5px; color: var(--text-muted); margin-bottom: 14px; line-height: 1.5; }
+
+    .field { margin-bottom: 14px; }
+    .field label { display: block; font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 6px; }
+    .field input[type="text"], .field input[type="number"], .field input[type="url"], .field select {
+      width: 100%; padding: 11px 13px; border: 1.5px solid var(--border); border-radius: 10px;
+      font-size: 14px; outline: none; background: #fff; color: var(--text);
+    }
+    .field input:focus, .field select:focus { border-color: var(--primary); }
+    .field small { display: block; margin-top: 4px; font-size: 11.5px; color: var(--text-muted); }
+
+    .switch-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px; border: 1.5px solid var(--border); border-radius: 12px; }
+    .switch-row .info strong { display: block; font-size: 14px; }
+    .switch-row .info span { font-size: 12px; color: var(--text-muted); }
+    .switch { position: relative; width: 52px; height: 30px; flex-shrink: 0; cursor: pointer; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .switch .track { position: absolute; inset: 0; background: #cbd5e1; border-radius: 999px; transition: 0.2s; }
+    .switch .track::after { content: ''; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; background: #fff; border-radius: 50%; transition: 0.2s; box-shadow: 0 2px 6px rgba(0,0,0,0.25); }
+    .switch input:checked + .track { background: #22c55e; }
+    .switch input:checked + .track::after { transform: translateX(22px); }
+
+    .cor-linha { display: flex; align-items: center; gap: 10px; }
+    .cor-linha input[type="color"] { width: 52px; height: 42px; border: 1.5px solid var(--border); border-radius: 10px; background: #fff; padding: 3px; cursor: pointer; }
+
+    .actions { display: flex; gap: 10px; margin-top: 4px; flex-wrap: wrap; }
+    .btn {
+      padding: 13px 22px; border: none; border-radius: 10px; font-weight: 800; font-size: 14px;
+      cursor: pointer; display: inline-flex; align-items: center; gap: 8px; text-decoration: none;
+    }
+    .btn-primary { background: var(--primary); color: #fff; box-shadow: 0 6px 18px rgba(252,75,21,0.3); }
+    .btn-primary:hover { filter: brightness(0.95); }
+    .btn-secondary { background: #e2e8f0; color: var(--text); }
+    .btn-sky { background: #0ea5e9; color: #fff; }
+
+    .preview-wrap { position: sticky; top: 86px; }
+    .preview-frame {
+      width: 100%; height: 720px; border: 1px solid var(--border); border-radius: 16px; background: #0f172a;
+    }
+    @media (max-width: 980px) { .preview-wrap { position: static; } .preview-frame { height: 560px; } }
+
+    /* ── Seletor de layouts ── */
+    .layout-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    @media (max-width: 480px) { .layout-grid { grid-template-columns: 1fr; } }
+    .layout-opt {
+      border: 2px solid var(--border); border-radius: 14px; padding: 10px;
+      cursor: pointer; background: #fff; transition: all 0.15s;
+    }
+    .layout-opt:hover { border-color: #94a3b8; }
+    .layout-opt.selected { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(252,75,21,0.15); }
+    .layout-thumb {
+      height: 78px; border-radius: 9px; position: relative; overflow: hidden; margin-bottom: 9px;
+      background: linear-gradient(135deg, #0f172a, #293548);
+    }
+    .lt-el { position: absolute; background: rgba(255,255,255,0.85); border-radius: 99px; }
+    .lt-accent { background: #fc4b15 !important; }
+    .lt-dim { background: rgba(255,255,255,0.4); }
+    .layout-opt strong { font-size: 12.5px; display: block; color: var(--text); }
+    .layout-opt small { font-size: 10.5px; color: var(--text-muted); line-height: 1.35; display: block; margin-top: 2px; }
+    .lt-classico-c { left: 50%; top: 18%; transform: translateX(-50%); width: 26px; height: 26px; border-radius: 6px; }
+    .lt-classico-t { left: 50%; top: 56%; transform: translateX(-50%); width: 55%; height: 7px; }
+    .lt-classico-b { left: 50%; top: 76%; transform: translateX(-50%); width: 40%; height: 9px; }
+    .lt-split-l { left: 10%; top: 22%; width: 34%; height: 30%; border-radius: 6px; }
+    .lt-split-t { left: 10%; top: 62%; width: 28%; height: 6px; }
+    .lt-split-r { right: 8%; top: 42%; width: 36%; height: 20%; }
+    .lt-min-t { left: 10%; bottom: 30%; width: 30%; height: 7px; }
+    .lt-min-b { right: 8%; bottom: 10%; width: 38%; height: 12%; border-radius: 99px; }
+    .lt-vit-t { left: 8%; top: 12%; width: 40%; height: 8px; }
+    .lt-vit-r { right: 6%; top: 8%; width: 30%; height: 16%; }
+    .lt-vit-g { left: 8%; right: 8%; bottom: 10%; display: flex; gap: 5%; height: 52%; }
+    .lt-vit-g i { flex: 1; background: rgba(255,255,255,0.85); border-radius: 5px; }
+
+    /* ── Editor de slides ── */
+    .slide-row {
+      border: 1.5px solid var(--border); border-radius: 12px; padding: 12px;
+      margin-bottom: 10px; background: #f8fafc;
+    }
+    .slide-row .sr-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .slide-row .sr-top strong { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); }
+    .btn-del-slide {
+      width: 30px; height: 30px; border: none; border-radius: 9px; cursor: pointer;
+      background: #fee2e2; color: #dc2626; font-size: 14px; display: inline-flex; align-items: center; justify-content: center;
+    }
+    .btn-add-slide {
+      width: 100%; padding: 11px; border: 2px dashed var(--border); border-radius: 12px;
+      background: transparent; color: var(--text-muted); font-weight: 700; font-size: 13px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .btn-add-slide:hover { border-color: var(--primary); color: var(--primary); }
+    .sub-bloco { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin: 16px 0 8px; }
+  </style>
+</head>
+<body>
+
+  <header class="page-header">
+    <h1><i class="ph-fill ph-monitor-play"></i> Personalização do Totem</h1>
+    <div style="display:flex; gap:8px;">
+      <a class="btn btn-sky" href="#" onclick="abrirTotemNesteDispositivo(); return false;" style="font-size:12.5px; padding:9px 14px;"><i class="ph-bold ph-monitor-play"></i> Abrir totem aqui</a>
+      <a class="btn-voltar" href="/configuracoes.html"><i class="ph ph-arrow-left"></i> Voltar</a>
+    </div>
+  </header>
+
+  <div id="banner-upsell" class="banner-upsell">
+    <i class="ph-fill ph-seal-warning"></i>
+    <div>
+      <strong>Módulo Totem não contratado.</strong> A configuração abaixo fica visível, mas o totem só funciona
+      (e os pedidos são aceitos) após a ativação do upsell pelo Super Admin / suporte Chef Cozinha.
+    </div>
+  </div>
+
+  <div class="layout">
+
+    <div>
+      <!-- LIGAR/DESLIGAR -->
+      <div class="card">
+        <h3><i class="ph-bold ph-power"></i> Estado do módulo</h3>
+        <p class="hint">Desligue o totem para liberar o dispositivo e usar outra função nele (PDV, garçom etc). O cliente nunca sai sozinho do totem — quem libera é você, aqui ou pelo Painel do Dono.</p>
+        <div class="switch-row">
+          <div class="info">
+            <strong>Totem de Autoatendimento</strong>
+            <span id="estado-totem-txt">Verificando...</span>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="cfg-enabled" onchange="atualizarEstadoTexto()">
+            <span class="track"></span>
+          </label>
+        </div>
+      </div>
+
+      <!-- OPERAÇÃO -->
+      <div class="card">
+        <h3><i class="ph-bold ph-sliders-horizontal"></i> Operação</h3>
+        <p class="hint">O pedido do totem entra na fila do caixa (mesmo fluxo do cardápio QR) usando uma pseudo-mesa com o nome abaixo.</p>
+        <div class="field">
+          <label for="cfg-mesa">Nome / identificação do totem</label>
+          <input type="text" id="cfg-mesa" placeholder="Ex: Totem 1" />
+          <small>Aparece no cabeçalho da tela e identifica os pedidos no caixa.</small>
+        </div>
+        <div class="field">
+          <label for="cfg-idle">Tempo de inatividade (minutos)</label>
+          <input type="number" id="cfg-idle" min="1" max="240" placeholder="45" />
+          <small>Sem toque por esse tempo, o totem volta sozinho à tela inicial e limpa o carrinho.</small>
+        </div>
+      </div>
+
+      <!-- LAYOUT DA TELA INICIAL -->
+      <div class="card">
+        <h3><i class="ph-bold ph-crop"></i> Layout da tela inicial</h3>
+        <p class="hint">Escolha entre os 4 modelos de página de boas-vindas do totem.</p>
+        <div class="layout-grid" id="layout-grid">
+          <div class="layout-opt selected" data-layout="classico" onclick="escolherLayout('classico')">
+            <div class="layout-thumb">
+              <span class="lt-el lt-classico-c lt-accent"></span>
+              <span class="lt-el lt-dim lt-classico-t"></span>
+              <span class="lt-el lt-accent lt-classico-b"></span>
+            </div>
+            <strong>1. Clássico</strong>
+            <small>Tudo centrado: logo, mensagem e botão, com seções abaixo.</small>
+          </div>
+          <div class="layout-opt" data-layout="split" onclick="escolherLayout('split')">
+            <div class="layout-thumb">
+              <span class="lt-el lt-split-l"></span>
+              <span class="lt-el lt-dim lt-split-t"></span>
+              <span class="lt-el lt-accent lt-split-r"></span>
+            </div>
+            <strong>2. Split</strong>
+            <small>Marca à esquerda e botão grande à direita, estilo quiosque.</small>
+          </div>
+          <div class="layout-opt" data-layout="minimal" onclick="escolherLayout('minimal')">
+            <div class="layout-thumb">
+              <span class="lt-el lt-dim lt-min-t"></span>
+              <span class="lt-el lt-accent lt-min-b"></span>
+            </div>
+            <strong>3. Minimalista</strong>
+            <small>Discreto no canto inferior; ideal para telas com arte de fundo.</small>
+          </div>
+          <div class="layout-opt" data-layout="vitrine" onclick="escolherLayout('vitrine')">
+            <div class="layout-thumb">
+              <span class="lt-el lt-dim lt-vit-t"></span>
+              <span class="lt-el lt-accent lt-vit-r"></span>
+              <span class="lt-vit-g"><i></i><i></i><i></i><i></i></span>
+            </div>
+            <strong>4. Vitrine</strong>
+            <small>Produtos em destaque viram a estrela da tela inicial.</small>
+          </div>
+        </div>
+      </div>
+
+      <!-- SEÇÕES E CARTÕES -->
+      <div class="card">
+        <h3><i class="ph-bold ph-squares-four"></i> Seções e cartões</h3>
+        <p class="hint">Monte o que aparece na tela inicial para despertar o pedido.</p>
+
+        <div class="switch-row">
+          <div class="info">
+            <strong>Destaques da casa</strong>
+            <span>Faixa horizontal com produtos (Mais Pedidos ou primeiros do cardápio).</span>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="cfg-sec-destaques" checked>
+            <span class="track"></span>
+          </label>
+        </div>
+
+        <div class="switch-row">
+          <div class="info">
+            <strong>Bolhas de categorias</strong>
+            <span>Atalhos redondos por categoria; tocar já abre o cardápio filtrado.</span>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="cfg-sec-categorias" checked>
+            <span class="track"></span>
+          </label>
+        </div>
+
+        <div class="sub-bloco">Cartão promocional personalizado</div>
+        <div class="field">
+          <label for="cfg-card-emoji">Emoji</label>
+          <input type="text" id="cfg-card-emoji" placeholder="Ex: 🍔 ou 🔥 (opcional)" />
+        </div>
+        <div class="field">
+          <label for="cfg-card-titulo">Título do cartão</label>
+          <input type="text" id="cfg-card-titulo" placeholder="Ex: Combo Casal com 20% OFF hoje!" />
+        </div>
+        <div class="field">
+          <label for="cfg-card-texto">Texto de apoio</label>
+          <input type="text" id="cfg-card-texto" placeholder="Ex: Toque para ver o combo completo" />
+        </div>
+        <div class="field">
+          <label for="cfg-card-imagem">Imagem de fundo (URL)</label>
+          <input type="url" id="cfg-card-imagem" placeholder="https://.../promo.jpg (opcional)" />
+        </div>
+        <div class="field" style="margin-bottom:0;">
+          <label for="cfg-card-categoria">Categoria aberta ao tocar (opcional)</label>
+          <input type="text" id="cfg-card-categoria" placeholder="Ex: Promocoes" />
+          <small>Se vazio, apenas entra no cardápio completo.</small>
+        </div>
+      </div>
+
+      <!-- EXIBIÇÃO EM TEMPO OCIOSO -->
+      <div class="card">
+        <h3><i class="ph-bold ph-slideshow"></i> Exibição no tempo ocioso (slides)</h3>
+        <p class="hint">Sem interação por alguns segundos, o totem exibe slides em tela cheia convidando o cliente a pedir. Qualquer toque devolve à tela inicial.</p>
+
+        <div class="switch-row">
+          <div class="info">
+            <strong>Slides em tela cheia</strong>
+            <span>Só entra se o carrinho estiver vazio (nunca interrompe um pedido).</span>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="cfg-ss-enabled" checked>
+            <span class="track"></span>
+          </label>
+        </div>
+
+        <div class="field">
+          <label for="cfg-ss-segundos">Segundos de ociosidade para iniciar</label>
+          <input type="number" id="cfg-ss-segundos" min="5" max="300" placeholder="20" />
+        </div>
+
+        <div class="sub-bloco">Slides (imagem + chamada)</div>
+        <div id="slides-lista"></div>
+        <button class="btn-add-slide" type="button" onclick="adicionarSlide()"><i class="ph-bold ph-plus"></i> Adicionar slide</button>
+      </div>
+
+      <!-- APARÊNCIA -->
+      <div class="card">
+        <h3><i class="ph-bold ph-paint-brush"></i> Aparência</h3>
+        <p class="hint">Identidade visual aplicada na tela inicial e nos botões.</p>
+
+        <div class="field">
+          <label for="cfg-logo">Logo (URL da imagem)</label>
+          <input type="url" id="cfg-logo" placeholder="https://.../logo.png" />
+          <small>Deixe vazio para usar o ícone padrão.</small>
+        </div>
+        <div class="field">
+          <label for="cfg-titulo">Título</label>
+          <input type="text" id="cfg-titulo" placeholder="Ex: Bem-vindo ao Sabor & Cia!" />
+        </div>
+        <div class="field">
+          <label for="cfg-subtitulo">Subtítulo / mensagem</label>
+          <input type="text" id="cfg-subtitulo" placeholder="Ex: Monte seu pedido na tela, é rápido!" />
+        </div>
+        <div class="field">
+          <label for="cfg-cor">Cor principal (botões e destaques)</label>
+          <div class="cor-linha">
+            <input type="color" id="cfg-cor" value="#fc4b15" />
+            <input type="text" id="cfg-cor-texto" value="#fc4b15" style="flex:1;" />
+          </div>
+        </div>
+        <div class="field">
+          <label for="cfg-fundo-tipo">Tipo de fundo</label>
+          <select id="cfg-fundo-tipo" onchange="atualizarHintFundo()">
+            <option value="gradiente">Gradiente (duas cores)</option>
+            <option value="cor">Cor sólida</option>
+            <option value="imagem">Imagem (URL)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="cfg-fundo-valor" id="lbl-fundo-valor">Cores do gradiente</label>
+          <input type="text" id="cfg-fundo-valor" placeholder="#0f172a,#293548" />
+          <small id="hint-fundo">Duas cores hex separadas por vírgula. Ex: #0f172a,#293548</small>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn btn-primary" onclick="salvarTotemConfig()"><i class="ph-bold ph-floppy-disk"></i> Salvar configurações</button>
+        <button class="btn btn-secondary" onclick="recarregarPreview()"><i class="ph-bold ph-arrows-clockwise"></i> Atualizar prévia</button>
+      </div>
+      <div style="margin-top:14px; padding:12px 14px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:12px; font-size:12.5px; color:#1e40af; line-height:1.55;">
+        <strong><i class="ph-bold ph-info"></i> Como ativar em um tablet/quiosque:</strong>
+        abra o sistema normalmente no dispositivo, depois no <strong>Painel do Dono → Controle Remoto → Modo Totem</strong>,
+        escolha o dispositivo na lista e toque em "Virar Totem". Ele reinicia direto na tela inicial bloqueada.
+      </div>
+    </div>
+
+    <!-- PRÉVIA AO VIVO -->
+    <div class="preview-wrap">
+      <div class="card" style="margin-bottom:12px;">
+        <h3 style="margin-bottom:0;"><i class="ph-bold ph-monitor"></i> Prévia ao vivo</h3>
+        <p class="hint" style="margin-bottom:0;">Reflete o totem exatamente como o cliente vê. Salve e clique em "Atualizar prévia".</p>
+      </div>
+      <iframe id="preview-frame" class="preview-frame" title="Prévia do Totem"></iframe>
+    </div>
+
+  </div>
+
+  <script src="/totem-config.js"></script>
+</body>
+</html>

@@ -8257,6 +8257,13 @@ function criarPainelAlertasIA() {
     if (count > 0 && panel.style.display === 'none') {
       abrirPainel();
     }
+
+    // Ociosidade: sem alertas ativos o painel e o ícone flutuante desaparecem
+    // por completo (nada de "Tudo sob controle!" ocupando a tela).
+    if (count === 0) {
+      panel.style.display = 'none';
+      icone.style.display = 'none';
+    }
   }
 
   window.atualizarEstadoPainelIA = atualizarEstado;
@@ -8428,6 +8435,34 @@ document.addEventListener('DOMContentLoaded', () => {
   setupSidebarResizer(resizerLeft, leftPanel, true);
   setupSidebarResizer(resizerRight, rightPanel, false);
 
+  // 1.5. Botões do dock direito migram para o topo do conteúdo do painel
+  //      Resumo enquanto ele estiver aberto (expandido/fixado/em hover) e
+  //      voltam para a alça quando ele recolhe.
+  window.syncRightPanelButtons = function () {
+    const rp = document.getElementById('right-panel');
+    const inner = document.getElementById('inner-right-panel');
+    const handle = document.getElementById('handle-right-panel');
+    const dock = document.getElementById('dock-mini-icons-right');
+    if (!rp || !inner || !handle || !dock) return;
+    const aberto = rp.classList.contains('expanded') ||
+      rp.classList.contains('pinned') ||
+      (rp.matches && rp.matches(':hover'));
+    if (aberto && dock.parentElement !== inner) {
+      inner.insertBefore(dock, inner.firstChild);
+      dock.classList.add('dock-mini-inline');
+    } else if (!aberto && dock.parentElement !== handle) {
+      handle.insertBefore(dock, handle.querySelector('.handle-text'));
+      dock.classList.remove('dock-mini-inline');
+    }
+  };
+
+  if (rightPanel && typeof window.syncRightPanelButtons === 'function') {
+    const syncFn = () => window.syncRightPanelButtons();
+    rightPanel.addEventListener('mouseenter', syncFn);
+    rightPanel.addEventListener('mouseleave', syncFn);
+    syncFn();
+  }
+
   // 2. Reordenação dos Botões Mini na Barra Recolhida (Dock Mini)
   if (dockMiniList) {
     // Restaurar ordem salva do dock mini
@@ -8449,7 +8484,14 @@ document.addEventListener('DOMContentLoaded', () => {
         dragClass: 'sortable-drag',
         forceFallback: true,
         fallbackTolerance: 3,
+        onStart: () => {
+          // Enquanto arrasta, trava o painel recolhido e mantém a alça visível
+          const lp = document.getElementById('left-panel');
+          if (lp) lp.classList.add('dock-dragging');
+        },
         onEnd: () => {
+          const lp = document.getElementById('left-panel');
+          if (lp) lp.classList.remove('dock-dragging');
           const miniOrder = Array.from(dockMiniList.querySelectorAll('.dock-mini-btn'))
             .map(b => b.getAttribute('data-mini-id'))
             .filter(Boolean);
@@ -8596,6 +8638,7 @@ window.toggleRightPanel = function(e) {
   const panel = document.getElementById('right-panel');
   if (!panel) return;
   panel.classList.toggle('expanded');
+  if (typeof window.syncRightPanelButtons === 'function') window.syncRightPanelButtons();
 };
 
 window.togglePinLeftPanel = function(e) {
@@ -8626,6 +8669,7 @@ window.togglePinRightPanel = function(e) {
   if (btn) btn.classList.toggle('pinned', isPinned);
   if (icon) icon.className = isPinned ? 'ph-bold ph-push-pin-slash' : 'ph ph-push-pin';
   localStorage.setItem('chef_right_panel_pinned', isPinned ? '1' : '0');
+  if (typeof window.syncRightPanelButtons === 'function') window.syncRightPanelButtons();
 
   if (typeof window.showToast === 'function') {
     window.showToast(isPinned ? '📌 Painel Resumo fixado aberto' : '🔄 Painel Resumo em modo auto-recolhível', 'info');
@@ -8660,6 +8704,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (rightPanel && !rightPanel.contains(ev.target) && rightPanel.classList.contains('expanded')) {
       rightPanel.classList.remove('expanded');
+      if (typeof window.syncRightPanelButtons === 'function') window.syncRightPanelButtons();
     }
   });
 });

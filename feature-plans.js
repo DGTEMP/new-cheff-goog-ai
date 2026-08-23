@@ -1,4 +1,4 @@
-/**
+﻿/**
  * feature-plans.js
  * Definição dos planos e features habilitáveis por tenant.
  * Usado pelo servidor (server.js) e pelo painel Super Admin.
@@ -10,13 +10,14 @@
 // Features disponíveis para controle (as que mais consomem recursos do servidor)
 const FEATURES = [
   { chave: 'tempo_real', nome: 'Tempo real (sockets)', desc: 'Dashboards, cozinha e fila atualizados em tempo real. Desligar reduz drasticamente o uso de sockets e broadcasts.' },
-  { chave: 'ifood', nome: 'Integração iFood', desc: 'Poller de pedidos do iFood (consulta a cada 30s por tenant autorizado).' },
-  { chave: 'cardapio', nome: 'Cardápio QR', desc: 'Cardápio digital acessado por QR no balcão.' },
-  { chave: 'bi', nome: 'BI / Financeiro', desc: 'Relatórios financeiros e BI (consultas agregadas no banco).' },
-  { chave: 'delivery', nome: 'Delivery / Entregas', desc: 'Gestão de entregas e motoboys.' },
+  { chave: 'ifood', nome: 'IntegraÇœo iFood', desc: 'Poller de pedidos do iFood (consulta a cada 30s por tenant autorizado).' },
+  { chave: 'cardapio', nome: 'CardÇ­pio QR', desc: 'CardÇ­pio digital acessado por QR no balcÇœo.' },
+  { chave: 'bi', nome: 'BI / Financeiro', desc: 'Relatï¿½ï¿½rios financeiros e BI (consultas agregadas no banco).' },
+  { chave: 'delivery', nome: 'Delivery / Entregas', desc: 'GestÇœo de entregas e motoboys.' },
   { chave: 'fidelidade', nome: 'Fidelidade / Pontos', desc: 'Programa de fidelidade e pontos de clientes.' },
-  { chave: 'nfce', nome: 'NFC-e (Nota Fiscal)', desc: 'Emissão de notas fiscais eletrônicas.' },
-  { chave: 'telemetria', nome: 'Telemetria / Hub', desc: 'Envio de telemetria e sincronização com o hub.' }
+  { chave: 'nfce', nome: 'NFC-e (Nota Fiscal)', desc: 'EmissÇœo de notas fiscais eletrï¿½ï¿½nicas.' },
+  { chave: 'telemetria', nome: 'Telemetria / Hub', desc: 'Envio de telemetria e sincronizaÇœo com o hub.' },
+  { chave: 'totem', nome: 'Totem de Autoatendimento', desc: 'Upsell: quiosque de autoatendimento com bloqueio kiosk, pedidos e Pix. Desligado por padrÇœo em todos os planos; ativado por tenant pelo Super Admin.' }
 ];
 
 // Features padrão por plano
@@ -29,7 +30,8 @@ const FEATURE_PLANS = {
     delivery: false,
     fidelidade: false,
     nfce: false,
-    telemetria: false
+    telemetria: false,
+    totem: false
   },
   pro: {
     tempo_real: true,
@@ -39,7 +41,8 @@ const FEATURE_PLANS = {
     delivery: true,
     fidelidade: false,
     nfce: true,
-    telemetria: true
+    telemetria: true,
+    totem: false
   },
   premium: {
     tempo_real: true,
@@ -49,7 +52,8 @@ const FEATURE_PLANS = {
     delivery: true,
     fidelidade: true,
     nfce: true,
-    telemetria: true
+    telemetria: true,
+    totem: false
   }
 };
 

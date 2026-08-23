@@ -5452,7 +5452,7 @@ body.force-desktop #resizer-right {
     pointer-events: none !important;
     overflow-y: auto !important;
     padding: 12px !important;
-    transition: opacity 0.2s ease 0.05s !important;
+    transition: opacity 0.2s ease 0.05s, left 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) !important;
     background: var(--bg-secondary) !important;
     display: flex !important;
     flex-direction: column !important;
@@ -5573,7 +5573,7 @@ body.force-desktop #resizer-right {
     pointer-events: none !important;
     overflow-y: auto !important;
     padding: 12px !important;
-    transition: opacity 0.2s ease 0.05s !important;
+    transition: opacity 0.2s ease 0.05s, left 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) !important;
     background: var(--bg-secondary) !important;
     display: flex !important;
     flex-direction: column !important;
@@ -5606,6 +5606,69 @@ body.force-desktop #resizer-right {
     opacity: 0.9 !important;
     box-shadow: 0 8px 24px rgba(0,0,0,0.3) !important;
     cursor: grabbing !important;
+  }
+
+  /* ── Alça desaparece quando o conteúdo está visível (hover/expandido/fixado) ── */
+  .left-actions.auto-collapsible:hover .panel-handle-left,
+  .left-actions.auto-collapsible.expanded .panel-handle-left,
+  .left-actions.auto-collapsible.pinned .panel-handle-left,
+  .right-info.auto-collapsible:hover .panel-handle-right,
+  .right-info.auto-collapsible.expanded .panel-handle-right,
+  .right-info.auto-collapsible.pinned .panel-handle-right {
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+
+  /* Conteúdo ocupa o painel inteiro, sem reservar a faixa de 50px da alça */
+  .left-actions.auto-collapsible:hover .panel-content-inner,
+  .left-actions.auto-collapsible.expanded .panel-content-inner,
+  .left-actions.auto-collapsible.pinned .panel-content-inner,
+  .right-info.auto-collapsible:hover .panel-content-inner,
+  .right-info.auto-collapsible.expanded .panel-content-inner,
+  .right-info.auto-collapsible.pinned .panel-content-inner {
+    left: 0 !important;
+  }
+
+  /* Exceção: durante o arraste de um botão mini do dock esquerdo, a alça
+     permanece visível e o hover não expande o painel (evita salto de layout). */
+  .left-actions.auto-collapsible.dock-dragging .panel-handle-left {
+    opacity: 1 !important;
+    pointer-events: auto !important;
+  }
+
+  .left-actions.auto-collapsible.dock-dragging,
+  .left-actions.auto-collapsible.dock-dragging:hover,
+  .left-actions.auto-collapsible.dock-dragging.expanded:not(.pinned) {
+    width: 50px !important;
+    min-width: 50px !important;
+    max-width: 50px !important;
+    box-shadow: none !important;
+  }
+
+  .left-actions.auto-collapsible.dock-dragging .panel-content-inner,
+  .left-actions.auto-collapsible.dock-dragging:hover .panel-content-inner {
+    left: 50px !important;
+  }
+
+  /* Botões do dock direito embutidos no topo do conteúdo do painel Resumo */
+  #dock-mini-icons-right.dock-mini-inline {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    gap: 8px !important;
+    width: 100% !important;
+    padding: 0 0 10px !important;
+    margin-bottom: 10px !important;
+    border-bottom: 1px solid var(--border-color) !important;
+  }
+
+  #dock-mini-icons-right.dock-mini-inline .dock-mini-btn {
+    width: auto !important;
+    min-width: 38px !important;
+    height: 36px !important;
+    padding: 0 14px !important;
+    border-radius: 10px !important;
   }
 }
 

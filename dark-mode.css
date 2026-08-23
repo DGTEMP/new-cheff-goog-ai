@@ -701,14 +701,15 @@ body.dark-mode .queue-tipo-btn.active,
   color: #ffffff !important;
 }
 
-/* Linha de Item da Fila (Modo Lista) */
-body.dark-mode .queue-item,
+/* Linha de Item da Fila (Modo Lista)
+   .queue-item NÃO recebe fundo escuro: a cor pastel por tempo de espera
+   (hsl pintado inline pelo fila.js) é mantida nos dois temas para o código
+   de cores continuar legível na cozinha. Texto interno permanece escuro. */
 body.dark-mode .order-card,
 body.dark-mode .pedido-card,
 body.dark-mode .item-card,
 body.dark-mode .kanban-card,
 body.dark-mode .pedido-row,
-[data-theme="dark"] .queue-item,
 [data-theme="dark"] .order-card,
 [data-theme="dark"] .pedido-card,
 [data-theme="dark"] .item-card {
@@ -717,19 +718,19 @@ body.dark-mode .pedido-row,
   color: #f8fafc !important;
   box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
 }
-body.dark-mode .queue-item:hover,
-[data-theme="dark"] .queue-item:hover {
-  background-color: #1e283c !important;
-}
 
-/* Tipografia e Campos dos Itens */
+/* Tipografia do item da fila: texto escuro sobre o fundo pastel */
+body.dark-mode .queue-item,
+[data-theme="dark"] .queue-item {
+  color: #1e293b !important;
+}
 body.dark-mode .queue-item .item-produto,
 [data-theme="dark"] .queue-item .item-produto {
-  color: #f8fafc !important;
+  color: #1e293b !important;
 }
 body.dark-mode .queue-item .item-local,
 [data-theme="dark"] .queue-item .item-local {
-  color: #cbd5e1 !important;
+  color: #334155 !important;
 }
 
 /* Quantidade Destaque */
@@ -766,18 +767,18 @@ body.dark-mode .btn-reverter,
   color: #94a3b8 !important;
 }
 
-/* Observações & Composições */
+/* Observações & Composições (fundo do item continua pastel → texto escuro) */
 body.dark-mode .item-observacao,
 [data-theme="dark"] .item-observacao {
-  background: rgba(245, 158, 11, 0.15) !important;
-  border-color: rgba(245, 158, 11, 0.4) !important;
-  color: #fbbf24 !important;
+  background: rgba(245, 158, 11, 0.18) !important;
+  border-color: rgba(180, 83, 9, 0.45) !important;
+  color: #854d0e !important;
 }
 body.dark-mode .item-composicoes,
 [data-theme="dark"] .item-composicoes {
-  background: rgba(59, 130, 246, 0.15) !important;
-  border-color: rgba(59, 130, 246, 0.4) !important;
-  color: #93c5fd !important;
+  background: rgba(59, 130, 246, 0.12) !important;
+  border-color: rgba(30, 64, 175, 0.35) !important;
+  color: #1e40af !important;
 }
 body.dark-mode .item-composicoes .comp-item,
 [data-theme="dark"] .item-composicoes .comp-item {
@@ -877,6 +878,86 @@ body.dark-mode .card-mesa-header,
   background-color: #1e283c !important;
   border-bottom: 1px solid rgba(255,255,255,0.08) !important;
   color: #f8fafc !important;
+}
+
+/* Scrollbars das Sidebars da Fila (antes ficavam claras demais no escuro) */
+body.dark-mode .sidebar-sectors::-webkit-scrollbar-thumb,
+body.dark-mode .right-panel-status::-webkit-scrollbar-thumb,
+[data-theme="dark"] .sidebar-sectors::-webkit-scrollbar-thumb,
+[data-theme="dark"] .right-panel-status::-webkit-scrollbar-thumb {
+  background: #334155 !important;
+}
+body.dark-mode .sidebar-sectors::-webkit-scrollbar-thumb:hover,
+body.dark-mode .right-panel-status::-webkit-scrollbar-thumb:hover,
+[data-theme="dark"] .sidebar-sectors::-webkit-scrollbar-thumb:hover,
+[data-theme="dark"] .right-panel-status::-webkit-scrollbar-thumb:hover {
+  background: #475569 !important;
+}
+
+/* Modal Seleção de Fila / Setor */
+body.dark-mode .modal-setor-overlay,
+[data-theme="dark"] .modal-setor-overlay {
+  background: rgba(2, 6, 23, 0.75) !important;
+}
+body.dark-mode .modal-setor-card,
+[data-theme="dark"] .modal-setor-card {
+  background-color: #161d2a !important;
+  border: 1px solid rgba(255,255,255,0.10) !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7) !important;
+}
+body.dark-mode .modal-setor-header,
+[data-theme="dark"] .modal-setor-header {
+  border-bottom-color: rgba(255,255,255,0.08) !important;
+  color: #f8fafc !important;
+}
+body.dark-mode .modal-setor-close,
+[data-theme="dark"] .modal-setor-close {
+  color: #94a3b8 !important;
+  background: rgba(255,255,255,0.06) !important;
+}
+body.dark-mode .sector-modal-btn,
+[data-theme="dark"] .sector-modal-btn {
+  background-color: #1c2436 !important;
+  border-color: rgba(255,255,255,0.08) !important;
+}
+body.dark-mode .sector-modal-btn:hover,
+[data-theme="dark"] .sector-modal-btn:hover {
+  background-color: #26334d !important;
+}
+body.dark-mode .sector-modal-title,
+[data-theme="dark"] .sector-modal-title {
+  color: #f8fafc !important;
+}
+body.dark-mode .sector-modal-sub,
+[data-theme="dark"] .sector-modal-sub {
+  color: #94a3b8 !important;
+}
+
+/* Painel de Dicas Rápidas da IA Gerente (inline "background:white" no HTML) */
+body.dark-mode #ia-gerente-panel,
+[data-theme="dark"] #ia-gerente-panel {
+  background: #161d2a !important;
+  border-color: rgba(255,255,255,0.10) !important;
+  color: #e8edf5 !important;
+}
+body.dark-mode #ia-gerente-panel > div:first-child,
+[data-theme="dark"] #ia-gerente-panel > div:first-child {
+  color: #f8fafc !important;
+  border-bottom-color: rgba(255,255,255,0.08) !important;
+}
+body.dark-mode #ia-gerente-panel button,
+[data-theme="dark"] #ia-gerente-panel button {
+  background: #26334d !important;
+  color: #cbd5e1 !important;
+}
+body.dark-mode #ia-gerente-fab,
+[data-theme="dark"] #ia-gerente-fab {
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%) !important;
+  border-color: #f59e0b !important;
+}
+body.dark-mode #ia-gerente-badge,
+[data-theme="dark"] #ia-gerente-badge {
+  border-color: #0d121c !important;
 }
 
 /* ═══════════════════════════════════════════

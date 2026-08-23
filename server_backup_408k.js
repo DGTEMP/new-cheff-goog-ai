@@ -3315,15 +3315,15 @@ db.serialize(() => {
         ['Bebidas', 'Refrigerante Lata', 8.00, '🥤', false, 'Bar', 'Em espera'],
         ['Bebidas', 'Água sem gás', 4.00, '💧', false, 'Bar', 'Em espera'],
         ['Bebidas', 'Água com gás', 5.00, '💧', false, 'Bar', 'Em espera'],
-        ['Bebidas', 'TÃ´nica Lata', 8.80, '🥤', false, 'Bar', 'Em espera'],
+        ['Bebidas', 'Tônica Lata', 8.80, '🥤', false, 'Bar', 'Em espera'],
         ['Bebidas', 'H2O Garrafa', 8.80, '💧', false, 'Bar', 'Em espera'],
         ['Bebidas', 'Citrus Lata', 8.80, '🥤', false, 'Bar', 'Em espera'],
         ['Bebidas', 'Suco copo/lata', 8.80, '🧃', false, 'Bar', 'Em espera'],
         ['Bebidas', 'Suco Jarra Laranja', 18.00, '🍊', false, 'Bar', 'Em espera'],
         ['Bebidas', 'Suco Jarra Limão', 23.00, '🍋', false, 'Bar', 'Em espera'],
-        ['Bebidas', 'Energético Baly', 18.00, 'âš¡', false, 'Bar', 'Em espera'],
-        ['Bebidas', 'Energético Redbull', 18.00, 'âš¡', false, 'Bar', 'Em espera'],
-        ['Bebidas', 'Energético Monster', 18.00, 'âš¡', false, 'Bar', 'Em espera'],
+        ['Bebidas', 'Energético Baly', 18.00, '⚡', false, 'Bar', 'Em espera'],
+        ['Bebidas', 'Energético Redbull', 18.00, '⚡', false, 'Bar', 'Em espera'],
+        ['Bebidas', 'Energético Monster', 18.00, '⚡', false, 'Bar', 'Em espera'],
         ['Bebidas', 'Heineken 0%', 15.00, '🍺', false, 'Bar', 'Em espera'],
         ['Bebidas', 'Brahma 0%', 10.00, '🍺', false, 'Bar', 'Em espera'],
         ['Caipirinhas', 'Caipirinha Smirnoff', 20.00, '🍹', false, 'Bar', 'Em espera'],
@@ -3647,7 +3647,7 @@ io.on('connection', (socket) => {
     );
   });
 
-  // --- AUDITORIA DE ACESSO E NAVEGAÃ‡ÃƒO DE PÁGINAS ---
+  // --- AUDITORIA DE ACESSO E NAVEGAÇÃO DE PÁGINAS ---
   socket.on('registrar_acesso_pagina', (data) => {
     if (!data) return;
     const { pagina, titulo, autorizado, motivo } = data;
@@ -3701,7 +3701,7 @@ io.on('connection', (socket) => {
       if (data.icon) conn.icon = data.icon;
       if (data.resolution) conn.resolution = data.resolution;
       
-      conn.device = `${conn.model} (${conn.os} â€¢ ${conn.browser})`;
+      conn.device = `${conn.model} (${conn.os} • ${conn.browser})`;
       io.emit('connected_devices_updated');
 
     }
@@ -3844,7 +3844,7 @@ io.on('connection', (socket) => {
   socket.emit('server_ip', getLocalIp());
   console.log('Cliente conectado:', socket.id);
 
-  // â”€â”€ LICENÃ‡A: ativação â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── LICENÇA: ativação ──────────────────────────────────
 
   socket.on('activate_license', async ({ chave }) => {
     const chaveLimpa = String(chave || '').trim().toUpperCase();
@@ -3902,7 +3902,7 @@ io.on('connection', (socket) => {
   socket.emit('restaurant_name', licenseManager.getRestaurantName());
   socket.emit('license_status', licenseManager.getState());
 
-  // â”€â”€ Configuração do Apps Script â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Configuração do Apps Script ──────────────────────────
   const LICENSE_CONFIG_FILE = require('path').join(
     (() => {
       const osMod = require('os');
@@ -3973,7 +3973,7 @@ io.on('connection', (socket) => {
         });
       });
       req.on('error', (e) => socket.emit('license_test_result', { ok: false, error: e.message }));
-      req.on('timeout', () => { req.destroy(); socket.emit('license_test_result', { ok: false, error: 'Timeout â€” servidor demorou mais de 8s.' }); });
+      req.on('timeout', () => { req.destroy(); socket.emit('license_test_result', { ok: false, error: 'Timeout — servidor demorou mais de 8s.' }); });
     } catch (e) {
       socket.emit('license_test_result', { ok: false, error: e.message });
     }
@@ -4193,7 +4193,7 @@ socket.on('novo_pedido', (pedido) => {
         return;
       }
     }
-    // â"€â"€ VERIFICAÃ‡ÃƒO DE LICENÃ‡A â"€â"€
+    // â"€â"€ VERIFICAÇÃO DE LICENÇA â"€â"€
     if (licenseManager.isRestricted()) {
       socket.emit('pedido_erro', { msg: 'âšï¸ Sistema em modo restrito. Ative a licença para adicionar pedidos.' });
       return;
@@ -5971,7 +5971,7 @@ socket.on('novo_pedido', (pedido) => {
 
       const provider = config.mp_provider || 'none';
       if (provider === 'none') {
-        socket.emit('mp_status_pagamento', { status: 'failed', msg: 'Nenhuma maquininha configurada. Acesse Configurações â†’ Maquininhas.' });
+        socket.emit('mp_status_pagamento', { status: 'failed', msg: 'Nenhuma maquininha configurada. Acesse Configurações → Maquininhas.' });
         return;
       }
 
@@ -6093,7 +6093,7 @@ socket.on('novo_pedido', (pedido) => {
                 const st = (sd.status || '').toLowerCase();
                 if (st === 'approved' || st === 'confirmed' || st === 'success') {
                   clearInterval(mpPollInterval); mpPollInterval = null;
-                  socket.emit('mp_status_pagamento', { status: 'aprovado', payment: sd, msg: 'âœ… Pagamento Stone aprovado!' });
+                  socket.emit('mp_status_pagamento', { status: 'aprovado', payment: sd, msg: '✅ Pagamento Stone aprovado!' });
                 } else if (st === 'failed' || st === 'denied' || st === 'canceled') {
                   clearInterval(mpPollInterval); mpPollInterval = null;
                   socket.emit('mp_status_pagamento', { status: 'failed', msg: `Pagamento ${st} na maquininha Stone.` });
@@ -6155,7 +6155,7 @@ socket.on('novo_pedido', (pedido) => {
                 const st = (sd.status || '').toUpperCase();
                 if (st === 'PAID' || st === 'AUTHORIZED' || st === 'COMPLETED') {
                   clearInterval(mpPollInterval); mpPollInterval = null;
-                  socket.emit('mp_status_pagamento', { status: 'aprovado', payment: sd, msg: 'âœ… Pagamento PagBank aprovado!' });
+                  socket.emit('mp_status_pagamento', { status: 'aprovado', payment: sd, msg: '✅ Pagamento PagBank aprovado!' });
                 } else if (st === 'DECLINED' || st === 'CANCELED' || st === 'ERROR') {
                   clearInterval(mpPollInterval); mpPollInterval = null;
                   socket.emit('mp_status_pagamento', { status: 'failed', msg: `Pagamento ${st} na maquininha PagBank.` });
@@ -6171,7 +6171,7 @@ socket.on('novo_pedido', (pedido) => {
       }
 
       // ===================================================
-      // PROVEDOR: SiTef GENÃ‰RICO (TCP/IP)
+      // PROVEDOR: SiTef GENÉRICO (TCP/IP)
       // ===================================================
       if (provider === 'sitef') {
         const sitefIp = config.sitef_ip;
@@ -6204,7 +6204,7 @@ socket.on('novo_pedido', (pedido) => {
               const response = sitefBuf.substring(4);
               const resultCode = response.substring(0, 4).trim();
               if (resultCode === '0000' || resultCode === '000') {
-                socket.emit('mp_status_pagamento', { status: 'aprovado', payment: { raw: response }, msg: 'âœ… Pagamento SiTef aprovado!' });
+                socket.emit('mp_status_pagamento', { status: 'aprovado', payment: { raw: response }, msg: '✅ Pagamento SiTef aprovado!' });
               } else {
                 socket.emit('mp_status_pagamento', { status: 'failed', msg: `Transação SiTef recusada. Código: ${resultCode}` });
               }
@@ -6676,7 +6676,7 @@ socket.on('novo_pedido', (pedido) => {
 
     registerAdminRhEvents(socket);
 
-    // --- MÃ“DULO FISCAL NFC-E SOCKETS ---
+    // --- MÓDULO FISCAL NFC-E SOCKETS ---
     socket.on('emitir_nfce', async (data, ack) => {
       try {
         db.all(`SELECT * FROM configuracoes`, async (errConfig, configRows) => {
@@ -7133,7 +7133,7 @@ app.get('/api/qr', (req, res) => {
 });
 
 
-// --- API FORMAS DE PAGAMENTO & CARTÃ•ES ---
+// --- API FORMAS DE PAGAMENTO & CARTÕES ---
 app.get('/api/formas-pagamento', (req, res) => {
   db.all(`SELECT * FROM formas_pagamento ORDER BY ordem ASC, id ASC`, [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
@@ -7230,7 +7230,7 @@ app.post('/api/dispositivos/:id/renomear', verificarToken, (req, res) => {
   const conn = activeSockets.get(id);
   if (conn) {
     conn.model = novoNome.trim();
-    conn.device = `${conn.model} (${conn.os} â€¢ ${conn.browser})`;
+    conn.device = `${conn.model} (${conn.os} • ${conn.browser})`;
     const targetSocket = io.sockets.sockets.get(id);
     if (targetSocket) {
       targetSocket.emit('apelido_atualizado_remoto', { apelido: novoNome.trim() });
@@ -7374,7 +7374,7 @@ app.post('/api/config', verificarToken, (req, res) => {
   }, 500);
 });
 
-// --- ENDPOINT TESTE DE CONEXÃƒO COM MAQUININHA ---
+// --- ENDPOINT TESTE DE CONEXÃO COM MAQUININHA ---
 app.post('/api/maquininha/testar', async (req, res) => {
   const { provedor } = req.body || {};
   if (!provedor || provedor === 'none') {
@@ -7394,7 +7394,7 @@ app.post('/api/maquininha/testar', async (req, res) => {
         });
         if (response.ok) {
           const data = await response.json();
-          return res.json({ ok: true, msg: `Mercado Pago OK â€” Device: ${data.id || deviceId} | Modo: ${data.operating_mode || 'online'}` });
+          return res.json({ ok: true, msg: `Mercado Pago OK — Device: ${data.id || deviceId} | Modo: ${data.operating_mode || 'online'}` });
         } else {
           const errData = await response.json().catch(() => ({}));
           return res.json({ ok: false, msg: `Mercado Pago: ${errData.message || 'HTTP ' + response.status}` });
@@ -7420,7 +7420,7 @@ app.post('/api/maquininha/testar', async (req, res) => {
         });
         if (response.ok) {
           const data = await response.json();
-          return res.json({ ok: true, msg: `PagBank OK â€” Terminal: ${data.id || pgTerminal} | Status: ${data.status || 'online'}` });
+          return res.json({ ok: true, msg: `PagBank OK — Terminal: ${data.id || pgTerminal} | Status: ${data.status || 'online'}` });
         } else {
           const errData = await response.json().catch(() => ({}));
           return res.json({ ok: false, msg: `PagBank: ${errData.message || errData.error || 'HTTP ' + response.status}` });
@@ -8233,7 +8233,7 @@ app.post('/api/rh/pagamentos', verificarToken, (req, res) => {
   );
 });
 
-// â”€â”€ FOLHA SEMANAL (BATCH) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── FOLHA SEMANAL (BATCH) ────────────
 app.post('/api/rh/pagamentos/batch', verificarToken, (req, res) => {
   const { pagamentos, observacao_geral } = req.body;
   if (!pagamentos || !Array.isArray(pagamentos) || pagamentos.length === 0) {
@@ -8269,7 +8269,7 @@ app.post('/api/rh/pagamentos/batch', verificarToken, (req, res) => {
   });
 });
 
-// â”€â”€ PERFIL DE MESA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── PERFIL DE MESA ────────────
 app.get('/api/mesa-perfil/:mesa_nome', (req, res) => {
   const mesa_nome = req.params.mesa_nome;
   
@@ -8310,7 +8310,7 @@ app.get('/api/mesa-perfil/:mesa_nome', (req, res) => {
   });
 });
 
-// â”€â”€ SUGESTÃ•ES DE PROMOÃ‡Ã•ES (INTELIGÃŠNCIA DE VENDAS) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── SUGESTÕES DE PROMOÇÕES (INTELIGÊNCIA DE VENDAS) ────────────
 app.get('/api/sugestoes-promocao', (req, res) => {
   // Pega os itens dos últimos 7 dias
   db.all("SELECT itens_json FROM pedidos WHERE data_pedido >= datetime('now', '-7 days')", (err, pedidos) => {
@@ -8390,7 +8390,7 @@ app.get('/api/sugestoes-promocao', (req, res) => {
 });
 
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-// â•â• IA ASSISTENTE - SUGESTÃ•ES INTELIGENTES POR PERFIL â•â•â•â•â•â•â•â•
+// â•â• IA ASSISTENTE - SUGESTÕES INTELIGENTES POR PERFIL â•â•â•â•â•â•â•â•
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 const IA_CONFIG = {
   iaEnabled: true,              // toggle global de alertas IA
@@ -8446,7 +8446,7 @@ function runIAVerificacao() {
       porMesa[mesa].push(p);
     });
 
-    // â”€â”€ 1. IA GARÃ‡OM: Detectar bebidas e sugerir refill â”€â”€
+    // ── 1. IA GARÇOM: Detectar bebidas e sugerir refill ──
     Object.entries(porMesa).forEach(([mesa, pedidos]) => {
       const bebidas = pedidos.filter(p => {
         const nome = (p.productName || '').toLowerCase();
@@ -8478,7 +8478,7 @@ function runIAVerificacao() {
       });
     });
 
-    // â”€â”€ 2. IA FILA COZINHA: Detectar espera longa â”€â”€
+    // ── 2. IA FILA COZINHA: Detectar espera longa ──
     rows.forEach(p => {
       const criado = p.createdAt ? new Date(p.createdAt).getTime() : 0;
       if (!criado) return;
@@ -8541,7 +8541,7 @@ function runIAVerificacao() {
       }
     });
 
-    // â”€â”€ 3. IA MANOBRA: Detectar mesas com risco de desistência â”€â”€
+    // ── 3. IA MANOBRA: Detectar mesas com risco de desistência ──
     Object.entries(porMesa).forEach(([mesa, pedidos]) => {
       const naoProntos = pedidos.filter(p => p.status !== 'Pronto' && p.status !== 'Finalizado' && p.status !== 'Cancelado' && p.status !== 'Entregue' && p.status !== 'Pago');
       const prontos = pedidos.filter(p => p.status === 'Pronto');
@@ -8589,7 +8589,7 @@ function runIAVerificacao() {
       }
     });
 
-    // â”€â”€ 3.5. IA ATENÇÃO: Chamada de atenção quando pedido extrapola tempo â”€â”€
+    // ── 3.5. IA ATENÇÃO: Chamada de atenção quando pedido extrapola tempo ──
     rows.forEach(p => {
       const criado = p.createdAt ? new Date(p.createdAt).getTime() : 0;
       if (!criado) return;
@@ -8617,7 +8617,7 @@ function runIAVerificacao() {
       }
     });
 
-    // â”€â”€ 4. IA GERENTE: Insights periódicos (cache 5min) â”€â”€
+    // ── 4. IA GERENTE: Insights periódicos (cache 5min) ──
     if (agora > iaState.dicasGerenteExpiry) {
       gerarInsightsGerente(rows, agora);
     }
@@ -9047,7 +9047,7 @@ function verificarToken(req, res, next) {
   });
 }
 
-// Inicializar licença e depois subir o servidor â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Inicializar licença e depois subir o servidor ────────────
 licenseManager.initLicense().then((licState) => {
   server.listen(PORT, HOST, () => {
     const ip = getLocalIp();
