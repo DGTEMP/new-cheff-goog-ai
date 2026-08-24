@@ -679,7 +679,7 @@ function switchTab(targetId) {
    else if (targetId === 'sec-site-vendas') carregarSiteVendas();
    else if (targetId === 'sec-afiliados') carregarAfiliados();
    else if (targetId === 'sec-seguranca-waf') carregarConfigSeguranca();
-   else if (targetId === 'sec-deploy-updates') carregarCommitsGit();
+   else if (targetId === 'sec-deploy-updates') { carregarCommitsGit(); carregarGitStatus(); }
    else if (targetId === 'sec-plugins-modulos') carregarPlugins();
    else if (targetId === 'sec-supabase') carregarSupabase();
 }
@@ -781,9 +781,14 @@ window.carregarCommitsGit = function() {
         '<td><small style="color:var(--text-muted);">' + escapeHtml(c.autor) + '</small></td>' +
         '<td><small style="color:var(--text-muted);">' + escapeHtml(c.data) + '</small></td>' +
         '<td>' +
-          '<button class="btn-action btn-primary-action" style="padding:4px 10px;font-size:0.8rem;background:#22c55e;" onclick="efetuarDeployHotSwap(\'' + escapeHtml(c.hash) + '\')">' +
-            '<i class="fa-solid fa-rocket"></i> Deploy Hot Swap' +
-          '</button>' +
+          '<div style="display:flex;flex-direction:column;gap:5px;">' +
+            '<button class="btn-action btn-primary-action" style="padding:4px 10px;font-size:0.8rem;background:#22c55e;" onclick="efetuarDeployHotSwap(\'' + escapeHtml(c.hash) + '\')">' +
+              '<i class="fa-solid fa-rocket"></i> Completo' +
+            '</button>' +
+            '<button class="btn-action" style="padding:4px 10px;font-size:0.78rem;background:rgba(56,189,248,0.15);color:#7dd3fc;border:1px solid rgba(56,189,248,0.35);" onclick="efetuarDeployParcial(\'' + escapeHtml(c.hash) + '\')" title="Aplica só este commit, sem reiniciar o servidor">' +
+              '<i class="fa-solid fa-bolt"></i> Parcial (hot swap)' +
+            '</button>' +
+          '</div>' +
         '</td>' +
       '</tr>';
     }
@@ -820,6 +825,92 @@ window.efetuarDeployHotSwap = function(hash) {
       return;
     }
     showToast(data.mensagem || 'Deploy Zero-Downtime realizado com sucesso!', 'success');
+    carregarCommitsGit();
+  });
+};
+
+/* ═══ GIT: CONEXÃO, PULL & AUTO-DEPLOY ═══ */
+function gitResultado(html, tipo) {
+  var box = document.getElementById('git-op-resultado');
+  if (!box) return;
+  box.style.display = 'block';
+  var bg = tipo === 'erro' ? 'rgba(239,68,68,0.12)' : (tipo === 'ok' ? 'rgba(34,197,94,0.12)' : 'rgba(59,130,246,0.12)');
+  var cor = tipo === 'erro' ? '#fca5a5' : (tipo === 'ok' ? '#86efac' : '#93c5fd');
+  box.style.background = bg;
+  box.style.color = cor;
+  box.innerHTML = html;
+}
+
+window.carregarGitStatus = function() {
+  apiGet('/api/super/git/status', function(err, data) {
+    var linha = document.getElementById('git-status-linha');
+    if (!linha) return;
+    if (err || !data || !data.ok) { linha.innerHTML = '<span style="color:#f87171;">Não foi possível ler o status Git.</span>'; return; }
+    var conectado = data.conectado;
+    linha.innerHTML =
+      '<i class="fa-solid ' + (conectado ? 'fa-circle-check" style="color:#22c55e;' : 'fa-circle-xmark" style="color:#f87171;') + '"></i> '
+      + (conectado ? 'Conectado' : 'Sem remote configurado')
+      + ' · Branch: <strong style="color:#e2e8f0;">' + escapeHtml(data.branch) + '</strong>'
+      + (conectado ? ' · <small style="font-family:monospace;">' + escapeHtml(data.remote_url) + '</small>' : '')
+      + (data.behind != null && data.behind > 0 ? ' · <strong style="color:#fbbf24;">' + data.behind + ' commit(s) atrás do remoto</strong>' : '')
+      + (data.auto_deploy && data.auto_deploy.enabled ? ' · <span style="color:#34d399;">auto-deploy ON (' + data.auto_deploy.intervalo_min + ' min)</span>' : '');
+    var input = document.getElementById('git-remote-url');
+    if (input && data.remote_url && !input.value) input.value = data.remote_url;
+    var chk = document.getElementById('git-auto-enabled');
+    var sel = document.getElementById('git-auto-intervalo');
+    if (chk && data.auto_deploy) chk.checked = !!data.auto_deploy.enabled;
+    if (sel && data.auto_deploy) sel.value = String(data.auto_deploy.intervalo_min || 30);
+  });
+};
+
+window.conectarGit = function() {
+  var url = document.getElementById('git-remote-url').value.trim();
+  if (!url) { showToast('Informe a URL ou caminho de rede.', 'warning'); return; }
+  gitResultado('<i class="fa-solid fa-spinner fa-spin"></i> Conectando ao repositório...', '');
+  apiPost('/api/super/git/conectar', { url: url }, function(err, data) {
+    if (err || !data || !data.ok) { gitResultado('✕ ' + escapeHtml(data ? data.erro : 'Erro de conexão'), 'erro'); return; }
+    gitResultado('<i class="fa-solid fa-circle-check"></i> ' + escapeHtml(data.mensagem), 'ok');
+    carregarGitStatus();
+  });
+};
+
+window.buscarCommitsRemotos = function() {
+  gitResultado('<i class="fa-solid fa-spinner fa-spin"></i> Buscando novidades no remoto...', '');
+  apiPost('/api/super/git/fetch', {}, function(err, data) {
+    if (err || !data || !data.ok) { gitResultado('✕ ' + escapeHtml(data ? data.erro : 'Erro de conexão'), 'erro'); return; }
+    gitResultado('<i class="fa-solid fa-circle-info"></i> ' + escapeHtml(data.mensagem), 'info');
+    carregarGitStatus();
+  });
+};
+
+window.puxarAtualizacoes = function() {
+  gitResultado('<i class="fa-solid fa-spinner fa-spin"></i> Puxando commits...', '');
+  apiPost('/api/super/git/pull', {}, function(err, data) {
+    if (err || !data || !data.ok) { gitResultado('✕ ' + escapeHtml(data ? data.erro : 'Erro de conexão'), 'erro'); return; }
+    gitResultado('<i class="fa-solid fa-circle-check"></i> ' + escapeHtml(data.mensagem), 'ok');
+    carregarGitStatus();
+    carregarCommitsGit();
+  });
+};
+
+window.salvarAutoDeployGit = function() {
+  var enabled = document.getElementById('git-auto-enabled').checked;
+  var intervalo = parseInt(document.getElementById('git-auto-intervalo').value, 10) || 30;
+  apiPost('/api/super/git/auto-deploy', { enabled: enabled, intervalo_min: intervalo }, function(err, data) {
+    if (err || !data || !data.ok) { showToast('Erro ao salvar auto-deploy.', 'danger'); return; }
+    showToast(data.mensagem || 'Auto-deploy configurado!', 'success');
+    carregarGitStatus();
+  });
+};
+
+window.efetuarDeployParcial = function(hash) {
+  if (!confirm('Aplicar SOMENTE os arquivos deste commit?\n\n• Front-end (telas): entra no ar na hora, SEM reiniciar.\n• Backend: será aplicado e avisado que precisa de reinício.')) return;
+  apiPost('/api/super/git/deploy-parcial', { hash: hash }, function(err, data) {
+    if (err || !data || !data.ok) {
+      showToast('Erro no deploy parcial: ' + (data ? data.erro : 'Erro de conexão'), 'danger');
+      return;
+    }
+    showToast(data.mensagem || 'Deploy parcial aplicado!', 'success');
     carregarCommitsGit();
   });
 };

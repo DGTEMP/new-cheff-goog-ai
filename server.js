@@ -1360,6 +1360,43 @@ app.get('/api/super/panel-template', superAdminAuth, (req, res) => {
   return res.status(404).send('Template do painel não encontrado.');
 });
 
+// ── CANAL INTERNO: comunicação com o processo isolado do Super Admin ─────
+// Autenticado por token derivado do JWT_SECRET (nunca exposto ao navegador).
+const INTERNAL_TOKEN = process.env.SUPER_ADMIN_INTERNAL_TOKEN ||
+  require('crypto').createHash('sha256').update('internal::' + JWT_SECRET).digest('hex');
+
+function internalAuth(req, res, next) {
+  const t = req.headers['x-internal-token'];
+  if (t && t === INTERNAL_TOKEN) return next();
+  return res.status(403).json({ ok: false, erro: 'Token interno inválido.' });
+}
+
+app.post('/api/internal/emit', express.json({ limit: '256kb' }), internalAuth, (req, res) => {
+  const { action, room, evento, args } = req.body || {};
+  try {
+    if (action === 'emit_room' && room) {
+      io.to(room).emit(evento, ...(args || []));
+    } else if (action === 'emit_global') {
+      io.emit(evento, ...(args || []));
+    } else if (action === 'reload_features') {
+      Promise.resolve(loadAllTenantFeatures()).catch(() => {});
+    } else if (action === 'reload_domain_maps') {
+      Promise.resolve(loadDomainMaps()).catch(() => {});
+    } else {
+      return res.status(400).json({ ok: false, erro: 'Ação interna desconhecida.' });
+    }
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ ok: false, erro: e.message });
+  }
+});
+
+app.get('/api/internal/metrics', internalAuth, (req, res) => {
+  const sockets = {};
+  tenantSocketCounts.forEach((count, tid) => { sockets[tid] = count; });
+  res.json({ ok: true, sockets, uptime: Math.round(process.uptime()) });
+});
+
 // ── SUPER ADMIN: GERENCIAMENTO DE CERTIFICADOS (.pfx) ────────────────────
 // GET /api/super/certs — lista certificados na pasta certs/ e status atual
 app.get('/api/super/certs', superAdminAuth, (req, res) => {
@@ -3554,27 +3591,34 @@ function samplePicos() {
   });
 }
 
-require('./controllers/super-admin')(app, masterDb, sqlite3, {
-  JWT_SECRET,
-  superAdminAuth,
-  io,
-  featurePlans,
-  loadAllTenantFeatures,
-  getTenantFeaturesSync,
-  isTenantFeatureEnabled,
-  metricSocketCount,
-  ifoodApi,
-  baseDomain: BASE_DOMAIN,
-  reloadDomainMaps: loadDomainMaps,
-  createFreshTenantDb,
-  ifoodDeps: {
+// Painel Super Admin em processo isolado:
+// com SUPER_ADMIN_ISOLADO=1 as rotas NÃO são montadas aqui — rode
+// `SUPER_ADMIN_PORT=3457 node super-admin-server.js` em separado.
+if (process.env.SUPER_ADMIN_ISOLADO !== '1') {
+  require('./controllers/super-admin')(app, masterDb, sqlite3, {
+    JWT_SECRET,
+    superAdminAuth,
     io,
-    masterDb,
-    tenantContext,
-    getTenantDb,
-    dir: __dirname
-  }
-});
+    featurePlans,
+    loadAllTenantFeatures,
+    getTenantFeaturesSync,
+    isTenantFeatureEnabled,
+    metricSocketCount,
+    ifoodApi,
+    baseDomain: BASE_DOMAIN,
+    reloadDomainMaps: loadDomainMaps,
+    createFreshTenantDb,
+    ifoodDeps: {
+      io,
+      masterDb,
+      tenantContext,
+      getTenantDb,
+      dir: __dirname
+    }
+  });
+} else {
+  console.log('[super-admin] SUPER_ADMIN_ISOLADO=1 → painel super admin NÃO montado neste processo.');
+}
 
 const tenantDbs = new Map();
 const tenantDbLastAccess = new Map();
@@ -13894,6 +13938,229 @@ app.post('/api/super/deploy-commit', superAdminAuth, (req, res) => {
     });
   });
 });
+
+// ══════════════════════════════════════════════════════════════════════
+// ── GIT AVANÇADO: CONEXÃO, PULL, DEPLOY PARCIAL & AUTO-DEPLOY ────────
+// ══════════════════════════════════════════════════════════════════════
+
+const { exec: _gitExecCb } = require('child_process');
+function gitExec(cmd, timeoutMs) {
+  return new Promise((resolve) => {
+    const opts = { cwd: __dirname, windowsHide: true, timeout: timeoutMs || 30000, maxBuffer: 4 * 1024 * 1024 };
+    _gitExecCb(cmd, opts, (err, stdout, stderr) => {
+      resolve({ ok: !err, stdout: String(stdout || '').trim(), stderr: String(stderr || stdout || '').trim(), err });
+    });
+  });
+}
+function salvarCfgGlobal(chave, valor) {
+  masterDb.run(`INSERT INTO configuracoes_global (chave, valor) VALUES (?, ?)
+    ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor`, [chave, typeof valor === 'string' ? valor : JSON.stringify(valor)], () => {});
+}
+function lerCfgGlobalObj(chave, padrao) {
+  return new Promise((resolve) => {
+    masterDb.get(`SELECT valor FROM configuracoes_global WHERE chave = ?`, [chave], (err, row) => {
+      if (err || !row || !row.valor) return resolve(padrao);
+      try { resolve(JSON.parse(row.valor)); } catch (e) { resolve(padrao); }
+    });
+  });
+}
+
+let gitDeployEmAndamento = false;
+
+// GET — status da conexão Git
+app.get('/api/super/git/status', superAdminAuth, async (req, res) => {
+  const branch = await gitExec('git rev-parse --abbrev-ref HEAD', 10000);
+  const remote = await gitExec('git config --get remote.origin.url', 10000);
+  const auto = await lerCfgGlobalObj('git_auto_deploy', { enabled: false, intervalo_min: 30 });
+  const lastFetch = await lerCfgGlobalObj('git_last_fetch', null);
+  let behind = null, ahead = null;
+  if (remote.ok && branch.ok) {
+    const cnt = await gitExec(`git rev-list --left-right --count HEAD...origin/${branch.stdout}`, 15000);
+    if (cnt.ok && /\d+\s+\d+/.test(cnt.stdout)) {
+      const parts = cnt.stdout.split(/\s+/);
+      ahead = parseInt(parts[0], 10); behind = parseInt(parts[1], 10);
+    }
+  }
+  res.json({
+    ok: true,
+    conectado: remote.ok && !!remote.stdout,
+    remote_url: remote.stdout || '',
+    branch: branch.stdout || '?',
+    ahead, behind,
+    auto_deploy: auto,
+    last_fetch: lastFetch
+  });
+});
+
+// POST — conectar/alterar o repositório remoto (https, ssh ou caminho de rede local \\servidor\repo)
+app.post('/api/super/git/conectar', superAdminAuth, async (req, res) => {
+  const url = String((req.body || {}).url || '').trim();
+  if (!url) return res.json({ ok: false, erro: 'Informe a URL do repositório ou o caminho de rede.' });
+  if (!/^(https?:\/\/|git@|ssh:\/\/|\\\\|\/|file:\/\/|[a-zA-Z]:\\)/.test(url)) {
+    return res.json({ ok: false, erro: 'Formato inválido. Use https://, git@, ssh:// ou caminho de rede \\\\servidor\\pasta.' });
+  }
+  const temOrigin = await gitExec('git config --get remote.origin.url', 10000);
+  const cmd = (temOrigin.ok && temOrigin.stdout) ? `git remote set-url origin "${url}"` : `git remote add origin "${url}"`;
+  const set = await gitExec(cmd, 15000);
+  if (!set.ok) return res.json({ ok: false, erro: 'Falha ao configurar remote: ' + set.stderr });
+
+  // Valida conexão real
+  const teste = await gitExec('git ls-remote origin HEAD', 20000);
+  if (!teste.ok) {
+    return res.json({ ok: false, erro: 'Remote salvo, mas sem acesso: ' + (teste.stderr || 'verifique credenciais/rede') });
+  }
+  salvarCfgGlobal('git_last_fetch', Date.now());
+  res.json({ ok: true, mensagem: 'Repositório conectado com sucesso!' });
+});
+
+// POST — buscar (fetch) novidades sem aplicar
+app.post('/api/super/git/fetch', superAdminAuth, async (req, res) => {
+  const f = await gitExec('git fetch --all --prune', 60000);
+  salvarCfgGlobal('git_last_fetch', Date.now());
+  if (!f.ok) return res.json({ ok: false, erro: 'Falha no fetch: ' + (f.stderr || 'sem acesso ao remoto') });
+  const branch = await gitExec('git rev-parse --abbrev-ref HEAD', 10000);
+  const cnt = await gitExec(`git rev-list --left-right --count HEAD...origin/${branch.stdout}`, 15000);
+  let behind = 0;
+  if (cnt.ok && /\d+\s+\d+/.test(cnt.stdout)) behind = parseInt(cnt.stdout.split(/\s+/)[1], 10) || 0;
+  res.json({ ok: true, mensagem: behind > 0 ? `${behind} commit(s) novo(s) disponível(is).` : 'Você já está em dia.', behind });
+});
+
+// POST — puxar (pull fast-forward) os commits novos
+app.post('/api/super/git/pull', superAdminAuth, async (req, res) => {
+  if (gitDeployEmAndamento) return res.json({ ok: false, erro: 'Outra operação de deploy está em andamento.' });
+  gitDeployEmAndamento = true;
+  try {
+    const antes = await gitExec('git rev-parse HEAD', 10000);
+    const stash = await gitExec('git stash', 15000); // protege alterações locais não commitadas
+    const pull = await gitExec('git pull --ff-only origin ' + ((await gitExec('git rev-parse --abbrev-ref HEAD', 10000)).stdout || ''), 120000);
+    if (!pull.ok) {
+      if (stash.ok && /Created automatic/.test(stash.stdout + stash.stderr)) await gitExec('git stash pop', 15000);
+      return res.json({ ok: false, erro: 'Falha no pull: ' + (pull.stderr || '') });
+    }
+    const depois = await gitExec('git rev-parse HEAD', 10000);
+    let novos = [];
+    if (antes.ok && depois.ok && antes.stdout !== depois.stdout) {
+      const log = await gitExec(`git log --pretty=format:"%h|%s" ${antes.stdout}..${depois.stdout}`, 15000);
+      novos = log.stdout.split('\n').filter(Boolean).map(l => { const p = l.split('|'); return { hash: p[0], mensagem: p[1] }; });
+    }
+    // Recarrega módulos backend que possam ter mudado (efeito parcial; restart completo aplica tudo)
+    ['./feature-plans.js'].forEach(m => { try { delete require.cache[require.resolve(m)]; } catch (e) {} });
+    io.emit('commits_atualizados', { novos });
+    res.json({ ok: true, mensagem: novos.length ? `${novos.length} novo(s) commit(ns) puxado(s)! Use "Aplicar" para publicar.` : 'Nada novo para puxar.', novos });
+  } finally {
+    gitDeployEmAndamento = false;
+  }
+});
+
+// POST — deploy PARCIAL: aplica somente os arquivos de um commit.
+// Front-end (html/css/js públicos) entra no ar na hora, SEM reiniciar o servidor.
+// Arquivos de backend exigem reinício — informado na resposta.
+const BACKEND_PATTERNS = [/^server\.js$/i, /^controllers\//i, /^package(-lock)?\.json$/i];
+app.post('/api/super/git/deploy-parcial', superAdminAuth, async (req, res) => {
+  const hash = String((req.body || {}).hash || '').replace(/[^a-f0-9]/gi, '');
+  const incluirBackend = !!((req.body || {}).incluir_backend);
+  if (!hash) return res.json({ ok: false, erro: 'Hash do commit é obrigatório.' });
+  if (gitDeployEmAndamento) return res.json({ ok: false, erro: 'Outra operação de deploy está em andamento.' });
+  gitDeployEmAndamento = true;
+  try {
+    const show = await gitExec(`git show --name-only --pretty=format: ${hash}`, 20000);
+    if (!show.ok) return res.json({ ok: false, erro: 'Commit não encontrado: ' + show.stderr });
+    const arquivos = show.stdout.split('\n').map(s => s.trim()).filter(Boolean);
+    if (!arquivos.length) return res.json({ ok: false, erro: 'Commit sem arquivos alterados.' });
+
+    const front = arquivos.filter(a => !BACKEND_PATTERNS.some(rx => rx.test(a.replace(/\\/g, '/'))));
+    const back = arquivos.filter(a => BACKEND_PATTERNS.some(rx => rx.test(a.replace(/\\/g, '/'))));
+
+    const aplicar = incluirBackend ? arquivos : front;
+    if (aplicar.length) {
+      const checkout = await gitExec(`git checkout ${hash} -- ${aplicar.map(a => `"${a}"`).join(' ')}`, 60000);
+      if (!checkout.ok) return res.json({ ok: false, erro: 'Falha ao aplicar arquivos: ' + checkout.stderr });
+    }
+
+    if (!incluirBackend && back.length) {
+      io.emit('sistema_hot_swapped', { hash, parcial: true, aplicados: front.length, mensagem: 'Deploy parcial aplicado. Backend pendente de reinício.' });
+      return res.json({
+        ok: true,
+        hot_swap: true,
+        mensagem: `${front.length} arquivo(s) front-end aplicado(s) SEM reiniciar! ${back.length} arquivo(s) de backend precisam de reinício para valer.`,
+        aplicados: front,
+        backend_pendente: back,
+        requerRestart: true
+      });
+    }
+    io.emit('sistema_hot_swapped', { hash, parcial: true, aplicados: arquivos.length, mensagem: 'Deploy parcial aplicado.' });
+    res.json({
+      ok: true,
+      hot_swap: true,
+      mensagem: `Deploy aplicado (${arquivos.length} arquivo(s)).${back.length ? ' Reinicie o servidor para ativar mudanças de backend.' : ' Nenhuma reiniciação necessária.'}`,
+      aplicados: aplicar,
+      requerRestart: back.length > 0
+    });
+  } finally {
+    gitDeployEmAndamento = false;
+  }
+});
+
+// POST — configura auto-deploy (quando surgirem commits novos no remoto)
+app.post('/api/super/git/auto-deploy', superAdminAuth, async (req, res) => {
+  const enabled = !!((req.body || {}).enabled);
+  const intervalo_min = Math.min(720, Math.max(5, parseInt((req.body || {}).intervalo_min, 10) || 30));
+  const modo = (req.body || {}).modo === 'completo' ? 'completo' : 'parcial';
+  salvarCfgGlobal('git_auto_deploy', { enabled, intervalo_min, modo });
+  res.json({ ok: true, mensagem: `Auto-deploy ${enabled ? 'ativado' : 'desativado'} (checando a cada ${intervalo_min} min, modo ${modo}).` });
+});
+
+// Poller do auto-deploy: checa a cada 60s se é hora de buscar novidades
+setInterval(async () => {
+  try {
+    const cfg = await lerCfgGlobalObj('git_auto_deploy', { enabled: false, intervalo_min: 30 });
+    if (!cfg.enabled || gitDeployEmAndamento) return;
+    const lastFetch = (await lerCfgGlobalObj('git_last_fetch', 0)) || 0;
+    if (Date.now() - lastFetch < (cfg.intervalo_min * 60 * 1000)) return;
+    salvarCfgGlobal('git_last_fetch', Date.now());
+
+    const f = await gitExec('git fetch --all --prune', 60000);
+    if (!f.ok) return;
+    const branch = await gitExec('git rev-parse --abbrev-ref HEAD', 10000);
+    const cnt = await gitExec(`git rev-list --right-only --count HEAD...origin/${branch.stdout}`, 15000);
+    const behind = cnt.ok ? (parseInt(cnt.stdout, 10) || 0) : 0;
+    if (!behind) return;
+
+    console.log(`[auto-deploy] ${behind} novo(s) commit(s) detectado(s). Aplicando (modo ${cfg.modo})...`);
+    if (cfg.modo === 'parcial') {
+      // aplica os commits novos um a um como deploy parcial front-end
+      const log = await gitExec(`git log --reverse --pretty=format:"%h" HEAD..origin/${branch.stdout}`, 15000);
+      const hashes = log.stdout.split('\n').filter(Boolean);
+      for (const h of hashes) {
+        const show = await gitExec(`git show --name-only --pretty=format: ${h}`, 20000);
+        const arquivos = show.stdout.split('\n').map(s => s.trim()).filter(Boolean);
+        const front = arquivos.filter(a => !BACKEND_PATTERNS.some(rx => rx.test(a.replace(/\\/g, '/'))));
+        const back = arquivos.filter(a => BACKEND_PATTERNS.some(rx => rx.test(a.replace(/\\/g, '/'))));
+        if (front.length) await gitExec(`git checkout ${h} -- ${front.map(a => `"${a}"`).join(' ')}`, 60000);
+        if (back.length) {
+          // backend muda: avisa painéis; reinício automático apenas com GIT_AUTO_RESTART=1
+          io.emit('atualizacao_backend_pendente', { hash: h, arquivos: back });
+          if (process.env.GIT_AUTO_RESTART === '1') {
+            salvarCfgGlobal('git_auto_restart_pendente', { hash: h, ts: Date.now() });
+            setTimeout(() => process.exit(3), 5000);
+            return;
+          }
+        }
+      }
+      io.emit('sistema_hot_swapped', { auto: true, commits: hashes.length, mensagem: `Auto-deploy: ${hashes.length} commit(s) aplicado(s) sem quedas.` });
+    } else {
+      // modo completo: pull inteiro e recarga de módulos
+      const antes = await gitExec('git rev-parse HEAD', 10000);
+      const pull = await gitExec(`git pull --ff-only origin ${branch.stdout}`, 120000);
+      if (pull.ok) {
+        ['./feature-plans.js'].forEach(m => { try { delete require.cache[require.resolve(m)]; } catch (e) {} });
+        io.emit('sistema_hot_swapped', { auto: true, completo: true, mensagem: 'Auto-deploy completo realizado.' });
+      }
+    }
+  } catch (e) {
+    console.error('[auto-deploy] erro:', e.message);
+  }
+}, 60000);
 
 
 // ══════════════════════════════════════════════════════════════════════

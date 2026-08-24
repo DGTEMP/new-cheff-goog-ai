@@ -2984,6 +2984,46 @@
               </div>
             </div>
 
+            <!-- Card de Conexão Git & Auto-Deploy -->
+            <div
+              style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;padding:1.5rem;margin-bottom:1.5rem;">
+              <h3 style="margin:0 0 1rem 0;font-size:1.15rem;"><i class="fa-solid fa-code-branch"
+                  style="color:#38bdf8;"></i> Conexão Git &amp; Atualizações</h3>
+              <div id="git-status-linha" style="font-size:0.85rem;color:var(--text-muted);margin-bottom:0.9rem;">
+                Carregando status do repositório...
+              </div>
+              <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+                <div style="flex:1;min-width:260px;">
+                  <label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">URL do
+                    repositório ou caminho de rede (ex: \\servidor\repo, https://github.com/...)</label>
+                  <input type="text" id="git-remote-url" placeholder="https://github.com/usuario/repo.git"
+                    style="width:100%;padding:9px 12px;background:#111;border:1px solid var(--border-color);color:white;border-radius:8px;font-size:13px;">
+                </div>
+                <button class="btn-action" id="btn-git-conectar" onclick="conectarGit()"
+                  style="padding:9px 16px;"><i class="fa-solid fa-link"></i> Conectar</button>
+              </div>
+              <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:14px;">
+                <button class="btn-action" onclick="buscarCommitsRemotos()" style="padding:8px 14px;"><i
+                    class="fa-solid fa-cloud-arrow-down"></i> Buscar novidades</button>
+                <button class="btn-action btn-primary-action" onclick="puxarAtualizacoes()" style="padding:8px 14px;"><i
+                    class="fa-solid fa-download"></i> Puxar (pull)</button>
+                <span style="flex:1;"></span>
+                <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-muted);cursor:pointer;">
+                  <input type="checkbox" id="git-auto-enabled"> Auto-deploy quando houver "latest"
+                </label>
+                <select id="git-auto-intervalo"
+                  style="background:#111;border:1px solid var(--border-color);color:white;border-radius:8px;padding:7px 10px;font-size:12px;">
+                  <option value="10">a cada 10 min</option>
+                  <option value="30" selected>a cada 30 min</option>
+                  <option value="60">a cada 1 h</option>
+                  <option value="180">a cada 3 h</option>
+                </select>
+                <button class="btn-action" onclick="salvarAutoDeployGit()" style="padding:8px 14px;"><i
+                    class="fa-solid fa-floppy-disk"></i> Salvar</button>
+              </div>
+              <div id="git-op-resultado" style="display:none;margin-top:12px;padding:10px 14px;border-radius:10px;font-size:0.85rem;"></div>
+            </div>
+
             <!-- Card de Ação Principal -->
             <div
               style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;padding:1.5rem;margin-bottom:1.5rem;">
