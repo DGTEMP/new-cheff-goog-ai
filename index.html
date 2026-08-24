@@ -517,30 +517,67 @@
 
       <!-- PASSO 2 — Mesas -->
       <div id="wizard-panel-2" class="wizard-panel" style="padding:20px 28px 24px 28px; display:none;">
-        <p style="color:#94a3b8; font-size:13px; margin:0 0 12px 0;">Quantas mesas o seu estabelecimento possui? Você pode ajustar depois em Configurações.</p>
-        <div style="display:flex; flex-direction:column; gap:14px;">
-          <div>
-            <label style="color:#cbd5e1; font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Número de Mesas</label>
-            <input type="number" id="wiz-qtd-mesas" min="1" max="100" value="10" style="width:100%; padding:12px 14px; border-radius:12px; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.04); color:#f8fafc; font-size:14px; outline:none; box-sizing:border-box;">
-          </div>
-          <div>
-            <label style="color:#cbd5e1; font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Incluir também:</label>
-            <div style="display:flex; gap:10px; flex-wrap:wrap;">
-              <label style="display:flex; align-items:center; gap:6px; color:#94a3b8; font-size:13px; cursor:pointer;">
-                <input type="checkbox" id="wiz-add-delivery" checked style="accent-color:#fc4b15;"> Delivery
-              </label>
-              <label style="display:flex; align-items:center; gap:6px; color:#94a3b8; font-size:13px; cursor:pointer;">
-                <input type="checkbox" id="wiz-add-balcao" style="accent-color:#fc4b15;"> Balcão
-              </label>
+        <p style="color:#94a3b8; font-size:13px; margin:0 0 12px 0;">Como você quer começar? Já preparamos um pacote de exemplos completo para você testar na hora.</p>
+
+        <!-- Escolha do modo -->
+        <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:16px;">
+          <label id="wiz-modo-exemplos-card" onclick="window.wizardSetModoMesas('exemplos')" style="display:flex; gap:12px; align-items:flex-start; background:rgba(252,75,21,0.08); border:2px solid #fc4b15; border-radius:14px; padding:14px; cursor:pointer; transition:all 0.2s;">
+            <input type="radio" name="wiz-modo-mesas" value="exemplos" checked style="accent-color:#fc4b15; margin-top:3px;">
+            <div>
+              <strong style="color:#f8fafc; font-size:14px;">✨ Usar os exemplos prontos <span style="background:#fc4b15; color:white; font-size:10px; font-weight:800; padding:2px 8px; border-radius:10px; margin-left:4px;">RECOMENDADO</span></strong>
+              <p style="color:#94a3b8; font-size:12px; margin:4px 0 0 0;">Vem com mesas, cardápio de exemplo (bebidas, porções...), garçom de teste e filas de preparo configuradas. Você edita tudo depois.</p>
             </div>
+          </label>
+          <label id="wiz-modo-zero-card" onclick="window.wizardSetModoMesas('zero')" style="display:flex; gap:12px; align-items:flex-start; background:rgba(255,255,255,0.03); border:2px solid rgba(255,255,255,0.08); border-radius:14px; padding:14px; cursor:pointer; transition:all 0.2s;">
+            <input type="radio" name="wiz-modo-mesas" value="zero" style="accent-color:#fc4b15; margin-top:3px;">
+            <div>
+              <strong style="color:#f8fafc; font-size:14px;">🧹 Começar do zero</strong>
+              <p style="color:#94a3b8; font-size:12px; margin:4px 0 0 0;">Removemos os exemplos e criamos exatamente as mesas que você informar.</p>
+            </div>
+          </label>
+        </div>
+
+        <!-- Detalhes do modo "do zero" -->
+        <div id="wiz-zero-detalhes" style="display:none;">
+          <div style="display:flex; flex-direction:column; gap:14px;">
+            <div>
+              <label style="color:#cbd5e1; font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Número de Mesas</label>
+              <input type="number" id="wiz-qtd-mesas" min="1" max="100" value="10" style="width:100%; padding:12px 14px; border-radius:12px; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.04); color:#f8fafc; font-size:14px; outline:none; box-sizing:border-box;">
+            </div>
+            <div>
+              <label style="color:#cbd5e1; font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Incluir também:</label>
+              <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                <label style="display:flex; align-items:center; gap:6px; color:#94a3b8; font-size:13px; cursor:pointer;">
+                  <input type="checkbox" id="wiz-add-delivery" checked style="accent-color:#fc4b15;"> Delivery
+                </label>
+                <label style="display:flex; align-items:center; gap:6px; color:#94a3b8; font-size:13px; cursor:pointer;">
+                  <input type="checkbox" id="wiz-add-balcao" style="accent-color:#fc4b15;"> Balcão
+                </label>
+              </div>
+            </div>
+            <div id="wiz-mesas-preview" style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:12px; display:flex; flex-wrap:wrap; gap:6px; max-height:120px; overflow-y:auto;"></div>
           </div>
-          <div id="wiz-mesas-preview" style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:12px; display:flex; flex-wrap:wrap; gap:6px; max-height:120px; overflow-y:auto;"></div>
+        </div>
+
+        <!-- Resumo do modo exemplos -->
+        <div id="wiz-exemplos-resumo" style="background:rgba(52,211,153,0.06); border:1px solid rgba(52,211,153,0.2); border-radius:12px; padding:14px;">
+          <strong style="color:#34d399; font-size:13px;">O que já vem pronto:</strong>
+          <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;">
+            <span style="background:rgba(255,255,255,0.05); color:#e2e8f0; padding:4px 10px; border-radius:8px; font-size:12px;">🪑 15 mesas + Delivery</span>
+            <span style="background:rgba(255,255,255,0.05); color:#e2e8f0; padding:4px 10px; border-radius:8px; font-size:12px;">🍽️ Cardápio completo de exemplo</span>
+            <span style="background:rgba(255,255,255,0.05); color:#e2e8f0; padding:4px 10px; border-radius:8px; font-size:12px;">👤 Garçom Teste (login: garcom / senha: 123)</span>
+            <span style="background:rgba(255,255,255,0.05); color:#e2e8f0; padding:4px 10px; border-radius:8px; font-size:12px;">🍳 Filas Bar e Cozinha 1</span>
+          </div>
         </div>
       </div>
 
       <!-- PASSO 3 — Produtos -->
       <div id="wizard-panel-3" class="wizard-panel" style="padding:20px 28px 24px 28px; display:none;">
         <p style="color:#94a3b8; font-size:13px; margin:0 0 12px 0;">Adicione seus primeiros produtos para começar a vender. Você pode adicionar mais depois.</p>
+        <label id="wiz-sem-exemplos-wrap" style="display:none; align-items:center; gap:10px; background:rgba(252,75,21,0.06); border:1px dashed rgba(252,75,21,0.35); border-radius:12px; padding:12px 14px; margin-bottom:12px; cursor:pointer;">
+          <input type="checkbox" id="wiz-sem-exemplos" style="accent-color:#fc4b15; width:16px; height:16px;">
+          <span style="color:#f8fafc; font-size:13px;">🧹 Remover o cardápio de exemplo e usar <strong>só os produtos abaixo</strong></span>
+        </label>
         <div id="wiz-produtos-list" style="display:flex; flex-direction:column; gap:10px; max-height:240px; overflow-y:auto;"></div>
         <button onclick="window.wizardAddProdutoRow()" style="margin-top:10px; background:rgba(252,75,21,0.1); border:1px dashed rgba(252,75,21,0.4); color:#fc4b15; padding:10px; border-radius:10px; font-size:13px; font-weight:600; cursor:pointer; transition:all 0.2s; display:flex; align-items:center; justify-content:center; gap:6px;" onmouseover="this.style.background='rgba(252,75,21,0.18)'" onmouseout="this.style.background='rgba(252,75,21,0.1)'">
           <i class="ph ph-plus-circle" style="font-size:16px;"></i> Adicionar produto

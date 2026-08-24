@@ -266,6 +266,11 @@ async function verificarPinOuSenha(valor) {
   return pinResult.ok;
 }
 
+// Compara nomes de mesas ignorando acentos, caixa e espaços extras ("Mesa 1" == "mesa 1")
+function normalizarNomeMesa(nome) {
+  return String(nome || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ');
+}
+
 function isBcryptHash(v) { return typeof v === 'string' && /^\$2[aby]\$/.test(v); }
 
 function funcionarioPublico(row) {
@@ -4366,6 +4371,8 @@ db.serialize(() => {
     ativo INTEGER DEFAULT 1,
     ordem INTEGER DEFAULT 0
   )`, (err) => { });
+  // Opção pode ser vinculada a um produto cadastrado (ex.: ingrediente invisível)
+  db.run(`ALTER TABLE montavel_opcoes ADD COLUMN produto_id INTEGER`, (err) => { });
 
   // Inscrições de notificações push (Web Push) por dispositivo
   db.run(`
@@ -7590,9 +7597,59 @@ io.on('connection', (socket) => {
   socket.on('get_produtos', () => broadcastProdutos(socket));
   socket.on('get_funcionarios', () => db.all(`SELECT * FROM funcionarios`, (err, rows) => socket.emit('funcionarios_atualizados', rows || [])));
 
-  socket.on('add_mesa', (nome) => db.run(`INSERT INTO mesas (nome) VALUES (?)`, [nome], () => {
-    db.all(`SELECT * FROM mesas`, (e, r) => io.emit('mesas_atualizadas', r || []));
-  }));
+  // Cria mesa com proteção anti-duplicidade (normaliza acentos/caixa ao comparar)
+  socket.on('add_mesa', (nome) => {
+    const nomeLimpo = String(nome || '').trim().slice(0, 60);
+    if (!nomeLimpo) return;
+    db.all(`SELECT nome FROM mesas`, (eAll, rows) => {
+      if (!eAll && (rows || []).some(m => normalizarNomeMesa(m.nome) === normalizarNomeMesa(nomeLimpo))) {
+        // Já existe mesa com esse nome — não duplica, apenas repropaga a lista
+        return db.all(`SELECT * FROM mesas`, (e2, r2) => io.emit('mesas_atualizadas', r2 || []));
+      }
+      db.run(`INSERT INTO mesas (nome) VALUES (?)`, [nomeLimpo], () => {
+        db.all(`SELECT * FROM mesas`, (e, r) => io.emit('mesas_atualizadas', r || []));
+      });
+    });
+  });
+
+  // Setup inicial: substitui as mesas de exemplo pela configuração exata escolhida pelo dono
+  socket.on('setup_redefinir_mesas', (nomes) => {
+    if (!exigirAdminSocket(socket)) return;
+    const lista = Array.isArray(nomes) ? nomes.map(n => String(n || '').trim().slice(0, 60)).filter(Boolean).slice(0, 200) : [];
+    if (!lista.length) return;
+    // Segurança: só zera se nada está em uso (restaurante recém-criado)
+    db.get(`SELECT COUNT(*) as n FROM mesas WHERE status NOT IN ('Disponível','Disponivel')`, [], (eOc, oc) => {
+      const ocupadas = (!eOc && oc) ? oc.n : 0;
+      db.get(`SELECT COUNT(*) as n FROM pedidos WHERE status NOT IN ('Finalizado','Cancelado','Pago')`, [], (ePe, pe) => {
+        const pedidosAbertos = (!ePe && pe) ? pe.n : 0;
+        if (ocupadas > 0 || pedidosAbertos > 0) {
+          return socket.emit('erro_servidor', 'Não foi possível redefinir: já existem mesas em uso ou pedidos abertos. As novas foram adicionadas sem duplicar.');
+        }
+        db.run(`DELETE FROM mesas`, () => {
+          let pendentes = lista.length;
+          lista.forEach(nome => {
+            db.run(`INSERT INTO mesas (nome, status) VALUES (?, 'Disponível')`, [nome], () => {
+              if (--pendentes === 0) db.all(`SELECT * FROM mesas`, (e2, r2) => io.emit('mesas_atualizadas', r2 || []));
+            });
+          });
+          global.registrarAuditoria(socket.auth?.nome || 'Admin', 'SETUP_MESAS', `Mesas redefinidas no setup inicial (${lista.length} mesas)`, 'Configuração', 'MEDIO');
+        });
+      });
+    });
+  });
+
+  // Setup inicial: remove os produtos de exemplo para começar só com os do dono
+  socket.on('setup_limpar_produtos_exemplo', () => {
+    if (!exigirAdminSocket(socket)) return;
+    db.get(`SELECT COUNT(*) as n FROM pedidos WHERE status NOT IN ('Finalizado','Cancelado','Pago')`, [], (ePe, pe) => {
+      const pedidosAbertos = (!ePe && pe) ? pe.n : 0;
+      if (pedidosAbertos > 0) return socket.emit('erro_servidor', 'Existem pedidos abertos — produtos de exemplo não foram removidos.');
+      db.run(`DELETE FROM produtos`, () => {
+        broadcastProdutos();
+        global.registrarAuditoria(socket.auth?.nome || 'Admin', 'SETUP_PRODUTOS', 'Produtos de exemplo removidos no setup inicial', 'Configuração', 'MEDIO');
+      });
+    });
+  });
 
   // Painel de configurações salvou via REST: propaga para todas as telas
   socket.on('admin_configs_updated', () => {
@@ -11682,6 +11739,29 @@ app.get('/api/montaveis', verificarToken, (req, res) => {
   });
 });
 
+// Resolve opções vinculadas a produtos cadastrados: nome/preço/emoji passam a vir ao vivo do produto
+function resolverOpcoesVinculadas(opts, done) {
+  const lista = opts || [];
+  const comVinculo = lista.filter(o => o.produto_id);
+  if (!comVinculo.length) return done(lista);
+  db.all(`SELECT id, nome, preco, emoji, visibilidade FROM produtos`, [], (eP, prods) => {
+    if (eP) return done(lista);
+    const mapa = {};
+    (prods || []).forEach(p => { mapa[p.id] = p; });
+    lista.forEach(o => {
+      if (o.produto_id && mapa[o.produto_id]) {
+        o.nome = mapa[o.produto_id].nome;
+        o.preco = mapa[o.produto_id].preco;
+        o.emoji_vinculado = mapa[o.produto_id].emoji || null;
+        o.vinculado = true;
+      } else if (o.produto_id) {
+        o.vinculo_quebrado = true; // produto foi excluído — usa nome/preço salvos
+      }
+    });
+    done(lista);
+  });
+}
+
 app.get('/api/montaveis/:id', verificarToken, (req, res) => {
   const mid = parseInt(req.params.id);
   if (!mid) return res.status(400).json({ error: 'ID inválido' });
@@ -11694,11 +11774,12 @@ app.get('/api/montaveis/:id', verificarToken, (req, res) => {
         const catIds = catList.map(c => c.id);
         const ph = catIds.map(() => '?').join(',');
         db.all(`SELECT * FROM montavel_opcoes WHERE categoria_id IN (${ph}) ORDER BY ordem, id`, catIds, (eO, opts) => {
-          const allOpts = opts || [];
-          catList.forEach(cat => {
-            cat.opcoes = allOpts.filter(o => o.categoria_id === cat.id);
+          resolverOpcoesVinculadas(opts || [], (allOpts) => {
+            catList.forEach(cat => {
+              cat.opcoes = allOpts.filter(o => o.categoria_id === cat.id);
+            });
+            res.json({ ...mRow, categorias: catList });
           });
-          res.json({ ...mRow, categorias: catList });
         });
       });
     });
@@ -11764,8 +11845,8 @@ function insertCategorias(montavelId, cats, done) {
         const catId = this.lastID;
         let optPending = cat.opcoes.length;
         cat.opcoes.forEach((opt, oi) => {
-          db.run(`INSERT INTO montavel_opcoes (categoria_id, nome, preco, ativo, ordem) VALUES (?, ?, ?, ?, ?)`,
-            [catId, opt.nome || '', opt.preco || 0, opt.ativo !== undefined ? (opt.ativo ? 1 : 0) : 1, oi], () => {
+          db.run(`INSERT INTO montavel_opcoes (categoria_id, nome, preco, ativo, ordem, produto_id) VALUES (?, ?, ?, ?, ?, ?)`,
+            [catId, opt.nome || '', opt.preco || 0, opt.ativo !== undefined ? (opt.ativo ? 1 : 0) : 1, oi, opt.produto_id || null], () => {
               if (--optPending === 0 && --pending === 0) done();
             });
         });
@@ -11787,8 +11868,10 @@ app.get('/api/montaveis/produto/:produtoId', verificarToken, (req, res) => {
         const catIds = catList.map(c => c.id);
         const ph = catIds.map(() => '?').join(',');
         db.all(`SELECT * FROM montavel_opcoes WHERE categoria_id IN (${ph}) AND ativo = 1 ORDER BY ordem, id`, catIds, (eO, opts) => {
-          catList.forEach(cat => { cat.opcoes = (opts || []).filter(o => o.categoria_id === cat.id); });
-          res.json({ ...mRow, categorias: catList });
+          resolverOpcoesVinculadas(opts || [], (allOpts) => {
+            catList.forEach(cat => { cat.opcoes = allOpts.filter(o => o.categoria_id === cat.id); });
+            res.json({ ...mRow, categorias: catList });
+          });
         });
       });
     });
@@ -13785,8 +13868,56 @@ app.post('/api/auth/login', async (req, res) => {
     const match = await bcrypt.compare(senha, user.password_hash);
     if (!match) return res.status(401).json({ success: false, error: 'Senha incorreta.' });
 
-    const token = jwt.sign({ id: user.id, restaurante_id: user.restaurante_id, role: user.role }, JWT_SECRET, { expiresIn: '12h' });
-    res.json({ success: true, token, restaurante_id: user.restaurante_id, role: user.role });
+    // Dono de rede: outros restaurantes ativos com o mesmo e-mail de dono
+    const cargoLower = String(user.role || '').toLowerCase();
+    masterDb.all(
+      `SELECT id, nome FROM restaurantes WHERE LOWER(dono_email) = ? AND ativo = 1 AND id != ? ORDER BY nome`,
+      [String(user.username || '').trim().toLowerCase(), user.restaurante_id],
+      (errRede, outros) => {
+        const podeVerRede = ['admin', 'administrador', 'gerente', 'dono'].includes(cargoLower);
+        const rede = (!errRede && podeVerRede && Array.isArray(outros)) ? outros : [];
+        const token = jwt.sign({ id: user.id, restaurante_id: user.restaurante_id, role: user.role }, JWT_SECRET, { expiresIn: '12h' });
+        res.json({ success: true, token, restaurante_id: user.restaurante_id, role: user.role, rede });
+      }
+    );
+  });
+});
+
+// ── Dono de rede: lista os restaurantes que ele administra (para troca rápida) ──
+app.get('/api/auth/minha-rede', verificarToken, async (req, res) => {
+  masterDb.get(`SELECT * FROM usuarios WHERE id = ? AND ativo = 1`, [req.usuario_id], (errU, user) => {
+    if (errU || !user) return res.status(404).json({ success: false, error: 'Usuário não encontrado.' });
+    masterDb.all(
+      `SELECT id, nome, ativo FROM restaurantes WHERE LOWER(dono_email) = ? AND ativo = 1 ORDER BY nome`,
+      [String(user.username || '').trim().toLowerCase()],
+      (errR, rows) => {
+        if (errR || !Array.isArray(rows)) return res.json({ success: true, rede: [] });
+        res.json({ success: true, atual: req.restaurante_id, rede: rows });
+      }
+    );
+  });
+});
+
+// ── Dono de rede: troca para outro restaurante que ele também administra ──
+app.post('/api/auth/trocar-restaurante', verificarToken, async (req, res) => {
+  const alvoId = parseInt(req.body.restaurante_id);
+  if (!alvoId) return res.status(400).json({ success: false, error: 'Restaurante inválido.' });
+
+  masterDb.get(`SELECT * FROM usuarios WHERE id = ? AND ativo = 1`, [req.usuario_id], async (errU, user) => {
+    if (errU || !user) return res.status(404).json({ success: false, error: 'Usuário não encontrado.' });
+    const cargoLower = String(user.role || '').toLowerCase();
+    if (!['admin', 'administrador', 'gerente', 'dono'].includes(cargoLower)) {
+      return res.status(403).json({ success: false, error: 'Sem permissão para alternar restaurantes.' });
+    }
+    masterDb.get(`SELECT id, nome, ativo FROM restaurantes WHERE id = ?`, [alvoId], (errR, alvo) => {
+      if (errR || !alvo) return res.status(404).json({ success: false, error: 'Restaurante não encontrado.' });
+      if (!alvo.ativo) return res.status(403).json({ success: false, error: 'Este restaurante está inativo.' });
+      const ehDonoDoAlvo = String(alvo.id) === String(user.restaurante_id) ||
+        String(alvo.dono_email || '').trim().toLowerCase() === String(user.username || '').trim().toLowerCase();
+      if (!ehDonoDoAlvo) return res.status(403).json({ success: false, error: 'Você não administra este restaurante.' });
+      const token = jwt.sign({ id: user.id, restaurante_id: alvoId, role: user.role }, JWT_SECRET, { expiresIn: '12h' });
+      res.json({ success: true, token, restaurante_id: alvoId, restaurante_nome: alvo.nome, role: user.role });
+    });
   });
 });
 
@@ -13823,6 +13954,7 @@ function verificarToken(req, res, next) {
     // Substitui o middleware temporário da Fase 1
     req.restaurante_id = decoded.restaurante_id;
     req.user_role = decoded.role;
+    req.usuario_id = decoded.id;
     tenantContext.run(decoded.restaurante_id, () => {
       next();
     });

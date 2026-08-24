@@ -2718,6 +2718,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let _wizardStep = 1;
   const _wizardTotal = 3;
   let _wizardProdutos = []; /* [{categoria, nome, preco}] */
+let _wizardModoMesas = 'exemplos'; /* 'exemplos' | 'zero' */
   let _wizardActive = false; /* evita re-exibição pelo fetchPdvConfigs */
 
   window.showWizard = function() {
@@ -2760,7 +2761,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /* Pré-visualiza mesas no passo 2 */
-    if (_wizardStep === 2) _updateMesasPreview();
+    if (_wizardStep === 2) {
+      window.wizardSetModoMesas(_wizardModoMesas || 'exemplos');
+      _updateMesasPreview();
+    }
+    /* Passo 3: opção de limpar exemplos (pré-marcada se escolheu "do zero") */
+    if (_wizardStep === 3) {
+      const wrap = document.getElementById('wiz-sem-exemplos-wrap');
+      const chk = document.getElementById('wiz-sem-exemplos');
+      if (wrap) wrap.style.display = 'flex';
+      if (chk && _wizardModoMesas === 'zero' && !chk.dataset.touched) chk.checked = true;
+    }
   }
 
   function _updateMesasPreview() {
@@ -2845,6 +2856,30 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
+  /* Modo do passo 2: usar exemplos prontos vs configurar do zero */
+  window.wizardSetModoMesas = function(modo) {
+    _wizardModoMesas = (modo === 'zero') ? 'zero' : 'exemplos';
+    const cardEx = document.getElementById('wiz-modo-exemplos-card');
+    const cardZero = document.getElementById('wiz-modo-zero-card');
+    const detZero = document.getElementById('wiz-zero-detalhes');
+    const resumoEx = document.getElementById('wiz-exemplos-resumo');
+    if (cardEx) {
+      cardEx.style.borderColor = _wizardModoMesas === 'exemplos' ? '#fc4b15' : 'rgba(255,255,255,0.08)';
+      cardEx.style.background = _wizardModoMesas === 'exemplos' ? 'rgba(252,75,21,0.08)' : 'rgba(255,255,255,0.03)';
+      const r = cardEx.querySelector('input[type="radio"]'); if (r) r.checked = _wizardModoMesas === 'exemplos';
+    }
+    if (cardZero) {
+      cardZero.style.borderColor = _wizardModoMesas === 'zero' ? '#fc4b15' : 'rgba(255,255,255,0.08)';
+      cardZero.style.background = _wizardModoMesas === 'zero' ? 'rgba(252,75,21,0.08)' : 'rgba(255,255,255,0.03)';
+      const r = cardZero.querySelector('input[type="radio"]'); if (r) r.checked = _wizardModoMesas === 'zero';
+    }
+    if (detZero) detZero.style.display = _wizardModoMesas === 'zero' ? 'block' : 'none';
+    if (resumoEx) resumoEx.style.display = _wizardModoMesas === 'exemplos' ? 'block' : 'none';
+    if (_wizardModoMesas === 'zero') _updateMesasPreview();
+  };
+
+  window.wizardGetModoMesas = function() { return _wizardModoMesas || 'exemplos'; };
+
   window.wizardNext = function() {
     if (_wizardStep === 1) {
       /* Valida dados do restaurante */
@@ -2906,17 +2941,25 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function _saveWizMesas() {
+    const modo = window.wizardGetModoMesas ? window.wizardGetModoMesas() : 'exemplos';
+    if (modo === 'exemplos') {
+      /* Pacote de exemplos já vem semeado no banco — nada a criar, sem risco de duplicar */
+      return;
+    }
+    /* Modo do zero: substitui as mesas de exemplo pela lista exata (servidor protege contra perda) */
     const qtd = parseInt(document.getElementById('wiz-qtd-mesas')?.value) || 0;
     const addDelivery = document.getElementById('wiz-add-delivery')?.checked;
     const addBalcao = document.getElementById('wiz-add-balcao')?.checked;
-    for (let i = 1; i <= qtd; i++) {
-      socket.emit('add_mesa', 'Mesa ' + i);
-    }
-    if (addDelivery) socket.emit('add_mesa', 'Delivery');
-    if (addBalcao) socket.emit('add_mesa', 'Balcão');
+    const nomes = [];
+    for (let i = 1; i <= qtd; i++) nomes.push('Mesa ' + i);
+    if (addDelivery) nomes.push('Delivery');
+    if (addBalcao) nomes.push('Balcão');
+    if (nomes.length) socket.emit('setup_redefinir_mesas', nomes);
   }
 
   function _saveWizProdutos() {
+    const semExemplos = document.getElementById('wiz-sem-exemplos')?.checked;
+    if (semExemplos) socket.emit('setup_limpar_produtos_exemplo');
     _wizardProdutos.forEach(p => {
       if (p.nome && p.nome.trim()) {
         socket.emit('add_produto', {
@@ -3398,7 +3441,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     window.initPdvViewModeControls();
 
-    let categories = [...new Set(window.allProducts.map(p => p.categoria))];
+    const produtosVisiveis = window.allProducts.filter(p => p.visibilidade !== 'invisivel');
+    let categories = [...new Set(produtosVisiveis.map(p => p.categoria))];
 
     if (window.pdvConfigs && window.pdvConfigs.ordem_categorias) {
       try {
@@ -3431,9 +3475,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const query = (window.pdvSearchQuery || '').trim();
     let filteredProds = [];
     if (query !== '') {
-      filteredProds = window.FuzzySearch.filter(window.allProducts, query, (p) => [p.nome, p.categoria, String(p.codigo || ''), String(p.id || '')]);
+      filteredProds = window.FuzzySearch.filter(produtosVisiveis, query, (p) => [p.nome, p.categoria, String(p.codigo || ''), String(p.id || '')]);
     } else {
-      filteredProds = window.pdvCurrentCategory === 'Todas' ? window.allProducts : window.allProducts.filter(p => normCat(p.categoria) === normCat(window.pdvCurrentCategory));
+      filteredProds = window.pdvCurrentCategory === 'Todas' ? produtosVisiveis : produtosVisiveis.filter(p => normCat(p.categoria) === normCat(window.pdvCurrentCategory));
     }
 
     window.pdvFilteredProducts = filteredProds;

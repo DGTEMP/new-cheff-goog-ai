@@ -488,7 +488,7 @@ function reorderTabs() {
 
 socket.on('produtos_atualizados', (produtos) => {
   MENU = produtos
-    .filter(p => p.status !== 'inativo' && p.visibilidade !== 'caixa')
+    .filter(p => p.status !== 'inativo' && p.visibilidade !== 'caixa' && p.visibilidade !== 'invisivel')
     .map(p => ({
     id: p.id,
     originalId: p.originalId,

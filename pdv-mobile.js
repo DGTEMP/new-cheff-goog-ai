@@ -591,7 +591,7 @@ function renderProdutos() {
   const container = document.getElementById('produtos-container');
   if (!container) return;
 
-  let filtered = produtosData;
+  let filtered = produtosData.filter(p => p.visibilidade !== 'invisivel');
   if (activeCategoria !== 'all') {
     filtered = filtered.filter(p => p.categoria === activeCategoria);
   }

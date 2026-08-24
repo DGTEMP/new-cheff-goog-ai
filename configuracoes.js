@@ -2507,7 +2507,7 @@ socket.on('produtos_atualizados', (prods) => {
         ${p.status === 'inativo' ? '<span class="badge" style="background:#e74c3c; color:white; margin-left:5px;">Inativo</span>' : ''}
       </td>
       <td style="padding: 10px;">
-        <span class="badge ${p.visibilidade === 'caixa' ? 'badge-blue' : (p.visibilidade === 'garcom' ? 'badge-purple' : 'badge-orange')}" style="font-size:11px;">${p.visibilidade === 'caixa' ? 'Só Caixa' : (p.visibilidade === 'garcom' ? 'Garçom' : 'Todos')}</span>
+        <span class="badge ${p.visibilidade === 'caixa' ? 'badge-blue' : (p.visibilidade === 'garcom' ? 'badge-purple' : (p.visibilidade === 'invisivel' ? 'badge-gray' : 'badge-orange'))}" style="font-size:11px;">${p.visibilidade === 'caixa' ? 'Só Caixa' : (p.visibilidade === 'garcom' ? 'Garçom' : (p.visibilidade === 'invisivel' ? '🧪 Ingrediente' : 'Todos'))}</span>
       </td>
       <td style="padding: 10px;">
         ${toggleRapido ? `<button onclick="window.toggleProdutoRapido(${p.id}, '${p.status || 'ativo'}')" style="color: ${p.status === 'inativo' ? '#22c55e' : '#f59e0b'}; border: none; background: none; cursor: pointer; margin-right: 8px; font-weight: bold; font-size: 13px;" title="${p.status === 'inativo' ? 'Ativar produto' : 'Desativar produto'}"><i class="ph ph-toggle-${p.status === 'inativo' ? 'right' : 'left'}"></i> ${p.status === 'inativo' ? 'Ativar' : 'Desativar'}</button>` : ''}
@@ -7559,7 +7559,9 @@ window.abrirModalMontavel = function(montavel) {
   fetch('/api/config/produtos', { headers: { 'Authorization': 'Bearer ' + token } })
     .then(r => r.json())
     .then(produtos => {
-      prodSel.innerHTML = '<option value="">Selecione o produto...</option>' + produtos.map(p =>
+      _montavelProdutosCache = produtos || [];
+      const vendaveis = _montavelProdutosCache.filter(p => p.visibilidade !== 'invisivel');
+      prodSel.innerHTML = '<option value="">Selecione o produto...</option>' + vendaveis.map(p =>
         '<option value="' + p.id + '" ' + (montavel && montavel.produto_id == p.id ? 'selected' : '') + '>' + (p.emoji || '') + ' ' + escHtml(p.nome) + ' (R$ ' + Number(p.preco).toFixed(2).replace('.', ',') + ')</option>'
       ).join('');
     });
@@ -7573,7 +7575,7 @@ window.abrirModalMontavel = function(montavel) {
           obrigatoria: c.obrigatoria,
           min_escolhas: c.min_escolhas || 0,
           max_escolhas: c.max_escolhas || 1,
-          opcoes: (c.opcoes || []).map(o => ({ nome: o.nome, preco: o.preco || 0, ativo: o.ativo !== 0 }))
+          opcoes: (c.opcoes || []).map(o => ({ nome: o.nome, preco: o.preco || 0, ativo: o.ativo !== 0, produto_id: o.produto_id || null }))
         }));
         window.renderMontavelCats();
       });
@@ -7600,17 +7602,61 @@ window.excluirMontavel = function(id) {
     .then(() => { window.initAdminMontaveis(); showToast('Item montável excluído!', 'success'); });
 };
 
+let _montavelProdutosCache = [];
+
+function _montavelOpcoesProdutoHtml(ci, oi, opt) {
+  const prods = _montavelProdutosCache || [];
+  const ingredientes = prods.filter(p => p.visibilidade === 'invisivel');
+  const outros = prods.filter(p => p.visibilidade !== 'invisivel');
+  let html = '<select onchange="window.montavelVincularProduto(' + ci + ',' + oi + ',this.value)" style="flex:1.4; padding:6px 8px; border:1px solid #e2e8f0; border-radius:6px; font-size:12px; background:white; min-width:0;">';
+  html += '<option value="">— Opção livre (digitar) —</option>';
+  if (ingredientes.length) {
+    html += '<optgroup label="🧪 Ingredientes internos">';
+    ingredientes.forEach(p => {
+      html += '<option value="' + p.id + '" ' + (opt.produto_id == p.id ? 'selected' : '') + '>' + escHtml((p.emoji || '🧪') + ' ' + p.nome + ' (R$ ' + Number(p.preco).toFixed(2).replace('.', ',') + ')') + '</option>';
+    });
+    html += '</optgroup>';
+  }
+  if (outros.length) {
+    html += '<optgroup label="📋 Outros produtos">';
+    outros.forEach(p => {
+      html += '<option value="' + p.id + '" ' + (opt.produto_id == p.id ? 'selected' : '') + '>' + escHtml((p.emoji || '') + ' ' + p.nome + ' (R$ ' + Number(p.preco).toFixed(2).replace('.', ',') + ')') + '</option>';
+    });
+    html += '</optgroup>';
+  }
+  html += '</select>';
+  return html;
+}
+
+window.montavelVincularProduto = function(ci, oi, produtoId) {
+  const opt = _montavelCatsTemp[ci] && _montavelCatsTemp[ci].opcoes[oi];
+  if (!opt) return;
+  const pid = parseInt(produtoId) || null;
+  opt.produto_id = pid;
+  if (pid) {
+    const p = (_montavelProdutosCache || []).find(x => x.id === pid);
+    if (p) {
+      opt.nome = p.nome;
+      opt.preco = Number(p.preco) || 0;
+      showToast('Opção vinculada a "' + p.nome + '" — nome e preço seguem o produto automaticamente.', 'info');
+    }
+  }
+  window.renderMontavelCats();
+};
+
 window.renderMontavelCats = function() {
   const list = document.getElementById('montavel-categorias-list');
   if (!list) return;
   list.innerHTML = _montavelCatsTemp.map((cat, ci) => {
-    const optsHtml = (cat.opcoes || []).map((opt, oi) =>
-      '<div style="display:flex; gap:6px; align-items:center; padding:4px 0; border-bottom:1px solid #f1f5f9;">' +
-      '<input type="text" value="' + escHtml(opt.nome) + '" onchange="_montavelCatsTemp[' + ci + '].opcoes[' + oi + '].nome=this.value" placeholder="Nome da opção" style="flex:1; padding:6px 8px; border:1px solid #e2e8f0; border-radius:6px; font-size:12px;">' +
-      '<input type="number" step="0.01" min="0" value="' + (opt.preco || 0) + '" onchange="_montavelCatsTemp[' + ci + '].opcoes[' + oi + '].preco=parseFloat(this.value)||0" placeholder="+R$" style="width:80px; padding:6px 8px; border:1px solid #e2e8f0; border-radius:6px; font-size:12px;">' +
-      '<button onclick="_montavelCatsTemp[' + ci + '].opcoes.splice(' + oi + ',1);window.renderMontavelCats()" style="background:none; border:none; color:#dc2626; cursor:pointer; font-size:14px; padding:0 4px;">&times;</button>' +
-      '</div>'
-    ).join('');
+    const optsHtml = (cat.opcoes || []).map((opt, oi) => {
+      const vinculado = !!opt.produto_id;
+      return '<div style="display:flex; gap:6px; align-items:center; padding:4px 0; border-bottom:1px solid #f1f5f9;">' +
+        _montavelOpcoesProdutoHtml(ci, oi, opt) +
+        '<input type="text" value="' + escHtml(opt.nome) + '" onchange="_montavelCatsTemp[' + ci + '].opcoes[' + oi + '].nome=this.value;_montavelCatsTemp[' + ci + '].opcoes[' + oi + '].produto_id=null"' + (vinculado ? ' disabled title="Nome vem do produto vinculado"' : '') + ' placeholder="Nome da opção" style="flex:1; padding:6px 8px; border:1px solid #e2e8f0; border-radius:6px; font-size:12px;' + (vinculado ? ' background:#f1f5f9; color:#64748b;' : '') + '">' +
+        '<input type="number" step="0.01" min="0" value="' + (opt.preco || 0) + '" onchange="_montavelCatsTemp[' + ci + '].opcoes[' + oi + '].preco=parseFloat(this.value)||0"' + (vinculado ? ' disabled title="Preço vem do produto vinculado"' : '') + ' placeholder="+R$" style="width:80px; padding:6px 8px; border:1px solid #e2e8f0; border-radius:6px; font-size:12px;' + (vinculado ? ' background:#f1f5f9; color:#64748b;' : '') + '">' +
+        '<button onclick="_montavelCatsTemp[' + ci + '].opcoes.splice(' + oi + ',1);window.renderMontavelCats()" style="background:none; border:none; color:#dc2626; cursor:pointer; font-size:14px; padding:0 4px;">&times;</button>' +
+        '</div>';
+    }).join('');
 
     return '<div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px; margin-bottom:8px;">' +
       '<div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">' +
@@ -7621,7 +7667,7 @@ window.renderMontavelCats = function() {
       '<button onclick="_montavelCatsTemp.splice(' + ci + ',1);window.renderMontavelCats()" style="background:#fef2f2; color:#dc2626; border:none; padding:4px 8px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer;">Remover</button>' +
       '</div>' +
       '<div style="padding-left:12px;">' + optsHtml + '</div>' +
-      '<button onclick="_montavelCatsTemp[' + ci + '].opcoes.push({nome:\'\',preco:0,ativo:1});window.renderMontavelCats()" style="background:none; border:1px dashed #8b5cf6; color:#8b5cf6; padding:4px 10px; border-radius:6px; font-size:11px; font-weight:600; cursor:pointer; margin-top:4px;">+ Adicionar Opção</button>' +
+      '<button onclick="_montavelCatsTemp[' + ci + '].opcoes.push({nome:\'\',preco:0,ativo:1,produto_id:null});window.renderMontavelCats()" style="background:none; border:1px dashed #8b5cf6; color:#8b5cf6; padding:4px 10px; border-radius:6px; font-size:11px; font-weight:600; cursor:pointer; margin-top:4px;">+ Adicionar Opção</button>' +
       '</div>';
   }).join('');
 };

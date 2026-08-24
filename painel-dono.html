@@ -953,6 +953,9 @@
       </div>
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
+      <button class="btn-reportar-problema" onclick="abrirTrocarRestaurante()" title="Alternar entre seus restaurantes" style="background:rgba(255,255,255,0.12);">
+        <i class="ph-bold ph-buildings"></i> <span id="btn-rest-atual">Restaurante</span>
+      </button>
       <button class="btn-reportar-problema" onclick="abrirModalRelato()" title="Reportar problema ao suporte">
         <i class="ph-bold ph-lifebuoy"></i> <span>Reportar Problema</span>
       </button>
@@ -961,6 +964,98 @@
       </button>
     </div>
   </header>
+
+  <!-- Sheet: Trocar Restaurante (dono de rede) -->
+  <style>
+    .troca-overlay { position:fixed; inset:0; z-index:9999; background:rgba(15,23,42,0.45); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); display:none; align-items:flex-end; justify-content:center; opacity:0; transition:opacity 0.28s cubic-bezier(0.32,0.72,0,1); }
+    .troca-overlay.aberto { display:flex; } .troca-overlay.visivel { opacity:1; }
+    @media (min-width:640px){ .troca-overlay{ align-items:center; } }
+    .troca-sheet { width:100%; max-width:420px; max-height:80vh; overflow-y:auto; background:#ffffff; border-radius:24px 24px 0 0; padding:12px 20px 24px 20px; transform:translateY(100%); transition:transform 0.38s cubic-bezier(0.32,0.72,0,1); box-shadow:0 -12px 48px rgba(0,0,0,0.18); overscroll-behavior:contain; -webkit-overflow-scrolling:touch; }
+    @media (min-width:640px){ .troca-sheet{ border-radius:24px; } }
+    .troca-overlay.visivel .troca-sheet { transform:translateY(0); }
+    .troca-grabber { width:40px; height:5px; border-radius:3px; background:#e2e8f0; margin:4px auto 14px auto; }
+    .troca-card { display:flex; align-items:center; gap:13px; width:100%; background:#f8fafc; border:2px solid transparent; border-radius:16px; padding:13px 14px; margin-bottom:10px; cursor:pointer; text-align:left; transition:transform 0.12s ease, border-color 0.15s ease, background 0.15s ease; -webkit-tap-highlight-color:transparent; }
+    .troca-card:hover { border-color:#fec7ad; background:#fff7f3; }
+    .troca-card:active { transform:scale(0.97); }
+    .troca-avatar { width:44px; height:44px; flex-shrink:0; border-radius:13px; display:flex; align-items:center; justify-content:center; color:white; font-weight:700; font-size:18px; background:linear-gradient(135deg,#fc4b15,#ffa726); box-shadow:0 4px 12px rgba(252,75,21,0.25); }
+    .troca-badge-atual { background:#dcfce7; color:#166534; font-size:10.5px; font-weight:800; padding:2px 9px; border-radius:10px; margin-left:auto; flex-shrink:0; white-space:nowrap; }
+  </style>
+  <div class="troca-overlay" id="troca-overlay" onclick="if(event.target===this) fecharTrocarRestaurante()">
+    <div class="troca-sheet" role="dialog" aria-modal="true" aria-label="Trocar restaurante">
+      <div class="troca-grabber"></div>
+      <h2 style="font-size:20px; font-weight:800; color:#1e293b; margin-bottom:4px;">Trocar de restaurante</h2>
+      <p style="color:#64748b; font-size:13.5px; margin-bottom:16px;">Escolha qual estabelecimento você quer gerenciar agora.</p>
+      <div id="troca-lista"></div>
+      <button onclick="fecharTrocarRestaurante()" style="width:100%; margin-top:4px; padding:12px; background:none; border:none; color:#94a3b8; font-size:13px; font-weight:600; cursor:pointer;">Cancelar</button>
+    </div>
+  </div>
+  <script>
+    function abrirTrocarRestaurante() {
+      const overlay = document.getElementById('troca-overlay');
+      fetch('/api/auth/minha-rede', { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('chef_token') } })
+        .then(r => r.json())
+        .then(d => {
+          const rede = (d && d.rede) || [];
+          if (!rede.length || rede.length < 2) { alert('Você ainda administra apenas este restaurante.'); return; }
+          document.getElementById('troca-lista').innerHTML = rede.map(r => {
+            const ehAtual = String(r.id) === String(d.atual);
+            return `<button type="button" class="troca-card" onclick="escolherTrocaRede(${r.id})">
+              <span class="troca-avatar">${String(r.nome || '?').trim().charAt(0).toUpperCase()}</span>
+              <span style="flex:1; min-width:0;">
+                <strong style="display:block; color:#1e293b; font-size:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${r.nome || ('Restaurante #' + r.id)}</strong>
+                ${!r.ativo ? '<span style="color:#94a3b8; font-size:12px;">Inativo</span>' : ''}
+              </span>
+              ${ehAtual ? '<span class="troca-badge-atual">ATUAL</span>' : ''}
+            </button>`;
+          }).join('');
+          overlay.classList.add('aberto');
+          requestAnimationFrame(() => requestAnimationFrame(() => overlay.classList.add('visivel')));
+          try { if (navigator.vibrate) navigator.vibrate(8); } catch (e) {}
+        })
+        .catch(() => alert('Erro ao carregar seus restaurantes.'));
+    }
+    function fecharTrocarRestaurante() {
+      const overlay = document.getElementById('troca-overlay');
+      if (!overlay) return;
+      overlay.classList.remove('visivel');
+      setTimeout(() => overlay.classList.remove('aberto'), 380);
+    }
+    function escolherTrocaRede(rid) {
+      try { if (navigator.vibrate) navigator.vibrate(10); } catch (e) {}
+      fetch('/api/auth/trocar-restaurante', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('chef_token') },
+        body: JSON.stringify({ restaurante_id: rid })
+      })
+        .then(r => r.json())
+        .then(d => {
+          if (d && d.success) {
+            localStorage.setItem('chef_token', d.token);
+            localStorage.setItem('restaurante_id', String(d.restaurante_id));
+            localStorage.setItem('cc_ultimo_restaurante', String(d.restaurante_id));
+            window.location.reload();
+          } else {
+            alert((d && d.error) || 'Não foi possível alternar.');
+            fecharTrocarRestaurante();
+          }
+        })
+        .catch(() => { alert('Erro de conexão.'); fecharTrocarRestaurante(); });
+    }
+    document.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Escape' && document.getElementById('troca-overlay')?.classList.contains('aberto')) {
+        ev.preventDefault(); fecharTrocarRestaurante();
+      }
+    });
+    (function () {
+      fetch('/api/auth/minha-rede', { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('chef_token') } })
+        .then(r => r.json())
+        .then(d => {
+          const atual = ((d || {}).rede || []).find(x => String(x.id) === String(d.atual));
+          if (atual) document.getElementById('btn-rest-atual').textContent = atual.nome;
+        })
+        .catch(() => {});
+    })();
+  </script>
 
   <!-- Modal: Reportar Problema -->
   <div id="modal-relato" class="modal-overlay" style="display:none;">
