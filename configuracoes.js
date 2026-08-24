@@ -3913,6 +3913,69 @@ function desenharMapaParceiros() {
   }
 })();
 
+// --- FUNÇÕES DO SISTEMA (tenant): status + solicitação de ativação ---
+async function carregarFuncoesSistema() {
+  const box = document.getElementById('funcoes-lista');
+  if (!box) return;
+  try {
+    const r = await fetch('/api/funcoes', { headers: authHeadersCfg() });
+    const data = await r.json();
+    if (!data.success) { box.innerHTML = '<div style="color:#ef4444;font-size:13px;">Erro ao carregar funções.</div>'; return; }
+    const defs = data.features || [];
+    if (!defs.length) { box.innerHTML = '<div style="color:#888;font-size:13px;">Nenhuma função configurável.</div>'; return; }
+    let html = '';
+    defs.forEach((f) => {
+      const statusBadge = f.enabled
+        ? '<span style="font-size:11px;font-weight:800;color:#16a34a;background:#dcfce7;border-radius:999px;padding:3px 10px;">ATIVA</span>'
+        : '<span style="font-size:11px;font-weight:800;color:#b45309;background:#fef3c7;border-radius:999px;padding:3px 10px;">INATIVA</span>';
+      const overrideTag = f.override ? ' <span title="Configuração manual do super admin" style="color:#f59e0b;">★</span>' : '';
+      let solHtml = '';
+      if (f.solicitacao && f.solicitacao.ultimo === 'pendente') {
+        solHtml = '<span style="font-size:11px;color:#7c3aed;font-weight:700;"><i class="ph ph-hourglass"></i> Solicitação em análise</span>';
+      } else if (f.solicitacao && f.solicitacao.ultimo === 'aprovada') {
+        solHtml = '<span style="font-size:11px;color:#16a34a;font-weight:700;">✓ Aprovada</span>';
+      }
+      const btnSolicitar = (!f.enabled && (!f.solicitacao || f.solicitacao.ultimo !== 'pendente'))
+        ? `<button onclick="solicitarFuncao('${f.chave}')" style="background:#7c3aed;color:white;border:none;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;">
+             <i class="ph ph-paper-plane-tilt"></i> Solicitar ativação</button>`
+        : '';
+      html += `<div style="background:#ffffff; border:1px solid #e5e7eb; border-radius:10px; padding:12px 14px; display:flex; justify-content:space-between; gap:12px; align-items:center; flex-wrap:wrap;">
+        <div style="min-width:240px; flex:1;">
+          <div style="font-weight:700; color:#1e293b; font-size:14px;">${f.nome}${overrideTag}</div>
+          <div style="font-size:12px; color:#64748b; margin-top:3px; line-height:1.45;">${f.desc}</div>
+          ${solHtml}
+        </div>
+        <div style="display:flex; gap:10px; align-items:center;">${statusBadge} ${btnSolicitar}</div>
+      </div>`;
+    });
+    box.innerHTML = html;
+  } catch (e) {
+    box.innerHTML = '<div style="color:#ef4444;font-size:13px;">Falha de conexão.</div>';
+  }
+}
+
+window.solicitarFuncao = async (feature) => {
+  const msg = prompt('Mensagem para o super admin (opcional):', '') || '';
+  try {
+    const r = await fetch('/api/funcoes/solicitar', {
+      method: 'POST',
+      headers: authHeadersCfg(),
+      body: JSON.stringify({ feature, mensagem: msg })
+    });
+    const data = await r.json();
+    if (data.success) {
+      alert(data.mensagem || 'Solicitação enviada!');
+      carregarFuncoesSistema();
+    } else {
+      alert(data.error || 'Erro ao enviar solicitação.');
+    }
+  } catch (e) { alert('Falha de conexão.'); }
+};
+
+document.querySelectorAll('.admin-tab-btn[data-tab="funcoes"]').forEach(function(btnFuncoes) {
+  btnFuncoes.addEventListener('click', function() { setTimeout(carregarFuncoesSistema, 200); });
+});
+
 // --- AVALIAÇÕES (painel do dono) ---
 async function carregarAvaliacoesAdmin() {
   try {
