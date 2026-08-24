@@ -1,0 +1,6 @@
+{
+  "$schema": "https://app.kilo.ai/config.json",
+  "commit_message": {
+    "prompt": "pode pensar no idioma que quiser, mas quando for interagir comigo ou me explicar o que fez me responda sempre em português do Brasil"
+  }
+}
