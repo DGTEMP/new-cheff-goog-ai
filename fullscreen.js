@@ -24,18 +24,16 @@
   // Apply immediately on load (before DOMContentLoaded to avoid flash)
   if (isDark) document.documentElement.classList.add('dark-mode-pre');
 
-  // ─── ROTATION STATE ────────────────────────────────────────────────────────
-  // A rotação é efêmera (só enquanto o usuário pediu). Nada é persistido:
-  // a orientação volta a seguir o monitor/dispositivo ao reabrir ou trocar
-  // de página. Sem fallback de transform CSS — ele quebrava o layout.
-  var isRotated = false;
+  // ─── ROTAÇÃO REMOVIDA ──────────────────────────────────────────────────────
+  // O botão de rotação foi removido de TODAS as telas. A orientação agora é
+  // controlada exclusivamente no totem.html, via comando remoto do dono
+  // (socket 'totem_rotacionar' tratado dentro do próprio totem.js).
 
   // Na tela principal do CAIXA (index.html) a barra deve ter SOMENTE o botão
-  // de tela cheia — sem modo noturno e sem rotação.
+  // de tela cheia — sem modo noturno.
   var IS_CAIXA_PAGE = location.pathname === '/' || /\/index\.html$/i.test(location.pathname);
 
   // SVG icons
-  var SVG_ROTATE = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6"/><path d="M2.5 12A10 10 0 0 1 18.8 4.3l2.7 3.7"/><path d="M2.5 22v-6h6"/><path d="M21.5 12A10 10 0 0 1 5.2 19.7l-2.7-3.7"/></svg>';
   var SVG_FS_IN  = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>';
   var SVG_FS_OUT = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"></path></svg>';
 
@@ -44,12 +42,6 @@
   btn.id = 'btn-global-fullscreen';
   btn.innerHTML = SVG_FS_IN;
   btn.title = 'Tela Cheia';
-
-  // ─── ROTATE BUTTON ──────────────────────────────────────────────────────────
-  var rotBtn = document.createElement('button');
-  rotBtn.id = 'btn-global-rotate';
-  rotBtn.innerHTML = SVG_ROTATE;
-  rotBtn.title = 'Rotacionar Tela';
 
   // ─── DARK MODE BUTTON ────────────────────────────────────────────────────────
   var SVG_MOON = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
@@ -78,7 +70,6 @@
   }
 
   applyButtonStyle(btn);
-  applyButtonStyle(rotBtn);
   applyButtonStyle(darkBtn);
 
   // ─── DARK MODE LOGIC ─────────────────────────────────────────────────────────
