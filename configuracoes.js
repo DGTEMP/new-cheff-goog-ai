@@ -7,6 +7,36 @@ document.addEventListener('DOMContentLoaded', () => {
       window.location.reload();
     });
   }
+
+  // ─── TEMA DA TELA DO CAIXA (clássico v1 / modular v1.1) ──
+  const temaSelect = document.getElementById('select-caixa-tema');
+  if (temaSelect) {
+    fetch('/api/config', { headers: authHeaders() })
+      .then(r => r.json())
+      .then(c => {
+        const tema = (c && c.caixa_tema) || localStorage.getItem('chef_caixa_tema') || 'classico';
+        temaSelect.value = tema === 'v11' ? 'v11' : 'classico';
+      })
+      .catch(() => {
+        temaSelect.value = localStorage.getItem('chef_caixa_tema') === 'v11' ? 'v11' : 'classico';
+      });
+
+    temaSelect.addEventListener('change', (e) => {
+      const novo = e.target.value === 'v11' ? 'v11' : 'classico';
+      try { localStorage.setItem('chef_caixa_tema', novo); } catch (err) { }
+      socket.emit('save_restaurante_config', { caixa_tema: novo });
+      fetch('/api/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(typeof authHeaders === 'function' ? authHeaders() : {}) },
+        body: JSON.stringify({ caixa_tema: novo })
+      }).catch(() => { });
+      window.showToast(
+        novo === 'v11'
+          ? 'Tema v1.1 ativado! A tela do caixa abrirá o painel modular.'
+          : 'Tema clássico restaurado para a tela do caixa.',
+        'success');
+    });
+  }
 });
 
 /* Toast notification - non-blocking replacement for alert() */

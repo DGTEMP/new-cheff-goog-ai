@@ -393,27 +393,59 @@ module.exports = function(socket, io, db, helpers) {
       db.all(`SELECT * FROM pedidos WHERE (localName = ? OR mesa_grupo = ?) AND status != 'Finalizado'`, [mesaName, mesaName], (err, rows) => {
         if (err || !rows) rows = [];
 
-        let consumoBruto = 0;
-        let jaPago = 0;
+        // Espelha EXATAMENTE a fórmula do frontend (calcRestante):
+        // pendente = itens ainda não marcados 'Pago'; abatem apenas os
+        // pagamentos parciais gerais (negativas SEM 'Comanda' no nome —
+        // as de comanda já correspondem aos itens que foram marcados Pago).
+        let pendenteBruto = 0;
+        let jaPagoSemComanda = 0;
+        const idsAbertosMesa = new Set();
         rows.forEach(r => {
           const v = parseFloat(String(r.total).replace(',', '.')) || 0;
+          const nomePg = String(r.productName || '');
           if (v >= 0) {
-            consumoBruto += v;
-          } else if (r.productName && (String(r.productName).indexOf('Pgto Parcial') !== -1 || String(r.productName).indexOf('Pagamento') !== -1)) {
-            jaPago += Math.abs(v);
+            if (r.status !== 'Pago') {
+              pendenteBruto += v;
+              idsAbertosMesa.add(r.id);
+            }
+          } else if (nomePg.indexOf('Pgto Parcial') !== -1 || nomePg.indexOf('Pagamento') !== -1) {
+            if (nomePg.indexOf('Comanda') === -1) jaPagoSemComanda += Math.abs(v);
           }
         });
 
         getTaxaServico(taxaPct => {
         const aplicarTaxa = comTaxa !== false;
-        const totalComTaxa = aplicarTaxa ? (consumoBruto * (1 + taxaPct / 100)) : consumoBruto;
-        const descontoAplicado = Math.max(0, Math.min(parseFloat(desconto) || 0, totalComTaxa));
-        const saldoRestante = Math.max(0, totalComTaxa - descontoAplicado - jaPago);
+        const taxaMult = aplicarTaxa ? (1 + taxaPct / 100) : 1.0;
+        const descontoAplicado = Math.max(0, Math.min(parseFloat(desconto) || 0, pendenteBruto * taxaMult));
+        const saldoRestante = Math.max(0, pendenteBruto * taxaMult - descontoAplicado - jaPagoSemComanda);
 
         if (saldoRestante <= 0.01) {
           activePaymentLocks.delete(lockKey);
           socket.emit('erro_pagamento', 'A conta desta mesa já está totalmente paga!');
           return;
+        }
+
+        // Segurança: só aceita itens que pertencem a esta mesa e estão abertos
+        let validIds = null;
+        if (Array.isArray(itemIds) && itemIds.length > 0) {
+          validIds = itemIds.filter(id => idsAbertosMesa.has(id));
+        }
+
+        if (validIds && validIds.length > 0) {
+          // Segurança do caixa: o recebido não pode ser MENOR que a soma dos
+          // itens selecionados (evita quitar itens cobrando menos).
+          let esperadoBruto = 0;
+          validIds.forEach(id => {
+            const r = rows.find(x => x.id === id);
+            if (r) esperadoBruto += parseFloat(String(r.total).replace(',', '.')) || 0;
+          });
+          const esperado = esperadoBruto * taxaMult;
+          if (metodo !== 'Dinheiro' && valor < esperado - 0.06) {
+            activePaymentLocks.delete(lockKey);
+            socket.emit('erro_pagamento',
+              `Valor recebido (R$ ${Number(valor).toFixed(2).replace('.', ',')}) é menor que o total dos itens selecionados (R$ ${esperado.toFixed(2).replace('.', ',')}). Pagamento bloqueado.`);
+            return;
+          }
         }
 
         if (metodo !== 'Dinheiro' && valor > saldoRestante + 0.05) {
@@ -456,9 +488,9 @@ module.exports = function(socket, io, db, helpers) {
               );
             }
             
-            if (Array.isArray(itemIds) && itemIds.length > 0) {
-              const placeholders = itemIds.map(() => '?').join(',');
-              db.run(`UPDATE pedidos SET status = 'Pago', turno_id = ? WHERE id IN (${placeholders})`, [turno.id, ...itemIds], () => {
+            if (validIds && validIds.length > 0) {
+              const placeholders = validIds.map(() => '?').join(',');
+              db.run(`UPDATE pedidos SET status = 'Pago', turno_id = ? WHERE id IN (${placeholders})`, [turno.id, ...validIds], () => {
                 broadcastPedidos();
               });
             } else if (comandaName && String(comandaName).trim()) {
@@ -536,7 +568,7 @@ module.exports = function(socket, io, db, helpers) {
     });
   });
 
-  socket.on('finalizar_mesa', ({ mesaName, payments, totalValue, emitirNfce, cpfCnpj, clienteNome, customNfceConfig }) => {
+  socket.on('finalizar_mesa', ({ mesaName, payments, totalValue, emitirNfce, cpfCnpj, clienteNome, customNfceConfig, desconto }) => {
     const closingLockKey = `__closing__${mesaName}`;
     if (activePaymentLocks.has(closingLockKey)) {
       socket.emit('erro_caixa', 'Esta mesa está sendo fechada por outro operador. Aguarde.');
@@ -572,7 +604,11 @@ module.exports = function(socket, io, db, helpers) {
 
         getTaxaServico(taxaPct => {
         const taxaMult = consumoBrutoTotal > 0 ? (1 + taxaPct / 100) : 1.0;
-        const pendenteComTaxa = Math.max(0, consumoBrutoTotal * taxaMult - pagoParcialTotal);
+        // Desconto concedido no checkout abate da obrigação final (o frontend
+        // já cobrou os parciais com esse desconto embutido — sem isso o
+        // fechamento trava ou grava valores inconsistentes).
+        const descontoFinal = Math.max(0, Math.min(parseFloat(desconto) || 0, consumoBrutoTotal * taxaMult));
+        const pendenteComTaxa = Math.max(0, consumoBrutoTotal * taxaMult - pagoParcialTotal - descontoFinal);
 
         const pago = (payments || []).reduce((acc, curr) => acc + (curr.valor || 0), 0);
         if (pago < pendenteComTaxa - 0.05 && pendenteComTaxa > 0) {

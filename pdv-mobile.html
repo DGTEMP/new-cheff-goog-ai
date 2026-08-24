@@ -35,6 +35,9 @@
       <span>Chef Mobile</span>
     </div>
     <div class="app-actions">
+      <button class="header-btn" title="QR do Ponto"
+        onclick="window.abrirZoomQrPontoMobile && window.abrirZoomQrPontoMobile()"><i
+          class="ph ph-qr-code"></i></button>
       <button class="header-btn"
         onclick="alert('Central de Notificações em breve! Aqui você receberá avisos como: Garçom chamado na mesa, novo delivery, etc.')"><i
           class="ph ph-bell"></i></button>
@@ -547,6 +550,26 @@
       border-radius: 10px;
     }
   </style>
+  <!-- MODAL AMPLIAR QR PONTO (MODO ESPERA: fica expandido até a 1ª interação) -->
+  <div id="modal-zoom-qr-ponto"
+    style="display: none; z-index: 100000; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); backdrop-filter: blur(4px); justify-content: center; align-items: center;">
+    <div
+      style="background: var(--bg-card); padding: 24px; border-radius: 16px; display: flex; flex-direction: column; align-items: center; position: relative; max-width: 90%; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.4);">
+      <button onclick="window.chefFecharEspera && window.chefFecharEspera('modal-zoom-qr-ponto')"
+        style="position: absolute; top: 12px; right: 12px; background: var(--bg-secondary); border: none; font-size: 24px; cursor: pointer; color: var(--text-secondary); width: 36px; height: 36px; border-radius: 50%;">&times;</button>
+      <h3
+        style="margin: 0 0 14px 0; color: #fc4b15; font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+        <i class="ph ph-qr-code" style="font-size: 24px;"></i> Área do Colaborador
+      </h3>
+      <img id="qr-ponto-img-zoomed" src="" alt="QR Ponto Ampliado"
+        style="width: 300px; height: 300px; max-width: 80vw; border-radius: 12px; margin-bottom: 14px; border: 1px solid var(--border-color); padding: 10px; background: var(--bg-card); object-fit: contain;">
+      <span style="font-size: 13.5px; color: var(--text-secondary); font-weight: 500;">Escaneie o QR Code com o celular para registrar
+        o ponto</span>
+      <span style="font-size: 11.5px; color: var(--text-muted); margin-top: 8px; opacity: 0.75;">Toque na tela para
+        voltar</span>
+    </div>
+  </div>
+
   <script src="/fullscreen.js"></script>
 
 </body>

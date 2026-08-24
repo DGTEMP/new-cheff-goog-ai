@@ -263,4 +263,80 @@
     document.addEventListener('click', autoFullscreen, {capture: true, once: true});
     document.addEventListener('touchstart', autoFullscreen, {capture: true, once: true});
   }
+
+  // ─── MODO ESPERA: modal fica expandido até a primeira interação ────────────
+  // Usado pelo Zoom do QR do Ponto nas telas de caixa. Enquanto ninguém
+  // interage com a tela, o modal permanece visível/expandido ("em espera").
+  // No primeiro toque, clique, tecla, scroll ou 1px de movimento do
+  // ponteiro, ele recolhe na hora e libera a tela.
+  var _espera = { ativo: false, modalId: null, x: 0, y: 0, origemOk: false, timer: null };
+
+  function _esperaModal() {
+    return document.getElementById(_espera.modalId);
+  }
+
+  function _esperaDesarmar() {
+    _espera.ativo = false;
+    clearTimeout(_espera.timer);
+    window.removeEventListener('pointerdown', _esperaInterao, true);
+    window.removeEventListener('touchstart', _esperaInterao, true);
+    window.removeEventListener('keydown', _esperaInterao, true);
+    window.removeEventListener('wheel', _esperaInterao, true);
+    window.removeEventListener('pointermove', _esperaMove, true);
+    window.removeEventListener('mousemove', _esperaMove, true);
+  }
+
+  function _esperaLiberar(e) {
+    var modal = _esperaModal();
+    _esperaDesarmar();
+    if (!modal || modal.style.display === 'none') return;
+    modal.style.display = 'none';
+    // Engole o clique/tap residual para não acionar nada por baixo do modal
+    var engolir = function(ev) { ev.stopPropagation(); if (ev.cancelable) ev.preventDefault(); };
+    window.addEventListener('click', engolir, { capture: true, once: true });
+    setTimeout(function() { window.removeEventListener('click', engolir, true); }, 350);
+    if (e && e.type === 'keydown' && e.cancelable) e.preventDefault();
+  }
+
+  function _esperaInterao(e) {
+    if (_espera.ativo) _esperaLiberar(e);
+  }
+
+  function _esperaMove(e) {
+    if (!_espera.ativo) return;
+    if (!_espera.origemOk) {
+      // Primeiro evento apenas define a posição de referência
+      _espera.x = e.clientX || 0;
+      _espera.y = e.clientY || 0;
+      _espera.origemOk = true;
+      return;
+    }
+    if (Math.abs((e.clientX || 0) - _espera.x) >= 1 || Math.abs((e.clientY || 0) - _espera.y) >= 1) {
+      _esperaLiberar(e);
+    }
+  }
+
+  // Fecha o modal em espera (usado também pelo botão X)
+  window.chefFecharEspera = function(modalId) {
+    _esperaDesarmar();
+    var modal = document.getElementById(modalId || _espera.modalId);
+    if (modal) modal.style.display = 'none';
+  };
+
+  // Ativa a espera no modal após um pequeno atraso (ignora o toque que abriu)
+  window.chefModoEsperaArmar = function(modalId, atrasoMs) {
+    _esperaDesarmar();
+    _espera.modalId = modalId;
+    _espera.origemOk = false;
+    _espera.timer = setTimeout(function() {
+      _espera.ativo = true;
+      var opts = { capture: true, passive: true };
+      window.addEventListener('pointerdown', _esperaInterao, opts);
+      window.addEventListener('touchstart', _esperaInterao, opts);
+      window.addEventListener('keydown', _esperaInterao, true);
+      window.addEventListener('wheel', _esperaInterao, opts);
+      window.addEventListener('pointermove', _esperaMove, opts);
+      window.addEventListener('mousemove', _esperaMove, opts);
+    }, atrasoMs || 400);
+  };
 })();

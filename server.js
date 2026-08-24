@@ -5127,6 +5127,10 @@ function broadcastPedidos() {
       db.all(`SELECT * FROM pedidos WHERE status NOT IN ('Finalizado','Cancelado') ORDER BY createdAt ASC`, [], (err, rows) => {
         if (!err) {
           const rowsAll = rows || [];
+          // CAIXA RECEBE TUDO (inclui itens 'Pago'/'Fracionado'): precisão total —
+          // itens quitados aparecem riscados na mesa e os totais batem com o backend.
+          io.emit('pedidos_caixa_atualizados', rowsAll);
+          io.emit('initial_data_caixa', rowsAll);
           const rowsAbertos = rowsAll.filter(r => r.status !== 'Pago' && r.status !== 'Fracionado');
           io.emit('pedidos_atualizados', rowsAbertos);
           io.emit('initial_data', rowsAbertos);

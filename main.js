@@ -1075,6 +1075,25 @@ socket.on('erro_pagamento', (msg) => {
 
 document.addEventListener('DOMContentLoaded', updateQrCode);
 
+/* ─── TEMA DA TELA DO CAIXA (clássico / modular v1.1) ──
+   Se o restaurante escolheu o painel v1.1 nas configurações,
+   a tela clássica redireciona automaticamente para /caixa-v11.html */
+(function () {
+  try {
+    const ehTelaCaixa = window.location.pathname === '/' || /\/index\.html$/i.test(window.location.pathname);
+    if (!ehTelaCaixa) return;
+    if (localStorage.getItem('chef_caixa_tema') === 'classico') return; // otimização
+    fetch('/api/config', { headers: authHeaders() })
+      .then(r => r.json())
+      .then(c => {
+        const tema = c && c.caixa_tema;
+        try { localStorage.setItem('chef_caixa_tema', tema === 'v11' ? 'v11' : 'classico'); } catch (e) { }
+        if (tema === 'v11') window.location.replace('/caixa-v11.html');
+      })
+      .catch(() => { });
+  } catch (e) { }
+})();
+
 let ordersData = [];
 
 window.onDropMesa = async (e, targetMesa) => {
@@ -2344,13 +2363,15 @@ function updateSummaryValue(id, value) {
 }
 
 // WebSocket Events
-socket.on('initial_data', (data) => {
+socket.on('initial_data_caixa', (data) => {
   socket.emit('get_mesas'); // Ensure we fetch mesas
   ordersData = data;
   renderOrders();
 });
 
-socket.on('pedidos_atualizados', (pedidos) => {
+// Feed completo do caixa: inclui itens 'Pago'/'Fracionado' (riscados na mesa)
+// para que os totais exibidos batam 100% com o cálculo do backend.
+socket.on('pedidos_caixa_atualizados', (pedidos) => {
   ordersData = pedidos;
   renderOrders();
 });
@@ -4464,6 +4485,8 @@ window.zoomQrPonto = function () {
   if (mainImg && zoomImg && modal) {
     zoomImg.src = mainImg.src;
     modal.style.display = 'flex';
+    // Modo espera: permanece expandido até o primeiro toque/clique/1px de mouse
+    if (window.chefModoEsperaArmar) window.chefModoEsperaArmar('modal-zoom-qr-ponto', 450);
   }
 };
 
@@ -6086,6 +6109,7 @@ window.checkoutModalConfirmarFechamento = () => {
     mesaName: window.mesaAtual.nome || window.mesaAtual.mesaName,
     payments: window.pagamentosParciais,
     totalValue: total,
+    desconto: window.descontoAdicional || 0,
     emitirNfce: emitirNfce,
     cpfCnpj: cpfCnpj,
     customNfceConfig: window.customNfceConfig,
@@ -6246,10 +6270,13 @@ window.finalizarComandaModal = function () {
   btns.forEach(b => b.style.pointerEvents = 'none');
 
   if (typeof socket !== 'undefined' && socket) {
+    const serviceCheckboxComanda = document.getElementById('taxa-servico');
     socket.emit('pagamento_parcial_valor', {
       mesaName: mesaName,
       valor: val,
       metodo: method,
+      comTaxa: serviceCheckboxComanda ? serviceCheckboxComanda.checked : true,
+      desconto: window.descontoAdicional || 0,
       comandaName: cName,
       itemIds: itemIds,
       userName: window.loggedInUser || 'Caixa'

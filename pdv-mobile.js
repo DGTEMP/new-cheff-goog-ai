@@ -1026,3 +1026,32 @@ window.voltarSelecaoSetor = () => {
   filaSectorSelecionado = null;
   mostrarSelecaoSetor();
 };
+
+// ─── QR DO PONTO (MODO ESPERA) ──────────────────────────────────────────────
+// O servidor envia 'update_ponto_token' ao conectar. O modal fica expandido
+// até a primeira interação (toque/clique/1px de mouse) — lógica no fullscreen.js
+let _pontoUrlMobile = '';
+
+function renderQrPontoMobile() {
+  const img = document.getElementById('qr-ponto-img-zoomed');
+  if (!img) return;
+  if (!_pontoUrlMobile) {
+    img.alt = 'Aguardando QR do ponto...';
+    return;
+  }
+  img.alt = 'QR Ponto Ampliado';
+  img.src = (window.location.origin || '') + '/api/qr?size=340&data=' + encodeURIComponent(_pontoUrlMobile);
+}
+
+socket.on('update_ponto_token', (data) => {
+  _pontoUrlMobile = data && data.url ? data.url : '';
+  renderQrPontoMobile();
+});
+
+window.abrirZoomQrPontoMobile = function () {
+  const modal = document.getElementById('modal-zoom-qr-ponto');
+  if (!modal) return;
+  renderQrPontoMobile();
+  modal.style.display = 'flex';
+  if (window.chefModoEsperaArmar) window.chefModoEsperaArmar('modal-zoom-qr-ponto', 500);
+};
