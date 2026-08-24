@@ -148,6 +148,7 @@ const tenantContext = new AsyncLocalStorage();
 const fsSync = require('fs');
 const path = require('path');
 const fs = require('fs');
+const masterDb = new sqlite3.Database(path.join(__dirname, 'master.sqlite'));
 const multer = require('multer');
 const nfceService = require('./nfce-service');
 const ifoodApi = require('./ifood-integration');
@@ -3574,7 +3575,6 @@ function parseNfceHtml(html) {
 // Configure SQLite Database
 
 // --- MULTI-TENANT PROXY DB ---
-const masterDb = new sqlite3.Database(path.join(__dirname, 'master.sqlite'));
 masterDb.serialize(async () => {
   masterDb.run(`CREATE TABLE IF NOT EXISTS ifood_app_config (chave TEXT PRIMARY KEY, valor TEXT)`);
   masterDb.run(`CREATE TABLE IF NOT EXISTS restaurantes (
