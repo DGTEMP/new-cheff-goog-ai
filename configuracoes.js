@@ -982,6 +982,19 @@ socket.on('connected_devices', (devices) => {
     return;
   }
 
+  const TIPOS_DISPOSITIVO = ['', 'Caixa', 'PDV', 'Totem', 'Garçom', 'Cozinha', 'Recepção'];
+  window.salvarApelidoDispositivo = function (serial, apelidoAtual, tipoAtual) {
+    const apelido = prompt('Apelido para localizar este terminal facilmente\n(ex.: "Caixa 3 da choperia", "PDV entrada"):', apelidoAtual || '');
+    if (apelido === null) return;
+    let tipo = prompt('Tipo do dispositivo:\n(Caixa, PDV, Totem, Garçom, Cozinha, Recepção)', tipoAtual || '');
+    if (tipo === null) tipo = tipoAtual || '';
+    socket.emit('salvar_apelido_dispositivo', { serial: serial, apelido: apelido.trim(), tipo: tipo.trim() });
+  };
+  window.removerDispositivoSalvo = function (serial) {
+    if (!confirm('Remover este dispositivo do cadastro? Ele voltará a aparecer sem apelido na próxima conexão.')) return;
+    socket.emit('remover_dispositivo_salvo', { serial: serial });
+  };
+
   tbody.innerHTML = devices.map(d => {
     const icon = d.icon || (d.isMobile ? 'ph-device-mobile' : 'ph-desktop');
     const user = d.user || 'Visitante';
@@ -989,19 +1002,47 @@ socket.on('connected_devices', (devices) => {
     const model = d.model || 'Dispositivo Web';
     const osStr = d.os ? d.os + ' • ' + d.browser : (d.device || '');
     const tempo = d.tempoConectadoStr || 'Pouco tempo';
+    const apelido = d.apelido || '';
+    const tipo = d.tipo || '';
+    const nomeExibicao = apelido ? `${apelido} <span style="font-weight:400;color:#64748b;font-size:11px;">(${escapeHtml(model)})</span>` : escapeHtml(model);
+    const serialHtml = d.serial
+      ? '<div style="font-size:10px;color:#94a3b8;font-family:monospace;" title="Serial deste terminal — use para atribuir o apelido">' + escapeHtml(d.serial) + '</div>'
+      : '';
+    const btnIdentificar = d.serial
+      ? '<button onclick="window.salvarApelidoDispositivo(\'' + escapeHtml(d.serial) + '\', \'' + escapeHtml(apelido).replace(/'/g, '&#39;') + '\', \'' + escapeHtml(tipo) + '\')" title="Atribuir apelido/tipo a esta máquina" style="background:#e0f2fe;border:1px solid #7dd3fc;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px;color:#0369a1;font-weight:700;"><i class="ph ph-tag"></i> Identificar</button>' +
+        (apelido || tipo ? ' <button onclick="window.removerDispositivoSalvo(\'' + escapeHtml(d.serial) + '\')" title="Remover cadastro do dispositivo" style="background:#fee2e2;border:1px solid #fca5a5;border-radius:8px;padding:6px 8px;cursor:pointer;font-size:12px;color:#b91c1c;"><i class="ph ph-x"></i></button>' : '')
+      : '';
+    const badgeTipo = tipo ? '<span style="font-size:10px;background:#fef9c3;color:#a16207;padding:2px 8px;border-radius:12px;font-weight:800;margin-left:4px;text-transform:uppercase;">' + escapeHtml(tipo) + '</span>' : '';
     return '<tr style="border-bottom:1px solid #2a2d35;">' +
-      '<td style="padding:10px 16px;"><i class="ph ' + icon + '" style="margin-right:6px;color:#0284c7;"></i>' + escapeHtml(model) + (osStr ? '<div style="font-size:11px;color:#64748b;">' + escapeHtml(osStr) + '</div>' : '') + '</td>' +
+      '<td style="padding:10px 16px;"><i class="ph ' + icon + '" style="margin-right:6px;color:#0284c7;"></i><strong>' + nomeExibicao + '</strong>' + badgeTipo + serialHtml + (osStr ? '<div style="font-size:11px;color:#64748b;">' + escapeHtml(osStr) + '</div>' : '') + '</td>' +
       '<td style="padding:10px 16px;">' + escapeHtml(user) + ' <span style="font-size:11px;background:#e0f2fe;color:#0369a1;padding:2px 8px;border-radius:12px;font-weight:700;">' + escapeHtml(cargo) + '</span></td>' +
       '<td style="padding:10px 16px;color:#475569;">' + escapeHtml(d.ip || '-') + '</td>' +
       '<td style="padding:10px 16px;color:#64748b;">' + escapeHtml(tempo) + '</td>' +
       '<td style="padding:10px 16px;"><span style="color:#047857;font-weight:700;font-size:12px;">● Online</span></td>' +
-      '<td style="padding:10px 16px;text-align:right;"><button onclick="window.carregarGerenciadorDispositivos()" style="background:#f1f5f9;border:1px solid #cbd5e1;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px;color:#334155;">Atualizar</button></td>' +
+      '<td style="padding:10px 16px;text-align:right;white-space:nowrap;">' + btnIdentificar + '</td>' +
     '</tr>';
   }).join('');
 });
 
+socket.on('dispositivo_salvo_ok', () => {
+  if (typeof window.showToast === 'function') window.showToast('✓ Dispositivo identificado com sucesso!', 'success');
+  window.carregarGerenciadorDispositivos();
+});
+
+// ── Falhas internas do servidor: dono/admin vê na hora (rede de segurança anti-crash) ──
+socket.on('aviso_admin_critico', (aviso) => {
+  const msg = `🚨 Falha interna detectada (${(aviso && aviso.tipo) || '?'}). Confira se os últimos registros aparecem nas listas — se algo não registrou, refaça. O suporte técnico já foi acionado automaticamente.`;
+  if (typeof window.showToast === 'function') window.showToast(msg, 'danger');
+  else alert(msg);
+});
+
 socket.on('server_status_update', () => {
   window.carregarGerenciadorDispositivos();
+});
+
+socket.on('connected_devices_updated', () => {
+  const tab = document.getElementById('admin-tab-dispositivos');
+  if (tab && tab.style.display !== 'none') window.carregarGerenciadorDispositivos();
 });
 
 function initGeraisTab() {
@@ -2163,12 +2204,28 @@ socket.on('mesas_atualizadas', (mesas) => {
 
 window.deleteMesa = (id, nome) => {
   const mesa = currentMesas.find(m => m.id === id);
-  if (mesa && mesa.status !== 'Disponível') {
+  // Status pode vir com ou sem acento no banco ('Disponível'/'Disponivel')
+  const statusNorm = String((mesa && mesa.status) || '').trim().toLowerCase();
+  const livre = !mesa || ['disponível', 'disponivel', 'livre', ''].includes(statusNorm);
+  if (mesa && !livre) {
     return alert(`Atenção: Não é possível excluir a mesa/comanda "${nome}" porque ela possui consumo ativo ou está reservada!`);
   }
-  if (confirm(`Excluir "${nome}"?`)) {
-    socket.emit('delete_mesa', id);
+  if (window.isUsuarioAdminOuGerente()) {
+    // Admin: confirmação simples
+    if (confirm(`Excluir "${nome}"?\n\nEsta ação não pode ser desfeita.`)) {
+      socket.emit('delete_mesa', { id: id });
+    }
+    return;
   }
+  // Colaborador sem privilégio administrativo: exige PIN/senha de administrador
+  window.solicitarAutorizacaoAdmin(`Excluir Mesa/Comanda "${nome}"`, (pin, motivo) => {
+    socket.emit('delete_mesa', { id: id, pin: pin }, (res) => {
+      if (res && res.ok === false) {
+        if (typeof window.showToast === 'function') window.showToast(res.mensagem || 'Não foi possível excluir.', 'danger');
+        else alert(res.mensagem || 'Não foi possível excluir.');
+      }
+    });
+  });
 };
 
 document.addEventListener('DOMContentLoaded', () => {

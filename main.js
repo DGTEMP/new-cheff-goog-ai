@@ -78,9 +78,26 @@ window.enviarRegistroSessaoDetalhado = function () {
       browser: dev.browser,
       icon: dev.icon,
       resolution: dev.resolution,
-      userAgent: dev.userAgent
+      userAgent: dev.userAgent,
+      serial: window.obterSerialDispositivo()
     });
   }
+};
+
+// Serial estável do terminal: gerado uma vez e guardado no navegador da máquina.
+// Permite o dono identificar "qual computador é qual" mesmo com 15+ terminais.
+window.obterSerialDispositivo = function () {
+  try {
+    let serial = localStorage.getItem('cc_serial_dispositivo');
+    if (!serial) {
+      const rnd = () => Math.random().toString(36).toUpperCase().replace(/[^A-Z0-9]/g, '').padEnd(4, 'X').slice(0, 4);
+      serial = 'CC-' + rnd() + '-' + rnd();
+      // Persistência extra: guarda também em sessionStorage e como cookie
+      localStorage.setItem('cc_serial_dispositivo', serial);
+      try { document.cookie = 'cc_serial_dispositivo=' + serial + ';path=/;max-age=31536000;SameSite=Lax'; } catch (e) {}
+    }
+    return serial;
+  } catch (e) { return 'CC-DESCONHECIDO'; }
 };
 
 // Rastreamento global de cliques em botões e navegação
@@ -8051,6 +8068,44 @@ if (btnPrintQr) {
 });
 
 window.socket.on('erro_servidor', (msg) => alert('Erro no Servidor: ' + msg));
+
+// ── Pedido NÃO registrado: operador precisa SABER (nunca falha em silêncio) ──
+window.socket.on('pedido_erro', (d) => {
+  const info = (d && d.pedido) ? `\n\nItem: ${d.pedido.quantity || 1}x ${d.pedido.productName || '?'} (${d.pedido.localName || '?'})` : '';
+  const quando = (d && d.quando) ? `\nHora: ${d.quando}` : '';
+  try { if (typeof window.tocarAlertaFalha === 'function') window.tocarAlertaFalha(); } catch (e) {}
+  alert('⚠️ ' + ((d && d.msg) || 'Falha ao registrar o pedido!') + info + quando);
+});
+
+// ── Falhas internas do servidor: admins e gerentes veem o aviso na hora ──
+window.socket.on('aviso_admin_critico', (aviso) => {
+  try {
+    const cargo = String(localStorage.getItem('cargoLogado') || localStorage.getItem('colaborador_cargo') || '').toLowerCase();
+    const ehAdmin = cargo.includes('admin') || cargo.includes('gerente') || cargo.includes('dono');
+    if (!ehAdmin) return;
+    const msg = `🚨 Falha interna detectada (${(aviso && aviso.tipo) || '?'}).\n\n${((aviso && aviso.detalhe) || '').slice(0, 200)}\n\nConfira se os últimos registros aparecem nas listas. O suporte já foi acionado.`;
+    if (typeof showToast === 'function') showToast(msg, 'danger');
+    else alert(msg);
+  } catch (e) {}
+});
+
+// Beep de erro grave (3 pulsos descendentes) reutilizando o áudio do sistema
+window.tocarAlertaFalha = function () {
+  try {
+    const ctxAudio = new (window.AudioContext || window.webkitAudioContext)();
+    [0, 0.25, 0.5].forEach((offset, i) => {
+      const osc = ctxAudio.createOscillator();
+      const gain = ctxAudio.createGain();
+      osc.type = 'square';
+      osc.frequency.value = 880 - i * 180;
+      gain.gain.setValueAtTime(0.18, ctxAudio.currentTime + offset);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctxAudio.currentTime + offset + 0.2);
+      osc.connect(gain); gain.connect(ctxAudio.destination);
+      osc.start(ctxAudio.currentTime + offset);
+      osc.stop(ctxAudio.currentTime + offset + 0.22);
+    });
+  } catch (e) {}
+};
 
 // ── Controle Remoto pelo Dono: Navegar para outra página ──
 socket.on('navegar_para', function(data) {

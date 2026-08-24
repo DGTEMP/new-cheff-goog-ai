@@ -4036,6 +4036,21 @@ db.serialize(() => {
     )
   `);
 
+  // Registro persistente de dispositivos/terminais (identificação por serial)
+  db.run(`
+    CREATE TABLE IF NOT EXISTS dispositivos (
+      serial TEXT PRIMARY KEY,
+      apelido TEXT DEFAULT '',
+      tipo TEXT DEFAULT '',
+      modelo TEXT DEFAULT '',
+      ultimo_ip TEXT DEFAULT '',
+      ultimo_usuario TEXT DEFAULT '',
+      ultimo_cargo TEXT DEFAULT '',
+      criado_em DATETIME DEFAULT (datetime('now', 'localtime')),
+      ultimo_visto DATETIME DEFAULT (datetime('now', 'localtime'))
+    )
+  `);
+
   db.run(`
     CREATE TABLE IF NOT EXISTS funcionario_consumo_config (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -5803,12 +5818,84 @@ io.on('connection', (socket) => {
       if (data.browser) conn.browser = data.browser;
       if (data.icon) conn.icon = data.icon;
       if (data.resolution) conn.resolution = data.resolution;
+      if (data.serial) conn.serial = String(data.serial).slice(0, 40);
+      else if (socket.handshake.auth && socket.handshake.auth.serial) conn.serial = String(socket.handshake.auth.serial).slice(0, 40);
 
       conn.device = `${conn.model} (${conn.os} • ${conn.browser})`;
+
+      // Registro persistente: guarda/aplica apelido e tipo por serial
+      if (conn.serial) {
+        db.run(
+          `INSERT INTO dispositivos (serial, modelo, ultimo_ip, ultimo_usuario, ultimo_cargo, ultimo_visto)
+           VALUES (?, ?, ?, ?, ?, datetime('now', 'localtime'))
+           ON CONFLICT(serial) DO UPDATE SET
+             modelo = excluded.modelo,
+             ultimo_ip = excluded.ultimo_ip,
+             ultimo_usuario = excluded.ultimo_usuario,
+             ultimo_cargo = excluded.ultimo_cargo,
+             ultimo_visto = datetime('now', 'localtime')`,
+          [conn.serial, conn.model || '', conn.ip || '', conn.user || '', conn.cargo || ''],
+          (eReg) => { if (eReg) console.error('[Dispositivos] falha ao registrar:', eReg.message); }
+        );
+        db.get(`SELECT apelido, tipo FROM dispositivos WHERE serial = ?`, [conn.serial], (eAp, rowAp) => {
+          if (!eAp && rowAp) {
+            conn.apelido = rowAp.apelido || '';
+            conn.tipo = rowAp.tipo || '';
+          }
+          io.emit('connected_devices_updated');
+        });
+      }
+
       io.emit('connected_devices_updated');
 
     }
   });
+
+  // ── Dispositivos: salvar apelido/tipo (dono identifica as máquinas pelo nome) ──
+  socket.on('salvar_apelido_dispositivo', (data) => {
+    if (!exigirAdminSocket(socket)) return;
+    const d = data || {};
+    const serial = String(d.serial || '').slice(0, 40);
+    if (!serial) return socket.emit('erro_servidor', 'Serial do dispositivo não informado.');
+    const apelido = String(d.apelido || '').trim().slice(0, 60);
+    const tipo = String(d.tipo || '').trim().slice(0, 30);
+
+    db.run(
+      `INSERT INTO dispositivos (serial, apelido, tipo, ultimo_visto) VALUES (?, ?, ?, datetime('now', 'localtime'))
+       ON CONFLICT(serial) DO UPDATE SET apelido = excluded.apelido, tipo = excluded.tipo, ultimo_visto = datetime('now', 'localtime')`,
+      [serial, apelido, tipo],
+      (err) => {
+        if (err) return socket.emit('erro_servidor', 'Falha ao salvar apelido do dispositivo.');
+        // Aplica em tempo real nos sockets conectados com esse serial
+        activeSockets.forEach((c) => {
+          if (c.serial === serial) {
+            c.apelido = apelido;
+            c.tipo = tipo;
+          }
+        });
+        io.emit('connected_devices_updated');
+        global.registrarAuditoria((conn && conn.user) || 'Admin', 'APELIDO_DISPOSITIVO',
+          `Dispositivo ${serial} → apelido "${apelido}"${tipo ? ` (tipo: ${tipo})` : ''}`,
+          'Gestão de terminais', 'BAIXO', socket.id);
+        socket.emit('dispositivo_salvo_ok', { serial, apelido, tipo });
+      }
+    );
+  });
+
+  // Remove um dispositivo do registro salvo (ex.: máquina vendida/desativada)
+  socket.on('remover_dispositivo_salvo', (data) => {
+    if (!exigirAdminSocket(socket)) return;
+    const serial = String((data || {}).serial || '').slice(0, 40);
+    if (!serial) return;
+    db.run(`DELETE FROM dispositivos WHERE serial = ?`, [serial], (err) => {
+      if (err) return socket.emit('erro_servidor', 'Falha ao remover dispositivo.');
+      activeSockets.forEach((c) => {
+        if (c.serial === serial) { c.apelido = ''; c.tipo = ''; }
+      });
+      io.emit('connected_devices_updated');
+    });
+  });
+
 
 
   socket.on('get_pedidos', () => {
@@ -5910,7 +5997,22 @@ io.on('connection', (socket) => {
       ...d,
       tempoConectadoStr: getTempoConectadoStr(d.connectedAt)
     }));
-    socket.emit('connected_devices', deviceList);
+    // Enriquece com apelido/tipo persistidos (mesmo que a sessão tenha começado antes do cadastro)
+    const serials = [...new Set(deviceList.map(d => d.serial).filter(Boolean))];
+    if (!serials.length) return socket.emit('connected_devices', deviceList);
+    db.all(`SELECT serial, apelido, tipo FROM dispositivos WHERE serial IN (${serials.map(() => '?').join(',')})`, serials, (err, rows) => {
+      if (!err && rows) {
+        const mapa = {};
+        rows.forEach(r => { mapa[r.serial] = r; });
+        deviceList.forEach(d => {
+          if (d.serial && mapa[d.serial]) {
+            d.apelido = d.apelido || mapa[d.serial].apelido || '';
+            d.tipo = d.tipo || mapa[d.serial].tipo || '';
+          }
+        });
+      }
+      socket.emit('connected_devices', deviceList);
+    });
   });
 
   socket.on('registrar_sessao', ({ nome, cargo }) => {
@@ -6368,7 +6470,18 @@ io.on('connection', (socket) => {
             function (err) {
               if (err) {
                 console.error('Erro ao inserir pedido:', err);
-                socket.emit('erro_servidor', 'Falha ao gravar o pedido. Tente novamente.');
+                // NADA se perde em silêncio: avisa o operador, os admins e cria task no suporte
+                registrarFalhaCritica(
+                  'pedido_nao_gravado',
+                  `Pedido NÃO gravado: ${pedido.quantity || 1}x ${pedido.productName || '?'} | local: ${pedido.localName || '?'} | cliente: ${pedido.userName || '?'} | total R$${pedido.total} | erro: ${err.message}`,
+                  socketTenantId
+                );
+                socket.emit('pedido_erro', {
+                  msg: 'ATENÇÃO: este pedido NÃO foi registrado no sistema! Informe o cliente, anote manualmente se preciso e tente enviar de novo. O suporte técnico já foi acionado automaticamente.',
+                  pedido: { productName: pedido.productName, localName: pedido.localName, quantity: pedido.quantity },
+                  quando: new Date().toLocaleString('pt-BR')
+                });
+                socket.emit('erro_servidor', 'Falha ao gravar o pedido — NÃO foi registrado. Tente novamente.');
                 return;
               }
               const mainId = this.lastID;
@@ -7154,11 +7267,54 @@ io.on('connection', (socket) => {
       });
     }
   });
-  socket.on('delete_mesa', (id) => {
-    if (!exigirAdminSocket(socket)) return;
-    db.run(`DELETE FROM mesas WHERE id = ?`, [id], () => {
-      db.all(`SELECT * FROM mesas`, (e, r) => io.emit('mesas_atualizadas', r || []));
-    });
+  socket.on('delete_mesa', (data, ack) => {
+    // Suporta payload legado (id) e novo { id, pin } com confirmação por PIN
+    const isObj = (typeof data === 'object' && data !== null);
+    const id = isObj ? data.id : data;
+    const pin = isObj ? (data.pin || '') : '';
+    const responder = (ok, mensagem) => {
+      if (typeof ack === 'function') ack({ ok, mensagem });
+      else if (!ok) socket.emit('erro_servidor', mensagem);
+    };
+    if (!id) return responder(false, 'Mesa inválida.');
+    const cargo = socket.auth?.cargo || '';
+    const isAdmin = ADMIN_CARGOS.includes(cargo);
+
+    const executarExclusao = () => {
+      db.get(`SELECT nome, status FROM mesas WHERE id = ?`, [id], (eSel, mesa) => {
+        if (eSel || !mesa) return responder(false, 'Mesa não encontrada ou já excluída.');
+        const statusNorm = String((mesa && mesa.status) || '').trim().toLowerCase();
+        if (!['disponível', 'disponivel', 'livre', ''].includes(statusNorm)) {
+          return responder(false, `Não é possível excluir "${mesa.nome}": possui consumo ativo ou reserva.`);
+        }
+        db.run(`DELETE FROM mesas WHERE id = ?`, [id], function (eDel) {
+          if (eDel) return responder(false, 'Falha ao excluir a mesa.');
+          global.registrarAuditoria(
+            socket.auth?.nome || 'Operador',
+            'EXCLUIR_MESA',
+            `Mesa/comanda "${mesa.nome}" (ID ${id}) excluída${!isAdmin ? ' — autorizada via PIN' : ''}`,
+            !isAdmin ? 'Exclusão por colaborador com PIN de administrador' : 'Gestão de mesas',
+            !isAdmin ? 'MEDIO' : 'BAIXO',
+            socket.id
+          );
+          db.all(`SELECT * FROM mesas`, (e, r) => io.emit('mesas_atualizadas', r || []));
+          responder(true, `Mesa "${mesa.nome}" excluída.`);
+        });
+      });
+    };
+
+    if (isAdmin) {
+      executarExclusao();
+    } else {
+      // Colaborador sem privilégio: exige PIN/senha de administrador validado no servidor
+      if (!pin) {
+        return responder(false, 'Informe o PIN de administrador para excluir mesas.');
+      }
+      verificarPinOuSenha(pin).then((ok) => {
+        if (!ok) return responder(false, 'PIN incorreto. Exclusão cancelada.');
+        executarExclusao();
+      }).catch(() => responder(false, 'Erro ao validar o PIN. Tente novamente.'));
+    }
   });
 
   socket.on('add_produto', (p) => db.run(`INSERT INTO produtos (categoria, nome, preco, emoji, hasAddons, setor, status_inicial, status, categoria_fiscal, descricao, codigo_barras, visibilidade) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -13342,6 +13498,61 @@ function shutdown(signal) {
 process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 
+// ══════════════════════════════════════════════════════════════════════
+// ── REDE DE SEGURANÇA ANTI-CRASH (nenhuma movimentação pode se perder) ──
+// ══════════════════════════════════════════════════════════════════════
+// Qualquer exceção não tratada NÃO derruba mais o processo: é registrada em
+// logs/falhas.log, cria task automática na fila do suporte e avisa os painéis.
+const LOGS_DIR_FALHAS = path.join(__dirname, 'logs');
+
+function registrarFalhaCritica(tipo, detalhe, restauranteId) {
+  const ts = new Date().toISOString();
+  console.error(`\n[FALHA CRITICA] ${ts} | tipo=${tipo} | restaurante=${restauranteId || '-'}\n   ${String(detalhe).slice(0, 500)}\n`);
+  try {
+    if (!fs.existsSync(LOGS_DIR_FALHAS)) fs.mkdirSync(LOGS_DIR_FALHAS);
+    fs.appendFileSync(
+      path.join(LOGS_DIR_FALHAS, 'falhas.log'),
+      `[${ts}] ${tipo} | rest=${restauranteId || '-'} | ${String(detalhe).replace(/\s+/g, ' ').slice(0, 800)}\n`
+    );
+  } catch (e) { }
+
+  // Task direto pro suporte (dedupe: mesma falha em janela de 15 min vira 1 task só)
+  try {
+    masterDb.get(
+      `SELECT id FROM tarefas_suporte WHERE tipo = 'falha_automatica' AND status = 'pendente'
+       AND substr(descricao, 1, 80) = ? AND criada_em > datetime('now', '-15 minutes', 'localtime') LIMIT 1`,
+      [String(detalhe).slice(0, 80)], (eDup, dup) => {
+        if (eDup || dup) return;
+        masterDb.run(
+          `INSERT INTO tarefas_suporte (suporte_id, tipo, descricao, restaurante_id, pontos, status, criada_em)
+           VALUES (NULL, 'falha_automatica', ?, ?, 25, 'pendente', datetime('now', 'localtime'))`,
+          [`[FALHA AUTOMATICA • ${tipo}] ${String(detalhe).slice(0, 1400)}`, restauranteId || null], () => { }
+        );
+      }
+    );
+  } catch (e) { }
+
+  // Aviso em tempo real para os painéis administrativos do restaurante afetado
+  try {
+    const aviso = {
+      tipo,
+      detalhe: String(detalhe).slice(0, 300),
+      quando: new Date().toLocaleString('pt-BR'),
+      mensagem: 'Ocorreu uma falha interna. Se você acabou de registrar algo, CONFIRA se apareceu na lista — o suporte já foi acionado automaticamente.'
+    };
+    if (restauranteId) io.to(`restaurante_${restauranteId}`).emit('aviso_admin_critico', aviso);
+    else io.emit('aviso_admin_critico', aviso);
+  } catch (e) { }
+}
+
+process.on('uncaughtException', (err) => {
+  try { registrarFalhaCritica('uncaughtException', (err && err.stack) || String(err), null); } catch (e) { }
+});
+process.on('unhandledRejection', (reason) => {
+  try { registrarFalhaCritica('unhandledRejection', (reason && (reason.stack || reason.message)) || String(reason), null); } catch (e) { }
+});
+
+
 // Inicializar licença e depois subir o servidor com Animação Visualizer / Matrix ────────────
 licenseManager.initLicense().then((licState) => {
   server.listen(PORT, HOST, () => {
@@ -13856,8 +14067,9 @@ app.post('/api/dono/reportar-problema', (req, res) => {
 });
 
 // GET /api/suporte/tarefas-relatadas - Fila de relatos enviados pelos restaurantes (não assumidos)
+// Inclui também falhas automáticas detectadas pela rede de segurança anti-crash
 app.get('/api/suporte/tarefas-relatadas', relatoSuporteAuth, (req, res) => {
-  masterDb.all(`SELECT t.*, r.nome as restaurante_nome FROM tarefas_suporte t LEFT JOIN restaurantes r ON t.restaurante_id = r.id WHERE t.tipo = 'relato_restaurante' AND t.status = 'pendente' AND t.suporte_id IS NULL ORDER BY t.criada_em DESC LIMIT 50`,
+  masterDb.all(`SELECT t.*, r.nome as restaurante_nome FROM tarefas_suporte t LEFT JOIN restaurantes r ON t.restaurante_id = r.id WHERE t.tipo IN ('relato_restaurante','falha_automatica') AND t.status = 'pendente' AND t.suporte_id IS NULL ORDER BY CASE WHEN t.tipo = 'falha_automatica' THEN 0 ELSE 1 END, t.criada_em DESC LIMIT 50`,
     [], (err, rows) => {
       if (err) return res.json({ ok: false, erro: err.message });
       res.json({ ok: true, relatos: rows || [] });
@@ -13869,7 +14081,7 @@ app.get('/api/suporte/tarefas-relatadas', relatoSuporteAuth, (req, res) => {
 app.post('/api/suporte/assumir-relato', relatoSuporteAuth, (req, res) => {
   const { id } = req.body || {};
   if (!id) return res.json({ ok: false, erro: 'ID do relato obrigatório.' });
-  masterDb.run(`UPDATE tarefas_suporte SET suporte_id = ? WHERE id = ? AND tipo = 'relato_restaurante' AND status = 'pendente' AND suporte_id IS NULL`,
+  masterDb.run(`UPDATE tarefas_suporte SET suporte_id = ? WHERE id = ? AND tipo IN ('relato_restaurante','falha_automatica') AND status = 'pendente' AND suporte_id IS NULL`,
     [req.suporteId, parseInt(id)], function(err) {
       if (err) return res.json({ ok: false, erro: err.message });
       if (this.changes === 0) return res.json({ ok: false, erro: 'Relato não disponível (já assumido por outro atendente).' });

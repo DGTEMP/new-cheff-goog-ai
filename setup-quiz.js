@@ -74,7 +74,7 @@ function saveEnvConfig(newConfig) {
   }
 }
 
-function runInteractiveSetup() {
+function runInteractiveSetup(onFinishAction) {
   console.clear();
   console.log(`
 ${ANSI.cyan}${ANSI.bright}  ┌──────────────────────────────────────────────────────────────────┐
@@ -121,7 +121,8 @@ ${ANSI.cyan}${ANSI.bright}  ┌────────────────�
     if (qIdx >= questions.length) {
       rl.close();
       saveEnvConfig(answers);
-      startServices();
+      if (typeof onFinishAction === 'function') onFinishAction();
+      else startServices();
       return;
     }
 
@@ -152,10 +153,252 @@ function startServices() {
   });
 }
 
+/* ══════════════════════════════════════════════════════════════════════
+   MODO MANUAL — seleção de servidores que conversam entre si
+   ══════════════════════════════════════════════════════════════════════ */
+
+const SERVICOS = [
+  { key: 'backend',    label: 'Servidor Principal  (API + Socket.IO dos restaurantes)', padrao: true },
+  { key: 'frontend',   label: 'Frontend           (Vite Dev Server com hot-reload)',   padrao: true },
+  { key: 'superadmin', label: 'Super Admin        (painel isolado na porta 3457)' },
+  { key: 'database',   label: 'Banco de Dados     (verificação de integridade + backup)' },
+  { key: 'hub',        label: 'Balanceador/Hub   (central multi-instância, porta 4000)' },
+  { key: 'sync',       label: 'Apoio/Sync Agent  (sincronização entre servidores)' },
+  { key: 'watchdog',   label: 'Backup/Watchdog   (reinicia o principal se ele cair)' }
+];
+
+function perguntar(rl, texto) {
+  return new Promise((resolve) => rl.question(texto, (a) => resolve(a.trim())));
+}
+
+async function runModoManual() {
+  const current = getEnvConfig();
+
+  // .env inexistente → oferece cadastro guiado de variáveis antes de continuar
+  if (!fs.existsSync(envPath)) {
+    console.log(`\n${ANSI.yellow}⚠  Nenhum arquivo .env encontrado neste diretório.${ANSI.reset}`);
+    const rl0 = readline.createInterface({ input: process.stdin, output: process.stdout });
+    const quer = await perguntar(rl0, `${ANSI.cyan}Deseja cadastrar as variáveis agora (PORT, APP_URL, JWT_SECRET...)? [S/n]: ${ANSI.reset}`);
+    rl0.close();
+    if (!quer || /^s/i.test(quer)) {
+      // Quiz roda e volta para a seleção de servidores ao terminar
+      return runInteractiveSetup(() => selecionarServicos());
+    }
+    console.log(`${ANSI.dim}Seguindo com valores padrão. Você pode rodar o quiz depois pela opção 3.${ANSI.reset}\n`);
+  }
+
+  selecionarServicos();
+}
+
+async function selecionarServicos() {
+  const current = getEnvConfig();
+  const selecionados = new Set(SERVICOS.filter(s => s.padrao).map(s => s.key));
+
+  console.clear();
+  console.log(`
+${ANSI.cyan}${ANSI.bright}  ──────────────────────────────────────────────────────
+   MODO MANUAL — QUAIS SERVIDORES VOCÊ QUER INICIAR?
+  ──────────────────────────────────────────────────────${ANSI.reset}
+${ANSI.dim}  Quando disponíveis, eles se conversam automaticamente:
+  • Super Admin ↔ Principal .... via /api/internal (métricas, emits)
+  • Hub/Balanceador ↔ Apoio .... via WebSocket de sincronização
+  • Watchdog ↔ Principal ....... monitora a porta ${current.PORT} e reinicia se cair${ANSI.reset}
+
+`);
+
+  SERVICOS.forEach((s, i) => {
+    const marca = selecionados.has(s.key) ? `${ANSI.green}[x]${ANSI.reset}` : '[ ]';
+    console.log(`   ${marca} ${i + 1}. ${s.label}`);
+  });
+
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  const resp = await perguntar(rl, `\n${ANSI.yellow}Números dos serviços para iniciar (ex: 1,2,4) — ENTER = padrão [1,2]: ${ANSI.reset}`);
+
+  if (resp) {
+    selecionados.clear();
+    resp.split(/[,;\s]+/).forEach(tok => {
+      const n = parseInt(tok, 10);
+      if (n >= 1 && n <= SERVICOS.length) selecionados.add(SERVICOS[n - 1].key);
+    });
+  }
+  rl.close();
+
+  if (selecionados.size === 0) {
+    console.log(`${ANSI.red}Nenhum serviço selecionado. Encerrando.${ANSI.reset}`);
+    process.exit(0);
+  }
+
+  // Watchdog já sobe o servidor principal sozinho — evita conflito de porta
+  if (selecionados.has('watchdog') && selecionados.has('backend')) {
+    console.log(`${ANSI.yellow}⚠  Watchdog selecionado junto do Servidor Principal.`);
+    console.log(`   O watchdog sobe o principal por conta própria — removendo a duplicata.${ANSI.reset}`);
+    selecionados.delete('backend');
+  }
+
+  // Banco de dados: verificação rápida ANTES de subir os serviços
+  if (selecionados.has('database')) {
+    await verificarBancoDados();
+  }
+
+  iniciarServicosSelecionados(selecionados, current);
+}
+
+async function verificarBancoDados() {
+  console.log(`\n${ANSI.bright}── Banco de Dados: verificação de integridade ──${ANSI.reset}`);
+  let SQLite3;
+  try { SQLite3 = require('sqlite3').verbose(); } catch (e) {
+    console.log(`${ANSI.red}Módulo sqlite3 indisponível: ${e.message}${ANSI.reset}`);
+    return;
+  }
+  const arquivos = ['master.sqlite']
+    .concat(fs.readdirSync(__dirname).filter(f => /^database_.*\.sqlite$/i.test(f)))
+    .filter(f => fs.existsSync(path.join(__dirname, f)));
+
+  if (!arquivos.length) {
+    console.log(`${ANSI.yellow}Nenhum banco encontrado ainda (será criado no primeiro boot).${ANSI.reset}`);
+    return;
+  }
+
+  const dirBackup = path.join(__dirname, 'backups');
+  try { if (!fs.existsSync(dirBackup)) fs.mkdirSync(dirBackup); } catch (e) {}
+
+  for (const arquivo of arquivos) {
+    const caminho = path.join(__dirname, arquivo);
+    const kb = Math.round(fs.statSync(caminho).size / 1024);
+    await new Promise((resolve) => {
+      const db = new SQLite3.Database(caminho, SQLite3.OPEN_READONLY, (err) => {
+        if (err) { console.log(`  ${ANSI.red}✕ ${arquivo}: não abriu (${err.message})${ANSI.reset}`); return resolve(); }
+        db.get('PRAGMA quick_check', (e2, row) => {
+          const ok = !e2 && row && row.quick_check === 'ok';
+          console.log(`  ${ok ? ANSI.green + '✓ íntegro' : ANSI.red + '✕ CORROMPIDO'}${ANSI.reset}  ${arquivo} (${kb} KB)`);
+          if (!ok && e2) console.log(`    ${ANSI.red}${e2.message}${ANSI.reset}`);
+          db.close(() => resolve());
+        });
+      });
+    });
+    // Backup seguro online (VACUUM INTO não trava nem corrompe com WAL ativo)
+    if (/^master\.sqlite$/i.test(arquivo)) {
+      await new Promise((resolve) => {
+        const dbw = new SQLite3.Database(caminho, (err) => {
+          if (err) return resolve();
+          const destino = path.join(dirBackup, `master-${new Date().toISOString().slice(0, 10)}.sqlite`);
+          dbw.exec(`VACUUM INTO '${destino.replace(/\\/g, '/')}'`, (eV) => {
+            if (eV) console.log(`  ${ANSI.yellow}Backup automático falhou: ${eV.message}${ANSI.reset}`);
+            else console.log(`  ${ANSI.green}✓ Backup salvo em backups/${path.basename(destino)}${ANSI.reset}`);
+            dbw.close(() => resolve());
+          });
+        });
+      });
+    }
+  }
+  console.log('');
+}
+
+function iniciarServicosSelecionados(selecionados, cfgEnv) {
+  const PORT = cfgEnv.PORT || '3000';
+  const filhos = [];
+  const CORES = {
+    backend: ANSI.green, frontend: ANSI.magenta, superadmin: ANSI.cyan,
+    hub: ANSI.blue, sync: ANSI.yellow, watchdog: ANSI.red
+  };
+  const NOMES = {
+    backend: 'PRINCIPAL ', frontend: 'FRONTEND  ', superadmin: 'SUPERADMIN',
+    hub: 'HUB/LB    ', sync: 'SYNC/APOIO', watchdog: 'BACKUP/WDT'
+  };
+
+  const defs = [];
+
+  if (selecionados.has('backend')) {
+    defs.push({
+      nome: 'backend',
+      cmd: 'node',
+      args: ['server.js'],
+      env: selecionados.has('superadmin') ? { SUPER_ADMIN_ISOLADO: '1' } : {}
+    });
+  }
+  if (selecionados.has('frontend')) {
+    defs.push({ nome: 'frontend', cmd: 'npx', args: ['vite', '--host'], shell: true, env: {} });
+  }
+  if (selecionados.has('superadmin')) {
+    defs.push({
+      nome: 'superadmin',
+      cmd: 'node',
+      args: ['super-admin-server.js'],
+      env: { SUPER_ADMIN_PORT: '3457', MAIN_URL: `http://localhost:${PORT}` }
+    });
+  }
+  if (selecionados.has('hub')) {
+    defs.push({
+      nome: 'hub',
+      cmd: 'node',
+      args: ['server-hub.js'],
+      cwd: path.join(__dirname, 'hub-server'),
+      env: { PORT: '4000' }
+    });
+  }
+  if (selecionados.has('sync')) {
+    defs.push({
+      nome: 'sync',
+      cmd: 'node',
+      args: ['sync-agent.js'],
+      env: selecionados.has('hub') ? { HUB_URL: 'http://localhost:4000' } : {}
+    });
+  }
+  if (selecionados.has('watchdog')) {
+    defs.push({ nome: 'watchdog', cmd: 'node', args: ['watchdog.js'], env: {} });
+  }
+
+  console.log(`${ANSI.bright}${ANSI.green}▶ Subindo ${defs.length} serviço(s)... Ctrl+C encerra todos com segurança.${ANSI.reset}\n`);
+
+  let encerrando = false;
+  function derrubarTudo() {
+    if (encerrando) return;
+    encerrando = true;
+    console.log(`\n${ANSI.yellow}Encerrando serviços...${ANSI.reset}`);
+    filhos.forEach(f => { try { f.proc.kill(); } catch (e) {} });
+    setTimeout(() => process.exit(0), 800);
+  }
+  process.on('SIGINT', derrubarTudo);
+  process.on('SIGTERM', derrubarTudo);
+
+  defs.forEach(def => {
+    const cor = CORES[def.nome] || ANSI.dim;
+    const tag = `${cor}[${NOMES[def.nome]}]${ANSI.reset} `;
+    const proc = spawn(def.cmd, def.args, {
+      cwd: def.cwd || __dirname,
+      shell: !!def.shell,
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: Object.assign({}, process.env, def.env)
+    });
+    filhos.push({ nome: def.nome, proc });
+
+    const prefixar = (buf) => String(buf).split(/\r?\n/).filter(l => l.length).forEach(l => console.log(tag + l));
+    proc.stdout.on('data', prefixar);
+    proc.stderr.on('data', prefixar);
+    proc.on('exit', (code) => {
+      console.log(`${cor}[${NOMES[def.nome]}]${ANSI.reset} ${code === 0 ? 'finalizou.' : ANSI.red + 'CAIU (código ' + code + ')' + ANSI.reset}`);
+      // Servidor principal caiu e não há watchdog → derruba o resto (evita sistema pela metade)
+      if (def.nome === 'backend' && code !== 0 && !selecionados.has('watchdog')) derrubarTudo();
+    });
+  });
+
+  console.log(`
+${ANSI.cyan}──────────────────────────────────────────────────────${ANSI.reset}
+  ${ANSI.bright}Sistema distribuído no ar:${ANSI.reset}
+  • Principal ..... http://localhost:${PORT}
+${selecionados.has('frontend') ? `  • Frontend ...... http://localhost:5173 (rede: IP da máquina)\n` : ''}${selecionados.has('superadmin') ? `  • Super Admin ... http://localhost:3457/super-admin\n` : ''}${selecionados.has('hub') ? `  • Hub/LB ........ http://localhost:4000\n` : ''}
+${ANSI.dim}  Dica: os serviços trocam eventos entre si automaticamente.
+  Painéis abertos recebem avisos em tempo real se algo cair.${ANSI.reset}
+${ANSI.cyan}──────────────────────────────────────────────────────${ANSI.reset}
+`);
+}
+
 function main() {
   const options = [
     { label: "🚀 Iniciar Servidor Diretamente (Modo Rápido)", action: startServices },
-    { label: "⚙️  Configurar Servidor & Domínio (Setup Guiado / Quiz Interativo)", action: runInteractiveSetup },
+    { label: "🛠️  Modo Manual — Escolher Servidores (Frontend, Super Admin, Banco, Hub/LB, Backup)", action: runModoManual },
+    { label: "🧭  Configurar Servidor & Domínio (Setup Guiado / Quiz Interativo)", action: () => runInteractiveSetup() },
     { label: "❌ Sair", action: () => { console.log("Encerrado pelo usuário."); process.exit(0); } }
   ];
 
@@ -223,7 +466,7 @@ ${ANSI.cyan}  ╰─────────────────────
       renderMenu();
     } else if (key.name === 'return' || key.name === 'enter') {
       cleanupAndRun(options[selectedIndex].action);
-    } else if (str === '1' || str === '2' || str === '3') {
+    } else if (['1', '2', '3', '4'].includes(str)) {
       const idx = parseInt(str, 10) - 1;
       if (idx >= 0 && idx < options.length) {
         selectedIndex = idx;

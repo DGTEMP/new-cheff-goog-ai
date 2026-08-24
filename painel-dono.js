@@ -304,7 +304,8 @@ function renderizarDispositivosTotem(lista, statusTotem) {
     const haTotem = (lista || []).some(d =>
       String(d.device || '').toLowerCase().includes('totem') ||
       String(d.cargo || '').toLowerCase().includes('totem') ||
-      String(d.user || '').toLowerCase().includes('totem'));
+      String(d.user || '').toLowerCase().includes('totem') ||
+      String(d.tipo || '').toLowerCase() === 'totem');
     badge.style.display = haTotem ? 'inline-block' : 'none';
   }
 
@@ -319,14 +320,18 @@ function renderizarDispositivosTotem(lista, statusTotem) {
   container.innerHTML = lista.map(d => {
     const ehTotem = String(d.device || '').toLowerCase().includes('totem') ||
       String(d.cargo || '').toLowerCase().includes('totem') ||
-      String(d.user || '').toLowerCase().includes('totem');
+      String(d.user || '').toLowerCase().includes('totem') ||
+      String(d.tipo || '').toLowerCase() === 'totem';
     const icone = d.isMobile ? 'ph-device-mobile' : 'ph-desktop-tower';
+    const apelido = d.apelido || '';
+    const tipoBadge = (d.tipo && d.tipo.toLowerCase() !== 'totem')
+      ? `<span style="font-size:9px; background:#fef9c3; color:#a16207; padding:1px 7px; border-radius:10px; font-weight:800; text-transform:uppercase; margin-left:5px;">${escHtml(d.tipo)}</span>` : '';
     return `
       <div style="display:flex; align-items:center; gap:10px; padding:10px 12px; border:1px solid var(--border); border-radius:12px; background:var(--bg);">
         <i class="ph-bold ${icone}" style="font-size:20px; color:${ehTotem ? '#0ea5e9' : 'var(--text-sub)'};"></i>
         <div style="flex:1; min-width:0;">
-          <div style="font-weight:800; font-size:12.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escHtml(d.model || d.browser || 'Dispositivo')}</div>
-          <div style="font-size:10.5px; color:var(--text-sub);">${escHtml(d.user || 'Visitante')} • ${escHtml(d.os || '')} • ${escHtml(d.tempoConectadoStr || '')}</div>
+          <div style="font-weight:800; font-size:12.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${apelido ? escHtml(apelido) + tipoBadge + ` <span style="font-weight:400; color:var(--text-sub); font-size:10.5px;">(${escHtml(d.model || d.browser || '')})</span>` : escHtml(d.model || d.browser || 'Dispositivo')}${ehTotem ? ' <span style="font-size:9px; background:#e0f2fe; color:#0369a1; padding:1px 7px; border-radius:10px; font-weight:800;">TOTEM</span>' : ''}</div>
+          <div style="font-size:10.5px; color:var(--text-sub);">${escHtml(d.user || 'Visitante')} • ${escHtml(d.os || '')} • ${escHtml(d.tempoConectadoStr || '')}${d.serial ? ` • <span title="Serial do terminal">${escHtml(d.serial)}</span>` : ''}</div>
         </div>
         ${ehTotem
           ? `<button onclick="donoRotacionarTotem('${d.id}')" title="Alternar retrato/paisagem remotamente" style="padding:8px 10px; border:none; border-radius:10px; background:#6366f1; color:#fff; font-weight:800; font-size:11px; cursor:pointer; display:flex; align-items:center; gap:5px;"><i class="ph-bold ph-frame-corners"></i> Girar</button>
