@@ -128,6 +128,13 @@ module.exports = function(socket, io, db, helpers) {
     });
   });
 
+  // Painel RH (configurações) pede o resumo do turno atual
+  socket.on('get_relatorio_caixa', () => {
+    checkCaixa(turno => {
+      socket.emit('relatorio_caixa', turno || null);
+    });
+  });
+
   socket.on('abrir_caixa', (data) => {
     // (Segurança) Abrir o caixa não exige senha: apenas confirmação no PDV.
     // Regras de senha por cargo se aplicam ao FECHAR o caixa.

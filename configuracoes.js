@@ -3682,6 +3682,286 @@ socket.on('fidelidade_config_salvo', (res) => {
   if (res && res.success) alert('Configuração de fidelidade salva!');
 });
 
+// --- FIDELIDADE: PARCEIROS (CRUD + mini mapa) ---
+let parceiroEditandoId = null;
+let parceirosCache = [];
+
+window.limparFormParceiro = () => {
+  parceiroEditandoId = null;
+  ['parceiro-nome', 'parceiro-categoria', 'parceiro-telefone', 'parceiro-endereco',
+    'parceiro-bairro', 'parceiro-cidade', 'parceiro-lat', 'parceiro-lng', 'parceiro-pontos']
+    .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  const st = document.getElementById('parceiro-geo-status');
+  if (st) st.textContent = '';
+};
+
+window.capturarLocalParceiro = () => {
+  if (!navigator.geolocation) return alert('Seu dispositivo não suporta geolocalização.');
+  const st = document.getElementById('parceiro-geo-status');
+  if (st) st.textContent = 'Obtendo localização...';
+  navigator.geolocation.getCurrentPosition((pos) => {
+    const lat = document.getElementById('parceiro-lat');
+    const lng = document.getElementById('parceiro-lng');
+    if (lat) lat.value = pos.coords.latitude.toFixed(6);
+    if (lng) lng.value = pos.coords.longitude.toFixed(6);
+    if (st) st.textContent = 'Coordenadas capturadas!';
+  }, (err) => {
+    if (st) st.textContent = 'Erro ao obter localização.';
+    alert('Não foi possível obter sua localização: ' + err.message);
+  }, { enableHighAccuracy: true, timeout: 12000 });
+};
+
+function authHeadersCfg() {
+  return { 'Authorization': 'Bearer ' + (localStorage.getItem('chef_token') || ''), 'Content-Type': 'application/json' };
+}
+
+window.salvarParceiro = async () => {
+  const nome = document.getElementById('parceiro-nome').value.trim();
+  if (!nome) return alert('Informe o nome do parceiro.');
+  const corpo = {
+    id: parceiroEditandoId || undefined,
+    nome,
+    categoria: document.getElementById('parceiro-categoria').value.trim(),
+    telefone: document.getElementById('parceiro-telefone').value.trim(),
+    endereco: document.getElementById('parceiro-endereco').value.trim(),
+    bairro: document.getElementById('parceiro-bairro').value.trim(),
+    cidade: document.getElementById('parceiro-cidade').value.trim(),
+    latitude: document.getElementById('parceiro-lat').value.trim() || null,
+    longitude: document.getElementById('parceiro-lng').value.trim() || null,
+    pontos_minimos: parseInt(document.getElementById('parceiro-pontos').value, 10) || 0,
+    ativo: true
+  };
+  try {
+    const r = await fetch('/api/fidelidade/parceiros', { method: 'POST', headers: authHeadersCfg(), body: JSON.stringify(corpo) });
+    const data = await r.json();
+    if (!data.success) throw new Error(data.error || 'Erro ao salvar.');
+    window.limparFormParceiro();
+    carregarParceiros();
+  } catch (e) {
+    alert(e.message);
+  }
+};
+
+async function carregarParceiros() {
+  try {
+    const r = await fetch('/api/fidelidade/parceiros');
+    const data = await r.json();
+    parceirosCache = data.parceiros || [];
+    renderParceirosLista();
+    desenharMapaParceiros();
+  } catch (e) { /* silencioso */ }
+}
+
+window.editarParceiro = (id) => {
+  const p = parceirosCache.find(x => x.id === id);
+  if (!p) return;
+  parceiroEditandoId = id;
+  document.getElementById('parceiro-nome').value = p.nome || '';
+  document.getElementById('parceiro-categoria').value = p.categoria || '';
+  document.getElementById('parceiro-telefone').value = p.telefone || '';
+  document.getElementById('parceiro-endereco').value = p.endereco || '';
+  document.getElementById('parceiro-bairro').value = p.bairro || '';
+  document.getElementById('parceiro-cidade').value = p.cidade || '';
+  document.getElementById('parceiro-lat').value = p.latitude != null ? p.latitude : '';
+  document.getElementById('parceiro-lng').value = p.longitude != null ? p.longitude : '';
+  document.getElementById('parceiro-pontos').value = p.pontos_minimos || 0;
+};
+
+window.excluirParceiro = async (id) => {
+  if (!confirm('Excluir este parceiro?')) return;
+  try {
+    await fetch('/api/fidelidade/parceiros/' + id, { method: 'DELETE', headers: authHeadersCfg() });
+    carregarParceiros();
+  } catch (e) { alert('Erro ao excluir.'); }
+};
+
+function renderParceirosLista() {
+  const tbody = document.getElementById('admin-parceiros-list');
+  if (!tbody) return;
+  if (!parceirosCache.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#a8a29e; padding:16px;">Nenhum parceiro cadastrado ainda.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = parceirosCache.map(p => `<tr>
+    <td style="font-weight:600;">${p.nome}</td>
+    <td>${p.categoria || '—'}</td>
+    <td>${[p.bairro, p.cidade].filter(Boolean).join(', ') || '—'}</td>
+    <td>${p.pontos_minimos || 0} pts</td>
+    <td><span style="background:${p.ativo ? '#dcfce7' : '#fee2e2'}; color:${p.ativo ? '#166534' : '#991b1b'}; padding:4px 8px; border-radius:6px; font-size:11px; font-weight:bold;">${p.ativo ? 'Ativo' : 'Inativo'}</span></td>
+    <td>
+      <button onclick="window.editarParceiro(${p.id})" style="color:#0284c7; border:none; background:none; cursor:pointer; margin-right:8px;"><i class="ph ph-pencil"></i> Editar</button>
+      <button onclick="window.excluirParceiro(${p.id})" style="color:red; border:none; background:none; cursor:pointer;"><i class="ph ph-trash"></i> Excluir</button>
+    </td>
+  </tr>`).join('');
+}
+
+/* Mini mapa dos parceiros — canvas puro, pan/zoom simples */
+const mapaPc = { cx: -46.63, cy: -23.55, pxDeg: 40 };
+
+function pcProjeta(lng, lat, w, h) {
+  return { x: w / 2 + (lng - mapaPc.cx) * mapaPc.pxDeg, y: h / 2 - (lat - mapaPc.cy) * mapaPc.pxDeg };
+}
+function pcUnprojeta(px, py, w, h) {
+  return { lng: mapaPc.cx + (px - w / 2) / mapaPc.pxDeg, lat: mapaPc.cy - (py - h / 2) / mapaPc.pxDeg };
+}
+
+function desenharMapaParceiros() {
+  const cv = document.getElementById('mapa-parceiros-canvas');
+  if (!cv) return;
+  const ctx = cv.getContext('2d');
+  const w = cv.width, h = cv.height;
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = '#0b1220';
+  ctx.fillRect(0, 0, w, h);
+
+  // grade
+  let passo = 0.05;
+  while (passo * mapaPc.pxDeg < 60) passo *= 2;
+  ctx.strokeStyle = 'rgba(148,163,184,0.10)';
+  ctx.lineWidth = 1;
+  const iniLng = Math.floor(pcUnprojeta(0, 0, w, h).lng / passo) * passo;
+  for (let L = iniLng; ; L += passo) {
+    const x = pcProjeta(L, 0, w, h).x;
+    if (x > w + 30) break;
+    if (x >= -30) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
+  }
+  const iniLat = Math.floor(pcUnprojeta(0, h, w, h).lat / passo) * passo;
+  for (let A = iniLat; ; A += passo) {
+    const y = pcProjeta(0, A, w, h).y;
+    if (y < -30) break;
+    if (y <= h + 30) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+  }
+
+  const locais = parceirosCache.filter(p => p.latitude != null && p.longitude != null);
+  locais.forEach(p => {
+    const pt = pcProjeta(parseFloat(p.longitude), parseFloat(p.latitude), w, h);
+    ctx.fillStyle = p.ativo ? '#22c55e' : '#64748b';
+    ctx.strokeStyle = 'rgba(255,255,255,.75)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(pt.x, pt.y, 7, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.font = 'bold 11px Outfit, sans-serif';
+    ctx.fillStyle = '#e2e8f0';
+    ctx.strokeStyle = 'rgba(2,6,23,.85)';
+    ctx.lineWidth = 3;
+    ctx.strokeText(p.nome, pt.x + 10, pt.y + 4);
+    ctx.fillText(p.nome, pt.x + 10, pt.y + 4);
+  });
+
+  const vazio = document.getElementById('mapa-parceiros-vazio');
+  if (vazio) vazio.style.display = locais.length === 0 ? 'flex' : 'none';
+
+  // Auto-fit quando há pontos fora da vista inicial
+  if (locais.length === 1 && mapaPc.pxDeg === 40) {
+    mapaPc.cx = parseFloat(locais[0].longitude); mapaPc.cy = parseFloat(locais[0].latitude); mapaPc.pxDeg = 400;
+    desenharMapaParceiros();
+  }
+}
+
+(function initMapaParceiros() {
+  let pronto = false;
+  const cv = document.getElementById('mapa-parceiros-canvas');
+  if (!cv) return;
+
+  function coords(ev) {
+    const r = cv.getBoundingClientRect();
+    return { x: (ev.clientX - r.left) * (cv.width / r.width), y: (ev.clientY - r.top) * (cv.height / r.height) };
+  }
+
+  cv.addEventListener('wheel', (ev) => {
+    ev.preventDefault();
+    const c = coords(ev);
+    const antes = pcUnprojeta(c.x, c.y, cv.width, cv.height);
+    mapaPc.pxDeg = Math.min(20000, Math.max(1, mapaPc.pxDeg * (ev.deltaY < 0 ? 1.18 : 1 / 1.18)));
+    const depois = pcUnprojeta(c.x, c.y, cv.width, cv.height);
+    mapaPc.cx += antes.lng - depois.lng;
+    mapaPc.cy += antes.lat - depois.lat;
+    desenharMapaParceiros();
+  }, { passive: false });
+
+  let arrastando = false, ultimo = null, moveu = false;
+  cv.addEventListener('pointerdown', (ev) => { if (cv.__chefPinch) return; arrastando = true; moveu = false; ultimo = { x: ev.clientX, y: ev.clientY }; cv.style.cursor = 'grabbing'; });
+  window.addEventListener('pointerup', () => { arrastando = false; cv.style.cursor = 'grab'; });
+  window.addEventListener('pointermove', (ev) => {
+    if (!arrastando || !ultimo || cv.__chefPinch) return;
+    const r = cv.getBoundingClientRect();
+    const dx = (ev.clientX - ultimo.x) * (cv.width / r.width);
+    const dy = (ev.clientY - ultimo.y) * (cv.height / r.height);
+    if (Math.abs(dx) + Math.abs(dy) > 3) moveu = true;
+    mapaPc.cx -= dx / mapaPc.pxDeg;
+    mapaPc.cy += dy / mapaPc.pxDeg;
+    ultimo = { x: ev.clientX, y: ev.clientY };
+    desenharMapaParceiros();
+  });
+
+  // Botão direito no mapa preenche lat/lng do formulário
+  cv.addEventListener('contextmenu', (ev) => {
+    ev.preventDefault();
+    const c = coords(ev);
+    const geo = pcUnprojeta(c.x, c.y, cv.width, cv.height);
+    document.getElementById('parceiro-lat').value = geo.lat.toFixed(6);
+    document.getElementById('parceiro-lng').value = geo.lng.toFixed(6);
+    const st = document.getElementById('parceiro-geo-status');
+    if (st) st.textContent = 'Coordenadas definidas pelo mapa!';
+  });
+
+  // Carrega quando a aba fidelidade abre pela primeira vez
+  const btnFid = document.querySelector('.admin-tab-btn[data-tab="fidelidade"]');
+  if (btnFid) {
+    btnFid.addEventListener('click', () => {
+      if (!pronto) { pronto = true; setTimeout(() => { carregarParceiros(); carregarAvaliacoesAdmin(); }, 250); }
+    });
+  }
+})();
+
+// --- AVALIAÇÕES (painel do dono) ---
+async function carregarAvaliacoesAdmin() {
+  try {
+    const r = await fetch('/api/avaliacoes', { headers: authHeadersCfg() });
+    const data = await r.json();
+    const mediaEl = document.getElementById('avaliacoes-media');
+    const estrelasEl = document.getElementById('avaliacoes-estrelas-media');
+    const totalEl = document.getElementById('avaliacoes-total');
+    if (mediaEl) mediaEl.textContent = data.media > 0 ? data.media.toFixed(1) : '--';
+    if (estrelasEl) {
+      const cheias = Math.round(data.media || 0);
+      estrelasEl.textContent = '★'.repeat(cheias) + '☆'.repeat(Math.max(0, 5 - cheias));
+    }
+    if (totalEl) totalEl.textContent = (data.total || 0) + ' avaliações';
+    const sync = document.getElementById('avaliacao-google-sync');
+    const place = document.getElementById('avaliacao-place-id');
+    if (sync) sync.checked = !!data.google_sync_enabled;
+    if (place) place.value = data.google_place_id || '';
+
+    const tbody = document.getElementById('admin-avaliacoes-list');
+    if (!tbody) return;
+    const lista = data.avaliacoes || [];
+    if (!lista.length) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#a8a29e; padding:16px;">Nenhuma avaliação recebida ainda.</td></tr>';
+      return;
+    }
+    const fmtData = (d) => { try { return new Date(d.replace(' ', 'T')).toLocaleDateString('pt-BR') + ' ' + new Date(d.replace(' ', 'T')).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); } catch (e) { return d; } };
+    tbody.innerHTML = lista.slice(0, 50).map(a => `<tr>
+      <td style="white-space:nowrap;">${fmtData(a.criado_em)}</td>
+      <td style="font-weight:600;">${a.cliente_nome || 'Cliente'}</td>
+      <td>${a.mesa || '—'}</td>
+      <td style="color:#f59e0b; white-space:nowrap;">${'★'.repeat(a.nota)}${'☆'.repeat(5 - a.nota)}</td>
+      <td>${(a.comentario || '—').slice(0, 80)}</td>
+      <td>${a.origem === 'google' ? 'Google' : 'Interna'}</td>
+    </tr>`).join('');
+  } catch (e) { /* silencioso */ }
+}
+
+window.salvarGoogleSync = async () => {
+  const enabled = document.getElementById('avaliacao-google-sync').checked;
+  const place_id = document.getElementById('avaliacao-place-id').value.trim();
+  try {
+    const r = await fetch('/api/avaliacoes/google-sync', { method: 'POST', headers: authHeadersCfg(), body: JSON.stringify({ enabled, place_id }) });
+    const data = await r.json();
+    if (data.success) alert('Preferência de avaliações salva!');
+  } catch (e) { alert('Erro ao salvar.'); }
+};
+
+
 // --- FIDELIDADE: QR de check-in ---
 window.gerarQrCheckin = (silent) => {
   const protocol = window.location.protocol;

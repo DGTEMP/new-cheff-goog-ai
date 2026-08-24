@@ -157,6 +157,11 @@
                 <span>Deploy & Atualizações</span>
                 <span class="menu-badge" style="background:#22c55e;">Zero-Downtime</span>
               </div>
+              <div class="menu-item" data-target="sec-supabase">
+                <i class="fa-solid fa-database"></i>
+                <span>Supabase</span>
+                <span class="menu-badge" id="supabase-status-badge" style="display:none;background:#22c55e;">Ativo</span>
+              </div>
               <div class="menu-item" data-target="sec-terminal">
                 <i class="fa-solid fa-terminal"></i>
                 <span>Terminal</span>
@@ -1565,6 +1570,22 @@
               </table>
             </div>
           </div>
+
+          <!-- Solicitações de funções dos tenants -->
+          <div class="card" style="padding:0;overflow:hidden;margin-top:1.5rem;">
+            <div
+              style="padding:0.8rem 1.2rem;background:rgba(168,85,247,0.08);border-bottom:1px solid var(--border-color);display:flex;justify-content:space-between;align-items:center;">
+              <span style="font-weight:600;font-size:0.9rem;"><i class="fa-solid fa-inbox"
+                  style="color:#a78bfa;"></i> Solicitações de Funções</span>
+              <button class="btn-action" onclick="carregarSolicitacoesFeatures()" title="Atualizar"
+                style="padding:0.4rem 0.8rem;font-size:0.8rem;">
+                <i class="fa-solid fa-rotate"></i> Atualizar
+              </button>
+            </div>
+            <div id="solicitacoes-features-body" style="padding:1rem;font-size:0.85rem;color:var(--text-muted);">
+              Carregando solicitações...
+            </div>
+          </div>
         </div>
 
         <!-- ════ SEÇÃO: FEATURES POR RESTAURANTE ════ -->
@@ -2126,6 +2147,74 @@
                   </tr>
                 </tbody>
               </table>
+            </div>
+
+            <!-- Servidores / Balanceamento -->
+            <div class="card" style="padding:0;overflow:hidden;margin-top:1.5rem;">
+              <div
+                style="padding:0.8rem 1.2rem;background:rgba(59,130,246,0.08);border-bottom:1px solid var(--border-color);display:flex;justify-content:space-between;align-items:center;">
+                <span style="font-weight:600;font-size:0.9rem;"><i class="fa-solid fa-network-wired"></i> Servidores &amp;
+                  Balanceamento de Carga</span>
+                <button class="btn-action" onclick="adicionarServidorHub()" title="Adicionar servidor"
+                  style="padding:0.4rem 0.8rem;font-size:0.8rem;">
+                  <i class="fa-solid fa-plus"></i> Adicionar
+                </button>
+              </div>
+              <table class="custom-table">
+                <thead>
+                  <tr>
+                    <th>Nome</th>
+                    <th>URL</th>
+                    <th>Peso</th>
+                    <th>Status</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="servers-tbody">
+                  <tr>
+                    <td colspan="5" style="text-align:center;padding:1.2rem;color:var(--text-muted);">Carregando
+                      servidores...</td>
+                  </tr>
+                </tbody>
+              </table>
+              <div
+                style="padding:0.8rem 1.2rem;border-top:1px solid var(--border-color);display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+                <label style="color:#999;font-size:12px;">Estratégia:</label>
+                <select id="lb-strategy"
+                  style="background:#111;border:1px solid #333;color:white;border-radius:6px;padding:6px 10px;font-size:12px;">
+                  <option value="round_robin">Round Robin</option>
+                  <option value="weighted">Ponderado (peso)</option>
+                  <option value="least_connections">Menos Conexões</option>
+                </select>
+                <button class="btn-action" onclick="salvarStrategyServidores()"
+                  style="padding:0.4rem 0.8rem;font-size:0.8rem;"><i class="fa-solid fa-floppy-disk"></i> Salvar</button>
+              </div>
+            </div>
+
+            <!-- Fila de Sync & Conflitos -->
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;margin-top:1.5rem;">
+              <div class="card" style="padding:0;overflow:hidden;">
+                <div
+                  style="padding:0.8rem 1.2rem;background:rgba(245,158,11,0.08);border-bottom:1px solid var(--border-color);">
+                  <span style="font-weight:600;font-size:0.9rem;"><i class="fa-solid fa-layer-group"></i> Fila de
+                    Sincronização</span>
+                </div>
+                <div id="sync-queue-body"
+                  style="padding:1rem;font-size:13px;color:#bbb;max-height:260px;overflow-y:auto;">
+                  Carregando fila...
+                </div>
+              </div>
+              <div class="card" style="padding:0;overflow:hidden;">
+                <div
+                  style="padding:0.8rem 1.2rem;background:rgba(239,68,68,0.08);border-bottom:1px solid var(--border-color);">
+                  <span style="font-weight:600;font-size:0.9rem;"><i class="fa-solid fa-triangle-exclamation"></i>
+                    Conflitos de Sync</span>
+                </div>
+                <div id="sync-conflicts-body"
+                  style="padding:1rem;font-size:13px;color:#bbb;max-height:260px;overflow-y:auto;">
+                  Carregando conflitos...
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -3387,6 +3476,58 @@
                 </div>
 
               </div>
+            </div>
+          </div>
+
+          <div class="content-section" id="sec-supabase">
+            <div class="info-banner" style="border-left-color:#3ecf8e;">
+              <i class="fa-solid fa-database" style="color:#3ecf8e;"></i>
+              <div class="info-banner-content">
+                <h4>Conexão Guiada ao Supabase</h4>
+                <p>Conecte o sistema a um banco de nuvem Supabase para backup em tempo real, sincronização entre servidores e relatórios centralizados. Siga os 3 passos abaixo.</p>
+              </div>
+            </div>
+
+            <div style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;padding:1.5rem;margin-bottom:1.5rem;">
+              <h3 style="margin:0 0 0.75rem 0;font-size:1.05rem;"><i class="fa-solid fa-circle-info" style="color:#3b82f6;"></i> Passo 1 — Pegue as credenciais no painel do Supabase</h3>
+              <ol style="color:var(--text-muted);font-size:0.88rem;line-height:1.7;margin:0;padding-left:1.2rem;">
+                <li>Acesse <strong style="color:#3ecf8e;">supabase.com/dashboard</strong> e abra seu projeto (ou crie um novo).</li>
+                <li>No menu lateral, clique em <strong>Project Settings → API</strong>.</li>
+                <li>Copie a <strong>Project URL</strong>, a <strong>anon public key</strong> e a <strong>service_role key</strong>.</li>
+              </ol>
+            </div>
+
+            <div style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;padding:1.5rem;margin-bottom:1.5rem;">
+              <h3 style="margin:0 0 1rem 0;font-size:1.05rem;"><i class="fa-solid fa-key" style="color:#f59e0b;"></i> Passo 2 — Cole as credenciais aqui</h3>
+              <div class="form-group">
+                <label>Project URL *</label>
+                <input type="text" id="supabase-url" placeholder="https://xxxxx.supabase.co">
+              </div>
+              <div class="form-group">
+                <label>Anon Public Key *</label>
+                <input type="text" id="supabase-anon-key" placeholder="eyJhbGciOiJIUzI1NiIs..." autocomplete="off">
+              </div>
+              <div class="form-group">
+                <label>Service Role Key (opcional, apenas para escrita no servidor)</label>
+                <input type="password" id="supabase-service-key" placeholder="••••••••••••••••" autocomplete="new-password">
+              </div>
+            </div>
+
+            <div style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;padding:1.5rem;margin-bottom:1.5rem;">
+              <h3 style="margin:0 0 1rem 0;font-size:1.05rem;"><i class="fa-solid fa-plug-circle-check" style="color:#22c55e;"></i> Passo 3 — Testar e salvar</h3>
+              <div id="supabase-test-resultado" style="display:none;padding:0.85rem 1rem;border-radius:10px;margin-bottom:1rem;font-size:0.88rem;"></div>
+              <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
+                <button class="btn-action btn-primary-action" id="btn-supabase-testar"><i class="fa-solid fa-vial"></i> Testar Conexão</button>
+                <button class="btn-action" id="btn-supabase-salvar"><i class="fa-solid fa-floppy-disk"></i> Salvar Configuração</button>
+                <label style="display:flex;align-items:center;gap:8px;color:var(--text-muted);font-size:0.85rem;cursor:pointer;">
+                  <input type="checkbox" id="supabase-enabled"> Ativar integração
+                </label>
+              </div>
+            </div>
+
+            <div style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.25);border-radius:12px;padding:1rem 1.25rem;font-size:0.82rem;color:var(--text-muted);">
+              <i class="fa-solid fa-shield-halved" style="color:#3b82f6;"></i>
+              As chaves ficam armazenadas localmente na tabela <code>super_config</code>. A service_role key nunca é enviada ao navegador dos restaurantes.
             </div>
           </div>
 

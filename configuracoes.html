@@ -3143,6 +3143,77 @@ border-bottom: 1px solid #eef2f6;
             </tbody>
           </table>
         </div>
+
+        <!-- ═══ PARCEIROS DA FIDELIDADE (base de mapas) ═══ -->
+        <div style="background: #fffbfa; padding: 25px; border-radius: 12px; margin-top: 25px; border: 1px solid #ffedd5;">
+          <h4 style="margin:0 0 6px 0; color:#c2410c; font-size:16px; display:flex; align-items:center; gap:8px;"><i class="ph ph-handshake" style="font-size:20px;"></i> Parceiros da Fidelidade</h4>
+          <p style="margin:0 0 16px; color:#78716c; font-size:12.5px;">Onde seus clientes podem usar os pontos. Os parceiros aparecem no mapa do cardápio/área do cliente.</p>
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:10px;">
+            <div><label style="display:block; font-size:11px; font-weight:bold; color:#78350f; margin-bottom:5px; text-transform:uppercase;">Nome *</label>
+              <input type="text" id="parceiro-nome" placeholder="Ex: Sorveteria Gelata" style="width:100%; padding:9px 12px; border:1px solid #fed7aa; border-radius:8px; background:var(--cfg-card-bg); font-size:13px;"></div>
+            <div><label style="display:block; font-size:11px; font-weight:bold; color:#78350f; margin-bottom:5px; text-transform:uppercase;">Categoria</label>
+              <input type="text" id="parceiro-categoria" placeholder="Ex: Sobremesas" list="lista-categorias-parceiro" style="width:100%; padding:9px 12px; border:1px solid #fed7aa; border-radius:8px; background:var(--cfg-card-bg); font-size:13px;">
+              <datalist id="lista-categorias-parceiro">
+                <option value="Restaurante"><option value="Sobremesas"><option value="Cafeteria"><option value="Farmácia"><option value="Posto"><option value="Mercado"><option value="Academia"><option value="Lazer">
+              </datalist></div>
+            <div><label style="display:block; font-size:11px; font-weight:bold; color:#78350f; margin-bottom:5px; text-transform:uppercase;">Telefone</label>
+              <input type="text" id="parceiro-telefone" placeholder="(00) 00000-0000" style="width:100%; padding:9px 12px; border:1px solid #fed7aa; border-radius:8px; background:var(--cfg-card-bg); font-size:13px;"></div>
+            <div><label style="display:block; font-size:11px; font-weight:bold; color:#78350f; margin-bottom:5px; text-transform:uppercase;">Pontos mínimos</label>
+              <input type="number" id="parceiro-pontos" placeholder="Ex: 30" min="0" style="width:100%; padding:9px 12px; border:1px solid #fed7aa; border-radius:8px; background:var(--cfg-card-bg); font-size:13px;"></div>
+            <div style="grid-column: span 2;"><label style="display:block; font-size:11px; font-weight:bold; color:#78350f; margin-bottom:5px; text-transform:uppercase;">Endereço</label>
+              <input type="text" id="parceiro-endereco" placeholder="Rua, número" style="width:100%; padding:9px 12px; border:1px solid #fed7aa; border-radius:8px; background:var(--cfg-card-bg); font-size:13px;"></div>
+            <div><label style="display:block; font-size:11px; font-weight:bold; color:#78350f; margin-bottom:5px; text-transform:uppercase;">Bairro</label>
+              <input type="text" id="parceiro-bairro" style="width:100%; padding:9px 12px; border:1px solid #fed7aa; border-radius:8px; background:var(--cfg-card-bg); font-size:13px;"></div>
+            <div><label style="display:block; font-size:11px; font-weight:bold; color:#78350f; margin-bottom:5px; text-transform:uppercase;">Cidade</label>
+              <input type="text" id="parceiro-cidade" style="width:100%; padding:9px 12px; border:1px solid #fed7aa; border-radius:8px; background:var(--cfg-card-bg); font-size:13px;"></div>
+            <div><label style="display:block; font-size:11px; font-weight:bold; color:#78350f; margin-bottom:5px; text-transform:uppercase;">Latitude</label>
+              <input type="text" id="parceiro-lat" placeholder="-23.55052" style="width:100%; padding:9px 12px; border:1px solid #fed7aa; border-radius:8px; background:var(--cfg-card-bg); font-size:13px;"></div>
+            <div><label style="display:block; font-size:11px; font-weight:bold; color:#78350f; margin-bottom:5px; text-transform:uppercase;">Longitude</label>
+              <input type="text" id="parceiro-lng" placeholder="-46.63331" style="width:100%; padding:9px 12px; border:1px solid #fed7aa; border-radius:8px; background:var(--cfg-card-bg); font-size:13px;"></div>
+          </div>
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:12px;">
+            <button onclick="window.capturarLocalParceiro()" style="background:#0ea5e9; color:white; border:none; padding:9px 18px; border-radius:8px; font-weight:bold; font-size:13px; cursor:pointer;"><i class="ph ph-crosshair"></i> Usar minha localização</button>
+            <button onclick="window.salvarParceiro()" style="background:#f59e0b; color:white; border:none; padding:9px 24px; border-radius:8px; font-weight:bold; font-size:13px; cursor:pointer;"><i class="ph ph-floppy-disk"></i> Salvar Parceiro</button>
+            <button onclick="window.limparFormParceiro()" style="background:#e7e5e4; color:#44403c; border:none; padding:9px 18px; border-radius:8px; font-weight:bold; font-size:13px; cursor:pointer;">Limpar</button>
+            <span id="parceiro-geo-status" style="font-size:12px; color:#64748b;"></span>
+          </div>
+          <!-- Mini mapa dos parceiros -->
+          <div style="position:relative; margin-top:14px; border-radius:12px; overflow:hidden; background:#0b1220;">
+            <canvas id="mapa-parceiros-canvas" width="800" height="360" style="width:100%; height:auto; display:block; cursor:grab; touch-action:none;"></canvas>
+            <div id="mapa-parceiros-vazio" style="position:absolute; inset:0; display:none; align-items:center; justify-content:center; color:#94a3b8; font-size:13px; text-align:center; pointer-events:none;">Cadastre parceiros com coordenadas para vê-los no mapa.<br>Dica: clique com o botão direito no mapa para definir as coordenadas do formulário.</div>
+          </div>
+          <div class="tab-table-container" style="margin-top:14px;">
+            <table class="admin-table">
+              <thead><tr><th>Parceiro</th><th>Categoria</th><th>Cidade</th><th>Pontos mín.</th><th>Status</th><th>Ações</th></tr></thead>
+              <tbody id="admin-parceiros-list"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ═══ AVALIAÇÕES DOS CLIENTES ═══ -->
+        <div style="background: #fffbfa; padding: 25px; border-radius: 12px; margin-top: 25px; border: 1px solid #ffedd5;">
+          <h4 style="margin:0 0 6px 0; color:#c2410c; font-size:16px; display:flex; align-items:center; gap:8px;"><i class="ph ph-star" style="font-size:20px;"></i> Avaliações dos Clientes</h4>
+          <p style="margin:0 0 16px; color:#78716c; font-size:12.5px;">Notas enviadas pelo cardápio digital. Notas 4–5 podem convidar o cliente a avaliar também no Google.</p>
+          <div style="display:flex; gap:20px; flex-wrap:wrap; align-items:center; margin-bottom:14px;">
+            <div style="background:#fffbeb; border:1px solid #fde68a; border-radius:12px; padding:10px 18px; display:flex; align-items:center; gap:10px;">
+              <span style="font-size:28px; font-weight:800; color:#b45309;" id="avaliacoes-media">--</span>
+              <span style="color:#f59e0b; font-size:20px;" id="avaliacoes-estrelas-media">☆☆☆☆☆</span>
+              <span style="font-size:12px; color:#92400e;" id="avaliacoes-total">0 avaliações</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <input type="checkbox" id="avaliacao-google-sync" style="width:17px; height:17px; accent-color:#f59e0b; cursor:pointer;">
+              <label for="avaliacao-google-sync" style="font-size:13px; font-weight:bold; color:#92400e; cursor:pointer;">Convidar notas altas para o Google</label>
+            </div>
+            <input type="text" id="avaliacao-place-id" placeholder="Google Place ID do seu restaurante (opcional)" style="flex:1; min-width:220px; max-width:380px; padding:9px 12px; border:1px solid #fed7aa; border-radius:8px; background:var(--cfg-card-bg); font-size:13px;">
+            <button onclick="window.salvarGoogleSync()" style="background:#f59e0b; color:white; border:none; padding:9px 18px; border-radius:8px; font-weight:bold; font-size:13px; cursor:pointer;">Salvar</button>
+          </div>
+          <div class="tab-table-container">
+            <table class="admin-table">
+              <thead><tr><th>Data</th><th>Cliente</th><th>Mesa</th><th>Nota</th><th>Comentário</th><th>Origem</th></tr></thead>
+              <tbody id="admin-avaliacoes-list"></tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
       <!-- TAB FILA DE ESPERA -->

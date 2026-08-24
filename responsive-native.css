@@ -266,3 +266,38 @@ body.tabs-collapsed .workspace {
 body.tabs-collapsed #chef-tabs-restore {
   display: flex;
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   11. MULTI-GESTOS & PRESSURE TOUCH (Pointer Events)
+   Feedback visual de pressão + suporte a pinch nos canvases.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Elemento pressionado com força (caneta/dedo que reporta pressure) */
+.chef-pressure {
+  transform: scale(.955) !important;
+  filter: brightness(1.18);
+  transition: transform .06s ease, filter .06s ease;
+}
+
+button,
+.btn-row-action,
+.menu-item,
+.mesa-tile,
+a {
+  will-change: transform;
+}
+
+/* Cursor de agarrar em canvases com pan */
+canvas[data-gestures],
+#mapa-canvas,
+#mapa-parceiros-canvas,
+#mapa-parceiros-cliente {
+  cursor: grab;
+}
+
+canvas[data-gestures]:active,
+#mapa-canvas:active,
+#mapa-parceiros-canvas:active,
+#mapa-parceiros-cliente:active {
+  cursor: grabbing;
+}

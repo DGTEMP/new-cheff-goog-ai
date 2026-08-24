@@ -1042,6 +1042,77 @@ module.exports = function (app, masterDb, sqlite3, options) {
   });
 
   // ═══════════════════════════════════════════════════════════════
+  // SOLICITAÇÕES DE FUNÇÕES (pedidos dos tenants)
+  // ═══════════════════════════════════════════════════════════════
+
+  // GET — lista solicitações (pendências primeiro)
+  app.get('/api/super/solicitacoes-features', superAdminAuth, (req, res) => {
+    masterDb.all(
+      `SELECT s.*, r.nome AS restaurante_nome, r.licenca
+         FROM solicitacoes_features s
+         LEFT JOIN restaurantes r ON r.id = s.restaurante_id
+        ORDER BY CASE s.status WHEN 'pendente' THEN 0 ELSE 1 END, s.criado_em DESC
+        LIMIT 200`,
+      [],
+      (err, rows) => {
+        if (err) return res.json({ ok: false, erro: err.message });
+        res.json({ ok: true, solicitacoes: rows || [] });
+      }
+    );
+  });
+
+  // POST — aprovar: ativa a feature para o tenant e resolve a solicitação
+  app.post('/api/super/solicitacoes-features/aprovar', superAdminAuth, async (req, res) => {
+    const id = parseInt((req.body || {}).id, 10);
+    if (!id) return res.json({ ok: false, erro: 'ID obrigatório.' });
+    const sol = await new Promise((resolve) => {
+      masterDb.get(`SELECT * FROM solicitacoes_features WHERE id = ?`, [id], (e, row) => resolve(e ? null : row));
+    });
+    if (!sol) return res.json({ ok: false, erro: 'Solicitação não encontrada.' });
+
+    try {
+      const existing = await new Promise((resolve) => {
+        masterDb.get(`SELECT overrides_json FROM tenant_features WHERE restaurante_id = ?`, [sol.restaurante_id], (e, row) => resolve(e ? null : row));
+      });
+      let overrides = {};
+      if (existing && existing.overrides_json) {
+        try { overrides = JSON.parse(existing.overrides_json) || {}; } catch (e) { overrides = {}; }
+      }
+      overrides[sol.feature] = true;
+      await new Promise((resolve) => {
+        masterDb.run(
+          `INSERT INTO tenant_features (restaurante_id, overrides_json, updated_at) VALUES (?, ?, datetime('now','localtime'))
+           ON CONFLICT(restaurante_id) DO UPDATE SET overrides_json = excluded.overrides_json, updated_at = excluded.updated_at`,
+          [sol.restaurante_id, JSON.stringify(overrides)],
+          resolve
+        );
+      });
+      if (sol.feature === 'ifood' && ifoodApi && ifoodDeps && typeof ifoodDeps.isFeatureEnabled === 'function') {
+        ifoodApi.ensurePoller(sol.restaurante_id, ifoodDeps);
+      }
+      if (typeof loadAllTenantFeatures === 'function') await loadAllTenantFeatures();
+
+      masterDb.run(`UPDATE solicitacoes_features SET status = 'aprovada', resolvido_em = datetime('now','localtime') WHERE id = ?`, [id]);
+      try { io.to('restaurante_' + sol.restaurante_id).emit('funcao_aprovada', { feature: sol.feature }); } catch (e2) {}
+      res.json({ ok: true, mensagem: 'Função ativada e solicitação aprovada!' });
+    } catch (e) {
+      res.json({ ok: false, erro: e.message });
+    }
+  });
+
+  // POST — recusar
+  app.post('/api/super/solicitacoes-features/recusar', superAdminAuth, (req, res) => {
+    const id = parseInt((req.body || {}).id, 10);
+    if (!id) return res.json({ ok: false, erro: 'ID obrigatório.' });
+    masterDb.get(`SELECT restaurante_id, feature FROM solicitacoes_features WHERE id = ?`, [id], (e, sol) => {
+      masterDb.run(`UPDATE solicitacoes_features SET status = 'recusada', resolvido_em = datetime('now','localtime') WHERE id = ?`, [id], () => {
+        if (sol) { try { io.to('restaurante_' + sol.restaurante_id).emit('funcao_recusada', { feature: sol.feature }); } catch (e2) {} }
+        res.json(e ? { ok: false, erro: e.message } : { ok: true, mensagem: 'Solicitação recusada.' });
+      });
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════
   // PICO & CAPACIDADE DO SERVIDOR
   // ═══════════════════════════════════════════════════════════════
 

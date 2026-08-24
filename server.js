@@ -3445,6 +3445,18 @@ masterDb.serialize(async () => {
     resolved_at DATETIME DEFAULT (datetime('now','localtime'))
   )`);
 
+  // Solicitações de ativação de funções vindas dos tenants
+  masterDb.run(`CREATE TABLE IF NOT EXISTS solicitacoes_features (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    restaurante_id INTEGER NOT NULL,
+    feature TEXT NOT NULL,
+    mensagem TEXT,
+    status TEXT DEFAULT 'pendente',
+    criado_em DATETIME DEFAULT (datetime('now','localtime')),
+    resolvido_em DATETIME
+  )`);
+  masterDb.run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_solic_rest_feat ON solicitacoes_features(restaurante_id, feature)`);
+
   // Restaurante padrão (id 1)
   masterDb.run(`INSERT OR IGNORE INTO restaurantes (id, nome, licenca, ativo) VALUES (1, 'Restaurante Pirão', 'ativo', 1)`);
   masterDb.run(`UPDATE restaurantes SET nome = 'Restaurante Pirão', licenca = 'ativo', ativo = 1 WHERE id = 1`);
@@ -4032,6 +4044,41 @@ db.serialize(() => {
       descricao TEXT,
       nivel TEXT DEFAULT 'Bronze',
       ativo INTEGER DEFAULT 1
+    )
+  `);
+
+  // ── FIDELIDADE: Parceiros (rede onde o cliente usa pontos) ──
+  db.run(`
+    CREATE TABLE IF NOT EXISTS parceiros_fidelidade (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      nome TEXT,
+      categoria TEXT,
+      telefone TEXT,
+      endereco TEXT,
+      bairro TEXT,
+      cidade TEXT,
+      latitude REAL,
+      longitude REAL,
+      pontos_minimos INTEGER DEFAULT 0,
+      descricao TEXT,
+      logo_url TEXT,
+      ativo INTEGER DEFAULT 1
+    )
+  `);
+
+  // ── AVALIAÇÕES: nota interna dos clientes (sync Google opcional) ──
+  db.run(`
+    CREATE TABLE IF NOT EXISTS avaliacoes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      cliente_nome TEXT,
+      cliente_id INTEGER,
+      mesa TEXT,
+      nota INTEGER DEFAULT 5,
+      comentario TEXT,
+      origem TEXT DEFAULT 'interno',
+      sincronizado INTEGER DEFAULT 0,
+      google_review_id TEXT,
+      criado_em DATETIME DEFAULT (datetime('now', 'localtime'))
     )
   `);
 
@@ -7025,6 +7072,44 @@ io.on('connection', (socket) => {
   socket.on('add_mesa', (nome) => db.run(`INSERT INTO mesas (nome) VALUES (?)`, [nome], () => {
     db.all(`SELECT * FROM mesas`, (e, r) => io.emit('mesas_atualizadas', r || []));
   }));
+
+  // Painel de configurações salvou via REST: propaga para todas as telas
+  socket.on('admin_configs_updated', () => {
+    io.emit('configuracoes_atualizadas');
+  });
+
+  // Cria comanda CRM: cadastra/atualiza o cliente e abre uma mesa com o nome dele
+  socket.on('nova_comanda_crm', (data) => {
+    const nome = String((data && data.nome) || '').trim().slice(0, 80);
+    const telefone = String((data && data.telefone) || '').replace(/\D/g, '').slice(0, 15);
+    if (!nome) return socket.emit('erro_servidor', 'Nome da comanda é obrigatório.');
+
+    const criarMesa = (clienteId) => {
+      db.get(`SELECT id FROM mesas WHERE nome = ?`, [nome], (eDup, dup) => {
+        if (!eDup && dup) {
+          return socket.emit('comanda_criada_sucesso', { nomeMesa: nome, cliente_id: clienteId });
+        }
+        db.run(`INSERT INTO mesas (nome) VALUES (?)`, [nome], (eIns) => {
+          if (eIns) return socket.emit('erro_servidor', 'Falha ao criar a comanda.');
+          db.all(`SELECT * FROM mesas`, (eAll, rows) => io.emit('mesas_atualizadas', rows || []));
+          socket.emit('comanda_criada_sucesso', { nomeMesa: nome, cliente_id: clienteId });
+        });
+      });
+    };
+
+    if (telefone) {
+      db.get(`SELECT id FROM clientes WHERE telefone = ?`, [telefone], (eCli, cli) => {
+        if (!eCli && cli) return criarMesa(cli.id);
+        db.run(`INSERT INTO clientes (nome, telefone) VALUES (?, ?)`, [nome, telefone], function (eNew) {
+          criarMesa(eNew ? null : this.lastID);
+        });
+      });
+    } else {
+      db.run(`INSERT INTO clientes (nome) VALUES (?)`, [nome], function (eNew) {
+        criarMesa(eNew ? null : this.lastID);
+      });
+    }
+  });
   socket.on('delete_mesa', (id) => {
     if (!exigirAdminSocket(socket)) return;
     db.run(`DELETE FROM mesas WHERE id = ?`, [id], () => {
@@ -10783,6 +10868,172 @@ app.post('/api/alertas-cliente/lidas', (req, res) => {
   });
 });
 
+// ══════ FIDELIDADE: PARCEIROS (rede onde o cliente usa pontos, com mapa) ══════
+app.get('/api/fidelidade/parceiros', (req, res) => {
+  withTenant(req, () => {
+    db.all(`SELECT * FROM parceiros_fidelidade ORDER BY ativo DESC, nome ASC`, [], (err, rows) => {
+      if (err) return res.status(500).json({ error: 'Erro ao buscar parceiros.' });
+      res.json({ parceiros: rows || [] });
+    });
+  });
+});
+
+app.post('/api/fidelidade/parceiros', verificarToken, (req, res) => {
+  withTenant(req, () => {
+    const b = req.body || {};
+    const nome = String(b.nome || '').trim().slice(0, 120);
+    if (!nome) return res.status(400).json({ success: false, error: 'Nome do parceiro é obrigatório.' });
+    const num = (v) => { const n = parseFloat(v); return isFinite(n) ? n : null; };
+    const dados = [
+      nome,
+      String(b.categoria || '').trim().slice(0, 60),
+      String(b.telefone || '').trim().slice(0, 30),
+      String(b.endereco || '').trim().slice(0, 200),
+      String(b.bairro || '').trim().slice(0, 80),
+      String(b.cidade || '').trim().slice(0, 80),
+      num(b.latitude), num(b.longitude),
+      parseInt(b.pontos_minimos, 10) || 0,
+      String(b.descricao || '').trim().slice(0, 400),
+      String(b.logo_url || '').trim().slice(0, 300),
+      b.ativo === false ? 0 : 1
+    ];
+    if (b.id) {
+      db.run(`UPDATE parceiros_fidelidade SET nome=?, categoria=?, telefone=?, endereco=?, bairro=?, cidade=?,
+        latitude=?, longitude=?, pontos_minimos=?, descricao=?, logo_url=?, ativo=? WHERE id=?`,
+        [...dados, parseInt(b.id, 10)], (err) => {
+          if (err) return res.status(500).json({ success: false, error: 'Erro ao salvar parceiro.' });
+          res.json({ success: true });
+        });
+    } else {
+      db.run(`INSERT INTO parceiros_fidelidade (nome, categoria, telefone, endereco, bairro, cidade,
+        latitude, longitude, pontos_minimos, descricao, logo_url, ativo)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`, dados, (err) => {
+        if (err) return res.status(500).json({ success: false, error: 'Erro ao cadastrar parceiro.' });
+        res.json({ success: true });
+      });
+    }
+  });
+});
+
+app.delete('/api/fidelidade/parceiros/:id', verificarToken, (req, res) => {
+  withTenant(req, () => {
+    db.run(`DELETE FROM parceiros_fidelidade WHERE id = ?`, [parseInt(req.params.id, 10)], (err) => {
+      if (err) return res.status(500).json({ success: false, error: 'Erro ao excluir.' });
+      res.json({ success: true });
+    });
+  });
+});
+
+// ══════ AVALIAÇÕES: nota interna dos clientes + sync Google opcional ══════
+app.get('/api/avaliacoes', verificarToken, (req, res) => {
+  withTenant(req, () => {
+    db.all(`SELECT * FROM avaliacoes ORDER BY id DESC LIMIT 200`, [], (err, rows) => {
+      if (err) return res.status(500).json({ error: 'Erro ao buscar avaliações.' });
+      const lista = rows || [];
+      const media = lista.length ? Math.round((lista.reduce((s, a) => s + (a.nota || 0), 0) / lista.length) * 10) / 10 : 0;
+      db.all(`SELECT chave, valor FROM configuracoes WHERE chave LIKE 'avaliacao_%'`, [], (e2, cfgRows) => {
+        const cfg = {};
+        (cfgRows || []).forEach(r => { cfg[r.chave] = r.valor; });
+        res.json({
+          avaliacoes: lista,
+          media,
+          total: lista.length,
+          google_sync_enabled: cfg.avaliacao_google_sync === 'true',
+          google_place_id: cfg.avaliacao_google_place_id || ''
+        });
+      });
+    });
+  });
+});
+
+app.post('/api/avaliacoes', (req, res) => {
+  withTenant(req, () => {
+    const b = req.body || {};
+    const nota = parseInt(b.nota, 10);
+    if (!(nota >= 1 && nota <= 5)) return res.status(400).json({ error: 'Nota deve ser de 1 a 5.' });
+    const tid = tenantContext.getStore() || 1;
+    db.run(`INSERT INTO avaliacoes (cliente_nome, mesa, nota, comentario, origem) VALUES (?,?,?,?, 'interno')`,
+      [String(b.cliente_nome || '').trim().slice(0, 100) || 'Cliente', String(b.mesa || '').trim().slice(0, 60), nota,
+       String(b.comentario || '').trim().slice(0, 500)],
+      function (err) {
+        if (err) return res.status(500).json({ error: 'Erro ao registrar avaliação.' });
+        const sincronizaGoogle = nota >= 4; // notas altas são convidadas pro Google
+        io.to('restaurante_' + tid).emit('avaliacao_nova', {
+          id: this.lastID, nota, comentario: b.comentario || '', mesa: b.mesa || '',
+          cliente_nome: b.cliente_nome || 'Cliente', criado_em: new Date().toISOString()
+        });
+        res.json({
+          success: true,
+          mensagem: sincronizaGoogle
+            ? 'Obrigado! Que tal deixar sua avaliação também no Google?'
+            : 'Obrigado pelo seu feedback!'
+        });
+      });
+  });
+});
+
+// Config de sync com Google (dono define Place ID e liga/desliga)
+app.post('/api/avaliacoes/google-sync', verificarToken, (req, res) => {
+  withTenant(req, () => {
+    const enabled = (req.body && req.body.enabled === true) ? 'true' : 'false';
+    const placeId = String((req.body && req.body.place_id) || '').trim().slice(0, 120);
+    db.run(`INSERT INTO configuracoes (chave, valor) VALUES ('avaliacao_google_sync', ?)
+      ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor`, [enabled], (e1) => {
+      db.run(`INSERT INTO configuracoes (chave, valor) VALUES ('avaliacao_google_place_id', ?)
+        ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor`, [placeId], (e2) => {
+        if (e1 || e2) return res.status(500).json({ success: false, error: 'Erro ao salvar config.' });
+        res.json({ success: true });
+      });
+    });
+  });
+});
+
+// ══════ FUNÇÕES POR TENANT: status + solicitação de ativação ══════
+app.get('/api/funcoes', verificarToken, (req, res) => {
+  const tid = req.restaurante_id || 1;
+  masterDb.get(`SELECT licenca FROM restaurantes WHERE id = ?`, [tid], (errL, rowL) => {
+    const overrides = tenantFeatures.get(tid) || {};
+    const resolved = featurePlans.resolveFeatures(rowL ? rowL.licenca : 'ativo', overrides);
+    const defs = (featurePlans.FEATURES || []).map(f => ({
+      chave: f.chave,
+      nome: f.nome,
+      desc: f.desc,
+      enabled: !!resolved[f.chave],
+      override: Object.prototype.hasOwnProperty.call(overrides, f.chave)
+    }));
+    const chaves = defs.map(d => d.chave);
+    masterDb.all(`SELECT feature, MAX(status) as ultimo, COUNT(*) as total FROM solicitacoes_features
+      WHERE restaurante_id = ? AND feature IN (${chaves.map(() => '?').join(',')}) GROUP BY feature`,
+      [tid].concat(chaves), (errS, rowsS) => {
+      const solMap = {};
+      (rowsS || []).forEach(r => { solMap[r.feature] = { ultimo: r.ultimo, total: r.total }; });
+      res.json({ success: true, features: defs.map(d => Object.assign(d, { solicitacao: solMap[d.chave] || null })) });
+    });
+  });
+});
+
+app.post('/api/funcoes/solicitar', verificarToken, (req, res) => {
+  const tid = req.restaurante_id || 1;
+  const feature = String((req.body && req.body.feature) || '').trim();
+  const mensagem = String((req.body && req.body.mensagem) || '').trim().slice(0, 500);
+  if (!feature) return res.status(400).json({ success: false, error: 'Função não informada.' });
+  if (!featurePlans.FEATURES.some(f => f.chave === feature)) {
+    return res.status(400).json({ success: false, error: 'Função desconhecida.' });
+  }
+  masterDb.run(`INSERT INTO solicitacoes_features (restaurante_id, feature, mensagem, status)
+    VALUES (?, ?, ?, 'pendente')
+    ON CONFLICT(restaurante_id, feature) DO UPDATE SET
+      mensagem = excluded.mensagem,
+      status = 'pendente',
+      criado_em = datetime('now','localtime'),
+      resolvido_em = NULL`,
+    [tid, feature, mensagem], (err) => {
+    if (err) return res.status(500).json({ success: false, error: 'Erro ao registrar solicitação.' });
+    try { io.emit('solicitacoes_features_atualizadas', { restaurante_id: tid, feature }); } catch (e) {}
+    res.json({ success: true, mensagem: 'Solicitação enviada! O super admin será notificado.' });
+  });
+});
+
 // ══════ TOTEM: status + personalização da tela inicial (página pública do kiosk) ══════
 app.get('/api/totem/status', (req, res) => {
   withTenant(req, () => {
@@ -13668,15 +13919,17 @@ app.get('/api/super/supabase-config', superAdminAuth, (req, res) => {
 
 // POST — salva configuração do Supabase
 app.post('/api/super/supabase-config', superAdminAuth, (req, res) => {
-  const { url, anon_key, service_role_key, enabled } = req.body || {};
+  const { url, anon_key, enabled } = req.body || {};
+  const serviceKeyFornecida = typeof req.body.service_role_key === 'string' && req.body.service_role_key.trim() !== '';
   const campos = {
     supabase_url: (url || '').trim(),
     supabase_anon_key: (anon_key || '').trim(),
-    supabase_service_role_key: (service_role_key || '').trim(),
+    supabase_service_role_key: serviceKeyFornecida ? req.body.service_role_key.trim() : null,
     supabase_enabled: enabled ? 'true' : 'false'
   };
   masterDb.serialize(() => {
     Object.keys(campos).forEach(k => {
+      if (campos[k] === null) return; // preserva valor salvo anteriormente
       masterDb.run(`INSERT OR REPLACE INTO super_config (key, value) VALUES (?, ?)`, [k, campos[k]]);
     });
   });

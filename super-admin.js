@@ -389,6 +389,7 @@ function exibirAlertaNovoCadastro(data) {
 
 function logout() {
   stopInactivityMonitor();
+  try { apiPost('/api/super/logout', {}, function() {}); } catch(e) {}
   localStorage.removeItem('chef_super_admin_local_token');
   localToken = '';
   isLocalMode = false;
@@ -613,6 +614,7 @@ function switchTab(targetId) {
     'sec-deploy-updates': ['Deploy & Atualizações', 'Gerenciamento de versões Git e Hot Swap sem quedas'],
     'sec-plugins-modulos': ['Plugins & Módulos', 'Central de extensões avançadas (iFood, Balança, WhatsApp Bot)'],
     'sec-tema-custom': ['Aparência & Tema Global', 'Estúdio de personalização de cores, botões, fontes e marcas'],
+    'sec-supabase': ['Supabase', 'Conexão guiada ao banco em nuvem: backup, sync e relatórios centralizados'],
     'sec-alterar-senha': ['Alterar Senha', 'Atualize a senha de acesso ao painel super admin']
   };
 
@@ -666,7 +668,7 @@ function switchTab(targetId) {
   else if (targetId === 'sec-licencas') carregarLicencas();
    else if (targetId === 'sec-clientes') carregarClientes();
    else if (targetId === 'sec-suporte') carregarSuporte();
-   else if (targetId === 'sec-funcoes') renderFuncoes();
+   else if (targetId === 'sec-funcoes') { renderFuncoes(); carregarSolicitacoesFeatures(); }
    else if (targetId === 'sec-features-restaurante') renderFeaturesRestaurante();
    else if (targetId === 'sec-dominios') renderDominios();
    else if (targetId === 'sec-capacidade') renderCapacidade();
@@ -679,7 +681,65 @@ function switchTab(targetId) {
    else if (targetId === 'sec-seguranca-waf') carregarConfigSeguranca();
    else if (targetId === 'sec-deploy-updates') carregarCommitsGit();
    else if (targetId === 'sec-plugins-modulos') carregarPlugins();
+   else if (targetId === 'sec-supabase') carregarSupabase();
 }
+
+/* ═══ SUPABASE — ASSISTENTE GUIADO ═══ */
+function carregarSupabase() {
+  apiGet('/api/super/supabase-config', function(err, data) {
+    if (err || !data || !data.ok) { showToast('Erro ao carregar configuração do Supabase.', 'error'); return; }
+    var c = data.config || {};
+    document.getElementById('supabase-url').value = c.url || '';
+    document.getElementById('supabase-anon-key').value = c.anon_key || '';
+    document.getElementById('supabase-service-key').value = '';
+    document.getElementById('supabase-service-key').placeholder = c.service_role_key ? '•••••••••• (salva) — digite para substituir' : '••••••••••••••••';
+    document.getElementById('supabase-enabled').checked = c.enabled === 'true';
+    atualizarBadgeSupabase(c.enabled === 'true');
+  });
+}
+
+function atualizarBadgeSupabase(ativo) {
+  var badge = document.getElementById('supabase-status-badge');
+  if (!badge) return;
+  badge.style.display = ativo ? 'inline-block' : 'none';
+}
+
+window.testarSupabase = function() {
+  var url = document.getElementById('supabase-url').value.trim();
+  var anon = document.getElementById('supabase-anon-key').value.trim();
+  var box = document.getElementById('supabase-test-resultado');
+  box.style.display = 'block';
+  box.style.background = 'rgba(59,130,246,0.12)';
+  box.style.color = '#93c5fd';
+  box.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Testando conexão...';
+  apiPost('/api/super/supabase-test', { url: url, anon_key: anon }, function(err, data) {
+    if (err || !data || !data.ok) {
+      var erro = data ? data.erro : (err || 'Erro de conexão');
+      box.style.background = 'rgba(239,68,68,0.12)';
+      box.style.color = '#fca5a5';
+      box.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Falha: ' + escapeHtml(String(erro));
+      return;
+    }
+    box.style.background = 'rgba(34,197,94,0.12)';
+    box.style.color = '#86efac';
+    box.innerHTML = '<i class="fa-solid fa-circle-check"></i> Conexão estabelecida! Agora salve a configuração.';
+  });
+};
+
+window.salvarSupabase = function() {
+  var url = document.getElementById('supabase-url').value.trim();
+  var anon = document.getElementById('supabase-anon-key').value.trim();
+  var service = document.getElementById('supabase-service-key').value.trim();
+  var enabled = document.getElementById('supabase-enabled').checked;
+  if (!url || !anon) { showToast('URL e Anon Key são obrigatórios.', 'warning'); return; }
+  apiPost('/api/super/supabase-config', { url: url, anon_key: anon, service_role_key: service, enabled: enabled }, function(err, data) {
+    if (err || !data || !data.ok) { showToast('Erro ao salvar: ' + (data ? data.erro : err), 'error'); return; }
+    showToast('Configuração do Supabase salva!', 'success');
+    atualizarBadgeSupabase(enabled);
+    document.getElementById('supabase-service-key').value = '';
+    document.getElementById('supabase-service-key').placeholder = service ? '•••••••••• (salva) — digite para substituir' : '••••••••••••••••';
+  });
+};
 
 /* ═══ DEPLOY ZERO-DOWNTIME & COMMITS ═══ */
 function corDotCommit(status) {
@@ -3101,6 +3161,53 @@ window.salvarMissaoSurpresa = function() {
   if (funcSearch) {
     funcSearch.addEventListener('input', function() { renderFuncoes(); });
   }
+
+  /* ═══ SOLICITAÇÕES DE FUNÇÕES ═══ */
+  window.carregarSolicitacoesFeatures = function() {
+    var box = document.getElementById('solicitacoes-features-body');
+    if (!box) return;
+    apiGet('/api/super/solicitacoes-features', function(err, data) {
+      if (err || !data || !data.ok) { box.innerHTML = '<span style="color:var(--danger);">Erro ao carregar solicitações.</span>'; return; }
+      var lista = data.solicitacoes || [];
+      if (!lista.length) { box.innerHTML = '<i class="fa-solid fa-circle-check" style="color:#22c55e;"></i> Nenhuma solicitação registrada.'; return; }
+      var nomeFeature = function(chave) {
+        for (var i = 0; i < (_featuresDef || []).length; i++) {
+          if (_featuresDef[i].chave === chave) return _featuresDef[i].nome;
+        }
+        return chave;
+      };
+      var html = '<div style="display:flex;flex-direction:column;gap:10px;">';
+      lista.forEach(function(s) {
+        var pendente = s.status === 'pendente';
+        var corBorda = pendente ? 'rgba(168,85,247,0.35)' : 'rgba(100,116,139,0.25)';
+        var fundo = pendente ? 'rgba(168,85,247,0.06)' : 'rgba(0,0,0,0.15)';
+        html += '<div style="border:1px solid ' + corBorda + ';background:' + fundo + ';border-radius:10px;padding:12px 14px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center;">'
+          + '<div style="min-width:220px;">'
+          + '<strong style="color:#e2e8f0;">#' + s.restaurante_id + ' · ' + escapeHtml(s.restaurante_nome || ('Restaurante ' + s.restaurante_id)) + '</strong>'
+          + ' <span class="badge badge-plano" style="margin-left:6px;">' + escapeHtml(nomeFeature(s.feature)) + '</span>'
+          + (pendente ? ' <span class="badge badge-ativo">pendente</span>' : (s.status === 'aprovada' ? ' <span style="font-size:11px;color:#34d399;">✓ aprovada</span>' : ' <span style="font-size:11px;color:#f87171;">✕ recusada</span>'))
+          + (s.mensagem ? '<div style="margin-top:6px;color:var(--text-muted);font-size:0.8rem;">“' + escapeHtml(s.mensagem) + '”</div>' : '')
+          + '<div style="margin-top:4px;font-size:0.72rem;color:var(--text-muted);">' + escapeHtml(s.criado_em || '') + '</div>'
+          + '</div>'
+          + (pendente
+            ? '<div style="display:flex;gap:8px;">'
+              + '<button class="btn-action" style="background:#22c55e;color:white;padding:0.45rem 0.9rem;" onclick="resolverSolicitacaoFeature(' + s.id + ',\'aprovar\')"><i class="fa-solid fa-check"></i> Aprovar</button>'
+              + '<button class="btn-action" style="background:#ef4444;color:white;padding:0.45rem 0.9rem;" onclick="resolverSolicitacaoFeature(' + s.id + ',\'recusar\')"><i class="fa-solid fa-xmark"></i> Recusar</button>'
+              + '</div>'
+            : '')
+          + '</div>';
+      });
+      box.innerHTML = html + '</div>';
+    });
+  };
+
+  window.resolverSolicitacaoFeature = function(id, acao) {
+    apiPost('/api/super/solicitacoes-features/' + acao, { id: id }, function(err, data) {
+      if (err || !data || !data.ok) { showToast('Erro ao resolver solicitação.', 'error'); return; }
+      showToast(data.mensagem || 'Solicitação resolvida!', 'success');
+      carregarSolicitacoesFeatures();
+    });
+  };
   var btnRefreshFunc = document.getElementById('btn-refresh-func');
   if (btnRefreshFunc) {
     btnRefreshFunc.addEventListener('click', function() { renderFuncoes(); });
@@ -3451,6 +3558,7 @@ window.salvarMissaoSurpresa = function() {
     }, { passive: false });
 
     cv.addEventListener('pointerdown', function(ev) {
+      if (cv.__chefPinch) return;
       _mapaArrastando = true; _mapaMoveu = false;
       _mapaUltimo = { x: ev.clientX, y: ev.clientY };
       cv.style.cursor = 'grabbing';
@@ -3459,7 +3567,7 @@ window.salvarMissaoSurpresa = function() {
 
     cv.addEventListener('pointermove', function(ev) {
       var tip = document.getElementById('mapa-tooltip');
-      if (_mapaArrastando && _mapaUltimo && ev.buttons) {
+      if (_mapaArrastando && _mapaUltimo && ev.buttons && !cv.__chefPinch) {
         var r = cv.getBoundingClientRect();
         var dx = (ev.clientX - _mapaUltimo.x) * (cv.width / r.width);
         var dy = (ev.clientY - _mapaUltimo.y) * (cv.height / r.height);
@@ -3922,6 +4030,128 @@ window.salvarMissaoSurpresa = function() {
       if (err || !data || !data.ok) return;
       renderInstancias(data.instances || []);
     });
+    apiGet('/api/super/servers', function(err, data) {
+      if (!err && data && data.ok) renderServidoresHub(data.servers || [], data.strategy);
+    });
+    apiGet('/api/super/sync-queue', function(err, data) {
+      var box = document.getElementById('sync-queue-body');
+      if (!box) return;
+      if (err || !data || !data.ok) { box.innerHTML = '<span style="color:var(--danger);">Erro ao carregar fila.</span>'; return; }
+      var itens = data.queue || [];
+      if (!itens.length) { box.innerHTML = '<i class="fa-solid fa-circle-check" style="color:#22c55e;"></i> Fila vazia — tudo sincronizado.'; return; }
+      var h = '<div style="display:flex;flex-direction:column;gap:8px;">';
+      itens.forEach(function(f) {
+        h += '<div style="border:1px solid rgba(245,158,11,0.25);background:rgba(245,158,11,0.06);border-radius:8px;padding:8px 10px;">'
+          + '<strong style="color:#fbbf24;">' + escapeHtml(f.message_type || 'item') + '</strong>'
+          + ' — <span>' + escapeHtml(f.status || 'pending') + '</span>'
+          + ' <small style="color:var(--text-muted);">inst. ' + escapeHtml(String(f.instance_id || '?')).substring(0, 12) + '</small>'
+          + (f.created_at ? ' <small style="color:var(--text-muted);">(' + timeAgo(f.created_at) + ')</small>' : '')
+          + '</div>';
+      });
+      box.innerHTML = h + '</div>';
+    });
+    apiGet('/api/super/sync-conflicts', function(err, data) {
+      var box = document.getElementById('sync-conflicts-body');
+      if (!box) return;
+      if (err || !data || !data.ok) { box.innerHTML = '<span style="color:var(--danger);">Erro ao carregar conflitos.</span>'; return; }
+      var conflitos = data.conflicts || [];
+      if (!conflitos.length) { box.innerHTML = '<i class="fa-solid fa-circle-check" style="color:#22c55e;"></i> Nenhum conflito registrado.'; return; }
+      var h2 = '<div style="display:flex;flex-direction:column;gap:8px;">';
+      conflitos.forEach(function(c) {
+        h2 += '<div style="border:1px solid rgba(239,68,68,0.3);background:rgba(239,68,68,0.07);border-radius:8px;padding:8px 10px;">'
+          + '<strong style="color:#fca5a5;">' + escapeHtml(c.table_name || 'registro') + '</strong>'
+          + (c.record_id != null ? ' #' + escapeHtml(String(c.record_id)) : '')
+          + (c.resolution ? '<br><small>Resolução: ' + escapeHtml(c.resolution) + '</small>' : '')
+          + (c.resolved_at ? '<br><small style="color:var(--text-muted);">' + escapeHtml(c.resolved_at) + '</small>' : '')
+          + '</div>';
+      });
+      box.innerHTML = h2 + '</div>';
+    });
+  };
+
+  var serversHubCache = [];
+
+  function renderServidoresHub(servers, strategy) {
+    serversHubCache = servers || [];
+    var sel = document.getElementById('lb-strategy');
+    if (sel && strategy) sel.value = strategy;
+    var tbody = document.getElementById('servers-tbody');
+    if (!tbody) return;
+    if (!servers.length) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:1.2rem;color:var(--text-muted);">Nenhum servidor adicional — tudo rodando neste nó.</td></tr>';
+      return;
+    }
+    var html = '';
+    servers.forEach(function(s) {
+      html += '<tr>';
+      html += '<td><strong>' + escapeHtml(s.nome || '') + '</strong></td>';
+      html += '<td><small style="font-family:monospace;">' + escapeHtml((s.url || '') + (s.porta ? ':' + s.porta : '')) + '</small></td>';
+      html += '<td>' + (s.peso || 1) + '</td>';
+      html += '<td id="srv-status-' + escapeHtml(s.id) + '"><span style="color:#64748b;"><i class="fa-solid fa-clock"></i> —</span></td>';
+      html += '<td><div style="display:flex;gap:0.4rem;">'
+        + '<button class="btn-row-action" onclick="testarServidorHub(\'' + escapeHtml(s.id) + '\')" title="Testar conexão" style="color:#22c55e;"><i class="fa-solid fa-vial"></i></button> '
+        + '<button class="btn-row-action" onclick="removerServidorHub(\'' + escapeHtml(s.id) + '\', \'' + escapeHtml(s.nome || '') + '\')" title="Remover" style="color:var(--danger);"><i class="fa-solid fa-trash"></i></button>'
+        + '</div></td></tr>';
+    });
+    tbody.innerHTML = html;
+  }
+
+  window.adicionarServidorHub = function() {
+    var nome = prompt('Nome do servidor:', 'Nó 2');
+    if (!nome) return;
+    var url = prompt('URL base (ex: http://192.168.0.10):', '');
+    if (!url) return;
+    var porta = prompt('Porta (opcional):', '');
+    var peso = prompt('Peso no balanceamento (1-10):', '1') || '1';
+    apiPost('/api/super/servers', { nome: nome, url: url, porta: porta, peso: peso }, function(err, data) {
+      if (err || !data || !data.ok) { showToast('Erro: ' + (data ? data.erro : err), 'error'); return; }
+      showToast('Servidor adicionado!', 'success');
+      renderServidoresHub(data.servers || [], null);
+    });
+  };
+
+  window.testarServidorHub = function(id) {
+    var srv = null;
+    for (var i = 0; i < serversHubCache.length; i++) {
+      if (serversHubCache[i].id === id) { srv = serversHubCache[i]; break; }
+    }
+    var cel = document.getElementById('srv-status-' + id);
+    if (!srv) { if (cel) cel.innerHTML = '<span style="color:#ef4444;">não encontrado</span>'; return; }
+    if (cel) cel.innerHTML = '<span style="color:#93c5fd;"><i class="fa-solid fa-spinner fa-spin"></i> testando...</span>';
+    apiPost('/api/super/servers/test', { url: srv.url, porta: srv.porta }, function(err, data) {
+      if (!cel) return;
+      if (err || !data || !data.ok) {
+        cel.innerHTML = '<span style="color:#ef4444;"><i class="fa-solid fa-circle-xmark"></i> offline</span>';
+        return;
+      }
+      cel.innerHTML = '<span style="color:#22c55e;"><i class="fa-solid fa-circle-check"></i> online' + (data.latencia ? ' (' + data.latencia + ')' : '') + '</span>';
+    });
+  };
+
+  window.removerServidorHub = function(id, nome) {
+    if (!confirm('Remover o servidor "' + nome + '"?')) return;
+    var x = new XMLHttpRequest();
+    x.open('DELETE', '/api/super/servers', true);
+    x.setRequestHeader('Content-Type', 'application/json');
+    x.setRequestHeader('x-super-admin-token', localToken);
+    x.onreadystatechange = function() {
+      if (x.readyState !== 4) return;
+      var data = null;
+      try { data = JSON.parse(x.responseText); } catch(e) {}
+      if (!data || !data.ok) { showToast('Erro ao remover.', 'error'); return; }
+      showToast('Servidor removido.', 'success');
+      carregarInstancias();
+    };
+    x.send(JSON.stringify({ id: id }));
+  };
+
+  window.salvarStrategyServidores = function() {
+    var sel = document.getElementById('lb-strategy');
+    if (!sel) return;
+    apiPost('/api/super/servers/strategy', { strategy: sel.value }, function(err, data) {
+      if (err || !data || !data.ok) { showToast('Erro ao salvar estratégia.', 'error'); return; }
+      showToast('Estratégia de balanceamento salva!', 'success');
+    });
   };
 
   function renderInstancias(instances) {
@@ -4099,6 +4329,12 @@ window.salvarMissaoSurpresa = function() {
   if (btnRefreshInstances) {
     btnRefreshInstances.addEventListener('click', function() { carregarInstancias(); });
   }
+
+  /* Supabase wizard */
+  var btnSbTest = document.getElementById('btn-supabase-testar');
+  var btnSbSave = document.getElementById('btn-supabase-salvar');
+  if (btnSbTest) btnSbTest.addEventListener('click', function() { window.testarSupabase(); });
+  if (btnSbSave) btnSbSave.addEventListener('click', function() { window.salvarSupabase(); });
 
 });
 
