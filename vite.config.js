@@ -26,7 +26,7 @@ const BACKEND_PORT = (() => {
     const n = parseInt(p, 10);
     if (!Number.isNaN(n)) return n;
   } catch (e) {}
-  return 3000;
+  return 8080;
 })();
 
 const injectPolyfills = () => {
