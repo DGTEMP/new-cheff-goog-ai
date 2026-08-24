@@ -2696,6 +2696,26 @@
                       <option value="noindex, nofollow">noindex, nofollow</option>
                     </select></div>
                 </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+                  <div><label
+                      style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">OG Title (compartilhamento)</label><input id="sv-seo-og-titulo" maxlength="120"
+                      placeholder="Chef Cozinha — PDV, KDS e Comanda Mobile"
+                      style="width:100%;padding:10px 14px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:10px;color:#fff;font-size:13px;outline:none;"></div>
+                  <div><label
+                      style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">OG Description (compartilhamento)</label><textarea id="sv-seo-og-descricao" rows="2" maxlength="320"
+                      placeholder="PDV ultra-rápido, KDS, Comanda Mobile e Ponto Digital..."
+                      style="width:100%;padding:10px 14px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:10px;color:#fff;font-size:13px;outline:none;resize:vertical;"></textarea></div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+                  <div><label
+                      style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Autor</label><input id="sv-seo-autor"
+                      placeholder="Chef Cozinha"
+                      style="width:100%;padding:10px 14px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:10px;color:#fff;font-size:13px;outline:none;"></div>
+                  <div><label
+                      style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Locale</label><input id="sv-seo-locale"
+                      placeholder="pt_BR"
+                      style="width:100%;padding:10px 14px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:10px;color:#fff;font-size:13px;outline:none;"></div>
+                </div>
                 <button onclick="salvarSiteSEO()"
                   style="background:linear-gradient(135deg,#38bdf8,#0284c7);color:#fff;border:none;border-radius:12px;padding:14px 32px;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px;"><i
                     class="fa-solid fa-floppy-disk"></i> Salvar SEO</button>
@@ -4125,6 +4145,7 @@
     <span id="toast-text">Sua ação foi processada.</span>
   </div>
 
+  <script src="/vendor/sortablejs/Sortable.min.js"></script>
   <script src="/socket.io.min.js"></script>
   <script src="/super-admin.js"></script>
   <script src="/fullscreen.js"></script>

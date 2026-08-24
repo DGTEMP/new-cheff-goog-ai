@@ -1230,7 +1230,14 @@ const io = new Server(server, {
   },
   // Tenta WebSocket primeiro (1 round-trip) em vez de polling (vários round-trips);
   // polling fica apenas como fallback para redes que bloqueiam upgrade.
-  transports: ['websocket', 'polling']
+  transports: ['websocket', 'polling'],
+  // Heartbeat agressivo (economia de RAM no i5): derruba conexões mortas em ~25s
+  // em vez dos ~45s padrão. Totens/celulares esquecidos com aba aberta são liberados.
+  pingInterval: 15000,
+  pingTimeout: 10000,
+  // Compressão por mensagem: listas JSON grandes (mesas/produtos) encolhem ~70-90%
+  // no fio; CPU de deflate em payloads pequenos é desprezível para este hardware.
+  perMessageDeflate: { threshold: 1024 }
 });
 
 // (Multi-tenant) Todo io.emit() executado dentro de um contexto de tenant é
@@ -4343,6 +4350,11 @@ db.serialize(() => {
   db.run(`ALTER TABLE pedidos ADD COLUMN observations TEXT`, (err) => { });
   db.run(`ALTER TABLE pedidos ADD COLUMN options TEXT`, (err) => { });
   db.run(`ALTER TABLE pedidos ADD COLUMN composicoes TEXT`, (err) => { });
+  // Idempotência do sync offline: uuid gerado no dispositivo evita pedido duplicado
+  db.run(`ALTER TABLE pedidos ADD COLUMN uuid_offline TEXT`, (err) => { });
+  db.run(`CREATE INDEX IF NOT EXISTS idx_pedidos_uuid_offline ON pedidos(uuid_offline)`, (err) => { });
+  // Foto do produto por link externo (cardápio digital do cliente); garçom/PDV seguem com emoji
+  db.run(`ALTER TABLE produtos ADD COLUMN foto_url TEXT`, (err) => { });
   db.run(`ALTER TABLE promocoes ADD COLUMN config TEXT`, (err) => { });
 
   // --- ITENS MONTÁVEIS (Build Your Own) ---

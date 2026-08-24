@@ -118,8 +118,20 @@ body.chef-sizes-on .action-group {
 
 /* Modais: largura e posição vertical controláveis */
 .modal-overlay, .chef-modal-overlay {
+  display: none;
   align-items: var(--modal-align);
   justify-content: center;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 10000;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+}
+.modal-overlay.active, .chef-modal-overlay.active {
+  display: flex;
 }
 .modal-overlay > *, .chef-modal-overlay > * {
   max-width: var(--modal-max-w);

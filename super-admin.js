@@ -4676,6 +4676,38 @@ function renderBlocosEditor(blocos) {
 
 function bindBlocosDnd(container) {
   if (!container || container._dndBound) return;
+  if (typeof Sortable === 'undefined') {
+    console.warn('[Blocos] SortableJS não disponível, usando fallback nativo');
+    bindBlocosNativeDnd(container);
+    return;
+  }
+  container._dndBound = true;
+
+  new Sortable(container, {
+    animation: 150,
+    handle: '.fa-grip-vertical',
+    ghostClass: 'sortable-ghost',
+    dragClass: 'sortable-drag',
+    onStart: function (evt) {
+      evt.item.style.opacity = '0.4';
+    },
+    onEnd: function (evt) {
+      var oldIdx = evt.oldIndex;
+      var newIdx = evt.newIndex;
+      if (oldIdx === newIdx) return;
+      var arr = _blocosTemp.slice();
+      var moved = arr.splice(oldIdx, 1)[0];
+      arr.splice(newIdx, 0, moved);
+      renderBlocosEditor(arr);
+      showToast('Bloco movido! Clique em Salvar Layout para publicar.', 'info');
+    }
+  });
+
+  container._dndBound = true;
+}
+
+function bindBlocosNativeDnd(container) {
+  if (!container || container._dndBound) return;
   container._dndBound = true;
   var dragIdx = null;
 
@@ -4741,13 +4773,46 @@ window.adicionarBlocoSel = function() {
 };
 
 function salvarSiteBlocos() {
-  var arr = (_blocosTemp.length ? _blocosTemp : getBlocosAtuais()).map(function(b) {
-    return { tipo: b.tipo, ativo: b.ativo !== false };
+  // Validação robusta para evitar quebra de layout
+  var raw = _blocosTemp.length ? _blocosTemp : getBlocosAtuais();
+  
+  // Normaliza e filtra blocos inválidos
+  var arr = raw.map(function(b) {
+    if (!b || typeof b.tipo !== 'string') return null;
+    // Garante que tipo seja conhecido
+    var validTipo = SV_BLOCOS_CAT[b.tipo] ? b.tipo : 'hero'; // fallback para hero se inválido
+    return { tipo: validTipo, ativo: b.ativo !== false };
+  }).filter(function(x) { return x !== null; });
+  
+  // Previne array vazio — restaura default se necessário
+  if (arr.length === 0) {
+    arr = getBlocosAtuais();
+    showToast('Nenhum bloco válido encontrado. Usando layout padrão.', 'warning');
+  }
+  
+  // Ordena: banner primeiro, hero segundo, rodape último
+  var ordemPreferida = ['banner', 'header', 'hero', 'como-funciona', 'funcionalidades', 'planos', 'faq', 'cta-final', 'rodape'];
+  arr.sort(function(a, b) {
+    var iA = ordemPreferida.indexOf(a.tipo);
+    var iB = ordemPreferida.indexOf(b.tipo);
+    if (iA === -1) iA = 99;
+    if (iB === -1) iB = 99;
+    return iA - iB;
   });
-  apiPost('/api/super/config-global', { site_blocos: JSON.stringify(arr) }, function(err, data) {
-    if (err || !data || !data.ok) return showToast('Erro ao salvar blocos.', 'danger');
+  
+  var jsonStr = JSON.stringify(arr);
+  
+  // Valida JSON antes de enviar
+  try {
+    JSON.parse(jsonStr);
+  } catch (e) {
+    return showToast('Erro: layout dos blocos corrompido. Usando backup.', 'danger');
+  }
+  
+  apiPost('/api/super/config-global', { site_blocos: jsonStr }, function(err, data) {
+    if (err || !data || !data.ok) return showToast('Erro ao salvar blocos: ' + (data && data.erro ? data.erro : 'desconhecido'), 'danger');
     siteVendasConfigs.site_blocos = arr;
-    showToast('Layout dos blocos publicado no site!', 'success');
+    showToast('Layout dos blocos publicado no site com sucesso!', 'success');
   });
 }
 
@@ -4758,7 +4823,11 @@ function populateSiteSEO() {
   setVal('sv-seo-descricao', c.site_seo_descricao || '');
   setVal('sv-seo-keywords', c.site_seo_keywords || '');
   setVal('sv-seo-og-imagem', c.site_seo_og_imagem || '');
+  setVal('sv-seo-og-titulo', c.site_seo_og_titulo || '');
+  setVal('sv-seo-og-descricao', c.site_seo_og_descricao || '');
   setVal('sv-seo-robots', c.site_seo_robots || 'index, follow');
+  setVal('sv-seo-autor', c.site_seo_autor || '');
+  setVal('sv-seo-locale', c.site_seo_locale || 'pt_BR');
   atualizarContadoresSEO();
 }
 
@@ -4787,7 +4856,11 @@ function salvarSiteSEO() {
     site_seo_descricao: document.getElementById('sv-seo-descricao').value.trim(),
     site_seo_keywords: document.getElementById('sv-seo-keywords').value.trim(),
     site_seo_og_imagem: document.getElementById('sv-seo-og-imagem').value.trim(),
-    site_seo_robots: document.getElementById('sv-seo-robots').value
+    site_seo_og_titulo: document.getElementById('sv-seo-og-titulo').value.trim(),
+    site_seo_og_descricao: document.getElementById('sv-seo-og-descricao').value.trim(),
+    site_seo_robots: document.getElementById('sv-seo-robots').value,
+    site_seo_autor: document.getElementById('sv-seo-autor').value.trim(),
+    site_seo_locale: document.getElementById('sv-seo-locale').value || 'pt_BR'
   };
   apiPost('/api/super/config-global', configs, function(err, data) {
     if (err || !data || !data.ok) return showToast('Erro ao salvar SEO.', 'danger');
