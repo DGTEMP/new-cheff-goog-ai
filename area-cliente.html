@@ -584,6 +584,17 @@
       </button>
     </div>
 
+    <!-- CHECK-IN DE RESERVA -->
+    <div id="card-checkin-reserva" style="background: linear-gradient(135deg,#0ea5e9,#0369a1); border-radius:16px; padding:18px; margin-bottom:20px; color:white;">
+      <h3 style="margin:0 0 6px 0; font-size:16px; font-weight:800;"><i class="ph ph-calendar-check" style="font-size:20px;"></i> Chegou para sua reserva?</h3>
+      <p style="margin:0 0 12px 0; font-size:12.5px; opacity:0.92;">Faça o check-in com o telefone da reserva e a mesa fica esperando por você.</p>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <input type="tel" id="checkin-res-telefone" placeholder="Telefone da reserva" style="flex:1; min-width:170px; padding:11px 13px; border:none; border-radius:10px; font-size:14px; background:white; color:#1e293b;">
+        <button onclick="fazerCheckinAreaCliente()" style="padding:11px 20px; border:none; border-radius:10px; background:#16a34a; color:white; font-weight:800; font-size:14px; cursor:pointer;">Check-in</button>
+      </div>
+      <div id="checkin-res-resultado" style="display:none; margin-top:10px; padding:10px 13px; border-radius:10px; font-size:13px; background:rgba(255,255,255,0.15);"></div>
+    </div>
+
     <!-- NAV TABS -->
     <div style="display: flex; gap: 8px; margin-bottom: 24px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none;">
       <button class="profile-tab active" data-section="pedidos" onclick="showSection('pedidos')"><i class="ph ph-receipt"></i> Pedidos</button>
@@ -1209,6 +1220,25 @@
 </script>
 
 <script src="/jogos-cliente.js"></script>
+<script>
+  // ── Check-in de reserva na área do cliente ──
+  function fazerCheckinAreaCliente() {
+    var input = document.getElementById('checkin-res-telefone');
+    var box = document.getElementById('checkin-res-resultado');
+    var tel = (input && input.value ? input.value : '').replace(/\D/g, '');
+    if (!tel) tel = String(localStorage.getItem('fidelidade_telefone') || '').replace(/\D/g, '');
+    if (!tel) { box.style.display = 'block'; box.textContent = 'Digite o telefone usado na reserva.'; return; }
+    var rid = new URLSearchParams(location.search).get('restaurante_id') || localStorage.getItem('restaurante_id') || '1';
+    fetch('/api/reservas/checkin?restaurante_id=' + rid, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ telefone: tel })
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      box.style.display = 'block';
+      box.textContent = d.mensagem || d.erro || '';
+    }).catch(function () {
+      box.style.display = 'block'; box.textContent = 'Erro de conexão.';
+    });
+  }
+</script>
 <script>
   // Service Worker: habilita o PWA (instalação + notificações)
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(function () { });

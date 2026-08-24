@@ -811,6 +811,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Lazy-load specific tab data on demand
     if (tabId === 'perfil' && socket && typeof socket.emit === 'function') socket.emit('get_restaurante_config');
     if (tabId === 'dispositivos' && typeof window.carregarGerenciadorDispositivos === 'function') window.carregarGerenciadorDispositivos();
+    if (tabId === 'reservas' && typeof window.carregarReservasAdmin === 'function') window.carregarReservasAdmin();
     if (tabId === 'metricas' && typeof window.carregarMetricasGarcons === 'function') window.carregarMetricasGarcons();
     if (tabId === 'formas-pagamento' && typeof window.carregarFormasPagamento === 'function') window.carregarFormasPagamento();
     if (tabId === 'pins' && socket && typeof socket.emit === 'function') socket.emit('listar_pins_temporarios');
@@ -1034,6 +1035,199 @@ socket.on('aviso_admin_critico', (aviso) => {
   const msg = `🚨 Falha interna detectada (${(aviso && aviso.tipo) || '?'}). Confira se os últimos registros aparecem nas listas — se algo não registrou, refaça. O suporte técnico já foi acionado automaticamente.`;
   if (typeof window.showToast === 'function') window.showToast(msg, 'danger');
   else alert(msg);
+});
+
+/* ═════════ RESERVAS FUTURAS — calendário, aprovações e prazo ═════════ */
+let _reservasMesAtual = new Date();
+let _reservasCache = []; // reservas do mês visível
+
+function _resData(d) {
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function _resHoje() { return _resData(new Date()); }
+
+window.carregarReservasAdmin = function () {
+  const rid = encodeURIComponent(localStorage.getItem('restaurante_id') || '1');
+  // Prazo
+  fetch('/api/reservas/config?restaurante_id=' + rid)
+    .then(r => r.json())
+    .then(cfg => {
+      const input = document.getElementById('reservas-prazo-input');
+      if (input && cfg && cfg.ok) input.value = cfg.prazo_max_dias;
+      const desc = document.getElementById('reservas-prazo-desc');
+      if (desc && cfg && cfg.ok) desc.textContent = `O cliente reserva sozinho até ${cfg.prazo_max_dias} dia(s) à frente. Além do prazo, a reserva chega para VOCÊ aprovar com todos os dados do cliente.`;
+    }).catch(() => {});
+  window.reservasCarregarMes();
+  window.reservasCarregarPendentes();
+};
+
+window.salvarPrazoReservas = function () {
+  const dias = parseInt(document.getElementById('reservas-prazo-input').value, 10);
+  if (isNaN(dias) || dias < 0 || dias > 365) return alert('Informe um prazo entre 0 e 365 dias.');
+  fetch('/api/reservas/config?restaurante_id=' + encodeURIComponent(localStorage.getItem('restaurante_id') || '1'), {
+    method: 'POST',
+    headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+    body: JSON.stringify({ prazo_max_dias: dias })
+  }).then(r => r.json()).then(data => {
+    if (data && data.ok) {
+      if (typeof showToast === 'function') showToast(data.mensagem, 'success'); else alert(data.mensagem);
+    } else alert((data && data.erro) || 'Erro ao salvar.');
+  });
+};
+
+window.reservasMudarMes = function (delta) {
+  _reservasMesAtual = new Date(_reservasMesAtual.getFullYear(), _reservasMesAtual.getMonth() + delta, 1);
+  window.reservasCarregarMes();
+};
+window.reservasIrHoje = function () {
+  _reservasMesAtual = new Date();
+  window.reservasCarregarMes();
+};
+
+window.reservasCarregarMes = function () {
+  const ano = _reservasMesAtual.getFullYear();
+  const mes = _reservasMesAtual.getMonth(); // 0-11
+  const primeiro = new Date(ano, mes, 1);
+  const ultimo = new Date(ano, mes + 1, 0);
+  const rid = encodeURIComponent(localStorage.getItem('restaurante_id') || '1');
+
+  const tituloEl = document.getElementById('reservas-cal-titulo');
+  if (tituloEl) tituloEl.textContent = primeiro.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase());
+
+  fetch(`/api/reservas?de=${_resData(primeiro)}&ate=${_resData(ultimo)}&restaurante_id=${rid}`, { headers: authHeaders() })
+    .then(r => r.json())
+    .then(data => {
+      _reservasCache = (data && data.ok) ? (data.reservas || []) : [];
+      renderizarCalendarioReservas(ano, mes, ultimo.getDate());
+    })
+    .catch(() => { _reservasCache = []; renderizarCalendarioReservas(ano, mes, ultimo.getDate()); });
+};
+
+function renderizarCalendarioReservas(ano, mes, diasNoMes) {
+  const grid = document.getElementById('reservas-calendario');
+  if (!grid) return;
+  const nomesDow = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+  let html = nomesDow.map(d => `<div style="text-align:center;font-size:11px;font-weight:800;color:#64748b;padding:4px 0;">${d}</div>`).join('');
+
+  const dowPrimeiro = new Date(ano, mes, 1).getDay();
+  for (let i = 0; i < dowPrimeiro; i++) html += '<div></div>';
+
+  const hoje = _resHoje();
+  for (let dia = 1; dia <= diasNoMes; dia++) {
+    const dataStr = ano + '-' + String(mes + 1).padStart(2, '0') + '-' + String(dia).padStart(2, '0');
+    const doDia = _reservasCache.filter(r => r.data_reserva === dataStr);
+    const pendentes = doDia.filter(r => r.status === 'pendente_aprovacao').length;
+    const confirmadas = doDia.filter(r => ['confirmada', 'checkin'].includes(r.status)).length;
+    const ehHoje = dataStr === hoje;
+
+    let fundo = 'transparent', borda = 'var(--cfg-border)';
+    if (pendentes > 0) { fundo = 'rgba(245,158,11,0.15)'; borda = '#f59e0b'; }
+    else if (confirmadas > 0) { fundo = 'rgba(14,165,233,0.12)'; borda = '#0ea5e9'; }
+
+    html += `<div onclick="window.reservasVerDia('${dataStr}')" style="cursor:pointer;min-height:58px;border:1px solid ${borda};background:${fundo};border-radius:8px;padding:5px;position:relative;" title="${doDia.length} reserva(s)">
+      <div style="font-size:12px;font-weight:${ehHoje ? '900' : '700'};color:${ehHoje ? '#0ea5e9' : 'var(--cfg-text)'};">${dia}${ehHoje ? ' •' : ''}</div>
+      ${confirmadas ? `<div style="font-size:10px;color:#0ea5e9;font-weight:700;">✓ ${confirmadas}</div>` : ''}
+      ${pendentes ? `<div style="font-size:10px;color:#d97706;font-weight:700;">⏳ ${pendentes}</div>` : ''}
+    </div>`;
+  }
+  grid.innerHTML = html;
+}
+
+window.reservasVerDia = function (dataStr) {
+  const box = document.getElementById('reservas-dia-detalhe');
+  if (!box) return;
+  const doDia = (_reservasCache || []).filter(r => r.data_reserva === dataStr);
+  const label = dataStr.split('-').reverse().join('/');
+
+  if (!doDia.length) {
+    box.innerHTML = `<div style="text-align:center;padding:14px;color:#64748b;font-size:13px;">Nenhuma reserva em <strong>${label}</strong>.</div>`;
+    return;
+  }
+
+  const STATUS_COR = { confirmada: ['#dcfce7', '#166534', 'Confirmada'], checkin: ['#dbeafe', '#1e40af', 'Check-in feito'], pendente_aprovacao: ['#fef3c7', '#92400e', 'Aguardando aprovação'], cancelada: ['#fee2e2', '#991b1b', 'Cancelada'], concluida: ['#e0e7ff', '#3730a3', 'Concluída'] };
+  box.innerHTML = `<h4 style="margin:0 0 8px 0;font-size:13.5px;">Reservas de ${label}</h4>` + doDia.map(r => {
+    const [bg, fg, stLabel] = STATUS_COR[r.status] || ['#f1f5f9', '#334155', r.status];
+    return `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;background:${bg};border-radius:10px;padding:10px 14px;margin-bottom:6px;">
+      <div style="font-size:13px;color:${fg};">
+        <strong>${escHtml(r.horario)}</strong> • <strong>${escHtml(r.mesa_nome)}</strong> — ${escHtml(r.cliente_nome)} (${r.pessoas}p)
+        <span style="font-size:11px;opacity:0.85;">📞 ${escHtml(r.cliente_telefone || '-')}</span>
+        ${r.observacao ? `<div style="font-size:11.5px;margin-top:2px;">💬 ${escHtml(r.observacao)}</div>` : ''}
+        ${r.motivo_pendente ? `<div style="font-size:11px;opacity:0.75;">${escHtml(r.motivo_pendente)}</div>` : ''}
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <span style="font-size:11px;background:white;color:${fg};padding:2px 10px;border-radius:12px;font-weight:800;">${stLabel}</span>
+        ${['pendente_aprovacao', 'confirmada'].includes(r.status) ? `
+          ${r.status === 'pendente_aprovacao' ? `<button onclick="window.reservaResolver(${r.id},'aprovar')" style="padding:6px 12px;background:#16a34a;color:white;border:none;border-radius:8px;font-weight:bold;cursor:pointer;font-size:12px;">Aprovar</button>` : ''}
+          <button onclick="window.reservaRecusarPrompt(${r.id})" style="padding:6px 12px;background:#dc2626;color:white;border:none;border-radius:8px;font-weight:bold;cursor:pointer;font-size:12px;">Recusar</button>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+};
+
+window.reservaResolver = function (id, acao) {
+  fetch(`/api/reservas/${id}/${acao}?restaurante_id=` + encodeURIComponent(localStorage.getItem('restaurante_id') || '1'), {
+    method: 'POST',
+    headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+    body: JSON.stringify({})
+  }).then(r => r.json()).then(data => {
+    if (typeof showToast === 'function') showToast(data.mensagem || data.erro || 'Feito!', data.ok ? 'success' : 'danger');
+    window.carregarReservasAdmin();
+  });
+};
+
+window.reservaRecusarPrompt = function (id) {
+  const motivo = prompt('Motivo da recusa (o cliente pode ser contactado):\nex: "mesa já tem evento nesse horário, temos disponível na sexta"');
+  if (motivo === null) return;
+  fetch(`/api/reservas/${id}/recusar?restaurante_id=` + encodeURIComponent(localStorage.getItem('restaurante_id') || '1'), {
+    method: 'POST',
+    headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+    body: JSON.stringify({ motivo: motivo })
+  }).then(r => r.json()).then(data => {
+    if (typeof showToast === 'function') showToast(data.mensagem || data.erro || 'Feito!', data.ok ? 'success' : 'danger');
+    window.carregarReservasAdmin();
+  });
+};
+
+window.reservasCarregarPendentes = function () {
+  const rid = encodeURIComponent(localStorage.getItem('restaurante_id') || '1');
+  fetch('/api/reservas/pendentes?restaurante_id=' + rid, { headers: authHeaders() })
+    .then(r => r.json())
+    .then(data => {
+      const card = document.getElementById('reservas-pendentes-card');
+      const lista = document.getElementById('reservas-pendentes-lista');
+      const badge = document.getElementById('reservas-pendentes-badge');
+      if (!card || !lista) return;
+      const pendentes = (data && data.ok) ? (data.pendentes || []) : [];
+      if (badge) badge.innerText = pendentes.length;
+      card.style.display = pendentes.length ? 'block' : 'none';
+      lista.innerHTML = pendentes.map(r => `
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;background:var(--cfg-card-bg);border:1px solid var(--cfg-border);border-radius:10px;padding:10px 14px;margin-bottom:6px;">
+          <div style="font-size:13px;">
+            <strong>${escHtml(r.cliente_nome)}</strong> quer a <strong>${escHtml(r.mesa_nome)}</strong> em
+            <strong style="color:#d97706;">${(r.data_reserva || '').split('-').reverse().join('/')}</strong> às <strong>${escHtml(r.horario)}</strong> (${r.pessoas}p)
+            <span style="font-size:11px;color:#64748b;">📞 ${escHtml(r.cliente_telefone || '-')}</span>
+            ${r.observacao ? `<div style="font-size:11.5px;margin-top:2px;color:#64748b;">"${escHtml(r.observacao)}"</div>` : ''}
+            ${r.motivo_pendente ? `<div style="font-size:11px;color:#94a3b8;">${escHtml(r.motivo_pendente)}</div>` : ''}
+          </div>
+          <div style="display:flex;gap:6px;">
+            <button onclick="window.reservaResolver(${r.id},'aprovar')" style="padding:6px 12px;background:#16a34a;color:white;border:none;border-radius:8px;font-weight:bold;cursor:pointer;font-size:12px;">✓ Aprovar</button>
+            <button onclick="window.reservaRecusarPrompt(${r.id})" style="padding:6px 12px;background:#dc2626;color:white;border:none;border-radius:8px;font-weight:bold;cursor:pointer;font-size:12px;">Recusar / Negociar</button>
+          </div>
+        </div>`).join('');
+    });
+};
+
+socket.on('reservas_atualizadas', () => {
+  const tab = document.getElementById('admin-tab-reservas');
+  if (tab && tab.style.display !== 'none') window.carregarReservasAdmin();
+});
+socket.on('reserva_aguardando_aprovacao', (r) => {
+  const msg = `⏳ Nova reserva fora do prazo: ${r.cliente} quer a ${r.mesa} em ${(r.data || '').split('-').reverse().join('/')} às ${r.horario}. Abra Reservas Futuras para aprovar.`;
+  if (typeof showToast === 'function') showToast(msg, 'warning');
+});
+socket.on('reserva_checkin', (r) => {
+  const msg = `✅ Check-in: ${r.cliente} chegou na ${r.mesa} (${r.pessoas} pessoas).`;
+  if (typeof showToast === 'function') showToast(msg, 'success');
 });
 
 socket.on('server_status_update', () => {

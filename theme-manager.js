@@ -169,8 +169,89 @@
 
   var _lastCfg = null;
 
+  /* Variáveis globais independentes do modo (fontes, raios, primária) */
+  function buildGlobalVars(cfg) {
+    var v = [];
+    if (cfg.primary) {
+      v.push('--primary: ' + cfg.primary + ' !important;');
+      v.push('--primary-rgb: ' + hexToRgb(cfg.primary) + ' !important;');
+      v.push('--btn-primary-bg: ' + (cfg.btnPrimaryBg || cfg.primary) + ' !important;');
+    }
+    if (cfg.primaryHover) {
+      v.push('--primary-hover: ' + cfg.primaryHover + ' !important;');
+    }
+    if (cfg.btnPrimaryText) {
+      v.push('--btn-primary-text: ' + cfg.btnPrimaryText + ' !important;');
+    }
+    if (cfg.fontBody) {
+      v.push('--font-family: "' + cfg.fontBody + '", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif !important;');
+    }
+    if (cfg.fontHeading) {
+      v.push('--font-heading: "' + cfg.fontHeading + '", -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif !important;');
+    }
+    if (cfg.borderRadius) {
+      v.push('--radius-lg: ' + cfg.borderRadius + ' !important;');
+      v.push('--radius-md: ' + cfg.borderRadius + ' !important;');
+      v.push('--border-radius-base: ' + cfg.borderRadius + ' !important;');
+    }
+    if (cfg.fontSizeScale) v.push('--fs-scale: ' + cfg.fontSizeScale + ';');
+    if (cfg.btnScale) v.push('--btn-scale: ' + cfg.btnScale + ';');
+    if (cfg.cardPadY) v.push('--card-pad-y: ' + cfg.cardPadY + ';');
+    if (cfg.cardPadX) v.push('--card-pad-x: ' + cfg.cardPadX + ';');
+    if (cfg.modalWidth) v.push('--modal-max-w: ' + cfg.modalWidth + ';');
+    if (cfg.modalPosition) v.push('--modal-align: ' + cfg.modalPosition + ';');
+    return v;
+  }
+
+  /* Cores específicas de um modo (fundo, cartões, textos) */
+  function buildModeVars(cfg) {
+    var v = [];
+    if (cfg.bgHeader) v.push('--bg-header: ' + cfg.bgHeader + ';');
+    if (cfg.textHeader) v.push('--text-header: ' + cfg.textHeader + ';');
+    if (cfg.bgSidebar) v.push('--bg-sidebar: ' + cfg.bgSidebar + ';');
+    if (cfg.textSidebar) v.push('--text-sidebar: ' + cfg.textSidebar + ';');
+    if (cfg.bgColor) v.push('--bg-color: ' + cfg.bgColor + '; --bg-main: ' + cfg.bgColor + ';');
+    if (cfg.bgCard) v.push('--bg-card: ' + cfg.bgCard + ';');
+    if (cfg.textPrimary) v.push('--text-primary: ' + cfg.textPrimary + '; --text-main: ' + cfg.textPrimary + ';');
+    if (cfg.textSecondary) v.push('--text-secondary: ' + cfg.textSecondary + '; --text-muted: ' + cfg.textSecondary + ';');
+    if (cfg.borderColor) v.push('--border-color: ' + cfg.borderColor + ';');
+    return v;
+  }
+
   function applyCustomTheme(cfg) {
     if (!cfg || typeof cfg !== 'object') return;
+
+    /* Formato DUAL novo: { modo_dual:true, claro:{...}, escuro:{...}, coringa? }
+       Cada modo recebe suas próprias variáveis sob o seletor de tema certo
+       (corrige o bug antigo em que UMA paleta era jogada para claro OU escuro). */
+    if (cfg.modo_dual && cfg.claro && cfg.escuro) {
+      _lastCfg = cfg;
+      try { localStorage.setItem(CUSTOM_THEME_KEY, JSON.stringify(cfg)); } catch (e) { }
+
+      var styleDual = document.getElementById('chef-custom-theme-vars');
+      if (!styleDual) {
+        styleDual = document.createElement('style');
+        styleDual.id = 'chef-custom-theme-vars';
+        document.head.appendChild(styleDual);
+      }
+
+      var g = buildGlobalVars(cfg);
+      var c = buildModeVars(cfg.claro || {});
+      var e = buildModeVars(cfg.escuro || {});
+      var out = [];
+      if (g.length) out.push(':root, body, html {\n  ' + g.join('\n  ') + '\n}');
+      if (c.length) out.push('[data-theme="light"], html[data-theme="light"] body.theme-light, body.theme-light:not(.dark-mode):not([data-theme="dark"]) {\n  ' + c.join('\n  ') + '\n}');
+      if (e.length) out.push('[data-theme="dark"], body.theme-dark, body.dark-mode {\n  ' + e.join('\n  ') + '\n}');
+      styleDual.innerHTML = out.join('\n\n');
+
+      carregarFontesGoogle(cfg);
+      aplicarFlagTamanhos(cfg);
+      var coringaDual = cfg.coringa || (cfg.claro && cfg.claro.coringa) || (cfg.escuro && cfg.escuro.coringa);
+      renderCoringa(coringaDual ? Object.assign({}, cfg, { coringa: coringaDual }) : cfg);
+      window.dispatchEvent(new CustomEvent('chef_custom_theme_applied', { detail: cfg }));
+      return;
+    }
+
     _lastCfg = cfg;
     try { localStorage.setItem(CUSTOM_THEME_KEY, JSON.stringify(cfg)); } catch (e) { }
 
@@ -184,51 +265,14 @@
     var rules = [];
 
     // 1. Variáveis globais no :root, body e html
-    var rootVars = [];
-    if (cfg.primary) {
-      rootVars.push('--primary: ' + cfg.primary + ' !important;');
-      rootVars.push('--primary-rgb: ' + hexToRgb(cfg.primary) + ' !important;');
-      rootVars.push('--btn-primary-bg: ' + (cfg.btnPrimaryBg || cfg.primary) + ' !important;');
-    }
-    if (cfg.primaryHover) {
-      rootVars.push('--primary-hover: ' + cfg.primaryHover + ' !important;');
-    }
-    if (cfg.btnPrimaryText) {
-      rootVars.push('--btn-primary-text: ' + cfg.btnPrimaryText + ' !important;');
-    }
-    if (cfg.fontBody) {
-      rootVars.push('--font-family: "' + cfg.fontBody + '", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif !important;');
-    }
-    if (cfg.fontHeading) {
-      rootVars.push('--font-heading: "' + cfg.fontHeading + '", -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif !important;');
-    }
-    if (cfg.borderRadius) {
-      rootVars.push('--radius-lg: ' + cfg.borderRadius + ' !important;');
-      rootVars.push('--radius-md: ' + cfg.borderRadius + ' !important;');
-      rootVars.push('--border-radius-base: ' + cfg.borderRadius + ' !important;');
-    }
-    if (cfg.fontSizeScale) rootVars.push('--fs-scale: ' + cfg.fontSizeScale + ';');
-    if (cfg.btnScale) rootVars.push('--btn-scale: ' + cfg.btnScale + ';');
-    if (cfg.cardPadY) rootVars.push('--card-pad-y: ' + cfg.cardPadY + ';');
-    if (cfg.cardPadX) rootVars.push('--card-pad-x: ' + cfg.cardPadX + ';');
-    if (cfg.modalWidth) rootVars.push('--modal-max-w: ' + cfg.modalWidth + ';');
-    if (cfg.modalPosition) rootVars.push('--modal-align: ' + cfg.modalPosition + ';');
+    var rootVars = buildGlobalVars(cfg);
 
     if (rootVars.length) {
       rules.push(':root, body, html {\n  ' + rootVars.join('\n  ') + '\n}');
     }
 
     // 2. Cores específicas de fundo / texto
-    var themeVars = [];
-    if (cfg.bgHeader) themeVars.push('--bg-header: ' + cfg.bgHeader + ';');
-    if (cfg.textHeader) themeVars.push('--text-header: ' + cfg.textHeader + ';');
-    if (cfg.bgSidebar) themeVars.push('--bg-sidebar: ' + cfg.bgSidebar + ';');
-    if (cfg.textSidebar) themeVars.push('--text-sidebar: ' + cfg.textSidebar + ';');
-    if (cfg.bgColor) themeVars.push('--bg-color: ' + cfg.bgColor + '; --bg-main: ' + cfg.bgColor + ';');
-    if (cfg.bgCard) themeVars.push('--bg-card: ' + cfg.bgCard + ';');
-    if (cfg.textPrimary) themeVars.push('--text-primary: ' + cfg.textPrimary + '; --text-main: ' + cfg.textPrimary + ';');
-    if (cfg.textSecondary) themeVars.push('--text-secondary: ' + cfg.textSecondary + '; --text-muted: ' + cfg.textSecondary + ';');
-    if (cfg.borderColor) themeVars.push('--border-color: ' + cfg.borderColor + ';');
+    var themeVars = buildModeVars(cfg);
 
     if (themeVars.length) {
       var isDarkBg = !isLightColor(cfg.bgColor);
@@ -241,7 +285,14 @@
 
     styleEl.innerHTML = rules.join('\n\n');
 
-    // Fontes do Google
+    carregarFontesGoogle(cfg);
+    aplicarFlagTamanhos(cfg);
+
+    renderCoringa(cfg);
+    window.dispatchEvent(new CustomEvent('chef_custom_theme_applied', { detail: cfg }));
+  }
+
+  function carregarFontesGoogle(cfg) {
     if (cfg.fontBody && !document.getElementById('font-body-' + cfg.fontBody)) {
       var fontLink = document.createElement('link');
       fontLink.id = 'font-body-' + cfg.fontBody;
@@ -256,7 +307,9 @@
       fontLinkH.href = 'https://fonts.googleapis.com/css2?family=' + encodeURIComponent(cfg.fontHeading) + ':wght@600;700;800&display=swap';
       document.head.appendChild(fontLinkH);
     }
+  }
 
+  function aplicarFlagTamanhos(cfg) {
     var tamanhosCustom = (cfg.fontSizeScale && cfg.fontSizeScale !== '1') ||
       (cfg.btnScale && cfg.btnScale !== '1') ||
       (cfg.cardPadY && cfg.cardPadY !== '10px') ||
@@ -266,9 +319,6 @@
       document.documentElement.setAttribute('data-chef-sizes', tamanhosCustom ? 'on' : 'off');
       if (document.body) document.body.classList.toggle('chef-sizes-on', !!tamanhosCustom);
     } catch (e) { }
-
-    renderCoringa(cfg);
-    window.dispatchEvent(new CustomEvent('chef_custom_theme_applied', { detail: cfg }));
   }
 
   function hexToRgb(hex) {
@@ -393,6 +443,7 @@
     if (typeof window.fecharModalEnviarAvisoSuporte === 'function') window.fecharModalEnviarAvisoSuporte();
     if (typeof window.fecharModalCriarMissaoSurpresa === 'function') window.fecharModalCriarMissaoSurpresa();
     if (typeof window.fecharModalSenhaAdmin === 'function') window.fecharModalSenhaAdmin();
+    if (typeof window.fecharModalDelegarSuporte === 'function') window.fecharModalDelegarSuporte();
     if (typeof window.fecharModalLoginFuncionarioMobile === 'function') window.fecharModalLoginFuncionarioMobile();
   }
 

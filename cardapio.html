@@ -2899,6 +2899,163 @@
 
   <script src="/fullscreen.js"></script>
 
+  <!-- ═══ RESERVA FUTURA: botão flutuante + modal (cliente agenda mesa p/ data) ═══ -->
+  <div id="btn-reservar-flutuante" onclick="abrirModalReserva()" style="position:fixed;bottom:84px;right:16px;z-index:9000;background:#0ea5e9;color:white;border:none;border-radius:50px;padding:12px 20px;font-weight:800;font-size:14px;cursor:pointer;box-shadow:0 6px 18px rgba(14,165,233,0.45);display:flex;align-items:center;gap:8px;">
+    <span style="font-size:17px;">📅</span> Reservar
+  </div>
+  <div id="modal-reserva-futura" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.65);align-items:center;justify-content:center;padding:16px;" onclick="if(event.target===this)fecharModalReserva()">
+    <div style="background:white;color:#1e293b;border-radius:18px;max-width:430px;width:100%;max-height:88vh;overflow-y:auto;padding:22px;">
+      <h3 style="margin:0 0 4px;font-size:19px;">📅 Reservar sua mesa</h3>
+      <p id="reserva-prazo-info" style="margin:0 0 14px;font-size:12.5px;color:#64748b;">Carregando prazo...</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+        <label style="font-size:12px;font-weight:700;">Data<span style="color:red;">*</span>
+          <input type="date" id="res-c-data" style="width:100%;padding:9px;border-radius:8px;border:1px solid #cbd5e1;font-size:14px;margin-top:3px;">
+        </label>
+        <label style="font-size:12px;font-weight:700;">Horário
+          <input type="time" id="res-c-hora" value="19:00" style="width:100%;padding:9px;border-radius:8px;border:1px solid #cbd5e1;font-size:14px;margin-top:3px;">
+        </label>
+      </div>
+      <label style="font-size:12px;font-weight:700;display:block;">Mesa desejada
+        <select id="res-c-mesa" style="width:100%;padding:9px;border-radius:8px;border:1px solid #cbd5e1;font-size:14px;margin-top:3px;"><option>Carregando mesas...</option></select>
+      </label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;">
+        <label style="font-size:12px;font-weight:700;">Pessoas
+          <input type="number" id="res-c-pessoas" min="1" max="50" value="2" style="width:100%;padding:9px;border-radius:8px;border:1px solid #cbd5e1;font-size:14px;margin-top:3px;">
+        </label>
+        <label style="font-size:12px;font-weight:700;">Seu telefone<span style="color:red;">*</span>
+          <input type="tel" id="res-c-telefone" placeholder="(11) 99999-0000" style="width:100%;padding:9px;border-radius:8px;border:1px solid #cbd5e1;font-size:14px;margin-top:3px;">
+        </label>
+      </div>
+      <label style="font-size:12px;font-weight:700;display:block;margin-top:10px;">Seu nome<span style="color:red;">*</span>
+        <input type="text" id="res-c-nome" placeholder="Como você se chama?" style="width:100%;padding:9px;border-radius:8px;border:1px solid #cbd5e1;font-size:14px;margin-top:3px;">
+      </label>
+      <label style="font-size:12px;font-weight:700;display:block;margin-top:10px;">Observação <span style="font-weight:400;color:#94a3b8;">(ex.: é meu aniversário!)</span>
+        <textarea id="res-c-obs" rows="2" maxlength="400" style="width:100%;padding:9px;border-radius:8px;border:1px solid #cbd5e1;font-size:13px;margin-top:3px;resize:none;"></textarea>
+      </label>
+      <div id="res-c-resultado" style="display:none;margin-top:12px;padding:11px 14px;border-radius:10px;font-size:13px;"></div>
+      <button onclick="enviarReservaCliente()" id="btn-enviar-reserva" style="width:100%;margin-top:14px;padding:13px;background:#0ea5e9;color:white;border:none;border-radius:12px;font-weight:800;font-size:15px;cursor:pointer;">Confirmar Reserva</button>
+      <button onclick="verMinhasReservas()" style="width:100%;margin-top:8px;padding:10px;background:#f1f5f9;color:#334155;border:none;border-radius:12px;font-weight:700;font-size:13px;cursor:pointer;">Ver minhas reservas / fazer check-in</button>
+      <button onclick="fecharModalReserva()" style="width:100%;margin-top:6px;padding:8px;background:none;color:#94a3b8;border:none;font-size:12px;cursor:pointer;">Fechar</button>
+    </div>
+  </div>
+  <script>
+  (function () {
+    'use strict';
+    var rid = new URLSearchParams(location.search).get('restaurante_id') || localStorage.getItem('restaurante_id') || '1';
+    var API = '';
+    function q(id) { return document.getElementById(id); }
+
+    window.abrirModalReserva = function () {
+      var m = q('modal-reserva-futura');
+      if (!m) return;
+      m.style.display = 'flex';
+      var hoje = new Date(); hoje.setMinutes(hoje.getMinutes() - hoje.getTimezoneOffset());
+      q('res-c-data').min = hoje.toISOString().slice(0, 10);
+      fetch(API + '/api/reservas/config?restaurante_id=' + rid).then(function (r) { return r.json(); }).then(function (cfg) {
+        if (cfg && cfg.ok) {
+          q('reserva-prazo-info').textContent = cfg.prazo_max_dias > 0
+            ? '✓ Reservas confirmadas na hora até ' + cfg.prazo_max_dias + ' dias à frente. Além disso, o restaurante analisa e entra em contato.'
+            : 'Todas as reservas passam pela análise do restaurante — eles entram em contato pelo telefone.';
+        }
+      }).catch(function () {});
+      carregarMesas();
+    };
+    window.fecharModalReserva = function () { var m = q('modal-reserva-futura'); if (m) m.style.display = 'none'; };
+
+    function carregarMesas() {
+      var data = q('res-c-data').value || new Date().toISOString().slice(0, 10);
+      fetch(API + '/api/reservas/disponibilidade?data=' + data + '&restaurante_id=' + rid).then(function (r) { return r.json(); }).then(function (d) {
+        var sel = q('res-c-mesa');
+        if (!d || !d.ok) { sel.innerHTML = '<option>Erro ao carregar mesas</option>'; return; }
+        var ocupadas = {};
+        (d.reservas_do_dia || []).forEach(function (r) { if (r.status !== 'cancelada') ocupadas[r.mesa] = true; });
+        sel.innerHTML = (d.mesas || []).map(function (m) {
+          var tomada = ocupadas[m.nome];
+          return '<option value="' + m.nome.replace(/"/g, '&quot;') + '"' + (tomada ? ' disabled' : '') + '>' + m.nome + (tomada ? ' — já reservada neste dia' : '') + '</option>';
+        }).join('') || '<option>Nenhuma mesa disponível</option>';
+      }).catch(function () {});
+    }
+    q('res-c-data').addEventListener('change', carregarMesas);
+
+    window.enviarReservaCliente = function () {
+      var btn = q('btn-enviar-reserva');
+      var body = {
+        mesa_nome: q('res-c-mesa').value,
+        data: q('res-c-data').value,
+        horario: q('res-c-hora').value || '19:00',
+        pessoas: parseInt(q('res-c-pessoas').value, 10) || 2,
+        nome: q('res-c-nome').value.trim(),
+        telefone: q('res-c-telefone').value.trim(),
+        observacao: q('res-c-obs').value.trim()
+      };
+      var box = q('res-c-resultado');
+      box.style.display = 'none';
+      if (!body.mesa_nome || !body.data || !body.nome || !body.telefone) {
+        box.style.display = 'block'; box.style.background = '#fef3c7'; box.style.color = '#92400e';
+        box.textContent = 'Preencha os campos obrigatórios (*).'; return;
+      }
+      btn.disabled = true; btn.textContent = 'Enviando...';
+      fetch(API + '/api/reservas?restaurante_id=' + rid, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+      }).then(function (r) { return r.json(); }).then(function (data) {
+        btn.disabled = false; btn.textContent = 'Confirmar Reserva';
+        box.style.display = 'block';
+        box.style.background = data.ok ? '#dcfce7' : '#fee2e2';
+        box.style.color = data.ok ? '#166534' : '#991b1b';
+        box.textContent = (data.mensagem || data.erro || '');
+        if (data.ok) {
+          try { localStorage.setItem('cc_meu_telefone_reserva', body.telefone.replace(/\D/g, '')); } catch (e) {}
+        }
+      }).catch(function () {
+        btn.disabled = false; btn.textContent = 'Confirmar Reserva';
+        box.style.display = 'block'; box.style.background = '#fee2e2'; box.style.color = '#991b1b';
+        box.textContent = 'Erro de conexão. Tente novamente.';
+      });
+    };
+
+    window.verMinhasReservas = function () {
+      var tel = (localStorage.getItem('cc_meu_telefone_reserva') || q('res-c-telefone').value.replace(/\D/g, '') || '');
+      tel = tel || prompt('Telefone usado na reserva (só números):') || '';
+      tel = tel.replace(/\D/g, '');
+      if (!tel) return;
+      try { localStorage.setItem('cc_meu_telefone_reserva', tel); } catch (e) {}
+      fetch(API + '/api/reservas/minhas?telefone=' + tel + '&restaurante_id=' + rid).then(function (r) { return r.json(); }).then(function (d) {
+        var box = q('res-c-resultado');
+        box.style.display = 'block';
+        if (!d || !d.ok || !(d.reservas || []).length) {
+          box.style.background = '#f1f5f9'; box.style.color = '#334155';
+          box.textContent = 'Nenhuma reserva encontrada para este telefone.'; return;
+        }
+        box.style.background = '#eff6ff'; box.style.color = '#1e40af';
+        var linhas = d.reservas.map(function (r) {
+          var hoje = new Date(); hoje.setMinutes(hoje.getMinutes() - hoje.getTimezoneOffset());
+          var ehHoje = r.data_reserva === hoje.toISOString().slice(0, 10);
+          var podeCheckin = ehHoje && r.status === 'confirmada';
+          return '<div style="margin-bottom:6px;">📌 <strong>' + r.data_reserva.split('-').reverse().join('/') + '</strong> às ' + r.horario +
+            ' — ' + r.mesa_nome + ' (' + ({ confirmada: 'confirmada', checkin: 'check-in ✓', pendente_aprovacao: 'aguardando restaurante', cancelada: 'cancelada' }[r.status] || r.status) + ')' +
+            (podeCheckin ? ' <button onclick="fazerCheckinReserva(\'' + r.id + '\')" style="background:#16a34a;color:white;border:none;border-radius:8px;padding:4px 12px;font-weight:800;cursor:pointer;font-size:12px;margin-left:6px;">Fazer check-in</button>' : '') +
+            '</div>';
+        }).join('');
+        box.innerHTML = '<strong>Suas reservas:</strong><br>' + linhas;
+      });
+    };
+
+    window.fazerCheckinReserva = function (id) {
+      var tel = localStorage.getItem('cc_meu_telefone_reserva') || '';
+      fetch(API + '/api/reservas/checkin?restaurante_id=' + rid, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: parseInt(id, 10), telefone: tel })
+      }).then(function (r) { return r.json(); }).then(function (d) {
+        var box = q('res-c-resultado');
+        box.style.display = 'block';
+        box.style.background = d.ok ? '#dcfce7' : '#fee2e2';
+        box.style.color = d.ok ? '#166534' : '#991b1b';
+        box.textContent = d.mensagem || d.erro || '';
+        if (d.ok) verMinhasReservas();
+      });
+    };
+  })();
+  </script>
+
 </body>
 
 </html>

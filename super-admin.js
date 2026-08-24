@@ -662,7 +662,7 @@ function switchTab(targetId) {
   else if (targetId === 'sec-usuarios') carregarUsuarios();
   else if (targetId === 'sec-servidor') { carregarServidor(); carregarCerts(); }
   else if (targetId === 'sec-mensagens') carregarMensagens();
-  else if (targetId === 'sec-tema-custom') carregarTemaCustomGlobal();
+  else if (targetId === 'sec-tema-custom') { carregarTemaCustomGlobal(); carregarTemasLista(); }
   else if (targetId === 'sec-logs') carregarLogs(0);
   else if (targetId === 'sec-config') carregarConfig();
   else if (targetId === 'sec-licencas') carregarLicencas();
@@ -6049,6 +6049,211 @@ window.salvarTemaCustomGlobal = function() {
 window.restaurarTemaPadraoGlobal = function() {
   window.aplicarPresetTema('chef_orange');
   window.salvarTemaCustomGlobal();
+};
+
+/* ═════════ TEMAS MULTI-VERSÃO 1.x — CLARO + ESCURO ═════════ */
+var _temasCache = [];
+var _temaEdicao = null; // { id, versao, nome, modo }
+
+window.carregarTemasLista = function() {
+  fetch('/api/super/temas')
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+      var box = document.getElementById('temas-lista');
+      if (!box) return;
+      if (!data || !data.ok) { box.innerHTML = '<div style="color:#f87171;font-size:0.85rem;">Erro ao carregar temas.</div>'; return; }
+      _temasCache = data.temas || [];
+      if (!_temasCache.length) {
+        box.innerHTML = '<div style="text-align:center;padding:12px;color:#94a3b8;font-size:0.85rem;">Nenhum tema ainda. Clique em "Criar Tema".</div>';
+        return;
+      }
+      box.innerHTML = _temasCache.map(function(t) {
+        var ativo = !!t.ativo;
+        return '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;background:' + (ativo ? 'rgba(236,72,153,0.10)' : 'rgba(255,255,255,0.03)') + ';border:1px solid ' + (ativo ? '#ec4899' : 'rgba(255,255,255,0.08)') + ';border-radius:12px;padding:10px 14px;">' +
+          '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">' +
+            '<span style="background:' + (ativo ? '#ec4899' : '#475569') + ';color:white;font-weight:800;font-size:0.72rem;padding:2px 10px;border-radius:12px;">v' + t.versao + '</span>' +
+            '<strong style="font-size:0.88rem;">' + esc(t.nome || 'Sem nome') + '</strong>' +
+            (ativo ? '<span style="color:#34d399;font-size:0.75rem;font-weight:700;"><i class="fa-solid fa-circle-check"></i> ATIVO</span>' : '') +
+            '<span style="font-size:0.72rem;color:#94a3b8;">☀️✓ claro · 🌙' + (t.cfg_escuro && Object.keys(t.cfg_escuro).length ? '✓' : ' vazio') + ' escuro</span>' +
+          '</div>' +
+          '<div style="display:flex;gap:6px;flex-wrap:wrap;">' +
+            '<button onclick="editarTema(' + t.id + ')" style="padding:6px 14px;background:#334155;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.78rem;"><i class="fa-solid fa-pen"></i> Editar</button>' +
+            (!ativo ? '<button onclick="ativarTema(' + t.id + ')" style="padding:6px 14px;background:#16a34a;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.78rem;"><i class="fa-solid fa-power-off"></i> Ativar</button>' : '') +
+            '<button onclick="delegarTemaSuporte(' + t.id + ')" style="padding:6px 14px;background:#0ea5e9;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.78rem;" title="Envia este tema como tarefa para o suporte finalizar"><i class="fa-solid fa-headset"></i></button>' +
+            (!ativo ? '<button onclick="excluirTema(' + t.id + ')" style="padding:6px 12px;background:#7f1d1d;color:white;border:none;border-radius:8px;cursor:pointer;font-size:0.78rem;"><i class="fa-solid fa-trash"></i></button>' : '') +
+          '</div>' +
+        '</div>';
+      }).join('');
+    })
+    .catch(function() {});
+};
+
+window.criarNovoTema = function() {
+  var nome = prompt('Nome do novo tema:\nex.: "Tema Festa Junina", "Clean Profissional"', 'Novo Tema');
+  if (nome === null) return;
+  apiPost('/api/super/temas', { nome: nome }, function(err, data) {
+    if (err || !data || !data.ok) {
+      showToast('Erro ao criar tema: ' + (err ? err.message : (data ? data.erro : 'Falha')), 'danger');
+      return;
+    }
+    showToast(data.mensagem || 'Tema criado!', 'success');
+    window.carregarTemasLista();
+    if (data.id) window.editarTema(data.id);
+  });
+};
+
+function _atualizarBotoesModoTema() {
+  var bC = document.getElementById('btn-modo-claro');
+  var bE = document.getElementById('btn-modo-escuro');
+  if (!bC || !bE || !_temaEdicao) return;
+  var noClaro = _temaEdicao.modo === 'claro';
+  bC.style.background = noClaro ? '#fbbf24' : 'rgba(255,255,255,0.08)';
+  bC.style.color = noClaro ? '#1e293b' : '#94a3b8';
+  bE.style.background = !noClaro ? '#818cf8' : 'rgba(255,255,255,0.08)';
+  bE.style.color = !noClaro ? '#1e293b' : '#94a3b8';
+  var titulo = document.getElementById('tema-editor-titulo');
+  if (titulo) titulo.textContent = '✏️ Editando: v' + _temaEdicao.versao + ' "' + (_temaEdicao.nome || '') + '" — Modo ' + (noClaro ? 'CLARO ☀️' : 'ESCURO 🌙');
+}
+
+window.editarTema = function(id) {
+  var t = _temasCache.find(function(x) { return x.id === id; });
+  if (!t) { showToast('Recarregue a lista de temas.', 'warning'); return; }
+  _temaEdicao = { id: t.id, versao: t.versao, nome: t.nome, modo: 'claro', cfgClaro: t.cfg_claro || {}, cfgEscuro: t.cfg_escuro || {} };
+  var barra = document.getElementById('tema-editor-barra');
+  if (barra) barra.style.display = 'block';
+  _preencherInputsTema(Object.assign({}, _temaEdicao.cfgClaro));
+  window.atualizarCampoCoringa();
+  window.atualizarLivePreviewTema();
+  _atualizarBotoesModoTema();
+  showToast('Editando v' + t.versao + '. Ajuste o CLARO, depois troque para ESCURO e salve cada modo.', 'info');
+};
+
+window.trocarModoEdicaoTema = function(modo) {
+  if (!_temaEdicao || modo === _temaEdicao.modo) return;
+  // Guarda o que está no formulário antes de trocar (sem salvar — só mantém em edição)
+  var atual = window.obterConfigTemaDosInputs();
+  if (_temaEdicao.modo === 'claro') _temaEdicao.cfgClaro = atual; else _temaEdicao.cfgEscuro = atual;
+  _temaEdicao.modo = modo;
+  _preencherInputsTema(Object.assign({}, modo === 'claro' ? _temaEdicao.cfgClaro : _temaEdicao.cfgEscuro));
+  window.atualizarCampoCoringa();
+  window.atualizarLivePreviewTema();
+  _atualizarBotoesModoTema();
+};
+
+window.salvarModoTemaAtual = function() {
+  if (!_temaEdicao) return;
+  var cfg = window.obterConfigTemaDosInputs();
+  var corpo = {};
+  if (_temaEdicao.modo === 'claro') corpo.cfg_claro = cfg; else corpo.cfg_escuro = cfg;
+  apiPost('/api/super/temas/' + _temaEdicao.id, corpo, function(err, data) {
+    if (err || !data || !data.ok) {
+      showToast('Erro ao salvar: ' + (err ? err.message : (data ? data.erro : 'Falha')), 'danger');
+      return;
+    }
+    showToast('✨ Modo ' + _temaEdicao.modo.toUpperCase() + ' do tema v' + _temaEdicao.versao + ' salvo!' + (data.mensagem && data.mensagem.indexOf('ATIVO') >= 0 ? ' Já está rodando nos terminais.' : ''), 'success');
+    window.carregarTemasLista();
+  });
+};
+// O botão principal "Salvar e Aplicar Globalmente" também salva no tema em edição quando houver
+(function() {
+  var salvarOriginal = window.salvarTemaCustomGlobal;
+  window.salvarTemaCustomGlobal = function() {
+    if (_temaEdicao) { window.salvarModoTemaAtual(); return; }
+    salvarOriginal();
+  };
+})();
+
+window.ativarTema = function(id) {
+  var t = _temasCache.find(function(x) { return x.id === id; });
+  apiPost('/api/super/temas/' + id + '/ativar', {}, function(err, data) {
+    if (err || !data || !data.ok) {
+      showToast('Erro ao ativar: ' + (err ? err.message : (data ? data.erro : 'Falha')), 'danger');
+      return;
+    }
+    showToast(data.mensagem || 'Tema ativado!', 'success');
+    window.carregarTemasLista();
+    if (t) { _preencherInputsTema(Object.assign({}, t.cfg_claro)); window.atualizarLivePreviewTema(); }
+  });
+};
+
+window.excluirTema = function(id) {
+  var t = _temasCache.find(function(x) { return x.id === id; });
+  if (!t) return;
+  if (!confirm('Excluir o tema v' + t.versao + ' ("' + (t.nome || '') + '")? Essa ação não pode ser desfeita.')) return;
+  // XHR direto: há duas definições de apiDelete neste arquivo — a última não envia corpo e esta rota precisa de token via header apenas
+  var xhr = new XMLHttpRequest();
+  xhr.open('DELETE', '/api/super/temas/' + id, true);
+  xhr.setRequestHeader('Content-Type', 'application/json');
+  var tok = localStorage.getItem('super_admin_token') || '';
+  if (tok) xhr.setRequestHeader('Authorization', 'Bearer ' + tok);
+  xhr.onload = function() {
+    try {
+      var d = JSON.parse(xhr.responseText);
+      showToast(d.mensagem || d.erro || 'Feito!', d.ok ? 'success' : 'danger');
+      if (d.ok && _temaEdicao && _temaEdicao.id === id) {
+        _temaEdicao = null;
+        var barra = document.getElementById('tema-editor-barra');
+        if (barra) barra.style.display = 'none';
+      }
+      window.carregarTemasLista();
+    } catch (e) { showToast('Erro ao excluir tema.', 'danger'); }
+  };
+  xhr.send(JSON.stringify({}));
+};
+
+window.delegarTemaSuporte = function(id) {
+  var t = _temasCache.find(function(x) { return x.id === id; });
+  if (!t) return;
+  var obs = prompt('Instruções para o suporte sobre o tema v' + t.versao + ' ("' + (t.nome || '') + '"):\nex.: "ajustar contraste do texto dos cards", "combinar com a logo nova"', '');
+  if (obs === null) return;
+  apiPost('/api/super/delegar-suporte', {
+    tipo: 'design_tema',
+    descricao: '🎨 DESIGN DE TEMA v' + t.versao + ' "' + (t.nome || 'sem nome') + '" — Ajustar paleta claro+escuro. Instruções do admin: ' + (obs.trim() || '(nenhuma observação específica)'),
+    pontos: 25
+  }, function(err, data) {
+    if (err || !data || !data.ok) {
+      showToast('Erro ao delegar: ' + (err ? err.message : (data ? data.erro : 'Falha')), 'danger');
+      return;
+    }
+    showToast(data.mensagem || 'Delegado ao suporte!', 'success');
+  });
+};
+
+/* ═════════ DELEGAÇÃO GENÉRICA DE PENDÊNCIAS AO SUPORTE ═════════ */
+window.abrirModalDelegarSuporte = function() {
+  var m = document.getElementById('modal-delegar-suporte');
+  if (!m) { showToast('Modal de delegação não encontrado nesta versão do painel.', 'warning'); return; }
+  m.style.display = 'flex';
+};
+
+window.fecharModalDelegarSuporte = function() {
+  var m = document.getElementById('modal-delegar-suporte');
+  if (m) m.style.display = 'none';
+};
+
+window.enviarDelegacaoSuporte = function() {
+  var descricao = (document.getElementById('deleg-descricao') || {}).value || '';
+  if (!descricao.trim()) { showToast('Descreva a pendência a delegar.', 'warning'); return; }
+  var btn = document.getElementById('btn-enviar-delegacao');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Enviando...';
+  apiPost('/api/super/delegar-suporte', {
+    tipo: (document.getElementById('deleg-tipo') || {}).value,
+    descricao: descricao,
+    restaurante_id: parseInt((document.getElementById('deleg-restaurante-id') || {}).value, 10) || null,
+    pontos: parseInt((document.getElementById('deleg-pontos') || {}).value, 10) || 20
+  }, function(err, data) {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Enviar à fila do Suporte';
+    if (err || !data || !data.ok) {
+      showToast('Erro ao delegar: ' + (err ? err.message : (data ? data.erro : 'Falha')), 'danger');
+      return;
+    }
+    showToast(data.mensagem || 'Delegado!', 'success');
+    window.fecharModalDelegarSuporte();
+    var d = document.getElementById('deleg-descricao');
+    if (d) d.value = '';
+  });
 };
 
 window.carregarTemaCustomGlobal = function() {

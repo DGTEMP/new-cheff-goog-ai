@@ -741,10 +741,14 @@ function carregarRelatosRestaurantes() {
       var corpo = linhas.slice(1).join('\n').trim();
       var priAlta = /\bprioridade ALTA\b/i.test(linhas[0] || '');
       var borda = priAlta ? 'border-left:4px solid #ef4444;' : 'border-left:4px solid var(--warning,#f59e0b);';
+      var seloTipo = '';
+      if (r.tipo === 'falha_automatica') seloTipo = ' <span style="background:#ef4444;color:#fff;font-size:0.68rem;font-weight:800;padding:1px 8px;border-radius:10px;">🚨 FALHA AUTOMÁTICA</span>';
+      else if (r.tipo === 'design_tema') seloTipo = ' <span style="background:#ec4899;color:#fff;font-size:0.68rem;font-weight:800;padding:1px 8px;border-radius:10px;">🎨 DESIGN DE TEMA</span>';
+      else if (r.tipo === 'delegacao_super') seloTipo = ' <span style="background:#0ea5e9;color:#fff;font-size:0.68rem;font-weight:800;padding:1px 8px;border-radius:10px;">📌 DELEGAÇÃO SUPER ADMIN</span>';
       h += '<div class="relato-item card" style="' + borda + 'padding:12px 14px;margin-bottom:10px;">'
         + '<div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap;">'
         + '<div style="flex:1;min-width:220px;">'
-        + '<strong style="font-size:0.9rem;">' + escHtml(tituloRelato) + '</strong>'
+        + '<strong style="font-size:0.9rem;">' + escHtml(tituloRelato) + '</strong>' + seloTipo
         + (r.restaurante_nome ? ' <span style="color:var(--text-muted);font-size:0.78rem;">• ' + escHtml(r.restaurante_nome) + '</span>' : '')
         + '<div style="color:var(--text-sub);font-size:0.8rem;white-space:pre-wrap;margin-top:6px;">' + escHtml(corpo) + '</div>'
         + '<small style="color:var(--text-muted);">' + (r.criada_em ? new Date(r.criada_em.replace(' ','T')).toLocaleString('pt-BR') : '') + '</small>'

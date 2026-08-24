@@ -1149,8 +1149,41 @@
                   onclick="abrirModalEnviarAvisoSuporte()">
                   <i class="fa-solid fa-bullhorn"></i> Enviar Aviso
                 </button>
+                <button class="btn-action" style="background:#0ea5e9;color:white;"
+                  onclick="abrirModalDelegarSuporte()">
+                  <i class="fa-solid fa-hand-holding-hand"></i> Delegar Pendência
+                </button>
                 <button class="btn-action btn-primary-action" id="btn-novo-suporte" onclick="abrirModalNovoSuporte()">
                   <i class="fa-solid fa-plus"></i> Novo Membro
+                </button>
+              </div>
+            </div>
+
+            <!-- ═══ DELEGAÇÃO GENÉRICA AO SUPORTE ═══ -->
+            <div id="modal-delegar-suporte" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;padding:16px;" onclick="if(event.target===this)this.style.display='none'">
+              <div style="background:var(--bg-card,#1e293b);color:var(--text-main,#f1f5f9);border-radius:18px;max-width:460px;width:100%;padding:22px;">
+                <h3 style="margin:0 0 6px;font-size:17px;"><i class="fa-solid fa-hand-holding-hand" style="color:#0ea5e9;"></i> Delegar Pendência ao Suporte</h3>
+                <p style="margin:0 0 14px;font-size:12.5px;color:#94a3b8;">Qualquer obrigação sua (ajuste visual, contato com restaurante, verificação) pode ir para a fila do time de suporte — eles veem na hora no portal deles.</p>
+                <label style="font-size:12.5px;font-weight:700;display:block;">Tipo
+                  <select id="deleg-tipo" style="width:100%;padding:9px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-input);color:var(--text-main);font-size:13.5px;margin-top:4px;">
+                    <option value="delegacao_super">Pendência geral do super admin</option>
+                    <option value="design_tema">Design / ajuste de tema</option>
+                    <option value="relato_restaurante">Contato / follow-up de restaurante</option>
+                  </select>
+                </label>
+                <label style="font-size:12.5px;font-weight:700;display:block;margin-top:10px;">Descrição da tarefa *
+                  <textarea id="deleg-descricao" rows="4" maxlength="1000" placeholder="ex.: 'ligar para a Pizzaria Bella e orientar sobre o cadastro de produtos'" style="width:100%;padding:9px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-input);color:var(--text-main);font-size:13px;margin-top:4px;resize:none;"></textarea>
+                </label>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;">
+                  <label style="font-size:12.5px;font-weight:700;display:block;">Restaurante relacionado (opcional)
+                    <input type="number" id="deleg-restaurante-id" min="1" placeholder="ID" style="width:100%;padding:9px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-input);color:var(--text-main);font-size:13.5px;margin-top:4px;">
+                  </label>
+                  <label style="font-size:12.5px;font-weight:700;display:block;">Pontos (XP)
+                    <input type="number" id="deleg-pontos" min="5" max="200" value="20" style="width:100%;padding:9px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-input);color:var(--text-main);font-size:13.5px;margin-top:4px;">
+                  </label>
+                </div>
+                <button onclick="enviarDelegacaoSuporte()" id="btn-enviar-delegacao" style="width:100%;margin-top:14px;padding:12px;background:#0ea5e9;color:white;border:none;border-radius:10px;font-weight:800;font-size:14px;cursor:pointer;">
+                  <i class="fa-solid fa-paper-plane"></i> Enviar à fila do Suporte
                 </button>
               </div>
             </div>
@@ -3143,6 +3176,36 @@
               <div class="info-banner-content">
                 <h4>Estúdio de Personalização Global de Temas</h4>
                 <p>Personalize as cores de cada seção, cabeçalho, barra lateral, cards, botões, fontes e estilos de borda. As alterações salvas são aplicadas instantaneamente em todos os PDVs e aparelhos conectados via WebSockets em tempo real.</p>
+              </div>
+            </div>
+
+            <!-- ═══ GERENCIADOR DE TEMAS MULTI-VERSÃO (1.x · CLARO + ESCURO) ═══ -->
+            <div style="background:var(--bg-card);border:2px solid #ec4899;border-radius:16px;padding:1.5rem;margin-bottom:1.5rem;">
+              <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:1rem;">
+                <h3 style="margin:0;font-size:1.1rem;"><i class="fa-solid fa-layer-group" style="color:#ec4899;"></i> Temas Versão 1.x — Modo Claro + Escuro</h3>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                  <button class="btn-action btn-primary-action" onclick="criarNovoTema()" style="background:linear-gradient(135deg,#ec4899,#d946ef);color:white;padding:8px 16px;">
+                    <i class="fa-solid fa-plus"></i> Criar Tema
+                  </button>
+                  <button class="btn-action" onclick="carregarTemasLista()" style="background:rgba(255,255,255,0.1);color:white;padding:8px 14px;" title="Atualizar lista">
+                    <i class="fa-solid fa-rotate"></i>
+                  </button>
+                </div>
+              </div>
+              <p style="margin:0 0 12px 0;font-size:0.82rem;color:var(--text-muted,#94a3b8);">Cada tema guarda uma paleta para o modo <strong>Claro</strong> e outra para o <strong>Escuro</strong> — ao alternar o tema na tela, as cores certas são aplicadas automaticamente (sem mais inconsistência claro/escuro). O tema ativo é propagado em tempo real.</p>
+              <div id="temas-lista" style="display:flex;flex-direction:column;gap:8px;">
+                <div style="text-align:center;padding:12px;color:#94a3b8;font-size:0.85rem;">Carregando temas...</div>
+              </div>
+              <!-- Barra de contexto do editor (aparece ao editar um tema) -->
+              <div id="tema-editor-barra" style="display:none;margin-top:14px;background:rgba(236,72,153,0.08);border:1px solid rgba(236,72,153,0.35);border-radius:12px;padding:12px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+                  <div id="tema-editor-titulo" style="font-weight:700;font-size:0.9rem;">Editando tema</div>
+                  <div style="display:flex;gap:6px;">
+                    <button id="btn-modo-claro" onclick="trocarModoEdicaoTema('claro')" style="padding:7px 18px;border:none;border-radius:20px;font-weight:800;cursor:pointer;font-size:0.8rem;">☀️ Claro</button>
+                    <button id="btn-modo-escuro" onclick="trocarModoEdicaoTema('escuro')" style="padding:7px 18px;border:none;border-radius:20px;font-weight:800;cursor:pointer;font-size:0.8rem;">🌙 Escuro</button>
+                  </div>
+                </div>
+                <p id="tema-editor-dica" style="margin:8px 0 0 0;font-size:0.78rem;color:#f9a8d4;">Edite os campos abaixo (presets também funcionam) e salve no modo.</p>
               </div>
             </div>
 

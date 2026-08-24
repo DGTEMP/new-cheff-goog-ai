@@ -2042,6 +2042,350 @@ app.get('/api/public/theme', (req, res) => {
   });
 });
 
+// ══════════════════════════════════════════════════════════════════════
+// ── RESERVAS FUTURAS (cliente agenda mesa para data específica) ──────
+// ══════════════════════════════════════════════════════════════════════
+
+function getReservasPrazoMaxDias(cb) {
+  db.get(`SELECT valor FROM configuracoes WHERE chave = 'reservas_prazo_max_dias'`, [], (err, row) => {
+    const dias = parseInt((row && row.valor), 10);
+    cb(!err && dias > 0 ? dias : 30);
+  });
+}
+
+// Config pública: prazo que o dono definiu para auto-aprovação
+app.get('/api/reservas/config', (req, res) => {
+  getReservasPrazoMaxDias((dias) => res.json({ ok: true, prazo_max_dias: dias }));
+});
+
+// Dono define o prazo máximo de auto-reserva
+app.post('/api/reservas/config', verificarToken, (req, res) => {
+  if (!['admin', 'gerente'].includes(req.usuario?.cargo || '')) {
+    return res.status(403).json({ ok: false, erro: 'Apenas administradores.' });
+  }
+  const dias = Math.min(365, Math.max(0, parseInt((req.body || {}).prazo_max_dias, 10)));
+  if (isNaN(dias)) return res.json({ ok: false, erro: 'Informe o prazo em dias.' });
+  db.run(`INSERT INTO configuracoes (chave, valor) VALUES ('reservas_prazo_max_dias', ?)
+    ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor`, [String(dias)], (err) => {
+    if (err) return res.json({ ok: false, erro: err.message });
+    res.json({ ok: true, prazo_max_dias: dias, mensagem: `Prazo salvo! Reservas até ${dias === 0 ? 'HOJE' : dias + ' dia(s) à frente'} são confirmadas na hora; além disso vão para sua aprovação.` });
+  });
+});
+
+// Disponibilidade: mesas e situação em uma data específica (público p/ cliente escolher)
+app.get('/api/reservas/disponibilidade', (req, res) => {
+  const data = String((req.query.data || '')).match(/^\d{4}-\d{2}-\d{2}$/) ? req.query.data : '';
+  if (!data) return res.json({ ok: false, erro: 'Data inválida (use AAAA-MM-DD).' });
+  db.all(`SELECT nome, status FROM mesas ORDER BY id`, [], (eM, mesas) => {
+    if (eM) return res.json({ ok: false, erro: eM.message });
+    db.all(
+      `SELECT mesa_nome, horario, status FROM reservas_futuras WHERE data_reserva = ? AND status IN ('confirmada','pendente_aprovacao','checkin')`,
+      [data], (eR, reservas) => {
+        if (eR) return res.json({ ok: false, erro: eR.message });
+        res.json({
+          ok: true,
+          data,
+          mesas: (mesas || []).map(m => ({
+            nome: m.nome,
+            ocupada_hoje: !['Disponível', 'Disponivel', 'Livre', ''].includes(String(m.status || '').toLowerCase()) && m.status !== 'Reservada'
+          })),
+          reservas_do_dia: (reservas || []).map(r => ({ mesa: r.mesa_nome, horario: r.horario, status: r.status }))
+        });
+      }
+    );
+  });
+});
+
+// Cliente cria a reserva. Dentro do prazo → confirmada; fora → pendente_aprovacao pro dono.
+app.post('/api/reservas', (req, res) => {
+  const b = req.body || {};
+  const mesaNome = String(b.mesa_nome || '').trim().slice(0, 60);
+  const nome = String(b.nome || '').trim().slice(0, 80);
+  const telefone = String(b.telefone || '').replace(/\D/g, '').slice(0, 15);
+  const data = String(b.data || '');
+  const horario = (/^\d{2}:\d{2}$/.test(String(b.horario || '')) ? b.horario : '19:00');
+  const pessoas = Math.min(50, Math.max(1, parseInt(b.pessoas, 10) || 2));
+  const observacao = String(b.observacao || '').trim().slice(0, 400);
+
+  if (!mesaNome || !nome || !telefone) return res.json({ ok: false, erro: 'Informe mesa, seu nome e telefone.' });
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) return res.json({ ok: false, erro: 'Escolha a data da reserva.' });
+
+  // Data não pode estar no passado
+  const hojeStr = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  if (data < hojeStr) return res.json({ ok: false, erro: 'Não é possível reservar para datas passadas.' });
+
+  getReservasPrazoMaxDias((prazoMax) => {
+    const diffDias = Math.round((new Date(data + 'T12:00:00') - new Date(hojeStr + 'T12:00:00')) / 86400000);
+    const dentroDoPrazo = diffDias <= prazoMax;
+
+    // Mesa existe?
+    db.get(`SELECT nome FROM mesas WHERE nome = ?`, [mesaNome], (eMesa, mesaRow) => {
+      if (eMesa || !mesaRow) return res.json({ ok: false, erro: 'Mesa não encontrada.' });
+
+      const finalizar = (status, motivoPendente) => {
+        // Conflito: mesma mesa + mesmo dia já com reserva confirmada?
+        db.get(
+          `SELECT id FROM reservas_futuras WHERE mesa_nome = ? AND data_reserva = ? AND status IN ('confirmada','checkin')`,
+          [mesaNome, data], (eConf, conflito) => {
+            if (eConf) return res.json({ ok: false, erro: eConf.message });
+            if (conflito && status === 'confirmada') {
+              return res.json({ ok: false, erro: `A ${mesaNome} já está reservada neste dia. Escolha outra mesa/data — ou envie mesmo assim que iremos avaliar.` , conflito: true });
+            }
+            db.run(
+              `INSERT INTO reservas_futuras (mesa_nome, cliente_nome, cliente_telefone, data_reserva, horario, pessoas, observacao, status, origem, motivo_pendente)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'cliente', ?)`,
+              [mesaNome, nome, telefone, data, horario, pessoas, observacao, status, motivoPendente || ''],
+              function (eIns) {
+                if (eIns) return res.json({ ok: false, erro: 'Falha ao registrar a reserva. Tente novamente.' });
+                const novaId = this.lastID;
+                try {
+                  io.emit('reservas_atualizadas');
+                  if (status === 'pendente_aprovacao') {
+                    io.emit('reserva_aguardando_aprovacao', { id: novaId, mesa: mesaNome, cliente: nome, data, horario, pessoas });
+                  }
+                } catch (e) { }
+                res.json({
+                  ok: true,
+                  id: novaId,
+                  status,
+                  mensagem: status === 'confirmada'
+                    ? `Reserva confirmada! ${mesaNome} fica separada para você em ${data.split('-').reverse().join('/')} às ${horario}.`
+                    : `Recebemos seu pedido de reserva para ${data.split('-').reverse().join('/')}. Como está fora do prazo automático (${prazoMax} dias), o restaurante vai analisar e entrar em contato pelo telefone informado.`
+                });
+              }
+            );
+          }
+        );
+      };
+
+      if (dentroDoPrazo) finalizar('confirmada');
+      else finalizar('pendente_aprovacao', `Fora do prazo automático (${diffDias} dias > ${prazoMax})`);
+    });
+  });
+});
+
+// Lista por período (admin): /api/reservas?de=2026-08-01&ate=2026-08-31
+app.get('/api/reservas', verificarToken, (req, res) => {
+  const de = String(req.query.de || '').match(/^\d{4}-\d{2}-\d{2}$/) ? req.query.de : null;
+  const ate = String(req.query.ate || '').match(/^\d{4}-\d{2}-\d{2}$/) ? req.query.ate : null;
+  let sql = `SELECT * FROM reservas_futuras`;
+  const conds = [], params = [];
+  if (de) { conds.push('data_reserva >= ?'); params.push(de); }
+  if (ate) { conds.push('data_reserva <= ?'); params.push(ate); }
+  if (conds.length) sql += ' WHERE ' + conds.join(' AND ');
+  sql += ' ORDER BY data_reserva ASC, horario ASC LIMIT 500';
+  db.all(sql, params, (err, rows) => {
+    if (err) return res.json({ ok: false, erro: err.message });
+    res.json({ ok: true, reservas: rows || [] });
+  });
+});
+
+// Fila de aprovação (admin)
+app.get('/api/reservas/pendentes', verificarToken, (req, res) => {
+  db.all(`SELECT * FROM reservas_futuras WHERE status = 'pendente_aprovacao' ORDER BY criada_em DESC LIMIT 100`, [], (err, rows) => {
+    if (err) return res.json({ ok: false, erro: err.message });
+    res.json({ ok: true, pendentes: rows || [] });
+  });
+});
+
+// Aprovar / recusar (admin). Recusar aceita motivo p/ contato com o cliente.
+app.post('/api/reservas/:id/aprovar', verificarToken, (req, res) => {
+  if (!['admin', 'gerente'].includes(req.usuario?.cargo || '')) return res.status(403).json({ ok: false, erro: 'Apenas administradores.' });
+  db.run(`UPDATE reservas_futuras SET status = 'confirmada', motivo_pendente = '' WHERE id = ? AND status = 'pendente_aprovacao'`,
+    [parseInt(req.params.id)], function (err) {
+      if (err) return res.json({ ok: false, erro: err.message });
+      if (!this.changes) return res.json({ ok: false, erro: 'Reserva não encontrada ou já resolvida.' });
+      try { io.emit('reservas_atualizadas'); } catch (e) { }
+      res.json({ ok: true, mensagem: 'Reserva aprovada e confirmada!' });
+    });
+});
+app.post('/api/reservas/:id/recusar', verificarToken, (req, res) => {
+  if (!['admin', 'gerente'].includes(req.usuario?.cargo || '')) return res.status(403).json({ ok: false, erro: 'Apenas administradores.' });
+  const motivo = String((req.body || {}).motivo || '').trim().slice(0, 300);
+  db.run(`UPDATE reservas_futuras SET status = 'cancelada', motivo_pendente = ? WHERE id = ? AND status IN ('pendente_aprovacao','confirmada')`,
+    [motivo ? 'Recusada: ' + motivo : 'Recusada pelo restaurante', parseInt(req.params.id)], function (err) {
+      if (err) return res.json({ ok: false, erro: err.message });
+      if (!this.changes) return res.json({ ok: false, erro: 'Reserva não encontrada ou já resolvida.' });
+      try { io.emit('reservas_atualizadas'); } catch (e) { }
+      res.json({ ok: true, mensagem: 'Reserva recusada.' });
+    });
+});
+
+// CHECK-IN do cliente (público, pelo telefone + opcionalmente id): só no próprio dia
+app.post('/api/reservas/checkin', (req, res) => {
+  const telefone = String((req.body || {}).telefone || '').replace(/\D/g, '');
+  const id = parseInt((req.body || {}).id, 10);
+  if (!telefone && !id) return res.json({ ok: false, erro: 'Informe o telefone usado na reserva.' });
+  const hojeStr = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+
+  const sql = id
+    ? `SELECT * FROM reservas_futuras WHERE id = ?`
+    : `SELECT * FROM reservas_futuras WHERE cliente_telefone = ? AND status IN ('confirmada') ORDER BY data_reserva ASC LIMIT 1`;
+  db.get(sql, id ? [id] : [telefone], (err, reserva) => {
+    if (err) return res.json({ ok: false, erro: err.message });
+    if (!reserva) return res.json({ ok: false, erro: 'Nenhuma reserva confirmada encontrada para este telefone.' });
+    if (reserva.data_reserva !== hojeStr) {
+      return res.json({
+        ok: false,
+        erro: `Sua reserva é para ${reserva.data_reserva.split('-').reverse().join('/')}. O check-in abre no próprio dia.`,
+        reserva: { mesa: reserva.mesa_nome, data: reserva.data_reserva, horario: reserva.horario, status: reserva.status }
+      });
+    }
+    db.run(`UPDATE reservas_futuras SET status = 'checkin', checked_in_at = datetime('now', 'localtime') WHERE id = ?`, [reserva.id], (eUp) => {
+      if (eUp) return res.json({ ok: false, erro: eUp.message });
+      // Marca a mesa como ocupada pelo cliente que chegou
+      db.run(`UPDATE mesas SET status = 'Ocupada' WHERE nome = ? AND status IN ('Disponível','Disponivel','Reservada')`, [reserva.mesa_nome], () => {
+        try {
+          io.emit('reservas_atualizadas');
+          io.emit('reserva_checkin', { id: reserva.id, mesa: reserva.mesa_nome, cliente: reserva.cliente_nome, pessoas: reserva.pessoas, horario: reserva.horario });
+          io.emit('notificacao_garcom', { productName: `Check-in reserva: ${reserva.cliente_nome}`, localName: reserva.mesa_nome, userName: 'Sistema', tipo: 'checkin' });
+        } catch (e) { }
+        res.json({ ok: true, mensagem: `Bem-vindo(a), ${reserva.cliente_nome}! Sua ${reserva.mesa_nome} está esperando por você. Boa festa! 🎉` });
+      });
+    });
+  });
+});
+
+// Minhas reservas (cliente consulta pelo telefone)
+app.get('/api/reservas/minhas', (req, res) => {
+  const telefone = String(req.query.telefone || '').replace(/\D/g, '');
+  if (!telefone) return res.json({ ok: false, erro: 'Informe o telefone.' });
+  db.all(`SELECT id, mesa_nome, data_reserva, horario, pessoas, status FROM reservas_futuras WHERE cliente_telefone = ? ORDER BY data_reserva DESC LIMIT 20`,
+    [telefone], (err, rows) => {
+      if (err) return res.json({ ok: false, erro: err.message });
+      res.json({ ok: true, reservas: rows || [] });
+    });
+});
+
+// ══════════════════════════════════════════════════════════════════════
+// ── TEMAS GLOBAIS MULTI-VERSÃO (1.1, 1.2...) COM MODO CLARO + ESCURO ──
+// ══════════════════════════════════════════════════════════════════════
+masterDb.run(`CREATE TABLE IF NOT EXISTS temas_global (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  versao TEXT UNIQUE,
+  nome TEXT,
+  ativo INTEGER DEFAULT 0,
+  cfg_claro TEXT DEFAULT '{}',
+  cfg_escuro TEXT DEFAULT '{}',
+  criada_em DATETIME DEFAULT (datetime('now','localtime'))
+)`);
+
+// Seed: migra o tema global atual para a versão 1.1 (uma única vez)
+masterDb.get(`SELECT id FROM temas_global LIMIT 1`, [], (eSeed, seedRow) => {
+  if (!eSeed && !seedRow) {
+    masterDb.get(`SELECT valor FROM configuracoes_global WHERE chave = 'custom_theme'`, [], (eCfg, cfgRow) => {
+      const cfgAtual = (!eCfg && cfgRow && cfgRow.valor) ? cfgRow.valor : '{}';
+      masterDb.run(
+        `INSERT OR IGNORE INTO temas_global (versao, nome, ativo, cfg_claro, cfg_escuro) VALUES ('1.1', 'Tema Base (migrado)', 1, ?, ?)`,
+        [cfgAtual, cfgAtual], () => { }
+      );
+    });
+  }
+});
+
+function propagarTemaAtivo(cfgClaro, cfgEscuro, coringa) {
+  // Formato dual entendido pelo theme-manager.js em todas as telas
+  const payload = Object.assign({ modo_dual: true, claro: cfgClaro || {}, escuro: cfgEscuro || {} }, coringa ? { coringa } : {});
+  masterDb.run(`INSERT INTO configuracoes_global (chave, valor) VALUES ('custom_theme', ?)
+    ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor`, [JSON.stringify(payload)], () => { });
+  try { io.emit('tema_global_atualizado', payload); } catch (e) { }
+}
+
+app.get('/api/super/temas', superAdminAuth, (req, res) => {
+  masterDb.all(`SELECT id, versao, nome, ativo, cfg_claro, cfg_escuro, criada_em FROM temas_global ORDER BY CAST(versao AS REAL) ASC`, [], (err, rows) => {
+    if (err) return res.json({ ok: false, erro: err.message });
+    const temas = (rows || []).map(t => {
+      let claro = {}, escuro = {};
+      try { claro = JSON.parse(t.cfg_claro || '{}'); } catch (e) { }
+      try { escuro = JSON.parse(t.cfg_escuro || '{}'); } catch (e) { }
+      return { id: t.id, versao: t.versao, nome: t.nome, ativo: !!t.ativo, criada_em: t.criada_em, cfg_claro: claro, cfg_escuro: escuro };
+    });
+    res.json({ ok: true, temas });
+  });
+});
+
+app.post('/api/super/temas', superAdminAuth, (req, res) => {
+  const nome = String((req.body || {}).nome || '').trim().slice(0, 60) || 'Tema sem nome';
+  const baseadoEmId = parseInt((req.body || {}).baseado_em_id, 10);
+  const criar = (baseClaro, baseEscuro) => {
+    masterDb.get(`SELECT MAX(CAST(versao AS REAL)) as maxV FROM temas_global`, [], (eMax, maxRow) => {
+      if (eMax) return res.json({ ok: false, erro: eMax.message });
+      const proxima = ((maxRow && maxRow.maxV) || 1.0) + 0.1;
+      const versao = proxima.toFixed(1);
+      masterDb.run(
+        `INSERT INTO temas_global (versao, nome, ativo, cfg_claro, cfg_escuro) VALUES (?, ?, 0, ?, ?)`,
+        [versao, nome, JSON.stringify(baseClaro || {}), JSON.stringify(baseEscuro || {})],
+        function (eIns) {
+          if (eIns) return res.json({ ok: false, erro: eIns.message });
+          res.json({ ok: true, id: this.lastID, versao, mensagem: `Tema ${versao} criado! Agora edite o modo Claro e o modo Escuro dele.` });
+        }
+      );
+    });
+  };
+  if (baseadoEmId) {
+    masterDb.get(`SELECT cfg_claro, cfg_escuro FROM temas_global WHERE id = ?`, [baseadoEmId], (eB, bRow) => {
+      if (eB || !bRow) return criar(null, null);
+      let c = {}, e = {};
+      try { c = JSON.parse(bRow.cfg_claro || '{}'); } catch (x) { }
+      try { e = JSON.parse(bRow.cfg_escuro || '{}'); } catch (x) { }
+      criar(c, e);
+    });
+  } else {
+    criar(null, null);
+  }
+});
+
+app.post('/api/super/temas/:id', superAdminAuth, (req, res) => {
+  const id = parseInt(req.params.id);
+  const b = req.body || {};
+  const campos = [], params = [];
+  if (b.nome !== undefined) { campos.push('nome = ?'); params.push(String(b.nome).trim().slice(0, 60)); }
+  if (b.cfg_claro !== undefined) { campos.push('cfg_claro = ?'); params.push(JSON.stringify(b.cfg_claro)); }
+  if (b.cfg_escuro !== undefined) { campos.push('cfg_escuro = ?'); params.push(JSON.stringify(b.cfg_escuro)); }
+  if (!campos.length) return res.json({ ok: false, erro: 'Nada para salvar.' });
+  params.push(id);
+  masterDb.run(`UPDATE temas_global SET ${campos.join(', ')} WHERE id = ?`, params, (err) => {
+    if (err) return res.json({ ok: false, erro: err.message });
+
+    // Se o tema editado é o ativo → propaga na hora
+    masterDb.get(`SELECT ativo, cfg_claro, cfg_escuro, cfg_claro IS NULL FROM temas_global WHERE id = ?`, [id], (eGet, row) => {
+      if (!eGet && row && row.ativo) {
+        let claro = {}, escuro = {};
+        try { claro = JSON.parse(row.cfg_claro || '{}'); } catch (x) { }
+        try { escuro = JSON.parse(row.cfg_escuro || '{}'); } catch (x) { }
+        propagarTemaAtivo(claro, escuro, (claro && claro.coringa) || (escuro && escuro.coringa) || null);
+      }
+      res.json({ ok: true, mensagem: 'Tema salvo!' + ((!eGet && row && row.ativo) ? ' Como está ATIVO, já foi aplicado em todos os terminais.' : '') });
+    });
+  });
+});
+
+app.post('/api/super/temas/:id/ativar', superAdminAuth, (req, res) => {
+  const id = parseInt(req.params.id);
+  masterDb.run(`UPDATE temas_global SET ativo = CASE WHEN id = ? THEN 1 ELSE 0 END`, [id], (errUp) => {
+    if (errUp) return res.json({ ok: false, erro: errUp.message });
+    masterDb.get(`SELECT * FROM temas_global WHERE id = ?`, [id], (eGet, tema) => {
+      if (eGet || !tema) return res.json({ ok: false, erro: 'Tema não encontrado.' });
+      let claro = {}, escuro = {};
+      try { claro = JSON.parse(tema.cfg_claro || '{}'); } catch (x) { }
+      try { escuro = JSON.parse(tema.cfg_escuro || '{}'); } catch (x) { }
+      propagarTemaAtivo(claro, escuro, (claro && claro.coringa) || (escuro && escuro.coringa) || null);
+      res.json({ ok: true, mensagem: `Tema ${tema.versao} (${tema.nome}) ativado e propagado em tempo real!` });
+    });
+  });
+});
+
+app.delete('/api/super/temas/:id', superAdminAuth, (req, res) => {
+  const id = parseInt(req.params.id);
+  masterDb.run(`DELETE FROM temas_global WHERE id = ? AND ativo = 0`, [id], function (err) {
+    if (err) return res.json({ ok: false, erro: err.message });
+    if (!this.changes) return res.json({ ok: false, erro: 'Só é possível excluir temas INATIVOS.' });
+    res.json({ ok: true, mensagem: 'Tema excluído.' });
+  });
+});
+
+
+
 // ── SUPER ADMIN: MENSAGENS / BROADCAST ──────────────────────────────
 app.get('/api/super/mensagens', superAdminAuth, (req, res) => {
   masterDb.all("SELECT * FROM mensagens ORDER BY criado_em DESC LIMIT 200", [], (err, rows) => {
@@ -4050,6 +4394,26 @@ db.serialize(() => {
       ultimo_visto DATETIME DEFAULT (datetime('now', 'localtime'))
     )
   `);
+
+  // Reservas futuras de mesas (cliente agenda; dono define prazo máximo)
+  db.run(`
+    CREATE TABLE IF NOT EXISTS reservas_futuras (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      mesa_nome TEXT,
+      cliente_nome TEXT,
+      cliente_telefone TEXT,
+      data_reserva TEXT,
+      horario TEXT DEFAULT '19:00',
+      pessoas INTEGER DEFAULT 2,
+      observacao TEXT DEFAULT '',
+      status TEXT DEFAULT 'confirmada',
+      origem TEXT DEFAULT 'cliente',
+      motivo_pendente TEXT DEFAULT '',
+      checked_in_at DATETIME,
+      criada_em DATETIME DEFAULT (datetime('now', 'localtime'))
+    )
+  `);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_reservas_data ON reservas_futuras (data_reserva)`);
 
   db.run(`
     CREATE TABLE IF NOT EXISTS funcionario_consumo_config (
@@ -14067,12 +14431,27 @@ app.post('/api/dono/reportar-problema', (req, res) => {
 });
 
 // GET /api/suporte/tarefas-relatadas - Fila de relatos enviados pelos restaurantes (não assumidos)
-// Inclui também falhas automáticas detectadas pela rede de segurança anti-crash
+// Inclui também falhas automáticas (anti-crash), design de temas e delegações do super admin
 app.get('/api/suporte/tarefas-relatadas', relatoSuporteAuth, (req, res) => {
-  masterDb.all(`SELECT t.*, r.nome as restaurante_nome FROM tarefas_suporte t LEFT JOIN restaurantes r ON t.restaurante_id = r.id WHERE t.tipo IN ('relato_restaurante','falha_automatica') AND t.status = 'pendente' AND t.suporte_id IS NULL ORDER BY CASE WHEN t.tipo = 'falha_automatica' THEN 0 ELSE 1 END, t.criada_em DESC LIMIT 50`,
+  masterDb.all(`SELECT t.*, r.nome as restaurante_nome FROM tarefas_suporte t LEFT JOIN restaurantes r ON t.restaurante_id = r.id WHERE t.tipo IN ('relato_restaurante','falha_automatica','design_tema','delegacao_super') AND t.status = 'pendente' AND t.suporte_id IS NULL ORDER BY CASE WHEN t.tipo = 'falha_automatica' THEN 0 ELSE 1 END, t.criada_em DESC LIMIT 50`,
     [], (err, rows) => {
       if (err) return res.json({ ok: false, erro: err.message });
       res.json({ ok: true, relatos: rows || [] });
+    }
+  );
+});
+
+// POST /api/super/delegar-suporte — Super admin delega pendências/obrigações ao time de suporte
+app.post('/api/super/delegar-suporte', superAdminAuth, (req, res) => {
+  const { tipo, descricao, restaurante_id, pontos } = req.body || {};
+  const tipoOk = ['design_tema', 'delegacao_super', 'relato_restaurante'].includes(tipo) ? tipo : 'delegacao_super';
+  const desc = String(descricao || '').trim().slice(0, 1000);
+  if (!desc) return res.json({ ok: false, erro: 'Descreva a tarefa a delegar.' });
+  const pts = Math.min(200, Math.max(5, parseInt(pontos, 10) || 20));
+  masterDb.run(`INSERT INTO tarefas_suporte (suporte_id, tipo, descricao, restaurante_id, pontos, status) VALUES (NULL, ?, ?, ?, ?, 'pendente')`,
+    [tipoOk, desc, restaurante_id ? parseInt(restaurante_id) : null, pts], function (err) {
+      if (err) return res.json({ ok: false, erro: err.message });
+      res.json({ ok: true, id: this.lastID, mensagem: `Delegado à fila do suporte (${pts} pts). Um atendente vai assumir.` });
     }
   );
 });
@@ -14081,7 +14460,7 @@ app.get('/api/suporte/tarefas-relatadas', relatoSuporteAuth, (req, res) => {
 app.post('/api/suporte/assumir-relato', relatoSuporteAuth, (req, res) => {
   const { id } = req.body || {};
   if (!id) return res.json({ ok: false, erro: 'ID do relato obrigatório.' });
-  masterDb.run(`UPDATE tarefas_suporte SET suporte_id = ? WHERE id = ? AND tipo IN ('relato_restaurante','falha_automatica') AND status = 'pendente' AND suporte_id IS NULL`,
+  masterDb.run(`UPDATE tarefas_suporte SET suporte_id = ? WHERE id = ? AND tipo IN ('relato_restaurante','falha_automatica','design_tema','delegacao_super') AND status = 'pendente' AND suporte_id IS NULL`,
     [req.suporteId, parseInt(id)], function(err) {
       if (err) return res.json({ ok: false, erro: err.message });
       if (this.changes === 0) return res.json({ ok: false, erro: 'Relato não disponível (já assumido por outro atendente).' });
