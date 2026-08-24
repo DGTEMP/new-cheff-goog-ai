@@ -2215,12 +2215,21 @@
               <button class="sv-tab-btn active" data-sv-tab="sv-tab-conteudo"
                 onclick="renderSiteVendasTab('sv-tab-conteudo')"><i
                   class="fa-solid fa-pen-to-square"></i> Conteúdos</button>
+              <button class="sv-tab-btn" data-sv-tab="sv-tab-blocos" onclick="renderSiteVendasTab('sv-tab-blocos')"><i
+                  class="fa-solid fa-table-columns"></i> Blocos</button>
               <button class="sv-tab-btn" data-sv-tab="sv-tab-planos" onclick="renderSiteVendasTab('sv-tab-planos')"><i
                   class="fa-solid fa-tags"></i> Planos</button>
               <button class="sv-tab-btn" data-sv-tab="sv-tab-gateways" onclick="renderSiteVendasTab('sv-tab-gateways')"><i
                   class="fa-solid fa-credit-card"></i> Gateways</button>
+              <button class="sv-tab-btn" data-sv-tab="sv-tab-tracking" onclick="renderSiteVendasTab('sv-tab-tracking')"><i
+                  class="fa-solid fa-chart-line"></i> GTAG &amp; Pixel</button>
+              <button class="sv-tab-btn" data-sv-tab="sv-tab-seo" onclick="renderSiteVendasTab('sv-tab-seo')"><i
+                  class="fa-solid fa-magnifying-glass-chart"></i> SEO</button>
+              <button class="sv-tab-btn" data-sv-tab="sv-tab-aparencia"
+                onclick="renderSiteVendasTab('sv-tab-aparencia')"><i
+                  class="fa-solid fa-palette"></i> Aparência</button>
               <button class="sv-tab-btn" data-sv-tab="sv-tab-consultor"
-                style="flex:1;min-width:120px;padding:10px 16px;border-radius:8px;border:none;background:transparent;color:var(--text-muted);font-weight:600;font-size:13px;cursor:pointer;"><i
+                onclick="renderSiteVendasTab('sv-tab-consultor')"><i
                   class="fa-brands fa-whatsapp"></i> Consultor</button>
             </div>
 
@@ -2321,6 +2330,81 @@
               <button onclick="salvarSiteConteudo()"
                 style="background:linear-gradient(135deg,var(--primary),#e64a19);color:#fff;border:none;border-radius:12px;padding:14px 32px;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px var(--primary-glow);display:flex;align-items:center;gap:8px;"><i
                   class="fa-solid fa-floppy-disk"></i> Salvar Conteúdo</button>
+            </div>
+
+            <!-- BLOCOS (ARRASTAR / ADICIONAR / OCULTAR / EXCLUIR) -->
+            <div class="sv-tab-panel" id="sv-tab-blocos" style="display:none;">
+              <div
+                style="padding:24px;background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;margin-bottom:20px;">
+                <h3 style="margin-bottom:6px;font-size:16px;"><i class="fa-solid fa-table-columns"
+                    style="color:var(--primary);"></i> Layout da Landing Page</h3>
+                <p style="color:#999;font-size:12.5px;margin-bottom:18px;">Arraste os blocos para reordenar, desmarque
+                  "Visível" para ocultar ou exclua o que não quiser. Clique em <strong>Salvar Layout</strong> para
+                  publicar.</p>
+                <div id="sv-blocos-container"></div>
+                <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;align-items:center;">
+                  <select id="sv-blocos-add-tipo"
+                    style="padding:10px 14px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:10px;color:#fff;font-size:13px;outline:none;">
+                    <option value="">Adicionar bloco…</option>
+                  </select>
+                  <button onclick="adicionarBlocoSel()"
+                    style="background:var(--primary);color:#fff;border:none;border-radius:10px;padding:10px 18px;font-size:13px;font-weight:600;cursor:pointer;"><i
+                      class="fa-solid fa-plus"></i> Adicionar</button>
+                  <span style="flex:1;"></span>
+                  <button onclick="salvarSiteBlocos()"
+                    style="background:linear-gradient(135deg,var(--primary),#e64a19);color:#fff;border:none;border-radius:12px;padding:12px 26px;font-size:14px;font-weight:700;cursor:pointer;"><i
+                      class="fa-solid fa-floppy-disk"></i> Salvar Layout</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- SEO -->
+            <div class="sv-tab-panel" id="sv-tab-seo" style="display:none;">
+              <div
+                style="padding:24px;background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;margin-bottom:20px;">
+                <h3 style="margin-bottom:6px;font-size:16px;"><i class="fa-solid fa-magnifying-glass-chart"
+                    style="color:#38bdf8;"></i> SEO do Site de Vendas</h3>
+                <p style="color:#999;font-size:12.5px;margin-bottom:18px;">Título, descrição e imagem usados pelo Google
+                  e redes sociais. Aplicados dinamicamente na landing page.</p>
+                <div style="margin-bottom:14px;"><label
+                    style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Title (até ~60
+                    caracteres)</label><input id="sv-seo-titulo" maxlength="120"
+                    placeholder="Chef Cozinha — Sistema para Restaurantes | PDV, KDS e Comanda Mobile"
+                    style="width:100%;padding:10px 14px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:10px;color:#fff;font-size:13px;outline:none;">
+                  <small id="sv-seo-titulo-count" style="color:#777;font-size:11px;">0/60 recomendado</small>
+                </div>
+                <div style="margin-bottom:14px;"><label
+                    style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Meta Description
+                    (até ~155 caracteres)</label><textarea id="sv-seo-descricao" rows="3" maxlength="320"
+                    placeholder="PDV ultra-rápido, Fila da Cozinha (KDS), Ponto Digital via QR Code..."
+                    style="width:100%;padding:10px 14px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:10px;color:#fff;font-size:13px;outline:none;resize:vertical;"></textarea>
+                  <small id="sv-seo-descricao-count" style="color:#777;font-size:11px;">0/155 recomendado</small>
+                </div>
+                <div style="margin-bottom:14px;"><label
+                    style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Keywords (separadas
+                    por vírgula)</label><input id="sv-seo-keywords"
+                    placeholder="sistema para restaurantes, pdv restaurante, kds cozinha"
+                    style="width:100%;padding:10px 14px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:10px;color:#fff;font-size:13px;outline:none;">
+                </div>
+                <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:14px;">
+                  <div><label
+                      style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Imagem Open
+                      Graph (URL — compartilhamentos)</label><input id="sv-seo-og-imagem"
+                      placeholder="https://appchef.up.railway.app/icons/icon-512.png"
+                      style="width:100%;padding:10px 14px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:10px;color:#fff;font-size:13px;outline:none;"></div>
+                  <div><label
+                      style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Robots</label><select
+                      id="sv-seo-robots"
+                      style="width:100%;padding:10px 14px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:10px;color:#fff;font-size:13px;outline:none;">
+                      <option value="index, follow">index, follow (recomendado)</option>
+                      <option value="noindex, follow">noindex, follow</option>
+                      <option value="noindex, nofollow">noindex, nofollow</option>
+                    </select></div>
+                </div>
+                <button onclick="salvarSiteSEO()"
+                  style="background:linear-gradient(135deg,#38bdf8,#0284c7);color:#fff;border:none;border-radius:12px;padding:14px 32px;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px;"><i
+                    class="fa-solid fa-floppy-disk"></i> Salvar SEO</button>
+              </div>
             </div>
 
             <!-- PLANOS -->
@@ -2545,6 +2629,55 @@
                         class="fa-solid fa-copy"></i> Copiar Texto</button>
                   </div>
                 </div>
+              </div>
+            </div>
+
+            <!-- APARÊNCIA & ANIMAÇÕES -->
+            <div class="sv-tab-panel" id="sv-tab-aparencia" style="display:none;">
+              <div
+                style="padding:24px;background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;max-width:640px;">
+                <h3 style="margin-bottom:18px;font-size:16px;"><i class="fa-solid fa-palette"
+                    style="color:#a855f7;"></i> Aparência &amp; Animações do Site</h3>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+                  <div><label
+                      style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Fonte</label><select
+                      id="sv-design-fonte"
+                      style="width:100%;padding:10px 14px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:10px;color:#fff;font-size:13px;outline:none;">
+                      <option value="Outfit">Outfit (padrão)</option>
+                      <option value="Inter">Inter</option>
+                      <option value="Poppins">Poppins</option>
+                      <option value="Montserrat">Montserrat</option>
+                      <option value="Nunito">Nunito</option>
+                    </select></div>
+                  <div><label
+                      style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Tema de
+                      Cores</label><select id="sv-design-tema"
+                      style="width:100%;padding:10px 14px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:10px;color:#fff;font-size:13px;outline:none;">
+                      <option value="flame">Flame — Laranja (padrão)</option>
+                      <option value="emerald">Emerald — Verde</option>
+                      <option value="cyber">Cyber — Roxo</option>
+                      <option value="gold">Gold — Dourado</option>
+                    </select></div>
+                  <div><label
+                      style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Tempo da Logo no
+                      Preloader (s)</label><input id="sv-design-logo-tempo" type="number" step="0.1" min="0" max="5"
+                      style="width:100%;padding:10px 14px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:10px;color:#fff;font-size:13px;outline:none;"></div>
+                  <div><label
+                      style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Tempo das Letras
+                      (s)</label><input id="sv-design-letras-tempo" type="number" step="0.1" min="0" max="5"
+                      style="width:100%;padding:10px 14px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:10px;color:#fff;font-size:13px;outline:none;"></div>
+                  <div style="grid-column:1/-1;"><label
+                      style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Estilo da
+                      Animação de Entrada</label><select id="sv-design-anim-estilo"
+                      style="width:100%;padding:10px 14px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:10px;color:#fff;font-size:13px;outline:none;">
+                      <option value="explosion">Explosão em Pixels (padrão)</option>
+                      <option value="fade">Fade Suave</option>
+                      <option value="typewriter">Máquina de Escrever</option>
+                    </select></div>
+                </div>
+                <button onclick="salvarSiteDesign()"
+                  style="background:linear-gradient(135deg,#a855f7,#7c3aed);color:#fff;border:none;border-radius:12px;padding:14px 32px;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px;"><i
+                    class="fa-solid fa-floppy-disk"></i> Salvar Aparência</button>
               </div>
             </div>
 

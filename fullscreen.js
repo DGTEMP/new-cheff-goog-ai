@@ -115,85 +115,6 @@
     if (garcomBtn) garcomBtn.innerHTML = isDark ? '<i class="ph ph-sun"></i>' : '<i class="ph ph-moon"></i>';
   });
 
-  // ─── ROTATION LOGIC ─────────────────────────────────────────────────────────
-  // Somente APIs nativas (Fullscreen + Screen Orientation). O antigo fallback
-  // de transform CSS no <html> quebrava o layout de TODAS as páginas e era
-  // reaplicado via localStorage — foi removido de propósito.
-  function setRotatedUi(rotated) {
-    isRotated = rotated;
-    if (rotated) {
-      rotBtn.style.opacity = '1';
-      rotBtn.style.color = 'var(--primary, #fc4b15)';
-      rotBtn.title = 'Desfazer Rotação';
-    } else {
-      rotBtn.style.opacity = '0.7';
-      rotBtn.style.color = 'inherit';
-      rotBtn.title = 'Rotacionar Tela';
-    }
-  }
-
-  function notify(msg) {
-    if (!document.body) return;
-    var t = document.createElement('div');
-    t.textContent = msg;
-    t.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:80px;' +
-      'z-index:2147483647;background:#1f2937;color:#fff;padding:10px 16px;border-radius:8px;' +
-      'font-size:13px;font-family:sans-serif;box-shadow:0 4px 12px rgba(0,0,0,.3);' +
-      'max-width:90vw;text-align:center;';
-    document.body.appendChild(t);
-    setTimeout(function () { t.remove(); }, 4000);
-  }
-
-  function applyRotation(rotated) {
-    setRotatedUi(rotated);
-    if (!rotated) {
-      if (screen.orientation && screen.orientation.unlock) {
-        try { screen.orientation.unlock(); } catch (err) { }
-      }
-      return;
-    }
-
-    // A trava de orientação exige tela cheia na maioria dos navegadores/PWAs.
-    var openedFsHere = false;
-    var enterFs = Promise.resolve();
-    if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
-      enterFs = document.documentElement.requestFullscreen().then(function () {
-        openedFsHere = true;
-      }).catch(function () { });
-    }
-
-    enterFs.then(function () {
-      if (screen.orientation && screen.orientation.lock) {
-        screen.orientation.lock('landscape').catch(function () {
-          // Falhou (desktop com monitor fixo, iOS Safari, permissão negada):
-          // desfaz sem tocar no layout — apenas avisa o usuário.
-          if (openedFsHere && document.exitFullscreen) {
-            try { document.exitFullscreen(); } catch (err) { }
-          }
-          setRotatedUi(false);
-          notify('Não foi possível travar a orientação neste dispositivo. Use a rotação/paisagem do próprio monitor ou aparelho.');
-        });
-      } else {
-        if (openedFsHere && document.exitFullscreen) {
-          try { document.exitFullscreen(); } catch (err) { }
-        }
-        setRotatedUi(false);
-        notify('Este navegador não suporta travar a orientação. Use a rotação do sistema.');
-      }
-    });
-  }
-
-  rotBtn.addEventListener('click', function (e) {
-    e.preventDefault();
-    e.stopPropagation();
-    applyRotation(!isRotated);
-  });
-
-  // Sair da tela cheia derruba a trava de orientação — sincroniza o botão
-  document.addEventListener('fullscreenchange', function () {
-    if (!document.fullscreenElement && isRotated) setRotatedUi(false);
-  });
-
   // ─── GEAR BUTTON (existing) ──────────────────────────────────────────────────
   function createGearButton() {
     const gear = document.createElement('button');
@@ -235,12 +156,12 @@
 
     if (headerRightActions) {
       styleForDark(btn);
-      if (!IS_CAIXA_PAGE) { styleForDark(rotBtn); styleForDark(darkBtn); }
+      if (!IS_CAIXA_PAGE) { styleForDark(darkBtn); }
       const wrap = document.createElement('div');
       wrap.style.display = 'flex';
       wrap.style.gap = '6px';
       if (gearBtn) { styleForDark(gearBtn); wrap.appendChild(gearBtn); }
-      if (!IS_CAIXA_PAGE) { wrap.appendChild(darkBtn); wrap.appendChild(rotBtn); }
+      if (!IS_CAIXA_PAGE) { wrap.appendChild(darkBtn); }
       wrap.appendChild(btn);
       headerRightActions.prepend(wrap);
 
@@ -252,9 +173,9 @@
       wrapper.style.gap = '6px';
       wrapper.style.paddingRight = '10px';
       styleForLight(btn);
-      if (!IS_CAIXA_PAGE) { styleForLight(rotBtn); styleForLight(darkBtn); }
+      if (!IS_CAIXA_PAGE) { styleForLight(darkBtn); }
       if (gearBtn) { styleForLight(gearBtn); wrapper.appendChild(gearBtn); }
-      if (!IS_CAIXA_PAGE) { wrapper.appendChild(darkBtn); wrapper.appendChild(rotBtn); }
+      if (!IS_CAIXA_PAGE) { wrapper.appendChild(darkBtn); }
       wrapper.appendChild(btn);
       topMenubar.appendChild(wrapper);
 
@@ -265,7 +186,7 @@
       wrapper.style.gap = '6px';
       wrapper.style.marginLeft = '8px';
       if (gearBtn) wrapper.appendChild(gearBtn);
-      if (!IS_CAIXA_PAGE) { wrapper.appendChild(darkBtn); wrapper.appendChild(rotBtn); }
+      if (!IS_CAIXA_PAGE) { wrapper.appendChild(darkBtn); }
       wrapper.appendChild(btn);
       headerElement.appendChild(wrapper);
 
@@ -280,17 +201,9 @@
       document.body.appendChild(btn);
 
       if (!IS_CAIXA_PAGE) {
-        rotBtn.style.position = 'fixed';
-        rotBtn.style.top = '10px';
-        rotBtn.style.right = '56px';
-        rotBtn.style.zIndex = '999999';
-        rotBtn.style.backgroundColor = '#333';
-        rotBtn.style.color = 'white';
-        document.body.appendChild(rotBtn);
-
         darkBtn.style.position = 'fixed';
         darkBtn.style.top = '10px';
-        darkBtn.style.right = '102px';
+        darkBtn.style.right = '56px';
         darkBtn.style.zIndex = '999999';
         darkBtn.style.backgroundColor = '#333';
         darkBtn.style.color = isDark ? '#f59e0b' : 'white';
@@ -299,7 +212,7 @@
         if (gearBtn) {
           gearBtn.style.position = 'fixed';
           gearBtn.style.top = '10px';
-          gearBtn.style.right = '148px';
+          gearBtn.style.right = '102px';
           gearBtn.style.zIndex = '999999';
           gearBtn.style.backgroundColor = '#333';
           gearBtn.style.color = 'white';

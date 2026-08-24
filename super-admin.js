@@ -3750,6 +3750,8 @@ function renderSiteVendasTab(tabId) {
   else if (tabId === 'sv-tab-tracking') populateSiteTracking();
   else if (tabId === 'sv-tab-consultor') populateSiteConsultor();
   else if (tabId === 'sv-tab-aparencia') populateSiteAparencia();
+  else if (tabId === 'sv-tab-blocos') populateSiteBlocos();
+  else if (tabId === 'sv-tab-seo') populateSiteSEO();
 }
 
 function populateSiteAparencia() {
@@ -3877,6 +3879,196 @@ function adicionarFaq() {
     '<input class="sv-faq-pergunta" value="" placeholder="Pergunta" style="width:100%;padding:8px 12px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:#fff;font-size:13px;margin-bottom:6px;outline:none;">' +
     '<textarea class="sv-faq-resposta" placeholder="Resposta" rows="2" style="width:100%;padding:8px 12px;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:#fff;font-size:13px;resize:vertical;outline:none;"></textarea>';
   container.appendChild(div);
+}
+
+/* ── BLOCOS DA LANDING PAGE (arrastar / adicionar / ocultar / excluir) ── */
+var SV_BLOCOS_CAT = {
+  banner:          { label: 'Banner Promocional (topo)',      icon: 'fa-bullhorn' },
+  header:          { label: 'Menu / Navegação',               icon: 'fa-bars' },
+  hero:            { label: 'Hero — Título, CTAs e Stats',    icon: 'fa-rocket' },
+  'como-funciona': { label: 'Como Funciona (3 Passos)',       icon: 'fa-list-check' },
+  funcionalidades: { label: 'Funcionalidades + Calculadora',  icon: 'fa-wand-magic-sparkles' },
+  planos:          { label: 'Planos & Preços',                icon: 'fa-tags' },
+  faq:             { label: 'FAQ — Dúvidas Frequentes',       icon: 'fa-circle-question' },
+  'cta-final':     { label: 'CTA Final (Chamada p/ Ação)',    icon: 'fa-bullseye' },
+  rodape:          { label: 'Rodapé / Footer',                icon: 'fa-copyright' }
+};
+var SV_BLOCOS_DEFAULT = ['banner', 'header', 'hero', 'como-funciona', 'funcionalidades', 'planos', 'faq', 'cta-final', 'rodape'];
+
+var _blocosTemp = [];
+
+function getBlocosAtuais() {
+  var b = siteVendasConfigs.site_blocos;
+  if (Array.isArray(b) && b.length) {
+    return b.filter(function(x) { return x && x.tipo; })
+      .map(function(x) { return { tipo: String(x.tipo), ativo: x.ativo !== false }; });
+  }
+  return SV_BLOCOS_DEFAULT.map(function(t) { return { tipo: t, ativo: true }; });
+}
+
+function populateSiteBlocos() {
+  renderBlocosEditor(getBlocosAtuais());
+}
+
+function renderBlocosEditor(blocos) {
+  _blocosTemp = blocos.slice();
+  var container = document.getElementById('sv-blocos-container');
+  if (!container) return;
+
+  var html = '';
+  _blocosTemp.forEach(function(b, idx) {
+    var meta = SV_BLOCOS_CAT[b.tipo] || { label: b.tipo, icon: 'fa-file-lines' };
+    var visivel = b.ativo !== false;
+    html += '<div class="sv-bloco-item" draggable="true" data-idx="' + idx + '"' +
+      ' style="display:flex;align-items:center;gap:12px;background:' + (visivel ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.35)') +
+      ';border:1px solid var(--border-color);border-radius:12px;padding:10px 14px;margin-bottom:8px;cursor:grab;' +
+      (visivel ? '' : 'opacity:0.55;') + '">' +
+      '<i class="fa-solid fa-grip-vertical" style="color:#666;font-size:14px;"></i>' +
+      '<span style="width:34px;height:34px;border-radius:9px;background:rgba(252,75,21,0.15);color:var(--primary);display:flex;align-items:center;justify-content:center;font-size:14px;"><i class="fa-solid ' + meta.icon + '"></i></span>' +
+      '<div style="flex:1;min-width:0;"><strong style="font-size:13px;color:#fff;display:block;">' + escHtml(meta.label) + '</strong>' +
+      '<small style="color:#888;font-size:11px;">' + (visivel ? 'Visível no site' : 'Oculto') + '</small></div>' +
+      '<label style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--text-muted);cursor:pointer;">Visível<input type="checkbox"' + (visivel ? ' checked' : '') +
+      ' onchange="toggleBloco(' + idx + ', this.checked)" style="accent-color:var(--success);"></label>' +
+      '<button type="button" onclick="excluirBloco(' + idx + ')" title="Excluir bloco"' +
+      ' style="background:rgba(239,68,68,0.15);color:#ef4444;border:none;border-radius:7px;padding:6px 10px;cursor:pointer;font-size:12px;"><i class="fa-solid fa-trash"></i></button>' +
+      '</div>';
+  });
+  if (!html) html = '<p style="color:#888;font-size:13px;padding:16px;text-align:center;">Nenhum bloco. Adicione um abaixo.</p>';
+  container.innerHTML = html;
+
+  // Select de adicionar: só tipos ainda não presentes
+  var sel = document.getElementById('sv-blocos-add-tipo');
+  if (sel) {
+    var presentes = {};
+    _blocosTemp.forEach(function(b) { presentes[b.tipo] = true; });
+    sel.innerHTML = '<option value="">Adicionar bloco…</option>' +
+      Object.keys(SV_BLOCOS_CAT).filter(function(t) { return !presentes[t]; })
+        .map(function(t) { return '<option value="' + t + '">' + escHtml(SV_BLOCOS_CAT[t].label) + '</option>'; })
+        .join('');
+  }
+  bindBlocosDnd(container);
+}
+
+function bindBlocosDnd(container) {
+  if (!container || container._dndBound) return;
+  container._dndBound = true;
+  var dragIdx = null;
+
+  container.ondragstart = function(e) {
+    var item = e.target.closest ? e.target.closest('.sv-bloco-item') : null;
+    if (!item) return;
+    dragIdx = parseInt(item.getAttribute('data-idx'), 10);
+    item.style.opacity = '0.4';
+    try { e.dataTransfer.setData('text/plain', String(dragIdx)); } catch (err) { }
+    try { e.dataTransfer.effectAllowed = 'move'; } catch (err) { }
+  };
+
+  container.ondragend = function() {
+    dragIdx = null;
+    Array.prototype.forEach.call(container.querySelectorAll('.sv-bloco-item'), function(el) {
+      el.style.opacity = el.querySelector('input[type="checkbox"]').checked ? '' : '0.55';
+      el.style.borderTopColor = '';
+    });
+  };
+
+  container.ondragover = function(e) {
+    e.preventDefault();
+    try { e.dataTransfer.dropEffect = 'move'; } catch (err) { }
+    var item = e.target.closest ? e.target.closest('.sv-bloco-item') : null;
+    Array.prototype.forEach.call(container.querySelectorAll('.sv-bloco-item'), function(el) { el.style.borderTopColor = ''; });
+    if (item && dragIdx !== null && parseInt(item.getAttribute('data-idx'), 10) !== dragIdx) {
+      item.style.borderTopColor = '#fc4b15';
+      item.style.borderTopWidth = '2px';
+    }
+  };
+
+  container.ondrop = function(e) {
+    e.preventDefault();
+    var item = e.target.closest ? e.target.closest('.sv-bloco-item') : null;
+    if (!item || dragIdx === null) return;
+    var alvo = parseInt(item.getAttribute('data-idx'), 10);
+    if (alvo === dragIdx || isNaN(alvo)) return;
+    var arr = _blocosTemp.slice();
+    var moved = arr.splice(dragIdx, 1)[0];
+    arr.splice(alvo, 0, moved);
+    renderBlocosEditor(arr);
+    showToast('Bloco movido! Clique em Salvar Layout para publicar.', 'info');
+  };
+}
+
+window.toggleBloco = function(idx, checked) {
+  if (_blocosTemp[idx]) _blocosTemp[idx].ativo = !!checked;
+};
+
+window.excluirBloco = function(idx) {
+  var arr = _blocosTemp.slice();
+  arr.splice(idx, 1);
+  renderBlocosEditor(arr);
+};
+
+window.adicionarBlocoSel = function() {
+  var sel = document.getElementById('sv-blocos-add-tipo');
+  if (!sel || !sel.value || !SV_BLOCOS_CAT[sel.value]) return showToast('Escolha um tipo de bloco para adicionar.', 'warning');
+  var arr = _blocosTemp.length ? _blocosTemp.slice() : getBlocosAtuais();
+  arr.push({ tipo: sel.value, ativo: true });
+  renderBlocosEditor(arr);
+  showToast('Bloco adicionado ao final da página.', 'success');
+};
+
+function salvarSiteBlocos() {
+  var arr = (_blocosTemp.length ? _blocosTemp : getBlocosAtuais()).map(function(b) {
+    return { tipo: b.tipo, ativo: b.ativo !== false };
+  });
+  apiPost('/api/super/config-global', { site_blocos: JSON.stringify(arr) }, function(err, data) {
+    if (err || !data || !data.ok) return showToast('Erro ao salvar blocos.', 'danger');
+    siteVendasConfigs.site_blocos = arr;
+    showToast('Layout dos blocos publicado no site!', 'success');
+  });
+}
+
+/* ── SEO DO SITE DE VENDAS ─────────────────────────── */
+function populateSiteSEO() {
+  var c = siteVendasConfigs;
+  setVal('sv-seo-titulo', c.site_seo_titulo || '');
+  setVal('sv-seo-descricao', c.site_seo_descricao || '');
+  setVal('sv-seo-keywords', c.site_seo_keywords || '');
+  setVal('sv-seo-og-imagem', c.site_seo_og_imagem || '');
+  setVal('sv-seo-robots', c.site_seo_robots || 'index, follow');
+  atualizarContadoresSEO();
+}
+
+function atualizarContadoresSEO() {
+  var t = document.getElementById('sv-seo-titulo');
+  var d = document.getElementById('sv-seo-descricao');
+  var ct = document.getElementById('sv-seo-titulo-count');
+  var cd = document.getElementById('sv-seo-descricao-count');
+  if (t && ct) {
+    ct.textContent = t.value.length + '/60 recomendado';
+    ct.style.color = t.value.length > 60 ? '#f59e0b' : '#777';
+  }
+  if (d && cd) {
+    cd.textContent = d.value.length + '/155 recomendado';
+    cd.style.color = d.value.length > 155 ? '#f59e0b' : '#777';
+  }
+}
+
+document.addEventListener('input', function(e) {
+  if (e.target && (e.target.id === 'sv-seo-titulo' || e.target.id === 'sv-seo-descricao')) atualizarContadoresSEO();
+});
+
+function salvarSiteSEO() {
+  var configs = {
+    site_seo_titulo: document.getElementById('sv-seo-titulo').value.trim(),
+    site_seo_descricao: document.getElementById('sv-seo-descricao').value.trim(),
+    site_seo_keywords: document.getElementById('sv-seo-keywords').value.trim(),
+    site_seo_og_imagem: document.getElementById('sv-seo-og-imagem').value.trim(),
+    site_seo_robots: document.getElementById('sv-seo-robots').value
+  };
+  apiPost('/api/super/config-global', configs, function(err, data) {
+    if (err || !data || !data.ok) return showToast('Erro ao salvar SEO.', 'danger');
+    Object.keys(configs).forEach(function(k) { siteVendasConfigs[k] = configs[k]; });
+    showToast('SEO salvo! Google e redes sociais usarão os novos dados.', 'success');
+  });
 }
 
 /* ── PLANOS ──────────────────────────────────── */

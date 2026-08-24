@@ -329,7 +329,8 @@ function renderizarDispositivosTotem(lista, statusTotem) {
           <div style="font-size:10.5px; color:var(--text-sub);">${escHtml(d.user || 'Visitante')} • ${escHtml(d.os || '')} • ${escHtml(d.tempoConectadoStr || '')}</div>
         </div>
         ${ehTotem
-          ? `<button onclick="donoLiberarTotem('${d.id}')" style="padding:8px 12px; border:none; border-radius:10px; background:#f59e0b; color:#fff; font-weight:800; font-size:11px; cursor:pointer; display:flex; align-items:center; gap:5px;"><i class="ph-bold ph-lock-open"></i> Liberar</button>`
+          ? `<button onclick="donoRotacionarTotem('${d.id}')" title="Alternar retrato/paisagem remotamente" style="padding:8px 10px; border:none; border-radius:10px; background:#6366f1; color:#fff; font-weight:800; font-size:11px; cursor:pointer; display:flex; align-items:center; gap:5px;"><i class="ph-bold ph-frame-corners"></i> Girar</button>
+             <button onclick="donoLiberarTotem('${d.id}')" style="padding:8px 12px; border:none; border-radius:10px; background:#f59e0b; color:#fff; font-weight:800; font-size:11px; cursor:pointer; display:flex; align-items:center; gap:5px;"><i class="ph-bold ph-lock-open"></i> Liberar</button>`
           : `<button onclick="donoAtivarTotem('${d.id}')" ${featureAtiva ? '' : 'disabled style="opacity:0.5;"'} style="padding:8px 12px; border:none; border-radius:10px; background:#0ea5e9; color:#fff; font-weight:800; font-size:11px; cursor:pointer; display:flex; align-items:center; gap:5px;"><i class="ph-bold ph-monitor-play"></i> Virar Totem</button>`}
       </div>`;
   }).join('');
@@ -353,6 +354,13 @@ window.donoLiberarTotem = function(deviceId) {
   socket.emit('dono_liberar_totem_dispositivo', { device_id: deviceId });
   showToast('Liberando dispositivo do Modo Totem...', 'ph-lock-open');
   adicionarAoFeed('aviso', 'Você liberou um dispositivo do Modo Totem.');
+};
+
+// Rotação da tela do totem — exclusiva do controle remoto do dono
+window.donoRotacionarTotem = function(deviceId) {
+  socket.emit('dono_rotacionar_totem_dispositivo', { device_id: deviceId });
+  showToast('Alternando orientação da tela do totem...', 'ph-frame-corners');
+  adicionarAoFeed('aviso', 'Você alternou a orientação de um totem.');
 };
 
 // ─── Controle Remoto de Cada Colaborador ───────────────────────

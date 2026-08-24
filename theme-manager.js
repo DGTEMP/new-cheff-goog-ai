@@ -100,6 +100,24 @@
     });
   }
 
+  /* No modo Desktop Forçado, fixa o layout viewport em largura de desktop.
+     Mesmo aparelhos com tela de 480px renderizam a versão completa — o
+     navegador reduz tudo para caber (como o "versão desktop" dos celulares).
+     Nos outros modos, viewport normal responsiva. */
+  function aplicarViewportModo(mode) {
+    var meta = document.querySelector('meta[name="viewport"]');
+    if (!meta) {
+      meta = document.createElement('meta');
+      meta.setAttribute('name', 'viewport');
+      (document.head || document.documentElement).appendChild(meta);
+    }
+    if (mode === 'desktop') {
+      meta.setAttribute('content', 'width=1280');
+    } else {
+      meta.setAttribute('content', 'width=device-width, initial-scale=1.0');
+    }
+  }
+
   function applyViewMode(mode) {
     var validMode = (mode === 'mobile' || mode === 'desktop') ? mode : 'auto';
     var docEl = document.documentElement;
@@ -111,12 +129,16 @@
     if (validMode === 'mobile') {
       docEl.classList.add('force-mobile');
       if (body) body.classList.add('force-mobile');
+      aplicarViewportModo('mobile');
       if (typeof window.switchMobileTab === 'function') {
         setTimeout(function () { window.switchMobileTab('mesas'); }, 50);
       }
     } else if (validMode === 'desktop') {
       docEl.classList.add('force-desktop');
       if (body) body.classList.add('force-desktop');
+      aplicarViewportModo('desktop');
+    } else {
+      aplicarViewportModo('auto');
     }
 
     try { localStorage.setItem(VIEW_MODE_KEY, validMode); } catch (e) { }

@@ -12363,6 +12363,19 @@ io.on('connection', (socket) => {
     socket.emit('dono_acao_concluida', { mensagem: '🔓 Dispositivo liberado do Modo Totem.' });
   });
 
+  // ── Totem: alternar orientação da tela (retrato/paisagem) remotamente ──
+  // Único lugar onde a rotação de tela existe no sistema: o totem, acionado
+  // apenas pelo painel do dono.
+  socket.on('dono_rotacionar_totem_dispositivo', (data) => {
+    const { device_id } = data || {};
+    if (!device_id) return socket.emit('dono_acao_erro', { mensagem: 'Dispositivo inválido.' });
+    if (!isTenantFeatureEnabled(_donoTenantId, 'totem')) {
+      return socket.emit('dono_acao_erro', { mensagem: 'O módulo Totem de Autoatendimento não está contratado para este estabelecimento. Fale com o suporte para ativar o upsell.' });
+    }
+    io.to(String(device_id)).emit('totem_rotacionar', { solicitadoPor: 'Dono' });
+    socket.emit('dono_acao_concluida', { mensagem: '🔄 Comando de rotação enviado ao totem.' });
+  });
+
   // ── RH: Registrar pagamento para colaborador ──
   socket.on('dono_registrar_pagamento', (data) => {
     const { funcionario_id, valor, forma_pagamento, observacao, operador } = data || {};

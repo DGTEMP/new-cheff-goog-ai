@@ -96,6 +96,58 @@
     window.location.replace('/index.html');
   });
 
+  /* ═══════════ ROTAÇÃO REMOTA (só o dono aciona) ═══════════
+     Única rotação de tela do sistema: alternância retrato ⇄ paisagem via
+     API nativa (exige fullscreen). Sem hack CSS — se o dispositivo não
+     suportar, apenas avisa e mantém a orientação atual. */
+  var _totemPaisagem = true; // totem nasce em paisagem (lock no 1º toque)
+
+  function totemAvisoSistema(msg) {
+    var antigo = document.getElementById('totem-aviso-rotacao');
+    if (antigo) antigo.remove();
+    var t = document.createElement('div');
+    t.id = 'totem-aviso-rotacao';
+    t.textContent = msg;
+    t.style.cssText = 'position:fixed;left:50%;top:18px;transform:translateX(-50%);' +
+      'z-index:2147483647;background:rgba(15,23,42,0.92);color:#fff;padding:12px 20px;' +
+      'border-radius:12px;font-size:14px;font-weight:700;font-family:sans-serif;' +
+      'box-shadow:0 6px 20px rgba(0,0,0,.35);max-width:90vw;text-align:center;';
+    document.body.appendChild(t);
+    setTimeout(function () { t.remove(); }, 4000);
+  }
+
+  function totemAlternarOrientacao() {
+    _totemPaisagem = !_totemPaisagem;
+    var alvo = _totemPaisagem ? 'landscape' : 'portrait';
+    var rotulo = _totemPaisagem ? 'paisagem' : 'retrato';
+
+    var travar = function () {
+      if (screen.orientation && screen.orientation.lock) {
+        screen.orientation.lock(alvo).then(function () {
+          totemAvisoSistema('Tela do totem em modo ' + rotulo + ' (comando do dono).');
+        }).catch(function () {
+          totemAvisoSistema('Este dispositivo não permitiu girar para ' + rotulo + '.');
+          _totemPaisagem = !_totemPaisagem;
+        });
+      } else {
+        totemAvisoSistema('Este dispositivo não suporta trava de orientação.');
+        _totemPaisagem = !_totemPaisagem;
+      }
+    };
+
+    // A trava exige tela cheia — o totem já pede no primeiro toque,
+    // mas garantimos aqui caso ainda não esteja.
+    if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+      document.documentElement.requestFullscreen().then(travar).catch(travar);
+    } else {
+      travar();
+    }
+  }
+
+  socket.on('totem_rotacionar', function () {
+    totemAlternarOrientacao();
+  });
+
   socket.on('configuracoes_atualizadas', function () {
     carregarStatus();
   });

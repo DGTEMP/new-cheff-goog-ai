@@ -777,6 +777,83 @@
       if (c.site_design_anim_estilo) {
         window.siteVendasDesign.animEstilo = c.site_design_anim_estilo;
       }
+
+      // SEO dinâmico (título/descrição/OG gerenciados no Super Admin)
+      aplicarSeoDinamico(c);
+      // Ordem e visibilidade dos blocos da landing page
+      aplicarOrdemBlocos(c);
+    }
+
+    function setMetaTag(attr, key, content) {
+      if (!content) return;
+      var el = document.querySelector('meta[' + attr + '="' + key + '"]');
+      if (el) el.setAttribute('content', content);
+    }
+
+    function aplicarSeoDinamico(c) {
+      try {
+        if (c.site_seo_titulo) {
+          document.title = c.site_seo_titulo;
+          setMetaTag('property', 'og:title', c.site_seo_titulo);
+          setMetaTag('name', 'twitter:title', c.site_seo_titulo);
+        }
+        if (c.site_seo_descricao) {
+          setMetaTag('name', 'description', c.site_seo_descricao);
+          setMetaTag('property', 'og:description', c.site_seo_descricao);
+          setMetaTag('name', 'twitter:description', c.site_seo_descricao);
+        }
+        if (c.site_seo_keywords) setMetaTag('name', 'keywords', c.site_seo_keywords);
+        if (c.site_seo_og_imagem) {
+          setMetaTag('property', 'og:image', c.site_seo_og_imagem);
+          setMetaTag('name', 'twitter:image', c.site_seo_og_imagem);
+        }
+        if (c.site_seo_robots) setMetaTag('name', 'robots', c.site_seo_robots);
+      } catch (e) { }
+    }
+
+    /* Mapa tipo de bloco → elemento(s) do DOM (ordem/visibilidade editáveis
+       no Super Admin > Site de Vendas > Blocos). Os wave-dividers viajam
+       junto do bloco vizinho para não sobrar divisório órfão. */
+    function aplicarOrdemBlocos(c) {
+      var lista = c.site_blocos;
+      if (!Array.isArray(lista) || !lista.length) return;
+
+      var waves = document.querySelectorAll('.wave-divider');
+      var grupos = {
+        banner: [document.getElementById('top-banner')],
+        header: [document.querySelector('header')],
+        hero: [document.querySelector('section.hero'), waves[0] || null],
+        'como-funciona': [document.getElementById('como-funciona')],
+        funcionalidades: [waves[1] || null, document.getElementById('funcionalidades')],
+        planos: [document.getElementById('planos')],
+        faq: [document.getElementById('faq')],
+        'cta-final': [document.querySelector('.final-cta')],
+        rodape: [document.querySelector('footer')]
+      };
+
+      // Oculta todos primeiro (inclusive os que não vieram na lista)
+      Object.keys(grupos).forEach(function(k) {
+        (grupos[k] || []).forEach(function(el) { if (el) el.style.display = 'none'; });
+      });
+
+      var visiveis = lista.filter(function(b) { return b && b.tipo && b.ativo !== false; });
+
+      // Reinsere na ordem definida, antes do modal de setup (âncora fixa)
+      var anchor = document.getElementById('setupModalOverlay') ||
+        document.querySelector('.setup-modal-overlay');
+      if (!anchor) return;
+      var frag = document.createDocumentFragment();
+      visiveis.forEach(function(b) {
+        (grupos[b.tipo] || []).forEach(function(el) {
+          if (!el) return;
+          el.style.display = '';
+          frag.appendChild(el);
+        });
+      });
+      anchor.parentNode.insertBefore(frag, anchor);
+
+      // Reposiciona animações de scroll após a remontagem do DOM
+      setTimeout(function() { if (window.ScrollTrigger) ScrollTrigger.refresh(); }, 150);
     }
 
     function escH(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
