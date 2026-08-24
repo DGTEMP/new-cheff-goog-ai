@@ -1045,6 +1045,65 @@ module.exports = function (app, masterDb, sqlite3, options) {
   // PICO & CAPACIDADE DO SERVIDOR
   // ═══════════════════════════════════════════════════════════════
 
+  // GET /api/super/mapa — restaurantes conectados com coordenadas p/ o mapa
+  app.get('/api/super/mapa', superAdminAuth, async (req, res) => {
+    try {
+      const rests = await new Promise((resolve) => {
+        masterDb.all(
+          `SELECT r.id, r.nome, r.cidade, r.bairro, r.endereco, r.licenca, r.ativo,
+                  r.latitude, r.longitude,
+                  t.online, t.ultima_atividade, t.vendas_hoje, t.comandas_abertas,
+                  t.garcons_online, t.dispositivos
+           FROM restaurantes r
+           LEFT JOIN telemetria t ON t.id = (SELECT MAX(id) FROM telemetria WHERE restaurante_id = r.id)
+           ORDER BY r.id`,
+          [],
+          (e, rows) => resolve(e ? [] : (rows || []))
+        );
+      });
+
+      const pontos = rests.map(r => ({
+        id: r.id,
+        nome: r.nome,
+        cidade: r.cidade || '',
+        bairro: r.bairro || '',
+        endereco: r.endereco || '',
+        licenca: r.licenca || 'ativo',
+        ativo: !!r.ativo,
+        latitude: r.latitude,
+        longitude: r.longitude,
+        temLocal: r.latitude != null && r.longitude != null && isFinite(r.latitude) && isFinite(r.longitude),
+        online: !!r.online,
+        ultima_atividade: r.ultima_atividade || null,
+        vendas_hoje: r.vendas_hoje || 0,
+        comandas_abertas: r.comandas_abertas || 0,
+        garcons_online: r.garcons_online || 0,
+        dispositivos: r.dispositivos || 0,
+        sockets: (typeof metricSocketCount === 'function') ? (metricSocketCount(r.id) || 0) : 0
+      }));
+
+      const cidades = {};
+      pontos.forEach(p => {
+        const k = (p.cidade || 'Sem cidade').trim();
+        cidades[k] = (cidades[k] || 0) + 1;
+      });
+
+      res.json({
+        ok: true,
+        pontos,
+        stats: {
+          total: pontos.length,
+          comLocal: pontos.filter(p => p.temLocal).length,
+          online: pontos.filter(p => p.online).length,
+          ativos: pontos.filter(p => p.ativo).length,
+          cidades: Object.keys(cidades).sort().map(c => ({ nome: c, total: cidades[c] }))
+        }
+      });
+    } catch (e) {
+      res.json({ ok: false, erro: e.message });
+    }
+  });
+
   // GET /api/super/capacidade — picos por hora + estimativa de tenants restantes
   app.get('/api/super/capacidade', superAdminAuth, async (req, res) => {
     try {
@@ -1113,11 +1172,48 @@ module.exports = function (app, masterDb, sqlite3, options) {
       }
       const tenantsHeat = tenantsLoad.map(t => Object.assign({}, t, tenantPico[String(t.id)] || { hora: null, sockets: 0 }));
 
-      // Estimativa de capacidade
+      // Estimativa teórica (fallback quando ainda não há histórico de picos)
       const maxTenantsEstimado = Math.max(1, Math.floor((totalRamMB * 0.8) / ramPorTenantMB));
-      const maxTenants = maxTenantsHard > 0 ? Math.min(maxTenantsHard, maxTenantsEstimado) : maxTenantsEstimado;
+
+      // ═══ MODELO REALISTA: baseado na carga medida nos horários de pico ═══
+      // 1) Custo de RAM por socket: empírico (RSS atual ÷ sockets ativos),
+      //    com piso de segurança; pode ser fixado via config.
+      const custoSocketCfg = parseInt(cfgs['capacidade_ram_socket_mb'], 10) || 0;
+      const custoEmpirico = socketsAtivos >= 5
+        ? Math.max(8, Math.round(Math.max(1, processMB - 120) / socketsAtivos))
+        : 12;
+      const custoEfetivo = custoSocketCfg > 0 ? custoSocketCfg : custoEmpirico;
+
+      // 2) Base fixa do processo (node+sqlite sem carga), deduzida do RSS
+      const ramBaseMB = Math.max(120, processMB - (socketsAtivos * custoEfetivo));
+      const ramUtilMB = Math.round(totalRamMB * 0.8);
+      const capSockets = Math.max(10, Math.floor((ramUtilMB - ramBaseMB) / custoEfetivo));
+
+      // 3) Pico histórico dos últimos 7 dias por tenant (tenantPico já vem
+      //    do metrica_picos). Picos de tenants diferentes raramente coincidem,
+      //    então aplicamos fator de simultaneidade.
+      let picoSoma = 0;
+      let tenantsComPico = 0;
+      (tenantsHeat || []).forEach(t => {
+        if (t.sockets > 0) { picoSoma += t.sockets; tenantsComPico++; }
+      });
+      const fatorSimultaneidade = 0.7;
+      const picoSimultaneo = Math.ceil(picoSoma * fatorSimultaneidade);
+      const mediaPicoPorTenant = tenantsComPico > 0
+        ? Math.round((picoSoma / tenantsComPico) * 10) / 10
+        : 6; // default conservador para restaurante típico
+
+      // 4) Quantos tenants o servidor aguenta no pico: quantas vezes o pico
+      //    médio por tenant cabe nos sockets suportados pela RAM.
+      const maxTenantsRealista = Math.max(1, Math.floor(capSockets / Math.max(2, mediaPicoPorTenant)));
+
+      const temHistorico = picoSoma > 0 && tenantsComPico >= 3;
+      const maxTenants = maxTenantsHard > 0
+        ? Math.min(maxTenantsHard, temHistorico ? maxTenantsRealista : maxTenantsEstimado)
+        : (temHistorico ? maxTenantsRealista : maxTenantsEstimado);
       const restantes = Math.max(0, maxTenants - tenantsAtivos);
-      const percentual = maxTenants > 0 ? Math.round((tenantsAtivos / maxTenants) * 100) : 0;
+      const percentual = maxTenants > 0 ? Math.min(100, Math.round((tenantsAtivos / maxTenants) * 100)) : 0;
+      const percentualSockets = Math.min(100, Math.round((socketsAtivos / capSockets) * 100));
 
       const isWin = process.platform === 'win32';
       const isMac = process.platform === 'darwin';
@@ -1136,7 +1232,24 @@ module.exports = function (app, masterDb, sqlite3, options) {
           hostname: os.hostname(),
           uptime: Math.floor(process.uptime())
         },
-        capacidade: { maxTenants, ramPorTenantMB, restantes, percentual, maxTenantsHard },
+        capacidade: {
+          maxTenants, ramPorTenantMB, restantes, percentual, maxTenantsHard,
+          teoricoMaxTenants: maxTenantsEstimado,
+          modelo: {
+            baseadoEmPicos: temHistorico,
+            capSockets,
+            custoSocketMB: custoEfetivo,
+            custoSocketAuto: custoSocketCfg <= 0,
+            ramBaseMB,
+            ramUtilMB,
+            picoSoma7d: picoSoma,
+            picoSimultaneo,
+            mediaPicoPorTenant,
+            fatorSimultaneidade,
+            tenantsComPico,
+            percentualSockets
+          }
+        },
         heatmap,
         tenants: tenantsHeat
       });

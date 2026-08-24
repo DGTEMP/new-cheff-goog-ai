@@ -370,8 +370,9 @@
 
   <script src="/locales.js"></script>
   <script src="/broadcast.js"></script>
-  <script src="/i18n.js"></script>
-  <script src="/socket.io.min.js"></script>
+<script src="/i18n.js"></script>
+<script src="/socket.io.min.js"></script>
+<script src="/confetti.js"></script>
   <script src="/fuzzy-search.js"></script>
   <script src="/auth.js"></script>
   <script src="main.js"></script>
@@ -678,17 +679,10 @@
         <i class="ph-bold ph-storefront"></i> <span id="modality-badge-text">Restaurante</span></div>
     </div>
 
-    <!-- MOBILE WORKSPACE TABS -->
-    <div class="mobile-tabs" id="mobile-workspace-tabs">
-      <button class="mobile-tab-btn active" data-tab="tab-mesas">
-        <i class="ph ph-squares-four"></i>
-        <span>Mesas &amp; Pedido</span>
-      </button>
-      <button class="mobile-tab-btn" data-tab="tab-acoes">
-        <i class="ph ph-sliders"></i>
-        <span>Ações</span>
-      </button>
-    </div>
+    <!-- NAVEGAÇÃO MOBILE: por gestos (swipe), igual ao Garçom Mobile.
+         Arraste p/ ESQUERDA → painel de Ações (resumo da direita do desktop).
+         Arraste p/ DIREITA → volta para Mesas & Pedido. -->
+    <div id="mobile-workspace-tabs" class="mobile-tabs" style="display:none;" aria-hidden="true"></div>
 
     <!-- BOTÃO HAMBURGER (MOBILE) -->
     <button class="mobile-hamburger-btn" id="mobile-hamburger-btn">

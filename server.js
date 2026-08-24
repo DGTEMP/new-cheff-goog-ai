@@ -3370,6 +3370,8 @@ masterDb.serialize(async () => {
   masterDb.run(`ALTER TABLE restaurantes ADD COLUMN bairro TEXT`, (e) => {});
   masterDb.run(`ALTER TABLE restaurantes ADD COLUMN cidade TEXT`, (e) => {});
   masterDb.run(`ALTER TABLE restaurantes ADD COLUMN dispositivo_ultimo TEXT`, (e) => {});
+  masterDb.run(`ALTER TABLE restaurantes ADD COLUMN latitude REAL`, (e) => {});
+  masterDb.run(`ALTER TABLE restaurantes ADD COLUMN longitude REAL`, (e) => {});
   masterDb.run(`ALTER TABLE usuarios ADD COLUMN nome TEXT`, (e) => {});
   masterDb.run(`ALTER TABLE usuarios ADD COLUMN telefone TEXT`, (e) => {});
   try { masterDb.run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_restaurantes_slug ON restaurantes(slug) WHERE slug IS NOT NULL AND slug != ''`); } catch(e) {}
@@ -12732,7 +12734,19 @@ app.post('/api/auth/registro', async (req, res) => {
                   [monitorSessao],
                   () => {
                     masterDb.get(`SELECT * FROM cadastros_monitor WHERE sessao_id = ?`, [monitorSessao], (eM, rowM) => {
-                      if (!eM && rowM) io.to('super_admin').emit('super_cadastro_concluido', { ...rowM, campos_json: rowM.campos_json, restaurante_id: restauranteId });
+                      if (!eM && rowM) {
+                        // Persiste coordenadas capturadas no cadastro para o mapa de restaurantes conectados
+                        try {
+                          let loc = null;
+                          if (rowM.localizacao) { loc = (typeof rowM.localizacao === 'string') ? JSON.parse(rowM.localizacao) : rowM.localizacao; }
+                          const lat = parseFloat((req.body && req.body.latitude != null) ? req.body.latitude : (loc ? (loc.latitude != null ? loc.latitude : loc.lat) : NaN));
+                          const lng = parseFloat((req.body && req.body.longitude != null) ? req.body.longitude : (loc ? ((loc.longitude != null ? loc.longitude : loc.lng) != null ? (loc.longitude != null ? loc.longitude : loc.lng) : loc.lon) : NaN));
+                          if (isFinite(lat) && isFinite(lng)) {
+                            masterDb.run(`UPDATE restaurantes SET latitude = ?, longitude = ? WHERE id = ?`, [lat, lng, restauranteId], () => {});
+                          }
+                        } catch (eCoord) {}
+                        io.to('super_admin').emit('super_cadastro_concluido', { ...rowM, campos_json: rowM.campos_json, restaurante_id: restauranteId });
+                      }
                     });
                   }
                 );

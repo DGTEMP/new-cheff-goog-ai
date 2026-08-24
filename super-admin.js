@@ -599,6 +599,7 @@ function switchTab(targetId) {
     'sec-features-restaurante': ['Features Restaurante', 'Configure funcionalidades operacionais por restaurante'],
     'sec-dominios': ['Domínios', 'Configure subdomínios e domínios próprios por restaurante'],
     'sec-capacidade': ['Pico & Capacidade', 'Métricas de uso do servidor e capacidade'],
+    'sec-mapa': ['Mapa de Restaurantes', 'Restaurantes conectados em tempo real, agrupados por cidade'],
     'sec-load-control': ['Controle de Carga', 'Chave de operação, fila durável de pedidos e circuit breaker automático'],
     'sec-licencas': ['Licenças & Telemetria', 'Chaves de ativação e telemetria dos estabelecimentos'],
     'sec-recuperar-acesso': ['Recuperar Acesso', 'Redefina email e senha de clientes'],
@@ -669,6 +670,7 @@ function switchTab(targetId) {
    else if (targetId === 'sec-features-restaurante') renderFeaturesRestaurante();
    else if (targetId === 'sec-dominios') renderDominios();
    else if (targetId === 'sec-capacidade') renderCapacidade();
+   else if (targetId === 'sec-mapa') renderMapa();
    else if (targetId === 'sec-load-control') renderLoadControl();
    else if (targetId === 'sec-terminal') { resetInactivityTimer(); }
    else if (targetId === 'sec-instancias') carregarInstancias();
@@ -3144,6 +3146,26 @@ window.salvarMissaoSurpresa = function() {
       }
       if (barLabel) barLabel.textContent = (cap.percentual || 0) + '%';
 
+      // Modelo realista
+      var modelo = cap.modelo || {};
+      setTextById('cap-modelo-fonte', modelo.baseadoEmPicos ? 'Picos reais 7d' : 'Estimativa RAM');
+      setTextById('cap-sok-max', modelo.capSockets != null ? modelo.capSockets : '--');
+      setTextById('cap-uso-sok', modelo.percentualSockets != null ? '(' + modelo.percentualSockets + '% em uso)' : '');
+      setTextById('cap-pico-simul', modelo.picoSimultaneo != null ? modelo.picoSimultaneo + ' sockets' : '--');
+      setTextById('cap-custo-sok', modelo.custoSocketMB != null ? modelo.custoSocketMB + ' MB' + (modelo.custoSocketAuto ? ' (auto)' : ' (fixo)') : '--');
+      setTextById('cap-media-pico', modelo.mediaPicoPorTenant != null ? modelo.mediaPicoPorTenant + ' sockets' : '--');
+      var exp = document.getElementById('cap-modelo-explicacao');
+      if (exp) {
+        if (modelo.baseadoEmPicos) {
+          exp.textContent = 'Soma dos picos históricos: ' + (modelo.picoSoma7d || 0) + ' sockets em ' + (modelo.tenantsComPico || 0) +
+            ' tenants → pico simultâneo estimado com fator ' + ((modelo.fatorSimultaneidade || 0.7) * 100) +
+            '%. Base do processo: ' + (modelo.ramBaseMB || 0) + ' MB de ' + (modelo.ramUtilMB || 0) + ' MB úteis.';
+        } else {
+          exp.textContent = 'Ainda sem histórico suficiente (mín. 3 tenants com picos registrados). Estimativa teórica: ' +
+            (cap.teoricoMaxTenants || '--') + ' tenants a ' + (cap.ramPorTenantMB || 80) + ' MB. Os picos reais alimentarão este modelo automaticamente.';
+        }
+      }
+
       // Heatmap
       renderHeatmap(heatmap);
 
@@ -3219,6 +3241,288 @@ window.salvarMissaoSurpresa = function() {
   if (btnRefreshCap) {
     btnRefreshCap.addEventListener('click', function() { renderCapacidade(); });
   }
+
+  /* ═══ MAPA DE RESTAURANTES CONECTADOS (canvas puro, sem CDN) ═══ */
+  var _mapaPontos = [];
+  var _mapaSel = null;
+  var _mapaView = { cx: -50, cy: -12, pxDeg: 8 }; // centro lng/lat + escala px por grau
+  var _mapaArrastando = false;
+  var _mapaUltimo = null;
+  var _mapaMoveu = false;
+
+  function mapaProjeta(p, w, h) {
+    return {
+      x: w / 2 + (p.longitude - _mapaView.cx) * _mapaView.pxDeg,
+      y: h / 2 - (p.latitude - _mapaView.cy) * _mapaView.pxDeg
+    };
+  }
+
+  function mapaUnprojeta(px, py, w, h) {
+    return {
+      longitude: _mapaView.cx + (px - w / 2) / _mapaView.pxDeg,
+      latitude: _mapaView.cy - (py - h / 2) / _mapaView.pxDeg
+    };
+  }
+
+  function desenharMapa() {
+    var cv = document.getElementById('mapa-canvas');
+    if (!cv) return;
+    var ctx = cv.getContext('2d');
+    var w = cv.width, h = cv.height;
+    ctx.clearRect(0, 0, w, h);
+
+    // Fundo
+    var bg = ctx.createLinearGradient(0, 0, 0, h);
+    bg.addColorStop(0, '#0b1220');
+    bg.addColorStop(1, '#101a30');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, w, h);
+
+    // Grade de coordenadas com passo adaptativo
+    var passo = 0.5;
+    while (passo * _mapaView.pxDeg < 70) passo *= 2;
+    ctx.strokeStyle = 'rgba(148,163,184,0.10)';
+    ctx.lineWidth = 1;
+    ctx.font = '9px sans-serif';
+    ctx.fillStyle = 'rgba(148,163,184,0.35)';
+    var iniLng = Math.floor(mapaUnprojeta(0, 0, w, h).longitude / passo) * passo;
+    for (var L = iniLng; ; L += passo) {
+      var x = mapaProjeta({ longitude: L, latitude: 0 }, w, h).x;
+      if (x > w + 40) break;
+      if (x >= -40) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+        if (_mapaView.pxDeg > 14) ctx.fillText(L.toFixed(passo < 1 ? 1 : 0), x + 3, h - 6);
+      }
+    }
+    var iniLat = Math.floor(mapaUnprojeta(0, h, w, h).latitude / passo) * passo;
+    for (var A = iniLat; ; A += passo) {
+      var y = mapaProjeta({ longitude: 0, latitude: A }, w, h).y;
+      if (y < -40) break;
+      if (y <= h + 40) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+        if (_mapaView.pxDeg > 14) ctx.fillText(A.toFixed(passo < 1 ? 1 : 0), 4, y - 4);
+      }
+    }
+
+    // Pins
+    var comLocal = _mapaPontos.filter(function(p) { return p.temLocal; });
+    comLocal.forEach(function(p) {
+      var pt = mapaProjeta(p, w, h);
+      if (pt.x < -20 || pt.x > w + 20 || pt.y < -20 || pt.y > h + 20) return;
+      var raio = p.online ? 7 : 5;
+      var cor = !p.ativo ? '#64748b' : (p.online ? '#22c55e' : '#f59e0b');
+
+      // halo
+      ctx.fillStyle = p.online ? 'rgba(34,197,94,0.22)' : 'rgba(245,158,11,0.15)';
+      ctx.beginPath(); ctx.arc(pt.x, pt.y, raio * 2.6, 0, Math.PI * 2); ctx.fill();
+
+      ctx.fillStyle = cor;
+      ctx.strokeStyle = p.id === _mapaSel ? '#ffffff' : 'rgba(255,255,255,0.75)';
+      ctx.lineWidth = p.id === _mapaSel ? 3 : 1.5;
+      ctx.beginPath(); ctx.arc(pt.x, pt.y, raio, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+
+      // Nome quando zoom suficiente ou selecionado
+      if ((_mapaView.pxDeg > 26 || p.id === _mapaSel) && p.nome) {
+        ctx.font = 'bold 11px Outfit, sans-serif';
+        ctx.fillStyle = '#e2e8f0';
+        ctx.strokeStyle = 'rgba(2,6,23,0.85)';
+        ctx.lineWidth = 3;
+        var tx = pt.x + raio + 5, ty = pt.y + 4;
+        ctx.strokeText(p.nome, tx, ty);
+        ctx.fillText(p.nome, tx, ty);
+      }
+    });
+
+    var vazio = document.getElementById('mapa-vazio');
+    if (vazio) vazio.style.display = comLocal.length === 0 ? 'flex' : 'none';
+  }
+
+  window.renderMapa = function() {
+    apiGet('/api/super/mapa', function(err, data) {
+      if (err || !data || !data.ok) {
+        showToast('Erro ao carregar mapa: ' + (err ? err.message : (data ? data.erro : 'Sem resposta')), 'danger');
+        return;
+      }
+      _mapaPontos = data.pontos || [];
+      var st = data.stats || {};
+      setTextById('mapa-online', (st.online || 0) + '/' + (st.total || 0));
+      setTextById('mapa-com-local', (st.comLocal || 0) + '/' + (st.total || 0));
+      setTextById('mapa-cidades', (st.cidades || []).length);
+      var vendas = 0;
+      _mapaPontos.forEach(function(p) { vendas += (p.vendas_hoje || 0); });
+      setTextById('mapa-vendas-hoje', formatMoney(vendas));
+
+      var badge = document.getElementById('mapa-online-badge');
+      if (badge) {
+        badge.style.display = st.online > 0 ? 'inline-block' : 'none';
+        badge.textContent = st.online || 0;
+      }
+
+      // Auto-fit nos pontos com localização
+      var locais = _mapaPontos.filter(function(p) { return p.temLocal; });
+      if (locais.length === 1) {
+        _mapaView.cx = locais[0].longitude; _mapaView.cy = locais[0].latitude;
+        _mapaView.pxDeg = 120;
+      } else if (locais.length > 1) {
+        var minLat = 90, maxLat = -90, minLng = 180, maxLng = -180;
+        locais.forEach(function(p) {
+          minLat = Math.min(minLat, p.latitude); maxLat = Math.max(maxLat, p.latitude);
+          minLng = Math.min(minLng, p.longitude); maxLng = Math.max(maxLng, p.longitude);
+        });
+        var cv = document.getElementById('mapa-canvas');
+        var w = cv ? cv.width : 900, h = cv ? cv.height : 560;
+        _mapaView.cx = (minLng + maxLng) / 2;
+        _mapaView.cy = (minLat + maxLat) / 2;
+        var spanX = Math.max(maxLng - minLng, 0.02), spanY = Math.max(maxLat - minLat, 0.02);
+        _mapaView.pxDeg = Math.min((w * 0.75) / spanX, (h * 0.75) / spanY);
+      }
+
+      renderMapaCidades(st.cidades || []);
+      desenharMapa();
+    });
+  };
+
+  function renderMapaCidades(cidades) {
+    var box = document.getElementById('mapa-lista-cidades');
+    if (!box) return;
+    if (!cidades.length) {
+      box.innerHTML = '<span style="color:var(--text-muted);font-size:0.75rem;">Nenhuma cidade registrada ainda.</span>';
+      return;
+    }
+    var html = '';
+    cidades.forEach(function(c) {
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;background:rgba(0,0,0,0.25);border-radius:10px;padding:9px 12px;">' +
+        '<span style="font-size:0.78rem;font-weight:600;color:#e2e8f0;"><i class="fa-solid fa-city" style="color:var(--text-muted);margin-right:6px;"></i>' + escapeHtml(c.nome) + '</span>' +
+        '<span class="badge badge-plano">' + c.total + '</span></div>';
+    });
+    box.innerHTML = html;
+  }
+
+  function mostrarDetalhePin(id) {
+    var p = _mapaPontos.find(function(x) { return x.id === id; });
+    var box = document.getElementById('mapa-detalhe');
+    if (!p || !box) return;
+    _mapaSel = id;
+    box.style.display = 'block';
+    box.innerHTML =
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">' +
+        '<h4 style="font-family:\'Outfit\',sans-serif;margin:0;color:white;"><i class="fa-solid fa-store" style="color:var(--primary);margin-right:8px;"></i>' + escapeHtml(p.nome) + ' <span class="badge badge-plano" style="margin-left:8px;">#' + p.id + ' · ' + String(p.licenca).toUpperCase() + '</span></h4>' +
+        '<button onclick="document.getElementById(\'mapa-detalhe\').style.display=\'none\';window.__mapaDeselecionar();" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1rem;">✕</button>' +
+      '</div>' +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:0.75rem;font-size:0.78rem;">' +
+        '<div><span style="color:var(--text-muted);">Status:</span> ' + (p.online ? '<span class="badge badge-ativo">Online</span>' : '<span class="badge badge-bloqueado">Offline</span>') + '</div>' +
+        '<div><span style="color:var(--text-muted);">Sockets:</span> <strong style="color:#fff;">' + p.sockets + '</strong></div>' +
+        '<div><span style="color:var(--text-muted);">Comandas abertas:</span> <strong style="color:#fff;">' + p.comandas_abertas + '</strong></div>' +
+        '<div><span style="color:var(--text-muted);">Garçons online:</span> <strong style="color:#fff;">' + p.garcons_online + '</strong></div>' +
+        '<div><span style="color:var(--text-muted);">Vendas hoje:</span> <strong style="color:#fff;">' + formatMoney(p.vendas_hoje) + '</strong></div>' +
+        '<div><span style="color:var(--text-muted);">Local:</span> <strong style="color:#fff;">' + escapeHtml([p.bairro, p.cidade].filter(Boolean).join(', ') || '—') + '</strong></div>' +
+        '<div><span style="color:var(--text-muted);">Coordenadas:</span> <strong style="color:#fff;">' + (p.temLocal ? p.latitude.toFixed(5) + ', ' + p.longitude.toFixed(5) : '—') + '</strong></div>' +
+        '<div><span style="color:var(--text-muted);">Última atividade:</span> <strong style="color:#fff;">' + escapeHtml(p.ultima_atividade || '—') + '</strong></div>' +
+      '</div>';
+    desenharMapa();
+  }
+
+  window.__mapaDeselecionar = function() { _mapaSel = null; desenharMapa(); };
+
+  (function initMapaEventos() {
+    var cv = document.getElementById('mapa-canvas');
+    if (!cv) return;
+
+    function coordsDoEvento(ev) {
+      var r = cv.getBoundingClientRect();
+      return {
+        x: (ev.clientX - r.left) * (cv.width / r.width),
+        y: (ev.clientY - r.top) * (cv.height / r.height),
+        escalaX: cv.width / r.width
+      };
+    }
+
+    cv.addEventListener('wheel', function(ev) {
+      ev.preventDefault();
+      var c = coordsDoEvento(ev);
+      var antes = mapaUnprojeta(c.x, c.y, cv.width, cv.height);
+      var fator = ev.deltaY < 0 ? 1.18 : 1 / 1.18;
+      var novo = Math.min(40000, Math.max(1.5, _mapaView.pxDeg * fator));
+      _mapaView.pxDeg = novo;
+      var depois = mapaUnprojeta(c.x, c.y, cv.width, cv.height);
+      _mapaView.cx += antes.longitude - depois.longitude;
+      _mapaView.cy += antes.latitude - depois.latitude;
+      desenharMapa();
+    }, { passive: false });
+
+    cv.addEventListener('pointerdown', function(ev) {
+      _mapaArrastando = true; _mapaMoveu = false;
+      _mapaUltimo = { x: ev.clientX, y: ev.clientY };
+      cv.style.cursor = 'grabbing';
+      try { cv.setPointerCapture(ev.pointerId); } catch (e) {}
+    });
+
+    cv.addEventListener('pointermove', function(ev) {
+      var tip = document.getElementById('mapa-tooltip');
+      if (_mapaArrastando && _mapaUltimo && ev.buttons) {
+        var r = cv.getBoundingClientRect();
+        var dx = (ev.clientX - _mapaUltimo.x) * (cv.width / r.width);
+        var dy = (ev.clientY - _mapaUltimo.y) * (cv.height / r.height);
+        if (Math.abs(dx) + Math.abs(dy) > 3) _mapaMoveu = true;
+        _mapaView.cx -= dx / _mapaView.pxDeg;
+        _mapaView.cy += dy / _mapaView.pxDeg;
+        _mapaUltimo = { x: ev.clientX, y: ev.clientY };
+        desenharMapa();
+        if (tip) tip.style.display = 'none';
+        return;
+      }
+      // Hover: pin mais próximo dentro do raio
+      var c = coordsDoEvento(ev);
+      var melhor = null, melhorD = 16 * 16;
+      _mapaPontos.forEach(function(p) {
+        if (!p.temLocal) return;
+        var pt = mapaProjeta(p, cv.width, cv.height);
+        var d = (pt.x - c.x) * (pt.x - c.x) + (pt.y - c.y) * (pt.y - c.y);
+        if (d < melhorD) { melhorD = d; melhor = { p: p, pt: pt }; }
+      });
+      if (melhor && tip) {
+        var m = melhor.p;
+        tip.innerHTML = '<strong style="color:#fff;">' + escapeHtml(m.nome) + '</strong><br>' +
+          '<span style="color:' + (m.online ? '#22c55e' : '#f59e0b') + ';font-weight:700;">● ' + (m.online ? 'Online' : 'Offline') + '</span>' +
+          (m.cidade ? ' · ' + escapeHtml(m.cidade) : '') +
+          '<br><span style="color:#94a3b8;">' + m.sockets + ' sockets · ' + formatMoney(m.vendas_hoje) + ' hoje</span>';
+        tip.style.display = 'block';
+        var rect = cv.getBoundingClientRect();
+        var hostRect = cv.parentElement.getBoundingClientRect();
+        tip.style.left = Math.min(rect.width - 150, Math.max(0, melhor.pt.x / (cv.width / rect.width) + (hostRect.left - hostRect.left))) + 'px';
+        tip.style.top = Math.max(0, melhor.pt.y / (cv.height / rect.height) - 54) + 'px';
+      } else if (tip) {
+        tip.style.display = 'none';
+      }
+    });
+
+    cv.addEventListener('pointerup', function(ev) {
+      _mapaArrastando = false;
+      cv.style.cursor = 'grab';
+      if (!_mapaMoveu) {
+        var c = coordsDoEvento(ev);
+        var melhor = null, melhorD = 16 * 16;
+        _mapaPontos.forEach(function(p) {
+          if (!p.temLocal) return;
+          var pt = mapaProjeta(p, cv.width, cv.height);
+          var d = (pt.x - c.x) * (pt.x - c.x) + (pt.y - c.y) * (pt.y - c.y);
+          if (d < melhorD) { melhorD = d; melhor = p; }
+        });
+        if (melhor) mostrarDetalhePin(melhor.id);
+      }
+    });
+
+    cv.addEventListener('pointerleave', function() {
+      _mapaArrastando = false;
+      cv.style.cursor = 'grab';
+      var tip = document.getElementById('mapa-tooltip');
+      if (tip) tip.style.display = 'none';
+    });
+
+    var btn = document.getElementById('btn-refresh-mapa');
+    if (btn) btn.addEventListener('click', renderMapa);
+  })();
+
 
   /* ═══ CONTROLE DE CARGA (CHAVE SUPER ADMIN) ═══ */
   var _lcAutoTimer = null;

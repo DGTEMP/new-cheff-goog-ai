@@ -404,6 +404,32 @@ setTimeout(() => {
     });
   });
 
+  // ── NAVEGAÇÃO POR GESTOS (SWIPE) — mesma lógica do Garçom Mobile ──
+  // Arrastar p/ ESQUERDA revela os botões de resumo (Ações, como à direita no desktop);
+  // arrastar p/ DIREITA volta para Mesas & Pedido. Nada de barras de aba ocupando tela.
+  let chefSwipeStartX = 0;
+  let chefSwipeStartY = 0;
+  document.addEventListener('touchstart', (e) => {
+    if (!e.changedTouches || !e.changedTouches.length) return;
+    chefSwipeStartX = e.changedTouches[0].screenX;
+    chefSwipeStartY = e.changedTouches[0].screenY;
+  }, { passive: true });
+  document.addEventListener('touchend', (e) => {
+    if (!e.changedTouches || !e.changedTouches.length) return;
+    const diffX = chefSwipeStartX - e.changedTouches[0].screenX;
+    const diffY = chefSwipeStartY - e.changedTouches[0].screenY;
+    if (Math.abs(diffY) > Math.abs(diffX)) return;   // era scroll vertical
+    if (Math.abs(diffX) < 50) return;                // toque comum
+    const ws = document.querySelector('.workspace');
+    if (!ws) return;
+    const nasAcoes = ws.classList.contains('active-tab-acoes');
+    if (diffX > 0 && !nasAcoes) {
+      window.switchMobileTab('acoes');               // ← esquerda: abre Ações
+    } else if (diffX < 0 && nasAcoes) {
+      window.switchMobileTab('mesas');               // → direita: volta Mesas
+    }
+  }, { passive: true });
+
   const floatLancar = document.getElementById('float-btn-lancar');
   const floatParcial = document.getElementById('float-btn-parcial');
   const floatFechar = document.getElementById('float-btn-fechar');
@@ -4709,6 +4735,21 @@ window.aplicarDesconto = function() {
   if (window.calcRestante) window.calcRestante();
 
   modal.style.display = 'none';
+
+  // Desconto do dono/admin merece celebração: fogos + chuva de estrelas
+  const ehChefe = typeof window.podeEditarPrecoPdv === 'function' && window.podeEditarPrecoPdv();
+  if (ehChefe) {
+    if (typeof window.chefFogos === 'function') {
+      try {
+        window.chefFogos({ x: window.innerWidth * 0.22, y: window.innerHeight * 0.35, particulas: 140, intensidade: 1.4 });
+        setTimeout(() => window.chefFogos({ x: window.innerWidth * 0.78, y: window.innerHeight * 0.35, particulas: 110, intensidade: 1 }), 260);
+        setTimeout(() => window.chefFogos({ x: window.innerWidth * 0.5, y: window.innerHeight * 0.25, particulas: 150, intensidade: 1.5 }), 520);
+      } catch (e) { }
+    }
+    if (typeof window.showToast === 'function') showToast(`Desconto de ${motivo} aplicado!`, 'success');
+  } else if (typeof window.showToast === 'function') {
+    showToast('Desconto aplicado com sucesso.', 'success');
+  }
 };
 
 window.removerDescontoAplicado = function() {

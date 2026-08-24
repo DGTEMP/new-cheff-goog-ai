@@ -74,6 +74,11 @@
                 <i class="fa-solid fa-chart-area"></i>
                 <span>Pico &amp; Capacidade</span>
               </div>
+              <div class="menu-item" data-target="sec-mapa">
+                <i class="fa-solid fa-map-location-dot"></i>
+                <span>Mapa de Restaurantes</span>
+                <span class="menu-badge" id="mapa-online-badge" style="display:none;">0</span>
+              </div>
               <div class="menu-item" data-target="sec-load-control" id="menu-item-load-control">
                 <i class="fa-solid fa-sliders"></i>
                 <span>Controle de Carga</span>
@@ -671,6 +676,35 @@
               <span id="cap-bar-label"
                 style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:0.75rem;font-weight:600;color:white;">0%</span>
             </div>
+
+            <!-- Modelo realista (picos reais dos últimos 7 dias) -->
+            <div
+              style="margin-top:1rem;border-top:1px dashed var(--border-color);padding-top:1rem;">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:0.75rem;">
+                <i class="fa-solid fa-chart-line" style="color:var(--success);"></i>
+                <span style="font-size:0.8rem;font-weight:700;color:var(--text-secondary);">Modelo realista — carga nos horários de pico</span>
+                <span id="cap-modelo-fonte" class="badge badge-ativo" style="font-size:0.62rem;">--</span>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:0.75rem;">
+                <div style="background:rgba(0,0,0,0.25);border-radius:10px;padding:10px 12px;">
+                  <div style="font-size:0.65rem;color:var(--text-muted);font-weight:600;">SOCKETS SUPORTÁVEIS</div>
+                  <div style="font-size:1.15rem;font-weight:800;color:white;"><span id="cap-sok-max">--</span> <span id="cap-uso-sok" style="font-size:0.68rem;color:var(--text-muted);font-weight:600;"></span></div>
+                </div>
+                <div style="background:rgba(0,0,0,0.25);border-radius:10px;padding:10px 12px;">
+                  <div style="font-size:0.65rem;color:var(--text-muted);font-weight:600;">PICO SIMULTÂNEO (7d)</div>
+                  <div style="font-size:1.15rem;font-weight:800;color:white;" id="cap-pico-simul">--</div>
+                </div>
+                <div style="background:rgba(0,0,0,0.25);border-radius:10px;padding:10px 12px;">
+                  <div style="font-size:0.65rem;color:var(--text-muted);font-weight:600;">CUSTO POR SOCKET</div>
+                  <div style="font-size:1.15rem;font-weight:800;color:white;" id="cap-custo-sok">--</div>
+                </div>
+                <div style="background:rgba(0,0,0,0.25);border-radius:10px;padding:10px 12px;">
+                  <div style="font-size:0.65rem;color:var(--text-muted);font-weight:600;">MÉDIA PICO / TENANT</div>
+                  <div style="font-size:1.15rem;font-weight:800;color:white;" id="cap-media-pico">--</div>
+                </div>
+              </div>
+              <div id="cap-modelo-explicacao" style="margin-top:0.6rem;font-size:0.68rem;line-height:1.5;color:var(--text-muted);"></div>
+            </div>
           </div>
 
           <!-- Heatmap 24h -->
@@ -718,6 +752,86 @@
                 <i class="fa-solid fa-rotate"></i><span>Atualizar</span>
               </button>
             </div>
+          </div>
+        </div>
+
+        <!-- ════ SEÇÃO: MAPA DE RESTAURANTES CONECTADOS ════ -->
+        <div class="content-section" id="sec-mapa">
+          <div class="stats-grid" style="margin-bottom:1.5rem;">
+            <div class="stat-card">
+              <div class="stat-icon"
+                style="background:rgba(16,185,129,0.15);color:var(--success);box-shadow:0 0 15px var(--success-glow);">
+                <i class="fa-solid fa-tower-broadcast"></i></div>
+              <div class="stat-meta"><span>Online Agora</span>
+                <h3 id="mapa-online">--</h3>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon"
+                style="background:rgba(59,130,246,0.15);color:var(--info);box-shadow:0 0 15px rgba(59,130,246,0.2);">
+                <i class="fa-solid fa-store"></i></div>
+              <div class="stat-meta"><span>Com Localização</span>
+                <h3 id="mapa-com-local">--</h3>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon"
+                style="background:rgba(245,158,11,0.15);color:var(--warning);box-shadow:0 0 15px var(--warning-glow);">
+                <i class="fa-solid fa-city"></i></div>
+              <div class="stat-meta"><span>Cidades Atendidas</span>
+                <h3 id="mapa-cidades">--</h3>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon"
+                style="background:rgba(139,92,246,0.15);color:#c084fc;box-shadow:0 0 15px rgba(139,92,246,0.2);">
+                <i class="fa-solid fa-sack-dollar"></i></div>
+              <div class="stat-meta"><span>Vendas Hoje (mapeados)</span>
+                <h3 id="mapa-vendas-hoje">--</h3>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 320px;gap:1.5rem;align-items:start;" id="mapa-layout">
+            <!-- Canvas do mapa (sem CDN, funciona offline) -->
+            <div
+              style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;padding:1.5rem;">
+              <h4 style="font-family:'Outfit',sans-serif;margin-bottom:1rem;"><i class="fa-solid fa-map-location-dot"
+                  style="color:var(--primary);"></i> Restaurantes Conectados
+                <span id="mapa-zoom-hint" style="float:right;font-size:0.65rem;color:var(--text-muted);font-weight:400;">scroll = zoom · arrastar = mover · clique no pin = detalhes</span>
+              </h4>
+              <div style="position:relative;border-radius:12px;overflow:hidden;background:#0b1220;">
+                <canvas id="mapa-canvas" width="900" height="560"
+                  style="width:100%;height:auto;display:block;cursor:grab;touch-action:none;"></canvas>
+                <div id="mapa-tooltip"
+                  style="display:none;position:absolute;pointer-events:none;background:rgba(2,6,23,0.92);border:1px solid var(--primary);border-radius:10px;padding:8px 12px;font-size:0.72rem;color:#fff;z-index:5;max-width:260px;box-shadow:0 8px 22px rgba(0,0,0,0.4);"></div>
+                <div id="mapa-vazio"
+                  style="position:absolute;inset:0;display:none;align-items:center;justify-content:center;color:var(--text-muted);font-size:0.85rem;text-align:center;padding:20px;">
+                  Nenhum restaurante com coordenadas ainda.<br>As coordenadas são capturadas automaticamente durante o cadastro.
+                </div>
+              </div>
+            </div>
+
+            <!-- Lista lateral por cidade -->
+            <div
+              style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;padding:1.5rem;">
+              <h4 style="font-family:'Outfit',sans-serif;margin-bottom:1rem;"><i class="fa-solid fa-list-ul"
+                  style="color:var(--info);"></i> Por Cidade</h4>
+              <div id="mapa-lista-cidades" style="max-height:520px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;">
+                <span style="color:var(--text-muted);font-size:0.75rem;">Carregando...</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Painel de detalhes do pin selecionado -->
+          <div id="mapa-detalhe"
+            style="display:none;margin-top:1.5rem;background:var(--bg-card);border:1px solid var(--primary);border-radius:16px;padding:1.25rem;">
+          </div>
+
+          <div style="margin-top:1rem;">
+            <button class="btn-action btn-primary-action" id="btn-refresh-mapa">
+              <i class="fa-solid fa-rotate"></i><span>Atualizar</span>
+            </button>
           </div>
         </div>
 
