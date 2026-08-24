@@ -57,7 +57,9 @@
     try { mqWide.addEventListener('change', apply); } catch (e) {}
   }
 
-  /* ── Arraste a tab bar (mobile) para baixo e oculta ── */
+  /* ── Arraste a tab bar (mobile) para baixo e oculta ──
+     A barra INTEIRA é arrastável de qualquer ponto próximo dela;
+     o grip é apenas a dica visual. Toques curtos ainda clicam as abas. */
   (function () {
     var tabs = document.getElementById('mobile-workspace-tabs');
     if (!tabs) return;
@@ -73,34 +75,50 @@
     restore.innerHTML = '<i class="ph ph-caret-up"></i> Mostrar abas';
     document.body.appendChild(restore);
 
-    var dragging = false, startY = 0, dy = 0;
+    var dragging = false, moved = false, startY = 0, dy = 0, pointerId = null;
 
-    grip.addEventListener('pointerdown', function (e) {
+    function onDown(e) {
+      if (e.target === restore) return;
       dragging = true;
+      moved = false;
       startY = e.clientY;
       dy = 0;
+      pointerId = e.pointerId;
       tabs.style.transition = 'none';
-      if (grip.setPointerCapture) {
-        try { grip.setPointerCapture(e.pointerId); } catch (err) {}
-      }
-    });
+    }
 
-    grip.addEventListener('pointermove', function (e) {
-      if (!dragging) return;
+    function onMove(e) {
+      if (!dragging || e.pointerId !== pointerId) return;
       dy = Math.max(0, e.clientY - startY);
+      if (dy > 8) moved = true;
+      // Segue o dedo/mouse enquanto arrasta para baixo
       tabs.style.transform = 'translateY(' + Math.min(dy, 140) + 'px)';
-    });
+      if (moved && e.cancelable) e.preventDefault();
+    }
 
-    function end() {
-      if (!dragging) return;
+    function end(e) {
+      if (!dragging || (e && e.pointerId !== pointerId)) return;
       dragging = false;
       tabs.style.transition = '';
       tabs.style.transform = '';
       if (dy > 40) document.body.classList.add('tabs-collapsed');
+      // Suprime o clique residual depois de um arraste real
+      if (moved) {
+        var suppress = function (ev) {
+          ev.preventDefault();
+          ev.stopPropagation();
+        };
+        tabs.addEventListener('click', suppress, { capture: true, once: true });
+        setTimeout(function () {
+          tabs.removeEventListener('click', suppress, { capture: true });
+        }, 350);
+      }
     }
 
-    grip.addEventListener('pointerup', end);
-    grip.addEventListener('pointercancel', end);
+    tabs.addEventListener('pointerdown', onDown);
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', end);
+    document.addEventListener('pointercancel', end);
 
     restore.addEventListener('click', function () {
       document.body.classList.remove('tabs-collapsed');

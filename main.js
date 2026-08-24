@@ -372,7 +372,18 @@ window.switchMobileTab = (tabId) => {
   const ws = document.querySelector('.workspace');
   if (!ws) return;
 
-  const cleanTab = (tabId || 'mesas').replace('tab-', '');
+  let cleanTab = (tabId || 'mesas').replace('tab-', '');
+
+  // Abas "Mesas" e "Pedido" unificadas no mobile: 'pedido' volta para a aba
+  // unificada com a seção de mesas recolhida (mostra o painel de produtos).
+  if (cleanTab === 'pedido') {
+    cleanTab = 'mesas';
+    const isMobileView = window.matchMedia('(max-width: 767px)').matches || document.body.classList.contains('force-mobile');
+    if (isMobileView && typeof window.setMesasSectionCollapsed === 'function') {
+      window.setMesasSectionCollapsed(true);
+    }
+  }
+
   ws.classList.remove('active-tab-mesas', 'active-tab-pedido', 'active-tab-acoes', 'active-mesas', 'active-pedido', 'active-acoes');
   ws.classList.add(`active-tab-${cleanTab}`);
 
@@ -6633,33 +6644,42 @@ document.addEventListener('keydown', (e) => {
     function renderItensRecolhidos() {
       const strip = document.getElementById('mesas-collapsed-items');
       if (!strip) return;
-      const m = window.mesaAtual;
-      if (!m || !m.items || !m.items.length) {
-        strip.innerHTML = '<span class="mi-vazio">Nenhuma mesa selecionada</span>';
+
+      // No lugar do resumo de itens, mostra as COMANDAS da mesa selecionada
+      // (itens não pagos agrupados por mesa_comanda). Sem comandas, a strip
+      // fica totalmente oculta.
+      const grupos = {};
+      if (window.mesaAtual && Array.isArray(window.mesaAtual.items)) {
+        window.mesaAtual.items.forEach(o => {
+          if (o.status === 'Pago') return;
+          const c = (o.mesa_comanda || '').trim();
+          if (!c) return;
+          if (!grupos[c]) grupos[c] = { q: 0, total: 0 };
+          grupos[c].q += (o.quantity || 1);
+          grupos[c].total += parseFloat(String(o.total).replace(',', '.')) || 0;
+        });
+      }
+
+      const nomes = Object.keys(grupos);
+      mesasContainer.classList.toggle('mesas-sem-comandas', nomes.length === 0);
+      if (!nomes.length) {
+        strip.innerHTML = '';
         return;
       }
-      let total = 0, qtd = 0;
-      const grupos = {};
-      m.items.forEach(o => {
-        if (o.status === 'Pago') return;
-        const t = parseFloat(String(o.total).replace(',', '.')) || 0;
-        total += t;
-        qtd += (o.quantity || 1);
-        const k = o.productName || 'Produto';
-        if (!grupos[k]) grupos[k] = { emoji: o.productEmoji || '', q: 0 };
-        grupos[k].q += (o.quantity || 1);
-      });
-      const chips = Object.entries(grupos).map(([nome, g]) =>
-        `<span class="mi-chip">${g.emoji} ${g.q}× ${escHtml(nome)}</span>`).join('');
-      strip.innerHTML =
-        `<span class="mi-mesa">${escHtml(m.mesaName || m.nome || 'Mesa')}</span>${chips}` +
-        `<span class="mi-total">R$ ${total.toFixed(2).replace('.', ',')} · ${qtd} iten${qtd === 1 ? '' : 's'}</span>`;
+
+      const chips = nomes.map(nome => {
+        const g = grupos[nome];
+        return `<span class="mi-chip mi-comanda"><i class="ph ph-ticket" style="color:#fc4b15;margin-right:4px;"></i>${escHtml(nome)} · ${g.q} iten${g.q === 1 ? '' : 's'} · R$ ${g.total.toFixed(2).replace('.', ',')}</span>`;
+      }).join('');
+      strip.innerHTML = chips;
     }
     window.renderItensRecolhidosMesas = renderItensRecolhidos;
 
-    function toggleMesasSection() {
-      isCollapsed = !isCollapsed;
+    function applyMesasCollapsed(collapsed) {
+      isCollapsed = collapsed;
       mesasContainer.classList.toggle('mesas-recolhida', isCollapsed);
+      const ws = document.querySelector('.workspace');
+      if (ws) ws.classList.toggle('mesas-collapsed-view', isCollapsed);
       if (isCollapsed) {
         mesasContainer.style.flex = '0 0 auto';
         renderItensRecolhidos();
@@ -6671,6 +6691,17 @@ document.addEventListener('keydown', (e) => {
         if (labelToggle) labelToggle.innerText = 'Recolher';
       }
     }
+
+    function toggleMesasSection() {
+      applyMesasCollapsed(!isCollapsed);
+    }
+
+    // Controle externo (usado pela aba unificada Mesas & Pedido no mobile)
+    window.setMesasSectionCollapsed = function (collapsed) {
+      const isMobileView = window.matchMedia('(max-width: 767px)').matches || document.body.classList.contains('force-mobile');
+      if (!isMobileView) return;
+      applyMesasCollapsed(!!collapsed);
+    };
 
     if (btnToggleMesas) {
       btnToggleMesas.onclick = (e) => {
@@ -6709,6 +6740,9 @@ document.addEventListener('keydown', (e) => {
       savedHeightPercent = percent;
       if (isCollapsed) {
         isCollapsed = false;
+        mesasContainer.classList.remove('mesas-recolhida');
+        const ws = document.querySelector('.workspace');
+        if (ws) ws.classList.remove('mesas-collapsed-view');
         if (iconToggle) iconToggle.className = 'ph ph-caret-up';
         if (labelToggle) labelToggle.innerText = 'Recolher';
       }

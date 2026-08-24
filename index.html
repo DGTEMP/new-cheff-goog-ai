@@ -599,13 +599,15 @@
       <span class="menu-trigger" id="menu-ajuda">Ajuda</span>
       <span class="menu-trigger mobile-only-colaborador-btn" onclick="window.zoomQrPonto && window.zoomQrPonto()"><i
           class="ph ph-qr-code"></i> Área Colaborador</span>
+      <span class="menu-trigger community-trigger" id="menu-colaborador-trigger" data-dropdown="qr-ponto-container"><i
+          class="ph ph-qr-code"></i> Colaborador</span>
 
       <!-- Nome do Restaurante (preenchido via licença) -->
       <span class="restaurant-name" id="restaurant-name"
         style="margin-left:auto; font-size:13px; color:#aaa; padding-right:8px;"></span>
 
-      <!-- QR CODE PONTO (DESKTOP) -->
-      <div id="qr-ponto-container" class="qr-ponto-box">
+      <!-- QR CODE PONTO (DESKTOP - DROPDOWN ESTILO COMMUNITY) -->
+      <div id="qr-ponto-container" class="qr-ponto-box dropdown-menu">
         <img id="qr-ponto-img" src="" alt="QR Ponto" class="qr-ponto-img" title="Clique para ampliar"
           onclick="window.zoomQrPonto && window.zoomQrPonto()">
         <div class="qr-ponto-details">
@@ -651,11 +653,7 @@
     <div class="mobile-tabs" id="mobile-workspace-tabs">
       <button class="mobile-tab-btn active" data-tab="tab-mesas">
         <i class="ph ph-squares-four"></i>
-        <span>Mesas</span>
-      </button>
-      <button class="mobile-tab-btn" data-tab="tab-pedido">
-        <i class="ph ph-receipt"></i>
-        <span>Pedido</span>
+        <span>Mesas &amp; Pedido</span>
       </button>
       <button class="mobile-tab-btn" data-tab="tab-acoes">
         <i class="ph ph-sliders"></i>
@@ -964,7 +962,7 @@
               <span id="label-toggle-mesas-section">Recolher</span>
             </button>
           </div>
-          <div id="mesas-collapsed-items" title="Itens da mesa selecionada"></div>
+          <div id="mesas-collapsed-items" title="Comandas da mesa selecionada"></div>
           <div class="mesas-scroll" id="orders-grid">
             <!-- JS vai popular as categorias (Em fechamento, Ocupadas, Disponíveis) -->
           </div>
@@ -2866,9 +2864,6 @@
 
   <div id="app-context-menu"></div>
 
-
-
-  <script src="/fullscreen.js"></script>
 
   <!-- MODAL DE RESERVA DE MESA -->
   <div class="modal-overlay" id="modal-reserva"

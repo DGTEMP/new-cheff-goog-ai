@@ -25,8 +25,14 @@
   if (isDark) document.documentElement.classList.add('dark-mode-pre');
 
   // ─── ROTATION STATE ────────────────────────────────────────────────────────
-  var ROTATE_KEY = 'chef_screen_rotated';
-  var isRotated = localStorage.getItem(ROTATE_KEY) === '1';
+  // A rotação é efêmera (só enquanto o usuário pediu). Nada é persistido:
+  // a orientação volta a seguir o monitor/dispositivo ao reabrir ou trocar
+  // de página. Sem fallback de transform CSS — ele quebrava o layout.
+  var isRotated = false;
+
+  // Na tela principal do CAIXA (index.html) a barra deve ter SOMENTE o botão
+  // de tela cheia — sem modo noturno e sem rotação.
+  var IS_CAIXA_PAGE = location.pathname === '/' || /\/index\.html$/i.test(location.pathname);
 
   // SVG icons
   var SVG_ROTATE = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6"/><path d="M2.5 12A10 10 0 0 1 18.8 4.3l2.7 3.7"/><path d="M2.5 22v-6h6"/><path d="M21.5 12A10 10 0 0 1 5.2 19.7l-2.7-3.7"/></svg>';
@@ -118,71 +124,83 @@
     if (garcomBtn) garcomBtn.innerHTML = isDark ? '<i class="ph ph-sun"></i>' : '<i class="ph ph-moon"></i>';
   });
 
-  // ─── CSS TRANSFORM ROTATION ─────────────────────────────────────────────────
-  function applyCssRotation(on) {
-    var html = document.documentElement;
-    if (on) {
-      var vw = window.innerWidth;
-      var vh = window.innerHeight;
-      html.style.transform = 'rotate(90deg)';
-      html.style.transformOrigin = 'top left';
-      html.style.width  = vh + 'px';
-      html.style.height = vw + 'px';
-      html.style.position = 'absolute';
-      html.style.top  = '0';
-      html.style.left = vh + 'px';
-      html.style.overflow = 'hidden';
-    } else {
-      html.style.transform = '';
-      html.style.transformOrigin = '';
-      html.style.width  = '';
-      html.style.height = '';
-      html.style.position = '';
-      html.style.top  = '';
-      html.style.left = '';
-      html.style.overflow = '';
-    }
-  }
-
   // ─── ROTATION LOGIC ─────────────────────────────────────────────────────────
-  function applyRotation(rotated) {
+  // Somente APIs nativas (Fullscreen + Screen Orientation). O antigo fallback
+  // de transform CSS no <html> quebrava o layout de TODAS as páginas e era
+  // reaplicado via localStorage — foi removido de propósito.
+  function setRotatedUi(rotated) {
+    isRotated = rotated;
     if (rotated) {
-      // Try native Screen Orientation API first (works in fullscreen / PWA on Android)
-      if (screen.orientation && screen.orientation.lock) {
-        screen.orientation.lock('landscape').catch(function() {
-          applyCssRotation(true);
-        });
-      } else {
-        applyCssRotation(true);
-      }
       rotBtn.style.opacity = '1';
       rotBtn.style.color = 'var(--primary, #fc4b15)';
       rotBtn.title = 'Desfazer Rotação';
     } else {
-      if (screen.orientation && screen.orientation.unlock) {
-        try { screen.orientation.unlock(); } catch(e) {}
-      }
-      applyCssRotation(false);
       rotBtn.style.opacity = '0.7';
       rotBtn.style.color = 'inherit';
       rotBtn.title = 'Rotacionar Tela';
     }
   }
 
-  // Apply stored rotation state on page load
-  if (isRotated) {
-    document.addEventListener('DOMContentLoaded', function() { applyRotation(true); });
-    if (document.readyState === 'complete' || document.readyState === 'interactive') {
-      applyRotation(true);
-    }
+  function notify(msg) {
+    if (!document.body) return;
+    var t = document.createElement('div');
+    t.textContent = msg;
+    t.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:80px;' +
+      'z-index:2147483647;background:#1f2937;color:#fff;padding:10px 16px;border-radius:8px;' +
+      'font-size:13px;font-family:sans-serif;box-shadow:0 4px 12px rgba(0,0,0,.3);' +
+      'max-width:90vw;text-align:center;';
+    document.body.appendChild(t);
+    setTimeout(function () { t.remove(); }, 4000);
   }
 
-  rotBtn.addEventListener('click', function(e) {
+  function applyRotation(rotated) {
+    setRotatedUi(rotated);
+    if (!rotated) {
+      if (screen.orientation && screen.orientation.unlock) {
+        try { screen.orientation.unlock(); } catch (err) { }
+      }
+      return;
+    }
+
+    // A trava de orientação exige tela cheia na maioria dos navegadores/PWAs.
+    var openedFsHere = false;
+    var enterFs = Promise.resolve();
+    if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+      enterFs = document.documentElement.requestFullscreen().then(function () {
+        openedFsHere = true;
+      }).catch(function () { });
+    }
+
+    enterFs.then(function () {
+      if (screen.orientation && screen.orientation.lock) {
+        screen.orientation.lock('landscape').catch(function () {
+          // Falhou (desktop com monitor fixo, iOS Safari, permissão negada):
+          // desfaz sem tocar no layout — apenas avisa o usuário.
+          if (openedFsHere && document.exitFullscreen) {
+            try { document.exitFullscreen(); } catch (err) { }
+          }
+          setRotatedUi(false);
+          notify('Não foi possível travar a orientação neste dispositivo. Use a rotação/paisagem do próprio monitor ou aparelho.');
+        });
+      } else {
+        if (openedFsHere && document.exitFullscreen) {
+          try { document.exitFullscreen(); } catch (err) { }
+        }
+        setRotatedUi(false);
+        notify('Este navegador não suporta travar a orientação. Use a rotação do sistema.');
+      }
+    });
+  }
+
+  rotBtn.addEventListener('click', function (e) {
     e.preventDefault();
     e.stopPropagation();
-    isRotated = !isRotated;
-    localStorage.setItem(ROTATE_KEY, isRotated ? '1' : '0');
-    applyRotation(isRotated);
+    applyRotation(!isRotated);
+  });
+
+  // Sair da tela cheia derruba a trava de orientação — sincroniza o botão
+  document.addEventListener('fullscreenchange', function () {
+    if (!document.fullscreenElement && isRotated) setRotatedUi(false);
   });
 
   // ─── GEAR BUTTON (existing) ──────────────────────────────────────────────────
@@ -226,14 +244,12 @@
 
     if (headerRightActions) {
       styleForDark(btn);
-      styleForDark(rotBtn);
-      styleForDark(darkBtn);
+      if (!IS_CAIXA_PAGE) { styleForDark(rotBtn); styleForDark(darkBtn); }
       const wrap = document.createElement('div');
       wrap.style.display = 'flex';
       wrap.style.gap = '6px';
       if (gearBtn) { styleForDark(gearBtn); wrap.appendChild(gearBtn); }
-      wrap.appendChild(darkBtn);
-      wrap.appendChild(rotBtn);
+      if (!IS_CAIXA_PAGE) { wrap.appendChild(darkBtn); wrap.appendChild(rotBtn); }
       wrap.appendChild(btn);
       headerRightActions.prepend(wrap);
 
@@ -245,11 +261,9 @@
       wrapper.style.gap = '6px';
       wrapper.style.paddingRight = '10px';
       styleForLight(btn);
-      styleForLight(rotBtn);
-      styleForLight(darkBtn);
+      if (!IS_CAIXA_PAGE) { styleForLight(rotBtn); styleForLight(darkBtn); }
       if (gearBtn) { styleForLight(gearBtn); wrapper.appendChild(gearBtn); }
-      wrapper.appendChild(darkBtn);
-      wrapper.appendChild(rotBtn);
+      if (!IS_CAIXA_PAGE) { wrapper.appendChild(darkBtn); wrapper.appendChild(rotBtn); }
       wrapper.appendChild(btn);
       topMenubar.appendChild(wrapper);
 
@@ -260,8 +274,7 @@
       wrapper.style.gap = '6px';
       wrapper.style.marginLeft = '8px';
       if (gearBtn) wrapper.appendChild(gearBtn);
-      wrapper.appendChild(darkBtn);
-      wrapper.appendChild(rotBtn);
+      if (!IS_CAIXA_PAGE) { wrapper.appendChild(darkBtn); wrapper.appendChild(rotBtn); }
       wrapper.appendChild(btn);
       headerElement.appendChild(wrapper);
 
@@ -275,38 +288,35 @@
       btn.style.color = 'white';
       document.body.appendChild(btn);
 
-      rotBtn.style.position = 'fixed';
-      rotBtn.style.top = '10px';
-      rotBtn.style.right = '56px';
-      rotBtn.style.zIndex = '999999';
-      rotBtn.style.backgroundColor = '#333';
-      rotBtn.style.color = 'white';
-      document.body.appendChild(rotBtn);
+      if (!IS_CAIXA_PAGE) {
+        rotBtn.style.position = 'fixed';
+        rotBtn.style.top = '10px';
+        rotBtn.style.right = '56px';
+        rotBtn.style.zIndex = '999999';
+        rotBtn.style.backgroundColor = '#333';
+        rotBtn.style.color = 'white';
+        document.body.appendChild(rotBtn);
 
-      darkBtn.style.position = 'fixed';
-      darkBtn.style.top = '10px';
-      darkBtn.style.right = '102px';
-      darkBtn.style.zIndex = '999999';
-      darkBtn.style.backgroundColor = '#333';
-      darkBtn.style.color = isDark ? '#f59e0b' : 'white';
-      document.body.appendChild(darkBtn);
+        darkBtn.style.position = 'fixed';
+        darkBtn.style.top = '10px';
+        darkBtn.style.right = '102px';
+        darkBtn.style.zIndex = '999999';
+        darkBtn.style.backgroundColor = '#333';
+        darkBtn.style.color = isDark ? '#f59e0b' : 'white';
+        document.body.appendChild(darkBtn);
 
-      if (gearBtn) {
-        gearBtn.style.position = 'fixed';
-        gearBtn.style.top = '10px';
-        gearBtn.style.right = '148px';
-        gearBtn.style.zIndex = '999999';
-        gearBtn.style.backgroundColor = '#333';
-        gearBtn.style.color = 'white';
-        document.body.appendChild(gearBtn);
+        if (gearBtn) {
+          gearBtn.style.position = 'fixed';
+          gearBtn.style.top = '10px';
+          gearBtn.style.right = '148px';
+          gearBtn.style.zIndex = '999999';
+          gearBtn.style.backgroundColor = '#333';
+          gearBtn.style.color = 'white';
+          document.body.appendChild(gearBtn);
+        }
       }
     }
 
-    // Highlight rotate button if currently rotated
-    if (isRotated) {
-      rotBtn.style.opacity = '1';
-      rotBtn.style.color = 'var(--primary, #fc4b15)';
-    }
     // Highlight dark mode button if currently dark
     if (isDark) {
       darkBtn.style.opacity = '1';
