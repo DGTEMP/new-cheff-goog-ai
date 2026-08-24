@@ -7367,7 +7367,7 @@ window.filtrarNotasNfce = function () {
               📄 XML
             </button>
             ${n.status === 'Autorizada' ? `
-              <button onclick="window.cancelarNotaNfce(${n.id}, ${n.numero_nota})" title="Cancelar Nota" style="background: #eb5757; color: white; border: none; border-radius: 6px; padding: 6px 10px; font-size: 11px; font-weight: bold; cursor: pointer;">
+              <button onclick="window.cancelarNotaNfce(${n.id}, '${String(n.numero_nota == null ? '' : n.numero_nota).replace(/'/g, "\\'")}')" title="Cancelar Nota" style="background: #eb5757; color: white; border: none; border-radius: 6px; padding: 6px 10px; font-size: 11px; font-weight: bold; cursor: pointer;">
                 ✖ Cancelar
               </button>
             ` : ''}
