@@ -1746,6 +1746,7 @@ function renderOrders() {
       const actRelatorios = document.getElementById('action-group-relatorios');
 
       window.mesaAtual = item;
+      document.body.classList.add('mesa-selecionada');
       window.descontoAdicional = 0;
       if (typeof window.renderItensRecolhidosMesas === 'function') {
         try { window.renderItensRecolhidosMesas(); } catch (e) { }
@@ -2368,6 +2369,7 @@ socket.on('mesa_finalizada', ({ mesaName }) => {
   if (window.mesaAtual && (window.mesaAtual.nome || window.mesaAtual.mesaName) === mesaName) {
     window.fecharCheckoutModal();
     window.mesaAtual = null;
+    document.body.classList.remove('mesa-selecionada');
     const acoesSummary = document.getElementById('mobile-acoes-summary');
     if (acoesSummary) acoesSummary.style.display = 'none';
   }
@@ -7374,6 +7376,41 @@ window.filtrarNotasNfce = function () {
       </tr>
     `;
   }).join('');
+};
+
+// --- Ações da lista de NFC-e (usadas pelo overlay #nfce-overlay em index.html) ---
+// Estavam definidas apenas em configuracoes.js / num script de patch, então
+// no PDV a primeira ação (DANFE) não funcionava. Definidas aqui para valer em
+// qualquer página que abra o overlay.
+window.imprimirDanfeNfce = function (id) {
+  if (!id) return;
+  const rid = encodeURIComponent(localStorage.getItem('restaurante_id') || '1');
+  window.open('/api/nfce/danfe/' + id + '?restaurante_id=' + rid, '_blank', 'width=420,height=650,scrollbars=yes');
+};
+
+window.baixarXmlNfce = function (id) {
+  if (!id) return;
+  const rid = encodeURIComponent(localStorage.getItem('restaurante_id') || '1');
+  window.open('/api/nfce/xml/' + id + '?restaurante_id=' + rid, '_blank');
+};
+
+window.cancelarNotaNfce = function (id, numero_nota) {
+  const notaMsg = numero_nota ? `Nº ${numero_nota}` : `ID ${id}`;
+  const motivo = prompt(`Informe o motivo do cancelamento da NFC-e (${notaMsg}) - mínimo 15 caracteres:`);
+  if (!motivo || motivo.trim().length < 15) {
+    alert('O motivo do cancelamento deve ter no mínimo 15 caracteres.');
+    return;
+  }
+  if (typeof socket !== 'undefined' && socket) {
+    socket.emit('cancelar_nfce', { id, motivo: motivo.trim() }, (res) => {
+      if (res && res.ok) {
+        alert('NFC-e cancelada com sucesso!');
+        if (typeof window.carregarNotasNfce === 'function') window.carregarNotasNfce();
+      } else {
+        alert('Erro ao cancelar NFC-e: ' + (res && res.error ? res.error : 'Erro desconhecido.'));
+      }
+    });
+  }
 };
 
 

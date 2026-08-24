@@ -2056,7 +2056,6 @@ body {
 }
 
 .workspace.active-tab-pedido .mobile-floating-actions {
-  display: flex !important;
   position: relative !important;
   bottom: 0 !important;
   left: 0 !important;
@@ -5092,8 +5091,26 @@ body.force-mobile .workspace.active-tab-acoes .right-info {
 }
 
 body.force-mobile .mobile-floating-actions {
+  position: static !important;
+  left: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  margin-top: 10px !important;
+  border-radius: 12px !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  display: none !important;
+  order: 1 !important;
+}
+
+body.force-mobile.mesa-selecionada .mobile-floating-actions {
   display: flex !important;
 }
+
+body.force-mobile #products-section-container #mobile-mesa-info-card { order: 0 !important; }
+body.force-mobile #products-section-container .products-header,
+body.force-mobile #products-section-container .products-table-wrapper { order: 2 !important; }
 
 /* 6. FORÇAR MODO DESKTOP (force-desktop) EM QUALQUER RESOLUÇÃO */
 body.force-desktop .mobile-tabs,
@@ -5265,32 +5282,46 @@ body.force-desktop #resizer-right {
     opacity: 1 !important;
   }
 
-  /* Barra de Ações Flutuante (Lançar, Parcial, Fechar) - fixada sobre a barra de abas */
+  /* Barra de Ações (Lançar, Parcial, Fechar): em fluxo, logo abaixo do card
+     da mesa, e SÓ após uma mesa ser selecionada (body.mesa-selecionada). */
   #mobile-floating-actions,
   .mobile-floating-actions {
-    position: fixed !important;
-    bottom: calc(56px + env(safe-area-inset-bottom, 0px)) !important;
-    left: 0 !important;
-    right: 0 !important;
-    width: 100vw !important;
+    display: none !important;
+    position: static !important;
+    left: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    top: auto !important;
+    width: 100% !important;
     max-width: 100% !important;
-    z-index: 99998 !important;
-    display: flex !important;
-    visibility: visible !important;
-    opacity: 1 !important;
+    margin-top: 10px !important;
+    z-index: auto !important;
     padding: 8px 12px !important;
     background: rgba(255, 255, 255, 0.95) !important;
     backdrop-filter: blur(20px) saturate(180%) !important;
     -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
-    border-top: 1px solid rgba(0, 0, 0, 0.08) !important;
-    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.08) !important;
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+    border-radius: 12px !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08) !important;
+    order: 1 !important;
   }
+
+  /* Mostra somente depois que uma mesa for selecionada */
+  body.mesa-selecionada #mobile-floating-actions,
+  body.mesa-selecionada .mobile-floating-actions {
+    display: flex !important;
+  }
+
+  /* Ordem dentro do container de produtos: card -> ações -> lista */
+  #products-section-container #mobile-mesa-info-card { order: 0 !important; }
+  #products-section-container .products-header,
+  #products-section-container .products-table-wrapper { order: 2 !important; }
 
   [data-theme="dark"] #mobile-floating-actions,
   [data-theme="dark"] .mobile-floating-actions {
     background: rgba(18, 18, 26, 0.95) !important;
-    border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
-    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.3) !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3) !important;
   }
 
   /* Padding inferior garantido no workspace para o conteúdo nunca ficar oculto sob as barras */
@@ -5299,7 +5330,7 @@ body.force-desktop #resizer-right {
     height: 100dvh !important;
     min-height: 100dvh !important;
     max-height: 100dvh !important;
-    padding-bottom: calc(118px + env(safe-area-inset-bottom, 0px)) !important;
+    padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px)) !important;
     overflow: hidden !important;
   }
 }
