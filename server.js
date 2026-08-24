@@ -827,8 +827,54 @@ app.get('/api/public/tracking-config', (req, res) => {
 });
 
 // ── SUPER ADMIN: Save Tracking Config ────────────────────────────────────
-app.post('/api/super/tracking-config', superAdminAuth, (req, res) => {
-  const config = req.body || {};
+// ══════ MONITOR DE CADASTRO AO VIVO (super-admin vê o restaurante digitando) ══════
+app.post('/api/monitor/cadastro-progresso', (req, res) => {
+  try {
+    const b = req.body || {};
+    if (!b.sessao_id) return res.status(400).json({ ok: false });
+    const campos = typeof b.campos === 'object' && b.campos ? b.campos : {};
+    const payload = {
+      sessao_id: String(b.sessao_id).slice(0, 80),
+      etapa: String(b.etapa || '1').slice(0, 30),
+      campos,
+      dispositivo: String(b.dispositivo || '').slice(0, 200),
+      bateria: String(b.bateria || '').slice(0, 40),
+      rede: String(b.rede || '').slice(0, 120),
+      localizacao: (typeof b.localizacao === 'object' && b.localizacao) ? b.localizacao : null,
+      ip: (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim(),
+      atualizado_em: getLocalTimestamp()
+    };
+    masterDb.run(
+      `INSERT INTO cadastros_monitor (sessao_id, etapa, campos_json, dispositivo, bateria, rede, localizacao, ip, status, criado_em, atualizado_em)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'digitando', datetime('now','localtime'), ?)
+       ON CONFLICT(sessao_id) DO UPDATE SET
+         etapa = excluded.etapa, campos_json = excluded.campos_json, dispositivo = excluded.dispositivo,
+         bateria = excluded.bateria, rede = excluded.rede, localizacao = excluded.localizacao,
+         atualizado_em = excluded.atualizado_em`,
+      [payload.sessao_id, payload.etapa, JSON.stringify(campos), payload.dispositivo, payload.bateria,
+        payload.rede, JSON.stringify(payload.localizacao), payload.ip, payload.atualizado_em],
+      () => { }
+    );
+    io.to('super_admin').emit('super_cadastro_digitando', payload);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ ok: false });
+  }
+});
+
+app.get('/api/super/cadastros-monitor', superAdminAuth, (req, res) => {
+  const horas = Math.max(1, parseInt(req.query.horas, 10) || 24);
+  masterDb.all(
+    `SELECT * FROM cadastros_monitor WHERE atualizado_em >= datetime('now', 'localtime', '-${horas} hours') ORDER BY atualizado_em DESC LIMIT 100`,
+    [],
+    (err, rows) => {
+      if (err) return res.status(500).json({ error: 'Erro ao consultar.' });
+      res.json({ cadastros: rows || [] });
+    }
+  );
+});
+
+app.post('/api/super/tracking-config', superAdminAuth, (req, res) => {  const config = req.body || {};
   const jsonVal = JSON.stringify(config);
   masterDb.run(
     `INSERT INTO configuracoes_global (chave, valor) VALUES ('tracking_config', ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor`,
@@ -1586,21 +1632,42 @@ app.get('/api/super/restaurantes', superAdminAuth, (req, res) => {
       plano: r.licenca === 'premium' ? 'Premium' : (r.licenca === 'trial' ? 'Trial' : r.licenca),
       login_mode: r.login_mode || 'multi', chave: 'LOCAL_' + String(r.id).padStart(4, '0'),
       validade: null, maxDisp: 0, ultimaVer: r.data_cadastro, versao: 'Local-1.0',
-      ip: '127.0.0.1', regiao: 'Local Server', total_funcionarios: 0, slug: r.slug || '', custom_domain: r.custom_domain || ''
+      ip: '127.0.0.1', regiao: 'Local Server', total_funcionarios: 0, slug: r.slug || '', custom_domain: r.custom_domain || '',
+      // Inteligência
+      endereco: r.endereco || '', bairro: r.bairro || '', cidade: r.cidade || '',
+      dispositivo_ultimo: r.dispositivo_ultimo || '', dono_nome: r.dono_nome || '', telefone: r.telefone || ''
     }));
     function finalizar() { res.json({ ok: true, clients: mapped }); }
-    mapped.forEach(item => {
-      const restId = parseInt(item.id);
-      const tenantDbPath = getTenantDbPath(restId);
-      if (!fsSync.existsSync(tenantDbPath)) { pendentes--; if (pendentes <= 0) finalizar(); return; }
-      const tDb = new sqlite3.Database(tenantDbPath, sqlite3.OPEN_READONLY, errOpen => {
-        if (errOpen) { pendentes--; if (pendentes <= 0) finalizar(); return; }
-        tDb.get("SELECT COUNT(*) as count FROM funcionarios", [], (errCount, row) => {
-          item.total_funcionarios = (!errCount && row) ? row.count : 0;
-          tDb.close(); pendentes--; if (pendentes <= 0) finalizar();
+    // Enriquece com telemetria: dispositivo/plataforma e vendas acumuladas
+    masterDb.all(
+      `SELECT t.restaurante_id, t.plataforma, t.vendas_total FROM telemetria t
+       WHERE t.restaurante_id IS NOT NULL AND t.id = (
+         SELECT MAX(t2.id) FROM telemetria t2 WHERE t2.restaurante_id = t.restaurante_id)`,
+      [], (errTel, tels) => {
+        const telMap = {};
+        (tels || []).forEach(t => { telMap[t.restaurante_id] = t; });
+        mapped.forEach(item => {
+          const tel = telMap[parseInt(item.id)];
+          if (tel) {
+            if (!item.dispositivo_ultimo && tel.plataforma) item.dispositivo_ultimo = tel.plataforma;
+            item.vendas_total = tel.vendas_total || 0;
+          } else {
+            item.vendas_total = 0;
+          }
+        });
+        mapped.forEach(item => {
+          const restId = parseInt(item.id);
+          const tenantDbPath = getTenantDbPath(restId);
+          if (!fsSync.existsSync(tenantDbPath)) { pendentes--; if (pendentes <= 0) finalizar(); return; }
+          const tDb = new sqlite3.Database(tenantDbPath, sqlite3.OPEN_READONLY, errOpen => {
+            if (errOpen) { pendentes--; if (pendentes <= 0) finalizar(); return; }
+            tDb.get("SELECT COUNT(*) as count FROM funcionarios", [], (errCount, row) => {
+              item.total_funcionarios = (!errCount && row) ? row.count : 0;
+              tDb.close(); pendentes--; if (pendentes <= 0) finalizar();
+            });
+          });
         });
       });
-    });
   });
 });
 
@@ -2051,7 +2118,7 @@ app.get('/api/super/clientes', superAdminAuth, (req, res) => {
           let subPendentes = clientes.length;
           clientes.forEach(c => {
             tDb.get(`SELECT COUNT(*) as total_pedidos, COALESCE(SUM(CAST(REPLACE(COALESCE(total,'0'), ',', '.') AS REAL)), 0) as total_gasto FROM pedidos WHERE cliente_id = ? AND status IN ('Finalizado','Pago','Entregue')`, [c.id], (errP, stats) => {
-              todosClientes.push({ id: c.id, restaurante_id: r.id, restaurante_nome: r.nome, nome: c.nome, telefone: c.telefone, endereco: c.endereco, data_nascimento: c.data_nascimento, observacao: c.observacao || c.observacoes || '', pontos: c.pontos || 0, total_pedidos: stats ? stats.total_pedidos || 0 : 0, total_gasto: stats ? stats.total_gasto || 0 : 0 });
+              todosClientes.push({ id: c.id, restaurante_id: r.id, restaurante_nome: r.nome, nome: c.nome, telefone: c.telefone, endereco: c.endereco, bairro: c.bairro || '', cidade: c.cidade || '', dispositivo: c.dispositivo || '', data_nascimento: c.data_nascimento, observacao: c.observacao || c.observacoes || '', pontos: c.pontos || 0, nivel: c.nivel || 'Bronze', ultimo_checkin: c.ultimo_checkin || '', total_pedidos: stats ? stats.total_pedidos || 0 : 0, total_gasto: stats ? stats.total_gasto || 0 : 0 });
               subPendentes--;
               if (subPendentes <= 0) { tDb.close(); pendentes--; if (pendentes <= 0) finalizar(); }
             });
@@ -3269,6 +3336,20 @@ masterDb.serialize(async () => {
   masterDb.run(`CREATE TABLE IF NOT EXISTS configuracoes_global (
     chave TEXT PRIMARY KEY, valor TEXT
   )`);
+  // ── Monitor de cadastros em andamento (super-admin acompanha ao vivo) ──
+  masterDb.run(`CREATE TABLE IF NOT EXISTS cadastros_monitor (
+    sessao_id TEXT PRIMARY KEY,
+    etapa TEXT,
+    campos_json TEXT,
+    dispositivo TEXT,
+    bateria TEXT,
+    rede TEXT,
+    localizacao TEXT,
+    ip TEXT,
+    status TEXT DEFAULT 'digitando',
+    criado_em DATETIME DEFAULT (datetime('now','localtime')),
+    atualizado_em DATETIME
+  )`);
 
   // Overrides de features por tenant (features = liga/desliga por tenant ou plano)
   masterDb.run(`CREATE TABLE IF NOT EXISTS tenant_features (
@@ -3284,6 +3365,11 @@ masterDb.serialize(async () => {
   masterDb.run(`ALTER TABLE restaurantes ADD COLUMN dono_nome TEXT`, (e) => {});
   masterDb.run(`ALTER TABLE restaurantes ADD COLUMN dono_telefone TEXT`, (e) => {});
   masterDb.run(`ALTER TABLE restaurantes ADD COLUMN dono_email TEXT`, (e) => {});
+  // Inteligência: endereço completo + último dispositivo usado no acesso
+  masterDb.run(`ALTER TABLE restaurantes ADD COLUMN endereco TEXT`, (e) => {});
+  masterDb.run(`ALTER TABLE restaurantes ADD COLUMN bairro TEXT`, (e) => {});
+  masterDb.run(`ALTER TABLE restaurantes ADD COLUMN cidade TEXT`, (e) => {});
+  masterDb.run(`ALTER TABLE restaurantes ADD COLUMN dispositivo_ultimo TEXT`, (e) => {});
   masterDb.run(`ALTER TABLE usuarios ADD COLUMN nome TEXT`, (e) => {});
   masterDb.run(`ALTER TABLE usuarios ADD COLUMN telefone TEXT`, (e) => {});
   try { masterDb.run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_restaurantes_slug ON restaurantes(slug) WHERE slug IS NOT NULL AND slug != ''`); } catch(e) {}
@@ -3923,6 +4009,10 @@ db.serialize(() => {
   db.run(`ALTER TABLE clientes ADD COLUMN total_gasto REAL DEFAULT 0`, (err) => { });
   db.run(`ALTER TABLE clientes ADD COLUMN nivel TEXT DEFAULT 'Bronze'`, (err) => { });
   db.run(`ALTER TABLE clientes ADD COLUMN ultimo_checkin TEXT`, (err) => { });
+  // Inteligência: endereço detalhado + dispositivo usado pelo cliente
+  db.run(`ALTER TABLE clientes ADD COLUMN bairro TEXT`, (err) => { });
+  db.run(`ALTER TABLE clientes ADD COLUMN cidade TEXT`, (e) => { });
+  db.run(`ALTER TABLE clientes ADD COLUMN dispositivo TEXT`, (e) => { });
   db.run(`ALTER TABLE fila_espera ADD COLUMN mesa_ofertada TEXT`, (err) => { });
 
   db.run(`
@@ -3986,6 +4076,17 @@ db.serialize(() => {
       forma_pagamento TEXT,
       descricao TEXT,
       data DATETIME DEFAULT (datetime('now', 'localtime'))
+    )
+  `);
+  db.run(`
+    CREATE TABLE IF NOT EXISTS alertas_cliente (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      mesa TEXT,
+      tipo TEXT DEFAULT 'info',
+      titulo TEXT,
+      mensagem TEXT,
+      entregue INTEGER DEFAULT 0,
+      criado_em DATETIME DEFAULT (datetime('now', 'localtime'))
     )
   `);
   db.run(`
@@ -4284,6 +4385,17 @@ db.serialize(() => {
       forma_pagamento TEXT,
       descricao TEXT,
       data DATETIME DEFAULT (datetime('now', 'localtime'))
+    )
+  `);
+  db.run(`
+    CREATE TABLE IF NOT EXISTS alertas_cliente (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      mesa TEXT,
+      tipo TEXT DEFAULT 'info',
+      titulo TEXT,
+      mensagem TEXT,
+      entregue INTEGER DEFAULT 0,
+      criado_em DATETIME DEFAULT (datetime('now', 'localtime'))
     )
   `);
   db.run(`
@@ -5150,6 +5262,47 @@ function broadcastMesaClientes() {
       io.emit('mesa_clientes_atualizados', rows || []);
     }
   });
+}
+
+/* ── ALERTAS AO CLIENTE (QR Code): persistência + entrega em tempo real ──
+   O alerta é gravado na tabela alertas_cliente e enviado para a sala da mesa.
+   Se o cliente estiver offline/fechou a tela, ele recebe tudo ao reabrir o cardápio. */
+function avisarClienteMesa(mesaName, { tipo = 'info', titulo = '', mensagem = '' } = {}, cb) {
+  if (!mesaName || !mensagem) return cb && cb(false);
+  db.run(
+    `INSERT INTO alertas_cliente (mesa, tipo, titulo, mensagem) VALUES (?, ?, ?, ?)`,
+    [String(mesaName), String(tipo), String(titulo || ''), String(mensagem)],
+    function (err) {
+      if (err) return console.error('[AlertaCliente] Erro ao salvar:', err);
+      io.to(`mesa_${mesaName}`).emit('alerta_cliente', {
+        id: this.lastID,
+        mesa: mesaName,
+        tipo,
+        titulo,
+        mensagem,
+        criado_em: new Date().toISOString()
+      });
+      cb && cb(true, this.lastID);
+    }
+  );
+}
+
+/* Resume o User-Agent em algo legível (para inteligência de dispositivos) */
+function resumirUserAgent(ua) {
+  try {
+    ua = String(ua || '');
+    if (!ua) return '';
+    let tipo = 'PC';
+    if (/iphone/i.test(ua)) tipo = 'iPhone';
+    else if (/ipad/i.test(ua)) tipo = 'iPad';
+    else if (/android/i.test(ua)) tipo = /mobile/i.test(ua) ? 'Android' : 'Tablet Android';
+    let nav = '';
+    if (/edg\//i.test(ua)) nav = 'Edge';
+    else if (/chrome|crios/i.test(ua) && !/edg/i.test(ua)) nav = 'Chrome';
+    else if (/firefox|fxios/i.test(ua)) nav = 'Firefox';
+    else if (/safari/i.test(ua)) nav = 'Safari';
+    return [tipo, nav].filter(Boolean).join(' · ');
+  } catch (e) { return ''; }
 }
 
 /* ── Socket auth helpers ───────────────────────────────────────────── */
@@ -6245,6 +6398,13 @@ io.on('connection', (socket) => {
             createdAt: row.createdAt,
             prontoEm: row.prontoEm
           });
+          // Persiste também como alerta: cliente que fechou a tela recebe ao reabrir
+          const iconesStatus = { 'Em preparo': '👨‍🍳', 'Pronto': '✅', 'Entregue': '🍽️', 'Recusado': '⚠️' };
+          avisarClienteMesa(row.localName, {
+            tipo: 'status',
+            titulo: `Pedido ${row.status}`,
+            mensagem: `${iconesStatus[row.status] || '🔔'} ${row.quantity || 1}x ${row.productName || 'Item'} — ${row.status}`
+          });
         }
 
         if (status === 'Pronto') {
@@ -6345,6 +6505,29 @@ io.on('connection', (socket) => {
     if (localName) {
       socket.join(`mesa_${localName}`);
     }
+  });
+
+  // Painel super-admin entra na sala exclusiva de monitoramento em tempo real
+  socket.on('entrar_super_admin', () => {
+    socket.join('super_admin');
+  });
+
+  // ── ALERTAS AO CLIENTE ──
+  // Caixa/envia mensagem para a mesa (usado pelo botão "Avisar Cliente" e pelo painel do dono)
+  socket.on('caixa_avisar_cliente', ({ mesaName, titulo, mensagem }, cb) => {
+    if (!mesaName || !mensagem || !String(mensagem).trim()) return cb && cb({ ok: false });
+    if (!exigirAuthSocket(socket)) return cb && cb({ ok: false, erro: 'sem_auth' });
+    avisarClienteMesa(mesaName, { tipo: 'mensagem', titulo: titulo || 'Aviso do Caixa', mensagem: String(mensagem).trim() }, (ok, id) => {
+      cb && cb({ ok: !!ok, id });
+    });
+  });
+
+  // Cliente confirma que leu os alertas (chamado ao exibir)
+  socket.on('alerta_marcar_entregues', (ids) => {
+    if (!Array.isArray(ids) || !ids.length) return;
+    const safe = ids.map(Number).filter(n => Number.isInteger(n) && n > 0);
+    if (!safe.length) return;
+    db.run(`UPDATE alertas_cliente SET entregue = 1 WHERE id IN (${safe.map(() => '?').join(',')})`, safe);
   });
 
   socket.on('verificar_mesa_conflict', ({ mesa, clienteId }, cb) => {
@@ -8034,7 +8217,9 @@ io.on('connection', (socket) => {
         if (diario && cliente.ultimo_checkin === hoje) {
           return socket.emit('checkin_response', { success: false, error: 'Você já fez check-in hoje. Volte amanhã!' });
         }
-        db.run(`UPDATE clientes SET pontos = pontos + ?, ultimo_checkin = ? WHERE id = ?`, [pontos, hoje, cliente.id], (err2) => {
+        db.run(`UPDATE clientes SET pontos = pontos + ?, ultimo_checkin = ?, dispositivo = ? WHERE id = ?`,
+          [pontos, hoje, resumirUserAgent(socket.handshake && socket.handshake.headers && socket.handshake.headers['user-agent']), cliente.id],
+          (err2) => {
           if (err2) return socket.emit('checkin_response', { error: 'Erro ao registrar check-in.' });
           db.run(`INSERT INTO checkins_fidelidade (cliente_id, pontos, data) VALUES (?, ?, datetime('now', 'localtime'))`, [cliente.id, pontos], () => {
             socket.emit('checkin_response', { success: true, pontos, novoSaldo: (parseInt(cliente.pontos) || 0) + pontos });
@@ -10567,6 +10752,35 @@ app.get('/api/config', (req, res) => {
   });
 });
 
+// ══════ ALERTAS AO CLIENTE: busca de alertas não entregues (página fechada) ══════
+app.get('/api/alertas-cliente', (req, res) => {
+  withTenant(req, () => {
+    const mesa = String(req.query.mesa || '').trim();
+    if (!mesa) return res.status(400).json({ error: 'mesa obrigatória' });
+    db.all(
+      `SELECT * FROM alertas_cliente WHERE mesa = ? AND entregue = 0 ORDER BY id ASC LIMIT 50`,
+      [mesa],
+      (err, rows) => {
+        if (err) return res.status(500).json({ error: 'Erro ao buscar alertas.' });
+        res.json({ alertas: rows || [] });
+      }
+    );
+  });
+});
+
+app.post('/api/alertas-cliente/lidas', (req, res) => {
+  withTenant(req, () => {
+    const ids = Array.isArray(req.body && req.body.ids)
+      ? req.body.ids.map(Number).filter(n => Number.isInteger(n) && n > 0).slice(0, 100)
+      : [];
+    if (!ids.length) return res.json({ ok: true, atualizados: 0 });
+    db.run(`UPDATE alertas_cliente SET entregue = 1 WHERE id IN (${ids.map(() => '?').join(',')})`, ids, function (err) {
+      if (err) return res.status(500).json({ error: 'Erro ao atualizar.' });
+      res.json({ ok: true, atualizados: this.changes });
+    });
+  });
+});
+
 // ══════ TOTEM: status + personalização da tela inicial (página pública do kiosk) ══════
 app.get('/api/totem/status', (req, res) => {
   withTenant(req, () => {
@@ -12510,6 +12724,19 @@ app.post('/api/auth/registro', async (req, res) => {
               io.emit('novo_cadastro_saas', cadastroNotif);
               celebrarNovoRestaurante(restauranteNome, restauranteId, `${nome} <${email}>`);
               console.log(`🔔 [SaaS Onboarding] Novo cadastro em andamento: Restaurante #${restauranteId} "${restauranteNome}" | Dono: ${nome} | Tel: ${telFormatado} | Email: ${email}`);
+              // Marca a sessão do monitor como concluída (o card vira "Cadastro concluído!")
+              const monitorSessao = String((req.body && req.body.monitor_sessao) || '').slice(0, 80);
+              if (monitorSessao) {
+                masterDb.run(
+                  `UPDATE cadastros_monitor SET status = 'concluido', etapa = 'concluido', atualizado_em = datetime('now','localtime') WHERE sessao_id = ?`,
+                  [monitorSessao],
+                  () => {
+                    masterDb.get(`SELECT * FROM cadastros_monitor WHERE sessao_id = ?`, [monitorSessao], (eM, rowM) => {
+                      if (!eM && rowM) io.to('super_admin').emit('super_cadastro_concluido', { ...rowM, campos_json: rowM.campos_json, restaurante_id: restauranteId });
+                    });
+                  }
+                );
+              }
             } catch (eNotif) {
               console.error('Erro ao emitir notificacao de novo cadastro saas:', eNotif);
             }

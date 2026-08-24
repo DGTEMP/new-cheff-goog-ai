@@ -1374,7 +1374,10 @@
     </div>
   </div>
 
-  <!-- Toast Notification -->
+  <!-- Toast Notification (empilhável: cada aviso cria o próprio card) -->
+  <div id="toast-stack"
+    style="position:fixed; top:20px; right:20px; z-index:100001; display:flex; flex-direction:column; gap:8px; max-width:330px; width:calc(100vw - 40px); pointer-events:none;">
+  </div>
   <div id="toast-notification"
     style="display:none; position:fixed; top:20px; right:20px; background:#10b981; color:white; padding:12px 20px; border-radius:12px; box-shadow:0 8px 30px rgba(0,0,0,0.15); z-index:100000; font-size:14px; font-weight:600; max-width:320px; align-items:center; gap:8px;">
     <i class="ph ph-check-circle"></i>
@@ -1382,6 +1385,18 @@
   </div>
 
   <style>
+    @keyframes chefToastIn {
+      from {
+        opacity: 0;
+        transform: translateX(40px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
     @keyframes spin {
       0% {
         transform: rotate(0deg);
@@ -2373,11 +2388,111 @@
     });
 
     function showToast(message) {
-      const toast = document.getElementById('toast-notification');
-      document.getElementById('toast-message').innerText = message;
-      toast.style.display = 'flex';
-      setTimeout(() => { toast.style.display = 'none'; }, 5000);
+      // Toast EMPILHÁVEL: cada mensagem cria seu próprio card (não sobrescreve avisos abertos)
+      const stack = document.getElementById('toast-stack');
+      if (!stack) { alert(message); return; }
+      const card = document.createElement('div');
+      card.style.cssText =
+        'display:flex;align-items:center;gap:8px;background:#10b981;color:#fff;padding:12px 16px;border-radius:12px;' +
+        'box-shadow:0 8px 30px rgba(0,0,0,0.18);font-size:14px;font-weight:600;pointer-events:auto;' +
+        'animation:chefToastIn .3s ease;transition:opacity .4s ease,transform .4s ease;';
+      const icon = document.createElement('i');
+      icon.className = 'ph ph-check-circle';
+      icon.style.fontSize = '18px';
+      const span = document.createElement('span');
+      span.innerText = message;
+      card.appendChild(icon);
+      card.appendChild(span);
+      stack.appendChild(card);
+      while (stack.children.length > 5) stack.removeChild(stack.firstChild);
+      setTimeout(() => {
+        card.style.opacity = '0';
+        card.style.transform = 'translateX(30px)';
+        setTimeout(() => card.remove(), 450);
+      }, 6000);
     }
+
+    // ══════ ALERTAS DO CAIXA / COZINHA PARA O CLIENTE ══════
+    // Empilha vários alertas simultâneos e guarda os não lidos:
+    // se o cliente fechar a página, recebe tudo ao reabrir.
+    function mostrarAlertaCliente(a) {
+      const stack = document.getElementById('toast-stack');
+      if (!stack) return;
+      const cores = {
+        status: '#2563eb',
+        mensagem: '#fc4b15',
+        promocao: '#7c3aed',
+        info: '#0ea5e9'
+      };
+      const cor = cores[a.tipo] || cores.info;
+      const card = document.createElement('div');
+      card.style.cssText =
+        'display:flex;gap:10px;align-items:flex-start;background:#fff;color:#1e293b;padding:14px 16px;border-radius:14px;' +
+        'border-left:5px solid ' + cor + ';box-shadow:0 12px 40px rgba(0,0,0,0.22);font-size:13.5px;pointer-events:auto;' +
+        'animation:chefToastIn .35s ease;';
+      let icone = '🔔';
+      if (a.tipo === 'status') icone = a.titulo && a.titulo.includes('Pronto') ? '✅' : (a.titulo && a.titulo.includes('preparo') ? '👨‍🍳' : '🍽️');
+      if (a.tipo === 'mensagem') icone = '💬';
+      if (a.tipo === 'promocao') icone = '🎁';
+      card.innerHTML =
+        '<div style="font-size:22px;line-height:1;">' + icone + '</div>' +
+        '<div style="flex:1;"><div style="font-weight:800;font-size:13px;color:' + cor + ';margin-bottom:2px;">' +
+        (a.titulo ? String(a.titulo) : 'Aviso') + '</div>' +
+        '<div style="color:#334155;line-height:1.45;">' + String(a.mensagem || '') + '</div>' +
+        '<div style="margin-top:6px;font-size:11px;color:#94a3b8;">' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) + '</div></div>';
+      const btnFechar = document.createElement('button');
+      btnFechar.innerHTML = '&times;';
+      btnFechar.style.cssText = 'background:none;border:none;font-size:20px;color:#94a3b8;cursor:pointer;padding:0 2px;line-height:1;';
+      btnFechar.onclick = () => card.remove();
+      card.appendChild(btnFechar);
+      stack.appendChild(card);
+      while (stack.children.length > 5) stack.removeChild(stack.firstChild);
+      setTimeout(() => {
+        card.style.transition = 'opacity .5s ease';
+        card.style.opacity = '0';
+        setTimeout(() => card.remove(), 550);
+      }, 12000);
+      // Notificação nativa do navegador/PWA quando permitido
+      try {
+        if ('Notification' in window && Notification.permission === 'granted' && document.hidden) {
+          new Notification(a.titulo || 'Chef Cozinha', { body: a.mensagem || '', icon: '/icons/icon-192.png' });
+        }
+      } catch (e) { }
+    }
+
+    socket.on('alerta_cliente', (a) => {
+      if (!a) return;
+      mostrarAlertaCliente(a);
+      try { localStorage.setItem('chef_ultimo_alerta_' + mesaNome, JSON.stringify(a)); } catch (e) { }
+      if (a.id) socket.emit('alerta_marcar_entregues', [a.id]);
+      // Pede permissão de notificação após primeira interação (política dos navegadores)
+      try {
+        if ('Notification' in window && Notification.permission === 'default') {
+          Notification.requestPermission();
+        }
+      } catch (e) { }
+    });
+
+    // Resgate de alertas perdidos (cliente fechou/reabriu a tela)
+    (function resgatarAlertasPerdidos() {
+      if (!mesaNome) return;
+      fetch('/api/alertas-cliente?mesa=' + encodeURIComponent(mesaNome))
+        .then(r => r.json())
+        .then(d => {
+          const lista = (d && d.alertas) || [];
+          if (!lista.length) return;
+          lista.forEach((a, i) => setTimeout(() => mostrarAlertaCliente(a), i * 700));
+          const ids = lista.map(x => x.id).filter(Boolean);
+          if (ids.length) {
+            fetch('/api/alertas-cliente/lidas', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ ids })
+            }).catch(() => { });
+          }
+        })
+        .catch(() => { });
+    })();
 
     // --- PWA Install Prompt (pós-pedido QR) ---
     let deferredPwaPrompt = null;
@@ -2423,10 +2538,22 @@
     }
 
     function showPwaOrderPrompt() {
-      if (!pwaOrderAvailable()) return;
-      if (sessionStorage.getItem('chef_pwa_order_asked') === '1') return;
-      sessionStorage.setItem('chef_pwa_order_asked', '1');
+      if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return;
+      // Cooldown de 24h (antes era 1x por sessão e o cliente nunca mais via o convite)
+      try {
+        const ultimo = parseInt(localStorage.getItem('chef_pwa_order_asked_at') || '0', 10);
+        if (Date.now() - ultimo < 24 * 60 * 60 * 1000) return;
+      } catch (e) { }
+      try { localStorage.setItem('chef_pwa_order_asked_at', String(Date.now())); } catch (e) { }
       pwaOrderStyles();
+
+      var ehIos = /iphone|ipad|ipod/i.test(navigator.userAgent) ||
+        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      // iOS não dispara beforeinstallprompt: mostra instruções manuais de instalação
+      if (!pwaOrderAvailable() && !ehIos) {
+        registrarServiceWorkerPwa();
+        return;
+      }
       var overlay = document.createElement('div');
       overlay.id = 'chef-pwa-order-overlay';
       overlay.innerHTML =
@@ -2434,25 +2561,33 @@
         '<div class="chef-pwa-order-icon">📱</div>' +
         '<div class="chef-pwa-order-title">Quer acompanhar seu pedido?</div>' +
         '<div class="chef-pwa-order-text">Instale o app do Chef Cozinha para acompanhar seu pedido em tempo real e verificar seus benefícios e pontos.</div>' +
-        '<button class="chef-pwa-order-btn" id="chef-pwa-order-install">Instalar app</button>' +
+        '<button class="chef-pwa-order-btn" id="chef-pwa-order-install">' + (deferredPwaPrompt ? 'Instalar app' : 'Como instalar no iPhone 🍎') + '</button>' +
         '<button class="chef-pwa-order-secondary" id="chef-pwa-order-track">Acompanhar pedido</button>' +
         '<button class="chef-pwa-order-secondary" id="chef-pwa-order-benefits">Ver benefícios</button>' +
         '<button class="chef-pwa-order-link" id="chef-pwa-order-later">Agora não</button>' +
         '</div>';
+      if (ehIos && !deferredPwaPrompt) {
+        overlay.querySelector('.chef-pwa-order-text').innerText =
+          'No iPhone: toque no botão Compartilhar (□↑) na barra do Safari e depois em "Adicionar à Tela de Início". Assim você acompanha seu pedido em tempo real!';
+      }
       var closeOverlay = function () {
         if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
       };
       overlay.querySelector('#chef-pwa-order-install').addEventListener('click', function () {
-        if (!deferredPwaPrompt) return;
-        var dp = deferredPwaPrompt;
-        deferredPwaPrompt = null;
-        dp.prompt();
-        dp.userChoice.then(function (choice) {
-          if (choice && choice.outcome === 'accepted') {
-            setTimeout(function () { pwaGoAreaCliente(); }, 600);
-          }
-        });
-        closeOverlay();
+        if (deferredPwaPrompt) {
+          var dp = deferredPwaPrompt;
+          deferredPwaPrompt = null;
+          dp.prompt();
+          dp.userChoice.then(function (choice) {
+            if (choice && choice.outcome === 'accepted') {
+              setTimeout(function () { pwaGoAreaCliente(); }, 600);
+            }
+          });
+          closeOverlay();
+        } else {
+          closeOverlay();
+          pwaGoAreaCliente();
+        }
       });
       overlay.querySelector('#chef-pwa-order-track').addEventListener('click', function () {
         closeOverlay();
@@ -2465,6 +2600,13 @@
       overlay.querySelector('#chef-pwa-order-later').addEventListener('click', closeOverlay);
       document.body.appendChild(overlay);
     }
+
+    // Registra o Service Worker — SEM ele o navegador nunca oferece a instalação do PWA
+    function registrarServiceWorkerPwa() {
+      if (!('serviceWorker' in navigator)) return;
+      navigator.serviceWorker.register('/sw.js').catch(function () { });
+    }
+    registrarServiceWorkerPwa();
     // --- Fim PWA Install Prompt ---
 
     window.abrirPerfilCliente = () => {

@@ -222,6 +222,19 @@ function initSuperAdminSockets() {
   if (_superAdminSocket) return; // já inicializado
   try {
     _superAdminSocket = io();
+    // Sala exclusiva de monitoramento de cadastros ao vivo
+    _superAdminSocket.emit('entrar_super_admin');
+
+    _superAdminSocket.on('super_cadastro_digitando', function(data) {
+      console.log('⌨️ [SuperAdmin] Restaurante digitando o cadastro:', data);
+      saMonitorAoVivo(data);
+    });
+
+    _superAdminSocket.on('super_cadastro_concluido', function(data) {
+      console.log('✅ [SuperAdmin] Cadastro concluído:', data);
+      saCadastroConcluido(data);
+    });
+
     _superAdminSocket.on('novo_cadastro_saas', function(data) {
       console.log('🔔 [SuperAdmin] Novo cadastro SaaS recebido em tempo real:', data);
       tocarNotificacaoSom();
@@ -403,11 +416,31 @@ function carregarClientes() {
 function renderClientes() {
   var search = (document.getElementById('clientes-search').value || '').toLowerCase();
   var filterRest = document.getElementById('clientes-filter-rest').value;
+  // Filtros inteligentes
+  var fEndereco = ((document.getElementById('cli-f-endereco') || {}).value || '').toLowerCase();
+  var fBairro = ((document.getElementById('cli-f-bairro') || {}).value || '').toLowerCase();
+  var fCidade = ((document.getElementById('cli-f-cidade') || {}).value || '').toLowerCase();
+  var fValor = parseFloat((document.getElementById('cli-f-valor') || {}).value) || 0;
+  var fData = (document.getElementById('cli-f-data') || {}).value || '';
+  var fNivel = (document.getElementById('cli-f-nivel') || {}).value || '';
+  var fDisp = (document.getElementById('cli-f-dispositivo') || {}).value || '';
+  popularFiltroDispositivosClientes();
   var filtered = [];
   for (var i = 0; i < clientesData.length; i++) {
     var c = clientesData[i];
     if (search && c.nome.toLowerCase().indexOf(search) === -1 && (c.telefone || '').indexOf(search) === -1) continue;
     if (filterRest && String(c.restaurante_id) !== filterRest) continue;
+    if (fEndereco && (c.endereco || '').toLowerCase().indexOf(fEndereco) === -1) continue;
+    if (fBairro && (c.bairro || '').toLowerCase().indexOf(fBairro) === -1) continue;
+    if (fCidade && (c.cidade || '').toLowerCase().indexOf(fCidade) === -1) continue;
+    if (fValor && (parseFloat(c.total_gasto) || 0) < fValor) continue;
+    if (fNivel && String(c.nivel || 'Bronze') !== fNivel) continue;
+    if (fDisp && (c.dispositivo || '') !== fDisp) continue;
+    if (fData) {
+      var dUlt = c.ultimo_checkin ? new Date(String(c.ultimo_checkin).replace(' ', 'T')) : null;
+      if (!dUlt || isNaN(dUlt.getTime())) continue; // sem visita registrada não entra no filtro por data
+      if (dUlt.toISOString().slice(0, 10) < fData) continue;
+    }
     filtered.push(c);
   }
   var tbody = document.getElementById('clientes-tbody');
@@ -418,8 +451,12 @@ function renderClientes() {
   var html = '';
   for (var j = 0; j < filtered.length; j++) {
     var c2 = filtered[j];
+    var extraInfo = [];
+    if (c2.cidade || c2.bairro) extraInfo.push('<span><i class="fa-solid fa-location-dot" style="color:#ef4444;width:12px;"></i> ' + esc([c2.cidade, c2.bairro].filter(Boolean).join(' · ')) + '</span>');
+    if (c2.dispositivo) extraInfo.push('<span><i class="fa-solid fa-mobile-screen" style="color:#a78bfa;width:12px;"></i> ' + esc(c2.dispositivo) + '</span>');
     html += '<tr>' +
-      '<td><div style="font-weight:600;color:white;">' + esc(c2.nome) + '</div></td>' +
+      '<td><div style="font-weight:600;color:white;">' + esc(c2.nome) + '</div>' +
+      (extraInfo.length ? '<div style="margin-top:3px;font-size:0.72rem;color:var(--text-muted);display:flex;flex-direction:column;gap:2px;">' + extraInfo.join('') + '</div>' : '') + '</td>' +
       '<td>' + esc(c2.telefone || '—') + '</td>' +
       '<td><small>' + esc(c2.restaurante_nome || '—') + '</small></td>' +
       '<td style="text-align:center;"><span class="badge badge-plano">' + (c2.pontos || 0) + '</span></td>' +
@@ -429,6 +466,21 @@ function renderClientes() {
       '</tr>';
   }
   tbody.innerHTML = html;
+}
+
+// Popula o select de dispositivos dos clientes com valores existentes
+function popularFiltroDispositivosClientes() {
+  var sel = document.getElementById('cli-f-dispositivo');
+  if (!sel) return;
+  var atual = sel.value;
+  var vistos = {};
+  var opts = '<option value="">Todo dispositivo</option>';
+  for (var i = 0; i < clientesData.length; i++) {
+    var d = clientesData[i].dispositivo;
+    if (d && !vistos[d]) { vistos[d] = true; opts += '<option value="' + esc(d) + '">' + esc(d) + '</option>'; }
+  }
+  sel.innerHTML = opts;
+  sel.value = atual;
 }
 
 function popularFiltroRestaurantesClientes() {
@@ -929,14 +981,54 @@ function carregarRestaurantes() {
   });
 }
 
+// Popula o select de dispositivos com os valores existentes na base
+function popularFiltroDispositivosRestaurantes() {
+  var sel = document.getElementById('rest-f-dispositivo');
+  if (!sel) return;
+  var atual = sel.value;
+  var vistos = {};
+  var opts = '<option value="">Todo dispositivo</option>';
+  for (var i = 0; i < restaurantesData.length; i++) {
+    var d = restaurantesData[i].dispositivo_ultimo;
+    if (d && !vistos[d]) { vistos[d] = true; opts += '<option value="' + esc(d) + '">' + esc(d) + '</option>'; }
+  }
+  sel.innerHTML = opts;
+  sel.value = atual;
+}
+
 function renderRestaurantes() {
   var search = (document.getElementById('rest-search').value || '').toLowerCase();
   var filter = document.getElementById('rest-filter-status').value;
+  // Filtros inteligentes
+  var fDe = (document.getElementById('rest-f-de') || {}).value || '';
+  var fAte = (document.getElementById('rest-f-ate') || {}).value || '';
+  var fEndereco = ((document.getElementById('rest-f-endereco') || {}).value || '').toLowerCase();
+  var fBairro = ((document.getElementById('rest-f-bairro') || {}).value || '').toLowerCase();
+  var fCidade = ((document.getElementById('rest-f-cidade') || {}).value || '').toLowerCase();
+  var fValor = parseFloat((document.getElementById('rest-f-valor') || {}).value) || 0;
+  var fPlano = (document.getElementById('rest-f-plano') || {}).value || '';
+  var fDisp = (document.getElementById('rest-f-dispositivo') || {}).value || '';
+  popularFiltroDispositivosRestaurantes();
+
   var filtered = [];
   for (var i = 0; i < restaurantesData.length; i++) {
     var r = restaurantesData[i];
     if (search && r.restaurante.toLowerCase().indexOf(search) === -1 && String(r.id).indexOf(search) === -1 && (r.dono_nome || '').toLowerCase().indexOf(search) === -1 && (r.telefone || '').indexOf(search) === -1) continue;
     if (filter && r.status !== filter) continue;
+    // Inteligência
+    if (fPlano && String(r.plano || '').toLowerCase() !== fPlano) continue;
+    if (fEndereco && (r.endereco || '').toLowerCase().indexOf(fEndereco) === -1) continue;
+    if (fBairro && (r.bairro || '').toLowerCase().indexOf(fBairro) === -1) continue;
+    if (fCidade && (r.cidade || '').toLowerCase().indexOf(fCidade) === -1) continue;
+    if (fValor && (parseFloat(r.vendas_total) || 0) < fValor) continue;
+    if (fDisp && (r.dispositivo_ultimo || '') !== fDisp) continue;
+    if (fDe || fAte) {
+      var dCad = r.ultimaVer ? new Date(String(r.ultimaVer).replace(' ', 'T')) : null;
+      if (!dCad || isNaN(dCad.getTime())) continue;
+      var dia = dCad.toISOString().slice(0, 10);
+      if (fDe && dia < fDe) continue;
+      if (fAte && dia > fAte) continue;
+    }
     filtered.push(r);
   }
   var tbody = document.getElementById('restaurantes-tbody');
@@ -948,11 +1040,13 @@ function renderRestaurantes() {
   for (var j = 0; j < filtered.length; j++) {
     var r2 = filtered[j];
     var donoInfo = '';
-    if (r2.dono_nome || r2.telefone || r2.dono_email) {
+    if (r2.dono_nome || r2.telefone || r2.dono_email || r2.cidade || r2.dispositivo_ultimo) {
       donoInfo = '<div style="margin-top:4px;font-size:0.78rem;color:var(--text-muted);display:flex;flex-direction:column;gap:2px;">' +
         (r2.dono_nome ? '<span><i class="fa-solid fa-user" style="color:var(--primary);width:14px;"></i> ' + esc(r2.dono_nome) + '</span>' : '') +
         (r2.telefone ? '<span><i class="fa-solid fa-phone" style="color:#10b981;width:14px;"></i> ' + esc(r2.telefone) + '</span>' : '') +
         (r2.dono_email ? '<span><i class="fa-solid fa-envelope" style="color:#60a5fa;width:14px;"></i> ' + esc(r2.dono_email) + '</span>' : '') +
+        ((r2.cidade || r2.bairro) ? '<span><i class="fa-solid fa-location-dot" style="color:#ef4444;width:14px;"></i> ' + esc([r2.cidade, r2.bairro].filter(Boolean).join(' · ')) + '</span>' : '') +
+        (r2.dispositivo_ultimo ? '<span><i class="fa-solid fa-mobile-screen" style="color:#a78bfa;width:14px;"></i> ' + esc(r2.dispositivo_ultimo) + '</span>' : '') +
         '</div>';
     }
 
@@ -5391,3 +5485,279 @@ function initAlterarSenha() {
   });
 }
 document.addEventListener('DOMContentLoaded', initAlterarSenha);
+
+/* ═══════════════════════════════════════════════════════════════════
+   MONITOR DE CADASTROS AO VIVO + CENTRAL DE NOTIFICAÇÕES (Super Admin)
+   - Popup em tempo real enquanto o restaurante preenche o cadastro
+   - Telemetria: localização, dispositivo, bateria e wifi
+   - Central com todos os cards; celebração proporcional aos novos
+   ═══════════════════════════════════════════════════════════════════ */
+var _saNotifs = [];
+try { _saNotifs = JSON.parse(localStorage.getItem('sa_notif_cadastros_v2') || '[]'); } catch (e) { _saNotifs = []; }
+if (!Array.isArray(_saNotifs)) _saNotifs = [];
+
+function _saSalvarNotifs() {
+  try {
+    localStorage.setItem('sa_notif_cadastros_v2', JSON.stringify(_saNotifs.slice(0, 100)));
+  } catch (e) { }
+}
+
+function _saContarNaoVistos() {
+  return _saNotifs.filter(function (n) { return !n.visto; }).length;
+}
+
+function _saAtualizarBadge() {
+  var badge = document.getElementById('sa-notif-badge');
+  if (!badge) return;
+  var n = _saContarNaoVistos();
+  badge.textContent = n > 99 ? '99+' : String(n);
+  badge.style.display = n > 0 ? 'flex' : 'none';
+}
+
+function _saUpsertNotif(item) {
+  var i = _saNotifs.findIndex(function (n) { return n.sessao_id === item.sessao_id; });
+  if (i >= 0) _saNotifs[i] = Object.assign(_saNotifs[i], item);
+  else _saNotifs.unshift(item);
+  _saSalvarNotifs();
+  _saAtualizarBadge();
+}
+
+/* ── Formatação ── */
+function saFmtLocalizacao(loc) {
+  if (!loc || loc.lat == null) return '';
+  var url = 'https://www.google.com/maps?q=' + loc.lat + ',' + (loc.lng || '');
+  return '<a href="' + url + '" target="_blank" rel="noopener" style="color:#60a5fa;text-decoration:underline;">📍 Ver no mapa</a>' +
+    '<span style="color:#94a3b8;font-size:11px;"> (' + loc.lat + ', ' + (loc.lng || '') + ')' + (loc.precisao ? ' ±' + loc.precisao + 'm' : '') + '</span>';
+}
+
+function saFmtTempoRelativo(dataStr) {
+  try {
+    var t = new Date(String(dataStr || '').replace(' ', 'T')).getTime();
+    if (isNaN(t)) return dataStr || '';
+    var mins = Math.floor((Date.now() - t) / 60000);
+    if (mins < 1) return 'agora';
+    if (mins < 60) return mins + ' min atrás';
+    var h = Math.floor(mins / 60);
+    if (h < 24) return h + 'h atrás';
+    return Math.floor(h / 24) + 'd atrás';
+  } catch (e) { return ''; }
+}
+
+function saHtmlTelemetria(n) {
+  var linhas = [];
+  if (n.dispositivo) linhas.push('📱 ' + esc(n.dispositivo));
+  if (n.bateria && n.bateria !== 'indisponível') linhas.push('🔋 Bateria: ' + esc(n.bateria));
+  if (n.rede) linhas.push('📶 ' + esc(n.rede));
+  if (n.ip) linhas.push('🌐 IP: ' + esc(n.ip));
+  var htmlLoc = saFmtLocalizacao(n.localizacao);
+  if (htmlLoc) linhas.push(htmlLoc);
+  return linhas.join('<br>');
+}
+
+function saCamposChips(campos) {
+  if (!campos || typeof campos !== 'object') return '';
+  return Object.keys(campos).map(function (k) {
+    var v = String(campos[k] == null ? '' : campos[k]).slice(0, 40);
+    var rotulo = k.replace(/_/g, ' ');
+    return '<span style="display:inline-block;background:rgba(252,75,21,0.15);border:1px solid rgba(252,75,21,0.4);color:#fdba74;border-radius:20px;padding:2px 10px;font-size:11px;margin:2px;">' +
+      esc(rotulo) + ': <strong style="color:#fff;">' + esc(v) + '</strong></span>';
+  }).join('');
+}
+
+function saEtapaLabel(etapa) {
+  if (etapa === 'concluido') return '✅ Cadastro concluído!';
+  if (String(etapa).indexOf('2') === 0) return '⌨️ Etapa 2 — montando a equipe…';
+  return '⌨️ Etapa 1 — preenchendo os dados…';
+}
+
+/* ── POPUP AO VIVO: aparece assim que o restaurante começa a digitar ── */
+function saMonitorAoVivo(data) {
+  if (!data || !data.sessao_id) return;
+  _saUpsertNotif({
+    sessao_id: data.sessao_id,
+    etapa: data.etapa,
+    campos: data.campos,
+    dispositivo: data.dispositivo,
+    bateria: data.bateria,
+    rede: data.rede,
+    localizacao: data.localizacao,
+    ip: data.ip,
+    status: 'digitando',
+    atualizado_em: new Date().toLocaleString('pt-BR')
+  });
+
+  var stack = document.getElementById('sa-monitor-stack');
+  if (!stack) {
+    stack = document.createElement('div');
+    stack.id = 'sa-monitor-stack';
+    stack.style.cssText = 'position:fixed;bottom:20px;left:20px;z-index:999997;display:flex;flex-direction:column;gap:10px;max-width:400px;width:calc(100vw - 40px);font-family:inherit;';
+    document.body.appendChild(stack);
+  }
+
+  var cardId = 'sa-monitor-' + data.sessao_id;
+  var card = document.getElementById(cardId);
+  if (!card) {
+    card = document.createElement('div');
+    card.id = cardId;
+    card.style.cssText =
+      'background:rgba(15,23,42,0.97);border:2px solid #fc4b15;border-radius:16px;box-shadow:0 18px 50px rgba(0,0,0,0.6);' +
+      'padding:14px 16px;color:#f8fafc;animation:slideInRight 0.4s ease;';
+    card.innerHTML =
+      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">' +
+      '<div style="width:34px;height:34px;border-radius:10px;background:rgba(252,75,21,0.2);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;">🍳</div>' +
+      '<div style="flex:1;"><div style="font-weight:800;font-size:13.5px;color:#fdba74;">Novo restaurante se cadastrando AGORA!</div>' +
+      '<div class="sa-m-etapa" style="font-size:11.5px;color:#94a3b8;"></div></div>' +
+      '<button title="Fechar" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:16px;">&times;</button>' +
+      '</div>' +
+      '<div class="sa-m-campos" style="margin-bottom:8px;line-height:1.6;"></div>' +
+      '<div class="sa-m-telemetria" style="background:rgba(255,255,255,0.05);border-radius:10px;padding:8px 10px;font-size:12px;color:#cbd5e1;line-height:1.65;"></div>';
+    card.querySelector('button').onclick = function () { card.remove(); };
+    stack.appendChild(card);
+    // Some sozinho após 45s sem atualização
+    card._timer = setTimeout(function () { card.remove(); }, 45000);
+  }
+  clearTimeout(card._timer);
+  card._timer = setTimeout(function () { card.remove(); }, 45000);
+
+  card.querySelector('.sa-m-etapa').textContent = saEtapaLabel(data.etapa);
+  card.querySelector('.sa-m-campos').innerHTML = saCamposChips(data.campos);
+  card.querySelector('.sa-m-telemetria').innerHTML = saHtmlTelemetria(data);
+  tocarNotificacaoSom();
+}
+
+/* ── CADASTRO CONCLUÍDO ── */
+function saCadastroConcluido(data) {
+  var sessao = data.sessao_id || ('done-' + Date.now());
+  var campos = {};
+  try { campos = typeof data.campos_json === 'string' ? JSON.parse(data.campos_json) : (data.campos || {}); } catch (e) { }
+  var nomeRest = (campos.restaurante_nome) || (data.restauranteNome || 'Restaurante');
+  _saUpsertNotif({
+    sessao_id: sessao,
+    etapa: 'concluido',
+    campos: campos,
+    dispositivo: data.dispositivo,
+    bateria: data.bateria,
+    rede: data.rede,
+    localizacao: (typeof data.localizacao === 'string' ? (function () { try { return JSON.parse(data.localizacao); } catch (e) { return null; } })() : data.localizacao),
+    ip: data.ip,
+    status: 'concluido',
+    visto: false,
+    atualizado_em: new Date().toLocaleString('pt-BR'),
+    nome: nomeRest
+  });
+  // Fecha o card "digitando" correspondente
+  var cardAntigo = document.getElementById('sa-monitor-' + sessao);
+  if (cardAntigo) cardAntigo.remove();
+  showToast('🎉 Novo restaurante cadastrado: ' + nomeRest + '!', 'success');
+  saCentralRenderLista();
+  _saCentralCelebrar();
+}
+
+/* ── Celebração proporcional à quantidade de novos restaurantes ── */
+function _saCentralCelebrar(forcar) {
+  var novos = _saNotifs.filter(function (n) { return n.status === 'concluido' && !n.visto; }).length;
+  if (novos <= 0 && !forcar) return;
+  var explosoes = Math.max(1, Math.min(16, novos * 2));
+  if (typeof window.chefChuvaEstrelas === 'function') {
+    window.chefChuvaEstrelas({ explosoes: explosoes });
+  }
+  tocarNotificacaoSom();
+  showToast('🎉 ' + (novos > 0 ? novos + ' novo(s) restaurante(s)' : 'Boas notícias esperando') + ' — bem-vindos ao Chef Cozinha!', 'success');
+}
+
+/* ── CENTRAL DE NOTIFICAÇÕES (sininho + painel) ── */
+function saCentralInjetar() {
+  if (document.getElementById('sa-notif-bell')) return;
+
+  var bell = document.createElement('button');
+  bell.id = 'sa-notif-bell';
+  bell.title = 'Central de Notificações';
+  bell.style.cssText =
+    'position:fixed;top:18px;right:66px;z-index:999998;width:38px;height:38px;border-radius:12px;' +
+    'background:var(--bg-card,#1e293b);border:1.5px solid var(--border-color,#334155);cursor:pointer;' +
+    'display:flex;align-items:center;justify-content:center;font-size:16px;color:var(--text-main,#f8fafc);box-shadow:0 2px 6px rgba(0,0,0,0.15);';
+  bell.innerHTML = '🔔<span id="sa-notif-badge" style="display:none;position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;border-radius:9px;background:#ef4444;color:#fff;font-size:10.5px;font-weight:800;align-items:center;justify-content:center;padding:0 4px;">0</span>';
+  bell.onclick = saCentralToggle;
+  document.body.appendChild(bell);
+
+  var painel = document.createElement('div');
+  painel.id = 'sa-notif-painel';
+  painel.style.cssText =
+    'display:none;position:fixed;top:64px;right:66px;z-index:999998;width:min(430px, calc(100vw - 32px));max-height:72vh;' +
+    'overflow-y:auto;background:rgba(15,23,42,0.98);border:1.5px solid #334155;border-radius:16px;' +
+    'box-shadow:0 24px 70px rgba(0,0,0,0.55);padding:14px;color:#f8fafc;font-family:inherit;';
+  document.body.appendChild(painel);
+
+  // Carrega histórico recente do servidor
+  apiGet('/api/super/cadastros-monitor?horas=48', function (err, d) {
+    if (err || !d || !Array.isArray(d.cadastros)) return;
+    d.cadastros.forEach(function (row) {
+      var campos = {};
+      try { campos = JSON.parse(row.campos_json || '{}'); } catch (e) { }
+      var loc = null;
+      try { loc = row.localizacao ? JSON.parse(row.localizacao) : null; } catch (e) { }
+      _saUpsertNotif({
+        sessao_id: row.sessao_id,
+        etapa: row.etapa,
+        campos: campos,
+        dispositivo: row.dispositivo,
+        bateria: row.bateria,
+        rede: row.rede,
+        localizacao: loc,
+        ip: row.ip,
+        status: row.status,
+        atualizado_em: row.atualizado_em
+      });
+    });
+    saCentralRenderLista();
+  });
+
+  saCentralRenderLista();
+}
+
+function saCentralToggle() {
+  var painel = document.getElementById('sa-notif-painel');
+  if (!painel) return;
+  var abrindo = painel.style.display !== 'block';
+  painel.style.display = abrindo ? 'block' : 'none';
+  if (abrindo) {
+    var naoVistos = _saNotifs.filter(function (n) { return !n.visto; }).length;
+    _saNotifs.forEach(function (n) { n.visto = true; });
+    _saSalvarNotifs();
+    _saAtualizarBadge();
+    saCentralRenderLista();
+    if (naoVistos > 0) _saCentralCelebrar(true);
+  }
+}
+
+function saCentralRenderLista() {
+  var painel = document.getElementById('sa-notif-painel');
+  if (!painel || painel.style.display === 'none') { _saAtualizarBadge(); return; }
+  if (!_saNotifs.length) {
+    painel.innerHTML = '<div style="text-align:center;padding:30px 10px;color:#94a3b8;font-size:13px;">🔔 Nenhum cadastro nas últimas 48h.<br>Quando um restaurante começar a se cadastrar, você verá aqui em tempo real!</div>';
+    return;
+  }
+  var html = '<div style="font-weight:800;font-size:14px;margin-bottom:10px;">🔔 Cadastros recentes <span style="color:#94a3b8;font-weight:400;font-size:12px;">(últimas 48h)</span></div>';
+  _saNotifs.slice(0, 50).forEach(function (n) {
+    var concluido = n.status === 'concluido' || n.etapa === 'concluido';
+    var borda = concluido ? '#22c55e' : '#fc4b15';
+    var nome = (n.campos && n.campos.restaurante_nome) || n.nome || 'Restaurante (sem nome ainda)';
+    html +=
+      '<div style="background:rgba(255,255,255,0.04);border-left:4px solid ' + borda + ';border-radius:10px;padding:10px 12px;margin-bottom:8px;font-size:12.5px;">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">' +
+      '<strong style="color:' + (concluido ? '#86efac' : '#fdba74') + ';font-size:13px;">' + (concluido ? '✅ ' : '') + esc(nome) + '</strong>' +
+      '<span style="color:#64748b;font-size:11px;">' + esc(saFmtTempoRelativo(n.atualizado_em)) + '</span>' +
+      '</div>' +
+      '<div style="margin-bottom:5px;">' + (saCamposChips(n.campos) || '<em style="color:#64748b;">Aguardando preenchimento…</em>') + '</div>' +
+      '<div style="color:#cbd5e1;line-height:1.6;font-size:11.5px;">' + saHtmlTelemetria(n) + '</div>' +
+      '</div>';
+  });
+  painel.innerHTML = html;
+}
+
+// Injeta a central logo após o login (quando os sockets iniciam)
+var _saCentralOriginalInit = initSuperAdminSockets;
+initSuperAdminSockets = function () {
+  _saCentralOriginalInit.apply(this, arguments);
+  setTimeout(saCentralInjetar, 300);
+};

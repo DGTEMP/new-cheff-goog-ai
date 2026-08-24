@@ -817,6 +817,7 @@ function showActionPopup(actions, x, y) {
       actions.push({ id: 'parcial', icon: 'ph-currency-dollar', label: 'Pagamento Parcial', cls: 'success', fn: () => clickDepoisDoCard(card, 'btn-movimento-parcial') });
       actions.push({ id: 'fechar', icon: 'ph-check-circle', label: 'Fechar Conta', cls: '', fn: () => clickDepoisDoCard(card, 'btn-movimento-concluir') });
       actions.push({ id: 'sep-a', sep: true });
+      actions.push({ id: 'avisar-cliente', icon: 'ph-megaphone', label: 'Avisar Cliente', cls: '', fn: () => window.avisarClienteDaMesa(item.localName || item.name) });
       actions.push({ id: 'qr', icon: 'ph-qr-code', label: 'QR Code Mesa', cls: '', fn: () => clickDepoisDoCard(card, 'btn-qr-mesa') });
       actions.push({ id: 'cancelar', icon: 'ph-x-circle', label: 'Cancelar Mesa', cls: 'danger', fn: () => clickDepoisDoCard(card, 'btn-cancelar-mesa-direct') });
     } else {
@@ -2522,6 +2523,8 @@ socket.on('caixa_aberto_sucesso', () => {
 });
 
 socket.on('estado_caixa', (turno) => {
+  // Esconde o splash de boot assim que o estado real chega do servidor
+  if (typeof window.chefEsconderBootSplash === 'function') window.chefEsconderBootSplash();
   const overlay = document.getElementById('caixa-overlay');
   const span = document.getElementById('status-caixa-name');
   if (turno && (turno.status === 'Aberto' || turno.id || !turno.data_fechamento)) {
@@ -2529,8 +2532,17 @@ socket.on('estado_caixa', (turno) => {
     if (span) span.innerText = 'Caixa Aberto';
     console.log("Caixa está aberto:", turno);
   } else {
-    if (overlay) overlay.style.display = 'flex';
-    if (span) span.innerText = 'Caixa Fechado';
+    // Só exibe o modal de abertura DEPOIS que o splash já saiu da tela
+    const mostrarOverlay = () => {
+      if (overlay) overlay.style.display = 'flex';
+      if (span) span.innerText = 'Caixa Fechado';
+    };
+    const splash = document.getElementById('chef-boot-splash');
+    if (splash && !splash._oculto) {
+      setTimeout(mostrarOverlay, 550); // aguarda o fade-out do splash
+    } else {
+      mostrarOverlay();
+    }
     console.log("Caixa está fechado.");
   }
 });
@@ -7566,6 +7578,26 @@ window.filaEnviarAviso = function (id, nomeCliente) {
   if (typeof socket !== 'undefined' && socket) {
     socket.emit('fila_enviar_aviso', { fila_id: id, mensagem: mensagem.trim() });
   }
+};
+
+// ── Avisar Cliente (QR Code): envia alerta que aparece na tela do cliente,
+//    mesmo que ele já tenha um pop-up aberto (os avisos são empilhados),
+//    e fica salvo se ele fechar a página. ──
+window.avisarClienteDaMesa = function (mesaName) {
+  if (!mesaName) { showToastIA('Mesa inválida.', '#ef4444'); return; }
+  const mensagem = prompt(`Enviar aviso para o cliente da ${mesaName}:\n(ele recebe na hora, mesmo com pop-up aberto)`, '');
+  if (mensagem === null || !mensagem.trim()) return;
+  socket.emit('caixa_avisar_cliente', {
+    mesaName: mesaName,
+    titulo: 'Aviso do Caixa',
+    mensagem: mensagem.trim()
+  }, (res) => {
+    if (res && res.ok) {
+      showToastIA(`Aviso enviado para a ${mesaName}!`, '#0ea5e9');
+    } else {
+      showToastIA('Não foi possível enviar o aviso.', '#ef4444');
+    }
+  });
 };
 
 // Resposta do envio de aviso

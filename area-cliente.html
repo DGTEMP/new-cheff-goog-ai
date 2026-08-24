@@ -992,6 +992,10 @@
 </script>
 
 <script src="/jogos-cliente.js"></script>
+<script>
+  // Service Worker: habilita o PWA (instalação + notificações)
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(function () { });
+</script>
 </body>
 </html>
 

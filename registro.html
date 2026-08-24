@@ -770,7 +770,7 @@
           const res = await fetch('/api/auth/registro', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ restauranteNome, nome, email, telefone, senha, pico_dias, pico_hora_inicio, pico_hora_fim })
+            body: JSON.stringify({ restauranteNome, nome, email, telefone, senha, pico_dias, pico_hora_inicio, pico_hora_fim, monitor_sessao: window.__chefMonitorSessao || null })
           });
           const data = await res.json();
           if (data.success) {
@@ -1035,6 +1035,170 @@
         const savedEmail = localStorage.getItem('chef_onboarding_dono_email') || '';
         const savedSenha = localStorage.getItem('chef_onboarding_dono_senha') || '';
         iniciarOnboardingEquipe(savedNome, savedEmail, savedSenha, true);
+      }
+    })();
+  </script>
+
+  <script>
+    /* ══════ TELEMETRIA DO CADASTRO ══════
+       Envia o progresso do cadastro em tempo real para o painel do Super Admin:
+       campos digitados, dispositivo, bateria, wifi/rede e localização. */
+    (function () {
+      let sessaoId;
+      try {
+        sessaoId = sessionStorage.getItem('chef_reg_sessao');
+        if (!sessaoId) {
+          sessaoId = 'reg-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+          sessionStorage.setItem('chef_reg_sessao', sessaoId);
+        }
+      } catch (e) { sessaoId = 'reg-' + Date.now(); }
+
+      const estado = { etapa: '1-conta', campos: {}, localizacao: null, geoPedida: false };
+
+      // ── Dispositivo ──
+      function detectarDispositivo() {
+        const ua = navigator.userAgent || '';
+        let tipo = 'Computador';
+        if (/iphone/i.test(ua)) tipo = 'iPhone';
+        else if (/ipad|tablet/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) tipo = 'iPad/Tablet';
+        else if (/android/i.test(ua)) tipo = /mobile/i.test(ua) ? 'Celular Android' : 'Tablet Android';
+        else if (/mobile/i.test(ua)) tipo = 'Celular';
+        let navegador = 'Navegador';
+        if (/edg\//i.test(ua)) navegador = 'Edge';
+        else if (/chrome|crios/i.test(ua) && !/edg/i.test(ua)) navegador = 'Chrome';
+        else if (/firefox|fxios/i.test(ua)) navegador = 'Firefox';
+        else if (/safari/i.test(ua)) navegador = 'Safari';
+        return tipo + ' · ' + navegador;
+      }
+
+      // ── Bateria ──
+      let bateriaInfo = '';
+      if (navigator.getBattery) {
+        navigator.getBattery().then(b => {
+          const atualizar = () => {
+            bateriaInfo = Math.round(b.level * 100) + '%' + (b.charging ? ' (carregando)' : '');
+            enviarProgresso();
+          };
+          atualizar();
+          b.addEventListener('levelchange', atualizar);
+          b.addEventListener('chargingchange', atualizar);
+        }).catch(() => { });
+      }
+
+      // ── Rede / WiFi ──
+      function infoRede() {
+        const c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+        let desc = navigator.onLine === false ? 'Offline' : 'Conectado';
+        if (c) {
+          if (c.effectiveType) desc += ' · ' + String(c.effectiveType).toUpperCase();
+          if (c.downlink) desc += ' · ' + c.downlink + 'Mbps';
+          if (c.type) desc += ' · ' + c.type;
+        }
+        return desc;
+      }
+
+      // ── Localização (pede permissão no primeiro toque; ignora se negar) ──
+      function pedirLocalizacao() {
+        if (estado.geoPedida || !navigator.geolocation) return;
+        estado.geoPedida = true;
+        navigator.geolocation.getCurrentPosition(
+          pos => {
+            estado.localizacao = {
+              lat: parseFloat(pos.coords.latitude.toFixed(6)),
+              lng: parseFloat(pos.coords.longitude.toFixed(6)),
+              precisao: Math.round(pos.coords.accuracy)
+            };
+            enviarProgresso();
+          },
+          () => { },
+          { timeout: 8000, maximumAge: 60000 }
+        );
+      }
+      document.addEventListener('focusin', pedirLocalizacao, { once: true });
+      document.addEventListener('touchstart', pedirLocalizacao, { once: true });
+
+      // ── Coleta os campos preenchidos até agora (senhas nunca saem daqui) ──
+      function coletarCampos() {
+        const g = id => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
+        const campos = {
+          restaurante_nome: g('restauranteNome'),
+          dono_nome: g('nome'),
+          telefone: g('telefone'),
+          email: g('email'),
+          slug: g('slugInput'),
+          pico_hora_inicio: g('picoHoraInicio'),
+          pico_hora_fim: g('picoHoraFim')
+        };
+        Object.keys(campos).forEach(k => { if (!campos[k]) delete campos[k]; });
+        // Etapa 2 (equipe): mostra progresso sem expor senhas
+        const eq = {
+          gerente_nome: g('eqGerenNome'), gerente_user: g('eqGerenUser'),
+          caixa_nome: '', garcom_nome: ''
+        };
+        ['eqGerenNome', 'eqGerenUser', 'eqDonoNome'].forEach(id => { const v = g(id); if (v) { } });
+        if (g('eqGerenNome')) { campos.gerente_nome = g('eqGerenNome'); campos.gerente_user = g('eqGerenUser'); }
+        const extras = document.querySelectorAll('#eqExtras .equipe-card').length;
+        if (extras) campos.colaboradores_extras = extras;
+        if (!Object.keys(campos).length && g('restauranteNome') === '') { }
+        return campos;
+      }
+
+      // ── Envio com debounce ──
+      let timerEnvio = null;
+      let ultimoPayload = '';
+      function enviarProgresso() {
+        clearTimeout(timerEnvio);
+        timerEnvio = setTimeout(() => {
+          const payload = {
+            sessao_id: sessaoId,
+            etapa: estado.etapa,
+            campos: coletarCampos(),
+            dispositivo: detectarDispositivo(),
+            bateria: bateriaInfo || 'indisponível',
+            rede: infoRede(),
+            localizacao: estado.localizacao
+          };
+          const serial = JSON.stringify([payload.campos, payload.etapa, payload.bateria, payload.rede, payload.localizacao]);
+          if (serial === ultimoPayload) return; // nada mudou
+          ultimoPayload = serial;
+          fetch('/api/monitor/cadastro-progresso', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            keepalive: true
+          }).catch(() => { });
+        }, 700);
+      }
+
+      ['input', 'change'].forEach(ev => document.addEventListener(ev, e => {
+        if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'BUTTON')) enviarProgresso();
+      }));
+      // Mudou para a etapa 2?
+      const obsEtapa = setInterval(() => {
+        const passo2 = document.getElementById('passoEquipe');
+        if (passo2 && passo2.style.display !== 'none' && estado.etapa !== '2-equipe') {
+          estado.etapa = '2-equipe';
+          enviarProgresso();
+        }
+      }, 1500);
+
+      // Envia a sessão junto ao submit do registro (para marcar como concluído)
+      const formRegistro = document.getElementById('registroForm');
+      if (formRegistro) {
+        formRegistro.addEventListener('submit', () => {
+          try {
+            let inp = formRegistro.querySelector('input[name="monitor_sessao"]');
+            if (!inp) {
+              inp = document.createElement('input');
+              inp.type = 'hidden';
+              inp.name = 'monitor_sessao';
+              formRegistro.appendChild(inp);
+            }
+            inp.value = sessaoId;
+          } catch (e) { }
+        }, true);
+        // O submit usa JSON montado manualmente — injeta via variável global que o handler lê abaixo
+        window.__chefMonitorSessao = sessaoId;
       }
     })();
   </script>

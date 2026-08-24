@@ -378,6 +378,36 @@
                 </button>
               </div>
             </div>
+            <!-- FILTROS AVANÇADOS DE INTELIGÊNCIA -->
+            <details style="margin:8px 0;">
+              <summary style="cursor:pointer;font-size:0.82rem;color:var(--text-muted);user-select:none;padding:4px 0;">
+                <i class="fa-solid fa-filter"></i> Filtros inteligentes — data, endereço, bairro, cidade, valor,
+                plano e dispositivo
+              </summary>
+              <div
+                style="display:flex;flex-wrap:wrap;gap:8px;padding:10px 4px;align-items:center;font-size:0.8rem;">
+                <label style="display:flex;align-items:center;gap:4px;">De <input type="date"
+                    id="rest-f-de" style="max-width:135px;"></label>
+                <label style="display:flex;align-items:center;gap:4px;">Até <input type="date"
+                    id="rest-f-ate" style="max-width:135px;"></label>
+                <input type="text" id="rest-f-endereco" placeholder="Endereço contém…" style="max-width:150px;">
+                <input type="text" id="rest-f-bairro" placeholder="Bairro" style="max-width:110px;">
+                <input type="text" id="rest-f-cidade" placeholder="Cidade" style="max-width:120px;">
+                <input type="number" id="rest-f-valor" placeholder="Vendas ≥ R$" min="0" step="10"
+                  style="max-width:110px;">
+                <select class="select-filter" id="rest-f-plano">
+                  <option value="">Todo plano</option>
+                  <option value="premium">Premium</option>
+                  <option value="trial">Trial</option>
+                  <option value="free">Free</option>
+                </select>
+                <select class="select-filter" id="rest-f-dispositivo">
+                  <option value="">Todo dispositivo</option>
+                </select>
+                <button class="btn-row-action edit-action" id="btn-rest-limpar-filtros"
+                  title="Limpar filtros" style="padding:6px 12px;"><i class="fa-solid fa-eraser"></i></button>
+              </div>
+            </details>
             <div style="overflow-x: auto;">
               <table class="custom-table" id="restaurantes-table">
                 <thead>
@@ -1750,6 +1780,35 @@
                 </button>
               </div>
             </div>
+            <!-- FILTROS AVANÇADOS DE INTELIGÊNCIA (CLIENTES) -->
+            <details style="margin:8px 0;">
+              <summary style="cursor:pointer;font-size:0.82rem;color:var(--text-muted);user-select:none;padding:4px 0;">
+                <i class="fa-solid fa-filter"></i> Filtros inteligentes — data, endereço, bairro, cidade, valor,
+                nível e dispositivo
+              </summary>
+              <div
+                style="display:flex;flex-wrap:wrap;gap:8px;padding:10px 4px;align-items:center;font-size:0.8rem;">
+                <input type="text" id="cli-f-endereco" placeholder="Endereço contém…" style="max-width:150px;">
+                <input type="text" id="cli-f-bairro" placeholder="Bairro" style="max-width:110px;">
+                <input type="text" id="cli-f-cidade" placeholder="Cidade" style="max-width:120px;">
+                <label style="display:flex;align-items:center;gap:4px;">Gastou ≥ R$<input type="number"
+                    id="cli-f-valor" placeholder="0" min="0" step="10" style="max-width:100px;"></label>
+                <label style="display:flex;align-items:center;gap:4px;">Visita após <input type="date"
+                    id="cli-f-data" style="max-width:135px;"></label>
+                <select class="select-filter" id="cli-f-nivel">
+                  <option value="">Todo nível</option>
+                  <option value="Bronze">Bronze</option>
+                  <option value="Prata">Prata</option>
+                  <option value="Ouro">Ouro</option>
+                  <option value="Diamante">Diamante</option>
+                </select>
+                <select class="select-filter" id="cli-f-dispositivo">
+                  <option value="">Todo dispositivo</option>
+                </select>
+                <button class="btn-row-action edit-action" id="btn-cli-limpar-filtros" title="Limpar filtros"
+                  style="padding:6px 12px;"><i class="fa-solid fa-eraser"></i></button>
+              </div>
+            </details>
             <div style="overflow-x: auto; max-height: 550px;">
               <table class="custom-table" id="clientes-table">
                 <thead>
