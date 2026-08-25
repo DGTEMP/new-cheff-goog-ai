@@ -1,4 +1,4 @@
-:root, [data-theme="light"] {
+﻿:root, [data-theme="light"] {
   --bg-color: #f8fafc;
   --bg-secondary: #f1f5f9;
   --bg-tertiary: #e2e8f0;
@@ -1487,7 +1487,7 @@ body {
   z-index: 10003;
 }
 
-@media (max-width: 767px) {
+@media (max-width: 629px) {
 
   /* ESCONDER BARRAS SUPERIORES */
   .top-menubar {
@@ -1726,7 +1726,7 @@ body {
   -webkit-backdrop-filter: none;
 }
 
-@media (max-width: 767px) {
+@media (max-width: 629px) {
   .mobile-action-popup {
     background: rgba(15, 23, 42, 0.4);
     backdrop-filter: blur(4px);
@@ -1993,7 +1993,7 @@ body {
   display: none;
 }
 
-@media (max-width: 767px) {
+@media (max-width: 629px) {
 
   .workspace.active-tab-mesas .left-actions,
   .workspace.active-tab-mesas .right-info,
@@ -2346,7 +2346,7 @@ body {
   box-sizing: border-box !important;
 }
 
-@media (max-width: 767px) {
+@media (max-width: 629px) {
 
   #resizer-left,
   #resizer-right,
@@ -2851,7 +2851,7 @@ body {
 }
 
 /* Resizers laterais devem ficar ocultos no layout mobile (senão ocupam a coluna inteira e esmagam as mesas) */
-@media (max-width: 767px) {
+@media (max-width: 629px) {
 
   #resizer-left,
   #resizer-right {
@@ -4373,7 +4373,7 @@ body {
 
   /* Modais grandes de fluxo de trabalho ganham mais respiro */
   #pdv-overlay > div {
-    max-width: 1400px !important;
+    max-width: calc(100vw - 48px) !important;
     max-height: 960px !important;
   }
 
@@ -4381,7 +4381,7 @@ body {
   #comanda-checkout-overlay > .modal {
     width: auto !important;
     min-width: 900px;
-    max-width: 1400px !important;
+    max-width: calc(100vw - 48px) !important;
   }
 }
 
@@ -4434,7 +4434,7 @@ body {
   }
 
   #pdv-overlay > div {
-    max-width: 1700px !important;
+    max-width: calc(100vw - 48px) !important;
     max-height: 1100px !important;
     height: 92vh !important;
   }
@@ -4442,7 +4442,7 @@ body {
   #checkout-modal-overlay > .modal,
   #comanda-checkout-overlay > .modal {
     min-width: 1100px;
-    max-width: 1600px !important;
+    max-width: calc(100vw - 48px) !important;
   }
 
   /* Produtos do PDV: cards maiores e mais legíveis no modal amplo */
@@ -4452,8 +4452,9 @@ body {
   }
 }
 
-/* ─── Tier UW3: Super ultrawide duplo 4K (5120×1440 / 5120×2160) ─── */
-@media screen and (min-width: 3841px) {
+/* ─── Tier UW3: Super ultrawide duplo 4K (5120×1440 / 5120×2160).
+    3840 entra aqui: monitores 32:9 de 49–54" têm exatamente essa largura ─── */
+@media screen and (min-width: 3840px) {
   .left-actions {
     width: 400px;
   }
@@ -4519,14 +4520,14 @@ body {
   }
 
   #pdv-overlay > div {
-    max-width: 2100px !important;
+    max-width: calc(100vw - 64px) !important;
     max-height: 1250px !important;
   }
 
   #checkout-modal-overlay > .modal,
   #comanda-checkout-overlay > .modal {
     min-width: 1400px;
-    max-width: 1900px !important;
+    max-width: calc(100vw - 64px) !important;
   }
 
   #pdv-menu-items {
@@ -4937,7 +4938,7 @@ button:not(:disabled):active,
 }
 
 /* 4. MODAIS TIPO BOTTOM SHEET NATIVO IOS NO MOBILE */
-@media (max-width: 767px) {
+@media (max-width: 629px) {
   .modal-overlay.active .modal-content,
   body.force-mobile .modal-overlay.active .modal-content {
     border-radius: 24px 24px 0 0 !important;
@@ -5257,7 +5258,7 @@ body.force-desktop #resizer-right {
 /* ═════════════════════════════════════════════════════════════════════
    GARANTIA TOTAL DE VISIBILIDADE DAS BARRAS NO MOBILE (NUNCA SUMIR)
    ═════════════════════════════════════════════════════════════════════ */
-@media screen and (max-width: 767px), screen and (pointer: coarse) {
+@media screen and (max-width: 629px), screen and (pointer: coarse) {
   /* Fixar a barra de navegação no rodapé absoluto da viewport real */
   #mobile-workspace-tabs,
   .mobile-tabs {

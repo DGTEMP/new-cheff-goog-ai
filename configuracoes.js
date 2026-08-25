@@ -811,6 +811,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // Lazy-load specific tab data on demand
     if (tabId === 'perfil' && socket && typeof socket.emit === 'function') socket.emit('get_restaurante_config');
     if (tabId === 'dispositivos' && typeof window.carregarGerenciadorDispositivos === 'function') window.carregarGerenciadorDispositivos();
+    if (tabId === 'salao') {
+      const t = document.getElementById('admin-tab-salao');
+      if (t) t.dataset.carregada = 'true';
+      window.renderSalaoUI();
+    }
     if (tabId === 'reservas' && typeof window.carregarReservasAdmin === 'function') window.carregarReservasAdmin();
     if (tabId === 'metricas' && typeof window.carregarMetricasGarcons === 'function') window.carregarMetricasGarcons();
     if (tabId === 'formas-pagamento' && typeof window.carregarFormasPagamento === 'function') window.carregarFormasPagamento();
@@ -995,6 +1000,16 @@ socket.on('connected_devices', (devices) => {
     if (!confirm('Remover este dispositivo do cadastro? Ele voltará a aparecer sem apelido na próxima conexão.')) return;
     socket.emit('remover_dispositivo_salvo', { serial: serial });
   };
+  window.definirModoDispositivo = function (serial, modo) {
+    const rotulos = { totem: 'Totem (auto-atendimento)', totem_invertido: 'Totem com tela invertida', normal: 'Modo normal' };
+    if (!confirm(`Alterar este terminal para "${rotulos[modo] || modo}"?\n\n${modo !== 'normal' ? 'A tela dele virará o cardápio digital imediatamente.' : 'Ele voltará à tela de operação normal.'}`)) {
+      window.carregarGerenciadorDispositivos();
+      return;
+    }
+    socket.emit('definir_modo_dispositivo', { serial, modo }, (res) => {
+      if (res && res.ok === false) alert(res.mensagem || 'Falha ao alterar o modo.');
+    });
+  };
 
   tbody.innerHTML = devices.map(d => {
     const icon = d.icon || (d.isMobile ? 'ph-device-mobile' : 'ph-desktop');
@@ -1014,13 +1029,21 @@ socket.on('connected_devices', (devices) => {
         (apelido || tipo ? ' <button onclick="window.removerDispositivoSalvo(\'' + escapeHtml(d.serial) + '\')" title="Remover cadastro do dispositivo" style="background:#fee2e2;border:1px solid #fca5a5;border-radius:8px;padding:6px 8px;cursor:pointer;font-size:12px;color:#b91c1c;"><i class="ph ph-x"></i></button>' : '')
       : '';
     const badgeTipo = tipo ? '<span style="font-size:10px;background:#fef9c3;color:#a16207;padding:2px 8px;border-radius:12px;font-weight:800;margin-left:4px;text-transform:uppercase;">' + escapeHtml(tipo) + '</span>' : '';
+    const modoAtual = d.modo || 'normal';
+    const selModo = d.serial
+      ? '<select onchange="window.definirModoDispositivo(\'' + escapeHtml(d.serial) + '\', this.value)" style="padding:6px 8px;border-radius:8px;border:1px solid var(--cfg-border);background:var(--cfg-subtle-bg);color:' + (modoAtual === 'normal' ? '#334155' : '#b45309') + ';font-size:12px;font-weight:700;cursor:pointer;">' +
+        '<option value="normal"' + (modoAtual === 'normal' ? ' selected' : '') + '>Normal</option>' +
+        '<option value="totem"' + (modoAtual === 'totem' ? ' selected' : '') + '>Totem</option>' +
+        '<option value="totem_invertido"' + (modoAtual === 'totem_invertido' ? ' selected' : '') + '>Totem invertido</option>' +
+        '</select>'
+      : '<span style="font-size:11px;color:#94a3b8;">—</span>';
     return '<tr style="border-bottom:1px solid #2a2d35;">' +
       '<td style="padding:10px 16px;"><i class="ph ' + icon + '" style="margin-right:6px;color:#0284c7;"></i><strong>' + nomeExibicao + '</strong>' + badgeTipo + serialHtml + (osStr ? '<div style="font-size:11px;color:#64748b;">' + escapeHtml(osStr) + '</div>' : '') + '</td>' +
       '<td style="padding:10px 16px;">' + escapeHtml(user) + ' <span style="font-size:11px;background:#e0f2fe;color:#0369a1;padding:2px 8px;border-radius:12px;font-weight:700;">' + escapeHtml(cargo) + '</span></td>' +
       '<td style="padding:10px 16px;color:#475569;">' + escapeHtml(d.ip || '-') + '</td>' +
       '<td style="padding:10px 16px;color:#64748b;">' + escapeHtml(tempo) + '</td>' +
       '<td style="padding:10px 16px;"><span style="color:#047857;font-weight:700;font-size:12px;">● Online</span></td>' +
-      '<td style="padding:10px 16px;text-align:right;white-space:nowrap;">' + btnIdentificar + '</td>' +
+      '<td style="padding:10px 16px;text-align:right;white-space:nowrap;">' + selModo + ' ' + btnIdentificar + '</td>' +
     '</tr>';
   }).join('');
 });
@@ -1029,6 +1052,181 @@ socket.on('dispositivo_salvo_ok', () => {
   if (typeof window.showToast === 'function') window.showToast('✓ Dispositivo identificado com sucesso!', 'success');
   window.carregarGerenciadorDispositivos();
 });
+
+/* ═════════ LAYOUT DO SALÃO — desenhador arrastável de mesas ═════════
+   Coordenadas normalizadas: pos_x 0–1000, pos_y 0–600. Mesas próximas
+   (distância ≤ 95) viram sugestões automáticas de junção para reservas. */
+let _salaoSalaAtual = null;
+let _salaoSalaManual = false; // salão novo criado nesta sessão ainda sem mesas
+const _salaoPendente = {}; // id -> {pos_x, pos_y, lugares, sala}
+
+function _salaoMesasValidas() {
+  return (currentMesas || []).filter(m => m && m.nome && !String(m.nome).toLowerCase().includes('comanda'));
+}
+
+window.renderSalaoUI = function () {
+  const mesas = _salaoMesasValidas();
+  const salas = [...new Set(mesas.map(m => (m.sala || 'Salão principal').trim()))];
+  if (!salas.length) salas.push('Salão principal');
+  // Mantém salão recém-criado (ainda vazio); só reseta se nunca foi escolhido
+  if (!_salaoSalaAtual || (!_salaoSalaManual && !salas.includes(_salaoSalaAtual))) {
+    _salaoSalaAtual = salas[0];
+    _salaoSalaManual = false;
+  }
+
+  const tabsEl = document.getElementById('salao-tabs');
+  if (tabsEl) {
+    tabsEl.innerHTML = salas.map(s => {
+      const qtd = mesas.filter(m => (m.sala || 'Salão principal').trim() === s).length;
+      const ativo = s === _salaoSalaAtual;
+      return `<button data-sala="${escapeHtml(s)}" style="padding:8px 16px;border-radius:20px;border:1px solid ${ativo ? '#0ea5e9' : 'var(--cfg-border,#cbd5e1)'};background:${ativo ? '#0ea5e9' : 'transparent'};color:${ativo ? '#fff' : 'var(--cfg-text-muted,#64748b)'};font-weight:bold;font-size:13px;cursor:pointer;">${escapeHtml(s)} <span style="opacity:.75;">(${qtd})</span></button>`;
+    }).join('');
+    tabsEl.querySelectorAll('button[data-sala]').forEach(b => {
+      b.onclick = () => { _salaoSalaAtual = b.getAttribute('data-sala'); _salaoSalaManual = false; window.renderSalaoUI(); };
+    });
+  }
+  window.renderSalaoCanvas();
+};
+
+window.renderSalaoCanvas = function () {
+  const canvas = document.getElementById('salao-canvas');
+  if (!canvas) return;
+  const vazio = document.getElementById('salao-canvas-empty');
+  const mesas = _salaoMesasValidas().filter(m => (m.sala || 'Salão principal').trim() === _salaoSalaAtual);
+  if (vazio) vazio.style.display = mesas.length ? 'none' : 'flex';
+  canvas.querySelectorAll('.salao-mesa-chip').forEach(c => c.remove());
+
+  // Posições padrão em grade para mesas ainda não posicionadas
+  const semPos = mesas.filter(m => m.pos_x == null || m.pos_y == null);
+  semPos.forEach((m, i) => {
+    const col = i % 4, lin = Math.floor(i / 4);
+    if (m.pos_x == null) m.pos_x = 90 + col * 180;
+    if (m.pos_y == null) m.pos_y = 80 + lin * 150;
+  });
+
+  mesas.forEach(m => {
+    const p = _salaoPendente[m.id] || {};
+    const x = p.pos_x != null ? p.pos_x : m.pos_x;
+    const y = p.pos_y != null ? p.pos_y : m.pos_y;
+    const lugares = p.lugares != null ? p.lugares : (m.lugares || 4);
+    const chip = document.createElement('div');
+    chip.className = 'salao-mesa-chip';
+    chip.dataset.id = m.id;
+    chip.style.cssText = `position:absolute;left:${(x / 1000) * 100}%;top:${(y / 600) * 100}%;transform:translate(-50%,-50%);width:76px;height:64px;border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:grab;user-select:none;touch-action:none;font-size:12px;font-weight:bold;color:#fff;background:${m.grupo_juncao ? '#f59e0b' : (m.status === 'Reservada' ? '#8b5cf6' : (m.status === 'Ocupada' || m.status === 'Ocupada ') ? '#ef4444' : '#3ab55b')};box-shadow:0 2px 8px rgba(0,0,0,.18);border:2px solid ${m.grupo_juncao ? '#b45309' : 'rgba(255,255,255,.35)'};`;
+    chip.innerHTML = `<span style="pointer-events:none;">${escapeHtml(m.nome)}</span><span style="font-size:10px;opacity:.9;pointer-events:none;"><i class="ph ph-users"></i> ${lugares}</span>${m.grupo_juncao ? '<i class="ph ph-link" style="position:absolute;top:-7px;right:-7px;background:#fff;color:#b45309;border-radius:50%;font-size:11px;padding:2px;" title="Em junção"></i>' : ''}`;
+    canvas.appendChild(chip);
+    _salaoAtivarDrag(chip, canvas, m);
+    chip.addEventListener('click', () => { if (!_salaoArrastando) window.salaoSelecionarMesa(m); });
+  });
+};
+
+let _salaoArrastando = false;
+function _salaoAtivarDrag(chip, canvas, mesa) {
+  let moved = false;
+  chip.addEventListener('pointerdown', (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    moved = false;
+    chip.setPointerCapture(ev.pointerId);
+    chip.style.cursor = 'grabbing';
+    chip.style.zIndex = '50';
+
+    const mover = (e2) => {
+      const rect = canvas.getBoundingClientRect();
+      const px = Math.min(Math.max(e2.clientX - rect.left, 0), rect.width);
+      const py = Math.min(Math.max(e2.clientY - rect.top, 0), rect.height);
+      chip.style.left = (px / rect.width * 100) + '%';
+      chip.style.top = (py / rect.height * 100) + '%';
+      moved = true;
+      _salaoArrastando = true;
+    };
+    const soltar = (e2) => {
+      chip.removeEventListener('pointermove', mover);
+      chip.removeEventListener('pointerup', soltar);
+      chip.removeEventListener('pointercancel', soltar);
+      chip.style.cursor = 'grab';
+      chip.style.zIndex = '';
+      if (moved) {
+        setTimeout(() => { _salaoArrastando = false; }, 60);
+        const rect = canvas.getBoundingClientRect();
+        const px = e2.clientX - rect.left, py = e2.clientY - rect.top;
+        _salaoPendente[mesa.id] = Object.assign(_salaoPendente[mesa.id] || {}, {
+          pos_x: Math.round(px / rect.width * 1000),
+          pos_y: Math.round(py / rect.height * 600),
+          lugares: (_salaoPendente[mesa.id] && _salaoPendente[mesa.id].lugares) != null ? _salaoPendente[mesa.id].lugares : (mesa.lugares || 4),
+          sala: _salaoSalaAtual
+        });
+        window.salaoSelecionarMesa(mesa);
+      }
+    };
+    chip.addEventListener('pointermove', mover);
+    chip.addEventListener('pointerup', soltar);
+    chip.addEventListener('pointercancel', soltar);
+  });
+}
+
+window.salaoSelecionarMesa = function (mesa) {
+  const insp = document.getElementById('salao-inspector');
+  if (!insp) return;
+  insp.style.display = 'flex';
+  document.getElementById('salao-inspector-nome').innerText = mesa.nome;
+  const mLug = document.getElementById('salao-inspector-lugares');
+  const mSal = document.getElementById('salao-inspector-sala');
+  mLug.value = (_salaoPendente[mesa.id] && _salaoPendente[mesa.id].lugares != null) ? _salaoPendente[mesa.id].lugares : (mesa.lugares || 4);
+  mSal.value = _salaoSalaAtual || '';
+  mSal.readOnly = false;
+  mSal.oninput = () => {
+    _salaoPendente[mesa.id] = Object.assign(_salaoPendente[mesa.id] || {}, { sala: mSal.value.trim() || 'Salão principal', lugares: parseInt(mLug.value, 10) || 4 });
+  };
+  mLug.oninput = () => {
+    _salaoPendente[mesa.id] = Object.assign(_salaoPendente[mesa.id] || {}, { lugares: Math.max(1, parseInt(mLug.value, 10) || 4), sala: (mSal.value.trim() || _salaoSalaAtual) });
+    window.renderSalaoCanvas();
+  };
+  const wrapJun = document.getElementById('salao-inspector-juncao');
+  const btnDesf = document.getElementById('btn-salao-desfazer-juncao');
+  if (wrapJun && btnDesf) {
+    wrapJun.style.display = mesa.grupo_juncao ? 'block' : 'none';
+    btnDesf.onclick = () => {
+      socket.emit('desfazer_juncao', { mesaNome: mesa.nome, operador: (window.crmPerfil && window.crmPerfil.nome) || 'Admin' }, (res) => {
+        if (res && res.ok === false) alert(res.mensagem || 'Falha ao desfazer.');
+      });
+    };
+  }
+};
+
+// Clique no fundo do canvas desmarca a seleção
+document.getElementById('salao-canvas')?.addEventListener('click', (ev) => {
+  if (ev.target && ev.target.id === 'salao-canvas') {
+    const insp = document.getElementById('salao-inspector');
+    if (insp) insp.style.display = 'none';
+  }
+});
+
+window.salaoNovoSalaoPrompt = function () {
+  const nome = prompt('Nome do novo salão/ambiente:\n(ex.: "Salão externo", "Anexo", "Varanda")');
+  if (!nome || !nome.trim()) return;
+  _salaoSalaAtual = nome.trim();
+  _salaoSalaManual = true;
+  window.renderSalaoUI();
+  if (typeof showToast === 'function') showToast(`Volte ao salão anterior, clique numa mesa e troque o campo "Salão" para "${nome.trim()}". Depois clique em Salvar Layout.`, 'info');
+};
+
+window.salvarLayoutSalao = function () {
+  const ids = Object.keys(_salaoPendente);
+  if (!ids.length) {
+    if (typeof showToast === 'function') showToast('Nenhuma alteração pendente no layout.', 'info');
+    return;
+  }
+  const payload = ids.map(id => Object.assign({ id: parseInt(id, 10) }, _salaoPendente[id]));
+  socket.emit('salvar_layout_salao', { mesas: payload, operador: (window.crmPerfil && window.crmPerfil.nome) || 'Admin' }, (res) => {
+    if (res && res.ok) {
+      Object.keys(_salaoPendente).forEach(k => delete _salaoPendente[k]);
+      if (typeof showToast === 'function') showToast(res.mensagem || 'Layout salvo!', 'success');
+    } else {
+      alert((res && res.mensagem) || 'Falha ao salvar o layout.');
+    }
+  });
+};
 
 // ── Falhas internas do servidor: dono/admin vê na hora (rede de segurança anti-crash) ──
 socket.on('aviso_admin_critico', (aviso) => {
@@ -2348,6 +2546,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Pedir config IA ao carregar
   socket.emit('ia_get_config');
+
+  // Layout do salão: botões
+  const bSalvarSalao = document.getElementById('btn-salao-salvar');
+  if (bSalvarSalao) bSalvarSalao.onclick = () => window.salvarLayoutSalao();
+  const bNovaSala = document.getElementById('btn-salao-nova-sala');
+  if (bNovaSala) bNovaSala.onclick = () => window.salaoNovoSalaoPrompt();
 });
 
 
@@ -2357,12 +2561,22 @@ document.addEventListener('DOMContentLoaded', () => {
 // (As funções abaixo existem em main.js para index.html, mas são necessárias
 // aqui porque configuracoes.html é uma página separada)
 
-// --- MESAS & COMANDAS ---
+// Erros do servidor NUNCA podem ser silenciosos nesta tela
+socket.on('erro_servidor', (msg) => {
+  const texto = typeof msg === 'string' ? msg : (msg && msg.mensagem) || 'Ocorreu um erro.';
+  if (typeof window.showToast === 'function') window.showToast(texto, 'danger');
+  else alert(texto);
+});
+
 socket.on('mesas_atualizadas', (mesas) => {
   currentMesas = mesas;
+  // Re-render do desenhador de salão quando visível
+  const tabSalao = document.getElementById('admin-tab-salao');
+  if (tabSalao && tabSalao.style.display !== 'none' && tabSalao.dataset.carregada === 'true') {
+    window.renderSalaoUI();
+  }
   const listMesas = document.getElementById('admin-mesas-list');
   const listComandas = document.getElementById('admin-comandas-list');
-
   const tables = mesas.filter(m => !m.nome.toLowerCase().includes('comanda'));
   const comandas = mesas.filter(m => m.nome.toLowerCase().includes('comanda'));
 
@@ -2405,9 +2619,17 @@ window.deleteMesa = (id, nome) => {
     return alert(`Atenção: Não é possível excluir a mesa/comanda "${nome}" porque ela possui consumo ativo ou está reservada!`);
   }
   if (window.isUsuarioAdminOuGerente()) {
-    // Admin: confirmação simples
+    // Admin: confirmação simples (com ack para feedback imediato)
     if (confirm(`Excluir "${nome}"?\n\nEsta ação não pode ser desfeita.`)) {
-      socket.emit('delete_mesa', { id: id });
+      socket.emit('delete_mesa', { id: id }, (res) => {
+        if (!res || res.ok !== true) {
+          const msg = (res && res.mensagem) || 'Não foi possível excluir a mesa.';
+          if (typeof window.showToast === 'function') window.showToast(msg, 'danger');
+          else alert(msg);
+        } else if (typeof window.showToast === 'function') {
+          window.showToast((res.mensagem || `Mesa "${nome}" excluída.`), 'success');
+        }
+      });
     }
     return;
   }

@@ -1378,6 +1378,66 @@
     </div>
   </div>
 
+  <!-- ════ RESERVA: BOAS-VINDAS TEMÁTICO NO QR DA MESA ════ -->
+  <div id="modal-reserva-boas"
+    style="display:none; position:fixed; inset:0; z-index:99998; background:linear-gradient(160deg,#1e1b4b 0%,#312e81 45%,#7c2d12 100%); overflow-y:auto; align-items:flex-start; justify-content:center;">
+    <div style="max-width:520px; width:100%; margin:auto 0; padding:28px 18px 40px; text-align:center; color:#fff;">
+      <div
+        style="width:84px;height:84px;margin:0 auto 14px;border-radius:50%;background:linear-gradient(135deg,#fbbf24,#f97316);display:flex;align-items:center;justify-content:center;font-size:40px;box-shadow:0 10px 40px rgba(249,115,22,.45);">
+        🍽️
+      </div>
+      <p style="margin:0; font-size:13px; letter-spacing:2.5px; text-transform:uppercase; color:#fdba74; font-weight:700;">Mesa reservada com carinho</p>
+      <h1 id="rb-nome" style="margin:6px 0 4px; font-size:30px; line-height:1.15;">Cliente</h1>
+      <p id="rb-info" style="margin:0 0 18px; color:#e0e7ff; font-size:14px;"></p>
+
+      <!-- Refeição temática completa -->
+      <div style="display:grid; grid-template-columns:repeat(5,1fr); gap:8px; margin:0 0 20px;">
+        <div class="rb-curso"><span>🍹</span>Bebidas</div>
+        <div class="rb-curso"><span>🥗</span>Entradas</div>
+        <div class="rb-curso"><span>🍤</span>Porções</div>
+        <div class="rb-curso"><span>🍽️</span>Pratos</div>
+        <div class="rb-curso"><span>🍰</span>Sobremesas</div>
+      </div>
+      <p style="color:#c7d2fe; font-size:13.5px; margin:0 0 18px;">Uma experiência completa te espera: bebidas, entradas, porções, prato principal e sobremesa — tudo fresquinho, do jeito que a casa faz.</p>
+
+      <!-- PASSO 1: boas-vindas -->
+      <div id="rb-passo-boas">
+        <button onclick="window.rbIrValidar()"
+          style="width:100%; padding:15px; border:none; border-radius:14px; background:linear-gradient(90deg,#f97316,#fb923c); color:#fff; font-size:16px; font-weight:800; cursor:pointer; box-shadow:0 8px 25px rgba(249,115,22,.4);">Sou eu! Confirmar minha reserva</button>
+        <button onclick="window.rbMostrarOutroDireto()"
+          style="width:100%; margin-top:10px; padding:12px; border:none; border-radius:12px; background:rgba(255,255,255,.12); color:#e0e7ff; font-size:14px; font-weight:600; cursor:pointer;">Não sou eu</button>
+      </div>
+
+      <!-- PASSO 2: últimos dígitos -->
+      <div id="rb-passo-digits" style="display:none;">
+        <p style="margin:0 0 8px; color:#e0e7ff; font-size:14px;">Pra sua segurança, digite os <strong>últimos 8 dígitos</strong> do telefone da reserva:</p>
+        <input id="rb-digits" type="tel" inputmode="numeric" maxlength="8" placeholder="••••••••"
+          style="width:100%; padding:16px; font-size:26px; letter-spacing:8px; text-align:center; border-radius:14px; border:2px solid rgba(255,255,255,.25); background:rgba(255,255,255,.08); color:#fff; outline:none;" />
+        <p id="rb-erro" style="display:none; color:#fecaca; font-size:13px; margin:8px 0 0;"></p>
+        <button onclick="window.rbConfirmarDigitos()"
+          style="width:100%; margin-top:12px; padding:15px; border:none; border-radius:14px; background:#22c55e; color:#fff; font-size:16px; font-weight:800; cursor:pointer; box-shadow:0 8px 25px rgba(34,197,94,.35);">Confirmar</button>
+        <button onclick="window.rbMostrarOutroDireto()" style="width:100%; margin-top:10px; padding:10px; border:none; background:none; color:#a5b4fc; font-size:13px; cursor:pointer;">Não bateu — ver outras mesas</button>
+      </div>
+
+      <!-- PASSO 3: não é o cliente da reserva -->
+      <div id="rb-passo-outro" style="display:none;">
+        <p style="margin:0 0 12px; color:#e0e7ff; font-size:14.5px;">Sem problema! 😄 Esta mesa está reservada para <strong id="rb-nome2">outro cliente</strong>. Escolha uma mesa livre abaixo e fique à vontade:</p>
+        <div id="rb-mesas-livres" style="display:flex; flex-wrap:wrap; gap:8px; justify-content:center;"></div>
+        <button onclick="window.rbVerCardapio()"
+          style="width:100%; margin-top:14px; padding:13px; border:none; border-radius:12px; background:rgba(255,255,255,.12); color:#fff; font-size:14px; font-weight:700; cursor:pointer;">Continuar aqui mesmo (ver cardápio)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Barra gentil de mesa preferida (cliente recorrente) -->
+  <div id="barra-mesa-preferida"
+    style="display:none; position:fixed; left:50%; transform:translateX(-50%); bottom:86px; z-index:96000; max-width:420px; width:calc(100vw - 32px); background:#1e293b; color:#fff; border-radius:16px; padding:14px 16px; box-shadow:0 12px 40px rgba(0,0,0,.35); align-items:center; gap:10px;">
+    <i class="ph ph-heart" style="font-size:22px; color:#f472b6; flex-shrink:0;"></i>
+    <span id="bmp-texto" style="flex:1; font-size:13px; line-height:1.35;"></span>
+    <button id="bmp-sim" style="padding:8px 14px; border:none; border-radius:10px; background:#22c55e; color:#fff; font-weight:800; cursor:pointer; font-size:13px;">Sim!</button>
+    <button id="bmp-nao" style="padding:8px 10px; border:none; border-radius:10px; background:rgba(255,255,255,.12); color:#cbd5e1; cursor:pointer; font-size:12px;">Depois</button>
+  </div>
+
   <!-- Toast Notification (empilhável: cada aviso cria o próprio card) -->
   <div id="toast-stack"
     style="position:fixed; top:20px; right:20px; z-index:100001; display:flex; flex-direction:column; gap:8px; max-width:330px; width:calc(100vw - 40px); pointer-events:none;">
@@ -1410,6 +1470,34 @@
         transform: rotate(360deg);
       }
     }
+
+    /* ── MODO TOTEM ── */
+    body.totem-mode .btn-edit-profile-header,
+    body.totem-mode #btn-edit-profile-header,
+    body.totem-mode #welcome-user-crm,
+    body.totem-mode header button:not(#mesa-badge):not(.totem-keep) {
+      display: none !important;
+    }
+
+    body.totem-mode.totem-rot {
+      transform: rotate(180deg);
+      transform-origin: center center;
+      width: 100vw;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    .rb-curso {
+      display:flex; flex-direction:column; align-items:center; gap:4px;
+      background:rgba(255,255,255,.09); border:1px solid rgba(255,255,255,.15);
+      border-radius:12px; padding:10px 4px; font-size:10.5px; font-weight:700; color:#e0e7ff;
+    }
+    .rb-curso span { font-size:22px; }
+    #rb-mesas-livres .rb-mesa-livre {
+      padding:10px 14px; border-radius:12px; border:1px solid rgba(255,255,255,.25);
+      background:rgba(255,255,255,.1); color:#fff; font-weight:700; font-size:13px; cursor:pointer;
+    }
+    #rb-mesas-livres .rb-mesa-livre small { display:block; font-weight:400; opacity:.75; font-size:10.5px; }
   </style>
 
   <script src="/socket.io.min.js"></script>
@@ -1423,6 +1511,42 @@
     let pendingRequiresValidation = false;
     document.getElementById('mesa-badge').innerText = mesaNome;
     const restauranteId = urlParams.get('restaurante_id') || localStorage.getItem('restaurante_id') || '1';
+
+    /* ── MODO TOTEM (quiosque de auto-atendimento) ──
+       Ativado remotamente pelo dono (Dispositivos & Terminais). Esconde a UI de
+       perfil, pede tela cheia no primeiro toque e pode inverter 180° quando o
+       tablet/monitor fica de frente para o cliente. */
+    const MODO_TOTEM = urlParams.get('totem') === '1';
+    if (MODO_TOTEM) {
+      try { sessionStorage.setItem('cc_modo_totem', '1'); } catch (e) { }
+      document.body.classList.add('totem-mode');
+      if (urlParams.get('rot') === '180') document.body.classList.add('totem-rot');
+      const _pedirFullscreenTotem = () => {
+        const el = document.documentElement;
+        if (el.requestFullscreen) el.requestFullscreen().catch(() => {});
+        else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+        window.removeEventListener('pointerdown', _pedirFullscreenTotem);
+      };
+      window.addEventListener('pointerdown', _pedirFullscreenTotem, { once: false });
+      // Botão flutuante discreto para o funcionário sair do modo totem (3 toques)
+      let _toquesSair = 0;
+      document.addEventListener('pointerdown', (ev) => {
+        if (!document.getElementById('totem-sair')) return;
+        if (ev.clientY < 60 && ev.clientX > window.innerWidth - 60) {
+          if (++_toquesSair >= 3) {
+            sessionStorage.removeItem('cc_modo_totem');
+            window.location.href = `/index.html?restaurante_id=${encodeURIComponent(restauranteId)}`;
+          }
+        }
+      });
+      setTimeout(() => {
+        const sair = document.createElement('div');
+        sair.id = 'totem-sair';
+        sair.title = 'Toque 3x aqui para sair do modo totem';
+        sair.style.cssText = 'position:fixed;top:0;right:0;width:48px;height:48px;z-index:99999;';
+        document.body.appendChild(sair);
+      }, 600);
+    }
 
     // FILA DE ESPERA - declarations moved here to avoid temporal dead zone
     const MODO_FILA = urlParams.get('modo') === 'fila';
@@ -1650,6 +1774,9 @@
 
     // Show CRM login modal (skip in fila mode - has its own registration)
     if (!MODO_FILA) checkCrmLogin();
+
+    // Reserva para esta mesa? Boas-vindas + validação gentil via QR
+    verificarReservaQr();
 
     // Request menu products from server
     socket.emit('get_produtos');
@@ -2615,6 +2742,147 @@
     }
     registrarServiceWorkerPwa();
     // --- Fim PWA Install Prompt ---
+
+    // ══════════════════════════════════════════════════════════════
+    // ══ RESERVA VIA QR: boas-vindas temático + validação gentil ══
+    // ══════════════════════════════════════════════════════════════
+    let _reservaCtx = null;
+    let _reservaTentativas = 0;
+
+    function _esc(t) {
+      return String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    function mostrarBoasVindasReserva() {
+      const r = _reservaCtx.reserva;
+      document.getElementById('rb-nome').innerText = r.cliente_nome || 'Cliente';
+      document.getElementById('rb-info').innerText = `${r.pessoas} pessoa(s) · ${r.horario}${r.observacao ? ' · ' + r.observacao : ''}`;
+      document.getElementById('rb-passo-boas').style.display = 'block';
+      document.getElementById('rb-passo-digits').style.display = 'none';
+      document.getElementById('rb-passo-outro').style.display = 'none';
+      document.getElementById('modal-reserva-boas').style.display = 'flex';
+    }
+
+    window.rbIrValidar = () => {
+      document.getElementById('rb-passo-boas').style.display = 'none';
+      document.getElementById('rb-digits').value = '';
+      document.getElementById('rb-erro').style.display = 'none';
+      document.getElementById('rb-passo-digits').style.display = 'block';
+      setTimeout(() => { const i = document.getElementById('rb-digits'); if (i) i.focus(); }, 150);
+    };
+
+    window.rbConfirmarDigitos = async () => {
+      const digitos = document.getElementById('rb-digits').value.replace(/\D/g, '');
+      if (digitos.length < 4) return;
+      try {
+        const resp = await fetch('/api/reservas/qr-validar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ restaurante_id: restauranteId, reserva_id: _reservaCtx.reserva.id, digitos, cliente_id: (crmPerfil && crmPerfil.id) || null })
+        });
+        const data = await resp.json();
+        if (data.ok) {
+          fecharReservaBoas();
+          showToast(data.mensagem || 'Reserva confirmada! Aproveite!', 'success');
+          sugerirMesaPreferida();
+          return;
+        }
+        _reservaTentativas++;
+        if (_reservaTentativas >= 2) {
+          rbMostrarOutro();
+        } else {
+          const el = document.getElementById('rb-erro');
+          el.innerText = 'Não bateu 😊 Confira os últimos dígitos do telefone usado na reserva.';
+          el.style.display = 'block';
+        }
+      } catch (e) {
+        const el = document.getElementById('rb-erro');
+        el.innerText = 'Não conseguimos validar agora. Tente novamente.';
+        el.style.display = 'block';
+      }
+    };
+
+    function rbMostrarOutro() {
+      document.getElementById('rb-passo-digits').style.display = 'none';
+      document.getElementById('rb-passo-boas').style.display = 'none';
+      document.getElementById('rb-passo-outro').style.display = 'block';
+      const n2 = document.getElementById('rb-nome2');
+      if (n2 && _reservaCtx && _reservaCtx.reserva) n2.innerText = _reservaCtx.reserva.cliente_nome || 'outro cliente';
+      fetch('/api/reservas/mesas-livres')
+        .then(r => r.json())
+        .then(d => {
+          const wrap = document.getElementById('rb-mesas-livres');
+          if (!d.ok || !d.mesas.length) {
+            wrap.innerHTML = '<em style="color:#94a3b8;">Sem mesas livres agora — o anfitrião vem te ajudar já!</em>';
+            return;
+          }
+          wrap.innerHTML = d.mesas.map(m =>
+            `<button class="rb-mesa-livre" onclick="window.rbEscolherOutraMesa('${_esc(m.nome)}')">${_esc(m.nome)} <small>${m.lugares || 4} lugares</small></button>`
+          ).join('');
+        }).catch(() => { });
+    }
+
+    window.rbEscolherOutraMesa = (nome) => {
+      mesaNome = nome;
+      document.getElementById('mesa-badge').innerText = nome;
+      try { socket.emit('cliente_na_mesa', nome); } catch (e) { }
+      fecharReservaBoas();
+      showToast(`Ótimo! Você está na ${nome}. Seja bem-vindo(a)! 🎉`, 'success');
+    };
+
+    function fecharReservaBoas() {
+      document.getElementById('modal-reserva-boas').style.display = 'none';
+    }
+
+    async function sugerirMesaPreferida() {
+      if (!crmPerfil || !crmPerfil.id) return;
+      try {
+        const resp = await fetch('/api/clientes/preferencia-mesa?cliente_id=' + encodeURIComponent(crmPerfil.id));
+        const d = await resp.json();
+        if (!d.ok || !d.mesa || d.mesa === mesaNome) return;
+        const livres = await fetch('/api/reservas/mesas-livres').then(r => r.json());
+        if (!livres.ok || !livres.mesas.some(m => m.nome === d.mesa)) return;
+        const bar = document.getElementById('barra-mesa-preferida');
+        document.getElementById('bmp-texto').innerText =
+          `Você costuma sentar na ${d.mesa} (${d.visitas} visita${d.visitas > 1 ? 's' : ''}). Quer ir para lá hoje?`;
+        bar.style.display = 'flex';
+        document.getElementById('bmp-sim').onclick = () => {
+          bar.style.display = 'none';
+          window.rbEscolherOutraMesa(d.mesa);
+        };
+        document.getElementById('bmp-nao').onclick = () => { bar.style.display = 'none'; };
+      } catch (e) { }
+    }
+
+    async function verificarReservaQr() {
+      if (MODO_TOTEM) return; // totem é auto-atendimento genérico
+      try {
+        const resp = await fetch('/api/reservas/qr-contexto?restaurante_id=' + encodeURIComponent(restauranteId) + '&mesa=' + encodeURIComponent(mesaOrigem));
+        _reservaCtx = await resp.json();
+        if (!_reservaCtx.ok || !_reservaCtx.reserva || _reservaCtx.reserva.validada_qr) return;
+        // Cliente recorrente com telefone salvo igual ao da reserva: valida direto
+        const telSalvo = String((crmPerfil && crmPerfil.telefone) || '').replace(/\D/g, '');
+        if (telSalvo && telSalvo.slice(-8) === _reservaCtx.reserva.telefone_ult8) {
+          await fetch('/api/reservas/qr-validar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ restaurante_id: restauranteId, reserva_id: _reservaCtx.reserva.id, digitos: telSalvo.slice(-8), cliente_id: crmPerfil.id })
+          });
+          showToast(`Que bom te ver de novo, ${(_reservaCtx.reserva.cliente_nome || '').split(' ')[0]}! Sua reserva na ${mesaOrigem} foi confirmada 🎉`, 'success');
+          sugerirMesaPreferida();
+          return;
+        }
+        mostrarBoasVindasReserva();
+      } catch (e) { }
+    }
+
+    window.rbVerCardapio = () => {
+      fecharReservaBoas();
+      const alvo = document.getElementById('menu-section') || document.getElementById('categories');
+      if (alvo) alvo.scrollIntoView({ behavior: 'smooth' });
+    };
+
+    window.rbMostrarOutroDireto = () => rbMostrarOutro();
 
     window.abrirPerfilCliente = () => {
       if (!crmPerfil) {

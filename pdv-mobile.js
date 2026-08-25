@@ -41,6 +41,17 @@ function initSocket() {
     socket.emit('get_produtos');
     socket.emit('get_formas_pagamento');
     socket.emit('get_pedidos');
+    const _serialTotem = localStorage.getItem('cc_serial_dispositivo') || '';
+    if (_serialTotem) socket.emit('get_modo_dispositivo', { serial: _serialTotem });
+  });
+
+  // Modo Totem remoto: este terminal pode virar quiosque pelo painel do dono
+  socket.on('modo_dispositivo', (data) => {
+    const modo = data && data.modo;
+    if (!modo || modo === 'normal') return;
+    const rid = encodeURIComponent(localStorage.getItem('restaurante_id') || '1');
+    const rot = modo === 'totem_invertido' ? '&rot=180' : '';
+    window.location.href = `/cardapio.html?restaurante_id=${rid}&mesa=Totem&totem=1${rot}`;
   });
 
   socket.on('mesas_atualizadas', (mesas) => {
@@ -982,6 +993,35 @@ function setupBottomNav() {
       }
     });
   });
+
+  // ── Swipe lateral para trocar de aba (mesma lógica do Garçom Mobile) ──
+  const ordemViews = ['view-mesas', 'view-cardapio', 'view-comanda', 'view-estoque', 'view-mais'];
+  let swipeX = 0, swipeY = 0, swipeAtivo = false;
+  document.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1) return;
+    if (e.target.closest('input, textarea, select, .modal-overlay, #modal-divisao')) return;
+    swipeX = e.touches[0].clientX;
+    swipeY = e.touches[0].clientY;
+    swipeAtivo = true;
+  }, { passive: true });
+  document.addEventListener('touchend', (e) => {
+    if (!swipeAtivo) return;
+    swipeAtivo = false;
+    const dx = e.changedTouches[0].clientX - swipeX;
+    const dy = e.changedTouches[0].clientY - swipeY;
+    if (Math.abs(dx) < 70 || Math.abs(dy) > 50) return;
+    const atual = document.querySelector('.view-section.active');
+    if (!atual) return;
+    const idx = ordemViews.indexOf(atual.id);
+    if (idx === -1) return;
+    const proximo = dx < 0 ? idx + 1 : idx - 1; // esquerda avança, direita volta
+    if (proximo < 0 || proximo >= ordemViews.length) return;
+    const alvo = document.querySelector(`.nav-item[data-target="${ordemViews[proximo]}"]`);
+    if (alvo) {
+      if (navigator.vibrate) { try { navigator.vibrate(8); } catch (err) {} }
+      alvo.click();
+    }
+  }, { passive: true });
 }
 
 function mostrarSelecaoSetor() {

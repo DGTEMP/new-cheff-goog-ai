@@ -95,8 +95,10 @@ body.chef-ui-wide .chef-app {
   }
 }
 
-/* ── 4. MOBILE (<= 767px): tabela de produtos rola na horizontal ── */
-@media (max-width: 767px) {
+/* ── 4. MOBILE (<= 629px): tabela de produtos rola na horizontal ──
+   629px em vez de 767px: tablets de 800px com zoom 90–130% caem na
+   faixa tablet (630–1200px), não no layout de celular. */
+@media (max-width: 629px) {
   .products-table-wrapper {
     overflow-x: auto !important;
     -webkit-overflow-scrolling: touch;
@@ -153,18 +155,18 @@ body.chef-ui-wide .chef-app {
    A antiga barra de abas (#mobile-workspace-tabs) foi removida: a navegação
    entre Mesas ⇄ Ações agora é por arrastar o dedo para o lado, como app
    nativo. Sem barra fixa, o workspace ganha a área de baixo de volta. */
-@media (max-width: 767px) {
+@media (max-width: 629px) {
   .workspace {
     padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)) !important;
   }
 }
 
-/* ── 10. RESILIÊNCIA DE ZOOM / TABLET (600–1200px CSS) ──
+/* ── 10. RESILIÊNCIA DE ZOOM / TABLET (630–1200px CSS) ──
    Zoom de 90–130% altera o viewport em px CSS: o layout precisa continuar
    inteiro em qualquer ponto dessa faixa, sem overflow nem coluna espremida.
    Os painéis laterais já são trilhos de 50px (.auto-collapsible >=768px),
    então basta impedir quebras de largura e deixar a toolbar respirar. */
-@media screen and (min-width: 600px) and (max-width: 1200px) {
+@media screen and (min-width: 630px) and (max-width: 1200px) {
 
   .top-toolbar {
     flex-wrap: wrap !important;

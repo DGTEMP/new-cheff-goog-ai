@@ -1931,6 +1931,225 @@ app.get('/api/super/metricas/garcons', superAdminAuth, (req, res) => {
   }
 });
 
+/* ── SUPER ADMIN: CAPACIDADE REALISTA + MAPA DE RESTAURANTES ──
+   Modelo baseado em PICOS REAIS de sockets (amostrados a cada 5 min na
+   tabela metricas_sockets), não em contagem fixa de restaurantes. */
+const CAP_RAM_TENANT_FIXA = 80; // MB estimados por tenant ativo (fallback)
+
+function _amostrarSockets() {
+  try {
+    const agora = new Date();
+    const dia = agora.getFullYear() + '-' + String(agora.getMonth() + 1).padStart(2, '0') + '-' + String(agora.getDate()).padStart(2, '0');
+    const hora = agora.getHours();
+    masterDb.all(`SELECT id FROM restaurantes`, [], (err, rows) => {
+      if (err || !rows) return;
+      let total = 0;
+      const detalhes = [];
+      rows.forEach(r => {
+        let n = 0;
+        try {
+          const sala = io.sockets.adapter.rooms.get('restaurante_' + r.id);
+          n = sala ? sala.size : 0;
+        } catch (e) { }
+        total += n;
+        if (n > 0) detalhes.push([dia, hora, r.id, n]);
+      });
+      const upsert = `INSERT INTO metricas_sockets (dia, hora, tenant_id, sockets) VALUES (?, ?, ?, ?)
+        ON CONFLICT(dia, hora, tenant_id) DO UPDATE SET sockets = MAX(sockets, excluded.sockets)`;
+      detalhes.forEach(d => masterDb.run(upsert, d));
+      masterDb.run(upsert, [dia, hora, -1, total]);
+    });
+  } catch (e) { console.error('[metricas] amostragem falhou:', e.message); }
+}
+
+app.get('/api/super/capacidade', superAdminAuth, (req, res) => {
+  const os = require('os');
+  const mem = process.memoryUsage();
+  const totalRamMB = Math.round(os.totalmem() / 1048576);
+  const usedRamMB = totalRamMB - Math.round(os.freemem() / 1048576);
+  const rssMB = Math.round(mem.rss / 1048576);
+  const socketsAtivos = typeof activeSockets !== 'undefined' ? activeSockets.size : 0;
+  const diaMinimo = new Date(Date.now() - 6 * 86400000).toISOString().slice(0, 10);
+
+  masterDb.all(`SELECT id, nome, licenca, ativo FROM restaurantes ORDER BY id`, [], (errR, rests) => {
+    if (errR) return res.json({ ok: false, erro: errR.message });
+    const todos = rests || [];
+
+    let pendentes = 3;
+    const picos7d = {};   // tenant_id -> pico sockets 7d
+    const horaPico = {};  // tenant_id -> hora do pico
+    let heatmapBruto = [];
+
+    const finalizar = () => {
+      // Heatmap completo 0..23h
+      const hmMap = {};
+      heatmapBruto.forEach(l => { hmMap[l.hora] = l.s; });
+      const heatmap = [];
+      for (let h = 0; h < 24; h++) heatmap.push({ hora: h, sockets: hmMap[h] || 0 });
+
+      // Modelo realista
+      const tenantsComPico = Object.values(picos7d).filter(v => v > 0).length;
+      const picoSoma7d = Object.values(picos7d).reduce((a, b) => a + b, 0);
+      const fatorSimultaneidade = 0.7;
+      let custoSocketAuto = false;
+      let custoSocketMB = CAP_RAM_TENANT_FIXA;
+      if (socketsAtivos >= 10 && rssMB > socketsAtivos) {
+        custoSocketMB = Math.max(20, Math.round(rssMB / socketsAtivos));
+        custoSocketAuto = true;
+      }
+      const ramUtilMB = Math.round(totalRamMB * 0.85);
+      const ramBaseMB = Math.max(120, custoSocketAuto ? rssMB - socketsAtivos * custoSocketMB : rssMB);
+      const capSockets = Math.max(1, Math.floor((ramUtilMB - ramBaseMB) / custoSocketMB));
+      const mediaPicoPorTenant = tenantsComPico > 0 ? Math.round(picoSoma7d / tenantsComPico) : null;
+      const baseadoEmPicos = tenantsComPico >= 3;
+      const picoSimultaneo = Math.round(picoSoma7d * fatorSimultaneidade);
+
+      const teoricoMaxTenants = Math.max(1, Math.floor(ramUtilMB / custoSocketMB));
+      let maxTenants = teoricoMaxTenants;
+      if (baseadoEmPicos && mediaPicoPorTenant > 0) {
+        maxTenants = Math.min(teoricoMaxTenants, Math.max(1, Math.floor(capSockets / mediaPicoPorTenant)));
+      }
+      const tenantsAtivosCount = todos.filter(r => r.ativo).length;
+
+      const tenants = todos.map(r => ({
+        id: r.id,
+        nome: r.nome,
+        licenca: r.licenca || 'premium',
+        ativo: !!r.ativo,
+        sockets: (() => { try { const s = io.sockets.adapter.rooms.get('restaurante_' + r.id); return s ? s.size : 0; } catch (e) { return 0; } })(),
+        hora: horaPico[r.id] != null ? horaPico[r.id] : null
+      }));
+
+      res.json({
+        ok: true,
+        server: { totalRamMB, usedRamMB, socketsAtivos, tenantsAtivos: tenantsAtivosCount, tenantsTotal: todos.length },
+        capacidade: {
+          maxTenants, restantes: Math.max(0, maxTenants - tenantsAtivosCount),
+          percentual: Math.min(100, Math.round(tenantsAtivosCount / maxTenants * 100)),
+          ramPorTenantMB: custoSocketMB,
+          teoricoMaxTenants,
+          modelo: {
+            baseadoEmPicos, capSockets,
+            percentualSockets: Math.min(999, Math.round(picoSimultaneo / capSockets * 100)),
+            picoSimultaneo: baseadoEmPicos ? picoSimultaneo : null,
+            custoSocketMB, custoSocketAuto, mediaPicoPorTenant,
+            picoSoma7d, tenantsComPico, fatorSimultaneidade, ramBaseMB, ramUtilMB
+          }
+        },
+        heatmap,
+        tenants
+      });
+    };
+
+    // 1) picos por tenant (7d)
+    masterDb.all(
+      `SELECT tenant_id, MAX(sockets) AS mp FROM metricas_sockets WHERE dia >= ? AND tenant_id != -1 GROUP BY tenant_id`,
+      [diaMinimo], (e1, rows1) => {
+        (rows1 || []).forEach(l => { picos7d[l.tenant_id] = l.mp; });
+        pendentes--; if (pendentes <= 0) finalizar();
+      });
+    // 2) horas dos picos
+    masterDb.all(
+      `SELECT m.tenant_id, m.hora FROM metricas_sockets m
+       JOIN (SELECT tenant_id, MAX(sockets) AS mp FROM metricas_sockets WHERE dia >= ? AND tenant_id != -1 GROUP BY tenant_id) x
+         ON x.tenant_id = m.tenant_id AND x.mp = m.sockets
+       WHERE m.dia >= ? GROUP BY m.tenant_id`,
+      [diaMinimo, diaMinimo], (e2, rows2) => {
+        (rows2 || []).forEach(l => { if (horaPico[l.tenant_id] == null) horaPico[l.tenant_id] = l.hora; });
+        pendentes--; if (pendentes <= 0) finalizar();
+      });
+    // 3) heatmap global (tenant_id = -1)
+    masterDb.all(
+      `SELECT hora, MAX(sockets) AS s FROM metricas_sockets WHERE dia >= ? AND tenant_id = -1 GROUP BY hora ORDER BY hora`,
+      [diaMinimo], (e3, rows3) => {
+        heatmapBruto = rows3 || [];
+        pendentes--; if (pendentes <= 0) finalizar();
+      });
+  });
+});
+
+// ── SUPER ADMIN: MAPA DE RESTAURANTES CONECTADOS ───────────────────
+app.get('/api/super/mapa', superAdminAuth, (req, res) => {
+  masterDb.all(
+    `SELECT id, nome, licenca, ativo, latitude, longitude, bairro, cidade FROM restaurantes ORDER BY nome`,
+    [], (errR, rows) => {
+      if (errR) return res.json({ ok: false, erro: errR.message });
+      const todos = rows || [];
+
+      const socketsPorTenant = {}; const garconsPorTenant = {};
+      try {
+        io.sockets.sockets.forEach(s => {
+          const tid = s.restaurante_id;
+          if (!tid) return;
+          socketsPorTenant[tid] = (socketsPorTenant[tid] || 0) + 1;
+          const cargo = String((activeSockets.get(s.id) || {}).cargo || '');
+          if (/gar|atend/i.test(cargo)) garconsPorTenant[tid] = (garconsPorTenant[tid] || 0) + 1;
+        });
+      } catch (e) { }
+
+      let pendentes = todos.length;
+      const pontos = [];
+      const finalizar = () => {
+        const comLocal = pontos.filter(p => p.temLocal);
+        const cidadeMap = {};
+        comLocal.forEach(p => { if (p.cidade) cidadeMap[p.cidade] = (cidadeMap[p.cidade] || 0) + 1; });
+        res.json({
+          ok: true,
+          pontos,
+          stats: {
+            online: pontos.filter(p => p.online).length,
+            total: pontos.length,
+            comLocal: comLocal.length,
+            cidades: Object.entries(cidadeMap).map(([nome, total]) => ({ nome, total })).sort((a, b) => b.total - a.total)
+          }
+        });
+      };
+      if (!todos.length) return finalizar();
+
+      todos.forEach(r => {
+        const lat = parseFloat(r.latitude), lng = parseFloat(r.longitude);
+        const base = {
+          id: r.id, nome: r.nome, licenca: r.licenca || 'premium',
+          online: (socketsPorTenant[r.id] || 0) > 0,
+          sockets: socketsPorTenant[r.id] || 0,
+          garcons_online: garconsPorTenant[r.id] || 0,
+          temLocal: Number.isFinite(lat) && Number.isFinite(lng),
+          latitude: lat, longitude: lng,
+          bairro: r.bairro || '', cidade: r.cidade || '',
+          ultima_atividade: null
+        };
+        const dbPath = getTenantDbPath(r.id);
+        if (!fsSync.existsSync(dbPath)) {
+          pontos.push({ ...base, comandas_abertas: 0, vendas_hoje: 0 });
+          pendentes--; if (pendentes <= 0) finalizar();
+          return;
+        }
+        const tDb = new sqlite3.Database(dbPath, sqlite3.OPEN_READONLY, eOpen => {
+          if (eOpen) {
+            pontos.push({ ...base, comandas_abertas: 0, vendas_hoje: 0 });
+            pendentes--; if (pendentes <= 0) finalizar();
+            return;
+          }
+          tDb.get(
+            `SELECT
+               SUM(CASE WHEN status NOT IN ('Finalizado','Pago','Fracionado','Cancelado') THEN 1 ELSE 0 END) AS abertas,
+               COALESCE(SUM(CASE WHEN status IN ('Finalizado','Pago') AND date(createdAt) = date('now','localtime') THEN CAST(total AS REAL) ELSE 0 END),0) AS vendas
+             FROM pedidos`,
+            [], (eP, rowP) => {
+              tDb.all(`SELECT MAX(ultimo_visto) AS uv FROM dispositivos`, [], (eD, rowsD) => {
+                tDb.close();
+                base.comandas_abertas = (!eP && rowP && rowP.abertas) || 0;
+                base.vendas_hoje = (!eP && rowP ? rowP.vendas : 0) || 0;
+                if (!eD && rowsD && rowsD[0]) base.ultima_atividade = rowsD[0].uv;
+                pontos.push(base);
+                pendentes--; if (pendentes <= 0) finalizar();
+              });
+            });
+        });
+      });
+    });
+});
+
 // ── SUPER ADMIN: LOGS ──────────────────────────────────────────────
 app.get('/api/super/logs-sistema', superAdminAuth, (req, res) => {
   const tipo = req.query.tipo === 'auditoria' ? 'auditoria' : 'api_logs';
@@ -2268,6 +2487,98 @@ app.get('/api/reservas/minhas', (req, res) => {
       if (err) return res.json({ ok: false, erro: err.message });
       res.json({ ok: true, reservas: rows || [] });
     });
+});
+
+// ══════════════════════════════════════════════════════════════════
+// ── RESERVA VIA QR DA MESA: boas-vindas + validação por telefone ──
+// ══════════════════════════════════════════════════════════════════
+const _hojeLocal = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+
+// Contexto ao escanear o QR: há reserva para esta mesa hoje?
+app.get('/api/reservas/qr-contexto', (req, res) => {
+  const mesa = String(req.query.mesa || '').trim();
+  if (!mesa) return res.json({ ok: false, erro: 'Mesa não informada.' });
+  const hoje = _hojeLocal();
+  db.get(
+    `SELECT * FROM reservas_futuras WHERE mesa_nome = ? AND data_reserva = ? AND status = 'confirmada' ORDER BY horario ASC LIMIT 1`,
+    [mesa, hoje],
+    (err, r) => {
+      if (err) return res.json({ ok: false, erro: err.message });
+      db.get(`SELECT nome, status, lugares FROM mesas WHERE nome = ?`, [mesa], (eM, mesaRow) => {
+        res.json({
+          ok: true,
+          hoje,
+          mesa: mesaRow ? { nome: mesaRow.nome, status: mesaRow.status, lugares: mesaRow.lugares } : null,
+          reserva: r ? {
+            id: r.id,
+            cliente_nome: r.cliente_nome,
+            pessoas: r.pessoas,
+            horario: r.horario,
+            observacao: r.observacao || '',
+            telefone_ult8: String(r.cliente_telefone || '').replace(/\D/g, '').slice(-8),
+            validada_qr: !!r.validada_qr
+          } : null
+        });
+      });
+    }
+  );
+});
+
+// Validação gentil: últimos 8 dígitos do telefone da reserva
+app.post('/api/reservas/qr-validar', (req, res) => {
+  const b = req.body || {};
+  const id = parseInt(b.reserva_id, 10);
+  const digitos = String(b.digitos || '').replace(/\D/g, '').slice(-8);
+  if (!id || digitos.length < 4) return res.json({ ok: false, erro: 'Informe os dígitos do telefone.' });
+  db.get(`SELECT * FROM reservas_futuras WHERE id = ?`, [id], (err, r) => {
+    if (err || !r) return res.json({ ok: false, erro: 'Reserva não encontrada.' });
+    const esperado = String(r.cliente_telefone || '').replace(/\D/g, '').slice(-8);
+    if (digitos !== esperado) {
+      return res.json({ ok: false, erro: 'Não bateu 😊' , dica: 'Confira os últimos dígitos do telefone usado na reserva.' });
+    }
+    db.run(`UPDATE reservas_futuras SET validada_qr = 1, status = 'checkin', checked_in_at = datetime('now','localtime') WHERE id = ?`, [id], (eUp) => {
+      if (eUp) return res.json({ ok: false, erro: eUp.message });
+      db.run(`UPDATE mesas SET status = 'Ocupada' WHERE nome = ? AND status IN ('Disponível','Disponivel','Reservada')`, [r.mesa_nome], () => {});
+      // Histórico de visitas por mesa (para sugerir a mesa preferida na próxima visita)
+      if (b.cliente_id) {
+        db.get(`SELECT visitas_mesa FROM clientes WHERE id = ?`, [b.cliente_id], (eC, c) => {
+          let vm = {};
+          try { vm = JSON.parse((c && c.visitas_mesa) || '{}') || {}; } catch (e) { vm = {}; }
+          vm[r.mesa_nome] = (vm[r.mesa_nome] || 0) + 1;
+          db.run(`UPDATE clientes SET visitas_mesa = ? WHERE id = ?`, [JSON.stringify(vm), b.cliente_id], () => {});
+        });
+      }
+      try {
+        io.emit('reservas_atualizadas');
+        io.emit('reserva_checkin', { id: r.id, mesa: r.mesa_nome, cliente: r.cliente_nome, pessoas: r.pessoas, horario: r.horario });
+        io.emit('notificacao_garcom', { productName: `Check-in reserva (QR): ${r.cliente_nome}`, localName: r.mesa_nome, userName: 'Sistema', tipo: 'checkin' });
+      } catch (e) { }
+      res.json({ ok: true, mensagem: `Perfeito! Aproveite, ${r.cliente_nome}! 🎉`, mesa: r.mesa_nome });
+    });
+  });
+});
+
+// Mesas livres (com capacidade) para redirecionar quem não é da reserva
+app.get('/api/reservas/mesas-livres', (req, res) => {
+  db.all(`SELECT m.nome, m.lugares FROM mesas m WHERE (m.status LIKE 'Dispon%') AND LOWER(m.nome) NOT LIKE '%comanda%' AND m.grupo_juncao IS NULL ORDER BY m.lugares DESC, m.nome ASC LIMIT 30`,
+    [], (err, rows) => {
+      if (err) return res.json({ ok: false, erro: err.message });
+      res.json({ ok: true, mesas: rows || [] });
+    });
+});
+
+// Mesa preferida do cliente recorrente (baseado nas visitas registradas)
+app.get('/api/clientes/preferencia-mesa', (req, res) => {
+  const cid = parseInt(req.query.cliente_id, 10);
+  if (!cid) return res.json({ ok: false });
+  db.get(`SELECT visitas_mesa FROM clientes WHERE id = ?`, [cid], (err, c) => {
+    if (err || !c || !c.visitas_mesa) return res.json({ ok: true, mesa: null });
+    try {
+      const vm = JSON.parse(c.visitas_mesa) || {};
+      const top = Object.entries(vm).sort((a, b) => b[1] - a[1])[0];
+      res.json({ ok: true, mesa: top ? top[0] : null, visitas: top ? top[1] : 0 });
+    } catch (e) { res.json({ ok: true, mesa: null }); }
+  });
 });
 
 // ══════════════════════════════════════════════════════════════════════
@@ -3590,6 +3901,13 @@ masterDb.serialize(async () => {
     custom_domain TEXT UNIQUE,
     data_cadastro DATETIME DEFAULT (datetime('now', 'localtime'))
   )`);
+  masterDb.run(`CREATE TABLE IF NOT EXISTS metricas_sockets (
+    dia TEXT NOT NULL,
+    hora INTEGER NOT NULL,
+    tenant_id INTEGER NOT NULL,
+    sockets INTEGER DEFAULT 0,
+    PRIMARY KEY (dia, hora, tenant_id)
+  )`);
   masterDb.run(`CREATE TABLE IF NOT EXISTS super_config (
     key TEXT PRIMARY KEY,
     value TEXT
@@ -4460,6 +4778,8 @@ db.serialize(() => {
       ultimo_visto DATETIME DEFAULT (datetime('now', 'localtime'))
     )
   `);
+  // Modo de operação remota do terminal: normal | totem | totem_invertido
+  db.run(`ALTER TABLE dispositivos ADD COLUMN modo TEXT DEFAULT 'normal'`, (err) => { });
 
   // Reservas futuras de mesas (cliente agenda; dono define prazo máximo)
   db.run(`
@@ -5628,6 +5948,17 @@ db.serialize(() => {
   db.run(`ALTER TABLE cupons ADD COLUMN sync_version INTEGER DEFAULT 0`, (err) => { });
   db.run(`ALTER TABLE formas_pagamento ADD COLUMN sync_version INTEGER DEFAULT 0`, (err) => { });
 
+  // ── Designer de salão + junções de mesa (posicionamento, capacidade, grupos) ──
+  db.run(`ALTER TABLE mesas ADD COLUMN pos_x REAL`, (err) => { });
+  db.run(`ALTER TABLE mesas ADD COLUMN pos_y REAL`, (err) => { });
+  db.run(`ALTER TABLE mesas ADD COLUMN lugares INTEGER DEFAULT 4`, (err) => { });
+  db.run(`ALTER TABLE mesas ADD COLUMN sala TEXT DEFAULT 'Salão principal'`, (err) => { });
+  db.run(`ALTER TABLE mesas ADD COLUMN grupo_juncao TEXT`, (err) => { });
+  // Validação da reserva pelo próprio cliente via QR (últimos 8 dígitos do telefone)
+  db.run(`ALTER TABLE reservas_futuras ADD COLUMN validada_qr INTEGER DEFAULT 0`, (err) => { });
+  // Histórico de visitas por mesa (JSON {"Mesa 3": 7}) para sugerir a mesa preferida
+  db.run(`ALTER TABLE clientes ADD COLUMN visitas_mesa TEXT`, (err) => { });
+
   // Criar índices após garantir que as tabelas existem
   db.run('CREATE INDEX IF NOT EXISTS idx_pedidos_status ON pedidos(status);');
   db.run('CREATE INDEX IF NOT EXISTS idx_pedidos_localName ON pedidos(localName);');
@@ -5844,12 +6175,26 @@ function resumirUserAgent(ua) {
 }
 
 /* ── Socket auth helpers ───────────────────────────────────────────── */
-const ADMIN_CARGOS = ['Admin', 'Administrador', 'adm', 'Gerente'];
+const ADMIN_CARGOS = ['Admin', 'Administrador', 'adm', 'Gerente', 'Dono', 'Proprietário', 'Proprietario'];
+
+/** Comparação de cargo admin tolerante a acento/caixa ('dono', 'DONO', 'proprietário'...) */
+function _isAdminCargo(cargo) {
+  const c = String(cargo || '').trim().toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  return ADMIN_CARGOS.some(a => String(a).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') === c);
+}
+
+/** Admin por cargo do colaborador OU role do login principal (dono: role 'admin', sem campo cargo) */
+function _socketIsAdmin(socket) {
+  if (!socket.auth) return false;
+  if (_isAdminCargo(socket.auth.cargo)) return true;
+  return ['admin', 'dono', 'proprietario'].includes(String(socket.auth.role || '').trim().toLowerCase());
+}
 
 /** Retorna true se o socket tem token JWT com cargo de admin */
 function exigirAdminSocket(socket) {
   const cargo = socket.auth?.cargo || '';
-  if (!ADMIN_CARGOS.includes(cargo)) {
+  if (!_socketIsAdmin(socket)) {
     socket.emit('erro_servidor', 'Apenas administradores podem executar esta ação.');
     return false;
   }
@@ -6438,7 +6783,7 @@ io.on('connection', (socket) => {
     // Enriquece com apelido/tipo persistidos (mesmo que a sessão tenha começado antes do cadastro)
     const serials = [...new Set(deviceList.map(d => d.serial).filter(Boolean))];
     if (!serials.length) return socket.emit('connected_devices', deviceList);
-    db.all(`SELECT serial, apelido, tipo FROM dispositivos WHERE serial IN (${serials.map(() => '?').join(',')})`, serials, (err, rows) => {
+    db.all(`SELECT serial, apelido, tipo, modo FROM dispositivos WHERE serial IN (${serials.map(() => '?').join(',')})`, serials, (err, rows) => {
       if (!err && rows) {
         const mapa = {};
         rows.forEach(r => { mapa[r.serial] = r; });
@@ -6446,10 +6791,52 @@ io.on('connection', (socket) => {
           if (d.serial && mapa[d.serial]) {
             d.apelido = d.apelido || mapa[d.serial].apelido || '';
             d.tipo = d.tipo || mapa[d.serial].tipo || '';
+            d.modo = d.modo || mapa[d.serial].modo || 'normal';
           }
         });
       }
       socket.emit('connected_devices', deviceList);
+    });
+  });
+
+  /* ── Modo Totem remoto: o dono transforma um Caixa/PDV em quiosque de auto-atendimento
+     (com opção de tela invertida 180° para ficar de frente para o cliente) ── */
+  const _MODOS_VALIDOS = ['normal', 'totem', 'totem_invertido'];
+  socket.on('definir_modo_dispositivo', ({ serial, modo } = {}, ack) => {
+    const responder = (ok, mensagem) => {
+      if (typeof ack === 'function') ack({ ok, mensagem });
+      else if (!ok) socket.emit('erro_servidor', mensagem);
+    };
+    if (!_socketIsAdmin(socket)) return responder(false, 'Apenas administradores podem alterar o modo do terminal.');
+    const s = String(serial || '').slice(0, 40);
+    if (!s) return responder(false, 'Serial não informado.');
+    const m = _MODOS_VALIDOS.includes(modo) ? modo : 'normal';
+    db.run(
+      `INSERT INTO dispositivos (serial, modo, ultimo_visto) VALUES (?, ?, datetime('now', 'localtime'))
+       ON CONFLICT(serial) DO UPDATE SET modo = excluded.modo, ultimo_visto = datetime('now', 'localtime')`,
+      [s, m],
+      (err) => {
+        if (err) return responder(false, 'Falha ao salvar o modo do dispositivo.');
+        let notificados = 0;
+        activeSockets.forEach((c, idSock) => {
+          if (c.serial === s) { io.to(idSock).emit('modo_dispositivo', { modo: m }); notificados++; }
+        });
+        global.registrarAuditoria((activeSockets.get(socket.id)?.user) || socket.auth?.nome || 'Admin', 'MODO_DISPOSITIVO',
+          `Terminal ${s} → modo "${m}" (${notificados} sessão(ões) notificada(s))`,
+          'Gestão de terminais', 'BAIXO', socket.id);
+        io.emit('connected_devices_updated');
+        responder(true, m === 'normal' ? 'Terminal voltou ao modo normal.' : `Totem ativado${m === 'totem_invertido' ? ' (tela invertida)' : ''}.`);
+      }
+    );
+  });
+
+  // Terminal pergunta seu modo atual ao conectar/reconectar (reinicia como totem se configurado)
+  socket.on('get_modo_dispositivo', (data) => {
+    const connDev = activeSockets.get(socket.id);
+    const s = String((data && data.serial) || (connDev && connDev.serial) || '').slice(0, 40);
+    if (!s) return;
+    db.get(`SELECT modo FROM dispositivos WHERE serial = ?`, [s], (err, row) => {
+      socket.emit('modo_dispositivo', { modo: (!err && row && row.modo) || 'normal' });
     });
   });
 
@@ -6595,13 +6982,128 @@ io.on('connection', (socket) => {
     });
   });
 
-  socket.on('juntar_mesas', ({ mesaA, mesaB, operador }) => {
-    const grupo = `${mesaA} + ${mesaB}`;
-    db.run(`UPDATE pedidos SET mesa_grupo = ? WHERE localName IN (?, ?) AND status != 'Finalizado'`, [grupo, mesaA, mesaB], (err) => {
-      if (!err) {
-        global.registrarAuditoria(operador || 'Sistema', 'JUNCAO_MESAS', `Mesa ${mesaA} e ${mesaB} unidas no grupo ${grupo}`, 'Operação de Salão', 'MEDIO');
-        broadcastPedidos();
+  socket.on('juntar_mesas', ({ mesaA, mesaB, operador }, ack) => {
+    const responder = (ok, mensagem) => {
+      if (typeof ack === 'function') ack({ ok, mensagem });
+      else if (!ok) socket.emit('erro_servidor', mensagem);
+    };
+    if (!mesaA || !mesaB || mesaA === mesaB) return responder(false, 'Mesas inválidas para junção.');
+    db.all(`SELECT * FROM mesas WHERE nome IN (?, ?)`, [mesaA, mesaB], (eSel, alvos) => {
+      if (eSel || !alvos || alvos.length < 2) return responder(false, 'Mesa não encontrada.');
+      // Se uma das mesas já pertence a um grupo, todo o grupo entra na junção
+      const tokenBase = alvos.map(m => m.grupo_juncao).filter(Boolean)[0] || `J${Date.now()}`;
+      const nomesAlvo = alvos.map(m => m.nome);
+      db.all(`SELECT * FROM mesas WHERE grupo_juncao = ? OR nome IN (?, ?)`, [tokenBase, mesaA, mesaB], (eGrp, grupo) => {
+        const integrantes = [...new Set([...(grupo || []).map(m => m.nome), ...nomesAlvo])];
+        const setters = integrantes.map(() => `nome = ?`).join(' OR ');
+        db.run(`UPDATE mesas SET grupo_juncao = ? WHERE grupo_juncao = ? OR nome IN (${integrantes.map(() => '?').join(', ')})`,
+          [tokenBase, tokenBase, ...integrantes], (eUp) => {
+            if (eUp) return responder(false, 'Falha ao juntar as mesas.');
+            const rotulo = integrantes.slice().sort((a, b) => a.localeCompare(b, 'pt-BR', { numeric: true })).join(' + ');
+            db.run(`UPDATE pedidos SET mesa_grupo = ? WHERE localName IN (${integrantes.map(() => '?').join(', ')}) AND status NOT IN ('Finalizado','Cancelado')`,
+              [rotulo, ...integrantes], () => {
+              global.registrarAuditoria(operador || 'Sistema', 'JUNCAO_MESAS', `${integrantes.join(' + ')} → grupo "${rotulo}"`, 'Operação de Salão', 'BAIXO');
+              db.all(`SELECT * FROM mesas`, (e, rows) => io.emit('mesas_atualizadas', rows || []));
+              broadcastPedidos();
+              responder(true, `Mesas unidas: ${rotulo}`);
+            });
+          });
+      });
+    });
+  });
+
+  // Desfazer junção: libera o grupo de volta para mesas individuais
+  socket.on('desfazer_juncao', ({ mesaNome, operador }, ack) => {
+    const responder = (ok, mensagem) => {
+      if (typeof ack === 'function') ack({ ok, mensagem });
+      else if (!ok) socket.emit('erro_servidor', mensagem);
+    };
+    if (!mesaNome) return responder(false, 'Mesa inválida.');
+    db.get(`SELECT grupo_juncao FROM mesas WHERE nome = ?`, [mesaNome], (eSel, row) => {
+      if (eSel || !row) return responder(false, 'Mesa não encontrada.');
+      if (!row.grupo_juncao) return responder(true, 'Esta mesa não está em junção.');
+      db.all(`SELECT nome FROM mesas WHERE grupo_juncao = ?`, [row.grupo_juncao], (eG, grupo) => {
+        const nomes = (grupo || []).map(g => g.nome);
+        db.run(`UPDATE mesas SET grupo_juncao = NULL WHERE grupo_juncao = ?`, [row.grupo_juncao], () => {
+          if (nomes.length) {
+            db.run(`UPDATE pedidos SET mesa_grupo = NULL WHERE localName IN (${nomes.map(() => '?').join(', ')}) AND status NOT IN ('Finalizado','Cancelado')`,
+              nomes, () => { });
+          }
+          global.registrarAuditoria(operador || 'Sistema', 'DESFAZER_JUNCAO', `Grupo ${nomes.join(' + ')} desfeito`, 'Operação de Salão', 'BAIXO');
+          db.all(`SELECT * FROM mesas`, (e, rows) => io.emit('mesas_atualizadas', rows || []));
+          broadcastPedidos();
+          responder(true, 'Junção desfeita.');
+        });
+      });
+    });
+  });
+
+  /* Sugestões inteligentes de junção: dada a quantidade de pessoas (ex.: de uma
+     reserva), encontra combinações de mesas LIVRES vizinhas (distância no mapa
+     do salão) que somadas comportem o grupo — pares primeiro, depois trios. */
+  const ADJACENCIA_DIST = 95; // unidades do mapa do salão (canvas normalizado)
+  function _mesasVizinhas(a, b) {
+    if (a.pos_x == null || a.pos_y == null || b.pos_x == null || b.pos_y == null) return false;
+    const dx = (a.pos_x || 0) - (b.pos_x || 0), dy = (a.pos_y || 0) - (b.pos_y || 0);
+    return Math.sqrt(dx * dx + dy * dy) <= ADJACENCIA_DIST;
+  }
+  function _sugerirJuncoes(mesasLivres, pessoas) {
+    const sugestoes = [];
+    for (let i = 0; i < mesasLivres.length; i++) {
+      for (let j = i + 1; j < mesasLivres.length; j++) {
+        const a = mesasLivres[i], b = mesasLivres[j];
+        const cap = (a.lugares || 4) + (b.lugares || 4);
+        if (cap >= pessoas && _mesasVizinhas(a, b)) sugestoes.push({ mesas: [a.nome, b.nome], capacidade: cap, qtd: 2 });
+        for (let k = j + 1; k < mesasLivres.length; k++) {
+          const c = mesasLivres[k];
+          const cap3 = cap + (c.lugares || 4);
+          if (cap3 >= pessoas && (_mesasVizinhas(a, b) && _mesasVizinhas(b, c) || _mesasVizinhas(a, c) && _mesasVizinhas(b, c))) {
+            sugestoes.push({ mesas: [a.nome, b.nome, c.nome], capacidade: cap3, qtd: 3 });
+          }
+        }
       }
+    }
+    sugestoes.sort((x, y) => x.qtd - y.qtd || Math.abs(x.capacidade - pessoas) - Math.abs(y.capacidade - pessoas));
+    return sugestoes.slice(0, 5);
+  }
+  socket.on('sugerir_juncao', ({ pessoas, reserva_id } = {}, ack) => {
+    if (typeof ack !== 'function') return;
+    db.all(`SELECT * FROM mesas WHERE status LIKE 'Dispon%ivel%' OR status = 'Disponível' OR status = 'Disponivel'`, [], (e, todas) => {
+      if (e) return ack({ ok: false, sugestoes: [] });
+      const livres = (todas || []).filter(m => !m.grupo_juncao && !String(m.nome || '').toLowerCase().includes('comanda'));
+      const sugestoes = _sugerirJuncoes(livres, parseInt(pessoas, 10) || 2).map(s => ({
+        ...s, reserva_id: reserva_id || null,
+        rotulo: s.mesas.join(' + ')
+      }));
+      ack({ ok: true, sugestoes });
+    });
+  });
+
+  // Layout do salão: salva posição, capacidade e sala de cada mesa (desenhado nas configurações)
+  socket.on('salvar_layout_salao', ({ mesas: layout, operador } = {}, ack) => {
+    const responder = (ok, mensagem) => {
+      if (typeof ack === 'function') ack({ ok, mensagem });
+      else if (!ok) socket.emit('erro_servidor', mensagem);
+    };
+    if (!_socketIsAdmin(socket)) return responder(false, 'Apenas administradores podem editar o layout do salão.');
+    if (!Array.isArray(layout)) return responder(false, 'Layout inválido.');
+    let pendentes = layout.length;
+    if (!pendentes) return responder(true, 'Nada para salvar.');
+    let falhas = 0;
+    layout.forEach(m => {
+      if (!m || !m.id) { pendentes--; return; }
+      db.run(`UPDATE mesas SET pos_x = ?, pos_y = ?, lugares = ?, sala = ? WHERE id = ?`,
+        [Number(m.pos_x) || 0, Number(m.pos_y) || 0, Math.max(1, parseInt(m.lugares, 10) || 4), String(m.sala || 'Salão principal').slice(0, 60), m.id],
+        (err) => {
+          if (err) falhas++;
+          pendentes--;
+          if (pendentes <= 0) {
+            if (falhas) return responder(false, `${falhas} mesa(s) não puderam ser salvas.`);
+            global.registrarAuditoria(socket.auth?.nome || operador || 'Sistema', 'LAYOUT_SALAO', `Layout do salão atualizado (${layout.length} mesas)`, 'Configurações', 'BAIXO');
+            db.all(`SELECT * FROM mesas`, (e, rows) => io.emit('mesas_atualizadas', rows || []));
+            responder(true, 'Layout do salão salvo.');
+          }
+        });
     });
   });
 
@@ -7768,7 +8270,7 @@ io.on('connection', (socket) => {
     };
     if (!id) return responder(false, 'Mesa inválida.');
     const cargo = socket.auth?.cargo || '';
-    const isAdmin = ADMIN_CARGOS.includes(cargo);
+    const isAdmin = _socketIsAdmin(socket);
 
     const executarExclusao = () => {
       db.get(`SELECT nome, status FROM mesas WHERE id = ?`, [id], (eSel, mesa) => {
@@ -14165,6 +14667,10 @@ process.on('unhandledRejection', (reason) => {
 licenseManager.initLicense().then((licState) => {
   server.listen(PORT, HOST, () => {
     const ip = getLocalIp();
+
+    // Amostragem de sockets por tenant (alimenta modelo realista de capacidade)
+    _amostrarSockets();
+    setInterval(_amostrarSockets, 5 * 60 * 1000);
 
     const banner = `
 ${ANSI.cyan}${ANSI.bright}  ╭─────────────────────────── System Fetch ───────────────────────────╮${ANSI.reset}

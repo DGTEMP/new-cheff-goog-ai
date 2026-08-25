@@ -84,6 +84,22 @@ window.enviarRegistroSessaoDetalhado = function () {
   }
 };
 
+/* ── Modo Totem remoto: se o dono configurou este terminal como quiosque,
+   ele vira auto-atendimento (cardápio digital), com tela invertida opcional. ── */
+window.aplicarModoTotem = function (modo) {
+  try {
+    if (!modo || modo === 'normal') return;
+    const rid = localStorage.getItem('restaurante_id') || '1';
+    const rot = modo === 'totem_invertido' ? '&rot=180' : '';
+    sessionStorage.setItem('cc_modo_totem', modo);
+    window.location.href = `/cardapio.html?restaurante_id=${encodeURIComponent(rid)}&mesa=Totem&totem=1${rot}`;
+  } catch (e) { }
+};
+socket.on('modo_dispositivo', (data) => window.aplicarModoTotem(data && data.modo));
+if (typeof socket !== 'undefined' && socket.emit) {
+  socket.emit('get_modo_dispositivo', { serial: window.obterSerialDispositivo() });
+}
+
 // Serial estável do terminal: gerado uma vez e guardado no navegador da máquina.
 // Permite o dono identificar "qual computador é qual" mesmo com 15+ terminais.
 window.obterSerialDispositivo = function () {

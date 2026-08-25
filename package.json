@@ -26,6 +26,7 @@
         "@vitejs/plugin-legacy": "^8.1.0",
         "cheerio": "^1.2.0",
         "concurrently": "^10.0.3",
+        "cross-env": "^10.1.0",
         "javascript-obfuscator": "^5.5.0",
         "png-to-ico": "^3.0.1",
         "terser": "^5.48.0",
