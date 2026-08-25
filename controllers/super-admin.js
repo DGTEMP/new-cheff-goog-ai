@@ -1976,4 +1976,292 @@ module.exports = function (app, masterDb, sqlite3, options) {
       res.json({ ok: false, erro: 'Banco do restaurante indisponível: ' + e.message });
     }
   });
+
+  // ═══════════════════════════════════════════════════════════════
+  // PROVEDORES DE IMAGEM — Pool com round-robin e fallback
+  // ═══════════════════════════════════════════════════════════════
+
+  const https = require('https');
+  const http = require('http');
+
+  const IMAGE_PROVIDER_PRESETS = {
+    imgbb: {
+      nome: 'ImgBB',
+      upload_url: 'https://api.imgbb.com/1/upload',
+      method: 'POST',
+      max_size_mb: 32,
+      headers_template: {},
+      body_template: 'key={api_key}&image={base64}&name={filename}',
+      content_type: 'application/x-www-form-urlencoded',
+      response_url_path: 'data.url',
+      doc_url: 'https://api.imgbb.com/'
+    },
+    cloudinary: {
+      nome: 'Cloudinary',
+      upload_url: 'https://api.cloudinary.com/v1_1/{cloud_name}/image/upload',
+      method: 'POST',
+      max_size_mb: 10,
+      headers_template: {},
+      body_template: 'file={base64}&api_key={api_key}&timestamp={timestamp}&signature={signature}',
+      content_type: 'application/x-www-form-urlencoded',
+      response_url_path: 'secure_url',
+      doc_url: 'https://cloudinary.com/documentation/image_upload_api_reference'
+    },
+    imgur: {
+      nome: 'Imgur',
+      upload_url: 'https://api.imgur.com/3/image',
+      method: 'POST',
+      max_size_mb: 10,
+      headers_template: { 'Authorization': 'Client-ID {api_key}' },
+      body_template: 'image={base64}',
+      content_type: 'application/x-www-form-urlencoded',
+      response_url_path: 'data.link',
+      doc_url: 'https://apidocs.imgur.com/'
+    },
+    cloudflare_r2: {
+      nome: 'Cloudflare R2',
+      upload_url: 'https://{account_id}.r2.cloudflarestorage.com/{bucket}/{key}',
+      method: 'PUT',
+      max_size_mb: 5120,
+      headers_template: { 'Authorization': 'AWS4-HMAC-SHA256 ...' },
+      body_template: '{binary}',
+      content_type: 'application/octet-stream',
+      response_url_path: '',
+      doc_url: 'https://developers.cloudflare.com/r2/'
+    },
+    custom: {
+      nome: 'Custom (Manual)',
+      upload_url: '',
+      method: 'POST',
+      max_size_mb: 10,
+      headers_template: {},
+      body_template: '',
+      content_type: 'multipart/form-data',
+      response_url_path: 'url',
+      doc_url: ''
+    }
+  };
+
+  async function getImageProviders() {
+    return new Promise((resolve) => {
+      masterDb.get("SELECT valor FROM configuracoes_global WHERE chave = 'image_providers'", [], (err, row) => {
+        if (err || !row) return resolve([]);
+        try { resolve(JSON.parse(row.valor)); } catch (e) { resolve([]); }
+      });
+    });
+  }
+
+  async function saveImageProviders(providers) {
+    return new Promise((resolve, reject) => {
+      const json = JSON.stringify(providers);
+      masterDb.run("INSERT INTO configuracoes_global (chave, valor) VALUES ('image_providers', ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor", [json], (err) => {
+        if (err) reject(err); else resolve();
+      });
+    });
+  }
+
+  function extractJsonPath(obj, pathStr) {
+    if (!pathStr || !obj) return obj;
+    const parts = pathStr.split('.');
+    let current = obj;
+    for (const p of parts) {
+      if (current == null) return undefined;
+      current = current[p];
+    }
+    return current;
+  }
+
+  // GET /api/super/image-providers — lista todos os provedores
+  app.get('/api/super/image-providers', superAdminAuth, async (req, res) => {
+    try {
+      const providers = await getImageProviders();
+      res.json({ ok: true, providers, presets: IMAGE_PROVIDER_PRESETS });
+    } catch (e) {
+      res.json({ ok: false, erro: e.message });
+    }
+  });
+
+  // POST /api/super/image-providers — salva lista de provedores
+  app.post('/api/super/image-providers', superAdminAuth, async (req, res) => {
+    try {
+      const { providers } = req.body || {};
+      if (!Array.isArray(providers)) return res.json({ ok: false, erro: 'Formato inválido.' });
+      await saveImageProviders(providers);
+      res.json({ ok: true, mensagem: 'Provedores salvos com sucesso!' });
+    } catch (e) {
+      res.json({ ok: false, erro: e.message });
+    }
+  });
+
+  // POST /api/super/image-providers/test/:id — testa upload em um provedor
+  app.post('/api/super/image-providers/test/:id', superAdminAuth, async (req, res) => {
+    try {
+      const providers = await getImageProviders();
+      const provider = providers.find(p => p.id === req.params.id);
+      if (!provider) return res.json({ ok: false, erro: 'Provedor não encontrado.' });
+
+      const testBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+      const testFilename = 'chef-test-' + Date.now();
+
+      const result = await uploadToProvider(provider, testBase64, testFilename);
+      if (result.ok) {
+        res.json({ ok: true, mensagem: 'Teste bem-sucedido!', url: result.url, provider: provider.nome });
+      } else {
+        res.json({ ok: false, erro: result.error, provider: provider.nome });
+      }
+    } catch (e) {
+      res.json({ ok: false, erro: e.message });
+    }
+  });
+
+  // POST /api/super/image-providers/reorder — reordena prioridade
+  app.post('/api/super/image-providers/reorder', superAdminAuth, async (req, res) => {
+    try {
+      const { order } = req.body || {};
+      if (!Array.isArray(order)) return res.json({ ok: false, erro: 'Formato inválido.' });
+      const providers = await getImageProviders();
+      const reordered = order.map(id => providers.find(p => p.id === id)).filter(Boolean);
+      // Adiciona provedores que não estavam na ordenação ao final
+      providers.forEach(p => { if (!reordered.find(r => r.id === p.id)) reordered.push(p); });
+      await saveImageProviders(reordered);
+      res.json({ ok: true, mensagem: 'Ordem atualizada!' });
+    } catch (e) {
+      res.json({ ok: false, erro: e.message });
+    }
+  });
+
+  // POST /api/upload-image — upload inteligente com round-robin
+  app.post('/api/upload-image', async (req, res) => {
+    try {
+      const { base64, filename, restaurante_id } = req.body || {};
+      if (!base64) return res.json({ ok: false, erro: 'Imagem (base64) é obrigatória.' });
+
+      const providers = await getImageProviders();
+      const active = providers.filter(p => p.ativo !== false).sort((a, b) => (a.priority || 0) - (b.priority || 0));
+
+      if (active.length === 0) return res.json({ ok: false, erro: 'Nenhum provedor de imagem configurado.' });
+
+      const fName = filename || 'upload-' + Date.now();
+      let lastError = null;
+
+      for (const provider of active) {
+        try {
+          const result = await uploadToProvider(provider, base64, fName);
+          if (result.ok) {
+            // Registra uso para round-robin
+            const usageKey = 'img_usage_' + provider.id;
+            const currentUsage = parseInt(await getInfraConfig(usageKey) || '0');
+            await setInfraConfig(usageKey, String(currentUsage + 1));
+            return res.json({ ok: true, url: result.url, provider: provider.nome, provider_id: provider.id });
+          }
+          lastError = result.error;
+        } catch (e) {
+          lastError = e.message;
+        }
+      }
+
+      res.json({ ok: false, erro: 'Todos os provedores falharam. Último erro: ' + (lastError || 'desconhecido') });
+    } catch (e) {
+      res.json({ ok: false, erro: e.message });
+    }
+  });
+
+  // Upload para um provedor específico
+  function uploadToProvider(provider, base64Data, filename) {
+    return new Promise((resolve) => {
+      try {
+        const config = provider.config || {};
+        let uploadUrl = provider.upload_url || '';
+        const method = (provider.method || 'POST').toUpperCase();
+        const contentType = provider.content_type || 'application/x-www-form-urlencoded';
+        const headersTpl = provider.headers_template || {};
+        const bodyTpl = provider.body_template || '';
+        const responsePath = provider.response_url_path || '';
+
+        // Substitui variáveis na URL
+        uploadUrl = uploadUrl.replace(/{api_key}/g, config.api_key || '');
+        uploadUrl = uploadUrl.replace(/{cloud_name}/g, config.cloud_name || '');
+        uploadUrl = uploadUrl.replace(/{account_id}/g, config.account_id || '');
+        uploadUrl = uploadUrl.replace(/{bucket}/g, config.bucket || '');
+        uploadUrl = uploadUrl.replace(/{key}/g, filename + '.png');
+
+        if (!uploadUrl) return resolve({ ok: false, error: 'URL de upload não configurada.' });
+
+        // Monta headers
+        const headers = {};
+        Object.keys(headersTpl).forEach(k => {
+          headers[k] = String(headersTpl[k])
+            .replace(/{api_key}/g, config.api_key || '')
+            .replace(/{client_id}/g, config.api_key || '')
+            .replace(/{cloud_name}/g, config.cloud_name || '');
+        });
+
+        // Monta body
+        let body = bodyTpl
+          .replace(/{api_key}/g, config.api_key || '')
+          .replace(/{base64}/g, base64Data)
+          .replace(/{filename}/g, filename)
+          .replace(/{timestamp}/g, String(Math.floor(Date.now() / 1000)))
+          .replace(/{cloud_name}/g, config.cloud_name || '')
+          .replace(/{signature}/g, config.api_secret ? '' : '');
+
+        if (contentType.includes('json')) {
+          headers['Content-Type'] = 'application/json';
+        } else if (contentType.includes('form')) {
+          headers['Content-Type'] = 'application/x-www-form-urlencoded';
+        } else {
+          headers['Content-Type'] = contentType;
+        }
+
+        const urlObj = new URL(uploadUrl);
+        const isHttps = urlObj.protocol === 'https:';
+        const lib = isHttps ? https : http;
+
+        const options = {
+          hostname: urlObj.hostname,
+          port: urlObj.port || (isHttps ? 443 : 80),
+          path: urlObj.pathname + urlObj.search,
+          method: method,
+          headers: headers,
+          timeout: 30000
+        };
+
+        const req = lib.request(options, (resp) => {
+          let data = '';
+          resp.on('data', chunk => { data += chunk; });
+          resp.on('end', () => {
+            try {
+              if (resp.statusCode < 200 || resp.statusCode >= 300) {
+                return resolve({ ok: false, error: `HTTP ${resp.statusCode}: ${data.slice(0, 200)}` });
+              }
+              const json = JSON.parse(data);
+              const url = extractJsonPath(json, responsePath);
+              if (url && typeof url === 'string' && url.startsWith('http')) {
+                resolve({ ok: true, url });
+              } else {
+                resolve({ ok: false, error: 'URL não encontrada na resposta: ' + responsePath });
+              }
+            } catch (e) {
+              resolve({ ok: false, error: 'Resposta inválida: ' + data.slice(0, 200) });
+            }
+          });
+        });
+
+        req.on('error', (e) => resolve({ ok: false, error: e.message }));
+        req.on('timeout', () => { req.destroy(); resolve({ ok: false, error: 'Timeout (30s)' }); });
+
+        if (contentType.includes('form') && !body.includes('{binary}')) {
+          req.write(body);
+        } else if (body.includes('{binary}')) {
+          const binData = Buffer.from(base64Data, 'base64');
+          req.write(binData);
+        } else {
+          req.write(body);
+        }
+        req.end();
+      } catch (e) {
+        resolve({ ok: false, error: e.message });
+      }
+    });
+  }
 };

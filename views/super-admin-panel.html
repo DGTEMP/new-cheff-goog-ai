@@ -107,6 +107,11 @@
                 <span>Túneis &amp; Fallback</span>
                 <span id="tuneis-badge" style="display:none;margin-left:auto;background:#10b981;color:#fff;font-size:0.6rem;padding:2px 7px;border-radius:99px;font-weight:700;">0</span>
               </div>
+              <div class="menu-item" data-target="sec-image-providers" id="menu-item-image-providers">
+                <i class="fa-solid fa-images"></i>
+                <span>Provedores de Imagem</span>
+                <span id="image-providers-badge" style="display:none;margin-left:auto;background:#8b5cf6;color:#fff;font-size:0.6rem;padding:2px 7px;border-radius:99px;font-weight:700;">0</span>
+              </div>
             </div>
           </div>
 
@@ -2703,6 +2708,162 @@
               Nenhuma atividade registrada.
             </div>
           </div>
+        </div>
+
+
+        <!-- ════ SEÇÃO: PROVEDORES DE IMAGEM ════ -->
+        <div class="content-section" id="sec-image-providers">
+          <div class="info-banner">
+            <i class="fa-solid fa-images"></i>
+            <div class="info-banner-content">
+              <h4>Provedores de Imagem</h4>
+              <p>Configure pool de provedores gratuitos para upload de fotos dos produtos no cardápio. Balanceamento automático com fallback entre provedores ativos.</p>
+            </div>
+          </div>
+
+          <!-- Stats -->
+          <div class="stats-grid" id="imgprov-stats">
+            <div class="stat-card active-card">
+              <div class="stat-icon"><i class="fa-solid fa-server"></i></div>
+              <div class="stat-meta"><span>Provedores Ativos</span>
+                <h3 id="imgprov-ativos-count">0</h3>
+              </div>
+            </div>
+            <div class="stat-card trial-card">
+              <div class="stat-icon"><i class="fa-solid fa-upload"></i></div>
+              <div class="stat-meta"><span>Total Uploads</span>
+                <h3 id="imgprov-total-uploads">0</h3>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon"><i class="fa-solid fa-shield-halved"></i></div>
+              <div class="stat-meta"><span>Fallback</span>
+                <h3 id="imgprov-fallback-status">OK</h3>
+              </div>
+            </div>
+          </div>
+
+          <!-- Setup Automático -->
+          <div style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:12px;padding:1.5rem;margin-top:1.5rem;">
+            <h4 style="margin-bottom:1rem;"><i class="fa-solid fa-wand-magic-sparkles" style="color:#8b5cf6;"></i> Setup Automático</h4>
+            <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:1rem;">Escolha um provedor gratuito para adicionar rapidamente. Basta informar a API Key.</p>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:0.75rem;" id="imgprov-presets-grid">
+              <!-- Preenchido via JS -->
+            </div>
+          </div>
+
+          <!-- Provedores Configurados -->
+          <div style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:12px;padding:1.5rem;margin-top:1.5rem;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:8px;">
+              <h4><i class="fa-solid fa-list" style="color:#10b981;"></i> Provedores Configurados</h4>
+              <div style="display:flex;gap:8px;">
+                <button class="btn-action" onclick="carregarImageProviders()" style="padding:6px 12px;font-size:0.8rem;">
+                  <i class="fa-solid fa-rotate"></i> Atualizar
+                </button>
+                <button class="btn-action btn-primary-action" onclick="abrirModalNovoProvider()" style="padding:6px 12px;font-size:0.8rem;">
+                  <i class="fa-solid fa-plus"></i> Manual
+                </button>
+              </div>
+            </div>
+            <div id="imgprov-list" style="display:flex;flex-direction:column;gap:0.75rem;">
+              <p style="font-size:0.85rem;color:var(--text-muted);text-align:center;padding:20px;">Nenhum provedor configurado.</p>
+            </div>
+          </div>
+
+          <!-- Modal: Adicionar Provider via Preset -->
+          <div id="modal-imgprov-preset" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;padding:16px;" onclick="if(event.target===this)this.style.display='none'">
+            <div style="background:var(--bg-card);color:var(--text-primary);border-radius:16px;max-width:480px;width:100%;padding:24px;border:1px solid var(--border-color);">
+              <h3 style="margin-bottom:4px;" id="modal-imgprov-preset-title">Adicionar Provedor</h3>
+              <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:1rem;" id="modal-imgprov-preset-desc"></p>
+              <div id="modal-imgprov-preset-fields"></div>
+              <div style="display:flex;gap:8px;margin-top:1rem;">
+                <button class="btn-action btn-primary-action" id="modal-imgprov-preset-save" style="flex:1;">
+                  <i class="fa-solid fa-check"></i> Adicionar
+                </button>
+                <button class="btn-action" onclick="document.getElementById('modal-imgprov-preset').style.display='none'" style="flex:0;">
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Modal: Editar Provider Manual -->
+          <div id="modal-imgprov-manual" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;padding:16px;" onclick="if(event.target===this)this.style.display='none'">
+            <div style="background:var(--bg-card);color:var(--text-primary);border-radius:16px;max-width:520px;width:100%;padding:24px;border:1px solid var(--border-color);max-height:85vh;overflow-y:auto;">
+              <h3 style="margin-bottom:4px;">Adicionar Provedor Manual</h3>
+              <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:1rem;">Configure qualquer endpoint de upload de imagens.</p>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">
+                <div>
+                  <label style="font-size:0.8rem;color:var(--text-muted);">Nome *</label>
+                  <input id="manual-nome" type="text" placeholder="Meu Provedor" style="width:100%;padding:0.55rem 0.75rem;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:0.85rem;margin-top:0.25rem;">
+                </div>
+                <div>
+                  <label style="font-size:0.8rem;color:var(--text-muted);">API Key *</label>
+                  <input id="manual-apikey" type="password" placeholder="chave-do-provedor" style="width:100%;padding:0.55rem 0.75rem;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:0.85rem;margin-top:0.25rem;">
+                </div>
+                <div style="grid-column:1/-1;">
+                  <label style="font-size:0.8rem;color:var(--text-muted);">URL de Upload *</label>
+                  <input id="manual-upload-url" type="url" placeholder="https://api.example.com/upload" style="width:100%;padding:0.55rem 0.75rem;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:0.85rem;margin-top:0.25rem;">
+                </div>
+                <div>
+                  <label style="font-size:0.8rem;color:var(--text-muted);">Método</label>
+                  <select id="manual-method" style="width:100%;padding:0.55rem 0.75rem;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:0.85rem;margin-top:0.25rem;">
+                    <option value="POST">POST</option>
+                    <option value="PUT">PUT</option>
+                  </select>
+                </div>
+                <div>
+                  <label style="font-size:0.8rem;color:var(--text-muted);">Content-Type</label>
+                  <select id="manual-content-type" style="width:100%;padding:0.55rem 0.75rem;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:0.85rem;margin-top:0.25rem;">
+                    <option value="application/x-www-form-urlencoded">x-www-form-urlencoded</option>
+                    <option value="application/json">JSON</option>
+                    <option value="multipart/form-data">multipart/form-data</option>
+                    <option value="application/octet-stream">binary/octet-stream</option>
+                  </select>
+                </div>
+                <div style="grid-column:1/-1;">
+                  <label style="font-size:0.8rem;color:var(--text-muted);">Body Template</label>
+                  <input id="manual-body" type="text" placeholder="key={api_key}&image={base64}&name={filename}" style="width:100%;padding:0.55rem 0.75rem;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:0.85rem;margin-top:0.25rem;">
+                  <span style="font-size:0.72rem;color:var(--text-muted);">Vars: {api_key} {base64} {filename} {timestamp} {cloud_name}</span>
+                </div>
+                <div style="grid-column:1/-1;">
+                  <label style="font-size:0.8rem;color:var(--text-muted);">Response URL Path (JSON)</label>
+                  <input id="manual-response-path" type="text" placeholder="data.url" style="width:100%;padding:0.55rem 0.75rem;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:0.85rem;margin-top:0.25rem;">
+                  <span style="font-size:0.72rem;color:var(--text-muted);">Caminho no JSON de resposta para extrair a URL da imagem</span>
+                </div>
+                <div>
+                  <label style="font-size:0.8rem;color:var(--text-muted);">Max Size (MB)</label>
+                  <input id="manual-maxsize" type="number" value="10" min="1" max="5120" style="width:100%;padding:0.55rem 0.75rem;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:0.85rem;margin-top:0.25rem;">
+                </div>
+              </div>
+              <div style="display:flex;gap:8px;margin-top:1rem;">
+                <button class="btn-action btn-primary-action" onclick="salvarProviderManual()" style="flex:1;">
+                  <i class="fa-solid fa-check"></i> Salvar Provedor
+                </button>
+                <button class="btn-action" onclick="document.getElementById('modal-imgprov-manual').style.display='none'" style="flex:0;">
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Modal: Editar Provider Existente -->
+          <div id="modal-imgprov-edit" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;padding:16px;" onclick="if(event.target===this)this.style.display='none'">
+            <div style="background:var(--bg-card);color:var(--text-primary);border-radius:16px;max-width:520px;width:100%;padding:24px;border:1px solid var(--border-color);max-height:85vh;overflow-y:auto;">
+              <h3 style="margin-bottom:4px;">Editar Provedor</h3>
+              <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:1rem;" id="edit-imgprov-name"></p>
+              <div id="modal-imgprov-edit-fields" style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;"></div>
+              <div style="display:flex;gap:8px;margin-top:1rem;">
+                <button class="btn-action btn-primary-action" id="modal-imgprov-edit-save" style="flex:1;">
+                  <i class="fa-solid fa-floppy-disk"></i> Salvar
+                </button>
+                <button class="btn-action" onclick="document.getElementById('modal-imgprov-edit').style.display='none'" style="flex:0;">
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+
         </div>
 
 

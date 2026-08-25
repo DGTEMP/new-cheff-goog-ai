@@ -617,7 +617,8 @@ function switchTab(targetId) {
     'sec-supabase': ['Supabase', 'Conexão guiada ao banco em nuvem: backup, sync e relatórios centralizados'],
     'sec-alterar-senha': ['Alterar Senha', 'Atualize a senha de acesso ao painel super admin'],
     'sec-infra-cloud': ['Infraestrutura Cloud', 'Backup remoto R2, Redis cache, backups agendados e alertas de crash'],
-    'sec-tuneis': ['Túneis & Fallback', 'Túneis de acesso externo: Cloudflare, ngrok, Localtunnel, localhost.run']
+    'sec-tuneis': ['Túneis & Fallback', 'Túneis de acesso externo: Cloudflare, ngrok, Localtunnel, localhost.run'],
+    'sec-image-providers': ['Provedores de Imagem', 'Pool de upload de imagens: ImgBB, Cloudinary, Imgur, Custom']
   };
 
   for (var i = 0; i < items.length; i++) {
@@ -748,6 +749,7 @@ function switchTab(targetId) {
    else if (targetId === 'sec-supabase') carregarSupabase();
    else if (targetId === 'sec-infra-cloud') carregarInfraCloud();
    else if (targetId === 'sec-tuneis') carregarTuneis();
+   else if (targetId === 'sec-image-providers') carregarImageProviders();
 }
 
 /* ═══ SUPABASE — ASSISTENTE GUIADO ═══ */
@@ -7151,6 +7153,339 @@ function pararTunnel(name) {
     });
   });
 })();
+
+/* ═══════════════════════════════════════════════════════════════
+   PROVEDORES DE IMAGEM — Pool com round-robin
+   ═══════════════════════════════════════════════════════════════ */
+
+var _imgProviders = [];
+var _imgPresets = {};
+
+var IMGPROV_PRESET_INFO = {
+  imgbb: { nome: 'ImgBB', icon: 'fa-solid fa-image', color: '#3b82f6', desc: 'Upload grátis, 32MB, sem limite diário. API Key do imgbb.com/api.', fields: ['api_key'] },
+  cloudinary: { nome: 'Cloudinary', icon: 'fa-solid fa-cloud', color: '#8b5cf6', desc: '25GB grátis, CDN global, transformação de imagens. Precisa cloud_name + api_key.', fields: ['cloud_name', 'api_key', 'api_secret'] },
+  imgur: { nome: 'Imgur', icon: 'fa-brands fa-imgur', color: '#10b981', desc: '1250 uploads/dia grátis. Client-ID do imgur.com/account/settings/apps.', fields: ['api_key'] },
+  custom: { nome: 'Custom', icon: 'fa-solid fa-code', color: '#f59e0b', desc: 'Endpoint personalizado. Configure URL, headers e body manualmente.', fields: [] }
+};
+
+function carregarImageProviders() {
+  apiGet('/api/super/image-providers', function(err, data) {
+    if (err || !data || !data.ok) {
+      showToast('Erro ao carregar provedores de imagem.', 'error');
+      return;
+    }
+    _imgProviders = data.providers || [];
+    _imgPresets = data.presets || {};
+    renderImgProvPresets();
+    renderImgProvList();
+    updateImgProvStats();
+  });
+}
+
+function renderImgProvPresets() {
+  var grid = document.getElementById('imgprov-presets-grid');
+  if (!grid) return;
+  var html = '';
+  Object.keys(IMGPROV_PRESET_INFO).forEach(function(key) {
+    if (key === 'custom') return;
+    var info = IMGPROV_PRESET_INFO[key];
+    var already = _imgProviders.some(function(p) { return p.type === key && p.ativo !== false; });
+    html += '<div style="background:rgba(0,0,0,0.2);border:1px solid var(--border-color);border-radius:10px;padding:1rem;cursor:pointer;transition:all .2s;" ' +
+      'onmouseover="this.style.borderColor=\'' + info.color + '\'" onmouseout="this.style.borderColor=\'var(--border-color)\'" ' +
+      'onclick="abrirModalPresetProvider(\'' + key + '\')">' +
+      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">' +
+      '<i class="' + info.icon + '" style="color:' + info.color + ';font-size:1.1rem;"></i>' +
+      '<strong style="font-size:0.9rem;">' + info.nome + '</strong>' +
+      (already ? '<span style="margin-left:auto;font-size:0.65rem;background:#10b981;color:#fff;padding:2px 6px;border-radius:99px;">ATIVO</span>' : '') +
+      '</div>' +
+      '<p style="font-size:0.75rem;color:var(--text-muted);line-height:1.4;">' + info.desc + '</p>' +
+      '</div>';
+  });
+  grid.innerHTML = html;
+}
+
+function renderImgProvList() {
+  var container = document.getElementById('imgprov-list');
+  if (!container) return;
+  if (_imgProviders.length === 0) {
+    container.innerHTML = '<p style="font-size:0.85rem;color:var(--text-muted);text-align:center;padding:20px;">Nenhum provedor configurado. Adicione via Setup Automático ou Manual.</p>';
+    return;
+  }
+  var html = '';
+  _imgProviders.forEach(function(p, idx) {
+    var presetInfo = IMGPROV_PRESET_INFO[p.type] || IMGPROV_PRESET_INFO.custom;
+    var isActive = p.ativo !== false;
+    var badgeColor = isActive ? '#10b981' : '#64748b';
+    var badgeText = isActive ? 'Ativo' : 'Inativo';
+    var usage = parseInt(p.usage_count || '0');
+    html += '<div class="imgprov-card" draggable="true" data-idx="' + idx + '" ' +
+      'style="background:rgba(0,0,0,0.2);border:1px solid var(--border-color);border-radius:10px;padding:1rem;display:flex;align-items:center;gap:12px;cursor:grab;transition:all .2s;" ' +
+      'ondragstart="event.dataTransfer.setData(\'text/plain\',' + idx + ')" ondragover="event.preventDefault()" ' +
+      'ondrop="event.preventDefault();reorderImgProv(parseInt(event.dataTransfer.getData(\'text/plain\')),' + idx + ')">' +
+      '<div style="font-size:1.2rem;color:#64748b;cursor:grab;" title="Arrastar para reordenar"><i class="fa-solid fa-grip-vertical"></i></div>' +
+      '<div style="width:40px;height:40px;border-radius:10px;background:' + presetInfo.color + '22;display:flex;align-items:center;justify-content:center;">' +
+      '<i class="' + presetInfo.icon + '" style="color:' + presetInfo.color + ';"></i></div>' +
+      '<div style="flex:1;min-width:0;">' +
+      '<div style="display:flex;align-items:center;gap:8px;">' +
+      '<strong style="font-size:0.9rem;">' + escapeHtml(p.nome || presetInfo.nome) + '</strong>' +
+      '<span style="font-size:0.6rem;padding:2px 6px;border-radius:99px;background:' + badgeColor + '22;color:' + badgeColor + ';font-weight:600;">' + badgeText + '</span>' +
+      '<span style="font-size:0.6rem;padding:2px 6px;border-radius:99px;background:rgba(255,255,255,0.05);color:#94a3b8;">#' + (idx + 1) + '</span>' +
+      '</div>' +
+      '<div style="font-size:0.75rem;color:var(--text-muted);margin-top:2px;">' + escapeHtml(p.upload_url || 'N/A').substring(0, 50) + '</div>' +
+      '</div>' +
+      '<div style="display:flex;align-items:center;gap:6px;">' +
+      '<span style="font-size:0.7rem;color:#94a3b8;">' + usage + ' uploads</span>' +
+      '<button onclick="testarImgProvider(\'' + p.id + '\')" title="Testar" style="width:32px;height:32px;border-radius:8px;border:1px solid var(--border-color);background:rgba(0,0,0,0.2);color:#3b82f6;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:0.8rem;"><i class="fa-solid fa-vial"></i></button>' +
+      '<button onclick="toggleImgProvider(\'' + p.id + '\')" title="' + (isActive ? 'Desativar' : 'Ativar') + '" style="width:32px;height:32px;border-radius:8px;border:1px solid var(--border-color);background:rgba(0,0,0,0.2);color:' + (isActive ? '#f59e0b' : '#10b981') + ';cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:0.8rem;"><i class="fa-solid fa-toggle-' + (isActive ? 'on' : 'off') + '"></i></button>' +
+      '<button onclick="editarImgProvider(\'' + p.id + '\')" title="Editar" style="width:32px;height:32px;border-radius:8px;border:1px solid var(--border-color);background:rgba(0,0,0,0.2);color:var(--text-muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:0.8rem;"><i class="fa-solid fa-pen"></i></button>' +
+      '<button onclick="removerImgProvider(\'' + p.id + '\')" title="Remover" style="width:32px;height:32px;border-radius:8px;border:1px solid var(--border-color);background:rgba(0,0,0,0.2);color:#ef4444;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:0.8rem;"><i class="fa-solid fa-trash"></i></button>' +
+      '</div></div>';
+  });
+  container.innerHTML = html;
+}
+
+function updateImgProvStats() {
+  var active = _imgProviders.filter(function(p) { return p.ativo !== false; }).length;
+  var total = _imgProviders.reduce(function(s, p) { return s + parseInt(p.usage_count || '0'); }, 0);
+  var el1 = document.getElementById('imgprov-ativos-count');
+  var el2 = document.getElementById('imgprov-total-uploads');
+  var el3 = document.getElementById('imgprov-fallback-status');
+  var badge = document.getElementById('image-providers-badge');
+  if (el1) el1.textContent = active;
+  if (el2) el2.textContent = total;
+  if (el3) el3.textContent = active >= 2 ? 'OK' : (active === 1 ? 'Único' : 'Nenhum');
+  if (badge) { badge.style.display = active > 0 ? '' : 'none'; badge.textContent = active; }
+}
+
+function abrirModalPresetProvider(type) {
+  var info = IMGPROV_PRESET_INFO[type];
+  if (!info) return;
+  var modal = document.getElementById('modal-imgprov-preset');
+  var title = document.getElementById('modal-imgprov-preset-title');
+  var desc = document.getElementById('modal-imgprov-preset-desc');
+  var fields = document.getElementById('modal-imgprov-preset-fields');
+  var saveBtn = document.getElementById('modal-imgprov-preset-save');
+
+  title.textContent = 'Adicionar ' + info.nome;
+  desc.textContent = info.desc;
+
+  var fieldsHtml = '<div style="display:grid;gap:0.75rem;">';
+  fieldsHtml += '<div><label style="font-size:0.8rem;color:var(--text-muted);">Nome deste provedor</label>' +
+    '<input id="preset-nome" type="text" value="' + info.nome + '" style="width:100%;padding:0.55rem 0.75rem;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:0.85rem;margin-top:0.25rem;"></div>';
+
+  info.fields.forEach(function(f) {
+    var label = f === 'api_key' ? 'API Key' : f === 'cloud_name' ? 'Cloud Name' : f === 'api_secret' ? 'API Secret' : f;
+    var isSecret = f.includes('secret') || f.includes('key');
+    fieldsHtml += '<div><label style="font-size:0.8rem;color:var(--text-muted);">' + label + ' *</label>' +
+      '<input id="preset-' + f + '" type="' + (isSecret ? 'password' : 'text') + '" placeholder="' + label + '" ' +
+      'style="width:100%;padding:0.55rem 0.75rem;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:0.85rem;margin-top:0.25rem;"></div>';
+  });
+  fieldsHtml += '</div>';
+  fields.innerHTML = fieldsHtml;
+
+  modal.style.display = 'flex';
+
+  saveBtn.onclick = function() {
+    var nome = document.getElementById('preset-nome').value.trim() || info.nome;
+    var config = {};
+    info.fields.forEach(function(f) {
+      config[f] = (document.getElementById('preset-' + f).value || '').trim();
+    });
+
+    var preset = _imgPresets[type] || {};
+    var provider = {
+      id: 'prov_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+      nome: nome,
+      type: type,
+      upload_url: preset.upload_url || '',
+      method: preset.method || 'POST',
+      content_type: preset.content_type || 'application/x-www-form-urlencoded',
+      headers_template: preset.headers_template || {},
+      body_template: preset.body_template || '',
+      response_url_path: preset.response_url_path || '',
+      max_size_mb: preset.max_size_mb || 10,
+      config: config,
+      ativo: true,
+      priority: _imgProviders.length,
+      usage_count: 0,
+      created_at: new Date().toISOString()
+    };
+
+    _imgProviders.push(provider);
+    saveImgProviders(function(ok) {
+      modal.style.display = 'none';
+      if (ok) {
+        showToast(nome + ' adicionado com sucesso!', 'success');
+        carregarImageProviders();
+      }
+    });
+  };
+}
+
+function abrirModalNovoProvider() {
+  document.getElementById('modal-imgprov-manual').style.display = 'flex';
+  document.getElementById('manual-nome').value = '';
+  document.getElementById('manual-apikey').value = '';
+  document.getElementById('manual-upload-url').value = '';
+  document.getElementById('manual-method').value = 'POST';
+  document.getElementById('manual-content-type').value = 'application/x-www-form-urlencoded';
+  document.getElementById('manual-body').value = '';
+  document.getElementById('manual-response-path').value = 'url';
+  document.getElementById('manual-maxsize').value = '10';
+}
+
+function salvarProviderManual() {
+  var nome = document.getElementById('manual-nome').value.trim();
+  var apiKey = document.getElementById('manual-apikey').value.trim();
+  var uploadUrl = document.getElementById('manual-upload-url').value.trim();
+  var method = document.getElementById('manual-method').value;
+  var contentType = document.getElementById('manual-content-type').value;
+  var body = document.getElementById('manual-body').value.trim();
+  var responsePath = document.getElementById('manual-response-path').value.trim();
+  var maxSize = parseInt(document.getElementById('manual-maxsize').value) || 10;
+
+  if (!nome || !uploadUrl) {
+    showToast('Nome e URL de Upload são obrigatórios.', 'error');
+    return;
+  }
+
+  var provider = {
+    id: 'prov_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+    nome: nome,
+    type: 'custom',
+    upload_url: uploadUrl,
+    method: method,
+    content_type: contentType,
+    headers_template: apiKey ? { 'Authorization': 'Bearer ' + apiKey } : {},
+    body_template: body || 'image={base64}',
+    response_url_path: responsePath || 'url',
+    max_size_mb: maxSize,
+    config: { api_key: apiKey },
+    ativo: true,
+    priority: _imgProviders.length,
+    usage_count: 0,
+    created_at: new Date().toISOString()
+  };
+
+  _imgProviders.push(provider);
+  saveImgProviders(function(ok) {
+    document.getElementById('modal-imgprov-manual').style.display = 'none';
+    if (ok) {
+      showToast(nome + ' adicionado com sucesso!', 'success');
+      carregarImageProviders();
+    }
+  });
+}
+
+function editarImgProvider(id) {
+  var provider = _imgProviders.find(function(p) { return p.id === id; });
+  if (!provider) return;
+  var modal = document.getElementById('modal-imgprov-edit');
+  var nameEl = document.getElementById('edit-imgprov-name');
+  var fields = document.getElementById('modal-imgprov-edit-fields');
+  var saveBtn = document.getElementById('modal-imgprov-edit-save');
+
+  nameEl.textContent = 'Editando: ' + provider.nome;
+
+  var html = '<div style="grid-column:1/-1;"><label style="font-size:0.8rem;color:var(--text-muted);">Nome</label>' +
+    '<input id="edit-nome" type="text" value="' + escapeHtml(provider.nome) + '" style="width:100%;padding:0.55rem 0.75rem;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:0.85rem;margin-top:0.25rem;"></div>' +
+    '<div style="grid-column:1/-1;"><label style="font-size:0.8rem;color:var(--text-muted);">API Key</label>' +
+    '<input id="edit-apikey" type="password" value="' + escapeHtml(provider.config?.api_key || '') + '" placeholder="••••••" style="width:100%;padding:0.55rem 0.75rem;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:0.85rem;margin-top:0.25rem;"></div>' +
+    '<div style="grid-column:1/-1;"><label style="font-size:0.8rem;color:var(--text-muted);">URL de Upload</label>' +
+    '<input id="edit-url" type="url" value="' + escapeHtml(provider.upload_url) + '" style="width:100%;padding:0.55rem 0.75rem;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:0.85rem;margin-top:0.25rem;"></div>' +
+    '<div><label style="font-size:0.8rem;color:var(--text-muted);">Método</label>' +
+    '<select id="edit-method" style="width:100%;padding:0.55rem 0.75rem;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:0.85rem;margin-top:0.25rem;">' +
+    '<option value="POST"' + (provider.method === 'POST' ? ' selected' : '') + '>POST</option>' +
+    '<option value="PUT"' + (provider.method === 'PUT' ? ' selected' : '') + '>PUT</option></select></div>' +
+    '<div><label style="font-size:0.8rem;color:var(--text-muted);">Content-Type</label>' +
+    '<select id="edit-content-type" style="width:100%;padding:0.55rem 0.75rem;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:0.85rem;margin-top:0.25rem;">' +
+    '<option value="application/x-www-form-urlencoded"' + (provider.content_type === 'application/x-www-form-urlencoded' ? ' selected' : '') + '>x-www-form-urlencoded</option>' +
+    '<option value="application/json"' + (provider.content_type === 'application/json' ? ' selected' : '') + '>JSON</option>' +
+    '<option value="multipart/form-data"' + (provider.content_type === 'multipart/form-data' ? ' selected' : '') + '>multipart/form-data</option></select></div>' +
+    '<div style="grid-column:1/-1;"><label style="font-size:0.8rem;color:var(--text-muted);">Body Template</label>' +
+    '<input id="edit-body" type="text" value="' + escapeHtml(provider.body_template) + '" style="width:100%;padding:0.55rem 0.75rem;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:0.85rem;margin-top:0.25rem;"></div>' +
+    '<div style="grid-column:1/-1;"><label style="font-size:0.8rem;color:var(--text-muted);">Response URL Path</label>' +
+    '<input id="edit-response-path" type="text" value="' + escapeHtml(provider.response_url_path) + '" style="width:100%;padding:0.55rem 0.75rem;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:0.85rem;margin-top:0.25rem;"></div>';
+  fields.innerHTML = html;
+  modal.style.display = 'flex';
+
+  saveBtn.onclick = function() {
+    provider.nome = document.getElementById('edit-nome').value.trim() || provider.nome;
+    var newKey = document.getElementById('edit-apikey').value.trim();
+    if (newKey) provider.config = Object.assign({}, provider.config, { api_key: newKey });
+    provider.upload_url = document.getElementById('edit-url').value.trim();
+    provider.method = document.getElementById('edit-method').value;
+    provider.content_type = document.getElementById('edit-content-type').value;
+    provider.body_template = document.getElementById('edit-body').value.trim();
+    provider.response_url_path = document.getElementById('edit-response-path').value.trim();
+
+    saveImgProviders(function(ok) {
+      modal.style.display = 'none';
+      if (ok) {
+        showToast('Provedor atualizado!', 'success');
+        carregarImageProviders();
+      }
+    });
+  };
+}
+
+function toggleImgProvider(id) {
+  var provider = _imgProviders.find(function(p) { return p.id === id; });
+  if (!provider) return;
+  provider.ativo = provider.ativo === false ? true : false;
+  saveImgProviders(function(ok) {
+    if (ok) {
+      showToast(provider.nome + (provider.ativo ? ' ativado' : ' desativado') + '.', 'success');
+      carregarImageProviders();
+    }
+  });
+}
+
+function removerImgProvider(id) {
+  if (!confirm('Remover este provedor permanentemente?')) return;
+  _imgProviders = _imgProviders.filter(function(p) { return p.id !== id; });
+  saveImgProviders(function(ok) {
+    if (ok) {
+      showToast('Provedor removido.', 'success');
+      carregarImageProviders();
+    }
+  });
+}
+
+function testarImgProvider(id) {
+  showToast('Testando upload...', 'info');
+  apiPost('/api/super/image-providers/test/' + id, {}, function(err, data) {
+    if (err || !data || !data.ok) {
+      showToast('Falha no teste: ' + (data ? data.erro : 'Erro de rede'), 'error');
+    } else {
+      showToast('✓ ' + data.provider + ': Upload OK!', 'success');
+    }
+  });
+}
+
+function reorderImgProv(fromIdx, toIdx) {
+  if (fromIdx === toIdx) return;
+  var item = _imgProviders.splice(fromIdx, 1)[0];
+  _imgProviders.splice(toIdx, 0, item);
+  _imgProviders.forEach(function(p, i) { p.priority = i; });
+  saveImgProviders(function(ok) {
+    if (ok) {
+      renderImgProvList();
+      showToast('Ordem atualizada.', 'success');
+    }
+  });
+}
+
+function saveImgProviders(cb) {
+  apiPost('/api/super/image-providers', { providers: _imgProviders }, function(err, data) {
+    if (err || !data || !data.ok) {
+      showToast('Erro ao salvar: ' + (data ? data.erro : 'Erro de rede'), 'error');
+      if (cb) cb(false);
+    } else {
+      if (cb) cb(true);
+    }
+  });
+}
 
 // Injeta a central logo após o login (quando os sockets iniciam)
 var _saCentralOriginalInit = initSuperAdminSockets;
