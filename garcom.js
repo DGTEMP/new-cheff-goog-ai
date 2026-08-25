@@ -438,6 +438,15 @@ socket.on('mesas_atualizadas', (mesas) => {
   renderTables();
 });
 
+/* Delta: servidor envia apenas a mesa que mudou (otimização de rede) */
+socket.on('mesa_delta', (mesa) => {
+  if (!mesa || !Array.isArray(MESAS)) return;
+  const idx = MESAS.findIndex(m => m.id === mesa.id || m.nome === mesa.nome);
+  if (idx === -1) { socket.emit('get_mesas'); return; }
+  MESAS[idx] = { ...MESAS[idx], ...mesa };
+  renderTables();
+});
+
 socket.on('configuracoes_atualizadas', fetchConfigs);
 
 async function fetchConfigs() {
@@ -1844,15 +1853,23 @@ document.getElementById('btn-send-order').onclick = () => {
   cart.forEach(item => {
     const comandaName = item.mesa_comanda || orderComandaInput;
     const phone = comandaName ? (window.newComandasMap ? window.newComandasMap.get(comandaName) : '') : '';
-    const emitItem = { 
-      ...item, 
+    const emitItem = {
+      ...item,
       observations: item.obs || item.observations || '',
       composicoes: item.composicoes || [],
       total: item.total.toFixed(2).replace('.', ','),
       mesa_comanda: comandaName,
       cliente_telefone: phone || ''
     };
-    socket.emit('novo_pedido', emitItem);
+    /* Offline-first (upsell): sem internet, grava no dispositivo e sincroniza depois */
+    if (window.ChefOfflineQueue && window.ChefOfflineQueue.habilitado() && !navigator.onLine) {
+      window.ChefOfflineQueue.add(emitItem).then(() => {
+        window.ChefOfflineQueue.agendarSyncNativo();
+        if (window.showToast) window.showToast('📶 Sem internet — pedido salvo e será enviado sozinho.', 'warning');
+      }).catch(() => {});
+    } else {
+      socket.emit('novo_pedido', emitItem);
+    }
   });
   if (typeof trackInsertion === 'function') trackInsertion();
   cart = [];

@@ -42,3 +42,17 @@ self.addEventListener('fetch', (e) => {
     )
   );
 });
+
+/* Background Sync (upsell offline-first): o navegador acorda o SW quando
+   a conexão volta, mesmo sem a aba em foco. O SW repassa para a página,
+   que esvazia a fila IndexedDB via /api/pedidos/offline-sync. */
+self.addEventListener('sync', (e) => {
+  if (e.tag === 'sync-pedidos') {
+    e.waitUntil(
+      self.clients.matchAll({ includeUncontrolled: true }).then((clientes) => {
+        clientes.forEach((c) => c.postMessage({ tipo: 'flush-offline' }));
+        return Promise.resolve();
+      })
+    );
+  }
+});

@@ -48,6 +48,15 @@ function initSocket() {
     renderMesas();
   });
 
+  /* Delta: servidor envia apenas a mesa que mudou (otimização de rede) */
+  socket.on('mesa_delta', (mesa) => {
+    if (!mesa || !Array.isArray(mesasData)) return;
+    const idx = mesasData.findIndex(m => m.id === mesa.id || m.nome === mesa.nome);
+    if (idx === -1) { socket.emit('get_mesas'); return; }
+    mesasData[idx] = { ...mesasData[idx], ...mesa };
+    renderMesas();
+  });
+
   socket.on('produtos_atualizados', (prods) => {
     produtosData = prods;
     extractCategorias();
@@ -750,7 +759,7 @@ window.confirmarAdicionarProduto = () => {
     composicoes = rawComps;
   }
 
-  socket.emit('novo_pedido', {
+  const pedidoMobile = {
     productName: selectedProduto.nome,
     productEmoji: selectedProduto.emoji || '',
     quantity: selectedQtd,
@@ -764,7 +773,16 @@ window.confirmarAdicionarProduto = () => {
     mesa_comanda: currentMesa,
     observations: obs,
     composicoes: composicoes
-  });
+  };
+  /* Offline-first (upsell): sem internet, grava no dispositivo e sincroniza depois */
+  if (window.ChefOfflineQueue && window.ChefOfflineQueue.habilitado() && !navigator.onLine) {
+    window.ChefOfflineQueue.add(pedidoMobile).then(() => {
+      window.ChefOfflineQueue.agendarSyncNativo();
+      alert('📶 Sem internet — item salvo e será enviado sozinho.');
+    }).catch(() => {});
+  } else {
+    socket.emit('novo_pedido', pedidoMobile);
+  }
 
   window._compsMobile = [];
   _mobileMontavelConfig = null;

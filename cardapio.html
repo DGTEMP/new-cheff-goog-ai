@@ -1779,9 +1779,12 @@
 
       container.innerHTML = filtered.map(p => {
         const desc = gerarDescricao(p);
+        const fotoSegura = (p.foto_url && /^https?:\/\//i.test(p.foto_url)) ? p.foto_url.replace(/"/g, '&quot;') : '';
         return `
         <div class="menu-card" onclick="window.abrirItemDetails(${p.id})">
-          <div class="menu-card-emoji">${p.emoji || '🍽️'}</div>
+          ${fotoSegura
+            ? `<img class="menu-card-emoji" src="${fotoSegura}" alt="${p.nome.replace(/"/g, '')}" loading="lazy" style="width:56px; height:56px; border-radius:14px; object-fit:cover; flex-shrink:0;" onerror="this.outerHTML='<div class=\\'menu-card-emoji\\'>${p.emoji || '🍽️'}</div>'">`
+            : `<div class="menu-card-emoji">${p.emoji || '🍽️'}</div>`}
           <div class="menu-card-details">
             <h4 class="menu-card-title">${p.nome}</h4>
             <span class="menu-card-price">R$ ${parseFloat(p.preco).toFixed(2).replace('.', ',')}</span>

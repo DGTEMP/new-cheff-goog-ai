@@ -2511,7 +2511,7 @@ socket.on('produtos_atualizados', (prods) => {
       </td>
       <td style="padding: 10px;">
         ${toggleRapido ? `<button onclick="window.toggleProdutoRapido(${p.id}, '${p.status || 'ativo'}')" style="color: ${p.status === 'inativo' ? '#22c55e' : '#f59e0b'}; border: none; background: none; cursor: pointer; margin-right: 8px; font-weight: bold; font-size: 13px;" title="${p.status === 'inativo' ? 'Ativar produto' : 'Desativar produto'}"><i class="ph ph-toggle-${p.status === 'inativo' ? 'right' : 'left'}"></i> ${p.status === 'inativo' ? 'Ativar' : 'Desativar'}</button>` : ''}
-        <button onclick="window.editProduto(${p.id}, '${(p.categoria || '').replace(/'/g, "\\'")}', '${(p.nome || '').replace(/'/g, "\\'")}', ${p.preco}, '${(p.emoji || '').replace(/'/g, "\\'")}', '${p.setor || 'Cozinha 1'}', '${p.status || 'ativo'}', '${(p.status_inicial || 'Em espera').replace(/'/g, "\\'")}', '${p.visibilidade || 'todos'}', '${(p.descricao || '').replace(/'/g, "\\'")}')" style="color: #2D9CDB; border: none; background: none; cursor: pointer; margin-right: 8px; font-weight: bold;"><i class="ph ph-pencil"></i> Editar</button>
+        <button onclick="window.editProduto(${p.id}, '${(p.categoria || '').replace(/'/g, "\\'")}', '${(p.nome || '').replace(/'/g, "\\'")}', ${p.preco}, '${(p.emoji || '').replace(/'/g, "\\'")}', '${p.setor || 'Cozinha 1'}', '${p.status || 'ativo'}', '${(p.status_inicial || 'Em espera').replace(/'/g, "\\'")}', '${p.visibilidade || 'todos'}', '${(p.descricao || '').replace(/'/g, "\\'")}', '${(p.foto_url || '').replace(/['\\]/g, '')}')" style="color: #2D9CDB; border: none; background: none; cursor: pointer; margin-right: 8px; font-weight: bold;"><i class="ph ph-pencil"></i> Editar</button>
         <button onclick="window.deleteProduto(${p.id})" style="color: red; border: none; background: none; cursor: pointer; font-weight: bold;"><i class="ph ph-trash"></i> Excluir</button>
       </td>
     </tr>
@@ -2548,7 +2548,7 @@ window.toggleProdutoRapido = (id, currentStatus) => {
   });
 };
 
-window.editProduto = (id, categoria, nome, preco, emoji, setor, status, status_inicial, visibilidade, descricao) => {
+window.editProduto = (id, categoria, nome, preco, emoji, setor, status, status_inicial, visibilidade, descricao, foto_url) => {
   document.getElementById('admin-prod-id').value = id;
 
   const selectCat = document.getElementById('admin-prod-cat-select');
@@ -2575,6 +2575,14 @@ window.editProduto = (id, categoria, nome, preco, emoji, setor, status, status_i
   const visEl = document.getElementById('admin-prod-visibilidade');
   if (visEl) visEl.value = visibilidade || 'todos';
 
+  const fotoEl = document.getElementById('admin-prod-foto');
+  if (fotoEl) fotoEl.value = foto_url || '';
+  const fotoPrev = document.getElementById('admin-prod-foto-preview');
+  if (fotoPrev) {
+    if (foto_url) { fotoPrev.src = foto_url; fotoPrev.style.display = 'block'; }
+    else { fotoPrev.src = ''; fotoPrev.style.display = 'none'; }
+  }
+
   const ativoCheckbox = document.getElementById('admin-prod-ativo');
   if (ativoCheckbox) {
     ativoCheckbox.checked = (status !== 'inativo');
@@ -2585,6 +2593,16 @@ window.editProduto = (id, categoria, nome, preco, emoji, setor, status, status_i
 };
 
 document.addEventListener('DOMContentLoaded', () => {
+  const fotoInput = document.getElementById('admin-prod-foto');
+  const fotoPrev = document.getElementById('admin-prod-foto-preview');
+  if (fotoInput && fotoPrev) {
+    fotoInput.addEventListener('input', () => {
+      const v = fotoInput.value.trim();
+      if (v && /^https?:\/\//i.test(v)) { fotoPrev.src = v; fotoPrev.style.display = 'block'; }
+      else { fotoPrev.src = ''; fotoPrev.style.display = 'none'; }
+    });
+  }
+
   const addProdBtn = document.getElementById('btn-admin-add-prod');
   if (addProdBtn) addProdBtn.onclick = () => {
     const id = document.getElementById('admin-prod-id').value;
@@ -2611,13 +2629,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const status = (ativoCheckbox && !ativoCheckbox.checked) ? 'inativo' : 'ativo';
     const descricao = (document.getElementById('admin-prod-descricao') || {}).value || '';
     const categoria_fiscal = (document.getElementById('admin-prod-categoria-fiscal') || {}).value || 'Alimentacao';
+    const foto_url = (document.getElementById('admin-prod-foto') || {}).value || '';
 
     if (!categoria || !nome || isNaN(preco)) return alert('Preencha Categoria, Nome e Preço.');
 
     if (id) {
-      socket.emit('edit_produto', { id, categoria, nome, preco, codigo_barras, emoji, setor, status, status_inicial, categoria_fiscal, visibilidade, descricao, operador: window.crmPerfil ? window.crmPerfil.nome : 'Admin' });
+      socket.emit('edit_produto', { id, categoria, nome, preco, codigo_barras, emoji, setor, status, status_inicial, categoria_fiscal, visibilidade, descricao, foto_url, operador: window.crmPerfil ? window.crmPerfil.nome : 'Admin' });
     } else {
-      socket.emit('add_produto', { categoria, nome, preco, codigo_barras, emoji, setor, status, status_inicial, hasAddons: false, categoria_fiscal, visibilidade, descricao });
+      socket.emit('add_produto', { categoria, nome, preco, codigo_barras, emoji, setor, status, status_inicial, hasAddons: false, categoria_fiscal, visibilidade, descricao, foto_url });
     }
     // Reset
     document.getElementById('admin-prod-id').value = '';
@@ -2635,6 +2654,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (siReset) siReset.value = 'Em espera';
     const visReset = document.getElementById('admin-prod-visibilidade');
     if (visReset) visReset.value = 'todos';
+    const fotoReset = document.getElementById('admin-prod-foto');
+    if (fotoReset) fotoReset.value = '';
+    const fotoPrevReset = document.getElementById('admin-prod-foto-preview');
+    if (fotoPrevReset) { fotoPrevReset.src = ''; fotoPrevReset.style.display = 'none'; }
     if (document.getElementById('admin-prod-descricao')) document.getElementById('admin-prod-descricao').value = '';
     const cfReset = document.getElementById('admin-prod-categoria-fiscal');
     if (cfReset) cfReset.value = 'Alimentacao';

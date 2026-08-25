@@ -1825,8 +1825,6 @@ function renderOrders() {
       window.mesaAtual = item;
       document.body.classList.add('mesa-selecionada');
       window.descontoAdicional = 0;
-      // Garante renderização atualizada ao selecionar
-      if (typeof renderOrders === 'function') renderOrders();
       if (typeof window.renderItensRecolhidosMesas === 'function') {
         try { window.renderItensRecolhidosMesas(); } catch (e) { }
       }
@@ -4117,7 +4115,17 @@ let _wizardModoMesas = 'exemplos'; /* 'exemplos' | 'zero' */
           para_viagem: window.pdvParaViagem ? true : undefined,
           isVendaRapida: item.isVendaRapida ? true : undefined
         };
-        socket.emit('novo_pedido', pedido);
+        /* Offline-first (upsell): sem internet, grava no dispositivo e sincroniza depois */
+        if (window.ChefOfflineQueue && window.ChefOfflineQueue.habilitado() && !navigator.onLine) {
+          pedido.uuid_offline = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : undefined;
+          if (!pedido.uuid_offline) pedido.uuid_offline = 'off-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
+          window.ChefOfflineQueue.add(pedido).then(() => {
+            window.ChefOfflineQueue.agendarSyncNativo();
+            if (window.showToast) window.showToast('📶 Sem internet — item salvo e será enviado sozinho.', 'warning');
+          }).catch(() => {});
+        } else {
+          socket.emit('novo_pedido', pedido);
+        }
       });
 
       // Reset estado de para viagem se estivesse ativo
@@ -4191,6 +4199,23 @@ socket.on('mesas_atualizadas', (mesas) => {
         </td>
       </tr>
     `).join('');
+});
+
+/* Delta: servidor envia apenas a mesa que mudou (otimização de rede) */
+socket.on('mesa_delta', (mesa) => {
+  if (!mesa || !Array.isArray(window.allMesas)) return;
+  const idx = window.allMesas.findIndex(m => m.id === mesa.id || m.nome === mesa.nome);
+  if (idx === -1) { socket.emit('get_mesas'); return; }
+  window.allMesas[idx] = { ...window.allMesas[idx], ...mesa };
+  if (typeof renderOrders === 'function') renderOrders();
+  const list = document.getElementById('admin-mesas-list');
+  if (list) {
+    const tr = list.querySelector(`tr td button[onclick="window.deleteMesa(${mesa.id})"]`);
+    if (tr) {
+      const row = tr.closest('tr');
+      if (row && row.children[1]) row.children[1].innerHTML = `${mesa.nome} <span style="font-size:12px; color:gray;">(${mesa.status})</span>`;
+    }
+  }
 });
 
 socket.on('produtos_atualizados', (prods) => {
@@ -8048,13 +8073,8 @@ socket.on('connect', () => {
   socket.emit('get_pedidos', { restaurante_id: restId });
   socket.emit('get_mesas', { restaurante_id: restId });
 });
-
-socket.on('pedidos_caixa_atualizados', (pedidos) => {
-  ordersData = pedidos || [];
-  renderOrders();
-});
 if (socket.connected) {
-  socket.emit('get_qr_pedidos_pendentes');
+  socket.emit('get_pedidos');
   socket.emit('get_mesas');
 }
 

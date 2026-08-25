@@ -656,9 +656,71 @@ function switchTab(targetId) {
   document.getElementById('panel-title').textContent = t[0];
   document.getElementById('panel-subtitle').textContent = t[1];
 
+  /* ═══ Chaves de Ativação — Upsell Offline-First ═══ */
+  window.carregarChavesOffline = function () {
+    fetch('/api/super/chaves', { headers: authHeaders() })
+      .then(r => r.json())
+      .then(d => {
+        const lista = document.getElementById('chaves-offline-lista');
+        if (!lista) return;
+        const chaves = d.chaves || [];
+        if (!chaves.length) {
+          lista.innerHTML = '<p style="color:var(--text-muted); font-size:0.8rem; padding:6px 4px;">Nenhuma chave emitida. Gere uma chave informando o servidor de destino.</p>';
+          return;
+        }
+        const statusCor = { ativa: '#22c55e', usada: '#94a3b8', revogada: '#ef4444' };
+        lista.innerHTML = '<div style="overflow-x:auto;"><table style="width:100%; font-size:0.78rem; border-collapse:collapse;">' +
+          '<tr style="color:var(--text-muted); text-align:left;">' + ['Chave', 'Servidor', 'Status', 'Restaurante', 'Criada', 'Usada em', ''].map(h => `<th style="padding:6px 8px; font-weight:600;">${h}</th>`).join('') + '</tr>' +
+          chaves.map(c => `
+            <tr style="border-top:1px solid var(--border);">
+              <td style="padding:7px 8px; font-family:monospace; user-select:all;">${c.chave}</td>
+              <td style="padding:7px 8px;">${c.servidor_node || '-'}</td>
+              <td style="padding:7px 8px;"><span style="background:${statusCor[c.status] || '#94a3b8'}22; color:${statusCor[c.status] || '#94a3b8'}; font-weight:700; padding:2px 10px; border-radius:10px; text-transform:uppercase; font-size:0.68rem;">${c.status}</span></td>
+              <td style="padding:7px 8px;">${c.restaurante_nome || '-'}</td>
+              <td style="padding:7px 8px; white-space:nowrap;">${c.criada_em || '-'}</td>
+              <td style="padding:7px 8px; white-space:nowrap;">${c.usada_em || '-'}</td>
+              <td style="padding:7px 8px;">${c.status === 'ativa' ? `<button onclick="revogarChaveOffline(${c.id})" title="Revogar" style="color:#ef4444; background:none; border:none; cursor:pointer;"><i class="fa-solid fa-ban"></i></button>` : ''}</td>
+            </tr>`).join('') +
+          '</table></div>';
+      })
+      .catch(() => {});
+  };
+
+  window.gerarChaveOffline = function () {
+    const input = document.getElementById('chave-servidor');
+    const servidor = input ? input.value.trim() : '';
+    if (!servidor) return alert('Informe o servidor/nó de destino da chave.');
+    fetch('/api/super/chaves', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ servidor_node: servidor })
+    })
+      .then(r => r.json())
+      .then(d => {
+        if (d.ok) {
+          if (input) input.value = '';
+          carregarChavesOffline();
+          alert('✅ Chave gerada:\n\n' + d.chave + '\n\nEnvie ao cliente para usar no cadastro — ele entrará no servidor "' + d.servidor_node + '" com modo Offline-First.');
+        } else alert(d.erro || 'Erro ao gerar chave.');
+      })
+      .catch(() => alert('Erro de conexão.'));
+  };
+
+  window.revogarChaveOffline = function (id) {
+    if (!confirm('Revogar esta chave? Ela não poderá mais ser usada.')) return;
+    fetch('/api/super/chaves/' + id + '/revogar', {
+      method: 'POST',
+      headers: authHeaders()
+    })
+      .then(r => r.json())
+      .then(d => { if (!d.ok) alert(d.erro || 'Erro.'); carregarChavesOffline(); })
+      .catch(() => {});
+  };
+
+
   if (targetId === 'sec-dash') carregarDashboard();
   else if (targetId === 'sec-bi') carregarBiFranquias();
-  else if (targetId === 'sec-restaurantes') carregarRestaurantes();
+  else if (targetId === 'sec-restaurantes') { carregarRestaurantes(); carregarChavesOffline(); }
   else if (targetId === 'sec-usuarios') carregarUsuarios();
   else if (targetId === 'sec-servidor') { carregarServidor(); carregarCerts(); }
   else if (targetId === 'sec-mensagens') carregarMensagens();

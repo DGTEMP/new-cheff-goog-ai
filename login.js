@@ -135,6 +135,8 @@ function continuarLogin(restauranteIdEscolhido) {
   localStorage.setItem('chef_token', res.token_usado || res.token);
   localStorage.setItem('restaurante_id', String(rid));
   localStorage.setItem('cc_ultimo_restaurante', String(rid));
+  /* Upsell offline-first: habilitado via chave de ativação no cadastro */
+  localStorage.setItem('cc_offline_habilitado', res.offline_habilitado ? '1' : '0');
   localStorage.setItem('chef_credentials', JSON.stringify({ cargo: res.role || 'admin', role: res.role || 'admin', usuario: res.email_login || usernameInput.value.trim(), nome: (res.email_login || usernameInput.value).split('@')[0] }));
   vibrar([10, 30, 10]);
 

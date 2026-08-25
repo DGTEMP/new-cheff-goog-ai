@@ -3755,9 +3755,26 @@ masterDb.serialize(async () => {
   masterDb.run(`ALTER TABLE restaurantes ADD COLUMN slug TEXT`, (e) => {});
   masterDb.run(`ALTER TABLE restaurantes ADD COLUMN custom_domain TEXT`, (e) => {});
   masterDb.run(`ALTER TABLE restaurantes ADD COLUMN telefone TEXT`, (e) => {});
-  masterDb.run(`ALTER TABLE restaurantes ADD COLUMN dono_nome TEXT`, (e) => {});
-  masterDb.run(`ALTER TABLE restaurantes ADD COLUMN dono_telefone TEXT`, (e) => {});
-  masterDb.run(`ALTER TABLE restaurantes ADD COLUMN dono_email TEXT`, (e) => {});
+masterDb.run(`ALTER TABLE restaurantes ADD COLUMN dono_nome TEXT`, (e) => {});
+masterDb.run(`ALTER TABLE restaurantes ADD COLUMN dono_telefone TEXT`, (e) => {});
+masterDb.run(`ALTER TABLE restaurantes ADD COLUMN dono_email TEXT`, (e) => {});
+// Upsell Offline-First: qual nó da infra este restaurante roda + feature liberada por chave
+masterDb.run(`ALTER TABLE restaurantes ADD COLUMN servidor_node TEXT`, (e) => {});
+masterDb.run(`ALTER TABLE restaurantes ADD COLUMN offline_habilitado INTEGER DEFAULT 0`, (e) => {});
+
+// Chaves de ativação emitidas pelo Super Admin (upsell offline-first).
+// Cada chave identifica em QUAL SERVIDOR da infra o restaurante ficará.
+masterDb.run(`CREATE TABLE IF NOT EXISTS chaves_ativacao (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  chave TEXT UNIQUE,
+  servidor_node TEXT,
+  tipo TEXT DEFAULT 'offline_first',
+  status TEXT DEFAULT 'ativa',
+  restaurante_id INTEGER,
+  observacao TEXT,
+  criada_em DATETIME DEFAULT (datetime('now', 'localtime')),
+  usada_em TEXT
+)`);
   // Inteligência: endereço completo + último dispositivo usado no acesso
   masterDb.run(`ALTER TABLE restaurantes ADD COLUMN endereco TEXT`, (e) => {});
   masterDb.run(`ALTER TABLE restaurantes ADD COLUMN bairro TEXT`, (e) => {});
@@ -4230,6 +4247,36 @@ if (deploymentConfig.isOnPremise()) {
   console.log('[Sync] DB Proxy ativo — writes em tabelas sincronizáveis serão enfileirados.');
 }
 // ------------------------------
+
+// ═══ NÚCLEO DE CRIAÇÃO DE PEDIDO (compartilhado socket + REST offline-sync) ═══
+// O corpo vive em io.on('connection') como _novoPedidoCore e é exposto no
+// primeiro connect. Aqui garantimos licença, dedupe por uuid e contexto ALS.
+function processarNovoPedido(pedido, opts = {}) {
+  const core = global.__chefNovoPedidoCore;
+  if (!core) return false;
+  const reply = opts.reply || function () { };
+  if (licenseManager.isRestricted()) {
+    reply('pedido_erro', { msg: '⚠️ Sistema em modo restrito. Ative a licença para adicionar pedidos.' });
+    return false;
+  }
+  if (!pedido || typeof pedido !== 'object') return false;
+
+  const tid = opts.tenantId || tenantContext.getStore() || 1;
+  tenantContext.run(tid, () => {
+    if (pedido.uuid_offline) {
+      const uuid = String(pedido.uuid_offline).slice(0, 64);
+      pedido.uuid_offline = uuid;
+      // Idempotência: se este uuid já foi gravado, responde duplicado sem inserir
+      db.get(`SELECT id FROM pedidos WHERE uuid_offline = ? LIMIT 1`, [uuid], (eDup, dup) => {
+        if (!eDup && dup) return reply('pedido_duplicado', { uuid_offline: uuid });
+        core(pedido, { ...opts, reply });
+      });
+      return;
+    }
+    core(pedido, { ...opts, reply });
+  });
+  return true;
+}
 
 function resolveTenantId(req) {
   const authHeader = req.headers['authorization'] || '';
@@ -6283,9 +6330,17 @@ io.on('connection', (socket) => {
 
   socket.on('get_pedidos', () => {
     if (!socket.auth) return;
-    db.all("SELECT * FROM pedidos WHERE status NOT IN ('Finalizado','Pago','Cancelado') ORDER BY createdAt ASC", [], (err, rows) => {
-      socket.emit('pedidos_atualizados', rows || []);
-  });
+    /* Responde DIRETO a quem pediu com o feed completo do caixa.
+       Antes só existia o broadcast pós-mutação: ao carregar/recarregar/reconectar,
+       a tela ficava sem valores e sem itens até o próximo pedido do dia. */
+    db.all("SELECT * FROM pedidos WHERE status NOT IN ('Finalizado','Cancelado') ORDER BY createdAt ASC", [], (err, rows) => {
+      if (err) return;
+      const rowsAll = rows || [];
+      socket.emit('pedidos_caixa_atualizados', rowsAll);
+      socket.emit('initial_data_caixa', rowsAll);
+      const rowsAbertos = rowsAll.filter(r => r.status !== 'Pago' && r.status !== 'Fracionado');
+      socket.emit('pedidos_atualizados', rowsAbertos);
+    });
   });
 
   // ── NOTIFICAÇÕES PUSH: registrar / remover inscrição do dispositivo ──
@@ -6722,12 +6777,8 @@ io.on('connection', (socket) => {
     });
   });
 
-  socket.on('novo_pedido', (pedido) => {
-    // ── VERIFICAÇÃO DE LICENÇA ──
-    if (licenseManager.isRestricted()) {
-      socket.emit('pedido_erro', { msg: '⚠️ Sistema em modo restrito. Ative a licença para adicionar pedidos.' });
-      return;
-    }
+  const _novoPedidoCore = (pedido, opts = {}) => {
+    const reply = opts.reply || ((ev, pl) => socket.emit(ev, pl));
     if (!pedido || typeof pedido !== 'object') return;
     // (Segurança) Remove marcadores HTML de campos exibidos na fila/cardápio para
     // impedir XSS armazenado via pedido malicioso.
@@ -6857,14 +6908,15 @@ io.on('connection', (socket) => {
                 registrarFalhaCritica(
                   'pedido_nao_gravado',
                   `Pedido NÃO gravado: ${pedido.quantity || 1}x ${pedido.productName || '?'} | local: ${pedido.localName || '?'} | cliente: ${pedido.userName || '?'} | total R$${pedido.total} | erro: ${err.message}`,
-                  socketTenantId
+                  (opts.tenantId || socketTenantId)
                 );
-                socket.emit('pedido_erro', {
+                reply('pedido_erro', {
                   msg: 'ATENÇÃO: este pedido NÃO foi registrado no sistema! Informe o cliente, anote manualmente se preciso e tente enviar de novo. O suporte técnico já foi acionado automaticamente.',
                   pedido: { productName: pedido.productName, localName: pedido.localName, quantity: pedido.quantity },
                   quando: new Date().toLocaleString('pt-BR')
                 });
                 socket.emit('erro_servidor', 'Falha ao gravar o pedido — NÃO foi registrado. Tente novamente.');
+                if (typeof opts.onDone === 'function') { try { opts.onDone(err || new Error('insert')); } catch (e) {} }
                 return;
               }
               const mainId = this.lastID;
@@ -6872,6 +6924,7 @@ io.on('connection', (socket) => {
               const newOrder = { ...pedido, id: mainId, status: status, sector: finalSector, createdAt: new Date().toISOString() };
               io.emit('pedido_adicionado', newOrder);
               sendPush('cozinha', '🆕 Novo Pedido!', `${newOrder.quantity || 1}x ${newOrder.productName || 'Item'} — ${newOrder.localName || ''}`.trim(), 'pedido-' + mainId, '/fila-pedidos.html');
+              if (typeof opts.onDone === 'function') { try { opts.onDone(null, mainId); } catch (e) {} }
               updateMesaStatus();
 
               if (comboBonus) {
@@ -6901,8 +6954,9 @@ io.on('connection', (socket) => {
         function updateMesaStatus() {
           if (!pedido.localName.includes('Delivery') && !pedido.localName.includes('Balcão')) {
             db.run(`UPDATE mesas SET status = 'Ocupada' WHERE nome = ?`, [pedido.localName], () => {
-              db.all(`SELECT * FROM mesas`, (err, rows) => {
-                io.emit('mesas_atualizadas', rows || []);
+              /* Delta: envia só a mesa que mudou em vez da lista inteira (CPU/banda) */
+              db.get(`SELECT * FROM mesas WHERE nome = ?`, [pedido.localName], (errM, mesaRow) => {
+                if (!errM && mesaRow) io.emit('mesa_delta', mesaRow);
               });
             });
           }
@@ -6931,7 +6985,10 @@ io.on('connection', (socket) => {
     } else {
       proceedWithOrder(null);
     }
-  });
+  };
+  // Expõe o núcleo para o endpoint REST /api/pedidos/offline-sync (apenas 1ª conexão)
+  if (!global.__chefNovoPedidoCore) global.__chefNovoPedidoCore = _novoPedidoCore;
+  socket.on('novo_pedido', (pedido) => processarNovoPedido(pedido, { tenantId: socketTenantId, reply: (ev, pl) => socket.emit(ev, pl) }));
 
   // Atualiza Status (Cozinha/Bar)
   socket.on('atualizar_status', ({ id, status }) => {
@@ -7750,8 +7807,15 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('add_produto', (p) => db.run(`INSERT INTO produtos (categoria, nome, preco, emoji, hasAddons, setor, status_inicial, status, categoria_fiscal, descricao, codigo_barras, visibilidade) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [p.categoria, p.nome, p.preco, p.emoji, p.hasAddons, p.setor || 'Cozinha 1', p.status_inicial || 'Em espera', p.status || 'ativo', p.categoria_fiscal || 'Alimentacao', p.descricao || '', p.codigo_barras || null, p.visibilidade || 'todos'], (err) => {
+  // Foto do produto: apenas link externo http(s) (nada é salvo no SSD local)
+  const _limparFotoUrl = (v) => {
+    const s = String(v || '').trim().slice(0, 500);
+    if (!s) return null;
+    return /^https?:\/\//i.test(s) ? s : null;
+  };
+
+  socket.on('add_produto', (p) => db.run(`INSERT INTO produtos (categoria, nome, preco, emoji, hasAddons, setor, status_inicial, status, categoria_fiscal, descricao, codigo_barras, visibilidade, foto_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [p.categoria, p.nome, p.preco, p.emoji, p.hasAddons, p.setor || 'Cozinha 1', p.status_inicial || 'Em espera', p.status || 'ativo', p.categoria_fiscal || 'Alimentacao', p.descricao || '', p.codigo_barras || null, p.visibilidade || 'todos', _limparFotoUrl(p.foto_url)], (err) => {
       if (err) {
         console.error(err);
         socket.emit('erro_servidor', 'Falha ao adicionar o produto.');
@@ -7761,8 +7825,8 @@ io.on('connection', (socket) => {
     }));
 
   socket.on('edit_produto', (p) => {
-    db.run(`UPDATE produtos SET categoria=?, nome=?, preco=?, emoji=?, setor=?, status_inicial=?, status=?, categoria_fiscal=?, descricao=?, codigo_barras=?, visibilidade=? WHERE id=?`,
-      [p.categoria, p.nome, p.preco, p.emoji, p.setor || 'Cozinha 1', p.status_inicial || 'Em espera', p.status || 'ativo', p.categoria_fiscal || 'Alimentacao', p.descricao || '', p.codigo_barras || null, p.visibilidade || 'todos', p.id], () => {
+    db.run(`UPDATE produtos SET categoria=?, nome=?, preco=?, emoji=?, setor=?, status_inicial=?, status=?, categoria_fiscal=?, descricao=?, codigo_barras=?, visibilidade=?, foto_url=? WHERE id=?`,
+      [p.categoria, p.nome, p.preco, p.emoji, p.setor || 'Cozinha 1', p.status_inicial || 'Em espera', p.status || 'ativo', p.categoria_fiscal || 'Alimentacao', p.descricao || '', p.codigo_barras || null, p.visibilidade || 'todos', _limparFotoUrl(p.foto_url), p.id], () => {
         global.registrarAuditoria(p.operador || 'Admin', 'EDITAR_PRODUTO', `Produto editado: ${p.nome} (ID: ${p.id})`, 'Atualização de Cardápio', 'MEDIO');
         broadcastProdutos();
       });
@@ -13341,13 +13405,28 @@ io.on('connection', (socket) => {
 });
 
 app.post('/api/auth/registro', async (req, res) => {
-  const { restauranteNome, nome, email, telefone, senha, chaveRef } = req.body || {};
+  const { restauranteNome, nome, email, telefone, senha, chaveRef, chaveAtivacao } = req.body || {};
   if (!restauranteNome || !nome || !email || !senha) {
     return res.status(400).json({ success: false, error: 'Preencha todos os campos obrigatórios.' });
   }
 
   const emailClean = String(email).trim().toLowerCase();
   const telFormatado = (telefone || '').trim();
+
+  // Chave de ativação (upsell offline-first) — se informada, precisa ser válida
+  let chaveValida = null;
+  if (chaveAtivacao && String(chaveAtivacao).trim()) {
+    chaveValida = await new Promise((resolve) => {
+      masterDb.get(
+        `SELECT * FROM chaves_ativacao WHERE UPPER(chave) = UPPER(?) AND status = 'ativa' AND tipo = 'offline_first'`,
+        [String(chaveAtivacao).trim()],
+        (e, row) => resolve(!e && row ? row : null)
+      );
+    });
+    if (!chaveValida) {
+      return res.status(400).json({ success: false, error: 'Chave de ativação inválida ou já utilizada. Verifique com o suporte.' });
+    }
+  }
 
   try {
     // 1. Verificar se o e-mail já está cadastrado no sistema
@@ -13367,13 +13446,24 @@ app.post('/api/auth/registro', async (req, res) => {
 
       // 2. E-mail novo: Criar restaurante trial de 7 dias
       const hash = await bcrypt.hash(senha, 10);
+      const offlineFlag = chaveValida ? 1 : 0;
+      const servidorNode = chaveValida ? chaveValida.servidor_node : null;
       masterDb.run(
-        `INSERT INTO restaurantes (nome, licenca, ativo, telefone, dono_nome, dono_telefone, dono_email) VALUES (?, 'trial', 1, ?, ?, ?, ?)`,
-        [restauranteNome, telFormatado, nome, telFormatado, emailClean],
+        `INSERT INTO restaurantes (nome, licenca, ativo, telefone, dono_nome, dono_telefone, dono_email, offline_habilitado, servidor_node) VALUES (?, 'trial', 1, ?, ?, ?, ?, ?, ?)`,
+        [restauranteNome, telFormatado, nome, telFormatado, emailClean, offlineFlag, servidorNode],
         function (errRest) {
           if (errRest) return res.status(500).json({ success: false, error: 'Erro ao criar restaurante.' });
 
           const restauranteId = this.lastID;
+
+          // Consome a chave de ativação usada (marca como usada por este restaurante)
+          if (chaveValida) {
+            masterDb.run(
+              `UPDATE chaves_ativacao SET status = 'usada', restaurante_id = ?, usada_em = datetime('now','localtime') WHERE id = ?`,
+              [restauranteId, chaveValida.id],
+              () => {}
+            );
+          }
 
           // Criar usuário admin do restaurante
           masterDb.run(
@@ -13888,8 +13978,18 @@ app.post('/api/auth/login', async (req, res) => {
       (errRede, outros) => {
         const podeVerRede = ['admin', 'administrador', 'gerente', 'dono'].includes(cargoLower);
         const rede = (!errRede && podeVerRede && Array.isArray(outros)) ? outros : [];
-        const token = jwt.sign({ id: user.id, restaurante_id: user.restaurante_id, role: user.role }, JWT_SECRET, { expiresIn: '12h' });
-        res.json({ success: true, token, restaurante_id: user.restaurante_id, role: user.role, rede });
+        masterDb.get(`SELECT offline_habilitado, servidor_node FROM restaurantes WHERE id = ?`, [user.restaurante_id], (eR2, rRow) => {
+          const token = jwt.sign({ id: user.id, restaurante_id: user.restaurante_id, role: user.role }, JWT_SECRET, { expiresIn: '12h' });
+          res.json({
+            success: true,
+            token,
+            restaurante_id: user.restaurante_id,
+            role: user.role,
+            rede,
+            offline_habilitado: (!eR2 && rRow && rRow.offline_habilitado === 1),
+            servidor_node: (!eR2 && rRow && rRow.servidor_node) || null
+          });
+        });
       }
     );
   });
@@ -13921,14 +14021,14 @@ app.post('/api/auth/trocar-restaurante', verificarToken, async (req, res) => {
     if (!['admin', 'administrador', 'gerente', 'dono'].includes(cargoLower)) {
       return res.status(403).json({ success: false, error: 'Sem permissão para alternar restaurantes.' });
     }
-    masterDb.get(`SELECT id, nome, ativo FROM restaurantes WHERE id = ?`, [alvoId], (errR, alvo) => {
+    masterDb.get(`SELECT id, nome, ativo, offline_habilitado FROM restaurantes WHERE id = ?`, [alvoId], (errR, alvo) => {
       if (errR || !alvo) return res.status(404).json({ success: false, error: 'Restaurante não encontrado.' });
       if (!alvo.ativo) return res.status(403).json({ success: false, error: 'Este restaurante está inativo.' });
       const ehDonoDoAlvo = String(alvo.id) === String(user.restaurante_id) ||
         String(alvo.dono_email || '').trim().toLowerCase() === String(user.username || '').trim().toLowerCase();
       if (!ehDonoDoAlvo) return res.status(403).json({ success: false, error: 'Você não administra este restaurante.' });
       const token = jwt.sign({ id: user.id, restaurante_id: alvoId, role: user.role }, JWT_SECRET, { expiresIn: '12h' });
-      res.json({ success: true, token, restaurante_id: alvoId, restaurante_nome: alvo.nome, role: user.role });
+      res.json({ success: true, token, restaurante_id: alvoId, restaurante_nome: alvo.nome, role: user.role, offline_habilitado: alvo.offline_habilitado === 1 });
     });
   });
 });
@@ -14583,6 +14683,101 @@ app.get('/api/suporte/tarefas-relatadas', relatoSuporteAuth, (req, res) => {
       res.json({ ok: true, relatos: rows || [] });
     }
   );
+});
+
+// ═══ CHAVES DE ATIVAÇÃO — Upsell Offline-First (Super Admin) ═══
+// GET: lista todas as chaves emitidas
+app.get('/api/super/chaves', superAdminAuth, (req, res) => {
+  masterDb.all(
+    `SELECT c.*, r.nome AS restaurante_nome FROM chaves_ativacao c LEFT JOIN restaurantes r ON r.id = c.restaurante_id ORDER BY c.id DESC LIMIT 200`,
+    [],
+    (err, rows) => {
+      if (err) return res.status(500).json({ ok: false, erro: err.message });
+      res.json({ ok: true, chaves: rows || [] });
+    }
+  );
+});
+
+// POST: emite nova chave vinculada a um nó/servidor da infraestrutura
+app.post('/api/super/chaves', superAdminAuth, (req, res) => {
+  const servidor = String((req.body || {}).servidor_node || '').trim().slice(0, 60);
+  const observacao = String((req.body || {}).observacao || '').trim().slice(0, 200);
+  if (!servidor) return res.status(400).json({ ok: false, erro: 'Informe o servidor/nó de destino.' });
+  const rand = require('crypto').randomBytes(5).toString('hex').toUpperCase();
+  const chave = `CC-OFF-${servidor.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6) || 'NODE'}-${rand}`;
+  masterDb.run(
+    `INSERT INTO chaves_ativacao (chave, servidor_node, observacao) VALUES (?, ?, ?)`,
+    [chave, servidor, observacao],
+    function (err2) {
+      if (err2) return res.status(500).json({ ok: false, erro: err2.message });
+      global.registrarAuditoria('super_admin', 'CHAVE_OFFLINE_CRIADA', `Chave ${chave} para o nó ${servidor}`, 'Configuração', 'BAIXO');
+      res.json({ ok: true, chave, servidor_node: servidor });
+    }
+  );
+});
+
+// POST: revoga uma chave ainda não utilizada
+app.post('/api/super/chaves/:id/revogar', superAdminAuth, (req, res) => {
+  const id = parseInt(req.params.id);
+  masterDb.run(`UPDATE chaves_ativacao SET status = 'revogada' WHERE id = ? AND status = 'ativa'`, [id], function (err) {
+    if (err) return res.status(500).json({ ok: false, erro: err.message });
+    if (!this.changes) return res.json({ ok: false, erro: 'Chave não encontrada ou já utilizada.' });
+    res.json({ ok: true });
+  });
+});
+
+// ═══ SYNC OFFLINE — recebe pedidos pendentes dos dispositivos (upsell) ═══
+// Só funciona para restaurantes com offline_habilitado (via chave de ativação).
+app.post('/api/pedidos/offline-sync', express.json({ limit: '1mb' }), verificarToken, (req, res) => {
+  const tid = req.restaurante_id;
+  const itens = Array.isArray(req.body && req.body.pedidos) ? req.body.pedidos.slice(0, 100) : [];
+  if (!itens.length) return res.json({ success: true, resultados: [] });
+
+  // Gate do upsell: sem chave de ativação, sync offline não opera
+  masterDb.get(`SELECT offline_habilitado FROM restaurantes WHERE id = ?`, [tid], (eR, rRow) => {
+    if (eR || !rRow || rRow.offline_habilitado !== 1) {
+      return res.status(403).json({ success: false, error: 'Modo offline não habilitado para este restaurante. Adquira a chave de ativação.' });
+    }
+
+    const core = global.__chefNovoPedidoCore;
+    if (!core) return res.status(503).json({ success: false, error: 'Servidor inicializando, tente novamente.' });
+
+    const resultados = [];
+    let pendentes = itens.length;
+    let respondido = false;
+    const finalizar = () => {
+      if (respondido) return;
+      respondido = true;
+      res.json({ success: true, resultados });
+    };
+
+    itens.forEach((p) => {
+      const uuid = p && p.uuid_offline ? String(p.uuid_offline).slice(0, 64) : null;
+      if (!uuid) {
+        resultados.push({ uuid_offline: null, status: 'erro', motivo: 'sem uuid' });
+        if (--pendentes === 0) finalizar();
+        return;
+      }
+      const ok = processarNovoPedido(p, {
+        tenantId: tid,
+        reply: () => {},
+        onDone: (err) => {
+          if (err) {
+            resultados.push({ uuid_offline: uuid, status: 'erro', motivo: (err && err.message) || 'falha ao gravar' });
+          } else {
+            resultados.push({ uuid_offline: uuid, status: 'gravado' });
+          }
+          if (--pendentes === 0) finalizar();
+        }
+      });
+      if (!ok) {
+        resultados.push({ uuid_offline: uuid, status: 'duplicado' });
+        if (--pendentes === 0) finalizar();
+      }
+    });
+    /* Segurança: nunca deixar a requisição pendurada */
+    setTimeout(finalizar, 8000);
+  });
 });
 
 // POST /api/super/delegar-suporte — Super admin delega pendências/obrigações ao time de suporte

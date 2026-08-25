@@ -370,6 +370,18 @@
 
         <!-- ════ SEÇÃO 2: RESTAURANTES ════ -->
         <div class="content-section" id="sec-restaurantes">
+          <!-- ═══ CHAVES DE ATIVAÇÃO — Upsell Offline-First ═══ -->
+          <div class="table-container" style="margin-bottom:14px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; padding:4px 4px 10px 4px;">
+              <h3 style="margin:0; font-size:0.95rem;"><i class="fa-solid fa-key"></i> Chaves de Ativação — Offline-First (Upsell)</h3>
+              <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+                <input type="text" id="chave-servidor" placeholder="Servidor/nó de destino (ex: NOTEBOOK-I5)" style="padding:7px 10px; border-radius:8px; border:1px solid var(--border); background:var(--bg-2); color:var(--text); font-size:0.82rem; text-transform:uppercase; max-width:220px;">
+                <button class="btn-action btn-primary-action" onclick="gerarChaveOffline()"><i class="fa-solid fa-plus"></i><span>Gerar Chave</span></button>
+                <button class="btn-action" onclick="carregarChavesOffline()" title="Atualizar"><i class="fa-solid fa-rotate"></i></button>
+              </div>
+            </div>
+            <div id="chaves-offline-lista"></div>
+          </div>
           <div class="table-container">
             <div class="table-controls">
               <div class="search-bar">

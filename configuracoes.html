@@ -2242,6 +2242,14 @@ border-bottom: 1px solid #eef2f6;
                 <option value="invisivel">Ingrediente interno (invisível nos menus — use em itens montáveis)</option>
               </select>
             </div>
+            <div style="display: flex; flex-direction: column; gap: 4px; flex: 2; min-width: 220px;">
+              <label style="font-size: 11px; font-weight: bold; color:var(--cfg-text-muted);">Foto (link externo — aparece só no cardápio QR)</label>
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <input type="url" id="admin-prod-foto" placeholder="https://exemplo.com/hamburguer.jpg"
+                  style="padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 13.5px; background:var(--cfg-card-bg); width: 100%; flex: 1;">
+                <img id="admin-prod-foto-preview" src="" alt="" style="width: 38px; height: 38px; border-radius: 8px; object-fit: cover; display: none; border: 1px solid #ddd;">
+              </div>
+            </div>
             <div style="display: flex; flex-direction: column; gap: 4px; min-width: 80px; align-items: center; justify-content: center; padding-top: 15px;">
               <label style="font-size: 11px; font-weight: bold; color:var(--cfg-text-muted); display: flex; align-items: center; gap: 5px; cursor: pointer;">
                 <input type="checkbox" id="admin-prod-ativo" checked style="width: 18px; height: 18px; cursor: pointer;">

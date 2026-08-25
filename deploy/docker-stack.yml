@@ -1,0 +1,54 @@
+# Chef Cozinha — Stack Docker Swarm (single-node, pronto para escalar)
+#
+# Uso no servidor i5:
+#   1. docker swarm init                      (uma vez)
+#   2. docker config create chef-daemon ./daemon.json   (referência; daemon.json vai em /etc/docker/)
+#   3. export JWT_SECRET="seu-segredo-forte"
+#   4. docker stack deploy -c docker-stack.yml chef
+#
+# Limites de RAM calibrados para 8GB totais (sobram ~5GB para o sistema/SO).
+version: "3.8"
+
+services:
+  api:
+    image: node:20-alpine
+    user: "1000:1000"
+    working_dir: /app
+    command: sh -c "npm ci --omit=dev --no-audit --no-fund && node server.js"
+    environment:
+      - NODE_ENV=production
+    env_file:
+      - .env.production          # JWT_SECRET, SUPER_ADMIN_INTERNAL_TOKEN, etc.
+    volumes:
+      - chef_dados:/app/dados    # bancos SQLite por restaurante (masterDb + tenants)
+      - chef_logs:/app/logs
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          memory: 2g             # API + Socket.IO
+        reservations:
+          memory: 512m
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+    ports:
+      - target: 3000
+        published: 80
+        mode: host
+      - target: 3000
+        published: 443
+        mode: host
+
+volumes:
+  chef_dados:
+    driver: local
+  chef_logs:
+    driver: local

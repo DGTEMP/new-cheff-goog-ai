@@ -1033,6 +1033,7 @@
             localStorage.setItem('chef_token', d.token);
             localStorage.setItem('restaurante_id', String(d.restaurante_id));
             localStorage.setItem('cc_ultimo_restaurante', String(d.restaurante_id));
+            localStorage.setItem('cc_offline_habilitado', d.offline_habilitado ? '1' : '0');
             window.location.reload();
           } else {
             alert((d && d.error) || 'Não foi possível alternar.');
