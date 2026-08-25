@@ -85,7 +85,8 @@ window.enviarRegistroSessaoDetalhado = function () {
 };
 
 /* ── Modo Totem remoto: se o dono configurou este terminal como quiosque,
-   ele vira auto-atendimento (cardápio digital), com tela invertida opcional. ── */
+   ele vira auto-atendimento (cardápio digital), com tela invertida opcional.
+   Os listeners são registrados após a criação do socket (mais abaixo). ── */
 window.aplicarModoTotem = function (modo) {
   try {
     if (!modo || modo === 'normal') return;
@@ -95,10 +96,6 @@ window.aplicarModoTotem = function (modo) {
     window.location.href = `/cardapio.html?restaurante_id=${encodeURIComponent(rid)}&mesa=Totem&totem=1${rot}`;
   } catch (e) { }
 };
-socket.on('modo_dispositivo', (data) => window.aplicarModoTotem(data && data.modo));
-if (typeof socket !== 'undefined' && socket.emit) {
-  socket.emit('get_modo_dispositivo', { serial: window.obterSerialDispositivo() });
-}
 
 // Serial estável do terminal: gerado uma vez e guardado no navegador da máquina.
 // Permite o dono identificar "qual computador é qual" mesmo com 15+ terminais.
@@ -1047,6 +1044,10 @@ function showActionPopup(actions, x, y) {
 const HOST = window.location.hostname || 'localhost';
 const socket = io({ query: { token: localStorage.getItem('chef_token'), restaurante_id: localStorage.getItem('restaurante_id') || '1' } });
 window.socket = socket;
+
+// Modo Totem remoto (quiosque): registra aqui, pois o socket já existe neste ponto.
+socket.on('modo_dispositivo', (data) => window.aplicarModoTotem(data && data.modo));
+socket.emit('get_modo_dispositivo', { serial: window.obterSerialDispositivo() });
 
 socket.on('tenant_atualizado', (data) => {
   if (data && data.restaurante_id) {
