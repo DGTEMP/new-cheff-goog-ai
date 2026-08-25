@@ -261,7 +261,7 @@ body.v11-editando .v11-widget.drop-alvo { border-color: var(--v11-primary); bord
 .a-btn:hover { transform: translateY(-2px); border-color: var(--v11-primary); box-shadow: 0 6px 16px rgba(252, 75, 21, 0.18); }
 
 /* ─── RESPONSIVO EXTRA ───────────────────────────────────── */
-@media (max-width: 720px) {
+@media (max-width: 767px) {
   .v11-header { padding: 10px 12px; gap: 8px; }
   .v11-header-actions { width: 100%; justify-content: space-between; }
   .v11-hbtn span { display: none; }
@@ -269,6 +269,14 @@ body.v11-editando .v11-widget.drop-alvo { border-color: var(--v11-primary); bord
   .v11-wrap { padding: 10px; }
   .r-card strong { font-size: 19px; }
   .w-body { max-height: none; }
+}
+
+/* Tablete compacto: 640-767px — sem clipping de conteúdo */
+@media (min-width: 640px) and (max-width: 767px) {
+  .v11-grid { gap: 10px; }
+  .v11-widget { min-height: 150px; }
+  .w-body { max-height: none; overflow-y: auto; }
+  .v11-resumo { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
 }
 
 @media (min-width: 1800px) {

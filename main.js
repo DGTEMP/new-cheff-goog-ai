@@ -1095,10 +1095,15 @@ function updateQrCode() {
 
 socket.on('server_ip', (ip) => {
   if (ip && ip !== 'localhost') {
-    serverIp = ip;
-    /* Se o servidor enviou um domínio (não-IP), armazenar como restCustomDomain */
-    const _isIp = /^\d+\.\d+\.\d+\.\d+$/.test(ip);
-    if (!_isIp && ip.indexOf('.') !== -1) restCustomDomain = ip;
+    /* Se o cliente está via túnel, não sobrescreve o hostname — mantém a URL do túnel */
+    const _hostname = window.location.hostname;
+    const _isTunnel = /\.(trycloudflare\.com|ngrok-free\.app|ngrok\.app|loca\.lt|lhr\.life)$/.test(_hostname);
+    if (!_isTunnel) {
+      serverIp = ip;
+      /* Se o servidor enviou um domínio (não-IP), armazenar como restCustomDomain */
+      const _isIp = /^\d+\.\d+\.\d+\.\d+$/.test(ip);
+      if (!_isIp && ip.indexOf('.') !== -1) restCustomDomain = ip;
+    }
     updateQrCode();
     const qrFilaModal = document.getElementById('modal-qr-fila-espera');
     if (qrFilaModal && qrFilaModal.style.display !== 'none') window.abrirQrFilaEsperaModal();
@@ -9223,8 +9228,334 @@ document.addEventListener('DOMContentLoaded', () => {
               .filter(Boolean);
             localStorage.setItem(groupKey, JSON.stringify(btns));
           }
-        });
-      });
+  });
+});
+
+
+// ═══════════════════════════════════════════════════════════════════════
+// POPUP DE ATUALIZAÇÃO — detecta nova versão, mostra popup com
+// opção de adiar (fechar caixa) ou instalar agora com progresso
+// ═══════════════════════════════════════════════════════════════════════
+
+(function initUpdatePopup() {
+  const UPDATE_KEY = 'chef_update_dismissed_version';
+  const UPDATE_DEFERRED = 'chef_update_deferred';
+
+  // Verifica se já dismissou ou adiou esta versão
+  function wasDismissed(ver) {
+    try { return localStorage.getItem(UPDATE_KEY) === ver; } catch (e) { return false; }
+  }
+  function wasDeferred(ver) {
+    try {
+      const d = JSON.parse(localStorage.getItem(UPDATE_DEFERRED) || '{}');
+      return d.version === ver;
+    } catch (e) { return false; }
+  }
+  function markDismissed(ver) {
+    try { localStorage.setItem(UPDATE_KEY, ver); } catch (e) { }
+  }
+  function markDeferred(ver) {
+    try { localStorage.setItem(UPDATE_DEFERRED, JSON.stringify({ version: ver, at: Date.now() })); } catch (e) { }
+  }
+  function clearDeferred() {
+    try { localStorage.removeItem(UPDATE_DEFERRED); } catch (e) { }
+  }
+
+  // Injeta CSS do popup
+  function injectUpdateCSS() {
+    if (document.getElementById('update-popup-css')) return;
+    const style = document.createElement('style');
+    style.id = 'update-popup-css';
+    style.textContent = `
+      #update-popup-overlay { position:fixed; inset:0; z-index:99999; background:rgba(0,0,0,0.6); backdrop-filter:blur(4px); display:flex; align-items:center; justify-content:center; opacity:0; pointer-events:none; transition:opacity .3s; }
+      #update-popup-overlay.show { opacity:1; pointer-events:auto; }
+      #update-popup-card { background:#1e293b; border:1px solid #334155; border-radius:20px; padding:32px; max-width:420px; width:92%; box-shadow:0 25px 60px rgba(0,0,0,0.5); transform:translateY(20px); transition:transform .3s; }
+      #update-popup-overlay.show #update-popup-card { transform:translateY(0); }
+      .up-icon { width:64px; height:64px; border-radius:50%; background:linear-gradient(135deg,#2563eb,#7c3aed); display:flex; align-items:center; justify-content:center; margin:0 auto 16px; font-size:28px; }
+      .up-title { text-align:center; font-size:20px; font-weight:800; color:#f8fafc; margin-bottom:6px; }
+      .up-version { text-align:center; font-size:13px; color:#94a3b8; margin-bottom:16px; }
+      .up-features { max-height:160px; overflow-y:auto; margin-bottom:20px; padding:12px; background:rgba(0,0,0,0.2); border-radius:12px; border:1px solid #334155; }
+      .up-feature { display:flex; align-items:flex-start; gap:8px; padding:6px 0; font-size:13px; color:#cbd5e1; }
+      .up-feature i { color:#22c55e; font-size:14px; margin-top:2px; flex-shrink:0; }
+      .up-progress-wrap { display:none; margin-bottom:16px; }
+      .up-progress-bar { width:100%; height:8px; background:#334155; border-radius:99px; overflow:hidden; }
+      .up-progress-fill { height:100%; background:linear-gradient(90deg,#2563eb,#7c3aed); border-radius:99px; width:0%; transition:width .4s; }
+      .up-progress-text { text-align:center; font-size:12px; color:#94a3b8; margin-top:6px; }
+      .up-actions { display:flex; gap:10px; }
+      .up-btn { flex:1; padding:12px; border:none; border-radius:12px; font-size:14px; font-weight:700; cursor:pointer; transition:all .15s; }
+      .up-btn-defer { background:#334155; color:#94a3b8; border:1px solid #475569; }
+      .up-btn-defer:hover { background:#475569; color:#f8fafc; }
+      .up-btn-install { background:linear-gradient(135deg,#2563eb,#7c3aed); color:white; }
+      .up-btn-install:hover { transform:translateY(-1px); box-shadow:0 6px 20px rgba(37,99,235,0.3); }
+      .up-btn-install:disabled { opacity:.5; cursor:not-allowed; transform:none; }
+      .up-footer { display:flex; justify-content:space-between; margin-top:14px; }
+      .up-link { font-size:11px; color:#64748b; cursor:pointer; text-decoration:underline; background:none; border:none; }
+      .up-link:hover { color:#94a3b8; }
+      /* Welcome pós-atualização */
+      .up-welcome { display:none; text-align:center; }
+      .up-welcome h2 { color:#f8fafc; font-size:22px; margin:12px 0 6px; }
+      .up-welcome p { color:#94a3b8; font-size:13px; margin-bottom:16px; }
+      .up-welcome .up-features { text-align:left; }
+      .up-welcome .up-btn { width:100%; }
+    `;
+    document.head.appendChild(style);
+  }
+
+  // Cria o HTML do popup
+  function createPopupHTML() {
+    if (document.getElementById('update-popup-overlay')) return;
+    const overlay = document.createElement('div');
+    overlay.id = 'update-popup-overlay';
+    overlay.innerHTML = `
+      <div id="update-popup-card">
+        <div class="up-icon">🚀</div>
+        <div class="up-title">Nova Atualização Disponível!</div>
+        <div class="up-version" id="up-version-text"></div>
+        <div class="up-features" id="up-features-list"></div>
+        <div class="up-progress-wrap" id="up-progress-wrap">
+          <div class="up-progress-bar"><div class="up-progress-fill" id="up-progress-fill"></div></div>
+          <div class="up-progress-text" id="up-progress-text">Preparando atualização...</div>
+        </div>
+        <div class="up-actions" id="up-actions">
+          <button class="up-btn up-btn-defer" id="up-btn-defer">Adiar</button>
+          <button class="up-btn up-btn-install" id="up-btn-install">Instalar Agora</button>
+        </div>
+        <div class="up-footer">
+          <button class="up-link" id="up-btn-report">⚙ Reportar problema ao suporte</button>
+        </div>
+        <!-- Welcome pós-atualização -->
+        <div class="up-welcome" id="up-welcome">
+          <div class="up-icon" style="background:linear-gradient(135deg,#22c55e,#10b981);">✅</div>
+          <h2 id="up-welcome-title">Bem-vindo à Nova Versão!</h2>
+          <p id="up-welcome-text"></p>
+          <div class="up-features" id="up-welcome-features"></div>
+          <button class="up-btn up-btn-install" id="up-btn-ok">Começar a Usar</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+  }
+
+  // Mostra o popup de atualização
+  let _pendingVersion = null;
+  let _pendingFeatures = [];
+  let _pendingMessage = '';
+
+  function showUpdatePopup(version, features, message) {
+    if (wasDismissed(version) || wasDeferred(version)) return;
+    _pendingVersion = version;
+    _pendingFeatures = features || [];
+    _pendingMessage = message || '';
+
+    injectUpdateCSS();
+    createPopupHTML();
+
+    const overlay = document.getElementById('update-popup-overlay');
+    const versionText = document.getElementById('up-version-text');
+    const featuresList = document.getElementById('up-features-list');
+    const progressWrap = document.getElementById('up-progress-wrap');
+    const actions = document.getElementById('up-actions');
+    const welcome = document.getElementById('up-welcome');
+
+    // Reset state
+    progressWrap.style.display = 'none';
+    actions.style.display = 'flex';
+    welcome.style.display = 'none';
+
+    versionText.textContent = `Versão ${version}` + (message ? ` — ${message}` : '');
+
+    // Lista de features
+    if (features.length > 0) {
+      featuresList.innerHTML = features.map(f =>
+        `<div class="up-feature"><i class="ph-bold ph-check-circle"></i><span>${f}</span></div>`
+      ).join('');
+      featuresList.style.display = 'block';
+    } else {
+      featuresList.style.display = 'none';
+    }
+
+    overlay.classList.add('show');
+  }
+
+  function hidePopup() {
+    const overlay = document.getElementById('update-popup-overlay');
+    if (overlay) overlay.classList.remove('show');
+  }
+
+  // Adiar → fecha o popup e marca como deferred (será mostrado no fechamento do caixa)
+  document.addEventListener('click', (e) => {
+    if (e.target.id === 'up-btn-defer') {
+      if (_pendingVersion) markDeferred(_pendingVersion);
+      hidePopup();
+    }
+  });
+
+  // Instalar Agora → atualiza o Service Worker
+  document.addEventListener('click', (e) => {
+    if (e.target.id === 'up-btn-install') {
+      const progressWrap = document.getElementById('up-progress-wrap');
+      const progressFill = document.getElementById('up-progress-fill');
+      const progressText = document.getElementById('up-progress-text');
+      const actions = document.getElementById('up-actions');
+      const installBtn = document.getElementById('up-btn-install');
+
+      installBtn.disabled = true;
+      progressWrap.style.display = 'block';
+      actions.style.display = 'none';
+
+      let progress = 0;
+      const steps = [
+        { pct: 15, text: 'Verificando atualizações...' },
+        { pct: 35, text: 'Baixando novos arquivos...' },
+        { pct: 55, text: 'Atualizando cache do aplicativo...' },
+        { pct: 75, text: 'Limpando dados antigos...' },
+        { pct: 90, text: 'Finalizando instalação...' },
+      ];
+
+      let stepIdx = 0;
+      const interval = setInterval(() => {
+        if (stepIdx < steps.length) {
+          progress = steps[stepIdx].pct;
+          progressFill.style.width = progress + '%';
+          progressText.textContent = steps[stepIdx].text;
+          stepIdx++;
+        }
+      }, 600);
+
+      // Força atualização do Service Worker
+      function doUpdate() {
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.getRegistration().then(reg => {
+            if (reg && reg.waiting) {
+              reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+            }
+            // Busca novos recursos
+            fetch('/api/version?t=' + Date.now()).then(() => {
+              // Aguarda um pouco e recarrega
+              setTimeout(() => {
+                clearInterval(interval);
+                progressFill.style.width = '100%';
+                progressText.textContent = 'Atualização concluída!';
+                if (_pendingVersion) markDismissed(_pendingVersion);
+                clearDeferred();
+                setTimeout(() => { window.location.reload(); }, 1200);
+              }, 1500);
+            }).catch(() => {
+              setTimeout(() => {
+                clearInterval(interval);
+                progressFill.style.width = '100%';
+                progressText.textContent = 'Atualização concluída!';
+                if (_pendingVersion) markDismissed(_pendingVersion);
+                clearDeferred();
+                setTimeout(() => { window.location.reload(); }, 1200);
+              }, 2000);
+            });
+          });
+        } else {
+          clearInterval(interval);
+          progressFill.style.width = '100%';
+          progressText.textContent = 'Recarregando...';
+          if (_pendingVersion) markDismissed(_pendingVersion);
+          clearDeferred();
+          setTimeout(() => { window.location.reload(); }, 1000);
+        }
+      }
+      setTimeout(doUpdate, 800);
+    }
+  });
+
+  // Reportar problema ao suporte
+  document.addEventListener('click', (e) => {
+    if (e.target.id === 'up-btn-report') {
+      const report = prompt('Descreva o problema que está encontrando:\n(Será enviado ao suporte do Chef Cozinha)');
+      if (!report) return;
+      fetch('/api/support/report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          restaurante_id: localStorage.getItem('restaurante_id'),
+          usuario: localStorage.getItem('chef_user_name') || localStorage.getItem('chef_user_email') || 'Anônimo',
+          problema: report,
+          page: window.location.pathname,
+          user_agent: navigator.userAgent
+        })
+      }).then(r => r.json()).then(d => {
+        if (d.ok) alert('Reporte enviado com sucesso! O suporte será notificado.');
+      }).catch(() => alert('Erro ao enviar reporte. Tente novamente.'));
+    }
+  });
+
+  // OK pós-atualização → fecha o welcome
+  document.addEventListener('click', (e) => {
+    if (e.target.id === 'up-btn-ok') {
+      hidePopup();
+    }
+  });
+
+  // ── DETECÇÃO DE ATUALIZAÇÃO ──
+
+  // 1. Via socket
+  socket.on('update_available', (data) => {
+    if (data && data.version) {
+      showUpdatePopup(data.version, data.features, data.message);
+    }
+  });
+
+  // 2. Via polling (a cada 5 minutos)
+  setInterval(() => {
+    fetch('/api/version?t=' + Date.now())
+      .then(r => r.json())
+      .then(data => {
+        if (data && data.version) {
+          const localVer = localStorage.getItem('chef_installed_version') || '';
+          if (localVer && localVer !== data.version) {
+            // Versão diferente da instalada localmente
+            fetch('/api/update/features').then(r => r.json()).then(fd => {
+              showUpdatePopup(data.version, fd.features || [], fd.message || '');
+            });
+          }
+        }
+      }).catch(() => {});
+  }, 5 * 60 * 1000);
+
+  // 3. Verifica na carga se há versão pendente (deferred)
+  fetch('/api/version?t=' + Date.now())
+    .then(r => r.json())
+    .then(data => {
+      if (data && data.version) {
+        localStorage.setItem('chef_installed_version', data.version);
+        // Se tinha uma atualização adiada, mostra agora
+        if (wasDeferred(data.version)) {
+          fetch('/api/update/features').then(r => r.json()).then(fd => {
+            showUpdatePopup(data.version, fd.features || [], fd.message || '');
+          });
+        }
+      }
+    }).catch(() => {});
+
+  // ── CHECK DE FECHAMENTO DO CAIXA: se tem update deferred, mostrar popup ──
+  // Hook no evento de fechamento do caixa
+  const _originalFecharCaixa = window.fecharCaixa;
+  if (typeof _originalFecharCaixa === 'function') {
+    window.fecharCaixa = function() {
+      // Se há update deferred, mostrar antes de fechar
+      try {
+        const d = JSON.parse(localStorage.getItem(UPDATE_DEFERRED) || '{}');
+        if (d.version) {
+          clearDeferred();
+          fetch('/api/update/features').then(r => r.json()).then(fd => {
+            showUpdatePopup(d.version, fd.features || [], fd.message || '');
+          });
+          return; // não fecha o caixa ainda — o popup cuida disso
+        }
+      } catch (e) { }
+      return _originalFecharCaixa.apply(this, arguments);
+    };
+  }
+
+  // Expõe globalmente para uso externo
+  window.showUpdatePopup = showUpdatePopup;
+})();
     }
   }
 });

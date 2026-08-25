@@ -1232,6 +1232,8 @@ const io = new Server(server, {
         if (host === BASE_DOMAIN || host.endsWith('.' + BASE_DOMAIN)) return cb(null, true);
         /* Domínio de produção */
         if (host === 'chefcozinha.com.br' || host.endsWith('.chefcozinha.com.br')) return cb(null, true);
+        /* Túneis: Cloudflare, ngrok, Localtunnel, localhost.run */
+        if (host.endsWith('.trycloudflare.com') || host.endsWith('.ngrok-free.app') || host.endsWith('.ngrok.app') || host.endsWith('.loca.lt') || host.endsWith('.lhr.life')) return cb(null, true);
       } catch(e) {}
       cb(null, false);
     },
@@ -14750,6 +14752,68 @@ app.get('/api/emergency-state', (req, res) => {
   } catch (e) {
     res.json({ mesas: null });
   }
+});
+
+// ── ENDPOINT DE VERSÃO — clientes detectam atualizações ──────────────
+let _currentVersion = null;
+function getCurrentVersion() {
+  if (_currentVersion) return _currentVersion;
+  try {
+    const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8'));
+    _currentVersion = pkg.version || '1.0.0';
+  } catch (e) { _currentVersion = '1.0.0'; }
+  return _currentVersion;
+}
+
+app.get('/api/version', (req, res) => {
+  res.json({ version: getCurrentVersion(), timestamp: new Date().toISOString() });
+});
+
+// ── SUPER ADMIN: atualizar versão (força notificação para clientes) ──
+app.post('/api/super/version/push', superAdminAuth, (req, res) => {
+  const { version, features, message } = req.body || {};
+  if (!version) return res.json({ ok: false, erro: 'Versão é obrigatória.' });
+  _currentVersion = version;
+  // Salva no DB para persistir entre restarts
+  masterDb.run("INSERT INTO configuracoes_global (chave, valor) VALUES ('current_version', ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor", [version], () => {
+    if (features || message) {
+      masterDb.run("INSERT INTO configuracoes_global (chave, valor) VALUES ('update_features', ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor",
+        [JSON.stringify({ features: features || [], message: message || '' })], () => {});
+    }
+    // Notifica todos os clientes conectados
+    io.emit('update_available', { version, features: features || [], message: message || '' });
+    res.json({ ok: true, mensagem: `Versão ${version} notificada para todos os clientes!` });
+  });
+});
+
+// ── CLIENTE: buscar features da atualização ──
+app.get('/api/update/features', (req, res) => {
+  masterDb.get("SELECT valor FROM configuracoes_global WHERE chave = 'update_features'", [], (err, row) => {
+    if (err || !row) return res.json({ ok: true, features: [], message: '' });
+    try {
+      const data = JSON.parse(row.valor);
+      res.json({ ok: true, features: data.features || [], message: data.message || '' });
+    } catch (e) {
+      res.json({ ok: true, features: [], message: '' });
+    }
+  });
+});
+
+// ── CLIENTE: reportar problema ao suporte ──
+app.post('/api/support/report', (req, res) => {
+  const { restaurante_id, usuario, problema, page, user_agent } = req.body || {};
+  if (!problema) return res.json({ ok: false, erro: 'Descreva o problema.' });
+  const ts = new Date().toISOString();
+  const report = `[${ts}] Reportado por: ${usuario || 'Anônimo'} (rest=${restaurante_id || '?'}) | Página: ${page || '?'} | UA: ${user_agent || '?'}\n  Problema: ${problema}\n`;
+  try {
+    const logDir = path.join(__dirname, 'logs');
+    if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
+    fs.appendFileSync(path.join(logDir, 'suporte-reports.log'), report);
+  } catch (e) { }
+  // Cria task de suporte se existir a tabela
+  masterDb.run("INSERT INTO tasks_suporte (tipo, titulo, descricao, status, criado_em) VALUES (?, ?, ?, 'aberto', ?)",
+    ['report_cliente', `Report de ${usuario || 'Cliente'} (rest #${restaurante_id || '?'})`, problema, ts], () => {});
+  res.json({ ok: true, mensagem: 'Reporte enviado! Nosso time será notificado.' });
 });
 
 // Graceful shutdown: encerra conexões socket e o HTTP server em até 5s

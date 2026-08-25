@@ -528,11 +528,13 @@ function normalizeProtocol(p) {
 function buildCardapioUrl(mesaNome) {
   const customProto = String(configs.qr_protocol || '').trim().toLowerCase();
   const proto = normalizeProtocol((customProto === 'https' || customProto === 'http') ? customProto : (serverProtocol || 'http'));
-  /* Preferir custom_domain sobre IP do servidor */
-  let host = (restCustomDomain && restCustomDomain.trim()) || serverIp || window.location.hostname;
+  /* Se o cliente está via túnel, usar a URL do túnel diretamente */
+  const _hostname = window.location.hostname;
+  const _isTunnel = /\.(trycloudflare\.com|ngrok-free\.app|ngrok\.app|loca\.lt|lhr\.life)$/.test(_hostname);
+  let host = _isTunnel ? _hostname : ((restCustomDomain && restCustomDomain.trim()) || serverIp || window.location.hostname);
   const isDomain = host.indexOf('.') !== -1 && !host.match(/^\d+\.\d+\.\d+\.\d+$/);
   const customPort = String(configs.qr_port || '').trim();
-  const portPart = isDomain ? '' : (customPort ? ':' + customPort : (serverPort ? ':' + serverPort : ''));
+  const portPart = (isDomain || _isTunnel) ? '' : (customPort ? ':' + customPort : (serverPort ? ':' + serverPort : ''));
   const tenantId = encodeURIComponent(localStorage.getItem('restaurante_id') || '1');
   return `${proto}//${host}${portPart}/cardapio.html?mesa=${encodeURIComponent(mesaNome)}&restaurante_id=${tenantId}`;
 }
@@ -4782,9 +4784,14 @@ function updateQrCodeConvite() {
 
 socket.on('server_ip', (ip) => {
   if (ip && ip !== 'localhost' && ip !== '127.0.0.1') {
-    _serverIpReal = ip;
-    const _isIp = /^\d+\.\d+\.\d+\.\d+$/.test(ip);
-    if (!_isIp && ip.indexOf('.') !== -1) restCustomDomain = ip;
+    /* Se o cliente está via túnel, não sobrescreve — mantém a URL do túnel */
+    const _hostname = window.location.hostname;
+    const _isTunnel = /\.(trycloudflare\.com|ngrok-free\.app|ngrok\.app|loca\.lt|lhr\.life)$/.test(_hostname);
+    if (!_isTunnel) {
+      _serverIpReal = ip;
+      const _isIp = /^\d+\.\d+\.\d+\.\d+$/.test(ip);
+      if (!_isIp && ip.indexOf('.') !== -1) restCustomDomain = ip;
+    }
     updateQrCodeConvite();
   }
 });
