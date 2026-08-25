@@ -1,7 +1,7 @@
 /* Chef Cozinha — Service Worker
    Necessário para o navegador oferecer a instalação do PWA (beforeinstallprompt).
    Estratégia: network-first com cache fallback (o PDV precisa sempre de dados frescos). */
-const CACHE = 'chef-cozinha-v1';
+const CACHE = 'chef-cozinha-v2';
 const PRECACHE = [
   '/',
   '/manifest.json',

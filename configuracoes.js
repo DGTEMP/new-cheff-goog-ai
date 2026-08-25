@@ -4178,6 +4178,29 @@ socket.on('fidelidade_config_salvo', (res) => {
   if (res && res.success) alert('Configuração de fidelidade salva!');
 });
 
+// --- PAGAMENTOS PIX (copia e cola no fechamento) ---
+if (typeof socket !== 'undefined') {
+  socket.emit('get_pix_config');
+  socket.on('pix_config_atual', (cfg) => {
+    const setV = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
+    setV('pix-chave', cfg.pix_chave);
+    setV('pix-nome-recebedor', cfg.pix_nome_recebedor);
+    setV('pix-cidade', cfg.pix_cidade);
+  });
+  socket.on('pix_config_salvo', (res) => {
+    if (res && res.success) alert('Configuração Pix salva! O fechamento do caixa já pode gerar QR e copia-e-cola.');
+  });
+}
+
+window.salvarPixConfig = () => {
+  if (typeof socket === 'undefined' || !socket) return alert('Sem conexão com o servidor.');
+  socket.emit('admin_atualizar_pix_config', {
+    pix_chave: document.getElementById('pix-chave').value.trim(),
+    pix_nome_recebedor: document.getElementById('pix-nome-recebedor').value.trim(),
+    pix_cidade: document.getElementById('pix-cidade').value.trim()
+  });
+};
+
 // --- FIDELIDADE: PARCEIROS (CRUD + mini mapa) ---
 let parceiroEditandoId = null;
 let parceirosCache = [];

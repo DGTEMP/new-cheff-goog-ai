@@ -2054,13 +2054,29 @@ function renderOrders() {
 
       const taxaCheckbox = document.getElementById('taxa-servico');
       window.calcularTotal = () => {
-        let totalComTaxa = (item.totalBruto || item.total) + window.servicoAdicional - window.descontoAdicional;
+        // Base de cálculo da taxa: todos os itens menos os marcados "sem taxa";
+        // se o caixa definiu um valor manual (R$), ele tem prioridade.
+        const itens = (window.mesaAtual && window.mesaAtual.items) || [];
+        const brutoTodos = itens.reduce((s, it) => s + (parseFloat(String(it.total).replace(',', '.')) || 0), 0);
+        const isentoTodos = itens.reduce((s, it) => {
+          if (it.status === 'Pago') return s;
+          return (window._checkoutItensSemTaxa && it.id != null && window._checkoutItensSemTaxa.has(it.id))
+            ? s + (parseFloat(String(it.total).replace(',', '.')) || 0) : s;
+        }, 0);
+
+        let totalComTaxa = brutoTodos + window.servicoAdicional - window.descontoAdicional;
         let valorServicos = window.servicoAdicional;
 
         if (taxaCheckbox && taxaCheckbox.checked) {
-          const baseParaTaxa = Math.max(0, (item.totalBruto || item.total) - window.descontoAdicional);
-          valorServicos += baseParaTaxa * 0.10;
-          totalComTaxa += baseParaTaxa * 0.10;
+          let taxaCalc;
+          if (window._checkoutTaxaManual != null) {
+            taxaCalc = window._checkoutTaxaManual;
+          } else {
+            const baseParaTaxa = Math.max(0, brutoTodos - isentoTodos - window.descontoAdicional);
+            taxaCalc = baseParaTaxa * 0.10;
+          }
+          valorServicos += taxaCalc;
+          totalComTaxa += taxaCalc;
         }
 
         updateSummaryValue('resumo-taxas', valorServicos);
@@ -2089,18 +2105,30 @@ function renderOrders() {
       window.pagamentosParciais = item.pagamentosParciais || [];
       window.calcRestante = () => {
         const finalTotal = window.calcularTotal();
-        const taxaMult = (taxaCheckbox && taxaCheckbox.checked) ? 1.10 : 1.0;
+        const aplicarTaxa = taxaCheckbox && taxaCheckbox.checked;
 
         // 1. Calcular soma dos itens da mesa que ainda NÃO foram pagos (status != 'Pago')
         let pendenteItensBruto = 0;
+        let isentoAberto = 0;
+        let consumoTodos = 0;
         if (window.mesaAtual && window.mesaAtual.items) {
           window.mesaAtual.items.forEach(it => {
+            const v = parseFloat(String(it.total).replace(',', '.')) || 0;
+            if (v >= 0) consumoTodos += v;
             if (it.status !== 'Pago') {
-              pendenteItensBruto += parseFloat(String(it.total).replace(',', '.')) || 0;
+              pendenteItensBruto += v;
+              if (window._checkoutItensSemTaxa && it.id != null && window._checkoutItensSemTaxa.has(it.id)) {
+                isentoAberto += v;
+              }
             }
           });
         }
-        const pendenteItensComTaxa = pendenteItensBruto * taxaMult + window.servicoAdicional - window.descontoAdicional;
+        // Taxa proporcional ao pendente — espelha o servidor (aditiva com manual)
+        let taxaPendente;
+        if (!aplicarTaxa) taxaPendente = 0;
+        else if (window._checkoutTaxaManual != null) taxaPendente = consumoTodos > 0 ? window._checkoutTaxaManual * (pendenteItensBruto / consumoTodos) : 0;
+        else taxaPendente = Math.max(0, pendenteItensBruto - isentoAberto) * 0.10;
+        const pendenteItensComTaxa = pendenteItensBruto + taxaPendente + window.servicoAdicional - window.descontoAdicional;
 
         // 2. Pagamentos parciais avulsos (Pgto Parcial)
         const generalPartialPago = (window.pagamentosParciais || [])
@@ -2245,10 +2273,12 @@ function renderOrders() {
         itemsToRender.forEach((order) => {
           const totalVal = parseFloat(String(order.total).replace(',', '.'));
           const isPaid = order.status === 'Pago';
+          const semTaxa = window._checkoutItensSemTaxa && order.id != null && window._checkoutItensSemTaxa.has(order.id);
           modalItemsHTML += `
                  <tr style="${isPaid ? 'opacity: 0.5; background: var(--bg-secondary);' : ''}">
-                   <td style="padding: 8px 4px; ${isPaid ? 'text-decoration: line-through;' : ''}">${order.productEmoji || ''} ${order.productName || 'Produto'} ${isPaid ? '<strong style="color: #3ab55b; margin-left: 8px;">(PAGO)</strong>' : ''}</td>
+                   <td style="padding: 8px 4px; ${isPaid ? 'text-decoration: line-through;' : ''}">${order.productEmoji || ''} ${order.productName || 'Produto'} ${isPaid ? '<strong style="color: #3ab55b; margin-left: 8px;">(PAGO)</strong>' : (semTaxa ? '<span style="color:#e53e3e;font-size:10px;margin-left:6px;">(s/ taxa)</span>' : '')}</td>
                    <td style="padding: 8px 4px; text-align: center;">${order.quantity || 1}</td>
+                   <td style="padding: 8px 4px; text-align: center;">${(!isPaid && order.id != null) ? `<input type="checkbox" ${semTaxa ? '' : 'checked'} title="Cobrar taxa de serviço neste item?" onchange="window.checkoutItemTaxaToggle(${order.id}, this.checked)" style="width:15px;height:15px;accent-color:#fc4b15;cursor:pointer;">` : '—'}</td>
                    <td style="padding: 8px 4px; text-align: right; font-weight: 600; color: #3ab55b;">R$ ${totalVal.toFixed(2).replace('.', ',')}</td>
                  </tr>
                `;
@@ -2619,6 +2649,20 @@ document.addEventListener('DOMContentLoaded', () => {
   socket.emit('get_produtos');
   socket.emit('get_funcionarios');
   socket.emit('get_promocoes');
+
+  // Watchdog de abertura: se o estado do caixa não chegar (conexão instável,
+  // servidor reiniciando etc.), re-solicita para destravar a tela.
+  setTimeout(() => {
+    const splash = document.getElementById('chef-boot-splash');
+    const overlayCx = document.getElementById('caixa-overlay');
+    const pendente = (splash && splash.style.display !== 'none' && !splash._oculto) ||
+      (overlayCx && overlayCx.style.display === 'flex');
+    if (pendente) {
+      console.warn('[Watchdog] Estado inicial não recebeu resposta — re-solicitando caixa e mesas.');
+      socket.emit('get_estado_caixa');
+      socket.emit('get_mesas');
+    }
+  }, 6000);
 
   const btnAbrir = document.getElementById('btn-abrir-caixa');
   if (btnAbrir) {
@@ -5587,6 +5631,7 @@ window.checkoutModalSelectTouchMethod = (metodo) => {
     }
   });
   if (window.calcRestante) window.calcRestante();
+  if (window.checkoutModalAtualizarPix) window.checkoutModalAtualizarPix();
 };
 
 let listaFormasPagamentoAtivas = [];
@@ -5776,6 +5821,25 @@ window.abrirCheckoutModal = () => {
   const overlay = document.getElementById('checkout-modal-overlay');
   if (overlay) overlay.style.display = 'flex';
 
+  // Reset dos estados da sessão de fechamento (taxa manual, itens, cliente, Pix)
+  window._checkoutItensSemTaxa = new Set();
+  window._checkoutTaxaManual = null;
+  window._checkoutClienteId = null;
+  const buscaInput = document.getElementById('checkout-modal-busca-cliente');
+  if (buscaInput) buscaInput.value = '';
+  const buscaBox = document.getElementById('checkout-modal-busca-resultados');
+  if (buscaBox) { buscaBox.style.display = 'none'; buscaBox.innerHTML = ''; }
+  const clienteBadge = document.getElementById('checkout-modal-cliente-badge');
+  if (clienteBadge) clienteBadge.style.display = 'none';
+  const taxaManualRow = document.getElementById('checkout-modal-taxa-manual-row');
+  if (taxaManualRow) taxaManualRow.style.display = 'none';
+  const taxaManualInput = document.getElementById('checkout-modal-taxa-manual');
+  if (taxaManualInput) taxaManualInput.value = '';
+  if (typeof socket !== 'undefined' && socket) {
+    const nomeMesaAtual = window.mesaAtual.nome || window.mesaAtual.mesaName;
+    socket.emit('get_taxa_mesa', { mesaName: nomeMesaAtual });
+  }
+
   const inputSplitParts = document.getElementById('checkout-modal-split-parts');
   if (inputSplitParts) inputSplitParts.value = '';
 
@@ -5825,6 +5889,9 @@ window.abrirCheckoutModal = () => {
   const btnLabel = providerLabels[activeProvider] || '💳 Maquininha';
   if (btnMpStandard) btnMpStandard.textContent = btnLabel;
   if (btnMpTouch) btnMpTouch.textContent = btnLabel;
+
+  // Painel Pix (se o método já estiver em Pix)
+  if (window.checkoutModalAtualizarPix) window.checkoutModalAtualizarPix();
 };
 
 window.fecharCheckoutModal = () => {
@@ -5931,6 +5998,7 @@ window.checkoutModalAddPagamento = () => {
   if (typeof window.checkoutModalUpdateTouchVisor === 'function') {
     window.checkoutModalUpdateTouchVisor();
   }
+  setTimeout(() => { if (window.checkoutModalAtualizarPix) window.checkoutModalAtualizarPix(); }, 600);
 };
 
 window.checkoutModalPagarMaquininha = () => {
@@ -6276,7 +6344,8 @@ window.checkoutModalConfirmarFechamento = () => {
     emitirNfce: emitirNfce,
     cpfCnpj: cpfCnpj,
     customNfceConfig: window.customNfceConfig,
-    telefoneCliente: telefoneCliente
+    telefoneCliente: telefoneCliente,
+    cliente_id: window._checkoutClienteId || null
   });
 };
 
@@ -6453,6 +6522,201 @@ window.finalizarComandaModal = function () {
     alert(`Pagamento de R$ ${val.toFixed(2).replace('.', ',')} (${method}) recebido com sucesso para ${cName ? 'Comanda ' + cName : 'Itens Compartilhados'}!`);
   }, 1000);
 };
+
+/* ═══════════ TAXA DE SERVIÇO MANUAL + ITENS SEM TAXA + PIX + CLIENTE ═══════════ */
+window._checkoutItensSemTaxa = new Set();   // ids de itens fora da base da taxa
+window._checkoutTaxaManual = null;          // R$ definido para a mesa (null = padrão 10%)
+window._checkoutClienteId = null;           // cliente fidelizado escolhido no fechamento
+
+const _parseValorBRL = (txt) => {
+  let clean = String(txt || '').replace('R$', '').replace(/\s/g, '');
+  if (!clean) return NaN;
+  if (clean.includes(',')) {
+    clean = clean.indexOf('.') < clean.lastIndexOf(',') ? clean.replace(/\./g, '').replace(',', '.') : clean.replace(/,/g, '.');
+  }
+  return parseFloat(clean);
+};
+
+window.checkoutItemTaxaToggle = (itemId, cobrar) => {
+  if (itemId == null) return;
+  if (cobrar) window._checkoutItensSemTaxa.delete(itemId);
+  else window._checkoutItensSemTaxa.add(itemId);
+  // Exclusão por item converte a mesa para taxa manual (valor exato salvo no servidor)
+  const itens = (window.mesaAtual && window.mesaAtual.items) || [];
+  const brutoTodos = itens.reduce((s, it) => s + (parseFloat(String(it.total).replace(',', '.')) || 0), 0);
+  const isentoTodos = itens.reduce((s, it) => {
+    if (it.status === 'Pago') return s;
+    return window._checkoutItensSemTaxa.has(it.id) ? s + (parseFloat(String(it.total).replace(',', '.')) || 0) : s;
+  }, 0);
+  const novaTaxa = Math.round((Math.max(0, brutoTodos - isentoTodos) * 0.10) * 100) / 100;
+  window._checkoutTaxaManual = novaTaxa;
+  const nomeMesa = window.mesaAtual ? (window.mesaAtual.mesaName || window.mesaAtual.nome) : null;
+  if (nomeMesa && typeof socket !== 'undefined' && socket) {
+    socket.emit('definir_taxa_mesa', { mesaName: nomeMesa, valor: novaTaxa });
+  }
+  if (window.calcRestante) window.calcRestante();
+};
+
+window.checkoutTaxaToggleManual = () => {
+  const row = document.getElementById('checkout-modal-taxa-manual-row');
+  if (!row) return;
+  row.style.display = row.style.display === 'none' || !row.style.display ? 'block' : 'none';
+  if (row.style.display === 'block') {
+    const inp = document.getElementById('checkout-modal-taxa-manual');
+    if (inp && window._checkoutTaxaManual != null && !document.activeElement.isSameNode(inp)) {
+      inp.value = window._checkoutTaxaManual.toFixed(2).replace('.', ',');
+    }
+  }
+};
+
+window.checkoutTaxaSalvarManual = () => {
+  const inp = document.getElementById('checkout-modal-taxa-manual');
+  if (!inp || !window.mesaAtual) return;
+  const v = _parseValorBRL(inp.value);
+  window._checkoutTaxaManual = (!isNaN(v) && v > 0) ? Math.round(v * 100) / 100 : null;
+  const nomeMesa = window.mesaAtual.mesaName || window.mesaAtual.nome;
+  if (typeof socket !== 'undefined' && socket) {
+    socket.emit('definir_taxa_mesa', { mesaName: nomeMesa, valor: window._checkoutTaxaManual });
+  }
+  if (window.calcRestante) window.calcRestante();
+};
+
+window.checkoutTaxaLimparManual = () => {
+  window._checkoutTaxaManual = null;
+  window._checkoutItensSemTaxa.clear();
+  const inp = document.getElementById('checkout-modal-taxa-manual');
+  if (inp) inp.value = '';
+  const nomeMesa = window.mesaAtual ? (window.mesaAtual.mesaName || window.mesaAtual.nome) : null;
+  if (nomeMesa && typeof socket !== 'undefined' && socket) {
+    socket.emit('definir_taxa_mesa', { mesaName: nomeMesa, valor: null });
+  }
+  if (window.calcRestante) window.calcRestante();
+};
+
+if (typeof socket !== 'undefined') {
+  socket.on('taxa_mesa_definida', ({ mesaName, valor }) => {
+    const atual = window.mesaAtual ? (window.mesaAtual.mesaName || window.mesaAtual.nome) : null;
+    if (atual && atual === mesaName) {
+      window._checkoutTaxaManual = valor;
+      if (window.calcRestante) window.calcRestante();
+    }
+  });
+  socket.on('taxa_mesa_valor', ({ mesaName, valor }) => {
+    const atual = window.mesaAtual ? (window.mesaAtual.mesaName || window.mesaAtual.nome) : null;
+    if (atual && atual === mesaName) {
+      window._checkoutTaxaManual = valor;
+      const inp = document.getElementById('checkout-modal-taxa-manual');
+      if (inp && valor != null && document.activeElement !== inp) inp.value = valor.toFixed(2).replace('.', ',');
+      if (window.calcRestante) window.calcRestante();
+    }
+  });
+}
+
+/* ── PIX COPIA E COLA NO FECHAMENTO ── */
+window.checkoutModalAtualizarPix = () => {
+  const panel = document.getElementById('checkout-modal-pix-panel');
+  const sel = document.getElementById('checkout-modal-metodo');
+  if (!panel || !sel) return;
+  if (sel.value !== 'Pix' || !(window.mesaFaltaPagar > 0.01)) {
+    panel.style.display = 'none';
+    return;
+  }
+  panel.style.display = 'block';
+  const falta = window.mesaFaltaPagar;
+  document.getElementById('pix-valor-label').innerText = `R$ ${falta.toFixed(2).replace('.', ',')}`;
+  const nomeMesa = window.mesaAtual ? (window.mesaAtual.mesaName || window.mesaAtual.nome) : '';
+  fetch(`/api/pix/copiacola?valor=${falta.toFixed(2)}&mesa=${encodeURIComponent(nomeMesa)}&ref=M${Date.now().toString(36).toUpperCase()}`)
+    .then(r => r.json())
+    .then(d => {
+      const img = document.getElementById('pix-qr-img');
+      const txt = document.getElementById('pix-copia-texto');
+      if (d.ok) {
+        if (typeof gerarQrDataUrl === 'function') gerarQrDataUrl(d.payload, 170, url => { img.src = url; img.style.display = ''; });
+        txt.value = d.payload;
+        window._pixPayloadAtual = d.payload;
+        txt.style.color = '';
+      } else {
+        img.style.display = 'none';
+        txt.value = d.erro || 'Erro ao gerar Pix.';
+        txt.style.color = '#e53e3e';
+        window._pixPayloadAtual = null;
+      }
+    })
+    .catch(() => { });
+};
+
+window.checkoutPixCopiar = () => {
+  const payload = window._pixPayloadAtual || document.getElementById('pix-copia-texto').value;
+  if (!payload) return;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(payload).then(() => alert('Código Pix copiado!'));
+  } else {
+    const ta = document.getElementById('pix-copia-texto');
+    ta.select();
+    document.execCommand('copy');
+    alert('Código Pix copiado!');
+  }
+};
+
+(function bindPixPanel() {
+  const sel = document.getElementById('checkout-modal-metodo');
+  if (sel) sel.addEventListener('change', () => { if (window.checkoutModalAtualizarPix) window.checkoutModalAtualizarPix(); });
+})();
+
+/* ── BUSCA DE CLIENTE FIDELIZADO POR CPF/TELEFONE/NOME ── */
+let _buscaClienteTimer = null;
+
+window.checkoutBuscarCliente = (termo) => {
+  const input = document.getElementById('checkout-modal-busca-cliente');
+  const q = termo != null ? String(termo) : (input ? input.value : '');
+  if (q.replace(/\D/g, '').length < 3 && q.trim().length < 3) return;
+  fetch(`/api/clientes/buscar-doc?q=${encodeURIComponent(q.trim())}`)
+    .then(r => r.json())
+    .then(d => {
+      const box = document.getElementById('checkout-modal-busca-resultados');
+      if (!box) return;
+      if (!d.ok || !d.clientes || d.clientes.length === 0) {
+        box.innerHTML = '<div style="padding:8px;font-size:11px;color:var(--text-muted);">Nenhum cliente fidelizado encontrado.</div>';
+        box.style.display = 'block';
+        return;
+      }
+      box.innerHTML = d.clientes.map(c => `
+        <div onclick='window.checkoutEscolherCliente(${JSON.stringify(JSON.stringify(c)).replace(/'/g, "&#39;")})'
+          style="padding:7px 9px;border-bottom:1px solid #f1f5f9;cursor:pointer;font-size:11.5px;"
+          onmouseover="this.style.background='#f0f9ff'" onmouseout="this.style.background=''">
+          <strong>${c.nome || 'Sem nome'}</strong>
+          <span style="color:var(--text-muted);">· ${c.telefone || 'sem fone'}${c.cpf ? ' · CPF ' + c.cpf : ''}</span>
+          <span style="float:right;color:#0077c8;font-weight:700;">${c.pontos || 0} pts · ${c.nivel || 'Bronze'}</span>
+        </div>`).join('');
+      box.style.display = 'block';
+    })
+    .catch(() => { });
+};
+
+window.checkoutEscolherCliente = (cliente) => {
+  let c = cliente;
+  if (typeof c === 'string') { try { c = JSON.parse(c); } catch (e) { return; } }
+  window._checkoutClienteId = c.id || null;
+  const telInput = document.getElementById('checkout-modal-telefone-cliente');
+  if (telInput && c.telefone) telInput.value = c.telefone;
+  const badge = document.getElementById('checkout-modal-cliente-badge');
+  if (badge) {
+    badge.innerHTML = `<i class="ph ph-user-circle-check"></i> ${c.nome || 'Cliente'} · ${c.pontos || 0} pontos · ${c.nivel || 'Bronze'} — os pontos desta conta vão para este cadastro`;
+    badge.style.display = 'block';
+  }
+  const box = document.getElementById('checkout-modal-busca-resultados');
+  if (box) box.style.display = 'none';
+};
+
+(function bindBuscaCliente() {
+  const input = document.getElementById('checkout-modal-busca-cliente');
+  if (!input) return;
+  input.addEventListener('input', () => {
+    clearTimeout(_buscaClienteTimer);
+    _buscaClienteTimer = setTimeout(() => window.checkoutBuscarCliente(), 350);
+  });
+  input.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); window.checkoutBuscarCliente(); } });
+})();
 
 // --- SISTEMA DE PERSONALIZAÇÃO DE ATALHOS DO TECLADO (TECLAGEM OPERACIONAL) ---
 window.DEFAULT_SHORTCUTS = {
@@ -6662,6 +6926,12 @@ document.addEventListener('keydown', (e) => {
       if (window.checkoutModalConfirmarFechamento) window.checkoutModalConfirmarFechamento();
       return;
     }
+    // ENTER no campo de valor registra o pagamento direto (teclado numérico)
+    if (e.key === 'Enter' && activeEl && activeEl.id === 'checkout-modal-valor') {
+      e.preventDefault();
+      if (window.checkoutModalAddPagamento) window.checkoutModalAddPagamento();
+      return;
+    }
     if (!isInputActive) {
       const keyUpper = e.key.toUpperCase();
       let selectMethod = null;
@@ -6676,7 +6946,7 @@ document.addEventListener('keydown', (e) => {
         const sel = document.getElementById('checkout-modal-metodo');
         if (sel) {
           sel.value = selectMethod;
-          if (window.checkoutModalAdicionarPagamento) window.checkoutModalAdicionarPagamento();
+          if (window.checkoutModalAddPagamento) window.checkoutModalAddPagamento();
         }
       }
     }
@@ -6689,6 +6959,30 @@ document.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
       e.preventDefault();
       if (window.pdvConfirmarEEnviar) window.pdvConfirmarEEnviar();
+      return;
+    }
+  }
+
+  // ── NAVEGAÇÃO SEM MOUSE: setas movem entre mesas, Enter abre o fechamento ──
+  if (!isInputActive && !isCheckoutOpen && !isPdvOpen && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+    const cards = Array.from(document.querySelectorAll('.mesa-item')).filter(c => c.offsetParent !== null);
+    if (cards.length > 0) {
+      e.preventDefault();
+      const idxAtual = cards.findIndex(c => c.classList.contains('selected'));
+      let proximo;
+      if (idxAtual === -1) proximo = e.key === 'ArrowDown' ? 0 : cards.length - 1;
+      else proximo = e.key === 'ArrowDown' ? Math.min(cards.length - 1, idxAtual + 1) : Math.max(0, idxAtual - 1);
+      if (proximo !== idxAtual) {
+        cards[proximo].click();
+        cards[proximo].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }
+    }
+    return;
+  }
+  if (!isInputActive && e.key === 'Enter' && !isCheckoutOpen && !isPdvOpen) {
+    if (window.mesaAtual && window.abrirCheckoutModal) {
+      e.preventDefault();
+      window.abrirCheckoutModal();
       return;
     }
   }
