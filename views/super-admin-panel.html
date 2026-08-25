@@ -97,6 +97,11 @@
                 <i class="fa-solid fa-key"></i>
                 <span>Licenças &amp; Telemetria</span>
               </div>
+              <div class="menu-item" data-target="sec-infra-cloud" id="menu-item-infra-cloud">
+                <i class="fa-solid fa-cloud"></i>
+                <span>Infraestrutura Cloud</span>
+                <span id="infra-cloud-badge" style="display:none;margin-left:auto;background:var(--primary);color:#fff;font-size:0.6rem;padding:2px 7px;border-radius:99px;font-weight:700;">R2</span>
+              </div>
             </div>
           </div>
 
@@ -2259,6 +2264,198 @@
                   style="padding:1rem;font-size:13px;color:#bbb;max-height:260px;overflow-y:auto;">
                   Carregando conflitos...
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+
+        <!-- ════ SEÇÃO: INFRAESTRUTURA CLOUD ════ -->
+        <div class="content-section" id="sec-infra-cloud">
+          <div class="info-banner">
+            <i class="fa-solid fa-cloud"></i>
+            <div class="info-banner-content">
+              <h4>Infraestrutura Cloud &amp; Backup Remoto</h4>
+              <p>Configure armazenamento remoto (Cloudflare R2), cache Redis, backups agendados e alertas automáticos de crash.</p>
+            </div>
+          </div>
+
+          <!-- Stats grid -->
+          <div class="stats-grid" id="infra-cloud-stats">
+            <div class="stat-card active-card">
+              <div class="stat-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>
+              <div class="stat-meta"><span>Cloudflare R2</span>
+                <h3 id="r2-status">Desconectado</h3>
+              </div>
+            </div>
+            <div class="stat-card trial-card">
+              <div class="stat-icon"><i class="fa-solid fa-database"></i></div>
+              <div class="stat-meta"><span>Redis Cache</span>
+                <h3 id="redis-status">Desativado</h3>
+              </div>
+            </div>
+            <div class="stat-card expired-card">
+              <div class="stat-icon"><i class="fa-solid fa-clock-rotate-left"></i></div>
+              <div class="stat-meta"><span>Backup Agendado</span>
+                <h3 id="backup-schedule-status">Manual</h3>
+              </div>
+            </div>
+            <div class="stat-card blocked-card">
+              <div class="stat-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+              <div class="stat-meta"><span>Alertas Crash</span>
+                <h3 id="crash-alert-status">Inativos</h3>
+              </div>
+            </div>
+          </div>
+
+          <!-- ═══ Cloudflare R2 ═══ -->
+          <div style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:12px;padding:1.5rem;margin-top:1.5rem;">
+            <h4 style="margin-bottom:1rem;"><i class="fa-solid fa-cloud-arrow-up" style="color:#f6821f;"></i> Cloudflare R2 — Backup Remoto</h4>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
+              <div>
+                <label style="font-size:0.82rem;color:var(--text-muted);">Account ID</label>
+                <input id="r2-account-id" type="text" placeholder="ex: abc123..."
+                  style="width:100%;padding:0.6rem 0.8rem;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:0.9rem;margin-top:0.3rem;">
+              </div>
+              <div>
+                <label style="font-size:0.82rem;color:var(--text-muted);">Bucket Name</label>
+                <input id="r2-bucket" type="text" placeholder="ex: chef-backups"
+                  style="width:100%;padding:0.6rem 0.8rem;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:0.9rem;margin-top:0.3rem;">
+              </div>
+              <div>
+                <label style="font-size:0.82rem;color:var(--text-muted);">Access Key ID</label>
+                <input id="r2-access-key" type="password" placeholder="Chave de acesso"
+                  style="width:100%;padding:0.6rem 0.8rem;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:0.9rem;margin-top:0.3rem;">
+              </div>
+              <div>
+                <label style="font-size:0.82rem;color:var(--text-muted);">Secret Access Key</label>
+                <input id="r2-secret-key" type="password" placeholder="Chave secreta"
+                  style="width:100%;padding:0.6rem 0.8rem;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:0.9rem;margin-top:0.3rem;">
+              </div>
+            </div>
+            <div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;">
+              <button class="btn-action btn-primary-action" id="btn-r2-save">
+                <i class="fa-solid fa-floppy-disk"></i><span> Salvar &amp; Testar Conexão</span>
+              </button>
+              <button class="btn-action" id="btn-r2-backup-now"
+                style="background:rgba(246,130,31,0.15);color:#f6821f;border-color:rgba(246,130,31,0.3);">
+                <i class="fa-solid fa-cloud-arrow-up"></i><span> Backup Agora p/ R2</span>
+              </button>
+              <span id="r2-feedback" style="font-size:0.85rem;"></span>
+            </div>
+            <div id="r2-backups-list" style="margin-top:1rem;"></div>
+          </div>
+
+          <!-- ═══ Redis Cache ═══ -->
+          <div style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:12px;padding:1.5rem;margin-top:1.5rem;">
+            <h4 style="margin-bottom:1rem;"><i class="fa-solid fa-database" style="color:#dc382d;"></i> Redis Cache — Performance</h4>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
+              <div>
+                <label style="font-size:0.82rem;color:var(--text-muted);">Host</label>
+                <input id="redis-host" type="text" placeholder="127.0.0.1" value="127.0.0.1"
+                  style="width:100%;padding:0.6rem 0.8rem;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:0.9rem;margin-top:0.3rem;">
+              </div>
+              <div>
+                <label style="font-size:0.82rem;color:var(--text-muted);">Porta</label>
+                <input id="redis-port" type="number" placeholder="6379" value="6379"
+                  style="width:100%;padding:0.6rem 0.8rem;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:0.9rem;margin-top:0.3rem;">
+              </div>
+              <div>
+                <label style="font-size:0.82rem;color:var(--text-muted);">Senha (opcional)</label>
+                <input id="redis-password" type="password" placeholder="Deixe vazio se não usar"
+                  style="width:100%;padding:0.6rem 0.8rem;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:0.9rem;margin-top:0.3rem;">
+              </div>
+              <div>
+                <label style="font-size:0.82rem;color:var(--text-muted);">Prefixo Cache</label>
+                <input id="redis-prefix" type="text" placeholder="chef:" value="chef:"
+                  style="width:100%;padding:0.6rem 0.8rem;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:0.9rem;margin-top:0.3rem;">
+              </div>
+            </div>
+            <div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap;margin-bottom:1rem;">
+              <button class="btn-action btn-primary-action" id="btn-redis-save">
+                <i class="fa-solid fa-floppy-disk"></i><span> Salvar &amp; Testar</span>
+              </button>
+              <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.9rem;color:var(--text-primary);cursor:pointer;">
+                <input type="checkbox" id="redis-enabled" style="accent-color:var(--primary);">
+                Ativar Redis Cache
+              </label>
+              <span id="redis-feedback" style="font-size:0.85rem;"></span>
+            </div>
+            <div id="redis-info" style="display:none;padding:0.75rem 1rem;border-radius:8px;background:rgba(220,56,45,0.08);border:1px solid rgba(220,56,45,0.2);font-size:0.85rem;color:#fca5a5;"></div>
+          </div>
+
+          <!-- ═══ Backups Agendados ═══ -->
+          <div style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:12px;padding:1.5rem;margin-top:1.5rem;">
+            <h4 style="margin-bottom:1rem;"><i class="fa-solid fa-clock-rotate-left" style="color:#818cf8;"></i> Backups Agendados</h4>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;margin-bottom:1rem;">
+              <div>
+                <label style="font-size:0.82rem;color:var(--text-muted);">Frequência</label>
+                <select id="backup-freq"
+                  style="width:100%;padding:0.6rem 0.8rem;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:0.9rem;margin-top:0.3rem;">
+                  <option value="manual">Manual</option>
+                  <option value="6h">A cada 6 horas</option>
+                  <option value="12h">A cada 12 horas</option>
+                  <option value="24h" selected>A cada 24 horas</option>
+                  <option value="48h">A cada 48 horas</option>
+                  <option value="7d">A cada 7 dias</option>
+                </select>
+              </div>
+              <div>
+                <label style="font-size:0.82rem;color:var(--text-muted);">Retenção (dias)</label>
+                <input id="backup-retention" type="number" value="30" min="1" max="365"
+                  style="width:100%;padding:0.6rem 0.8rem;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:0.9rem;margin-top:0.3rem;">
+              </div>
+              <div>
+                <label style="font-size:0.82rem;color:var(--text-muted);">Destino</label>
+                <select id="backup-dest"
+                  style="width:100%;padding:0.6rem 0.8rem;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:0.9rem;margin-top:0.3rem;">
+                  <option value="local">Apenas Local</option>
+                  <option value="r2">Local + Cloudflare R2</option>
+                </select>
+              </div>
+            </div>
+            <div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;">
+              <button class="btn-action btn-primary-action" id="btn-backup-schedule-save">
+                <i class="fa-solid fa-floppy-disk"></i><span> Salvar Agendamento</span>
+              </button>
+              <span id="backup-schedule-feedback" style="font-size:0.85rem;"></span>
+            </div>
+            <div id="backup-history" style="margin-top:1rem;"></div>
+          </div>
+
+          <!-- ═══ Alertas de Crash ═══ -->
+          <div style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:12px;padding:1.5rem;margin-top:1.5rem;">
+            <h4 style="margin-bottom:1rem;"><i class="fa-solid fa-triangle-exclamation" style="color:#f59e0b;"></i> Alertas Automáticos de Crash</h4>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
+              <div>
+                <label style="font-size:0.82rem;color:var(--text-muted);">Canal de Notificação</label>
+                <select id="crash-channel"
+                  style="width:100%;padding:0.6rem 0.8rem;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:0.9rem;margin-top:0.3rem;">
+                  <option value="none">Desativado</option>
+                  <option value="email">E-mail (configurado em Config)</option>
+                  <option value="webhook">Webhook (Slack/Discord)</option>
+                </select>
+              </div>
+              <div>
+                <label style="font-size:0.82rem;color:var(--text-muted);">Webhook URL (se aplicável)</label>
+                <input id="crash-webhook-url" type="url" placeholder="https://hooks.slack.com/services/..."
+                  style="width:100%;padding:0.6rem 0.8rem;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:0.9rem;margin-top:0.3rem;">
+              </div>
+            </div>
+            <div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;margin-bottom:1rem;">
+              <button class="btn-action btn-primary-action" id="btn-crash-alert-save">
+                <i class="fa-solid fa-floppy-disk"></i><span> Salvar Configuração</span>
+              </button>
+              <button class="btn-action" id="btn-crash-alert-test"
+                style="background:rgba(245,158,11,0.15);color:#f59e0b;border-color:rgba(245,158,11,0.3);">
+                <i class="fa-solid fa-paper-plane"></i><span> Enviar Alerta Teste</span>
+              </button>
+              <span id="crash-alert-feedback" style="font-size:0.85rem;"></span>
+            </div>
+            <div style="background:rgba(0,0,0,0.15);border:1px solid var(--border-color);border-radius:8px;padding:1rem;margin-top:0.5rem;">
+              <h5 style="font-size:0.85rem;margin-bottom:0.5rem;color:var(--text-primary);">Histórico de Crashes Recentes</h5>
+              <div id="crash-history" style="font-size:0.82rem;color:var(--text-muted);max-height:120px;overflow-y:auto;">
+                Nenhum crash registrado recentemente.
               </div>
             </div>
           </div>

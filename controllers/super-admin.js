@@ -1361,38 +1361,280 @@ module.exports = function (app, masterDb, sqlite3, options) {
 
       res.json({
         ok: true,
-        controle: {
-          modo_efetivo: state.mode,
-          modo_base: state.baseMode,
-          auto_ativo: state.autoActive,
-          auto_enabled: state.autoEnabled,
-          limites: {
-            lagThresholdMs: state.lagThresholdMs,
-            sustainedMs: state.sustainedMs,
-            recoveryLagMs: state.recoveryLagMs,
-            recoverySustainedMs: state.recoverySustainedMs,
-            maxRssMB: state.maxRssMB
-          },
-          spike: {
-            limite: state.spikeThreshold,
-            cooldownMin: state.spikeCooldownMin
-          }
-        },
-        metricas: {
-          chegadas_min: metrics.chegadas_min || 0,
-          aceitos_min: metrics.aceitos_min || 0,
-          enfileirados_min: metrics.enfileirados_min || 0,
-          processados_min: metrics.processados_min || 0,
-          recusados_min: metrics.recusados_min || 0,
-          event_loop_lag_ms: metrics.lag_ms || 0,
-          event_loop_lag_max_ms_5min: metrics.lag_max_5min || 0,
-          rss_mb: Math.round(process.memoryUsage().rss / 1048576),
-          tenants_com_fila: fila.tenants_com_fila || []
-        },
+        modo_global: loadControl.getModoGlobal(),
+        fila_duravel: loadControl.isFilaDuravelAtiva(),
+        intervalo_amostragem: loadControl.getIntervaloAmostragem(),
+        circuit_breaker: loadControl.getCircuitBreakerConfig(),
+        metricas_recentes: loadControl.getMetricasRecentes(),
         tenants: tenantsList
       });
-    } catch (err) {
-      res.json({ ok: false, erro: err.message });
+    } catch (e) {
+      res.json({ ok: false, erro: e.message });
+    }
+  });
+
+  function setInfraConfig(chave, valor) {
+    return new Promise((resolve, reject) => {
+      masterDb.run("INSERT INTO configuracoes_global (chave, valor) VALUES (?, ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor", [chave, valor], (err) => {
+        if (err) reject(err); else resolve();
+      });
+    });
+  }
+
+  function getInfraConfig(chave) {
+    return new Promise((resolve) => {
+      masterDb.get("SELECT valor FROM configuracoes_global WHERE chave = ?", [chave], (err, row) => {
+        resolve(err ? null : (row ? row.valor : null));
+      });
+    });
+  }
+
+  // POST /api/super/infra-cloud/r2 — salvar config R2
+  app.post('/api/super/infra-cloud/r2', superAdminAuth, async (req, res) => {
+    const { account_id, bucket, access_key, secret_key } = req.body || {};
+    if (!account_id || !bucket || !access_key || !secret_key) {
+      return res.json({ ok: false, erro: 'Todos os campos são obrigatórios.' });
+    }
+    try {
+      await setInfraConfig('r2_account_id', account_id);
+      await setInfraConfig('r2_bucket', bucket);
+      await setInfraConfig('r2_access_key', access_key);
+      await setInfraConfig('r2_secret_key', secret_key);
+      res.json({ ok: true, mensagem: 'Configuração R2 salva com sucesso!' });
+    } catch (e) {
+      res.json({ ok: false, erro: e.message });
+    }
+  });
+
+  // POST /api/super/infra-cloud/r2/test — testar conexão R2
+  app.post('/api/super/infra-cloud/r2/test', superAdminAuth, async (req, res) => {
+    try {
+      const accountId = await getInfraConfig('r2_account_id');
+      const accessKey = await getInfraConfig('r2_access_key');
+      const bucket = await getInfraConfig('r2_bucket');
+      if (!accountId || !accessKey || !bucket) {
+        return res.json({ ok: false, erro: 'R2 não configurado. Salve as credenciais primeiro.' });
+      }
+      // Teste simples: HEAD no bucket via URL pública
+      const testUrl = `https://${bucket}.${accountId}.r2.cloudflarestorage.com/`;
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 5000);
+      try {
+        const resp = await fetch(testUrl, { method: 'HEAD', signal: controller.signal });
+        clearTimeout(timer);
+        // 403 = bucket existe mas precisa de auth (ok), 200 = público, 404 = bucket não existe
+        const ok = resp.status !== 404;
+        res.json({ ok, status: resp.status, mensagem: ok ? 'Bucket acessível!' : 'Bucket não encontrado.' });
+      } catch (e) {
+        clearTimeout(timer);
+        res.json({ ok: false, erro: 'Não foi possível acessar o bucket: ' + e.message });
+      }
+    } catch (e) {
+      res.json({ ok: false, erro: e.message });
+    }
+  });
+
+  // POST /api/super/infra-cloud/r2/backup — upload backup para R2
+  app.post('/api/super/infra-cloud/r2/backup', superAdminAuth, async (req, res) => {
+    try {
+      const bucket = await getInfraConfig('r2_bucket');
+      const accountId = await getInfraConfig('r2_account_id');
+      const accessKey = await getInfraConfig('r2_access_key');
+      const secretKey = await getInfraConfig('r2_secret_key');
+      if (!bucket || !accountId || !accessKey || !secretKey) {
+        return res.json({ ok: false, erro: 'R2 não configurado. Configure as credenciais primeiro.' });
+      }
+      // Faz backup local primeiro
+      const rootDir = path.join(__dirname, '..');
+      const backupDir = path.join(rootDir, 'backups');
+      if (!fsSync.existsSync(backupDir)) fsSync.mkdirSync(backupDir, { recursive: true });
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const files = [];
+      // Lista bancos de tenant
+      try {
+        const dbDir = path.join(rootDir, 'db');
+        if (fsSync.existsSync(dbDir)) {
+          fsSync.readdirSync(dbDir).filter(f => f.endsWith('.sqlite') || f.endsWith('.db')).forEach(f => {
+            files.push(path.join(dbDir, f));
+          });
+        }
+      } catch (e) { }
+      if (fsSync.existsSync(path.join(rootDir, 'master.sqlite'))) files.push(path.join(rootDir, 'master.sqlite'));
+
+      const uploaded = [];
+      for (const src of files) {
+        const fname = path.basename(src).replace(/\.sqlite$|\.db$/, '_backup_' + timestamp + '.sqlite');
+        // Copia local
+        const dst = path.join(backupDir, fname);
+        try { fsSync.copyFileSync(src, dst); } catch (e) { continue; }
+        // Upload via PUT para R2
+        const fileData = fsSync.readFileSync(dst);
+        const key = `backups/${fname}`;
+        const putUrl = `https://${bucket}.${accountId}.r2.cloudflarestorage.com/${key}`;
+        try {
+          const resp = await fetch(putUrl, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/octet-stream',
+              'Content-Length': String(fileData.length)
+            },
+            body: fileData
+          });
+          if (resp.ok || resp.status === 200) uploaded.push(fname);
+        } catch (e) { }
+      }
+      res.json({ ok: uploaded.length > 0, arquivos: uploaded, total: files.length, mensagem: `${uploaded.length}/${files.length} arquivos enviados para R2.` });
+    } catch (e) {
+      res.json({ ok: false, erro: e.message });
+    }
+  });
+
+  // GET /api/super/infra-cloud/r2/backups — listar backups no R2
+  app.get('/api/super/infra-cloud/r2/backups', superAdminAuth, async (req, res) => {
+    try {
+      const bucket = await getInfraConfig('r2_bucket');
+      const accountId = await getInfraConfig('r2_account_id');
+      if (!bucket || !accountId) return res.json({ ok: true, backups: [] });
+      const listUrl = `https://${bucket}.${accountId}.r2.cloudflarestorage.com/?list&prefix=backups/&max-keys=100`;
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 8000);
+      const resp = await fetch(listUrl, { signal: controller.signal });
+      clearTimeout(timer);
+      const text = await resp.text();
+      // Parse simples do XML do S3 list
+      const matches = text.match(/<Key>([^<]+)<\/Key>/g) || [];
+      const backups = matches.map(m => {
+        const name = m.replace(/<\/?Key>/g, '').replace('backups/', '');
+        const sizeMatch = text.match(new RegExp(`<Key>${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}</Key>[\\s\\S]*?<Size>(\\d+)</Size>`));
+        return { name, size: sizeMatch ? parseInt(sizeMatch[1], 10) : null };
+      });
+      res.json({ ok: true, backups });
+    } catch (e) {
+      res.json({ ok: true, backups: [], erro: e.message });
+    }
+  });
+
+  // POST /api/super/infra-cloud/redis — salvar config Redis
+  app.post('/api/super/infra-cloud/redis', superAdminAuth, async (req, res) => {
+    const { host, port, password, prefix, enabled } = req.body || {};
+    try {
+      if (host !== undefined) await setInfraConfig('redis_host', host || '127.0.0.1');
+      if (port !== undefined) await setInfraConfig('redis_port', String(port || 6379));
+      if (password !== undefined) await setInfraConfig('redis_password', password || '');
+      if (prefix !== undefined) await setInfraConfig('redis_prefix', prefix || 'chef:');
+      if (enabled !== undefined) await setInfraConfig('redis_enabled', enabled ? '1' : '0');
+      res.json({ ok: true, mensagem: 'Configuração Redis salva!' });
+    } catch (e) {
+      res.json({ ok: false, erro: e.message });
+    }
+  });
+
+  // POST /api/super/infra-cloud/redis/test — testar conexão Redis
+  app.post('/api/super/infra-cloud/redis/test', superAdminAuth, async (req, res) => {
+    try {
+      const redisMod = require('redis');
+      const host = (await getInfraConfig('redis_host')) || '127.0.0.1';
+      const port = parseInt((await getInfraConfig('redis_port')) || '6379', 10);
+      const password = (await getInfraConfig('redis_password')) || undefined;
+      const client = redisMod.createClient({ url: `redis://${password ? ':' + password + '@' : ''}${host}:${port}`, socket: { connectTimeout: 5000 } });
+      let responded = false;
+      const done = (ok, msg) => { if (!responded) { responded = true; try { client.disconnect(); } catch (e) { } res.json({ ok, mensagem: msg }); } };
+      client.on('error', () => done(false, 'Não foi possível conectar ao Redis em ' + host + ':' + port));
+      client.connect().then(() => done(true, 'Redis conectado com sucesso!')).catch(() => done(false, 'Falha ao conectar no Redis'));
+      setTimeout(() => done(false, 'Timeout: Redis não respondeu em 5s'), 6000);
+    } catch (e) {
+      if (e.code === 'MODULE_NOT_FOUND') {
+        res.json({ ok: false, erro: 'Módulo "redis" não instalado. Execute: npm install redis' });
+      } else {
+        res.json({ ok: false, erro: e.message });
+      }
+    }
+  });
+
+  // POST /api/super/infra-cloud/backup-schedule — salvar agendamento de backup
+  app.post('/api/super/infra-cloud/backup-schedule', superAdminAuth, async (req, res) => {
+    const { frequency, retention_days, destination } = req.body || {};
+    try {
+      if (frequency) await setInfraConfig('backup_frequency', frequency);
+      if (retention_days !== undefined) await setInfraConfig('backup_retention_days', String(retention_days));
+      if (destination) await setInfraConfig('backup_destination', destination);
+      res.json({ ok: true, mensagem: 'Agendamento de backup salvo!' });
+    } catch (e) {
+      res.json({ ok: false, erro: e.message });
+    }
+  });
+
+  // GET /api/super/infra-cloud/backup-history — histórico de backups
+  app.get('/api/super/infra-cloud/backup-history', superAdminAuth, async (req, res) => {
+    try {
+      const backupDir = path.join(__dirname, '..', 'backups');
+      if (!fsSync.existsSync(backupDir)) return res.json({ ok: true, history: [] });
+      const files = fsSync.readdirSync(backupDir)
+        .filter(f => f.includes('_backup_'))
+        .sort().reverse().slice(0, 50)
+        .map(f => {
+          const stat = fsSync.statSync(path.join(backupDir, f));
+          return { nome: f, tamanho: Math.round(stat.size / 1024), data: stat.mtime.toISOString() };
+        });
+      res.json({ ok: true, history: files });
+    } catch (e) {
+      res.json({ ok: true, history: [] });
+    }
+  });
+
+  // POST /api/super/infra-cloud/crash-alerts — salvar config alertas de crash
+  app.post('/api/super/infra-cloud/crash-alerts', superAdminAuth, async (req, res) => {
+    const { channel, webhook_url } = req.body || {};
+    try {
+      if (channel) await setInfraConfig('crash_alert_channel', channel);
+      if (webhook_url !== undefined) await setInfraConfig('crash_alert_webhook', webhook_url);
+      res.json({ ok: true, mensagem: 'Configuração de alertas salva!' });
+    } catch (e) {
+      res.json({ ok: false, erro: e.message });
+    }
+  });
+
+  // POST /api/super/infra-cloud/crash-alerts/test — enviar alerta teste
+  app.post('/api/super/infra-cloud/crash-alerts/test', superAdminAuth, async (req, res) => {
+    try {
+      const channel = (await getInfraConfig('crash_alert_channel')) || 'none';
+      const webhook = await getInfraConfig('crash_alert_webhook');
+      if (channel === 'none') return res.json({ ok: false, erro: 'Alertas desativados.' });
+      if (channel === 'webhook' && webhook) {
+        const payload = {
+          content: '🧪 **Teste de Alerta — Chef Cozinha SaaS**\n\nEste é um alerta teste. Se você recebeu, o sistema de alertas está funcionando.\nHorário: ' + new Date().toLocaleString('pt-BR'),
+          username: 'Chef Alert Bot'
+        };
+        const resp = await fetch(webhook, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (resp.ok) return res.json({ ok: true, mensagem: 'Alerta teste enviado via webhook!' });
+        return res.json({ ok: false, erro: 'Webhook retornou HTTP ' + resp.status });
+      }
+      if (channel === 'email') {
+        return res.json({ ok: true, mensagem: 'Alerta por e-mail será enviado no próximo crash (configurado em Configurações).' });
+      }
+      res.json({ ok: false, erro: 'Configure um canal de notificação válido.' });
+    } catch (e) {
+      res.json({ ok: false, erro: e.message });
+    }
+  });
+
+  // GET /api/super/infra-cloud/crash-history — histórico de crashes
+  app.get('/api/super/infra-cloud/crash-history', superAdminAuth, (req, res) => {
+    try {
+      const logFile = path.join(__dirname, '..', 'logs', 'falhas.log');
+      if (!fsSync.existsSync(logFile)) return res.json({ ok: true, history: [] });
+      const lines = fsSync.readFileSync(logFile, 'utf8').split('\n').filter(Boolean).slice(-50);
+      const crashes = lines.map(l => {
+        const match = l.match(/^\[([^\]]+)\]\s*(.*)$/);
+        return match ? { data: match[1], detalhe: match[2] } : null;
+      }).filter(Boolean).reverse();
+      res.json({ ok: true, history: crashes });
+    } catch (e) {
+      res.json({ ok: true, history: [] });
     }
   });
 

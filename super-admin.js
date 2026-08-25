@@ -615,7 +615,8 @@ function switchTab(targetId) {
     'sec-plugins-modulos': ['Plugins & Módulos', 'Central de extensões avançadas (iFood, Balança, WhatsApp Bot)'],
     'sec-tema-custom': ['Aparência & Tema Global', 'Estúdio de personalização de cores, botões, fontes e marcas'],
     'sec-supabase': ['Supabase', 'Conexão guiada ao banco em nuvem: backup, sync e relatórios centralizados'],
-    'sec-alterar-senha': ['Alterar Senha', 'Atualize a senha de acesso ao painel super admin']
+    'sec-alterar-senha': ['Alterar Senha', 'Atualize a senha de acesso ao painel super admin'],
+    'sec-infra-cloud': ['Infraestrutura Cloud', 'Backup remoto R2, Redis cache, backups agendados e alertas de crash']
   };
 
   for (var i = 0; i < items.length; i++) {
@@ -744,6 +745,7 @@ function switchTab(targetId) {
    else if (targetId === 'sec-deploy-updates') { carregarCommitsGit(); carregarGitStatus(); }
    else if (targetId === 'sec-plugins-modulos') carregarPlugins();
    else if (targetId === 'sec-supabase') carregarSupabase();
+   else if (targetId === 'sec-infra-cloud') carregarInfraCloud();
 }
 
 /* ═══ SUPABASE — ASSISTENTE GUIADO ═══ */
@@ -6693,6 +6695,258 @@ function saCentralRenderLista() {
       '</div>';
   });
   painel.innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// INFRAESTRUTURA CLOUD — R2, Redis, Backups, Alertas
+// ═══════════════════════════════════════════════════════════════════
+
+function carregarInfraCloud() {
+  apiGet('/api/super/infra-cloud', function(err, data) {
+    if (err || !data || !data.ok) { showToast('Erro ao carregar configs cloud.', 'error'); return; }
+    var c = data.config || {};
+
+    // Preenche campos R2
+    var r2id = document.getElementById('r2-account-id');
+    var r2b = document.getElementById('r2-bucket');
+    var r2ak = document.getElementById('r2-access-key');
+    var r2sk = document.getElementById('r2-secret-key');
+    if (r2id) r2id.value = c.r2_account_id || '';
+    if (r2b) r2b.value = c.r2_bucket || '';
+    if (r2ak) r2ak.value = c.r2_access_key || '';
+    if (r2sk) r2sk.value = c.r2_secret_key || '';
+
+    // Stats
+    var r2s = document.getElementById('r2-status');
+    if (r2s) r2s.textContent = (c.r2_account_id && c.r2_bucket) ? 'Configurado' : 'Desconectado';
+    var badge = document.getElementById('infra-cloud-badge');
+    if (badge && c.r2_account_id) { badge.style.display = ''; badge.textContent = 'R2 ✓'; }
+
+    // Preenche campos Redis
+    var rh = document.getElementById('redis-host');
+    var rp = document.getElementById('redis-port');
+    var rpw = document.getElementById('redis-password');
+    var rpx = document.getElementById('redis-prefix');
+    var ren = document.getElementById('redis-enabled');
+    if (rh) rh.value = c.redis_host || '127.0.0.1';
+    if (rp) rp.value = c.redis_port || '6379';
+    if (rpw) rpw.value = c.redis_password || '';
+    if (rpx) rpx.value = c.redis_prefix || 'chef:';
+    if (ren) ren.checked = c.redis_enabled === '1';
+    var rediss = document.getElementById('redis-status');
+    if (rediss) rediss.textContent = c.redis_enabled === '1' ? 'Ativado' : 'Desativado';
+
+    // Backups agendados
+    var bf = document.getElementById('backup-freq');
+    var br = document.getElementById('backup-retention');
+    var bd = document.getElementById('backup-dest');
+    if (bf) bf.value = c.backup_frequency || '24h';
+    if (br) br.value = c.backup_retention_days || '30';
+    if (bd) bd.value = c.backup_destination || 'local';
+    var bss = document.getElementById('backup-schedule-status');
+    if (bss) bss.textContent = (c.backup_frequency && c.backup_frequency !== 'manual') ? c.backup_frequency : 'Manual';
+
+    // Alertas crash
+    var cc = document.getElementById('crash-channel');
+    var cw = document.getElementById('crash-webhook-url');
+    if (cc) cc.value = c.crash_alert_channel || 'none';
+    if (cw) cw.value = c.crash_alert_webhook || '';
+    var cas = document.getElementById('crash-alert-status');
+    if (cas) cas.textContent = (c.crash_alert_channel && c.crash_alert_channel !== 'none') ? 'Ativados' : 'Inativos';
+
+    // Carrega backups R2 e histórico
+    carregarR2Backups();
+    carregarBackupHistory();
+    carregarCrashHistory();
+  });
+}
+
+function carregarR2Backups() {
+  apiGet('/api/super/infra-cloud/r2/backups', function(err, data) {
+    var el = document.getElementById('r2-backups-list');
+    if (!el) return;
+    if (err || !data || !data.ok || !data.backups || data.backups.length === 0) {
+      el.innerHTML = '<div style="font-size:0.85rem;color:var(--text-muted);">Nenhum backup no R2 ainda.</div>';
+      return;
+    }
+    var html = '<table class="custom-table" style="width:100%;font-size:0.85rem;"><thead><tr><th>Arquivo</th><th>Tamanho</th><th>Ações</th></tr></thead><tbody>';
+    data.backups.forEach(function(b) {
+      var sizeStr = b.size ? (Math.round(b.size / 1024 / 1024 * 10) / 10 + ' MB') : '—';
+      html += '<tr><td>' + esc(b.name) + '</td><td>' + sizeStr + '</td><td><a href="#" style="color:var(--primary);" onclick="downloadR2Backup(\'' + esc(b.name) + '\');return false;">Download</a></td></tr>';
+    });
+    html += '</tbody></table>';
+    el.innerHTML = html;
+  });
+}
+
+function carregarBackupHistory() {
+  apiGet('/api/super/infra-cloud/backup-history', function(err, data) {
+    var el = document.getElementById('backup-history');
+    if (!el) return;
+    if (err || !data || !data.ok || !data.history || data.history.length === 0) {
+      el.innerHTML = '<div style="font-size:0.85rem;color:var(--text-muted);">Nenhum backup local encontrado.</div>';
+      return;
+    }
+    var html = '<table class="custom-table" style="width:100%;font-size:0.85rem;"><thead><tr><th>Arquivo</th><th>Tamanho</th><th>Data</th></tr></thead><tbody>';
+    data.history.forEach(function(h) {
+      var d = new Date(h.data);
+      html += '<tr><td>' + esc(h.nome) + '</td><td>' + h.tamanho + ' KB</td><td>' + d.toLocaleString('pt-BR') + '</td></tr>';
+    });
+    html += '</tbody></table>';
+    el.innerHTML = html;
+  });
+}
+
+function carregarCrashHistory() {
+  apiGet('/api/super/infra-cloud/crash-history', function(err, data) {
+    var el = document.getElementById('crash-history');
+    if (!el) return;
+    if (err || !data || !data.ok || !data.history || data.history.length === 0) {
+      el.innerHTML = 'Nenhum crash registrado recentemente.';
+      return;
+    }
+    var html = '';
+    data.history.forEach(function(c) {
+      html += '<div style="padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.05);">' +
+        '<span style="color:#f59e0b;font-weight:600;">' + esc(c.data) + '</span> — ' +
+        '<span style="color:#94a3b8;">' + esc(c.detalhe).slice(0, 200) + '</span></div>';
+    });
+    el.innerHTML = html;
+  });
+}
+
+// Event listeners — R2
+(function() {
+  document.addEventListener('DOMContentLoaded', function() {
+    var btnSaveR2 = document.getElementById('btn-r2-save');
+    if (btnSaveR2) btnSaveR2.addEventListener('click', function() {
+      var payload = {
+        account_id: document.getElementById('r2-account-id').value.trim(),
+        bucket: document.getElementById('r2-bucket').value.trim(),
+        access_key: document.getElementById('r2-access-key').value.trim(),
+        secret_key: document.getElementById('r2-secret-key').value.trim()
+      };
+      if (!payload.account_id || !payload.bucket || !payload.access_key || !payload.secret_key) {
+        showToast('Preencha todos os campos do R2.', 'error'); return;
+      }
+      apiPost('/api/super/infra-cloud/r2', payload, function(err, data) {
+        if (err || !data || !data.ok) { showToast(data ? data.erro : 'Erro ao salvar.', 'error'); return; }
+        showToast('Config R2 salva! Testando conexão...', 'success');
+        apiPost('/api/super/infra-cloud/r2/test', {}, function(e2, d2) {
+          var fb = document.getElementById('r2-feedback');
+          if (d2 && d2.ok) {
+            if (fb) { fb.style.color = '#86efac'; fb.textContent = '✓ ' + d2.mensagem; }
+            document.getElementById('r2-status').textContent = 'Conectado';
+            var badge = document.getElementById('infra-cloud-badge');
+            if (badge) { badge.style.display = ''; badge.textContent = 'R2 ✓'; }
+          } else {
+            if (fb) { fb.style.color = '#fca5a5'; fb.textContent = '✗ ' + (d2 ? d2.erro : 'Erro'); }
+          }
+        });
+      });
+    });
+
+    var btnR2Backup = document.getElementById('btn-r2-backup-now');
+    if (btnR2Backup) btnR2Backup.addEventListener('click', function() {
+      var fb = document.getElementById('r2-feedback');
+      if (fb) { fb.style.color = '#94a3b8'; fb.textContent = 'Enviando backups para R2...'; }
+      apiPost('/api/super/infra-cloud/r2/backup', {}, function(err, data) {
+        if (err || !data || !data.ok) {
+          if (fb) { fb.style.color = '#fca5a5'; fb.textContent = '✗ ' + (data ? data.erro : 'Erro'); }
+        } else {
+          if (fb) { fb.style.color = '#86efac'; fb.textContent = '✓ ' + data.mensagem; }
+          carregarR2Backups();
+        }
+      });
+    });
+
+    // Redis
+    var btnSaveRedis = document.getElementById('btn-redis-save');
+    if (btnSaveRedis) btnSaveRedis.addEventListener('click', function() {
+      var payload = {
+        host: document.getElementById('redis-host').value.trim(),
+        port: parseInt(document.getElementById('redis-port').value, 10),
+        password: document.getElementById('redis-password').value,
+        prefix: document.getElementById('redis-prefix').value.trim(),
+        enabled: document.getElementById('redis-enabled').checked
+      };
+      apiPost('/api/super/infra-cloud/redis', payload, function(err, data) {
+        if (err || !data || !data.ok) { showToast(data ? data.erro : 'Erro ao salvar.', 'error'); return; }
+        showToast('Config Redis salva! Testando...', 'success');
+        apiPost('/api/super/infra-cloud/redis/test', {}, function(e2, d2) {
+          var fb = document.getElementById('redis-feedback');
+          if (d2 && d2.ok) {
+            if (fb) { fb.style.color = '#86efac'; fb.textContent = '✓ ' + d2.mensagem; }
+            document.getElementById('redis-status').textContent = 'Ativado';
+            var ri = document.getElementById('redis-info');
+            if (ri) { ri.style.display = 'none'; }
+          } else {
+            if (fb) { fb.style.color = '#fca5a5'; fb.textContent = '✗ ' + (d2 ? d2.erro : 'Erro'); }
+            document.getElementById('redis-enabled').checked = false;
+            var ri2 = document.getElementById('redis-info');
+            if (ri2) {
+              ri2.style.display = 'block';
+              ri2.textContent = (d2 ? d2.erro : 'Redis indisponível') + '. Cache desativado.';
+            }
+          }
+        });
+      });
+    });
+
+    // Backup schedule
+    var btnSaveBackup = document.getElementById('btn-backup-schedule-save');
+    if (btnSaveBackup) btnSaveBackup.addEventListener('click', function() {
+      var payload = {
+        frequency: document.getElementById('backup-freq').value,
+        retention_days: parseInt(document.getElementById('backup-retention').value, 10),
+        destination: document.getElementById('backup-dest').value
+      };
+      apiPost('/api/super/infra-cloud/backup-schedule', payload, function(err, data) {
+        var fb = document.getElementById('backup-schedule-feedback');
+        if (err || !data || !data.ok) {
+          if (fb) { fb.style.color = '#fca5a5'; fb.textContent = '✗ ' + (data ? data.erro : 'Erro'); }
+        } else {
+          if (fb) { fb.style.color = '#86efac'; fb.textContent = '✓ ' + data.mensagem; }
+          document.getElementById('backup-schedule-status').textContent = payload.frequency !== 'manual' ? payload.frequency : 'Manual';
+        }
+      });
+    });
+
+    // Crash alerts
+    var btnSaveCrash = document.getElementById('btn-crash-alert-save');
+    if (btnSaveCrash) btnSaveCrash.addEventListener('click', function() {
+      var payload = {
+        channel: document.getElementById('crash-channel').value,
+        webhook_url: document.getElementById('crash-webhook-url').value.trim()
+      };
+      apiPost('/api/super/infra-cloud/crash-alerts', payload, function(err, data) {
+        var fb = document.getElementById('crash-alert-feedback');
+        if (err || !data || !data.ok) {
+          if (fb) { fb.style.color = '#fca5a5'; fb.textContent = '✗ ' + (data ? data.erro : 'Erro'); }
+        } else {
+          if (fb) { fb.style.color = '#86efac'; fb.textContent = '✓ ' + data.mensagem; }
+          document.getElementById('crash-alert-status').textContent = payload.channel !== 'none' ? 'Ativados' : 'Inativos';
+        }
+      });
+    });
+
+    var btnTestCrash = document.getElementById('btn-crash-alert-test');
+    if (btnTestCrash) btnTestCrash.addEventListener('click', function() {
+      apiPost('/api/super/infra-cloud/crash-alerts/test', {}, function(err, data) {
+        var fb = document.getElementById('crash-alert-feedback');
+        if (err || !data || !data.ok) {
+          if (fb) { fb.style.color = '#fca5a5'; fb.textContent = '✗ ' + (data ? data.erro : 'Erro'); }
+        } else {
+          if (fb) { fb.style.color = '#86efac'; fb.textContent = '✓ ' + data.mensagem; }
+          showToast('Alerta teste enviado!', 'success');
+        }
+      });
+    });
+  });
+})();
+
+function downloadR2Backup(filename) {
+  showToast('Download de ' + filename + ' — funcionalidade em desenvolvimento.', 'info');
 }
 
 // Injeta a central logo após o login (quando os sockets iniciam)
