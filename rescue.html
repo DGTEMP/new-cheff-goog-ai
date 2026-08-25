@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Modo Resgate — Chef Cozinha</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+    .box{max-width:580px;width:100%;background:#1e293b;border:1px solid #334155;border-radius:16px;padding:36px;box-shadow:0 25px 50px rgba(0,0,0,.4)}
+    .header{text-align:center;margin-bottom:28px}
+    .header h1{font-size:22px;color:#f8fafc;margin-bottom:6px}
+    .header p{font-size:13px;color:#94a3b8}
+    .badge{display:inline-block;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;margin-top:10px}
+    .badge.ok{background:#065f46;color:#6ee7b7;border:1px solid #065f46}
+    .badge.warn{background:#78350f;color:#fbbf24;border:1px solid #78350f}
+    .badge.err{background:#7f1d1d;color:#fca5a5;border:1px solid #7f1d1d}
+    .badge.off{background:#374151;color:#9ca3af;border:1px solid #374151}
+    .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:20px 0}
+    .info-card{background:#0f172a;border:1px solid #334155;border-radius:10px;padding:14px}
+    .info-card .label{font-size:10px;text-transform:uppercase;color:#64748b;font-weight:700;letter-spacing:.5px}
+    .info-card .value{font-size:16px;font-weight:700;color:#f8fafc;margin-top:4px;word-break:break-all}
+    .info-card .value.sm{font-size:13px;font-weight:500;color:#94a3b8}
+    .steps{margin:20px 0}
+    .steps h3{font-size:14px;color:#f8fafc;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+    .step{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid #1e293b}
+    .step:last-child{border-bottom:none}
+    .step-num{width:28px;height:28px;background:#2563eb;color:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0}
+    .step-text{font-size:13px;color:#cbd5e1;line-height:1.5}
+    .step-text code{background:#334155;padding:2px 6px;border-radius:4px;font-size:12px;color:#93c5fd}
+    .emergency-state{background:#1c1917;border:1px solid #78350f;border-radius:10px;padding:14px;margin:16px 0}
+    .emergency-state h4{color:#fbbf24;font-size:13px;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+    .emergency-state pre{font-size:11px;color:#d6d3d1;white-space:pre-wrap;word-break:break-all;max-height:160px;overflow-y:auto;background:transparent;padding:0}
+    .actions{display:flex;gap:10px;margin-top:20px}
+    .btn{flex:1;padding:12px;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;transition:all .15s}
+    .btn-primary{background:#2563eb;color:white}
+    .btn-primary:hover{background:#1d4ed8}
+    .btn-ghost{background:transparent;color:#94a3b8;border:1px solid #334155}
+    .btn-ghost:hover{background:#1e293b}
+    .footer{text-align:center;margin-top:20px;font-size:11px;color:#475569}
+    .pulse{animation:pulse 2s infinite}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+  </style>
+</head>
+<body>
+<div class="box">
+  <div class="header">
+    <h1>Modo Resgate</h1>
+    <p>Se o sistema principal caiu, esta página permanece acessível.</p>
+    <div id="status-badge" class="badge off pulse">Verificando servidor...</div>
+  </div>
+
+  <div class="info-grid">
+    <div class="info-card">
+      <div class="label">Status do Servidor</div>
+      <div id="sv-status" class="value sm">Aguardando...</div>
+    </div>
+    <div class="info-card">
+      <div class="label">Uptime</div>
+      <div id="sv-uptime" class="value sm">—</div>
+    </div>
+    <div class="info-card">
+      <div class="label">Endereço</div>
+      <div id="sv-address" class="value"></div>
+    </div>
+    <div class="info-card">
+      <div class="label">Última Verificação</div>
+      <div id="sv-time" class="value sm">—</div>
+    </div>
+  </div>
+
+  <div id="emergency-state" style="display:none">
+    <div class="emergency-state">
+      <h4>⚠️ Estado de Emergência Salvo</h4>
+      <pre id="emergency-data"></pre>
+    </div>
+  </div>
+
+  <div class="steps">
+    <h3>Passos para Recuperação</h3>
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-text">Aguarde 30 segundos — o watchdog reinicia automaticamente.</div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-text">Se não voltou, abra o <strong>Prompt de Comando</strong> ou <strong>PowerShell</strong> na pasta do sistema.</div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-text">Execute: <code>npm run start:direct</code></div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-text">Se persistir, execute: <code>node watchdog.js</code> (monitora e reinicia sozinho).</div>
+    </div>
+    <div class="step">
+      <div class="step-num">5</div>
+      <div class="step-text">Verifique o log: <code>logs/falhas.log</code> para detalhes da falha.</div>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button class="btn btn-primary" onclick="location.reload()">Tentar Novamente</button>
+    <button class="btn btn-ghost" onclick="window.open('/logs/falhas.log')">Ver Logs</button>
+  </div>
+
+  <div class="footer">Chef Cozinha SaaS — Modo Resgate v1.0</div>
+</div>
+
+<script>
+(function() {
+  var addr = window.location.hostname + ':' + window.location.port;
+  document.getElementById('sv-address').textContent = addr;
+
+  function checkHealth() {
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', '/healthz', true);
+    xhr.timeout = 5000;
+    xhr.onload = function() {
+      var now = new Date().toLocaleTimeString('pt-BR');
+      document.getElementById('sv-time').textContent = now;
+      if (xhr.status === 200) {
+        try {
+          var d = JSON.parse(xhr.responseText);
+          var badge = document.getElementById('status-badge');
+          badge.textContent = 'Servidor Online';
+          badge.className = 'badge ok';
+          document.getElementById('sv-status').textContent = 'Online (DB: ' + (d.db || '?') + ')';
+          document.getElementById('sv-uptime').textContent = d.uptime ? Math.floor(d.uptime / 60) + 'min ' + (d.uptime % 60) + 's' : '—';
+        } catch(e) {}
+      } else {
+        setStatusWarn('Servidor com problema (HTTP ' + xhr.status + ')');
+      }
+    };
+    xhr.onerror = xhr.ontimeout = function() {
+      setStatusErr('Servidor indisponível');
+    };
+    xhr.send();
+  }
+
+  function setStatusErr(msg) {
+    var badge = document.getElementById('status-badge');
+    badge.textContent = msg;
+    badge.className = 'badge err pulse';
+    document.getElementById('sv-status').textContent = 'Offline';
+    document.getElementById('sv-uptime').textContent = '—';
+    document.getElementById('sv-time').textContent = new Date().toLocaleTimeString('pt-BR');
+  }
+
+  function setStatusWarn(msg) {
+    var badge = document.getElementById('status-badge');
+    badge.textContent = msg;
+    badge.className = 'badge warn';
+    document.getElementById('sv-time').textContent = new Date().toLocaleTimeString('pt-BR');
+  }
+
+  function checkEmergency() {
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', '/api/emergency-state', true);
+    xhr.timeout = 3000;
+    xhr.onload = function() {
+      if (xhr.status === 200) {
+        try {
+          var d = JSON.parse(xhr.responseText);
+          if (d && d.mesas) {
+            document.getElementById('emergency-state').style.display = 'block';
+            document.getElementById('emergency-data').textContent = JSON.stringify(d, null, 2);
+          }
+        } catch(e) {}
+      }
+    };
+    xhr.send();
+  }
+
+  checkHealth();
+  checkEmergency();
+  setInterval(checkHealth, 10000);
+})();
+</script>
+</body>
+</html>

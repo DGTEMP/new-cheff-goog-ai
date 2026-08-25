@@ -557,6 +557,11 @@ function resolveTenantFromHost(req) {
   return null;
 }
 
+// ── ROTA DE RESGATE: funciona mesmo se tudo mais quebrar ──────────────
+app.get('/rescue', (req, res) => {
+  res.sendFile(path.join(__dirname, 'rescue.html'));
+});
+
 // ── SEGURANÇA: PARSER DE COOKIES & CABEÇALHOS CSP ─────────────────────────
 app.use((req, res, next) => {
   req.cookies = {};
@@ -14698,6 +14703,52 @@ app.get('/healthz', (req, res) => {
   }
 });
 
+// ── EMERGENCY STATE: último estado das mesas abertas antes do crash ──
+const EMERGENCY_STATE_PATH = path.join(__dirname, 'emergency-state.json');
+
+function salvarEstadoEmergencia() {
+  try {
+    if (typeof db === 'undefined' || !db) return;
+    db.all(
+      `SELECT m.nome, m.status, COUNT(p.id) as pedidos_abertos, SUM(CAST(p.total AS REAL)) as valor_total
+       FROM mesas m LEFT JOIN pedidos p ON (p.localName = m.nome OR p.mesa_grupo = m.nome)
+         AND p.status NOT IN ('Finalizado','Pago','Cancelado','Fracionado')
+       WHERE m.status != 'Disponível'
+       GROUP BY m.nome HAVING pedidos_abertos > 0`,
+      [], (err, rows) => {
+        if (err || !rows || rows.length === 0) return;
+        const state = {
+          salvo_em: new Date().toISOString(),
+          mesas: rows.map(r => ({
+            nome: r.nome,
+            status: r.status,
+            pedidos_abertos: r.pedidos_abertos,
+            valor_total: Math.round((r.valor_total || 0) * 100) / 100
+          }))
+        };
+        fs.writeFileSync(EMERGENCY_STATE_PATH, JSON.stringify(state, null, 2));
+      }
+    );
+  } catch (e) { }
+}
+
+function limparEstadoEmergencia() {
+  try { fs.unlinkSync(EMERGENCY_STATE_PATH); } catch (e) { }
+}
+
+app.get('/api/emergency-state', (req, res) => {
+  try {
+    if (fs.existsSync(EMERGENCY_STATE_PATH)) {
+      const data = JSON.parse(fs.readFileSync(EMERGENCY_STATE_PATH, 'utf8'));
+      res.json(data);
+    } else {
+      res.json({ mesas: null });
+    }
+  } catch (e) {
+    res.json({ mesas: null });
+  }
+});
+
 // Graceful shutdown: encerra conexões socket e o HTTP server em até 5s
 let shuttingDown = false;
 function shutdown(signal) {
@@ -14766,10 +14817,15 @@ function registrarFalhaCritica(tipo, detalhe, restauranteId) {
 }
 
 process.on('uncaughtException', (err) => {
+  try { salvarEstadoEmergencia(); } catch (e) { }
   try { registrarFalhaCritica('uncaughtException', (err && err.stack) || String(err), null); } catch (e) { }
+  // Dá 2s para flush de emergência e encerra — o watchdog reinicia limpo
+  setTimeout(() => { try { process.exit(1); } catch (e) { } }, 2000);
 });
 process.on('unhandledRejection', (reason) => {
+  try { salvarEstadoEmergencia(); } catch (e) { }
   try { registrarFalhaCritica('unhandledRejection', (reason && (reason.stack || reason.message)) || String(reason), null); } catch (e) { }
+  setTimeout(() => { try { process.exit(1); } catch (e) { } }, 2000);
 });
 
 
@@ -14781,6 +14837,23 @@ licenseManager.initLicense().then((licState) => {
     // Amostragem de sockets por tenant (alimenta modelo realista de capacidade)
     _amostrarSockets();
     setInterval(_amostrarSockets, 5 * 60 * 1000);
+
+    // Limpa estado de emergência anterior (servidor subiu com sucesso)
+    limparEstadoEmergencia();
+
+    // ── SELF-HEALING: auto-checagem a cada 5 minutos ──
+    setInterval(() => {
+      try {
+        const mem = process.memoryUsage();
+        const heapMB = Math.round(mem.heapUsed / 1024 / 1024);
+        const rssMB = Math.round(mem.rss / 1024 / 1024);
+        if (rssMB > 1800) {
+          console.error(`[SELF-HEAL] RAM alta (${rssMB}MB RSS) — flush de emergência + restart.`);
+          salvarEstadoEmergencia();
+          setTimeout(() => process.exit(1), 1500);
+        }
+      } catch (e) { }
+    }, 5 * 60 * 1000);
 
     const banner = `
 ${ANSI.cyan}${ANSI.bright}  ╭─────────────────────────── System Fetch ───────────────────────────╮${ANSI.reset}
