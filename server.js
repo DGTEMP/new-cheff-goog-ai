@@ -758,25 +758,7 @@ app.use(express.static(path.join(__dirname, 'dist'), {
   }
 }));
 
-// ═══ PLUGIN LOADER — carrega todos os plugins de plugins/ ═══
-const pluginOptions = {
-  JWT_SECRET,
-  verificarToken,
-  superAdminAuth: (function() {
-    // Criar referência lazy — superAdminAuth é definido mais abaixo
-    return (req, res, next) => {
-      const tokenHeader = (req.cookies && req.cookies.super_admin_token) || req.headers['x-super-admin-token'] || req.query.adminToken;
-      if (tokenHeader) {
-        try {
-          const decoded = jwt.verify(tokenHeader, JWT_SECRET);
-          if (decoded && decoded.role === 'super_admin_local') { req.superAdmin = decoded; return next(); }
-        } catch (e) { }
-      }
-      return res.status(401).json({ ok: false, erro: 'Acesso não autorizado.' });
-    };
-  })()
-};
-loadPlugins({ app, db, masterDb, io, options: pluginOptions });
+// ═══ PLUGIN LOADER removido daqui — ver abaixo, após definição de db e superAdminAuth ═══
 
 app.get('/super-admin', (req, res) => {
   const distPath = path.join(__dirname, 'dist', 'super-admin.html');
@@ -4390,6 +4372,10 @@ if (deploymentConfig.isOnPremise()) {
   console.log('[Sync] DB Proxy ativo — writes em tabelas sincronizáveis serão enfileirados.');
 }
 // ------------------------------
+
+// ═══ PLUGIN LOADER — carrega todos os plugins de plugins/ ═══
+const pluginOptions = { JWT_SECRET, verificarToken, superAdminAuth };
+loadPlugins({ app, db, masterDb, io, options: pluginOptions });
 
 // ═══ NÚCLEO DE CRIAÇÃO DE PEDIDO (compartilhado socket + REST offline-sync) ═══
 // O corpo vive em io.on('connection') como _novoPedidoCore e é exposto no
