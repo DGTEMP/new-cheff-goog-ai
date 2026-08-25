@@ -1251,6 +1251,9 @@ function renderOrders() {
   const groupedOrders = {};
 
   ordersData.forEach(order => {
+    // LOG DE SEGURANÇA para entender porque os itens estão sumindo
+    if (!order.total) console.log("🔍 Pedido recebido sem valor (ignorado):", order);
+    
     const val = order.total ? parseFloat(String(order.total).replace(',', '.')) : 0;
     totalRevenue += val;
     totalCost += val * 0.3;
@@ -1822,6 +1825,8 @@ function renderOrders() {
       window.mesaAtual = item;
       document.body.classList.add('mesa-selecionada');
       window.descontoAdicional = 0;
+      // Garante renderização atualizada ao selecionar
+      if (typeof renderOrders === 'function') renderOrders();
       if (typeof window.renderItensRecolhidosMesas === 'function') {
         try { window.renderItensRecolhidosMesas(); } catch (e) { }
       }
@@ -2290,12 +2295,15 @@ function renderOrders() {
     });
   });
 
+  /* Removido o card.click() daqui para evitar loop infinito de seleção durante o render */
+  /*
   allRenderedItems.forEach(item => {
     if (window.mesaAtual && (item.mesaName || item.nome) === (window.mesaAtual.mesaName || window.mesaAtual.nome)) {
       const card = Array.from(document.querySelectorAll('.mesa-item')).find(c => c.querySelector('.mesa-id') && c.querySelector('.mesa-id').innerText === window.mesaAtual.mesaName || c.querySelector('.mesa-id') && c.querySelector('.mesa-id').innerText === window.mesaAtual.nome);
       if (card) card.click();
     }
   });
+  */
 
   // Clique nos cards de comanda dentro das mesas (delegação no grid -> funciona mesmo após re-render)
   if (grid) {
@@ -6647,6 +6655,7 @@ document.addEventListener('keydown', (e) => {
   if (isInputActive) return;
 
   const shortcuts = window.getCustomShortcuts();
+  if (!e.key) return; // Segurança
   const currentKey = e.key.toUpperCase();
 
   function isTriggered(actionKey) {
@@ -8033,10 +8042,16 @@ socket.on('recusar_pedido_qr_resposta', (res) => {
   }
 });
 
-// Emit request to fetch pending QR orders on connect
 socket.on('connect', () => {
-  socket.emit('get_qr_pedidos_pendentes');
-  socket.emit('get_mesas');
+  const restId = localStorage.getItem('restaurante_id') || '1';
+  socket.emit('get_qr_pedidos_pendentes', { restaurante_id: restId });
+  socket.emit('get_pedidos', { restaurante_id: restId });
+  socket.emit('get_mesas', { restaurante_id: restId });
+});
+
+socket.on('pedidos_caixa_atualizados', (pedidos) => {
+  ordersData = pedidos || [];
+  renderOrders();
 });
 if (socket.connected) {
   socket.emit('get_qr_pedidos_pendentes');

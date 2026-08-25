@@ -6285,7 +6285,7 @@ io.on('connection', (socket) => {
     if (!socket.auth) return;
     db.all("SELECT * FROM pedidos WHERE status NOT IN ('Finalizado','Pago','Cancelado') ORDER BY createdAt ASC", [], (err, rows) => {
       socket.emit('pedidos_atualizados', rows || []);
-    });
+  });
   });
 
   // ── NOTIFICAÇÕES PUSH: registrar / remover inscrição do dispositivo ──
@@ -6462,14 +6462,14 @@ io.on('connection', (socket) => {
   socket.emit('license_status', licenseManager.getState());
 
   // ── Configuração do Apps Script ──────────────────────────
-  const LICENSE_CONFIG_FILE = require('path').join(
+  const LICENSE_CONFIG_PATH_GLOBAL = require('path').join(
     require('os').homedir(), 'AppData', 'Roaming', 'ChefCozinha', 'license-config.json'
   );
 
   socket.on('get_license_config', () => {
     try {
-      if (fs.existsSync(LICENSE_CONFIG_FILE)) {
-        const cfg = JSON.parse(fs.readFileSync(LICENSE_CONFIG_FILE, 'utf8'));
+      if (fs.existsSync(LICENSE_CONFIG_PATH_GLOBAL)) {
+        const cfg = JSON.parse(fs.readFileSync(LICENSE_CONFIG_PATH_GLOBAL, 'utf8'));
         socket.emit('license_config_loaded', cfg);
       } else {
         socket.emit('license_config_loaded', {});

@@ -58,11 +58,39 @@
   }
   </script>
 
-  <!-- Dynamic GTAG & Meta Pixel Tracking -->
-  <script src="/tracking-loader.js"></script>
-  <script>if (window.ChefTracking) window.ChefTracking.init('site');</script>
+  <!-- Meta tags dinâmicas para SEO -->
+  <meta id="meta-titulo" property="og:title" content="">
+  <meta id="meta-desc" name="description" content="">
+  <meta id="meta-og-desc" property="og:description" content="">
+  <link id="meta-canonical" rel="canonical" href="">
 
-  <!-- Fonts & Icons -->
+  <!-- Carregamento de blocos e tracking -->
+  <script src="/tracking-loader.js"></script>
+  <script>
+    // Inicialização dinâmica do carregamento de blocos do admin
+    window.onload = () => {
+        window.ChefTracking.init('site');
+        // Carregar configurações de blocos e SEO vindas do backend
+        fetch('/api/super/config-global')
+          .then(res => res.json())
+          .then(data => {
+            if(data.ok) {
+              const cfg = data.configs;
+              // Aplicar SEO
+              document.title = cfg.site_seo_titulo || "Chef Cozinha";
+              document.getElementById('meta-titulo').content = cfg.site_seo_titulo || "";
+              document.getElementById('meta-desc').content = cfg.site_seo_descricao || "";
+              document.getElementById('meta-og-desc').content = cfg.site_seo_og_descricao || "";
+              // Renderizar blocos
+              renderSiteContent(JSON.parse(cfg.site_blocos || '[]'));
+            }
+          });
+    };
+  </script>
+</head>
+<body>
+  <div id="site-content"></div> <!-- Aqui o admin vai renderizar e ordernar -->
+</body>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@400;600;700;800;900&display=swap" rel="stylesheet">

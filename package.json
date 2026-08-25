@@ -5,9 +5,9 @@
     "bin": "server-prod.js",
     "scripts": {
         "prestart": "node boot.js",
-        "start": "node setup-quiz.js",
-        "start:direct": "concurrently \"node server.js\" \"vite --host\"",
-        "start:watchdog": "node watchdog.js",
+        "start": "node --max-old-space-size=4096 setup-quiz.js",
+        "start:direct": "concurrently \"node --max-old-space-size=4096 server.js\" \"cross-env NODE_OPTIONS=--max-old-space-size=4096 vite --host\"",
+        "start:watchdog": "node --max-old-space-size=4096 watchdog.js",
         "dev": "vite --host",
         "build": "vite build",
         "postbuild": "node copy-super-admin.js",

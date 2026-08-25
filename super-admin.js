@@ -4773,46 +4773,15 @@ window.adicionarBlocoSel = function() {
 };
 
 function salvarSiteBlocos() {
-  // Validação robusta para evitar quebra de layout
-  var raw = _blocosTemp.length ? _blocosTemp : getBlocosAtuais();
-  
-  // Normaliza e filtra blocos inválidos
-  var arr = raw.map(function(b) {
-    if (!b || typeof b.tipo !== 'string') return null;
-    // Garante que tipo seja conhecido
-    var validTipo = SV_BLOCOS_CAT[b.tipo] ? b.tipo : 'hero'; // fallback para hero se inválido
-    return { tipo: validTipo, ativo: b.ativo !== false };
-  }).filter(function(x) { return x !== null; });
-  
-  // Previne array vazio — restaura default se necessário
-  if (arr.length === 0) {
-    arr = getBlocosAtuais();
-    showToast('Nenhum bloco válido encontrado. Usando layout padrão.', 'warning');
-  }
-  
-  // Ordena: banner primeiro, hero segundo, rodape último
-  var ordemPreferida = ['banner', 'header', 'hero', 'como-funciona', 'funcionalidades', 'planos', 'faq', 'cta-final', 'rodape'];
-  arr.sort(function(a, b) {
-    var iA = ordemPreferida.indexOf(a.tipo);
-    var iB = ordemPreferida.indexOf(b.tipo);
-    if (iA === -1) iA = 99;
-    if (iB === -1) iB = 99;
-    return iA - iB;
+  // Captura a ordem atual do array _blocosTemp (mantido atualizado pelo SortableJS)
+  var arr = (_blocosTemp.length ? _blocosTemp : getBlocosAtuais()).map(function(b) {
+    return { tipo: b.tipo, ativo: b.ativo !== false };
   });
   
-  var jsonStr = JSON.stringify(arr);
-  
-  // Valida JSON antes de enviar
-  try {
-    JSON.parse(jsonStr);
-  } catch (e) {
-    return showToast('Erro: layout dos blocos corrompido. Usando backup.', 'danger');
-  }
-  
-  apiPost('/api/super/config-global', { site_blocos: jsonStr }, function(err, data) {
-    if (err || !data || !data.ok) return showToast('Erro ao salvar blocos: ' + (data && data.erro ? data.erro : 'desconhecido'), 'danger');
+  apiPost('/api/super/config-global', { site_blocos: JSON.stringify(arr) }, function(err, data) {
+    if (err || !data || !data.ok) return showToast('Erro ao salvar layout.', 'danger');
     siteVendasConfigs.site_blocos = arr;
-    showToast('Layout dos blocos publicado no site com sucesso!', 'success');
+    showToast('Layout e ordem publicados com sucesso!', 'success');
   });
 }
 
