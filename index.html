@@ -397,19 +397,7 @@
       }
     </style>
   </div>
-  <script>
-    (function () {
-      window.chefEsconderBootSplash = function () {
-        var s = document.getElementById('chef-boot-splash');
-        if (!s || s._oculto) return;
-        s._oculto = true;
-        s.style.opacity = '0';
-        setTimeout(function () { s.remove(); }, 500);
-      };
-      // Falha segura: nunca prende o operador mais que 7s
-      setTimeout(window.chefEsconderBootSplash, 7000);
-    })();
-  </script>
+  <script src="/boot-splash.js"></script>
   <!-- Onboarding modal for modality selection -->
   <div id="onboarding-modal" class="onboarding-overlay hidden">
     <div class="onboarding-card">
@@ -3317,49 +3305,7 @@
 
   <script src="/fullscreen.js"></script>
 
-  <script>
-    window.abrirCaixaClick = function () {
-      var valInput = document.getElementById('fundo-troco');
-      var val = valInput ? valInput.value : '100.00';
-      var t = parseFloat(String(val).replace(',', '.'));
-      if (isNaN(t)) return alert('Digite um valor numérico válido para o fundo de troco.');
-      if (!confirm('Deseja abrir o caixa com fundo de troco R$ ' + t.toFixed(2).replace('.', ',') + '?')) return;
-      var sock = (typeof window.socket !== 'undefined' && window.socket) ? window.socket : (typeof socket !== 'undefined' ? socket : null);
-      if (sock) {
-        sock.emit('abrir_caixa', { fundo_troco: t, operador: (window.crmPerfil && window.crmPerfil.nome) || 'Caixa' });
-      } else {
-        alert('Aguardando conexão com o servidor...');
-      }
-    };
-
-    document.addEventListener('DOMContentLoaded', function () {
-      function initSocketCaixa() {
-        if (typeof socket !== 'undefined' && socket) {
-          socket.on('estado_caixa', function (turno) {
-            var overlay = document.getElementById('caixa-overlay');
-            var statusName = document.getElementById('status-caixa-name');
-            if (turno && (turno.status === 'Aberto' || turno.id)) {
-              if (overlay) overlay.style.display = 'none';
-              if (statusName) statusName.innerText = 'Caixa Aberto';
-            } else {
-              if (overlay) overlay.style.display = 'flex';
-              if (statusName) statusName.innerText = 'Caixa Fechado';
-            }
-          });
-          socket.on('caixa_aberto_sucesso', function () {
-            var overlay = document.getElementById('caixa-overlay');
-            var statusName = document.getElementById('status-caixa-name');
-            if (overlay) overlay.style.display = 'none';
-            if (statusName) statusName.innerText = 'Caixa Aberto';
-          });
-          socket.emit('get_estado_caixa');
-        } else {
-          setTimeout(initSocketCaixa, 500);
-        }
-      }
-      initSocketCaixa();
-    });
-  </script>
+  <script src="/caixa-overlay.js"></script>
 
   <!-- MODAL CONFIRM/PROMPT CUSTOM -->
   <div id="chef-modal" class="chef-modal-overlay" style="display:none;">
@@ -3373,78 +3319,11 @@
       </div>
     </div>
   </div>
-  <script>
-  /* ═══ CONFIRM/PROMPT CUSTOM — substitui alert/confirm/prompt nativos ═══ */
-  (function() {
-    const overlay = document.getElementById('chef-modal');
-    const titleEl = document.getElementById('chef-modal-title');
-    const msgEl = document.getElementById('chef-modal-msg');
-    const inputEl = document.getElementById('chef-modal-input');
-    const cancelBtn = document.getElementById('chef-modal-cancel');
-    const okBtn = document.getElementById('chef-modal-ok');
-
-    function showModal(title, msg, opts) {
-      return new Promise(resolve => {
-        window._chefModalResolve = function(val) {
-          overlay.style.display = 'none';
-          overlay.classList.remove('show');
-          resolve(val);
-        };
-        titleEl.textContent = title || '';
-        msgEl.textContent = msg || '';
-        msgEl.style.display = msg ? 'block' : 'none';
-
-        if (opts && opts.input) {
-          inputEl.style.display = 'block';
-          inputEl.value = opts.inputDefault || '';
-          inputEl.type = opts.inputType || 'text';
-          inputEl.placeholder = opts.inputPlaceholder || '';
-          setTimeout(() => inputEl.focus(), 100);
-        } else {
-          inputEl.style.display = 'none';
-        }
-
-        if (opts && opts.danger) {
-          okBtn.className = 'chef-modal-btn chef-modal-btn-danger';
-          okBtn.textContent = opts.okText || 'Confirmar';
-        } else {
-          okBtn.className = 'chef-modal-btn chef-modal-btn-ok';
-          okBtn.textContent = opts && opts.okText ? opts.okText : 'Confirmar';
-        }
-        if (opts && opts.cancelText) cancelBtn.textContent = opts.cancelText;
-        else cancelBtn.textContent = 'Cancelar';
-        if (opts && opts.hideCancel) cancelBtn.style.display = 'none';
-        else cancelBtn.style.display = '';
-
-        overlay.style.display = 'flex';
-        requestAnimationFrame(() => overlay.classList.add('show'));
-
-        if (opts && opts.input) {
-          inputEl.onkeydown = (e) => {
-            if (e.key === 'Enter') window._chefModalResolve(inputEl.value);
-            if (e.key === 'Escape') window._chefModalResolve(null);
-          };
-        } else {
-          overlay.onkeydown = (e) => {
-            if (e.key === 'Escape') window._chefModalResolve(false);
-          };
-        }
-      });
-    }
-
-    window.chefConfirm = function(title, msg, opts) { return showModal(title, msg, opts); };
-    window.chefPrompt = function(title, msg, defaultVal, opts) {
-      return showModal(title, msg, Object.assign({ input: true, inputDefault: defaultVal || '' }, opts || {})).then(val => val === null ? null : val);
-    };
-  })();
-  </script>
+  <script src="/chef-modal.js"></script>
 
   <!-- Camada responsiva "Native App" (tablet gavetas + ultrawide enquadrado) -->
   <script src="/responsive-native.js"></script>
-  <script>
-    // Service Worker: habilita o PWA (instalação + notificações)
-    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(function () { });
-  </script>
+  <script src="/sw-register.js"></script>
 </body>
 
 </html>
