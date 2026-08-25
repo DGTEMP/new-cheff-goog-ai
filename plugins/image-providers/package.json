@@ -1,0 +1,1 @@
+{ "name": "image-providers", "version": "1.0.0", "description": "Pool de provedores de imagem com round-robin e fallback", "order": 1 }

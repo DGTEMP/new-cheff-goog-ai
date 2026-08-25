@@ -1543,6 +1543,7 @@
 
   <script src="/socket.io.min.js"></script>
   <script src="/fuzzy-search.js"></script>
+  <script src="/plugin-client.js"></script>
 
   <script>
     // Parse URL params to read table name and restaurante id
@@ -1603,6 +1604,9 @@
     const escFila = (t) => String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
     const socket = io({ query: { token: localStorage.getItem('chef_token'), restaurante_id: restauranteId } });
+
+    // Inicializar plugins client-side
+    if (window.ChefPluginLoader) window.ChefPluginLoader.init(socket, { currentPage: 'cardapio' });
 
     socket.on('connect', () => {
       socket.emit('cliente_na_mesa', mesaNome);

@@ -1045,6 +1045,9 @@ const HOST = window.location.hostname || 'localhost';
 const socket = io({ query: { token: localStorage.getItem('chef_token'), restaurante_id: localStorage.getItem('restaurante_id') || '1' } });
 window.socket = socket;
 
+// Inicializar plugins client-side
+if (window.ChefPluginLoader) window.ChefPluginLoader.init(socket, { currentPage: 'caixa' });
+
 // Modo Totem remoto (quiosque): registra aqui, pois o socket já existe neste ponto.
 socket.on('modo_dispositivo', (data) => window.aplicarModoTotem(data && data.modo));
 socket.emit('get_modo_dispositivo', { serial: window.obterSerialDispositivo() });

@@ -155,6 +155,8 @@ const ifoodApi = require('./ifood-integration');
 const deploymentConfig = require('./deployment-config');
 const instanceIdentity = require('./instance-identity');
 const dbProxy = require('./db-proxy');
+const loadPlugins = require('./plugin-loader');
+const registerPluginSockets = require('./plugin-loader').registerSocketHandlers;
 const TunnelManager = require('./tunnel-manager');
 const tunnelManager = new TunnelManager();
 tunnelManager.setDb(masterDb);
@@ -756,6 +758,26 @@ app.use(express.static(path.join(__dirname, 'dist'), {
     }
   }
 }));
+
+// ═══ PLUGIN LOADER — carrega todos os plugins de plugins/ ═══
+const pluginOptions = {
+  JWT_SECRET,
+  verificarToken,
+  superAdminAuth: (function() {
+    // Criar referência lazy — superAdminAuth é definido mais abaixo
+    return (req, res, next) => {
+      const tokenHeader = (req.cookies && req.cookies.super_admin_token) || req.headers['x-super-admin-token'] || req.query.adminToken;
+      if (tokenHeader) {
+        try {
+          const decoded = jwt.verify(tokenHeader, JWT_SECRET);
+          if (decoded && decoded.role === 'super_admin_local') { req.superAdmin = decoded; return next(); }
+        } catch (e) { }
+      }
+      return res.status(401).json({ ok: false, erro: 'Acesso não autorizado.' });
+    };
+  })()
+};
+loadPlugins({ app, db, masterDb, io, options: pluginOptions });
 
 app.get('/super-admin', (req, res) => {
   const distPath = path.join(__dirname, 'dist', 'super-admin.html');
@@ -6323,6 +6345,9 @@ io.on('connection', (socket) => {
       socket.auth = decoded;
     } catch (e) { }
   }
+
+  // Registrar handlers de sockets dos plugins
+  registerPluginSockets({ socket, db, masterDb, io, options: pluginOptions });
 
   // Tenants sem token (ex.: cliente que escaneou o QR do cardápio) usam o
   // restaurante_id informado na própria URL/query do socket.
