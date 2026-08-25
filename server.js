@@ -155,6 +155,9 @@ const ifoodApi = require('./ifood-integration');
 const deploymentConfig = require('./deployment-config');
 const instanceIdentity = require('./instance-identity');
 const dbProxy = require('./db-proxy');
+const TunnelManager = require('./tunnel-manager');
+const tunnelManager = new TunnelManager();
+tunnelManager.setDb(masterDb);
 
 // Carrega variáveis do arquivo .env (sem dependência externa)
 try {
@@ -14855,6 +14858,9 @@ licenseManager.initLicense().then((licState) => {
       } catch (e) { }
     }, 5 * 60 * 1000);
 
+    // ── AUTO-START DE TÚNEIS (se modo='auto') ──
+    tunnelManager.loadConfig().then(() => tunnelManager.autoStart()).catch(() => {});
+
     const banner = `
 ${ANSI.cyan}${ANSI.bright}  ╭─────────────────────────── System Fetch ───────────────────────────╮${ANSI.reset}
 ${ANSI.cyan}  │${ANSI.reset}   ${ANSI.magenta}󰣇 System:${ANSI.reset}     Chef Cozinha SaaS Kernel v1.0.0
@@ -15939,5 +15945,61 @@ app.post('/api/super/servers/test', superAdminAuth, async (req, res) => {
   } catch (e) {
     res.json({ ok: false, erro: 'Falha ao conectar: ' + (e.message || 'Timeout ou URL inválida') });
   }
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+// TÚNEIS & FALLBACK — endpoints para gerenciamento de túneis
+// ═══════════════════════════════════════════════════════════════════════
+
+// GET /api/super/tuneis/status — status de todos os túneis
+app.get('/api/super/tuneis/status', superAdminAuth, async (req, res) => {
+  await tunnelManager.loadConfig();
+  res.json({ ok: true, ...tunnelManager.getStatus() });
+});
+
+// POST /api/super/tuneis/config-global — salvar config global (porta, modo, prioridade)
+app.post('/api/super/tuneis/config-global', superAdminAuth, async (req, res) => {
+  const { port, mode, priority } = req.body || {};
+  try {
+    await tunnelManager.saveGlobalConfig(port, mode, priority);
+    res.json({ ok: true, mensagem: 'Configuração global de túneis salva!' });
+  } catch (e) {
+    res.json({ ok: false, erro: e.message });
+  }
+});
+
+// POST /api/super/tuneis/config/:name — salvar config de um túnel específico
+app.post('/api/super/tuneis/config/:name', superAdminAuth, async (req, res) => {
+  const name = req.params.name;
+  try {
+    await tunnelManager.saveConfig(name, req.body || {});
+    res.json({ ok: true, mensagem: `Configuração de ${name} salva!` });
+  } catch (e) {
+    res.json({ ok: false, erro: e.message });
+  }
+});
+
+// POST /api/super/tuneis/start/:name — iniciar um túnel
+app.post('/api/super/tuneis/start/:name', superAdminAuth, (req, res) => {
+  const result = tunnelManager.start(req.params.name);
+  res.json(result);
+});
+
+// POST /api/super/tuneis/stop/:name — parar um túnel
+app.post('/api/super/tuneis/stop/:name', superAdminAuth, (req, res) => {
+  const result = tunnelManager.stop(req.params.name);
+  res.json(result);
+});
+
+// POST /api/super/tuneis/stop-all — parar todos os túneis
+app.post('/api/super/tuneis/stop-all', superAdminAuth, (req, res) => {
+  const results = tunnelManager.stopAll();
+  res.json({ ok: true, resultados: results });
+});
+
+// GET /api/super/tuneis/logs — logs de atividade dos túneis
+app.get('/api/super/tuneis/logs', superAdminAuth, (req, res) => {
+  const name = req.query.tunnel || null;
+  res.json({ ok: true, logs: tunnelManager.getLogs(name) });
 });
 

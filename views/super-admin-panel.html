@@ -102,6 +102,11 @@
                 <span>Infraestrutura Cloud</span>
                 <span id="infra-cloud-badge" style="display:none;margin-left:auto;background:var(--primary);color:#fff;font-size:0.6rem;padding:2px 7px;border-radius:99px;font-weight:700;">R2</span>
               </div>
+              <div class="menu-item" data-target="sec-tuneis" id="menu-item-tuneis">
+                <i class="fa-solid fa-network-wired"></i>
+                <span>Túneis &amp; Fallback</span>
+                <span id="tuneis-badge" style="display:none;margin-left:auto;background:#10b981;color:#fff;font-size:0.6rem;padding:2px 7px;border-radius:99px;font-weight:700;">0</span>
+              </div>
             </div>
           </div>
 
@@ -2457,6 +2462,245 @@
               <div id="crash-history" style="font-size:0.82rem;color:var(--text-muted);max-height:120px;overflow-y:auto;">
                 Nenhum crash registrado recentemente.
               </div>
+            </div>
+          </div>
+        </div>
+
+
+        <!-- ════ SEÇÃO: TÚNEIS & FALLBACK ════ -->
+        <div class="content-section" id="sec-tuneis">
+          <div class="info-banner">
+            <i class="fa-solid fa-network-wired"></i>
+            <div class="info-banner-content">
+              <h4>Túneis &amp; Fallback de Acesso</h4>
+              <p>Configure túneis para acesso externo quando o domínio principal estiver indisponível, ou para ambiente local. Porta do servidor: <strong id="tunel-porta-servidor">8080</strong></p>
+            </div>
+          </div>
+
+          <!-- Stats -->
+          <div class="stats-grid" id="tuneis-stats">
+            <div class="stat-card active-card">
+              <div class="stat-icon"><i class="fa-solid fa-tower-broadcast"></i></div>
+              <div class="stat-meta"><span>Túneis Ativos</span>
+                <h3 id="tuneis-ativos-count">0</h3>
+              </div>
+            </div>
+            <div class="stat-card trial-card">
+              <div class="stat-icon"><i class="fa-solid fa-plug"></i></div>
+              <div class="stat-meta"><span>Porta Local</span>
+                <h3 id="tuneis-porta">8080</h3>
+              </div>
+            </div>
+            <div class="stat-card expired-card">
+              <div class="stat-icon"><i class="fa-solid fa-rotate"></i></div>
+              <div class="stat-meta"><span>Auto-start</span>
+                <h3 id="tuneis-autostart">Desligado</h3>
+              </div>
+            </div>
+            <div class="stat-card blocked-card">
+              <div class="stat-icon"><i class="fa-solid fa-clock"></i></div>
+              <div class="stat-meta"><span>Uptime Total</span>
+                <h3 id="tuneis-uptime">—</h3>
+              </div>
+            </div>
+          </div>
+
+          <!-- Config Global -->
+          <div style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:12px;padding:1.5rem;margin-top:1.5rem;">
+            <h4 style="margin-bottom:1rem;"><i class="fa-solid fa-gear" style="color:var(--primary);"></i> Configuração Global</h4>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;align-items:end;">
+              <div>
+                <label style="font-size:0.82rem;color:var(--text-muted);">Porta do Servidor</label>
+                <input id="tunel-global-port" type="number" value="8080" min="1" max="65535"
+                  style="width:100%;padding:0.6rem 0.8rem;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:0.9rem;margin-top:0.3rem;">
+              </div>
+              <div>
+                <label style="font-size:0.82rem;color:var(--text-muted);">Modo</label>
+                <select id="tunel-global-mode"
+                  style="width:100%;padding:0.6rem 0.8rem;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:0.9rem;margin-top:0.3rem;">
+                  <option value="manual">Manual (ligar/desligar pelo painel)</option>
+                  <option value="auto">Automático (iniciar no boot)</option>
+                </select>
+              </div>
+              <div>
+                <label style="font-size:0.82rem;color:var(--text-muted);">Prioridade (fallback chain)</label>
+                <select id="tunel-global-priority"
+                  style="width:100%;padding:0.6rem 0.8rem;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:0.9rem;margin-top:0.3rem;">
+                  <option value="1">1 — Cloudflare Tunnel</option>
+                  <option value="2">2 — ngrok</option>
+                  <option value="3">3 — Localtunnel</option>
+                  <option value="4">4 — localhost.run</option>
+                </select>
+              </div>
+            </div>
+            <div style="margin-top:1rem;display:flex;gap:0.75rem;align-items:center;">
+              <button class="btn-action btn-primary-action" id="btn-tunel-global-save">
+                <i class="fa-solid fa-floppy-disk"></i><span> Salvar Configuração</span>
+              </button>
+              <span id="tunel-global-feedback" style="font-size:0.85rem;"></span>
+            </div>
+          </div>
+
+          <!-- ═══ Cloudflare Tunnel ═══ -->
+          <div style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:12px;padding:1.5rem;margin-top:1.5rem;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+              <h4><i class="fa-solid fa-cloud" style="color:#f6821f;"></i> Cloudflare Tunnel</h4>
+              <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;">
+                <input type="checkbox" id="cf-tunnel-enabled" class="tunnel-toggle" data-tunnel="cloudflare" style="accent-color:#10b981;">
+                <span id="cf-tunnel-status-badge" style="font-size:0.75rem;padding:3px 10px;border-radius:99px;background:#374151;color:#9ca3af;">Desligado</span>
+              </label>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
+              <div>
+                <label style="font-size:0.82rem;color:var(--text-muted);">Token do Túnel</label>
+                <input id="cf-tunnel-token" type="password" placeholder="eyJh...",
+                  style="width:100%;padding:0.6rem 0.8rem;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:0.9rem;margin-top:0.3rem;">
+              </div>
+              <div>
+                <label style="font-size:0.82rem;color:var(--text-muted);">Subdomínio (opcional)</label>
+                <input id="cf-tunnel-subdomain" type="text" placeholder="tunnel1",
+                  style="width:100%;padding:0.6rem 0.8rem;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:0.9rem;margin-top:0.3rem;">
+              </div>
+            </div>
+            <div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;">
+              <button class="btn-action btn-primary-action" onclick="salvarTunnelConfig('cloudflare')">
+                <i class="fa-solid fa-floppy-disk"></i><span> Salvar</span>
+              </button>
+              <button class="btn-action" onclick="testarTunnel('cloudflare')"
+                style="background:rgba(246,130,31,0.15);color:#f6821f;border-color:rgba(246,130,31,0.3);">
+                <i class="fa-solid fa-play"></i><span> Iniciar</span>
+              </button>
+              <button class="btn-action" onclick="pararTunnel('cloudflare')"
+                style="background:rgba(239,68,68,0.15);color:#ef4444;border-color:rgba(239,68,68,0.3);">
+                <i class="fa-solid fa-stop"></i><span> Parar</span>
+              </button>
+              <span id="cf-tunnel-feedback" style="font-size:0.85rem;"></span>
+            </div>
+            <div id="cf-tunnel-url" style="display:none;margin-top:0.75rem;padding:0.6rem 1rem;border-radius:8px;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.2);font-size:0.85rem;color:#86efac;word-break:break-all;"></div>
+          </div>
+
+          <!-- ═══ ngrok ═══ -->
+          <div style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:12px;padding:1.5rem;margin-top:1.5rem;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+              <h4><i class="fa-solid fa-bolt" style="color:#7c3aed;"></i> ngrok</h4>
+              <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;">
+                <input type="checkbox" id="ngrok-tunnel-enabled" class="tunnel-toggle" data-tunnel="ngrok" style="accent-color:#10b981;">
+                <span id="ngrok-tunnel-status-badge" style="font-size:0.75rem;padding:3px 10px;border-radius:99px;background:#374151;color:#9ca3af;">Desligado</span>
+              </label>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
+              <div>
+                <label style="font-size:0.82rem;color:var(--text-muted);">Auth Token</label>
+                <input id="ngrok-tunnel-token" type="password" placeholder="2abc123_...",
+                  style="width:100%;padding:0.6rem 0.8rem;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:0.9rem;margin-top:0.3rem;">
+              </div>
+              <div>
+                <label style="font-size:0.82rem;color:var(--text-muted);">Domínio Fixo (opcional, plano pago)</label>
+                <input id="ngrok-tunnel-domain" type="text" placeholder="meudominio.ngrok-free.app",
+                  style="width:100%;padding:0.6rem 0.8rem;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:0.9rem;margin-top:0.3rem;">
+              </div>
+            </div>
+            <div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;">
+              <button class="btn-action btn-primary-action" onclick="salvarTunnelConfig('ngrok')">
+                <i class="fa-solid fa-floppy-disk"></i><span> Salvar</span>
+              </button>
+              <button class="btn-action" onclick="testarTunnel('ngrok')"
+                style="background:rgba(124,58,237,0.15);color:#7c3aed;border-color:rgba(124,58,237,0.3);">
+                <i class="fa-solid fa-play"></i><span> Iniciar</span>
+              </button>
+              <button class="btn-action" onclick="pararTunnel('ngrok')"
+                style="background:rgba(239,68,68,0.15);color:#ef4444;border-color:rgba(239,68,68,0.3);">
+                <i class="fa-solid fa-stop"></i><span> Parar</span>
+              </button>
+              <span id="ngrok-tunnel-feedback" style="font-size:0.85rem;"></span>
+            </div>
+            <div id="ngrok-tunnel-url" style="display:none;margin-top:0.75rem;padding:0.6rem 1rem;border-radius:8px;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.2);font-size:0.85rem;color:#86efac;word-break:break-all;"></div>
+          </div>
+
+          <!-- ═══ Localtunnel ═══ -->
+          <div style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:12px;padding:1.5rem;margin-top:1.5rem;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+              <h4><i class="fa-solid fa-tunnel" style="color:#06b6d4;"></i> Localtunnel</h4>
+              <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;">
+                <input type="checkbox" id="lt-tunnel-enabled" class="tunnel-toggle" data-tunnel="localtunnel" style="accent-color:#10b981;">
+                <span id="lt-tunnel-status-badge" style="font-size:0.75rem;padding:3px 10px;border-radius:99px;background:#374151;color:#9ca3af;">Desligado</span>
+              </label>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
+              <div>
+                <label style="font-size:0.82rem;color:var(--text-muted);">Subdomínio (opcional)</label>
+                <input id="lt-tunnel-subdomain" type="text" placeholder="meu-chef",
+                  style="width:100%;padding:0.6rem 0.8rem;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:0.9rem;margin-top:0.3rem;">
+              </div>
+              <div>
+                <label style="font-size:0.82rem;color:var(--text-muted);">Requer aprovação</label>
+                <select id="lt-tunnel-auth"
+                  style="width:100%;padding:0.6rem 0.8rem;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:0.9rem;margin-top:0.3rem;">
+                  <option value="0">Não (acesso livre)</option>
+                  <option value="1">Sim (aprovação manual)</option>
+                </select>
+              </div>
+            </div>
+            <div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;">
+              <button class="btn-action btn-primary-action" onclick="salvarTunnelConfig('localtunnel')">
+                <i class="fa-solid fa-floppy-disk"></i><span> Salvar</span>
+              </button>
+              <button class="btn-action" onclick="testarTunnel('localtunnel')"
+                style="background:rgba(6,182,212,0.15);color:#06b6d4;border-color:rgba(6,182,212,0.3);">
+                <i class="fa-solid fa-play"></i><span> Iniciar</span>
+              </button>
+              <button class="btn-action" onclick="pararTunnel('localtunnel')"
+                style="background:rgba(239,68,68,0.15);color:#ef4444;border-color:rgba(239,68,68,0.3);">
+                <i class="fa-solid fa-stop"></i><span> Parar</span>
+              </button>
+              <span id="lt-tunnel-feedback" style="font-size:0.85rem;"></span>
+            </div>
+            <div id="lt-tunnel-url" style="display:none;margin-top:0.75rem;padding:0.6rem 1rem;border-radius:8px;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.2);font-size:0.85rem;color:#86efac;word-break:break-all;"></div>
+          </div>
+
+          <!-- ═══ localhost.run ═══ -->
+          <div style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:12px;padding:1.5rem;margin-top:1.5rem;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+              <h4><i class="fa-solid fa-terminal" style="color:#f59e0b;"></i> localhost.run</h4>
+              <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;">
+                <input type="checkbox" id="lhr-tunnel-enabled" class="tunnel-toggle" data-tunnel="localhost.run" style="accent-color:#10b981;">
+                <span id="lhr-tunnel-status-badge" style="font-size:0.75rem;padding:3px 10px;border-radius:99px;background:#374151;color:#9ca3af;">Desligado</span>
+              </label>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
+              <div>
+                <label style="font-size:0.82rem;color:var(--text-muted);">SSH Key (opcional)</label>
+                <input id="lhr-tunnel-key" type="password" placeholder="Deixe vazio para uso sem chave",
+                  style="width:100%;padding:0.6rem 0.8rem;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:0.9rem;margin-top:0.3rem;">
+              </div>
+              <div>
+                <label style="font-size:0.82rem;color:var(--text-muted);">Porta SSL (HTTPS)</label>
+                <input id="lhr-tunnel-ssl" type="number" value="443" min="1" max="65535"
+                  style="width:100%;padding:0.6rem 0.8rem;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:0.9rem;margin-top:0.3rem;">
+              </div>
+            </div>
+            <div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;">
+              <button class="btn-action btn-primary-action" onclick="salvarTunnelConfig('localhost.run')">
+                <i class="fa-solid fa-floppy-disk"></i><span> Salvar</span>
+              </button>
+              <button class="btn-action" onclick="testarTunnel('localhost.run')"
+                style="background:rgba(245,158,11,0.15);color:#f59e0b;border-color:rgba(245,158,11,0.3);">
+                <i class="fa-solid fa-play"></i><span> Iniciar</span>
+              </button>
+              <button class="btn-action" onclick="pararTunnel('localhost.run')"
+                style="background:rgba(239,68,68,0.15);color:#ef4444;border-color:rgba(239,68,68,0.3);">
+                <i class="fa-solid fa-stop"></i><span> Parar</span>
+              </button>
+              <span id="lhr-tunnel-feedback" style="font-size:0.85rem;"></span>
+            </div>
+            <div id="lhr-tunnel-url" style="display:none;margin-top:0.75rem;padding:0.6rem 1rem;border-radius:8px;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.2);font-size:0.85rem;color:#86efac;word-break:break-all;"></div>
+          </div>
+
+          <!-- Log de atividade -->
+          <div style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:12px;padding:1.5rem;margin-top:1.5rem;">
+            <h4 style="margin-bottom:1rem;"><i class="fa-solid fa-scroll" style="color:#94a3b8;"></i> Log de Atividade dos Túneis</h4>
+            <div id="tuneis-log" style="max-height:180px;overflow-y:auto;font-family:monospace;font-size:0.8rem;color:#94a3b8;background:rgba(0,0,0,0.2);border-radius:8px;padding:0.75rem;">
+              Nenhuma atividade registrada.
             </div>
           </div>
         </div>

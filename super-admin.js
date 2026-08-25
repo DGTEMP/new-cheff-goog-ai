@@ -616,7 +616,8 @@ function switchTab(targetId) {
     'sec-tema-custom': ['Aparência & Tema Global', 'Estúdio de personalização de cores, botões, fontes e marcas'],
     'sec-supabase': ['Supabase', 'Conexão guiada ao banco em nuvem: backup, sync e relatórios centralizados'],
     'sec-alterar-senha': ['Alterar Senha', 'Atualize a senha de acesso ao painel super admin'],
-    'sec-infra-cloud': ['Infraestrutura Cloud', 'Backup remoto R2, Redis cache, backups agendados e alertas de crash']
+    'sec-infra-cloud': ['Infraestrutura Cloud', 'Backup remoto R2, Redis cache, backups agendados e alertas de crash'],
+    'sec-tuneis': ['Túneis & Fallback', 'Túneis de acesso externo: Cloudflare, ngrok, Localtunnel, localhost.run']
   };
 
   for (var i = 0; i < items.length; i++) {
@@ -746,6 +747,7 @@ function switchTab(targetId) {
    else if (targetId === 'sec-plugins-modulos') carregarPlugins();
    else if (targetId === 'sec-supabase') carregarSupabase();
    else if (targetId === 'sec-infra-cloud') carregarInfraCloud();
+   else if (targetId === 'sec-tuneis') carregarTuneis();
 }
 
 /* ═══ SUPABASE — ASSISTENTE GUIADO ═══ */
@@ -6948,6 +6950,207 @@ function carregarCrashHistory() {
 function downloadR2Backup(filename) {
   showToast('Download de ' + filename + ' — funcionalidade em desenvolvimento.', 'info');
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// TÚNEIS & FALLBACK
+// ═══════════════════════════════════════════════════════════════════
+
+function carregarTuneis() {
+  apiGet('/api/super/tuneis/status', function(err, data) {
+    if (err || !data || !data.ok) { showToast('Erro ao carregar status dos túneis.', 'error'); return; }
+    var g = data.global || {};
+    var tunnels = data.tunnels || [];
+
+    // Config global
+    var gp = document.getElementById('tunel-global-port');
+    var gm = document.getElementById('tunel-global-mode');
+    var gpr = document.getElementById('tunel-global-priority');
+    if (gp) gp.value = g.port || 8080;
+    if (gm) gm.value = g.mode || 'manual';
+    if (gpr) gpr.value = g.priority || '1';
+
+    // Stats
+    var activeCount = tunnels.filter(function(t) { return t.status === 'running'; }).length;
+    var asEl = document.getElementById('tuneis-ativos-count');
+    if (asEl) asEl.textContent = activeCount;
+    var ptEl = document.getElementById('tuneis-porta');
+    if (ptEl) ptEl.textContent = g.port || 8080;
+    var asBadge = document.getElementById('tuneis-autostart');
+    if (asBadge) asBadge.textContent = g.mode === 'auto' ? 'Ligado' : 'Desligado';
+    var badge = document.getElementById('tuneis-badge');
+    if (badge) { badge.style.display = activeCount > 0 ? '' : 'none'; badge.textContent = activeCount; }
+
+    // Porta no info banner
+    var ps = document.getElementById('tunel-porta-servidor');
+    if (ps) ps.textContent = g.port || 8080;
+
+    // Para cada túnel, preenche campos e status
+    var mapPrefix = { 'cloudflare': 'cf', 'ngrok': 'ngrok', 'localtunnel': 'lt', 'localhost.run': 'lhr' };
+    tunnels.forEach(function(t) {
+      var p = mapPrefix[t.name] || t.name;
+      var badge = document.getElementById(p + '-tunnel-status-badge');
+      var toggle = document.getElementById(p + '-tunnel-enabled');
+      var urlEl = document.getElementById(p + '-tunnel-url');
+
+      if (badge) {
+        var colors = { running: '#10b981', starting: '#f59e0b', stopped: '#6b7280', error: '#ef4444' };
+        var labels = { running: 'Rodando', starting: 'Iniciando...', stopped: 'Desligado', error: 'Erro' };
+        badge.style.background = colors[t.status] || '#374151';
+        badge.style.color = '#fff';
+        badge.textContent = labels[t.status] || t.status;
+      }
+      if (toggle) toggle.checked = t.status === 'running' || t.status === 'starting';
+      if (urlEl) {
+        if (t.url) { urlEl.style.display = 'block'; urlEl.textContent = '🌐 ' + t.url; }
+        else { urlEl.style.display = 'none'; }
+      }
+
+      // Preenche campos de config
+      var cfg = t.config || {};
+      if (t.name === 'cloudflare') {
+        var ctk = document.getElementById('cf-tunnel-token');
+        var csd = document.getElementById('cf-tunnel-subdomain');
+        if (ctk) ctk.value = cfg.token || '';
+        if (csd) csd.value = cfg.subdomain || '';
+      } else if (t.name === 'ngrok') {
+        var ntk = document.getElementById('ngrok-tunnel-token');
+        var ndm = document.getElementById('ngrok-tunnel-domain');
+        if (ntk) ntk.value = cfg.token || '';
+        if (ndm) ndm.value = cfg.domain || '';
+      } else if (t.name === 'localtunnel') {
+        var lsd = document.getElementById('lt-tunnel-subdomain');
+        var lau = document.getElementById('lt-tunnel-auth');
+        if (lsd) lsd.value = cfg.subdomain || '';
+        if (lau) lau.value = cfg.auth || '0';
+      } else if (t.name === 'localhost.run') {
+        var lkey = document.getElementById('lhr-tunnel-key');
+        var lssl = document.getElementById('lhr-tunnel-ssl');
+        if (lkey) lkey.value = cfg.sshkey || '';
+        if (lssl) lssl.value = cfg.ssl || '443';
+      }
+    });
+
+    // Carrega logs
+    carregarTuneisLogs();
+  });
+}
+
+function carregarTuneisLogs() {
+  apiGet('/api/super/tuneis/logs', function(err, data) {
+    var el = document.getElementById('tuneis-log');
+    if (!el) return;
+    if (err || !data || !data.ok || !data.logs || data.logs.length === 0) {
+      el.innerHTML = 'Nenhuma atividade registrada.';
+      return;
+    }
+    el.innerHTML = data.logs.map(function(l) { return '<div style="padding:2px 0;border-bottom:1px solid rgba(255,255,255,0.03);">' + esc(l) + '</div>'; }).join('');
+    el.scrollTop = el.scrollHeight;
+  });
+}
+
+function salvarTunnelConfig(name) {
+  var config = {};
+  if (name === 'cloudflare') {
+    config = {
+      token: document.getElementById('cf-tunnel-token').value.trim(),
+      subdomain: document.getElementById('cf-tunnel-subdomain').value.trim()
+    };
+  } else if (name === 'ngrok') {
+    config = {
+      token: document.getElementById('ngrok-tunnel-token').value.trim(),
+      domain: document.getElementById('ngrok-tunnel-domain').value.trim()
+    };
+  } else if (name === 'localtunnel') {
+    config = {
+      subdomain: document.getElementById('lt-tunnel-subdomain').value.trim(),
+      auth: document.getElementById('lt-tunnel-auth').value
+    };
+  } else if (name === 'localhost.run') {
+    config = {
+      sshkey: document.getElementById('lhr-tunnel-key').value.trim(),
+      ssl: document.getElementById('lhr-tunnel-ssl').value
+    };
+  }
+  apiPost('/api/super/tuneis/config/' + name, config, function(err, data) {
+    var pfx = { 'cloudflare': 'cf', 'ngrok': 'ngrok', 'localtunnel': 'lt', 'localhost.run': 'lhr' };
+    var fb = document.getElementById((pfx[name] || name) + '-tunnel-feedback');
+    if (err || !data || !data.ok) {
+      if (fb) { fb.style.color = '#fca5a5'; fb.textContent = '✗ ' + (data ? data.erro : 'Erro'); }
+    } else {
+      if (fb) { fb.style.color = '#86efac'; fb.textContent = '✓ ' + data.mensagem; }
+    }
+  });
+}
+
+function testarTunnel(name) {
+  var pfx = { 'cloudflare': 'cf', 'ngrok': 'ngrok', 'localtunnel': 'lt', 'localhost.run': 'lhr' };
+  var fb = document.getElementById((pfx[name] || name) + '-tunnel-feedback');
+  if (fb) { fb.style.color = '#94a3b8'; fb.textContent = 'Iniciando ' + name + '...'; }
+  apiPost('/api/super/tuneis/start/' + name, {}, function(err, data) {
+    if (err || !data || !data.ok) {
+      if (fb) { fb.style.color = '#fca5a5'; fb.textContent = '✗ ' + (data ? data.erro : 'Erro'); }
+    } else {
+      if (fb) { fb.style.color = '#86efac'; fb.textContent = '✓ ' + data.mensagem; }
+      // Polling de status por 20s para capturar URL
+      var attempts = 0;
+      var poll = setInterval(function() {
+        attempts++;
+        apiGet('/api/super/tuneis/status', function(e2, d2) {
+          if (d2 && d2.ok && d2.tunnels) {
+            var t = d2.tunnels.find(function(t) { return t.name === name; });
+            if (t && t.url) {
+              clearInterval(poll);
+              carregarTuneis();
+            }
+          }
+        });
+        if (attempts >= 10) { clearInterval(poll); carregarTuneis(); }
+      }, 2000);
+    }
+  });
+}
+
+function pararTunnel(name) {
+  apiPost('/api/super/tuneis/stop/' + name, {}, function(err, data) {
+    carregarTuneis();
+  });
+}
+
+// Event listeners — Tuneis
+(function() {
+  document.addEventListener('DOMContentLoaded', function() {
+    var btnSaveGlobal = document.getElementById('btn-tunel-global-save');
+    if (btnSaveGlobal) btnSaveGlobal.addEventListener('click', function() {
+      var payload = {
+        port: parseInt(document.getElementById('tunel-global-port').value, 10),
+        mode: document.getElementById('tunel-global-mode').value,
+        priority: document.getElementById('tunel-global-priority').value
+      };
+      apiPost('/api/super/tuneis/config-global', payload, function(err, data) {
+        var fb = document.getElementById('tunel-global-feedback');
+        if (err || !data || !data.ok) {
+          if (fb) { fb.style.color = '#fca5a5'; fb.textContent = '✗ ' + (data ? data.erro : 'Erro'); }
+        } else {
+          if (fb) { fb.style.color = '#86efac'; fb.textContent = '✓ ' + data.mensagem; }
+          document.getElementById('tuneis-porta').textContent = payload.port;
+          document.getElementById('tuneis-autostart').textContent = payload.mode === 'auto' ? 'Ligado' : 'Desligado';
+        }
+      });
+    });
+
+    // Toggle handlers
+    document.querySelectorAll('.tunnel-toggle').forEach(function(toggle) {
+      toggle.addEventListener('change', function() {
+        var name = this.getAttribute('data-tunnel');
+        if (this.checked) {
+          testarTunnel(name);
+        } else {
+          pararTunnel(name);
+        }
+      });
+    });
+  });
+})();
 
 // Injeta a central logo após o login (quando os sockets iniciam)
 var _saCentralOriginalInit = initSuperAdminSockets;
