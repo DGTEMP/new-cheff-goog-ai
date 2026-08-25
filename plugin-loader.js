@@ -34,7 +34,6 @@ function loadPlugins({ app, db, masterDb, io, options }) {
   if (!fs.existsSync(PLUGINS_DIR)) {
     log('Plugins directory not found. Creating...');
     fs.mkdirSync(PLUGINS_DIR, { recursive: true });
-    return [];
   }
 
   const entries = fs.readdirSync(PLUGINS_DIR, { withFileTypes: true });
@@ -59,6 +58,12 @@ function loadPlugins({ app, db, masterDb, io, options }) {
     try {
       const pluginLog = (msg) => console.log(`  [plugin:${plugin.name}] ${msg}`);
 
+      // Serve static files from plugins/<name>/public/ if it exists
+      const publicDir = path.join(plugin.path, 'public');
+      if (fs.existsSync(publicDir) && fs.statSync(publicDir).isDirectory()) {
+        app.use('/plugins/' + plugin.name, require('express').static(publicDir));
+      }
+
       // Load index.js (main plugin file)
       const indexPath = path.join(plugin.path, 'index.js');
       if (!fs.existsSync(indexPath)) {
@@ -67,20 +72,6 @@ function loadPlugins({ app, db, masterDb, io, options }) {
       }
 
       const pluginModule = require(indexPath);
-
-      // Load routes.js if exists
-      let routesFn = null;
-      const routesPath = path.join(plugin.path, 'routes.js');
-      if (fs.existsSync(routesPath)) {
-        routesFn = require(routesPath);
-      }
-
-      // Load sockets.js if exists
-      let socketsFn = null;
-      const socketsPath = path.join(plugin.path, 'sockets.js');
-      if (fs.existsSync(socketsPath)) {
-        socketsFn = require(socketsPath);
-      }
 
       // Initialize the plugin
       const ctx = {
@@ -91,9 +82,7 @@ function loadPlugins({ app, db, masterDb, io, options }) {
         options,
         log: pluginLog,
         name: plugin.name,
-        meta: plugin.meta,
-        routes: routesFn,
-        sockets: socketsFn
+        meta: plugin.meta
       };
 
       if (typeof pluginModule === 'function') {
@@ -108,33 +97,28 @@ function loadPlugins({ app, db, masterDb, io, options }) {
     }
   }
 
+  // API endpoint: list available plugins (used by client-side loader)
+  app.get('/api/plugins/list', (req, res) => {
+    try {
+      const dirs = fs.readdirSync(PLUGINS_DIR, { withFileTypes: true })
+        .filter(e => e.isDirectory() && !e.name.startsWith('.'));
+      const list = dirs.map(d => {
+        let meta = { name: d.name };
+        try {
+          meta = Object.assign(meta, JSON.parse(
+            fs.readFileSync(path.join(PLUGINS_DIR, d.name, 'package.json'), 'utf8')
+          ));
+        } catch (e) { /* no package.json */ }
+        return meta;
+      });
+      res.json({ ok: true, plugins: list });
+    } catch (e) {
+      res.json({ ok: true, plugins: [] });
+    }
+  });
+
   log(`${loaded.length}/${plugins.length} plugins loaded: [${loaded.join(', ')}]`);
   return loaded;
 }
 
-/**
- * Register socket handlers for a connected client from all plugins that have sockets.js
- */
-function registerSocketHandlers({ socket, db, masterDb, io, options }) {
-  if (!fs.existsSync(PLUGINS_DIR)) return;
-
-  const entries = fs.readdirSync(PLUGINS_DIR, { withFileTypes: true });
-  const pluginDirs = entries.filter(e => e.isDirectory() && !e.name.startsWith('.'));
-
-  for (const dir of pluginDirs) {
-    try {
-      const socketsPath = path.join(PLUGINS_DIR, dir.name, 'sockets.js');
-      if (!fs.existsSync(socketsPath)) continue;
-
-      const socketsFn = require(socketsPath);
-      if (typeof socketsFn === 'function') {
-        socketsFn({ socket, db, masterDb, io, options, name: dir.name });
-      }
-    } catch (err) {
-      console.error(`  [plugin:${dir.name}] ERROR registering sockets: ${err.message}`);
-    }
-  }
-}
-
 module.exports = loadPlugins;
-module.exports.registerSocketHandlers = registerSocketHandlers;

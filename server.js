@@ -156,7 +156,6 @@ const deploymentConfig = require('./deployment-config');
 const instanceIdentity = require('./instance-identity');
 const dbProxy = require('./db-proxy');
 const loadPlugins = require('./plugin-loader');
-const registerPluginSockets = require('./plugin-loader').registerSocketHandlers;
 const TunnelManager = require('./tunnel-manager');
 const tunnelManager = new TunnelManager();
 tunnelManager.setDb(masterDb);
@@ -6054,9 +6053,6 @@ io.on('connection', (socket) => {
       socket.auth = decoded;
     } catch (e) { }
   }
-
-  // Registrar handlers de sockets dos plugins
-  registerPluginSockets({ socket, db, masterDb, io, options: pluginOptions });
 
   // Tenants sem token (ex.: cliente que escaneou o QR do cardápio) usam o
   // restaurante_id informado na própria URL/query do socket.

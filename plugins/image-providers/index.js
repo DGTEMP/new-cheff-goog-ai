@@ -174,21 +174,5 @@ module.exports = function({ app, masterDb, io, options, log }) {
     } catch (e) { res.json({ ok: false, erro: e.message }); }
   });
 
-  // GET /api/plugins/list — lista plugins carregados (usado pelo client loader)
-  app.get('/api/plugins/list', (req, res) => {
-    const fs = require('fs');
-    const pathMod = require('path');
-    const pluginsDir = pathMod.join(__dirname, '..', 'plugins');
-    try {
-      const dirs = fs.readdirSync(pluginsDir, { withFileTypes: true }).filter(e => e.isDirectory() && !e.name.startsWith('.'));
-      const list = dirs.map(d => {
-        let meta = { name: d.name };
-        try { meta = Object.assign(meta, JSON.parse(fs.readFileSync(pathMod.join(pluginsDir, d.name, 'package.json'), 'utf8'))); } catch (e) {}
-        return meta;
-      });
-      res.json({ ok: true, plugins: list });
-    } catch (e) { res.json({ ok: true, plugins: [] }); }
-  });
-
   log('Routes registered.');
 };
