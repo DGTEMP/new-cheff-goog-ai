@@ -2772,10 +2772,20 @@ socket.on('produtos_atualizados', (prods) => {
   const toggleRapido = configs.feature_toggle_produto_rapido === true;
   const importSection = document.getElementById('produtos-lote-import-section');
   if (importSection) importSection.style.display = configs.feature_produtos_lote === true ? 'flex' : 'none';
+  /* Popular select de categorias do bulk */
+  const bulkCatSel = document.getElementById('produtos-bulk-categoria');
+  if (bulkCatSel) {
+    const cats = [...new Set(prods.filter(p => p.id < 90000).map(p => p.categoria).filter(Boolean))];
+    bulkCatSel.innerHTML = '<option value="">Mover para categoria...</option>' + cats.map(c => '<option value="' + escHtml(c) + '">' + escHtml(c) + '</option>').join('');
+  }
+  window._produtosSelecionados = window._produtosSelecionados || new Set();
   list.innerHTML = prods
     .filter(p => p.id < 90000)
-    .map(p => `
-    <tr style="border-bottom: 1px solid #eee; ${p.status === 'inativo' ? 'opacity:0.55;' : ''}">
+    .map(p => {
+    const checked = window._produtosSelecionados.has(p.id) ? 'checked' : '';
+    return `
+    <tr style="border-bottom: 1px solid #eee; ${p.status === 'inativo' ? 'opacity:0.55;' : ''}" data-prod-id="${p.id}">
+      <td style="padding: 10px; width:36px; text-align:center;"><input type="checkbox" class="prod-checkbox" value="${p.id}" ${checked} onchange="window.produtosToggleOne(${p.id}, this.checked)" style="width:16px; height:16px; cursor:pointer;"></td>
       <td style="padding: 10px; font-weight: 500;">${escapeHtml(p.categoria)}</td>
       <td style="padding: 10px;">${escapeHtml(p.emoji || '')} ${escapeHtml(p.nome)}</td>
       <td style="padding: 10px; font-weight: bold; color: #3ab55b;">R$ ${parseFloat(p.preco).toFixed(2).replace('.', ',')}</td>
@@ -2792,7 +2802,7 @@ socket.on('produtos_atualizados', (prods) => {
         <button onclick="window.deleteProduto(${p.id})" style="color: red; border: none; background: none; cursor: pointer; font-weight: bold;"><i class="ph ph-trash"></i> Excluir</button>
       </td>
     </tr>
-  `).join('');
+  `}).join('');
 });
 
 window.deleteProduto = (id) => {
@@ -2803,6 +2813,79 @@ window.deleteProduto = (id) => {
   } else if (confirm('Excluir produto?')) {
     socket.emit('delete_produto', { id, operador: window.crmPerfil ? window.crmPerfil.nome : 'Admin' });
   }
+};
+
+/* ── Seleção em Massa de Produtos ── */
+window._produtosSelecionados = new Set();
+
+window.produtosToggleOne = function(id, checked) {
+  if (checked) window._produtosSelecionados.add(id);
+  else window._produtosSelecionados.delete(id);
+  window._produtosAtualizarBarra();
+};
+
+window.produtosToggleAll = function(checked) {
+  document.querySelectorAll('.prod-checkbox').forEach(cb => {
+    const id = parseInt(cb.value);
+    if (checked) { window._produtosSelecionados.add(id); cb.checked = true; }
+    else { window._produtosSelecionados.delete(id); cb.checked = false; }
+  });
+  window._produtosAtualizarBarra();
+};
+
+window._produtosAtualizarBarra = function() {
+  const bar = document.getElementById('produtos-bulk-bar');
+  const cnt = document.getElementById('produtos-bulk-count');
+  if (!bar) return;
+  const n = window._produtosSelecionados.size;
+  bar.style.display = n > 0 ? 'flex' : 'none';
+  if (cnt) cnt.textContent = n;
+};
+
+window.produtosBulkDesmarcar = function() {
+  window._produtosSelecionados.clear();
+  document.querySelectorAll('.prod-checkbox').forEach(cb => cb.checked = false);
+  const selAll = document.getElementById('produtos-select-all');
+  if (selAll) selAll.checked = false;
+  window._produtosAtualizarBarra();
+};
+
+window.produtosBulkAcao = function(acao) {
+  const ids = Array.from(window._produtosSelecionados);
+  if (!ids.length) return;
+  if (acao === 'excluir' && !confirm('Excluir ' + ids.length + ' produto(s)?')) return;
+  ids.forEach(id => {
+    const prod = (window.allProducts || []).find(p => p.id === id);
+    if (!prod) return;
+    if (acao === 'ativar' || acao === 'desativar') {
+      socket.emit('edit_produto', {
+        id, categoria: prod.categoria, nome: prod.nome, preco: prod.preco,
+        emoji: prod.emoji, setor: prod.setor || 'Cozinha 1',
+        status: acao === 'ativar' ? 'ativo' : 'inativo',
+        status_inicial: prod.status_inicial || 'Em espera',
+        categoria_fiscal: prod.categoria_fiscal || 'Alimentacao',
+        visibilidade: prod.visibilidade || 'todos',
+        descricao: prod.descricao || '',
+        operador: window.crmPerfil ? window.crmPerfil.nome : 'Admin'
+      });
+    } else if (acao === 'excluir') {
+      socket.emit('delete_produto', { id, operador: window.crmPerfil ? window.crmPerfil.nome : 'Admin' });
+    } else if (acao === 'mover') {
+      const novaCat = (document.getElementById('produtos-bulk-categoria') || {}).value;
+      if (!novaCat) return;
+      socket.emit('edit_produto', {
+        id, categoria: novaCat, nome: prod.nome, preco: prod.preco,
+        emoji: prod.emoji, setor: prod.setor || 'Cozinha 1',
+        status: prod.status || 'ativo',
+        status_inicial: prod.status_inicial || 'Em espera',
+        categoria_fiscal: prod.categoria_fiscal || 'Alimentacao',
+        visibilidade: prod.visibilidade || 'todos',
+        descricao: prod.descricao || '',
+        operador: window.crmPerfil ? window.crmPerfil.nome : 'Admin'
+      });
+    }
+  });
+  window.produtosBulkDesmarcar();
 };
 
 window.toggleProdutoRapido = (id, currentStatus) => {

@@ -1110,6 +1110,7 @@
       .admin-tab-content input[type="time"],
       .admin-tab-content input[type="date"],
       .admin-tab-content input[type="search"],
+      .admin-tab-content input[type="url"],
       .admin-tab-content select,
       .admin-tab-content textarea {
         width: 100% !important;
@@ -1118,6 +1119,19 @@
         min-height: 44px !important;
         font-size: 16px !important; /* 16px+ evita zoom automático do iOS ao focar */
         padding: 10px 12px !important;
+      }
+      /* Form header do produtos empilha tudo no mobile */
+      #admin-tab-produtos .tab-form-header > div {
+        flex-direction: column !important;
+      }
+      #admin-tab-produtos .tab-form-header > div > div {
+        min-width: 100% !important;
+        flex: 1 1 100% !important;
+      }
+      /* Botão Salvar ocupa largura total no mobile */
+      #admin-tab-produtos .tab-form-header button {
+        width: 100% !important;
+        min-height: 44px !important;
       }
 
       /* Botões principais: toque fácil (44px) */
@@ -1153,6 +1167,51 @@
       .tab-table-scroll table,
       .promo-table { 
         min-width: 380px !important; 
+      }
+
+      /* PRODUTOS: tabela vira cards no mobile */
+      #admin-tab-produtos .tab-table-scroll table thead { display: none !important; }
+      #admin-tab-produtos .tab-table-scroll table,
+      #admin-tab-produtos .tab-table-scroll tbody { display: flex !important; flex-direction: column !important; gap: 8px !important; padding: 8px !important; background: transparent !important; border: none !important; }
+      #admin-tab-produtos .tab-table-scroll table tbody tr {
+        display: flex !important; flex-wrap: wrap !important; align-items: center !important;
+        background: var(--cfg-card-bg, #fff) !important; border: 1px solid var(--cfg-border, #e2e8f0) !important;
+        border-radius: 10px !important; padding: 10px 12px !important; gap: 6px !important;
+        position: relative !important; box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important;
+      }
+      #admin-tab-produtos .tab-table-scroll table tbody tr td {
+        border: none !important; padding: 2px 4px !important; font-size: 12.5px !important;
+      }
+      #admin-tab-produtos .tab-table-scroll table tbody tr td:nth-child(1) {
+        /* checkbox */
+        width: 24px !important; min-width: 24px !important; padding: 0 !important;
+        position: absolute !important; top: 10px !important; left: 10px !important;
+      }
+      #admin-tab-produtos .tab-table-scroll table tbody tr td:nth-child(2) {
+        /* categoria */
+        font-size: 10px !important; text-transform: uppercase !important; letter-spacing: 0.5px !important;
+        color: var(--cfg-text-muted) !important; width: 100% !important; padding-left: 28px !important;
+      }
+      #admin-tab-produtos .tab-table-scroll table tbody tr td:nth-child(3) {
+        /* produto */
+        font-weight: 700 !important; font-size: 14px !important; width: 100% !important; padding-left: 28px !important;
+      }
+      #admin-tab-produtos .tab-table-scroll table tbody tr td:nth-child(4) {
+        /* preco */
+        color: #16a34a !important; font-weight: 700 !important; font-size: 14px !important;
+      }
+      #admin-tab-produtos .tab-table-scroll table tbody tr td:nth-child(5) {
+        /* setor */
+        width: auto !important;
+      }
+      #admin-tab-produtos .tab-table-scroll table tbody tr td:nth-child(6) {
+        /* visibilidade */
+        width: auto !important;
+      }
+      #admin-tab-produtos .tab-table-scroll table tbody tr td:nth-child(7) {
+        /* acoes */
+        width: 100% !important; display: flex !important; gap: 6px !important; flex-wrap: wrap !important;
+        padding-top: 6px !important; border-top: 1px solid var(--cfg-border) !important;
       }
 
       /* Tabela SEM wrapper próprio vira bloco rolável (não estoura a aba) */
@@ -2333,9 +2392,24 @@
           </div>
         </div>
         <div class="tab-table-scroll">
+          <!-- Barra de ações em massa -->
+          <div id="produtos-bulk-bar" style="display:none; position:sticky; top:0; z-index:12; background:#fef3c7; border-bottom:1px solid #f59e0b; padding:8px 14px; display:none; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+            <span style="font-size:13px; font-weight:700; color:#92400e;"><span id="produtos-bulk-count">0</span> selecionados</span>
+            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+              <button onclick="window.produtosBulkAcao('ativar')" style="padding:6px 14px; background:#16a34a; color:white; border:none; border-radius:8px; font-weight:700; font-size:12px; cursor:pointer;">Ativar</button>
+              <button onclick="window.produtosBulkAcao('desativar')" style="padding:6px 14px; background:#f59e0b; color:white; border:none; border-radius:8px; font-weight:700; font-size:12px; cursor:pointer;">Desativar</button>
+              <button onclick="window.produtosBulkAcao('excluir')" style="padding:6px 14px; background:#dc2626; color:white; border:none; border-radius:8px; font-weight:700; font-size:12px; cursor:pointer;">Excluir</button>
+              <select id="produtos-bulk-categoria" style="padding:6px 10px; border:1px solid #ccc; border-radius:8px; font-size:12px; min-height:32px;">
+                <option value="">Mover para categoria...</option>
+              </select>
+              <button onclick="window.produtosBulkAcao('mover')" style="padding:6px 14px; background:#2563eb; color:white; border:none; border-radius:8px; font-weight:700; font-size:12px; cursor:pointer;">Mover</button>
+              <button onclick="window.produtosBulkDesmarcar()" style="padding:6px 14px; background:#6b7280; color:white; border:none; border-radius:8px; font-weight:700; font-size:12px; cursor:pointer;">Cancelar</button>
+            </div>
+          </div>
           <table style="width: 100%; border-collapse: collapse; text-align: left;">
             <thead>
-              <tr style="background:var(--cfg-subtle-bg); border-bottom: 2px solid var(--cfg-border); position: sticky; top: 0; z-index: 1;">
+              <tr style="background:var(--cfg-subtle-bg); border-bottom: 2px solid var(--cfg-border); position: sticky; top: 0; z-index: 10;">
+                <th style="padding: 10px; width:36px;"><input type="checkbox" id="produtos-select-all" onchange="window.produtosToggleAll(this.checked)" style="width:16px; height:16px; cursor:pointer;"></th>
                 <th style="padding: 10px;">Categoria</th>
                 <th style="padding: 10px;">Produto</th>
                 <th style="padding: 10px;">Preço</th>
