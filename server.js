@@ -13943,46 +13943,146 @@ app.post('/api/auth/notificar-impostor', (req, res) => {
   });
 });
 
-// ══════ PLUGINS & MÓDULOS ══════
-// CREATE TABLE IF NOT EXISTS super_plugins (plugin_id TEXT PRIMARY KEY, nome TEXT, descricao TEXT, ativo INTEGER DEFAULT 1, atualizado_em DATETIME DEFAULT (datetime('now','localtime')));
+// ══════ MÓDULOS DO SISTEMA — Controle global + per-tenant ══════
 masterDb.serialize(() => {
-  masterDb.run(`CREATE TABLE IF NOT EXISTS super_plugins (
-    plugin_id TEXT PRIMARY KEY,
-    nome TEXT,
+  // Tabela global: define todos os módulos disponíveis no sistema
+  masterDb.run(`CREATE TABLE IF NOT EXISTS modulo_sistemas (
+    modulo_id TEXT PRIMARY KEY,
+    nome TEXT NOT NULL,
     descricao TEXT,
-    ativo INTEGER DEFAULT 1,
+    tipo TEXT DEFAULT 'plugin',
+    icone TEXT DEFAULT 'fa-puzzle-piece',
+    ativo_global INTEGER DEFAULT 1,
+    obrigatorios INTEGER DEFAULT 0,
     atualizado_em DATETIME DEFAULT (datetime('now','localtime'))
   )`);
-  const defaultPlugins = [
-    ['ifood', 'iFood Integrado Direct', 'Integração nativa de pedidos, cardápio e cancelamento automático com o iFood.'],
-    ['whatsapp', 'WhatsApp Bot Atendimento', 'Disparo de notificação de pedido pronto e robô de pedidos automáticos.'],
-    ['balanca', 'Balança Self-Service / Kilo', 'Conexão direta com balanças Toledo, Filizola e Urano via Serial/USB.'],
-    ['kds', 'KDS Inteligente (Cozinha)', 'Painel de TV para gerenciamento de pedidos na cozinha com tempos de preparo.'],
-    ['pix_automatico', 'Pagamentos PIX Automáticos', 'Geração automática de QR Code PIX e conciliação de pagamentos.']
+
+  // Tabela per-tenant: override individual por restaurante
+  masterDb.run(`CREATE TABLE IF NOT EXISTS tenant_modulos (
+    restaurante_id INTEGER NOT NULL,
+    modulo_id TEXT NOT NULL,
+    ativo INTEGER DEFAULT 1,
+    atualizado_em DATETIME DEFAULT (datetime('now','localtime')),
+    PRIMARY KEY (restaurante_id, modulo_id)
+  )`);
+
+  // Seeds: módulos do sistema (system = sempre ativo; plugin/feature = controlável)
+  const modulosSeed = [
+    // System modules (obrigatórios, sempre ativos)
+    ['auth',         'Autenticação',       'Login, registro e controle de acesso',          'system',  'fa-shield-halved',     1, 1],
+    ['logs',         'Logs de Auditoria',   'Registro de ações e histórico de operações',    'system',  'fa-scroll',            1, 1],
+    ['dispositivos', 'Dispositivos',        'Gerenciamento de dispositivos conectados',      'system',  'fa-mobile-screen',     1, 1],
+    ['backup',       'Backup & Restore',    'Backup e restauração do banco de dados',        'system',  'fa-database',          1, 1],
+    ['config',       'Configurações',       'Configurações gerais do restaurante',            'system',  'fa-gear',              1, 1],
+    // Plugin modules (controláveis por super admin)
+    ['nfce',             'NFC-e / SAT',           'Emissão de nota fiscal consumidor eletrônica',   'plugin', 'fa-file-invoice',      1, 0],
+    ['formas_pagamento', 'Formas de Pagamento',   'Gerenciamento de formas de pagamento',           'plugin', 'fa-credit-card',       1, 0],
+    ['fidelidade',       'Fidelidade',            'Programa de pontos, check-in, benefícios',       'plugin', 'fa-star',              1, 0],
+    ['montaveis',        'Itens Montáveis',       'Montagem de produtos personalizáveis',           'plugin', 'fa-puzzle-piece',      1, 0],
+    ['retro',            'API Retrocompatível',   'API para dispositivos Android 3.2 antigos',      'plugin', 'fa-mobile-retro',      1, 0],
+    ['reservas',         'Reservas',              'Sistema de reservas de mesas',                   'plugin', 'fa-calendar-check',    1, 0],
+    ['image_providers',  'Imagens Inteligentes',  'Pool de provedores de imagens para produtos',    'plugin', 'fa-image',             1, 0],
+    // Feature modules (controláveis via feature-plans)
+    ['ifood',          'iFood',              'Integração nativa com o iFood',                    'feature', 'fa-utensils',          0, 0],
+    ['whatsapp',       'WhatsApp Bot',       'Bot de atendimento e notificações via WhatsApp',   'feature', 'fa-comment-dots',      0, 0],
+    ['balanca',        'Balança',            'Conexão com balanças Toledo/Filizola/Urano',       'feature', 'fa-weight-scale',      0, 0],
+    ['kds',            'KDS Cozinha',        'Painel inteligente para cozinha',                  'feature', 'fa-tv',                0, 0],
+    ['pix_automatico', 'PIX Automático',     'Geração automática de QR Code PIX',               'feature', 'fa-qrcode',            0, 0],
+    ['delivery',       'Delivery',           'Hub de delivery integrado',                        'feature', 'fa-truck',             1, 0],
+    ['totem',          'Totem Autoatendimento', 'Totem de autoatendimento para clientes',         'feature', 'fa-kiosk',             0, 0],
+    ['bi',             'Business Intelligence', 'Dashboards e relatórios analíticos',             'feature', 'fa-chart-line',        1, 0],
+    ['telemetria',     'Telemetria',         'Coleta e análise de dados operacionais',           'feature', 'fa-signal',            1, 0],
+    ['cardapio',       'Cardápio Digital',   'Cardápio digital com QR Code',                     'feature', 'fa-book-open',         1, 0],
+    ['tempo_real',     'Tempo Real',         'Atualização em tempo real dos pedidos',            'feature', 'fa-clock',             1, 0],
   ];
-  defaultPlugins.forEach(p => {
-    masterDb.run(`INSERT OR IGNORE INTO super_plugins (plugin_id, nome, descricao, ativo) VALUES (?, ?, ?, 1)`, p);
+  modulosSeed.forEach(m => {
+    masterDb.run(`INSERT OR IGNORE INTO modulo_sistemas (modulo_id, nome, descricao, tipo, icone, ativo_global, obrigatorios) VALUES (?,?,?,?,?,?,?)`, m);
   });
 });
 
-app.get('/api/super/plugins', superAdminAuth, (req, res) => {
-  masterDb.all(`SELECT * FROM super_plugins ORDER BY plugin_id`, [], (err, rows) => {
+// ── GET /api/super/modulos — Lista todos os módulos + overrides por tenant ──
+app.get('/api/super/modulos', superAdminAuth, (req, res) => {
+  masterDb.all(`SELECT * FROM modulo_sistemas ORDER BY tipo DESC, modulo_id`, [], (err, modulos) => {
     if (err) return res.json({ ok: false, erro: err.message });
-    res.json({ ok: true, plugins: rows || [] });
+    masterDb.all(`SELECT restaurante_id, modulo_id, ativo FROM tenant_modulos`, [], (errT, overrides) => {
+      if (errT) return res.json({ ok: false, erro: errT.message });
+      const overrideMap = {};
+      (overrides || []).forEach(o => {
+        if (!overrideMap[o.restaurante_id]) overrideMap[o.restaurante_id] = {};
+        overrideMap[o.restaurante_id][o.modulo_id] = o.ativo;
+      });
+      res.json({ ok: true, modulos: modulos || [], overrides: overrideMap });
+    });
   });
 });
 
-app.post('/api/super/plugins', superAdminAuth, (req, res) => {
-  const { plugin_id, ativo } = req.body || {};
-  if (!plugin_id) return res.json({ ok: false, erro: 'plugin_id é obrigatório.' });
-  masterDb.run(`UPDATE super_plugins SET ativo = ?, atualizado_em = datetime('now','localtime') WHERE plugin_id = ?`,
-    [ativo ? 1 : 0, plugin_id], function(err) {
-      if (err) return res.json({ ok: false, erro: err.message });
-      if (io) {
-        io.emit('plugin_atualizado', { plugin_id, ativo: !!ativo });
-      }
-      res.json({ ok: true, mensagem: `Plugin ${plugin_id} ${ativo ? 'ativado' : 'desativado'}.` });
+// ── POST /api/super/modulos/global — Toggle ativo_global de um módulo ──
+app.post('/api/super/modulos/global', superAdminAuth, (req, res) => {
+  const { modulo_id, ativo } = req.body || {};
+  if (!modulo_id) return res.status(400).json({ ok: false, erro: 'modulo_id obrigatório.' });
+  masterDb.get(`SELECT obrigatorios FROM modulo_sistemas WHERE modulo_id = ?`, [modulo_id], (e, row) => {
+    if (e || !row) return res.status(404).json({ ok: false, erro: 'Módulo não encontrado.' });
+    if (row.obrigatorios) return res.status(400).json({ ok: false, erro: 'Módulo obrigatório não pode ser desativado.' });
+    masterDb.run(`UPDATE modulo_sistemas SET ativo_global = ?, atualizado_em = datetime('now','localtime') WHERE modulo_id = ?`,
+      [ativo ? 1 : 0, modulo_id], function(err) {
+        if (err) return res.status(500).json({ ok: false, erro: err.message });
+        if (io) io.emit('modulo_global_atualizado', { modulo_id, ativo_global: !!ativo });
+        res.json({ ok: true });
+      });
+  });
+});
+
+// ── POST /api/super/modulos/tenant — Toggle módulo para um tenant específico ──
+app.post('/api/super/modulos/tenant', superAdminAuth, (req, res) => {
+  const { restaurante_id, modulo_id, ativo } = req.body || {};
+  if (!restaurante_id || !modulo_id) return res.status(400).json({ ok: false, erro: 'restaurante_id e modulo_id obrigatórios.' });
+  masterDb.get(`SELECT obrigatorios FROM modulo_sistemas WHERE modulo_id = ?`, [modulo_id], (e, row) => {
+    if (e || !row) return res.status(404).json({ ok: false, erro: 'Módulo não encontrado.' });
+    if (row.obrigatorios) return res.status(400).json({ ok: false, erro: 'Módulo obrigatório não pode ser alterado.' });
+    masterDb.run(`INSERT INTO tenant_modulos (restaurante_id, modulo_id, ativo) VALUES (?, ?, ?)
+      ON CONFLICT(restaurante_id, modulo_id) DO UPDATE SET ativo = ?, atualizado_em = datetime('now','localtime')`,
+      [restaurante_id, modulo_id, ativo ? 1 : 0, ativo ? 1 : 0], function(err) {
+        if (err) return res.status(500).json({ ok: false, erro: err.message });
+        if (io) io.to(`restaurante_${restaurante_id}`).emit('modulo_tenant_atualizado', { modulo_id, ativo: !!ativo });
+        res.json({ ok: true });
+      });
+  });
+});
+
+// ── POST /api/super/modulos/tenant-bulk — Toggle múltiplos módulos para um tenant ──
+app.post('/api/super/modulos/tenant-bulk', superAdminAuth, (req, res) => {
+  const { restaurante_id, modulos } = req.body || {};
+  if (!restaurante_id || !Array.isArray(modulos)) return res.status(400).json({ ok: false, erro: 'restaurante_id e modulos[] obrigatórios.' });
+  let pending = modulos.length;
+  const done = () => { if (--pending <= 0) { if (io) io.to(`restaurante_${restaurante_id}`).emit('modulos_tenant_atualizados'); res.json({ ok: true }); } };
+  modulos.forEach(({ modulo_id, ativo }) => {
+    if (!modulo_id) { done(); return; }
+    masterDb.get(`SELECT obrigatorios FROM modulo_sistemas WHERE modulo_id = ?`, [modulo_id], (e, row) => {
+      if (e || !row || row.obrigatorios) { done(); return; }
+      masterDb.run(`INSERT INTO tenant_modulos (restaurante_id, modulo_id, ativo) VALUES (?, ?, ?)
+        ON CONFLICT(restaurante_id, modulo_id) DO UPDATE SET ativo = ?, atualizado_em = datetime('now','localtime')`,
+        [restaurante_id, modulo_id, ativo ? 1 : 0, ativo ? 1 : 0], () => done());
     });
+  });
+});
+
+// ── GET /api/modulos — Retorna módulos habilitados para o tenant autenticado ──
+app.get('/api/modulos', verificarToken, (req, res) => {
+  const tid = req.restaurante_id || 1;
+  masterDb.all(`SELECT modulo_id, ativo_global, obrigatorios FROM modulo_sistemas`, [], (e, allModulos) => {
+    if (e) return res.status(500).json({ error: 'Erro ao buscar módulos.' });
+    masterDb.all(`SELECT modulo_id, ativo FROM tenant_modulos WHERE restaurante_id = ?`, [tid], (eT, tenantOver) => {
+      if (eT) return res.status(500).json({ error: 'Erro ao buscar overrides.' });
+      const overMap = {};
+      (tenantOver || []).forEach(o => { overMap[o.modulo_id] = o.ativo; });
+      const habilitados = (allModulos || []).filter(m => {
+        if (m.obrigatorios) return true;
+        if (overMap[m.modulo_id] !== undefined) return overMap[m.modulo_id] === 1;
+        return m.ativo_global === 1;
+      }).map(m => m.modulo_id);
+      res.json({ ok: true, modulos: habilitados });
+    });
+  });
 });
 
 // GET /api/super/commits — Lista os últimos 15 commits do repositório Git

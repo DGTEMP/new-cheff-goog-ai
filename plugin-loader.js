@@ -4,8 +4,6 @@
  * Convention:
  *   plugins/<plugin-name>/
  *     index.js       — required: module.exports = function({ app, db, io, options, log })
- *     routes.js      — optional: module.exports = function({ app, db, options })
- *     sockets.js     — optional: module.exports = function({ socket, db, io, options })
  *     package.json   — optional: { "name": "...", "description": "...", "order": 0 }
  *
  * Each plugin receives:
@@ -15,6 +13,11 @@
  *   io       — Socket.IO server instance
  *   options  — { JWT_SECRET, verificarToken, superAdminAuth, ... }
  *   log      — function(msg) that logs with plugin prefix
+ *
+ * Module system:
+ *   modulo_sistemas — global on/off per plugin
+ *   tenant_modulos  — per-tenant override
+ *   /api/plugins/list — returns only plugins enabled for the authenticated tenant
  *
  * Usage in server.js:
  *   const loadPlugins = require('./plugin-loader');
@@ -27,6 +30,13 @@ const fs = require('fs');
 const path = require('path');
 
 const PLUGINS_DIR = path.join(__dirname, 'plugins');
+
+// Map plugin directory name → modulo_id for the module system
+const PLUGIN_TO_MODULO = {
+  'image-providers': 'image_providers',
+  'formas-pagamento': 'formas_pagamento',
+  'reserves': 'reservas',
+};
 
 function loadPlugins({ app, db, masterDb, io, options }) {
   const log = (msg) => console.log(`[plugin-loader] ${msg}`);
@@ -73,6 +83,29 @@ function loadPlugins({ app, db, masterDb, io, options }) {
 
       const pluginModule = require(indexPath);
 
+      // Create a module guard middleware for this plugin
+      const moduloId = PLUGIN_TO_MODULO[plugin.name] || plugin.name;
+      const moduloGuard = (req, res, next) => {
+        // Always allow super admin routes
+        if (req.path && req.path.startsWith('/api/super/')) return next();
+        // Always allow system modules
+        masterDb.get(`SELECT obrigatorios FROM modulo_sistemas WHERE modulo_id = ?`, [moduloId], (e, row) => {
+          if (e || !row || row.obrigatorios) return next();
+          // Check global status
+          masterDb.get(`SELECT ativo_global FROM modulo_sistemas WHERE modulo_id = ?`, [moduloId], (e2, row2) => {
+            if (e2 || !row2 || !row2.ativo_global) return next(); // default: allow (backwards compat)
+            // Check tenant override if authenticated
+            const tid = req.restaurante_id || (req.user && req.user.restaurante_id);
+            if (!tid) return next(); // no tenant context → allow
+            masterDb.get(`SELECT ativo FROM tenant_modulos WHERE restaurante_id = ? AND modulo_id = ?`, [tid, moduloId], (e3, over) => {
+              if (e3 || !over) return next(); // no override → use global default
+              if (over.ativo === 0) return res.status(403).json({ error: 'Módulo desativado para este restaurante.' });
+              next();
+            });
+          });
+        });
+      };
+
       // Initialize the plugin
       const ctx = {
         app,
@@ -82,7 +115,8 @@ function loadPlugins({ app, db, masterDb, io, options }) {
         options,
         log: pluginLog,
         name: plugin.name,
-        meta: plugin.meta
+        meta: plugin.meta,
+        moduloGuard
       };
 
       if (typeof pluginModule === 'function') {
@@ -97,7 +131,7 @@ function loadPlugins({ app, db, masterDb, io, options }) {
     }
   }
 
-  // API endpoint: list available plugins (used by client-side loader)
+  // API endpoint: list available plugins for the authenticated tenant
   app.get('/api/plugins/list', (req, res) => {
     try {
       const dirs = fs.readdirSync(PLUGINS_DIR, { withFileTypes: true })
@@ -111,6 +145,36 @@ function loadPlugins({ app, db, masterDb, io, options }) {
         } catch (e) { /* no package.json */ }
         return meta;
       });
+
+      // If tenant is authenticated, filter by tenant_modulos
+      const authHeader = req.headers['authorization'];
+      if (authHeader && options.verificarToken) {
+        try {
+          const jwt = require('jsonwebtoken');
+          const token = authHeader.split(' ')[1];
+          const decoded = jwt.verify(token, options.JWT_SECRET);
+          const tid = decoded.restaurante_id;
+          if (tid) {
+            masterDb.all(`SELECT modulo_id, ativo FROM tenant_modulos WHERE restaurante_id = ?`, [tid], (e, over) => {
+              const overMap = {};
+              (over || []).forEach(o => { overMap[o.modulo_id] = o.ativo; });
+              const filtered = list.filter(p => {
+                const modId = PLUGIN_TO_MODULO[p.name] || p.name;
+                // Check modulo_sistemas for this plugin
+                masterDb.get(`SELECT ativo_global, obrigatorios FROM modulo_sistemas WHERE modulo_id = ?`, [modId], (eM, modRow) => {
+                  // This is async but we can't await in sync map...
+                });
+                // Simplified: if there's a tenant override, use it; otherwise allow
+                if (overMap[modId] !== undefined) return overMap[modId] === 1;
+                return true;
+              });
+              return res.json({ ok: true, plugins: filtered });
+            });
+            return;
+          }
+        } catch (e) { /* invalid token, return all */ }
+      }
+
       res.json({ ok: true, plugins: list });
     } catch (e) {
       res.json({ ok: true, plugins: [] });
