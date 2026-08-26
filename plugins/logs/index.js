@@ -1,0 +1,41 @@
+/**
+ * Plugin: logs
+ * Auditoria + API logs (routes + sockets)
+ */
+module.exports = function({ app, db, io, options, log }) {
+  const { verificarToken } = options;
+
+  log('Registering routes...');
+
+  app.get('/api/auditoria', verificarToken, (req, res) => {
+    db.all(`SELECT * FROM auditoria ORDER BY id DESC LIMIT 300`, [], (err, rows) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json(rows || []);
+    });
+  });
+
+  app.get('/api/logs-api', (req, res) => {
+    db.all(`SELECT * FROM api_logs ORDER BY id DESC LIMIT 300`, [], (err, rows) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json(rows || []);
+    });
+  });
+
+  log('Registering sockets...');
+
+  io.on('connection', (socket) => {
+    socket.on('get_api_logs', () => {
+      db.all(`SELECT * FROM api_logs ORDER BY id DESC LIMIT 300`, (err, rows) => {
+        socket.emit('api_logs_recebidos', rows || []);
+      });
+    });
+
+    socket.on('get_auditoria_logs', () => {
+      db.all(`SELECT * FROM auditoria ORDER BY id DESC LIMIT 200`, (err, rows) => {
+        socket.emit('auditoria_logs_recebidos', rows || []);
+      });
+    });
+  });
+
+  log('Routes + sockets registered.');
+};

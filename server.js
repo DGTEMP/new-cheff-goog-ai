@@ -4374,7 +4374,7 @@ if (deploymentConfig.isOnPremise()) {
 // ------------------------------
 
 // ═══ PLUGIN LOADER — carrega todos os plugins de plugins/ ═══
-const pluginOptions = { JWT_SECRET, verificarToken, superAdminAuth };
+const pluginOptions = { JWT_SECRET, verificarToken, superAdminAuth, withTenant, resolveTenantId, nfceService, activeSockets, getTempoConectadoStr };
 loadPlugins({ app, db, masterDb, io, options: pluginOptions });
 
 // ═══ NÚCLEO DE CRIAÇÃO DE PEDIDO (compartilhado socket + REST offline-sync) ═══
@@ -6523,9 +6523,7 @@ io.on('connection', (socket) => {
     });
   });
 
-  socket.on('get_formas_pagamento', () => {
-    broadcastFormasPagamento(socket);
-  });
+  // get_formas_pagamento → migrado para plugins/formas-pagamento/
 
   socket.on('get_ia_config', () => {
     socket.emit('ia_config_atualizada', {
@@ -6590,29 +6588,7 @@ io.on('connection', (socket) => {
     });
   });
 
-  socket.on('get_connected_devices', () => {
-    const deviceList = Array.from(activeSockets.values()).map(d => ({
-      ...d,
-      tempoConectadoStr: getTempoConectadoStr(d.connectedAt)
-    }));
-    // Enriquece com apelido/tipo persistidos (mesmo que a sessão tenha começado antes do cadastro)
-    const serials = [...new Set(deviceList.map(d => d.serial).filter(Boolean))];
-    if (!serials.length) return socket.emit('connected_devices', deviceList);
-    db.all(`SELECT serial, apelido, tipo, modo FROM dispositivos WHERE serial IN (${serials.map(() => '?').join(',')})`, serials, (err, rows) => {
-      if (!err && rows) {
-        const mapa = {};
-        rows.forEach(r => { mapa[r.serial] = r; });
-        deviceList.forEach(d => {
-          if (d.serial && mapa[d.serial]) {
-            d.apelido = d.apelido || mapa[d.serial].apelido || '';
-            d.tipo = d.tipo || mapa[d.serial].tipo || '';
-            d.modo = d.modo || mapa[d.serial].modo || 'normal';
-          }
-        });
-      }
-      socket.emit('connected_devices', deviceList);
-    });
-  });
+  // get_connected_devices → migrado para plugins/dispositivos/
 
   /* ── Modo Totem remoto: o dono transforma um Caixa/PDV em quiosque de auto-atendimento
      (com opção de tela invertida 180° para ficar de frente para o cliente) ── */
@@ -10377,17 +10353,7 @@ io.on('connection', (socket) => {
     });
   });
 
-  socket.on('get_api_logs', () => {
-    db.all(`SELECT * FROM api_logs ORDER BY id DESC LIMIT 300`, (err, rows) => {
-      socket.emit('api_logs_recebidos', rows || []);
-    });
-  });
-
-  socket.on('get_auditoria_logs', () => {
-    db.all(`SELECT * FROM auditoria ORDER BY id DESC LIMIT 200`, (err, rows) => {
-      socket.emit('auditoria_logs_recebidos', rows || []);
-    });
-  });
+  // get_api_logs + get_auditoria_logs → migrado para plugins/logs/
 
   // --- Módulo de Estoque (Mobile) ---
   socket.on('buscar_produto_por_codigo', (codigo) => {
@@ -11327,57 +11293,7 @@ app.get('/api/retro/taxa-servico', (req, res) => {
   });
 });
 
-// --- REST API NFC-E ---
-app.get('/api/nfce/notas', (req, res) => {
-  withTenant(req, () => {
-    db.all(`SELECT id, pedido_id, localName, cliente_nome, cpf_cnpj, valor_total, chave_acesso, numero_nota, serie, ambiente, status, protocolo, created_at FROM nfce_notas ORDER BY id DESC`, (err, rows) => {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json(rows || []);
-    });
-  });
-});
-
-app.get('/api/nfce/danfe/:id', (req, res) => {
-  withTenant(req, () => {
-    db.get(`SELECT * FROM nfce_notas WHERE id = ?`, [req.params.id], (err, nota) => {
-      if (err || !nota) return res.status(404).send('Nota Fiscal não encontrada');
-      db.all(`SELECT * FROM configuracoes`, (errCfg, rows) => {
-        const config = {};
-        if (rows) rows.forEach(r => config[r.chave] = r.valor);
-        const danfeHtml = nota.danfe_html || nfceService.gerarDANFEHTML(nota, config);
-        res.setHeader('Content-Type', 'text/html; charset=utf-8');
-        res.send(danfeHtml);
-      });
-    });
-  });
-});
-
-app.get('/api/nfce/xml/:id', (req, res) => {
-  withTenant(req, () => {
-    db.get(`SELECT * FROM nfce_notas WHERE id = ?`, [req.params.id], (err, nota) => {
-      if (err || !nota) return res.status(404).send('Nota Fiscal não encontrada');
-      db.all(`SELECT * FROM configuracoes`, (errCfg, rows) => {
-        const config = {};
-        if (rows) rows.forEach(r => config[r.chave] = r.valor);
-        const xml = nota.xml_content || nfceService.gerarXMLNFCe(nota, config);
-        res.setHeader('Content-Type', 'application/xml');
-        res.setHeader('Content-Disposition', `attachment; filename=NFCe_${nota.chave_acesso}.xml`);
-        res.send(xml);
-      });
-    });
-  });
-});
-
-app.post('/api/nfce/emitir', async (req, res) => {
-  withTenant(req, () => {
-    db.all(`SELECT * FROM configuracoes`, async (errConfig, configRows) => {
-      const config = {};
-      if (configRows) configRows.forEach(r => config[r.chave] = r.valor);
-      const result = await nfceService.emitirNFCe({ db, ...req.body, config });
-      res.json(result);
-    });
-  });
-});
+// --- REST API NFC-E → migrado para plugins/nfce/ ---
 
 // --- CONFIGS API ---
 app.get('/api/server-status', (req, res) => {
@@ -11413,140 +11329,12 @@ app.get('/api/server-status', (req, res) => {
 });
 
 
-// --- API FORMAS DE PAGAMENTO & CARTÕES ---
-app.get('/api/formas-pagamento', (req, res) => {
-  withTenant(req, () => {
-    db.all(`SELECT * FROM formas_pagamento ORDER BY ordem ASC, id ASC`, [], (err, rows) => {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json(rows || []);
-    });
-  });
-});
-
-app.post('/api/formas-pagamento', (req, res) => {
-  const { id, nome, tipo, taxa, prazo_dias, ativo, icone } = req.body || {};
-  if (!nome) return res.status(400).json({ error: 'Nome é obrigatório' });
-  const tid = resolveTenantId(req);
-
-  withTenant(req, () => {
-    if (id) {
-      db.run(
-        `UPDATE formas_pagamento SET nome = ?, tipo = ?, taxa = ?, prazo_dias = ?, ativo = ?, icone = ? WHERE id = ?`,
-        [nome, tipo || 'credito', parseFloat(taxa) || 0, parseInt(prazo_dias) || 0, ativo ? 1 : 0, icone || 'ph-credit-card', id],
-        function (err) {
-          if (err) return res.status(500).json({ error: err.message });
-          broadcastFormasPagamento(null, tid);
-          res.json({ success: true, id });
-        }
-      );
-    } else {
-      db.run(
-        `INSERT INTO formas_pagamento (nome, tipo, taxa, prazo_dias, ativo, icone) VALUES (?, ?, ?, ?, ?, ?)`,
-        [nome, tipo || 'credito', parseFloat(taxa) || 0, parseInt(prazo_dias) || 0, ativo !== undefined ? (ativo ? 1 : 0) : 1, icone || 'ph-credit-card'],
-        function (err) {
-          if (err) return res.status(500).json({ error: err.message });
-          const newId = this.lastID;
-          broadcastFormasPagamento(null, tid);
-          res.json({ success: true, id: newId });
-        }
-      );
-    }
-  });
-});
-
-app.post('/api/formas-pagamento/:id/toggle', (req, res) => {
-  const { id } = req.params;
-  const { ativo } = req.body || {};
-  const tid = resolveTenantId(req);
-  withTenant(req, () => {
-    db.run(`UPDATE formas_pagamento SET ativo = ? WHERE id = ?`, [ativo ? 1 : 0, id], function (err) {
-      if (err) return res.status(500).json({ error: err.message });
-      broadcastFormasPagamento(null, tid);
-      res.json({ success: true });
-    });
-  });
-});
-
-app.delete('/api/formas-pagamento/:id', (req, res) => {
-  const { id } = req.params;
-  const tid = resolveTenantId(req);
-  withTenant(req, () => {
-    db.get(`SELECT nome FROM formas_pagamento WHERE id = ?`, [id], (err, row) => {
-      if (err || !row) return res.status(404).json({ error: 'Forma de pagamento não encontrada.' });
-      db.get(`SELECT COUNT(*) as count FROM pedidos WHERE paymentMethod = ?`, [row.nome], (e, r) => {
-        if (!e && r && r.count > 0) {
-          return res.status(400).json({ error: `"${row.nome}" não pode ser excluído pois já foi utilizado em ${r.count} pedido(s). Apenas desative-o.` });
-        }
-        db.run(`DELETE FROM formas_pagamento WHERE id = ?`, [id], function (err2) {
-          if (err2) return res.status(500).json({ error: err2.message });
-          broadcastFormasPagamento(null, tid);
-          res.json({ success: true });
-        });
-      });
-    });
-  });
-});
+// --- API FORMAS DE PAGAMENTO → migrado para plugins/formas-pagamento/ ---
 
 
-// --- API AUDITORIA & LOGS ---
-app.get('/api/auditoria', verificarToken, (req, res) => {
-  db.all(`SELECT * FROM auditoria ORDER BY id DESC LIMIT 300`, [], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json(rows || []);
-  });
-});
+// --- API AUDITORIA & LOGS → migrado para plugins/logs/ ---
 
-app.get('/api/logs-api', (req, res) => {
-  db.all(`SELECT * FROM api_logs ORDER BY id DESC LIMIT 300`, [], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json(rows || []);
-  });
-});
-
-
-// --- API DE GERENCIAMENTO DE DISPOSITIVOS ---
-app.get('/api/dispositivos', verificarToken, (req, res) => {
-  const deviceList = Array.from(activeSockets.values()).map(d => ({
-    ...d,
-    tempoConectadoStr: getTempoConectadoStr(d.connectedAt)
-  }));
-  res.json(deviceList);
-});
-
-app.post('/api/dispositivos/:id/renomear', verificarToken, (req, res) => {
-  const { id } = req.params;
-  const { novoNome } = req.body || {};
-  if (!novoNome) return res.status(400).json({ error: 'Nome é obrigatório' });
-
-  const conn = activeSockets.get(id);
-  if (conn) {
-    conn.model = novoNome.trim();
-    conn.device = `${conn.model} (${conn.os} • ${conn.browser})`;
-    const targetSocket = io.sockets.sockets.get(id);
-    if (targetSocket) {
-      targetSocket.emit('apelido_atualizado_remoto', { apelido: novoNome.trim() });
-    }
-    io.emit('connected_devices_updated');
-    res.json({ success: true });
-  } else {
-    res.status(404).json({ error: 'Dispositivo não encontrado ou desconectado' });
-  }
-});
-
-app.post('/api/dispositivos/:id/desconectar', verificarToken, (req, res) => {
-  const { id } = req.params;
-  const targetSocket = io.sockets.sockets.get(id);
-  if (targetSocket) {
-    targetSocket.emit('sessao_derrubada_remotamente');
-    targetSocket.disconnect(true);
-    activeSockets.delete(id);
-    io.emit('connected_devices_updated');
-    res.json({ success: true });
-  } else {
-    activeSockets.delete(id);
-    res.json({ success: true });
-  }
-});
+// --- API DE GERENCIAMENTO DE DISPOSITIVOS → migrado para plugins/dispositivos/ ---
 
 
 // --- ROTA DE PEDIDOS DA FILA ---
