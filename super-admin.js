@@ -7845,3 +7845,134 @@ initSuperAdminSockets = function () {
   /* Pre-carregar equipe e restaurantes */
   setTimeout(carregarEquipeRestaurantes, 2000);
 })();
+
+/* ═══════════════════════════════════════════════════════════════
+   SUPER ADMIN — PLUGIN AUTOLOADER
+   Plugins com admin/ + manifest.json aparecem como abas no painel
+   ═══════════════════════════════════════════════════════════════ */
+(function() {
+  const _pluginTabsLoaded = {};
+  const _pluginTabInitFns = {};
+
+  function superAuthHeaders() {
+    return { 'Authorization': 'Bearer ' + (localStorage.getItem('super_token') || ''), 'Content-Type': 'application/json' };
+  }
+
+  function escPlugin(str) {
+    const d = document.createElement('div'); d.textContent = str || ''; return d.innerHTML;
+  }
+
+  async function discoverSuperAdminPlugins() {
+    try {
+      const r = await fetch('/api/plugins/admin-manifest', { headers: superAuthHeaders() });
+      const data = await r.json();
+      return (data.ok && Array.isArray(data.manifest)) ? data.manifest : [];
+    } catch (e) { return []; }
+  }
+
+  function findPluginsCategory() {
+    /* Find or create a "Plugins" menu category in the sidebar */
+    let cat = document.querySelector('.menu-categoria[data-cat="plugin-dynamic"]');
+    if (cat) return cat;
+    cat = document.createElement('div');
+    cat.className = 'menu-categoria';
+    cat.setAttribute('data-cat', 'plugin-dynamic');
+    cat.innerHTML = '<div class="cat-header"><i class="fa-solid fa-puzzle-piece"></i><span>Plugins Instalados</span><i class="fa-solid fa-chevron-down cat-seta"></i></div><div class="cat-itens"></div>';
+    const sidebar = document.querySelector('.super-admin-sidebar') || document.querySelector('.sidebar') || document.querySelector('.super-sidebar');
+    if (sidebar) {
+      sidebar.appendChild(cat);
+      /* Make category header collapsible */
+      const hdr = cat.querySelector('.cat-header');
+      if (hdr) {
+        hdr.style.cursor = 'pointer';
+        hdr.addEventListener('click', function() {
+          const itens = cat.querySelector('.cat-itens');
+          if (itens) itens.style.display = itens.style.display === 'none' ? 'block' : 'none';
+          const seta = cat.querySelector('.cat-seta');
+          if (seta) seta.style.transform = itens && itens.style.display === 'none' ? 'rotate(-90deg)' : '';
+        });
+      }
+    }
+    return cat;
+  }
+
+  function createSuperAdminPluginTab(plugin) {
+    const tabId = 'sec-plugin-' + plugin.id;
+    const sectionId = tabId;
+
+    /* Check if already exists */
+    if (document.getElementById(sectionId)) return;
+
+    /* 1. Create sidebar menu item */
+    const cat = findPluginsCategory();
+    const itens = cat.querySelector('.cat-itens');
+    if (itens) {
+      const mi = document.createElement('div');
+      mi.className = 'menu-item';
+      mi.setAttribute('data-target', sectionId);
+      mi.innerHTML = '<i class="fa-solid fa-puzzle-piece"></i><span>' + escPlugin(plugin.displayName || plugin.name) + '</span>';
+      mi.addEventListener('click', function() {
+        /* Activate tab */
+        document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
+        mi.classList.add('active');
+        document.querySelectorAll('.content-section').forEach(s => { s.classList.remove('active'); s.style.display = 'none'; });
+        const sec = document.getElementById(sectionId);
+        if (sec) { sec.classList.add('active'); sec.style.display = 'block'; }
+        loadPluginSection(plugin, sec);
+      });
+      itens.appendChild(mi);
+    }
+
+    /* 2. Create content section */
+    const sec = document.createElement('div');
+    sec.id = sectionId;
+    sec.className = 'content-section';
+    sec.style.display = 'none';
+    sec.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:300px;color:#94a3b8;"><i class="fa-solid fa-spinner fa-spin" style="font-size:24px;"></i></div>';
+    /* Insert before terminal section or at end */
+    const terminal = document.getElementById('sec-terminal');
+    if (terminal && terminal.parentNode) {
+      terminal.parentNode.insertBefore(sec, terminal);
+    } else {
+      const contentArea = document.querySelector('.main-content') || document.querySelector('.content-area');
+      if (contentArea) contentArea.appendChild(sec);
+    }
+  }
+
+  async function loadPluginSection(plugin, sec) {
+    if (_pluginTabsLoaded[plugin.id]) return;
+    _pluginTabsLoaded[plugin.id] = true;
+    try {
+      const r = await fetch(plugin.baseUrl + '/index.html');
+      if (!r.ok) throw new Error('HTML not found');
+      const html = await r.text();
+      sec.innerHTML = html;
+
+      const script = document.createElement('script');
+      script.src = plugin.baseUrl + '/index.js';
+      script.onload = function() {
+        const initFn = window['plugin_' + plugin.id + '_init'];
+        if (typeof initFn === 'function') {
+          try { initFn({ tab: sec, tabId: plugin.id, plugin: plugin }); } catch (e) { console.error('[super-admin-plugin] init error:', e); }
+        }
+      };
+      script.onerror = function() { console.warn('[super-admin-plugin] No index.js for ' + plugin.id); };
+      sec.appendChild(script);
+    } catch (e) {
+      sec.innerHTML = '<div style="padding:40px;text-align:center;color:#ef4444;">Erro ao carregar plugin: ' + escPlugin(e.message) + '</div>';
+    }
+  }
+
+  async function boot() {
+    const plugins = await discoverSuperAdminPlugins();
+    if (!plugins.length) return;
+    plugins.forEach(createSuperAdminPluginTab);
+    console.log('[super-admin-plugin-autoloader] ' + plugins.length + ' plugin tabs registered');
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() { setTimeout(boot, 500); });
+  } else {
+    setTimeout(boot, 500);
+  }
+})();
