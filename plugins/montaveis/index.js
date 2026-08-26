@@ -48,6 +48,15 @@ module.exports = function({ app, db, io, options, log }) {
 
   log('Registering routes...');
 
+  app.get('/api/config/produtos', verificarToken, (req, res) => {
+    withTenant(req, () => {
+      db.all(`SELECT id, nome, preco, emoji, categoria, visibilidade, status FROM produtos WHERE status != 'inativo' ORDER BY nome`, [], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(rows || []);
+      });
+    });
+  });
+
   app.get('/api/montaveis', verificarToken, (req, res) => {
     withTenant(req, () => {
       db.all(`SELECT m.*, p.nome AS produto_nome, p.emoji AS produto_emoji
