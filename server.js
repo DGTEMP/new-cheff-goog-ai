@@ -13994,6 +13994,11 @@ masterDb.serialize(() => {
     ['telemetria',     'Telemetria',         'Coleta e análise de dados operacionais',           'feature', 'fa-signal',            1, 0],
     ['cardapio',       'Cardápio Digital',   'Cardápio digital com QR Code',                     'feature', 'fa-book-open',         1, 0],
     ['tempo_real',     'Tempo Real',         'Atualização em tempo real dos pedidos',            'feature', 'fa-clock',             1, 0],
+    // Segment-specific modules (auto-activated per business model)
+    ['comandas',       'Comandas Digitais',   'Pedidos digitais para garçons e atendentes',       'segment', 'fa-clipboard-list',    1, 0],
+    ['cardapio_foto',  'Cardápio Fotográfico','Cardápio digital com fotos profissionais',         'segment', 'fa-camera',            1, 0],
+    ['producao',       'Painel de Produção',  'Dashboard de produção/cozinha em tempo real',      'segment', 'fa-kitchen-set',       1, 0],
+    ['fila_senhas',    'Fila & Senhas',       'Sistema de senhas e gerenciamento de fila',        'segment', 'fa-ticket',            1, 0],
   ];
   modulosSeed.forEach(m => {
     masterDb.run(`INSERT OR IGNORE INTO modulo_sistemas (modulo_id, nome, descricao, tipo, icone, ativo_global, obrigatorios) VALUES (?,?,?,?,?,?,?)`, m);
@@ -14082,6 +14087,71 @@ app.get('/api/modulos', verificarToken, (req, res) => {
       }).map(m => m.modulo_id);
       res.json({ ok: true, modulos: habilitados });
     });
+  });
+});
+
+// ── Mapeamento Modalidade → Módulos habilitados automaticamente ──
+const MODALIDADE_MODULOS = {
+  a_la_carte:  ['reservas', 'fidelidade', 'comandas', 'cardapio_foto', 'producao', 'formas_pagamento'],
+  pizzaria:    ['montaveis', 'reservas', 'fidelidade', 'delivery', 'cardapio_foto', 'producao', 'formas_pagamento'],
+  a_kilo:      ['balanca', 'reservas', 'fidelidade', 'cardapio_foto', 'producao', 'formas_pagamento'],
+  buffet:      ['reservas', 'fidelidade', 'comandas', 'cardapio_foto', 'formas_pagamento'],
+  lanchonete:  ['montaveis', 'delivery', 'totem', 'cardapio_foto', 'producao', 'formas_pagamento'],
+  bar:         ['reservas', 'fidelidade', 'comandas', 'cardapio_foto', 'formas_pagamento'],
+  balada:      ['reservas', 'fidelidade', 'comandas', 'cardapio_foto', 'fila_senhas', 'formas_pagamento'],
+  quiosque:    ['totem', 'fila_senhas', 'cardapio_foto', 'formas_pagamento'],
+  eventos:     ['reservas', 'fidelidade', 'comandas', 'cardapio_foto', 'producao', 'formas_pagamento'],
+};
+
+// GET /api/modalidade-modulos — Retorna os módulos sugeridos para uma modalidade
+app.get('/api/modalidade-modulos', verificarToken, (req, res) => {
+  const modalidade = String(req.query.modalidade || '').trim();
+  if (!modalidade || !MODALIDADE_MODULOS[modalidade]) {
+    return res.json({ ok: false, erro: 'Modalidade desconhecida.', modulos: [] });
+  }
+  res.json({ ok: true, modalidade, modulos: MODALIDADE_MODULOS[modalidade] });
+});
+
+// POST /api/config/modalidade — Salva modalidade + auto-ativa módulos para o tenant
+app.post('/api/config/modalidade', verificarToken, (req, res) => {
+  const tid = req.restaurante_id || 1;
+  const modalidade = String((req.body && req.body.modalidade) || '').trim();
+  if (!modalidade || !MODALIDADE_MODULOS[modalidade]) {
+    return res.status(400).json({ ok: false, erro: 'Modalidade inválida.' });
+  }
+  const modulosSugeridos = MODALIDADE_MODULOS[modalidade];
+
+  // 1. Salva rest_modalidade nas configurações do tenant
+  withTenant(req, () => {
+    db.run(`INSERT INTO configuracoes (chave, valor) VALUES ('rest_modalidade', ?)
+            ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor`, [modalidade], function(errCfg) {
+      if (errCfg) console.error('[modalidade] Erro ao salvar config:', errCfg.message);
+    });
+  });
+
+  // 2. Auto-ativa módulos sugeridos no tenant_modulos (INSERT OR REPLACE)
+  let pending = modulosSugeridos.length;
+  if (!pending) return res.json({ ok: true, modalidade, ativados: 0 });
+
+  const ativados = [];
+  modulosSugeridos.forEach(modId => {
+    // Garante que o módulo existe na tabela global
+    masterDb.run(`INSERT OR IGNORE INTO modulo_sistemas (modulo_id, nome, descricao, tipo, icone, ativo_global, obrigatorios)
+                  VALUES (?, ?, ?, 'feature', 'fa-puzzle-piece', 1, 0)`,
+      [modId, modId, 'Módulo ativado automaticamente por modalidade'], function() {
+        // Ativa para este tenant
+        masterDb.run(`INSERT INTO tenant_modulos (restaurante_id, modulo_id, ativo, atualizado_em)
+                      VALUES (?, ?, 1, datetime('now','localtime'))
+                      ON CONFLICT(restaurante_id, modulo_id) DO UPDATE SET ativo = 1, atualizado_em = datetime('now','localtime')`,
+          [tid, modId], function(errT) {
+            if (!errT) ativados.push(modId);
+            if (--pending === 0) {
+              console.log(`[modalidade] Tenant ${tid}: modalidade="${modalidade}" → ${ativados.length} módulos ativados`);
+              if (io) io.to(`super_admin`).emit('modulo_tenant_atualizado', { restaurante_id: tid, modalidade, ativados });
+              res.json({ ok: true, modalidade, ativados });
+            }
+          });
+      });
   });
 });
 

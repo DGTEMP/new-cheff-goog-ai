@@ -1058,8 +1058,8 @@ function renderizarModulosCards() {
   var modulos = window._modulosData;
   var html = '';
   modulos.forEach(function(m) {
-    var tipoLabel = m.tipo === 'system' ? 'Sistema' : m.tipo === 'plugin' ? 'Plugin' : 'Feature';
-    var tipoColor = m.tipo === 'system' ? '#6b7280' : m.tipo === 'plugin' ? '#a855f7' : '#3b82f6';
+    var tipoLabel = m.tipo === 'system' ? 'Sistema' : m.tipo === 'plugin' ? 'Plugin' : m.tipo === 'segment' ? 'Segmento' : 'Feature';
+    var tipoColor = m.tipo === 'system' ? '#6b7280' : m.tipo === 'plugin' ? '#a855f7' : m.tipo === 'segment' ? '#f59e0b' : '#3b82f6';
     var ativoBadge = m.ativo_global ? '<span class="badge badge-ativo" id="mod-status-' + m.modulo_id + '">Ativo</span>'
       : '<span class="badge badge-bloqueado" id="mod-status-' + m.modulo_id + '">Inativo</span>';
     var obrigTag = m.obrigatorios ? ' <span style="font-size:0.7rem;color:#ef4444;">(obrigatório)</span>' : '';
@@ -1094,7 +1094,7 @@ function carregarMatrizModulos() {
     var headerHtml = '<th style="text-align:left;padding:10px;position:sticky;left:0;background:var(--bg-card);z-index:2;min-width:180px;">Restaurante</th>';
     modulos.forEach(function(m) {
       headerHtml += '<th style="padding:10px;text-align:center;min-width:90px;white-space:nowrap;">'
-        + '<i class="fa-solid ' + (m.icone || 'fa-puzzle-piece') + '" style="color:' + (m.tipo === 'plugin' ? '#a855f7' : '#3b82f6') + ';"></i><br>'
+        + '<i class="fa-solid ' + (m.icone || 'fa-puzzle-piece') + '" style="color:' + (m.tipo === 'plugin' ? '#a855f7' : m.tipo === 'segment' ? '#f59e0b' : '#3b82f6') + ';"></i><br>'
         + '<span style="font-size:0.75rem;">' + m.nome + '</span></th>';
     });
     header.innerHTML = headerHtml;

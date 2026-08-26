@@ -7190,6 +7190,16 @@ document.getElementById('btn-salvar-rest-perfil').onclick = () => {
     'rest_dias_funcionamento': JSON.stringify(dias),
   };
   socket.emit('save_restaurante_config', config);
+
+  /* Auto-ativa módulos da modalidade ao salvar perfil */
+  const novaModalidade = config['rest_modalidade'] || 'a_la_carte';
+  fetch('/api/config/modalidade', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(typeof authHeaders === 'function' ? authHeaders() : {}) },
+    body: JSON.stringify({ modalidade: novaModalidade })
+  }).then(r => r.json()).then(d => {
+    if (d.ok) showToast('Módulos da modalidade "' + novaModalidade + '" ativados (' + (d.ativados || []).length + ' itens).', 'success');
+  }).catch(() => {});
 };
 
 socket.on('restaurante_config_salvo', () => {

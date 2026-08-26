@@ -2724,6 +2724,31 @@ document.addEventListener('DOMContentLoaded', () => {
     el.classList.add('selected');
     window.selectedOnboardingModality = el.getAttribute('data-modalidade');
     document.getElementById('btn-onboarding-confirm').removeAttribute('disabled');
+
+    /* Busca e exibe módulos sugeridos para a modalidade */
+    const preview = document.getElementById('onboarding-modulos-preview');
+    const list = document.getElementById('onboarding-modulos-list');
+    if (preview && list && window.selectedOnboardingModality) {
+      fetch('/api/modalidade-modulos?modalidade=' + encodeURIComponent(window.selectedOnboardingModality))
+        .then(r => r.json())
+        .then(d => {
+          if (d.ok && d.modulos && d.modulos.length) {
+            const nomes = {
+              reservas:'Reservas', fidelidade:'Fidelidade', montaveis:'Itens Montáveis',
+              delivery:'Delivery', totem:'Totem', balanca:'Balança', comandas:'Comandas Digitais',
+              cardapio_foto:'Cardápio Fotográfico', producao:'Painel de Produção',
+              fila_senhas:'Fila & Senhas', formas_pagamento:'Formas de Pagamento',
+            };
+            list.innerHTML = d.modulos.map(m => {
+              const nome = nomes[m] || m.replace(/_/g, ' ');
+              return '<span style="display:inline-flex; align-items:center; gap:4px; padding:4px 10px; background:rgba(252,75,21,0.12); border:1px solid rgba(252,75,21,0.3); border-radius:20px; font-size:11px; font-weight:600; color:#fc4b15;"><i class="ph-bold ph-check" style="font-size:12px;"></i>' + nome + '</span>';
+            }).join('');
+            preview.style.display = 'block';
+          } else {
+            preview.style.display = 'none';
+          }
+        }).catch(() => { preview.style.display = 'none'; });
+    }
   };
 
   window.confirmOnboardingModality = function() {
@@ -2750,12 +2775,33 @@ document.addEventListener('DOMContentLoaded', () => {
         'rest_modalidade': window.selectedOnboardingModality
       })
     }).then(r => r.json()).then(() => {
+      /* Auto-ativa módulos da modalidade escolhida */
+      fetch('/api/config/modalidade', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(typeof authHeaders === 'function' ? authHeaders() : {}) },
+        body: JSON.stringify({ modalidade: window.selectedOnboardingModality })
+      }).catch(() => {});
+
+      /* Atualiza pdvConfigs local para o wizard usar a modalidade correta */
+      window.pdvConfigs = window.pdvConfigs || {};
+      window.pdvConfigs.rest_modalidade = window.selectedOnboardingModality;
+
       const modal = document.getElementById('onboarding-modal');
       if (modal) modal.classList.add('hidden');
       if (window.onModalityLoaded) window.onModalityLoaded(window.selectedOnboardingModality);
       /* Abre o wizard de configuração após selecionar modalidade */
       setTimeout(() => window.showWizard(), 400);
     }).catch(() => {
+      /* Auto-ativa módulos mesmo em caso de erro do config */
+      fetch('/api/config/modalidade', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(typeof authHeaders === 'function' ? authHeaders() : {}) },
+        body: JSON.stringify({ modalidade: window.selectedOnboardingModality })
+      }).catch(() => {});
+
+      window.pdvConfigs = window.pdvConfigs || {};
+      window.pdvConfigs.rest_modalidade = window.selectedOnboardingModality;
+
       const modal = document.getElementById('onboarding-modal');
       if (modal) modal.classList.add('hidden');
       setTimeout(() => window.showWizard(), 400);
@@ -2899,6 +2945,21 @@ let _wizardModoMesas = 'exemplos'; /* 'exemplos' | 'zero' */
         'buffet': [
           { categoria: 'Rodízio', nome: 'Rodízio Almoço', preco: 59.90, emoji: '🍽️' },
           { categoria: 'Bebidas', nome: 'Suco ilimitado', preco: 15.90, emoji: '🧃' }
+        ],
+        'balada': [
+          { categoria: 'Drinks', nome: 'Long Island', preco: 28.90, emoji: '🍹' },
+          { categoria: 'Bebidas', nome: 'Chopp Duplo', preco: 22.90, emoji: '🍺' },
+          { categoria: 'Porções', nome: 'Porção de Fritas', preco: 34.90, emoji: '🍟' }
+        ],
+        'quiosque': [
+          { categoria: 'Lanches', nome: 'Sanduíche Natural', preco: 14.90, emoji: '🥪' },
+          { categoria: 'Bebidas', nome: 'Água Mineral', preco: 5.90, emoji: '💧' },
+          { categoria: 'Doces', nome: 'Açaí 500ml', preco: 18.90, emoji: '🫐' }
+        ],
+        'eventos': [
+          { categoria: 'Fichas', nome: 'Ficha de Consumo', preco: 10.00, emoji: '🎟️' },
+          { categoria: 'Pratos', nome: 'Prato Executivo', preco: 39.90, emoji: '🍽️' },
+          { categoria: 'Bebidas', nome: 'Refrigerante Lata', preco: 8.90, emoji: '🥤' }
         ]
       };
       _wizardProdutos = (sugestoes[mod] || sugestoes['a_la_carte']).map(p => ({ ...p }));
