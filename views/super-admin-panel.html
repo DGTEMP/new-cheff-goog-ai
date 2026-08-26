@@ -52,6 +52,11 @@
                 <i class="fa-solid fa-headset"></i>
                 <span>Equipe de Suporte</span>
               </div>
+              <div class="menu-item" data-target="sec-tarefas">
+                <i class="fa-solid fa-list-check"></i>
+                <span>Tarefas</span>
+                <span class="menu-badge" id="tarefas-badge" style="display:none;background:#f59e0b;color:#fff;font-size:0.6rem;padding:2px 7px;border-radius:99px;font-weight:700;">0</span>
+              </div>
               <div class="menu-item" data-target="sec-afiliados" id="menu-item-afiliados">
                 <i class="fa-solid fa-handshake"></i>
                 <span>Afiliados & Parceiros</span>
@@ -2866,6 +2871,115 @@
 
         </div>
 
+        <!-- ════ SEÇÃO: TAREFAS DE SUPORTE ════ -->
+        <div class="content-section" id="sec-tarefas">
+          <div style="padding:20px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
+              <div>
+                <h2 style="margin-bottom:6px;"><i class="fa-solid fa-list-check"></i> Tarefas de Suporte</h2>
+                <p style="color:#999;font-size:13px;">Atribua tarefas para a equipe de suporte e acompanhe o progresso em tempo real.</p>
+              </div>
+              <button onclick="superAdmin.abrirModalTarefa()" style="padding:10px 20px; background:var(--primary); color:#fff; border:none; border-radius:8px; font-weight:700; cursor:pointer; font-size:13px;">
+                <i class="fa-solid fa-plus"></i> Nova Tarefa
+              </button>
+            </div>
+
+            <!-- KPI Cards -->
+            <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:12px; margin-bottom:20px;">
+              <div style="background:var(--card-bg); border:1px solid var(--border); border-radius:12px; padding:14px; text-align:center;">
+                <div style="font-size:10px; font-weight:700; text-transform:uppercase; color:var(--text-muted);">Pendentes</div>
+                <div id="tarefa-stat-pendente" style="font-size:24px; font-weight:800; color:#f59e0b;">0</div>
+              </div>
+              <div style="background:var(--card-bg); border:1px solid var(--border); border-radius:12px; padding:14px; text-align:center;">
+                <div style="font-size:10px; font-weight:700; text-transform:uppercase; color:var(--text-muted);">Atribuídas</div>
+                <div id="tarefa-stat-atribuida" style="font-size:24px; font-weight:800; color:#3b82f6;">0</div>
+              </div>
+              <div style="background:var(--card-bg); border:1px solid var(--border); border-radius:12px; padding:14px; text-align:center;">
+                <div style="font-size:10px; font-weight:700; text-transform:uppercase; color:var(--text-muted);">Em Andamento</div>
+                <div id="tarefa-stat-em_andamento" style="font-size:24px; font-weight:800; color:#8b5cf6;">0</div>
+              </div>
+              <div style="background:var(--card-bg); border:1px solid var(--border); border-radius:12px; padding:14px; text-align:center;">
+                <div style="font-size:10px; font-weight:700; text-transform:uppercase; color:var(--text-muted);">Concluídas</div>
+                <div id="tarefa-stat-concluida" style="font-size:24px; font-weight:800; color:#10b981;">0</div>
+              </div>
+            </div>
+
+            <!-- Filtros -->
+            <div style="display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap;">
+              <button onclick="superAdmin.filtrarTarefas('')" class="tarefa-filtro-btn active" style="padding:6px 14px; border:1px solid var(--border); border-radius:8px; background:var(--primary); color:#fff; font-size:12px; font-weight:700; cursor:pointer;">Todas</button>
+              <button onclick="superAdmin.filtrarTarefas('pendente')" class="tarefa-filtro-btn" style="padding:6px 14px; border:1px solid var(--border); border-radius:8px; background:var(--card-bg); color:var(--text); font-size:12px; font-weight:700; cursor:pointer;">Pendentes</button>
+              <button onclick="superAdmin.filtrarTarefas('atribuida')" class="tarefa-filtro-btn" style="padding:6px 14px; border:1px solid var(--border); border-radius:8px; background:var(--card-bg); color:var(--text); font-size:12px; font-weight:700; cursor:pointer;">Atribuídas</button>
+              <button onclick="superAdmin.filtrarTarefas('em_andamento')" class="tarefa-filtro-btn" style="padding:6px 14px; border:1px solid var(--border); border-radius:8px; background:var(--card-bg); color:var(--text); font-size:12px; font-weight:700; cursor:pointer;">Em Andamento</button>
+              <button onclick="superAdmin.filtrarTarefas('concluida')" class="tarefa-filtro-btn" style="padding:6px 14px; border:1px solid var(--border); border-radius:8px; background:var(--card-bg); color:var(--text); font-size:12px; font-weight:700; cursor:pointer;">Concluídas</button>
+            </div>
+
+            <!-- Lista de Tarefas -->
+            <div id="tarefas-lista" style="display:flex; flex-direction:column; gap:10px;">
+              <div style="text-align:center; padding:40px; color:#999;">Carregando tarefas...</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- MODAL: Criar/Editar Tarefa -->
+        <div id="modal-tarefa" style="display:none; position:fixed; inset:0; z-index:10000; background:rgba(0,0,0,0.6); backdrop-filter:blur(4px); align-items:center; justify-content:center;">
+          <div style="background:var(--card-bg, #1e293b); border-radius:16px; padding:24px; width:95%; max-width:560px; max-height:90vh; overflow-y:auto;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+              <h3 id="tarefa-modal-title" style="margin:0; color:var(--text, #f8fafc);">Nova Tarefa</h3>
+              <button onclick="document.getElementById('modal-tarefa').style.display='none'" style="background:rgba(255,255,255,0.1); border:none; width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:16px; color:var(--text);">&times;</button>
+            </div>
+            <input type="hidden" id="tarefa-edit-id" value="">
+            <div style="display:flex; flex-direction:column; gap:14px;">
+              <div>
+                <label style="font-size:12px; font-weight:700; color:var(--text-muted); display:block; margin-bottom:4px;">Título *</label>
+                <input type="text" id="tarefa-titulo" placeholder="Ex: Configurar dominio para Pizzaria XYZ" style="width:100%; padding:10px; border:1.5px solid var(--border); border-radius:8px; font-size:14px; background:var(--input-bg, #0f172a); color:var(--text); box-sizing:border-box;">
+              </div>
+              <div>
+                <label style="font-size:12px; font-weight:700; color:var(--text-muted); display:block; margin-bottom:4px;">Descrição</label>
+                <textarea id="tarefa-descricao" rows="3" placeholder="Detalhes da tarefa..." style="width:100%; padding:10px; border:1.5px solid var(--border); border-radius:8px; font-size:14px; background:var(--input-bg, #0f172a); color:var(--text); resize:vertical; box-sizing:border-box;"></textarea>
+              </div>
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                <div>
+                  <label style="font-size:12px; font-weight:700; color:var(--text-muted); display:block; margin-bottom:4px;">Prioridade</label>
+                  <select id="tarefa-prioridade" style="width:100%; padding:10px; border:1.5px solid var(--border); border-radius:8px; font-size:14px; background:var(--input-bg, #0f172a); color:var(--text);">
+                    <option value="baixa">Baixa</option>
+                    <option value="normal" selected>Normal</option>
+                    <option value="alta">Alta</option>
+                    <option value="urgente">Urgente</option>
+                  </select>
+                </div>
+                <div>
+                  <label style="font-size:12px; font-weight:700; color:var(--text-muted); display:block; margin-bottom:4px;">Categoria</label>
+                  <select id="tarefa-categoria" style="width:100%; padding:10px; border:1.5px solid var(--border); border-radius:8px; font-size:14px; background:var(--input-bg, #0f172a); color:var(--text);">
+                    <option value="geral">Geral</option>
+                    <option value="configuracao">Configuração</option>
+                    <option value="dominio">Domínio</option>
+                    <option value="backup">Backup</option>
+                    <option value="bug">Bug</option>
+                    <option value="treinamento">Treinamento</option>
+                  </select>
+                </div>
+              </div>
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                <div>
+                  <label style="font-size:12px; font-weight:700; color:var(--text-muted); display:block; margin-bottom:4px;">Atribuir para</label>
+                  <select id="tarefa-atribuido" style="width:100%; padding:10px; border:1.5px solid var(--border); border-radius:8px; font-size:14px; background:var(--input-bg, #0f172a); color:var(--text);">
+                    <option value="">Não atribuir ainda</option>
+                  </select>
+                </div>
+                <div>
+                  <label style="font-size:12px; font-weight:700; color:var(--text-muted); display:block; margin-bottom:4px;">Restaurante</label>
+                  <select id="tarefa-restaurante" style="width:100%; padding:10px; border:1.5px solid var(--border); border-radius:8px; font-size:14px; background:var(--input-bg, #0f172a); color:var(--text);">
+                    <option value="">Nenhum</option>
+                  </select>
+                </div>
+              </div>
+              <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:8px;">
+                <button onclick="document.getElementById('modal-tarefa').style.display='none'" style="padding:10px 20px; background:rgba(255,255,255,0.06); color:#94a3b8; border:1px solid rgba(255,255,255,0.08); border-radius:10px; font-weight:600; cursor:pointer; font-size:14px;">Cancelar</button>
+                <button onclick="superAdmin.salvarTarefa()" style="padding:10px 24px; background:var(--primary); color:white; border:none; border-radius:10px; font-weight:700; cursor:pointer; font-size:14px;">Salvar</button>
+              </div>
+            </div>
+          </div>
+        </div>
 
         <!-- ════ SEÇÃO: AFILIADOS & PARCEIROS DE VENDAS ════ -->
         <div class="content-section" id="sec-afiliados">
@@ -4127,9 +4241,23 @@
                   </div>
                 </div>
 
-                <div style="display:flex;gap:10px;margin-top:1.5rem;">
+                <!-- Seletor de Escopo: Global ou Por Tenant -->
+                <div style="display:flex;align-items:center;gap:12px;margin-top:1.5rem;padding:12px 16px;background:rgba(236,72,153,0.08);border:1px solid rgba(236,72,153,0.2);border-radius:10px;flex-wrap:wrap;">
+                  <span style="font-size:12px;font-weight:700;color:#ec4899;white-space:nowrap;"><i class="fa-solid fa-crosshairs"></i> Aplicar tema em:</span>
+                  <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:var(--text);">
+                    <input type="radio" name="theme-scope" value="global" checked style="cursor:pointer;"> Todos os restaurantes
+                  </label>
+                  <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:var(--text);">
+                    <input type="radio" name="theme-scope" value="tenant" style="cursor:pointer;"> Restaurante específico
+                  </label>
+                  <select id="theme-scope-tenant" style="display:none;padding:6px 10px;border:1px solid var(--border);border-radius:8px;font-size:12px;background:var(--bg-card);color:var(--text);min-height:32px;">
+                    <option value="">Selecione...</option>
+                  </select>
+                </div>
+
+                <div style="display:flex;gap:10px;margin-top:1rem;">
                   <button class="btn-action btn-primary-action" onclick="salvarTemaCustomGlobal()" style="flex:1;background:linear-gradient(135deg,#ec4899,#d946ef);color:white;">
-                    <i class="fa-solid fa-floppy-disk"></i> Salvar e Aplicar Globalmente
+                    <i class="fa-solid fa-floppy-disk"></i> Salvar e Aplicar Tema
                   </button>
                   <button class="btn-action" onclick="restaurarTemaPadraoGlobal()" style="background:rgba(255,255,255,0.1);color:white;">
                     <i class="fa-solid fa-rotate-left"></i> Restaurar Padrão

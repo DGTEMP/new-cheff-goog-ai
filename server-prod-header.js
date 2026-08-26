@@ -853,11 +853,25 @@ app.post('/api/super/theme-custom', superAdminAuth, (req, res) => {
 
 // Tema Global publico: leitura apenas de cores/fontes (sem dados sensiveis)
 app.get('/api/public/theme', (req, res) => {
-  masterDb.get("SELECT valor FROM configuracoes_global WHERE chave = 'custom_theme'", [], (err, row) => {
-    if (err || !row || !row.valor) return res.json({ ok: true, theme: null });
-    try { return res.json({ ok: true, theme: JSON.parse(row.valor) }); }
-    catch (e) { return res.json({ ok: true, theme: null }); }
-  });
+  const tid = req.query.restaurante_id;
+  if (tid) {
+    masterDb.get("SELECT tema_json FROM tenant_temas WHERE restaurante_id = ?", [tid], (err, tRow) => {
+      if (!err && tRow && tRow.tema_json) {
+        try { return res.json({ ok: true, theme: JSON.parse(tRow.tema_json), source: 'tenant' }); } catch (e) {}
+      }
+      masterDb.get("SELECT valor FROM configuracoes_global WHERE chave = 'custom_theme'", [], (err2, row) => {
+        if (err2 || !row || !row.valor) return res.json({ ok: true, theme: null, source: 'default' });
+        try { return res.json({ ok: true, theme: JSON.parse(row.valor), source: 'global' }); }
+        catch (e) { return res.json({ ok: true, theme: null, source: 'default' }); }
+      });
+    });
+  } else {
+    masterDb.get("SELECT valor FROM configuracoes_global WHERE chave = 'custom_theme'", [], (err, row) => {
+      if (err || !row || !row.valor) return res.json({ ok: true, theme: null });
+      try { return res.json({ ok: true, theme: JSON.parse(row.valor) }); }
+      catch (e) { return res.json({ ok: true, theme: null }); }
+    });
+  }
 });
 
 app.get('/api/super/certs', superAdminAuth, (req, res) => {

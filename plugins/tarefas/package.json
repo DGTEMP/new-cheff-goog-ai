@@ -1,0 +1,6 @@
+{
+  "name": "tarefas",
+  "version": "1.0.0",
+  "description": "Sistema de tarefas: Super Admin atribui → Suporte executa → Status rastreado",
+  "order": 3
+}

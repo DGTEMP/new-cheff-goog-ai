@@ -2267,23 +2267,73 @@ app.post('/api/super/config-global', superAdminAuth, (req, res) => {
 // Tema Global: salva config e propaga em tempo real para todos os clientes conectados
 app.post('/api/super/theme-custom', superAdminAuth, (req, res) => {
   const theme = req.body && req.body.theme;
+  const alvo = req.body && req.body.alvo; // 'global' | 'tenant' | 'tenant_ids:1,2,3'
   if (!theme || typeof theme !== 'object' || !Object.keys(theme).length) {
     return res.json({ ok: false, erro: 'Tema inválido.' });
   }
   const valor = JSON.stringify(theme);
-  masterDb.run("INSERT INTO configuracoes_global (chave, valor) VALUES ('custom_theme', ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor", [valor], (err) => {
-    if (err) return res.json({ ok: false, erro: err.message });
-    try { io.emit('tema_global_atualizado', theme); } catch (e) { }
-    res.json({ ok: true, mensagem: 'Tema Global salvo e propagado em tempo real!' });
-  });
+
+  if (!alvo || alvo === 'global') {
+    masterDb.run("INSERT INTO configuracoes_global (chave, valor) VALUES ('custom_theme', ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor", [valor], (err) => {
+      if (err) return res.json({ ok: false, erro: err.message });
+      try { io.emit('tema_global_atualizado', theme); } catch (e) { }
+      res.json({ ok: true, mensagem: 'Tema Global salvo e propagado em tempo real!' });
+    });
+  } else if (alvo === 'tenant') {
+    const tid = req.body.restaurante_id;
+    if (!tid) return res.json({ ok: false, erro: 'restaurante_id obrigatório.' });
+    masterDb.run(
+      `INSERT INTO tenant_temas (restaurante_id, tema_json) VALUES (?, ?)
+       ON CONFLICT(restaurante_id) DO UPDATE SET tema_json = excluded.tema_json, atualizado_em = datetime('now','localtime')`,
+      [tid, valor], (err) => {
+        if (err) return res.json({ ok: false, erro: err.message });
+        io.emit('tema_tenant_atualizado', { restaurante_id: tid, theme });
+        res.json({ ok: true, mensagem: 'Tema do restaurante #' + tid + ' salvo!' });
+      }
+    );
+  } else if (alvo === 'tenant_ids') {
+    const ids = (req.body.restaurante_ids || []).filter(Boolean);
+    if (!ids.length) return res.json({ ok: false, erro: 'Nenhum restaurante selecionado.' });
+    const stmt = masterDb.prepare(
+      `INSERT INTO tenant_temas (restaurante_id, tema_json) VALUES (?, ?)
+       ON CONFLICT(restaurante_id) DO UPDATE SET tema_json = excluded.tema_json, atualizado_em = datetime('now','localtime')`
+    );
+    ids.forEach(id => { stmt.run(id, valor); });
+    stmt.finalize();
+    res.json({ ok: true, mensagem: 'Tema aplicado em ' + ids.length + ' restaurante(s)!' });
+  }
 });
 
 // Tema Global público: leitura apenas de cores/fontes (sem dados sensíveis)
 app.get('/api/public/theme', (req, res) => {
-  masterDb.get("SELECT valor FROM configuracoes_global WHERE chave = 'custom_theme'", [], (err, row) => {
-    if (err || !row || !row.valor) return res.json({ ok: true, theme: null });
-    try { return res.json({ ok: true, theme: JSON.parse(row.valor) }); }
-    catch (e) { return res.json({ ok: true, theme: null }); }
+  const tid = req.query.restaurante_id;
+  /* Se restaurante_id fornecido, verificar override do tenant primeiro */
+  if (tid) {
+    masterDb.get("SELECT tema_json FROM tenant_temas WHERE restaurante_id = ?", [tid], (err, tRow) => {
+      if (!err && tRow && tRow.tema_json) {
+        try { return res.json({ ok: true, theme: JSON.parse(tRow.tema_json), source: 'tenant' }); } catch (e) {}
+      }
+      /* Fallback para tema global */
+      masterDb.get("SELECT valor FROM configuracoes_global WHERE chave = 'custom_theme'", [], (err2, row) => {
+        if (err2 || !row || !row.valor) return res.json({ ok: true, theme: null, source: 'default' });
+        try { return res.json({ ok: true, theme: JSON.parse(row.valor), source: 'global' }); }
+        catch (e) { return res.json({ ok: true, theme: null, source: 'default' }); }
+      });
+    });
+  } else {
+    masterDb.get("SELECT valor FROM configuracoes_global WHERE chave = 'custom_theme'", [], (err, row) => {
+      if (err || !row || !row.valor) return res.json({ ok: true, theme: null });
+      try { return res.json({ ok: true, theme: JSON.parse(row.valor) }); }
+      catch (e) { return res.json({ ok: true, theme: null }); }
+    });
+  }
+});
+
+// GET /api/super/tenant-temas — Listar todos os tenants com tema próprio
+app.get('/api/super/tenant-temas', superAdminAuth, (req, res) => {
+  masterDb.all(`SELECT restaurante_id, tema_json, atualizado_em FROM tenant_temas ORDER BY atualizado_em DESC`, [], (err, rows) => {
+    if (err) return res.json({ ok: false, erro: err.message });
+    res.json({ ok: true, temas: rows || [] });
   });
 });
 
@@ -13982,6 +14032,31 @@ masterDb.serialize(() => {
     ativo INTEGER DEFAULT 1,
     atualizado_em DATETIME DEFAULT (datetime('now','localtime')),
     PRIMARY KEY (restaurante_id, modulo_id)
+  )`);
+
+  // ═══ TABELA: Tarefas de Suporte ═══
+  masterDb.run(`CREATE TABLE IF NOT EXISTS tarefas_suporte (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    titulo TEXT NOT NULL,
+    descricao TEXT DEFAULT '',
+    prioridade TEXT DEFAULT 'normal',
+    status TEXT DEFAULT 'pendente',
+    criado_por TEXT DEFAULT 'super_admin',
+    atribuido_a TEXT DEFAULT '',
+    restaurante_id INTEGER,
+    categoria TEXT DEFAULT 'geral',
+    resposta TEXT DEFAULT '',
+    criado_em DATETIME DEFAULT (datetime('now','localtime')),
+    atualizado_em DATETIME DEFAULT (datetime('now','localtime')),
+    atribuido_em DATETIME,
+    concluido_em DATETIME
+  )`);
+
+  // ═══ TABELA: Temas por Tenant ═══
+  masterDb.run(`CREATE TABLE IF NOT EXISTS tenant_temas (
+    restaurante_id INTEGER PRIMARY KEY,
+    tema_json TEXT NOT NULL,
+    atualizado_em DATETIME DEFAULT (datetime('now','localtime'))
   )`);
 
   // Seeds: módulos do sistema (system = sempre ativo; plugin/feature = controlável)

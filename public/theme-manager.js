@@ -321,7 +321,7 @@
       if (cached) applyCustomTheme(JSON.parse(cached));
     } catch (e) { }
 
-    fetch('/api/public/theme')
+    fetch('/api/public/theme?restaurante_id=' + encodeURIComponent(localStorage.getItem('restaurante_id') || '1'))
       .then(function (res) { return res.json(); })
       .then(function (data) {
         if (data && data.ok && data.theme) {

@@ -6250,12 +6250,25 @@ window.atualizarCampoCoringa = function() {
 
 window.salvarTemaCustomGlobal = function() {
   var cfg = window.obterConfigTemaDosInputs();
-  apiPost('/api/super/theme-custom', { theme: cfg }, function(err, data) {
+  var scope = 'global';
+  var tenantId = null;
+  var tenantIds = null;
+  var radios = document.querySelectorAll('input[name="theme-scope"]');
+  radios.forEach(function(r) { if (r.checked) scope = r.value; });
+  if (scope === 'tenant') {
+    tenantId = document.getElementById('theme-scope-tenant') ? document.getElementById('theme-scope-tenant').value : '';
+    if (!tenantId) { showToast('Selecione um restaurante.', 'danger'); return; }
+    tenantId = parseInt(tenantId);
+  }
+  var body = { theme: cfg, alvo: scope };
+  if (scope === 'tenant') body.restaurante_id = tenantId;
+  apiPost('/api/super/theme-custom', body, function(err, data) {
     if (err || !data || !data.ok) {
       showToast('Erro ao salvar tema customizado: ' + (err ? err.message : (data ? data.erro : 'Falha')), 'danger');
       return;
     }
-    showToast('✨ Tema Global salvo e propagado em tempo real!', 'success');
+    var msg = scope === 'global' ? '✨ Tema Global salvo e propagado!' : '✨ Tema do restaurante #' + tenantId + ' salvo!';
+    showToast(msg, 'success');
   });
 };
 
@@ -6480,8 +6493,26 @@ window.carregarTemaCustomGlobal = function() {
       }
     })
     .catch(function() {});
+  /* Preencher dropdown de tenants para escopo */
+  var sel = document.getElementById('theme-scope-tenant');
+  if (sel && sel.options.length <= 1) {
+    fetch('/api/super/restaurantes', { headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('super_token') || '') } })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d && d.ok && Array.isArray(d.restaurantes)) {
+          sel.innerHTML = '<option value="">Selecione um restaurante...</option>' +
+            d.restaurantes.map(function(r) { return '<option value="' + r.id + '">' + esc(r.nome || r.name || '#' + r.id) + '</option>'; }).join('');
+        }
+      }).catch(function() {});
+  }
+  /* Toggle do select de tenant */
+  var radios = document.querySelectorAll('input[name="theme-scope"]');
+  radios.forEach(function(r) {
+    r.addEventListener('change', function() {
+      if (sel) sel.style.display = r.value === 'tenant' && r.checked ? 'inline-block' : 'none';
+    });
+  });
 };
-
 
 // ─── ALTERAR SENHA SUPER ADMIN ───
 function initAlterarSenha() {
@@ -7596,3 +7627,221 @@ initSuperAdminSockets = function () {
   _saCentralOriginalInit.apply(this, arguments);
   setTimeout(saCentralInjetar, 300);
 };
+
+/* ═══════════════════════════════════════════════════════════════
+   SISTEMA DE TAREFAS — Super Admin Painel
+   ═══════════════════════════════════════════════════════════════ */
+(function() {
+  const _tarefasState = { filtro: '', tarefas: [], equipe: [], restaurantes: [] };
+
+  function authHeaders() {
+    const t = localStorage.getItem('super_token') || '';
+    return { 'Authorization': 'Bearer ' + t, 'Content-Type': 'application/json' };
+  }
+
+  function esc(str) {
+    const d = document.createElement('div'); d.textContent = str || ''; return d.innerHTML;
+  }
+
+  function prioridadeBadge(p) {
+    const colors = { urgente: '#dc2626', alta: '#f59e0b', normal: '#3b82f6', baixa: '#94a3b8' };
+    return '<span style="display:inline-block;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;color:#fff;background:' + (colors[p] || '#6b7280') + ';text-transform:uppercase;">' + esc(p || 'normal') + '</span>';
+  }
+
+  function statusBadge(s) {
+    const colors = { pendente: '#f59e0b', atribuida: '#3b82f6', em_andamento: '#8b5cf6', concluida: '#10b981', cancelada: '#6b7280' };
+    const labels = { pendente: 'Pendente', atribuida: 'Atribuída', em_andamento: 'Em Andamento', concluida: 'Concluída', cancelada: 'Cancelada' };
+    return '<span style="display:inline-block;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;color:#fff;background:' + (colors[s] || '#6b7280') + ';">' + (labels[s] || s) + '</span>';
+  }
+
+  async function carregarTarefas() {
+    try {
+      const params = _tarefasState.filtro ? '?status=' + _tarefasState.filtro : '';
+      const [tRes, sRes] = await Promise.all([
+        fetch('/api/super/tarefas' + params, { headers: authHeaders() }).then(r => r.json()),
+        fetch('/api/super/tarefas/stats', { headers: authHeaders() }).then(r => r.json())
+      ]);
+      if (tRes.ok) _tarefasState.tarefas = tRes.tarefas || [];
+      if (sRes.ok && sRes.stats) {
+        const s = sRes.stats;
+        const el = (id) => document.getElementById(id);
+        if (el('tarefa-stat-pendente')) el('tarefa-stat-pendente').textContent = (s.pendente || 0) + (s.atribuida || 0);
+        if (el('tarefa-stat-atribuida')) el('tarefa-stat-atribuida').textContent = s.atribuida || 0;
+        if (el('tarefa-stat-em_andamento')) el('tarefa-stat-em_andamento').textContent = s.em_andamento || 0;
+        if (el('tarefa-stat-concluida')) el('tarefa-stat-concluida').textContent = s.concluida || 0;
+        const pendingTotal = (s.pendente || 0) + (s.atribuida || 0);
+        const badge = document.getElementById('tarefas-badge');
+        if (badge) { badge.style.display = pendingTotal > 0 ? 'inline' : 'none'; badge.textContent = pendingTotal; }
+      }
+      renderizarTarefas();
+    } catch (e) { console.error('[Tarefas] Erro:', e); }
+  }
+
+  function renderizarTarefas() {
+    const box = document.getElementById('tarefas-lista');
+    if (!box) return;
+    const tarefas = _tarefasState.tarefas;
+    if (!tarefas.length) { box.innerHTML = '<div style="text-align:center;padding:40px;color:#999;"><i class="fa-solid fa-check-circle" style="font-size:32px;color:#10b981;display:block;margin-bottom:12px;"></i>Nenhuma tarefa encontrada.</div>'; return; }
+    box.innerHTML = tarefas.map(t => {
+      const dataCriacao = t.criado_em ? new Date(t.criado_em).toLocaleDateString('pt-BR') : '—';
+      const dataConcl = t.concluido_em ? new Date(t.concluido_em).toLocaleDateString('pt-BR') : '';
+      return '<div style="background:var(--card-bg,#1e293b); border:1px solid var(--border,#334155); border-radius:12px; padding:14px 18px; display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;">' +
+        '<div style="flex:1; min-width:200px;">' +
+          '<div style="display:flex; align-items:center; gap:8px; margin-bottom:6px; flex-wrap:wrap;">' +
+            prioridadeBadge(t.prioridade) + statusBadge(t.status) +
+            '<span style="font-size:10px;color:#94a3b8;">' + esc(t.categoria || 'geral') + '</span>' +
+          '</div>' +
+          '<div style="font-weight:700; color:var(--text,#f8fafc); font-size:14px; margin-bottom:4px;">' + esc(t.titulo) + '</div>' +
+          (t.descricao ? '<div style="font-size:12.5px; color:#94a3b8; line-height:1.4;">' + esc(t.descricao) + '</div>' : '') +
+          '<div style="font-size:11px; color:#64748b; margin-top:6px; display:flex; gap:12px; flex-wrap:wrap;">' +
+            '<span><i class="fa-solid fa-clock"></i> ' + dataCriacao + '</span>' +
+            (t.atribuido_a ? '<span><i class="fa-solid fa-user"></i> ' + esc(t.atribuido_a) + '</span>' : '') +
+            (t.restaurante_id ? '<span><i class="fa-solid fa-store"></i> #' + t.restaurante_id + '</span>' : '') +
+            (dataConcl ? '<span style="color:#10b981;"><i class="fa-solid fa-check"></i> ' + dataConcl + '</span>' : '') +
+          '</div>' +
+          (t.resposta ? '<div style="margin-top:8px;padding:8px 12px;background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.2); border-radius:8px; font-size:12px; color:#10b981;"><strong>Resposta:</strong> ' + esc(t.resposta) + '</div>' : '') +
+        '</div>' +
+        '<div style="display:flex; gap:6px; flex-shrink:0; align-items:center;">' +
+          (t.status !== 'concluida' && t.status !== 'cancelada' ?
+            '<select onchange="superAdmin.moverTarefa(' + t.id + ', this.value)" style="padding:5px 8px; border:1px solid var(--border); border-radius:6px; font-size:11px; background:var(--input-bg,#0f172a); color:var(--text); min-height:30px;">' +
+              '<option value="">Mover...</option>' +
+              '<option value="atribuida"' + (t.status === 'atribuida' ? ' selected' : '') + '>Atribuída</option>' +
+              '<option value="em_andamento"' + (t.status === 'em_andamento' ? ' selected' : '') + '>Em Andamento</option>' +
+              '<option value="concluida">Concluída</option>' +
+              '<option value="cancelada">Cancelada</option>' +
+            '</select>' : '') +
+          '<button onclick="superAdmin.excluirTarefa(' + t.id + ')" title="Excluir" style="padding:5px 10px; background:rgba(220,38,38,0.1); color:#dc2626; border:1px solid rgba(220,38,38,0.2); border-radius:6px; cursor:pointer; font-size:12px;"><i class="fa-solid fa-trash"></i></button>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  async function carregarEquipeRestaurantes() {
+    try {
+      const [eRes, rRes] = await Promise.all([
+        fetch('/api/super/equipe', { headers: authHeaders() }).then(r => r.json()),
+        fetch('/api/super/restaurantes', { headers: authHeaders() }).then(r => r.json())
+      ]);
+      if (eRes.ok && Array.isArray(eRes.equipe)) _tarefasState.equipe = eRes.equipe;
+      if (rRes.ok && Array.isArray(rRes.restaurantes)) _tarefasState.restaurantes = rRes.restaurantes;
+    } catch (e) { /* ok */ }
+  }
+
+  function popularSelectsTarefa() {
+    const selAtb = document.getElementById('tarefa-atribuido');
+    const selRest = document.getElementById('tarefa-restaurante');
+    if (selAtb) {
+      selAtb.innerHTML = '<option value="">Não atribuir ainda</option>' +
+        _tarefasState.equipe.map(e => '<option value="' + esc(e.nome || e.name || '') + '">' + esc(e.nome || e.name || '') + '</option>').join('');
+    }
+    if (selRest) {
+      selRest.innerHTML = '<option value="">Nenhum</option>' +
+        _tarefasState.restaurantes.map(r => '<option value="' + r.id + '">' + esc(r.nome || r.name || '#' + r.id) + '</option>').join('');
+    }
+  }
+
+  window.superAdmin = window.superAdmin || {};
+
+  window.superAdmin.abrirModalTarefa = function(tarefa) {
+    popularSelectsTarefa();
+    const modal = document.getElementById('modal-tarefa');
+    if (tarefa) {
+      document.getElementById('tarefa-modal-title').textContent = 'Editar Tarefa';
+      document.getElementById('tarefa-edit-id').value = tarefa.id;
+      document.getElementById('tarefa-titulo').value = tarefa.titulo || '';
+      document.getElementById('tarefa-descricao').value = tarefa.descricao || '';
+      document.getElementById('tarefa-prioridade').value = tarefa.prioridade || 'normal';
+      document.getElementById('tarefa-categoria').value = tarefa.categoria || 'geral';
+      document.getElementById('tarefa-atribuido').value = tarefa.atribuido_a || '';
+      document.getElementById('tarefa-restaurante').value = tarefa.restaurante_id || '';
+    } else {
+      document.getElementById('tarefa-modal-title').textContent = 'Nova Tarefa';
+      document.getElementById('tarefa-edit-id').value = '';
+      document.getElementById('tarefa-titulo').value = '';
+      document.getElementById('tarefa-descricao').value = '';
+      document.getElementById('tarefa-prioridade').value = 'normal';
+      document.getElementById('tarefa-categoria').value = 'geral';
+      document.getElementById('tarefa-atribuido').value = '';
+      document.getElementById('tarefa-restaurante').value = '';
+    }
+    modal.style.display = 'flex';
+  };
+
+  window.superAdmin.salvarTarefa = async function() {
+    const id = document.getElementById('tarefa-edit-id').value;
+    const titulo = document.getElementById('tarefa-titulo').value.trim();
+    if (!titulo) { alert('Título é obrigatório.'); return; }
+    const body = {
+      titulo,
+      descricao: document.getElementById('tarefa-descricao').value.trim(),
+      prioridade: document.getElementById('tarefa-prioridade').value,
+      categoria: document.getElementById('tarefa-categoria').value,
+      atribuido_a: document.getElementById('tarefa-atribuido').value,
+      restaurante_id: document.getElementById('tarefa-restaurante').value || null
+    };
+    try {
+      const url = id ? '/api/super/tarefas/' + id : '/api/super/tarefas';
+      const method = id ? 'PATCH' : 'POST';
+      const r = await fetch(url, { method, headers: authHeaders(), body: JSON.stringify(body) });
+      const data = await r.json();
+      if (data.ok) {
+        document.getElementById('modal-tarefa').style.display = 'none';
+        carregarTarefas();
+      } else { alert(data.erro || 'Erro ao salvar.'); }
+    } catch (e) { alert('Falha de conexão.'); }
+  };
+
+  window.superAdmin.moverTarefa = async function(id, novoStatus) {
+    if (!novoStatus) return;
+    try {
+      await fetch('/api/super/tarefas/' + id, {
+        method: 'PATCH', headers: authHeaders(),
+        body: JSON.stringify({ status: novoStatus })
+      });
+      carregarTarefas();
+    } catch (e) { /* ok */ }
+  };
+
+  window.superAdmin.excluirTarefa = async function(id) {
+    if (!confirm('Excluir esta tarefa?')) return;
+    try {
+      await fetch('/api/super/tarefas/' + id, { method: 'DELETE', headers: authHeaders() });
+      carregarTarefas();
+    } catch (e) { /* ok */ }
+  };
+
+  window.superAdmin.filtrarTarefas = function(filtro) {
+    _tarefasState.filtro = filtro;
+    document.querySelectorAll('.tarefa-filtro-btn').forEach(b => {
+      b.style.background = 'var(--card-bg)';
+      b.style.color = 'var(--text)';
+    });
+    event.target.style.background = 'var(--primary)';
+    event.target.style.color = '#fff';
+    carregarTarefas();
+  };
+
+  /* Auto-load quando a seção é aberta */
+  const origShow = window.showSection;
+  if (typeof origShow === 'function') {
+    window.showSection = function(sectionId) {
+      origShow(sectionId);
+      if (sectionId === 'sec-tarefas') carregarTarefas();
+    };
+  }
+  /* Fallback: MutationObserver no menu */
+  document.addEventListener('click', (e) => {
+    const mi = e.target.closest('.menu-item[data-target="sec-tarefas"]');
+    if (mi) setTimeout(carregarTarefas, 200);
+  });
+
+  /* Socket: atualizar em tempo real */
+  if (typeof io !== 'undefined') {
+    io.on('tarefa_nova', () => { if (document.getElementById('sec-tarefas')?.classList.contains('active')) carregarTarefas(); });
+    io.on('tarefa_atualizada', () => { if (document.getElementById('sec-tarefas')?.classList.contains('active')) carregarTarefas(); });
+    io.on('tarefa_removida', () => { if (document.getElementById('sec-tarefas')?.classList.contains('active')) carregarTarefas(); });
+  }
+
+  /* Pre-carregar equipe e restaurantes */
+  setTimeout(carregarEquipeRestaurantes, 2000);
+})();
