@@ -2905,11 +2905,38 @@
 
       <!-- TAB INTELIGÊNCIA -->
       <div id="admin-tab-inteligencia" class="admin-tab-content">
-        <h3 style="margin-top:0; color: #3b82f6;"><i class="ph ph-brain"></i> Sugestões Inteligentes de Vendas</h3>
-        <p style="color:#94a3b8; font-size:14px; margin-bottom:20px;">Analisamos os últimos 7 dias de vendas para fornecer insights valiosos sobre o seu cardápio.</p>
+        <!-- Header com gradiente -->
+        <div style="background:linear-gradient(135deg, #3b82f6, #1d4ed8); border-radius:16px; padding:20px; color:white; margin-bottom:20px;">
+          <h3 style="margin:0 0 4px; font-size:18px;"><i class="ph ph-brain"></i> Inteligência de Vendas</h3>
+          <p style="margin:0; opacity:0.85; font-size:13px;">Análise automática do seu cardápio para aumentar o ticket médio e reduzir custos fiscais.</p>
+        </div>
         
-        <!-- IA CONFIG PANEL -->
-        <div id="ia-config-panel" style="background:var(--cfg-card-bg);border-radius:16px;padding:20px;border:1px solid var(--cfg-border);margin-bottom:20px;">
+        <!-- Resumo Rápido (KPIs) -->
+        <div id="ia-kpi-row" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(140px,1fr)); gap:10px; margin-bottom:20px;">
+          <div style="background:var(--cfg-card-bg); border:1px solid var(--cfg-border); border-radius:12px; padding:14px; text-align:center;">
+            <div style="font-size:10px; font-weight:700; text-transform:uppercase; color:var(--cfg-text-muted); letter-spacing:0.5px;">Ticket Médio</div>
+            <div id="ia-kpi-ticket" style="font-size:22px; font-weight:800; color:#3b82f6; margin-top:4px;">—</div>
+          </div>
+          <div style="background:var(--cfg-card-bg); border:1px solid var(--cfg-border); border-radius:12px; padding:14px; text-align:center;">
+            <div style="font-size:10px; font-weight:700; text-transform:uppercase; color:var(--cfg-text-muted); letter-spacing:0.5px;">Itens Vendidos (7d)</div>
+            <div id="ia-kpi-itens" style="font-size:22px; font-weight:800; color:#059669; margin-top:4px;">—</div>
+          </div>
+          <div style="background:var(--cfg-card-bg); border:1px solid var(--cfg-border); border-radius:12px; padding:14px; text-align:center;">
+            <div style="font-size:10px; font-weight:700; text-transform:uppercase; color:var(--cfg-text-muted); letter-spacing:0.5px;">Top Vendido</div>
+            <div id="ia-kpi-top" style="font-size:14px; font-weight:700; color:#d97706; margin-top:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">—</div>
+          </div>
+          <div style="background:var(--cfg-card-bg); border:1px solid var(--cfg-border); border-radius:12px; padding:14px; text-align:center;">
+            <div style="font-size:10px; font-weight:700; text-transform:uppercase; color:var(--cfg-text-muted); letter-spacing:0.5px;">Sugestões IA</div>
+            <div id="ia-kpi-sugestoes" style="font-size:22px; font-weight:800; color:#8b5cf6; margin-top:4px;">—</div>
+          </div>
+        </div>
+        
+        <!-- IA CONFIG PANEL (colapsável) -->
+        <details id="ia-config-panel" style="background:var(--cfg-card-bg);border-radius:12px;padding:16px;border:1px solid var(--cfg-border);margin-bottom:20px;">
+          <summary style="cursor:pointer; font-weight:700; font-size:14px; color:var(--cfg-text); list-style:none; display:flex; align-items:center; gap:8px;">
+            <i class="ph ph-gear" style="color:#64748b;"></i> Configurações de Alertas IA
+            <i class="ph ph-caret-right" style="margin-left:auto; transition:transform 0.2s;"></i>
+          </summary>
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
             <div>
               <h4 style="margin:0;color:var(--cfg-text);font-size:16px;"><i class="ph ph-brain" style="color:#3b82f6;"></i> Alertas Inteligentes</h4>
@@ -2944,7 +2971,7 @@
             </div>
           </div>
           <button onclick="window.resetIAState()" style="margin-top:12px;padding:8px 16px;border:1px solid #fecaca;background:#fef2f2;color:#dc2626;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;"><i class="ph ph-trash"></i> Reiniciar Estado IA</button>
-        </div>
+        </details>
 
         <div id="loading-inteligencia" style="text-align: center; padding: 40px; color: #94a3b8;">
           <i class="ph ph-spinner ph-spin" style="font-size: 32px; color: #3b82f6; margin-bottom: 10px;"></i>
