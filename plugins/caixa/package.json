@@ -1,0 +1,6 @@
+{
+  "name": "plugin-caixa",
+  "version": "1.0.0",
+  "description": "Módulo Caixa: máquinas, backup/restore, totem, mesa perfil, sugestões, clientes",
+  "order": 11
+}

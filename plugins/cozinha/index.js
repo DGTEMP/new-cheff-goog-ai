@@ -234,42 +234,7 @@ module.exports = function({ app, db, io, options }) {
     }
   });
 
-  // ── CONFIGURAÇÃO DO RESTAURANTE ──
-  app.get('/api/config', (req, res) => {
-    withTenant(req, () => {
-      db.all(`SELECT * FROM configuracoes`, (err, rows) => {
-        if (err) return res.status(500).send(err);
-        const cfgs = {};
-        if (rows) rows.forEach(r => {
-          if (CONFIG_SECRET_KEYS.includes(r.chave) && r.valor) {
-            cfgs[r.chave] = '***';
-          } else {
-            cfgs[r.chave] = r.valor;
-          }
-        });
-        res.json(cfgs);
-      });
-    });
-  });
-
-  app.post('/api/config', verificarToken, (req, res) => {
-    const configs = req.body;
-    if (!configs) return res.status(400).send('Dados inválidos');
-    db.serialize(() => {
-      db.run("BEGIN TRANSACTION;");
-      Object.keys(configs).forEach(chave => {
-        const valor = typeof configs[chave] === 'object' ? JSON.stringify(configs[chave]) : String(configs[chave]);
-        if (CONFIG_SECRET_KEYS.includes(chave) && valor === '***') return;
-        db.run(`INSERT INTO configuracoes (chave, valor) VALUES (?, ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor`, [chave, valor]);
-      });
-      db.run("COMMIT;");
-    });
-    setTimeout(() => {
-      io.emit('configuracoes_atualizadas');
-      broadcastProdutos();
-      res.json({ success: true });
-    }, 500);
-  });
+  // ── CONFIGURAÇÃO DO RESTAURANTE ── → GET/POST /api/config → migrado para plugins/caixa/ ──
 
   // ── ALERTAS AO CLIENTE ──
   app.get('/api/alertas-cliente', (req, res) => {
