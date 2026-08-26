@@ -11159,9 +11159,11 @@ app.post('/api/funcoes/solicitar', verificarToken, (req, res) => {
   const feature = String((req.body && req.body.feature) || '').trim();
   const mensagem = String((req.body && req.body.mensagem) || '').trim().slice(0, 500);
   if (!feature) return res.status(400).json({ success: false, error: 'Função não informada.' });
-  if (!featurePlans.FEATURES.some(f => f.chave === feature)) {
+  const isNovaSolicitacao = feature === 'nova_solicitacao';
+  if (!isNovaSolicitacao && !featurePlans.FEATURES.some(f => f.chave === feature)) {
     return res.status(400).json({ success: false, error: 'Função desconhecida.' });
   }
+  const featureCol = isNovaSolicitacao ? 'nova_solicitacao' : feature;
   masterDb.run(`INSERT INTO solicitacoes_features (restaurante_id, feature, mensagem, status)
     VALUES (?, ?, ?, 'pendente')
     ON CONFLICT(restaurante_id, feature) DO UPDATE SET
@@ -11169,9 +11171,9 @@ app.post('/api/funcoes/solicitar', verificarToken, (req, res) => {
       status = 'pendente',
       criado_em = datetime('now','localtime'),
       resolvido_em = NULL`,
-    [tid, feature, mensagem], (err) => {
+    [tid, featureCol, mensagem], (err) => {
     if (err) return res.status(500).json({ success: false, error: 'Erro ao registrar solicitação.' });
-    try { io.emit('solicitacoes_features_atualizadas', { restaurante_id: tid, feature }); } catch (e) {}
+    try { io.emit('solicitacoes_features_atualizadas', { restaurante_id: tid, feature: featureCol }); } catch (e) {}
     res.json({ success: true, mensagem: 'Solicitação enviada! O super admin será notificado.' });
   });
 });

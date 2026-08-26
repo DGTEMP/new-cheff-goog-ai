@@ -1240,6 +1240,72 @@
         padding: 14px !important;
         box-sizing: border-box !important;
       }
+
+      /* PERFIL: grid 3 colunas empilha em 1 coluna */
+      #admin-tab-perfil > div[style*="grid-template-columns: 1fr 1fr 1fr"] {
+        grid-template-columns: 1fr !important;
+      }
+      #admin-tab-perfil div[style*="grid-column: span 3"] {
+        grid-column: span 1 !important;
+      }
+      #admin-tab-perfil div[style*="grid-column: span 2"] {
+        grid-column: span 1 !important;
+      }
+      #admin-tab-perfil div[style*="grid-template-columns:1fr 1fr"] {
+        grid-template-columns: 1fr !important;
+      }
+      #admin-tab-perfil div[style*="grid-template-columns: 1fr 1fr"] {
+        grid-template-columns: 1fr !important;
+      }
+      #admin-tab-perfil div[style*="display: flex"] {
+        flex-direction: column !important;
+      }
+      #admin-tab-perfil .rest-btn-row {
+        flex-direction: row !important;
+      }
+
+      /* MESAS: cards empilham */
+      #admin-tab-mesas .tab-table-scroll table thead { display: none !important; }
+      #admin-tab-mesas .tab-table-scroll table,
+      #admin-tab-mesas .tab-table-scroll tbody { display: flex !important; flex-direction: column !important; gap: 6px !important; padding: 8px !important; background: transparent !important; border: none !important; }
+      #admin-tab-mesas .tab-table-scroll table tbody tr {
+        display: flex !important; flex-wrap: wrap !important; align-items: center !important;
+        background: var(--cfg-card-bg, #fff) !important; border: 1px solid var(--cfg-border) !important;
+        border-radius: 10px !important; padding: 10px 12px !important; gap: 6px !important;
+      }
+      #admin-tab-mesas .tab-table-scroll table tbody tr td {
+        border: none !important; padding: 2px 6px !important; font-size: 13px !important;
+      }
+      #admin-tab-mesas .tab-table-scroll table tbody tr td:last-child {
+        width: 100% !important; display: flex !important; gap: 6px !important; flex-wrap: wrap !important;
+        padding-top: 6px !important; border-top: 1px solid var(--cfg-border) !important;
+      }
+
+      /* FUNCIONÁRIOS: tabela vira cards */
+      #admin-tab-funcionarios .tab-table-scroll table thead { display: none !important; }
+      #admin-tab-funcionarios .tab-table-scroll table,
+      #admin-tab-funcionarios .tab-table-scroll tbody { display: flex !important; flex-direction: column !important; gap: 6px !important; padding: 8px !important; background: transparent !important; border: none !important; }
+      #admin-tab-funcionarios .tab-table-scroll table tbody tr {
+        display: flex !important; flex-wrap: wrap !important; align-items: center !important;
+        background: var(--cfg-card-bg, #fff) !important; border: 1px solid var(--cfg-border) !important;
+        border-radius: 10px !important; padding: 10px 12px !important; gap: 6px !important;
+      }
+      #admin-tab-funcionarios .tab-table-scroll table tbody tr td {
+        border: none !important; padding: 2px 6px !important; font-size: 13px !important;
+      }
+      #admin-tab-funcionarios .tab-table-scroll table tbody tr td:first-child {
+        font-weight: 700 !important; font-size: 14px !important; width: 100% !important;
+      }
+      #admin-tab-funcionarios .tab-table-scroll table tbody tr td:last-child {
+        width: 100% !important; display: flex !important; gap: 6px !important; flex-wrap: wrap !important;
+        padding-top: 6px !important; border-top: 1px solid var(--cfg-border) !important;
+      }
+
+      /* FUNCIONALIDADES: cards empilham */
+      #admin-tab-funcoes #funcoes-lista > div {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+      }
     }
 
     /* ══════ MODO HORIZONTAL / LANDSCAPE EM CELULARES ══════ */
@@ -4125,6 +4191,19 @@
           <div id="funcoes-lista"
             style="display:flex; flex-direction:column; gap:10px; margin-bottom:16px;">
             <div style="color:#888; font-size:13px;">Carregando funções...</div>
+          </div>
+
+          <!-- Solicitar Nova Função -->
+          <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:12px; padding:18px; margin-top:8px;">
+            <h4 style="margin:0 0 8px; font-size:14px; color:#166534;"><i class="ph ph-lightbulb"></i> Precisa de uma função nova?</h4>
+            <p style="margin:0 0 12px; font-size:12.5px; color:#15803d;">Descreva o que precisa e receba uma proposta de valor do super admin.</p>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <textarea id="funcao-nova-msg" rows="2" placeholder="Ex: Relatório de vendas por garçom, Exportar dados paraExcel..." style="flex:2; min-width:200px; padding:10px; border:1px solid #bbf7d0; border-radius:8px; font-size:13px; resize:vertical;"></textarea>
+              <button onclick="window.solicitarNovaFuncao()" style="padding:10px 20px; background:#16a34a; color:white; border:none; border-radius:8px; font-weight:700; font-size:13px; cursor:pointer; white-space:nowrap; align-self:flex-end;">
+                <i class="ph ph-paper-plane-tilt"></i> Enviar Solicitação
+              </button>
+            </div>
+            <div id="funcao-nova-status" style="margin-top:8px; font-size:12px; display:none;"></div>
           </div>
         </div>
       </div>

@@ -4633,6 +4633,33 @@ document.querySelectorAll('.admin-tab-btn[data-tab="funcoes"]').forEach(function
   btnFuncoes.addEventListener('click', function() { setTimeout(carregarFuncoesSistema, 200); });
 });
 
+window.solicitarNovaFuncao = async function() {
+  const msg = (document.getElementById('funcao-nova-msg') || {}).value || '';
+  const statusEl = document.getElementById('funcao-nova-status');
+  if (!msg.trim()) { if (statusEl) { statusEl.style.display = 'block'; statusEl.style.color = '#dc2626'; statusEl.textContent = 'Descreva o que precisa.'; } return; }
+  try {
+    const r = await fetch('/api/funcoes/solicitar', {
+      method: 'POST',
+      headers: authHeadersCfg(),
+      body: JSON.stringify({ feature: 'nova_solicitacao', mensagem: msg.trim() })
+    });
+    const data = await r.json();
+    if (statusEl) {
+      statusEl.style.display = 'block';
+      if (data.success) {
+        statusEl.style.color = '#16a34a';
+        statusEl.textContent = '✓ Solicitação enviada! O super admin será notificado.';
+        document.getElementById('funcao-nova-msg').value = '';
+      } else {
+        statusEl.style.color = '#dc2626';
+        statusEl.textContent = data.error || 'Erro ao enviar.';
+      }
+    }
+  } catch (e) {
+    if (statusEl) { statusEl.style.display = 'block'; statusEl.style.color = '#dc2626'; statusEl.textContent = 'Falha de conexão.'; }
+  }
+};
+
 // --- AVALIAÇÕES (painel do dono) ---
 async function carregarAvaliacoesAdmin() {
   try {
