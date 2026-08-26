@@ -7,7 +7,7 @@
  *     package.json   — optional: { "name": "...", "description": "...", "order": 0 }
  *
  * Each plugin receives:
- *   app      — Express instance
+ *   app      — Express instance (WRAPPED with automatic moduloGuard)
  *   db       — tenant SQLite database (or masterDb for super-admin plugins)
  *   masterDb — master SQLite database
  *   io       — Socket.IO server instance
@@ -17,7 +17,14 @@
  * Module system:
  *   modulo_sistemas — global on/off per plugin
  *   tenant_modulos  — per-tenant override
+ *   moduloGuard     — AUTOMATICALLY applied to all plugin routes
  *   /api/plugins/list — returns only plugins enabled for the authenticated tenant
+ *
+ * USAGE IN PLUGINS:
+ *   Plugins do NOT need to use moduloGuard manually. The loader wraps `app`
+ *   with a Proxy that injects moduloGuard as the FIRST middleware on every
+ *   app.get / app.post / app.put / app.delete / app.patch call.
+ *   Routes starting with /api/super/ are always allowed (super admin bypass).
  *
  * Usage in server.js:
  *   const loadPlugins = require('./plugin-loader');
@@ -37,6 +44,43 @@ const PLUGIN_TO_MODULO = {
   'formas-pagamento': 'formas_pagamento',
   'reserves': 'reservas',
 };
+
+/**
+ * Creates a proxy around the Express app that automatically injects
+ * moduloGuard as the first middleware for every route registered by the plugin.
+ * This ensures ALL plugin routes are module-gated without plugin authors
+ * needing to do anything.
+ */
+function createGuardedApp(app, moduloGuard) {
+  const HTTP_METHODS = ['get', 'post', 'put', 'delete', 'patch'];
+
+  return new Proxy(app, {
+    get(target, prop, receiver) {
+      if (HTTP_METHODS.includes(prop)) {
+        return function guardedRoute(method, ...handlers) {
+          // Prepend moduloGuard before all user-provided handlers
+          return target[prop](method, moduloGuard, ...handlers);
+        };
+      }
+      // Also intercept app.use() for plugin-level middleware
+      if (prop === 'use') {
+        return function guardedUse(...args) {
+          // If first arg is a path string (not middleware), wrap the handlers
+          if (args.length >= 2 && typeof args[0] === 'string') {
+            return target.use(args[0], moduloGuard, ...args.slice(1));
+          }
+          // If just middleware function(s), wrap first one
+          return target.use(moduloGuard, ...args);
+        };
+      }
+      const val = Reflect.get(target, prop, receiver);
+      if (typeof val === 'function') {
+        return val.bind(target);
+      }
+      return val;
+    }
+  });
+}
 
 function loadPlugins({ app, db, masterDb, io, options }) {
   const log = (msg) => console.log(`[plugin-loader] ${msg}`);
@@ -112,9 +156,12 @@ function loadPlugins({ app, db, masterDb, io, options }) {
         });
       };
 
-      // Initialize the plugin
+      // Wrap app with a Proxy that auto-injects moduloGuard on all route registrations
+      const guardedApp = createGuardedApp(app, moduloGuard);
+
+      // Initialize the plugin with the GUARDED app
       const ctx = {
-        app,
+        app: guardedApp,
         db,
         masterDb,
         io,
@@ -122,13 +169,13 @@ function loadPlugins({ app, db, masterDb, io, options }) {
         log: pluginLog,
         name: plugin.name,
         meta: plugin.meta,
-        moduloGuard
+        moduloGuard  // still passed for backward compat (plugins can use it manually)
       };
 
       if (typeof pluginModule === 'function') {
         pluginModule(ctx);
         loaded.push(plugin.name);
-        pluginLog(`Loaded (v${plugin.meta.version || '1.0.0'})`);
+        pluginLog(`Loaded (v${plugin.meta.version || '1.0.0'}) [guard: ${moduloId}]`);
       } else {
         pluginLog('WARN: index.js does not export a function, skipping.');
       }
