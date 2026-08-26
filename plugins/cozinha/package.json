@@ -1,0 +1,6 @@
+{
+  "name": "plugin-cozinha",
+  "version": "1.0.0",
+  "description": "Módulo Cozinha: pedidos, cardápio, config, alertas, offline sync",
+  "order": 10
+}
