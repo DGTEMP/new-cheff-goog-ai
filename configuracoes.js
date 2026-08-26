@@ -839,6 +839,18 @@ document.addEventListener('DOMContentLoaded', () => {
     if (tabId === 'jogos' && typeof initAdminJogos === 'function') initAdminJogos();
     if (tabId === 'montaveis' && typeof initAdminMontaveis === 'function') initAdminMontaveis();
     if (tabId === 'inteligencia' && socket && typeof socket.emit === 'function') socket.emit('ia_get_config');
+    if (tabId === 'reservas') {
+      window.reservasCarregarPendentes && window.reservasCarregarPendentes();
+      window.reservasCarregarMes && window.reservasCarregarMes();
+      /* Popular select de mesas para reserva manual */
+      const mesaSelect = document.getElementById('reserva-manual-mesa');
+      if (mesaSelect && socket && typeof socket.emit === 'function') {
+        socket.emit('get_mesas');
+        socket.once('mesas_atualizadas', (mesas) => {
+          mesaSelect.innerHTML = '<option value="">Selecionar mesa...</option>' + (mesas || []).map(m => '<option value="' + escHtml(m.nome || m.mesaName) + '">' + escHtml(m.nome || m.mesaName) + '</option>').join('');
+        });
+      }
+    }
 
     // Update title
     const elTitulo = document.getElementById('titulo-aba');
@@ -1287,6 +1299,33 @@ window.salvarPrazoReservas = function () {
       if (typeof showToast === 'function') showToast(data.mensagem, 'success'); else alert(data.mensagem);
     } else alert((data && data.erro) || 'Erro ao salvar.');
   });
+};
+
+window.criarReservaManual = function() {
+  const cliente = (document.getElementById('reserva-manual-cliente') || {}).value || '';
+  const telefone = (document.getElementById('reserva-manual-telefone') || {}).value || '';
+  const data = (document.getElementById('reserva-manual-data') || {}).value || '';
+  const horario = (document.getElementById('reserva-manual-hora') || {}).value || '19:00';
+  const pessoas = parseInt((document.getElementById('reserva-manual-pessoas') || {}).value) || 2;
+  const mesa = (document.getElementById('reserva-manual-mesa') || {}).value || '';
+  if (!cliente.trim() || !telefone.trim() || !data) {
+    if (typeof showToast === 'function') showToast('Preencha nome, telefone e data.', 'danger');
+    return;
+  }
+  fetch('/api/reservas', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (localStorage.getItem('chef_token') || '') },
+    body: JSON.stringify({ mesa_nome: mesa || 'Reserva', nome: cliente.trim(), telefone: telefone.trim(), data, horario, pessoas })
+  }).then(r => r.json()).then(d => {
+    if (d.ok) {
+      if (typeof showToast === 'function') showToast('Reserva criada!', 'success');
+      document.getElementById('reserva-manual-cliente').value = '';
+      document.getElementById('reserva-manual-telefone').value = '';
+      window.reservasCarregarMes && window.reservasCarregarMes();
+    } else {
+      if (typeof showToast === 'function') showToast(d.erro || 'Erro ao criar reserva.', 'danger');
+    }
+  }).catch(() => { if (typeof showToast === 'function') showToast('Erro de conexão.', 'danger'); });
 };
 
 window.reservasMudarMes = function (delta) {

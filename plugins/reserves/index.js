@@ -72,13 +72,28 @@ module.exports = function({ app, db, io, options, log }) {
           db.get(`SELECT id FROM reservas_futuras WHERE mesa_nome = ? AND data_reserva = ? AND status IN ('confirmada','checkin')`, [mesaNome, data], (eConf, conflito) => {
             if (eConf) return res.json({ ok: false, erro: eConf.message });
             if (conflito && status === 'confirmada') return res.json({ ok: false, erro: `A ${mesaNome} já está reservada neste dia.`, conflito: true });
-            db.run(`INSERT INTO reservas_futuras (mesa_nome, cliente_nome, cliente_telefone, data_reserva, horario, pessoas, observacao, status, origem, motivo_pendente) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'cliente', ?)`,
-              [mesaNome, nome, telefone, data, horario, pessoas, observacao, status, motivoPendente || ''],
-              function (eIns) {
-                if (eIns) return res.json({ ok: false, erro: 'Falha ao registrar.' });
-                try { io.emit('reservas_atualizadas'); if (status === 'pendente_aprovacao') io.emit('reserva_aguardando_aprovacao', { id: this.lastID, mesa: mesaNome, cliente: nome, data, horario, pessoas }); } catch (e) { }
-                res.json({ ok: true, id: this.lastID, status, mensagem: status === 'confirmada' ? `Reserva confirmada! ${mesaNome} separada para ${data.split('-').reverse().join('/')} às ${horario}.` : `Pedido recebido! Fora do prazo automático (${prazoMax} dias), aguardando aprovação.` });
+
+            /* Cadastra/associa cliente automaticamente */
+            const criarReserva = (clienteId) => {
+              db.run(`INSERT INTO reservas_futuras (mesa_nome, cliente_nome, cliente_telefone, cliente_id, data_reserva, horario, pessoas, observacao, status, origem, motivo_pendente) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'cliente', ?)`,
+                [mesaNome, nome, telefone, clienteId || null, data, horario, pessoas, observacao, status, motivoPendente || ''],
+                function (eIns) {
+                  if (eIns) return res.json({ ok: false, erro: 'Falha ao registrar.' });
+                  try { io.emit('reservas_atualizadas'); if (status === 'pendente_aprovacao') io.emit('reserva_aguardando_aprovacao', { id: this.lastID, mesa: mesaNome, cliente: nome, data, horario, pessoas }); } catch (e) { }
+                  res.json({ ok: true, id: this.lastID, status, mensagem: status === 'confirmada' ? `Reserva confirmada! ${mesaNome} separada para ${data.split('-').reverse().join('/')} às ${horario}.` : `Pedido recebido! Fora do prazo automático (${prazoMax} dias), aguardando aprovação.` });
+                });
+            };
+
+            if (telefone) {
+              db.get(`SELECT id FROM clientes WHERE telefone = ?`, [telefone], (eCli, cli) => {
+                if (!eCli && cli) return criarReserva(cli.id);
+                db.run(`INSERT INTO clientes (nome, telefone) VALUES (?, ?)`, [nome, telefone], function (eNew) {
+                  criarReserva(eNew ? null : this.lastID);
+                });
               });
+            } else {
+              criarReserva(null);
+            }
           });
         };
 

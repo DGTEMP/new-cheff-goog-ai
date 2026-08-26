@@ -4599,6 +4599,7 @@ db.serialize(() => {
       mesa_nome TEXT,
       cliente_nome TEXT,
       cliente_telefone TEXT,
+      cliente_id INTEGER,
       data_reserva TEXT,
       horario TEXT DEFAULT '19:00',
       pessoas INTEGER DEFAULT 2,
@@ -4611,6 +4612,7 @@ db.serialize(() => {
     )
   `);
   db.run(`CREATE INDEX IF NOT EXISTS idx_reservas_data ON reservas_futuras (data_reserva)`);
+  db.run(`ALTER TABLE reservas_futuras ADD COLUMN cliente_id INTEGER`, () => {});
 
   db.run(`
     CREATE TABLE IF NOT EXISTS funcionario_consumo_config (
