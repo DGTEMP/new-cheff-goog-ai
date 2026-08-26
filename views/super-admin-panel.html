@@ -132,7 +132,7 @@
               </div>
               <div class="menu-item" data-target="sec-plugins-modulos" id="menu-item-plugins">
                 <i class="fa-solid fa-puzzle-piece"></i>
-                <span>Plugins & Módulos</span>
+                <span>Módulos do Sistema</span>
               </div>
               <div class="menu-item" data-target="sec-mensagens">
                 <i class="fa-solid fa-bullhorn"></i>
@@ -3730,75 +3730,47 @@
             </div>
           </div>
 
-          <!-- ════ SEÇÃO: PLUGINS & MÓDULOS EXPANSÍVEIS ════ -->
+          <!-- ════ SEÇÃO: MÓDULOS DO SISTEMA ════ -->
           <div class="content-section" id="sec-plugins-modulos">
             <div class="info-banner" style="border-left-color: #a855f7;">
               <i class="fa-solid fa-puzzle-piece" style="color: #a855f7;"></i>
               <div class="info-banner-content">
-                <h4>Central de Plugins & Módulos Extras</h4>
-                <p>Instale, ative ou desative extensões avançadas (iFood, Balanças ECF, KDS Inteligente, Pagamentos PIX
-                  Automáticos, WhatsApp Bot) para todos ou restaurantes específicos.</p>
+                <h4>Módulos do Sistema</h4>
+                <p>Controle global e por restaurante. Módulos <b>obrigatórios</b> (auth, logs, config) sempre ficam ativos.
+                  Módulos <b>opcionais</b> podem ser desligados globalmente ou liberados apenas para restaurantes específicos.</p>
               </div>
             </div>
 
-            <!-- Grid de Plugins -->
-            <div class="stats-grid" id="plugins-grid"
-              style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.2rem; margin-bottom: 1.5rem;">
+            <!-- Toggle de visualização -->
+            <div style="display:flex;gap:10px;margin-bottom:1.2rem;flex-wrap:wrap;align-items:center;">
+              <button class="btn-action active" id="btn-view-cards" onclick="setModulosView('cards')" style="background:#a855f7;color:white;">
+                <i class="fa-solid fa-grip"></i> Cards
+              </button>
+              <button class="btn-action" id="btn-view-matrix" onclick="setModulosView('matrix')" style="background:var(--bg-card);color:var(--text-primary);border:1px solid var(--border-color);">
+                <i class="fa-solid fa-table-cells"></i> Matriz
+              </button>
+              <div style="flex:1;"></div>
+              <input type="text" id="modulo-search" placeholder="Buscar módulo..." oninput="filtrarModulos(this.value)"
+                style="padding:8px 14px;border-radius:10px;border:1px solid var(--border-color);background:var(--bg-card);color:var(--text-primary);width:220px;">
+            </div>
 
-              <!-- Plugin iFood -->
-              <div
-                style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;padding:1.5rem;display:flex;flex-direction:column;justify-content:space-between;">
-                <div>
-                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-                    <span style="font-size:24px;">🛵</span>
-                    <span class="badge badge-ativo" id="plugin-status-ifood">Ativo (Global)</span>
-                  </div>
-                  <h4 style="margin:0 0 6px 0;font-size:1.1rem;">iFood Integrado Direct</h4>
-                  <p style="font-size:0.85rem;color:var(--text-muted);margin:0 0 16px 0;">Integração nativa de pedidos,
-                    cardápio e cancelamento automático com o iFood.</p>
-                </div>
-                <button class="btn-action" style="width:100%;background:#a855f7;color:white;"
-                  onclick="togglePluginStatus('ifood')">
-                  <i class="fa-solid fa-sliders"></i> Gerenciar Plugin iFood
-                </button>
+            <!-- Visão: Cards (global toggle) -->
+            <div id="modulos-cards-view">
+              <div class="stats-grid" id="modulos-grid"
+                style="grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem;">
               </div>
+            </div>
 
-              <!-- Plugin WhatsApp Bot -->
-              <div
-                style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;padding:1.5rem;display:flex;flex-direction:column;justify-content:space-between;">
-                <div>
-                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-                    <span style="font-size:24px;">💬</span>
-                    <span class="badge badge-ativo" id="plugin-status-whatsapp">Ativo (Global)</span>
-                  </div>
-                  <h4 style="margin:0 0 6px 0;font-size:1.1rem;">WhatsApp Bot Atendimento</h4>
-                  <p style="font-size:0.85rem;color:var(--text-muted);margin:0 0 16px 0;">Disparo de notificação de
-                    pedido pronto e robô de pedidos automáticos.</p>
-                </div>
-                <button class="btn-action" style="width:100%;background:#22c55e;color:white;"
-                  onclick="togglePluginStatus('whatsapp')">
-                  <i class="fa-solid fa-sliders"></i> Gerenciar Plugin WhatsApp
-                </button>
-              </div>
-
-              <!-- Plugin Balança Serial -->
-              <div
-                style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;padding:1.5rem;display:flex;flex-direction:column;justify-content:space-between;">
-                <div>
-                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-                    <span style="font-size:24px;">⚖️</span>
-                    <span class="badge badge-ativo" id="plugin-status-balanca">Ativo (Global)</span>
-                  </div>
-                  <h4 style="margin:0 0 6px 0;font-size:1.1rem;">Balança Self-Service / Kilo</h4>
-                  <p style="font-size:0.85rem;color:var(--text-muted);margin:0 0 16px 0;">Conexão direta com balanças
-                    Toledo, Filizola e Urano via Serial/USB.</p>
-                </div>
-                <button class="btn-action" style="width:100%;background:#3b82f6;color:white;"
-                  onclick="togglePluginStatus('balanca')">
-                  <i class="fa-solid fa-sliders"></i> Gerenciar Plugin Balança
-                </button>
-              </div>
-
+            <!-- Visão: Matriz (restaurantes x módulos) -->
+            <div id="modulos-matrix-view" style="display:none;overflow-x:auto;">
+              <table style="width:100%;border-collapse:collapse;font-size:0.85rem;">
+                <thead>
+                  <tr id="modulos-matrix-header">
+                    <th style="text-align:left;padding:10px;position:sticky;left:0;background:var(--bg-card);z-index:2;min-width:180px;">Restaurante</th>
+                  </tr>
+                </thead>
+                <tbody id="modulos-matrix-body"></tbody>
+              </table>
             </div>
           </div>
 

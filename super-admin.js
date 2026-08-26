@@ -273,15 +273,15 @@ function initSuperAdminSockets() {
 
     _superAdminSocket.on('plugin_atualizado', function(data) {
       console.log('🔌 [SuperAdmin] Plugin atualizado:', data);
-      var el = document.getElementById('plugin-status-' + data.plugin_id);
-      if (!el) return;
-      if (data.ativo) {
-        el.textContent = 'Ativo (Global)';
-        el.className = 'badge badge-ativo';
-      } else {
-        el.textContent = 'Inativo';
-        el.className = 'badge badge-bloqueado';
-      }
+    });
+
+    _superAdminSocket.on('modulo_global_atualizado', function(data) {
+      console.log('🔌 [SuperAdmin] Módulo global atualizado:', data);
+      carregarModulos();
+    });
+
+    _superAdminSocket.on('modulo_tenant_atualizado', function(data) {
+      console.log('🔌 [SuperAdmin] Módulo tenant atualizado:', data);
     });
   } catch (e) {
     console.error('Erro ao conectar socket super-admin:', e);
@@ -612,7 +612,7 @@ function switchTab(targetId) {
     'sec-afiliados': ['Afiliados & Parceiros', 'Gerenciamento completo da rede de revenda, cadastros e comissões'],
     'sec-seguranca-waf': ['Segurança & WAF', 'Firewall, proteção Anti-DDoS, Rate Limiter e bloqueio de IPs'],
     'sec-deploy-updates': ['Deploy & Atualizações', 'Gerenciamento de versões Git e Hot Swap sem quedas'],
-    'sec-plugins-modulos': ['Plugins & Módulos', 'Central de extensões avançadas (iFood, Balança, WhatsApp Bot)'],
+    'sec-plugins-modulos': ['Módulos do Sistema', 'Controle global + per-restaurante de todos os módulos'],
     'sec-tema-custom': ['Aparência & Tema Global', 'Estúdio de personalização de cores, botões, fontes e marcas'],
     'sec-supabase': ['Supabase', 'Conexão guiada ao banco em nuvem: backup, sync e relatórios centralizados'],
     'sec-alterar-senha': ['Alterar Senha', 'Atualize a senha de acesso ao painel super admin'],
@@ -983,46 +983,149 @@ window.efetuarDeployParcial = function(hash) {
   });
 };
 
-window.togglePluginStatus = function(pluginId) {
-  var el = document.getElementById('plugin-status-' + pluginId);
-  if (!el) return;
-  var isAtivo = el.textContent.indexOf('Ativo') !== -1;
-  var novoEstado = isAtivo ? 0 : 1;
-  apiPost('/api/super/plugins', { plugin_id: pluginId, ativo: novoEstado }, function(err, data) {
-    if (err || !data || !data.ok) {
-      showToast('Erro ao atualizar plugin: ' + (data ? data.erro : 'Erro de conexão'), 'danger');
-      return;
-    }
-    if (novoEstado) {
-      el.textContent = 'Ativo (Global)';
-      el.className = 'badge badge-ativo';
-      showToast('Plugin ' + pluginId + ' ativado globalmente!', 'success');
-    } else {
-      el.textContent = 'Inativo';
-      el.className = 'badge badge-bloqueado';
-      showToast('Plugin ' + pluginId + ' desativado globalmente.', 'warning');
-    }
+window._modulosView = 'cards';
+window._modulosData = [];
+window._modulosOverrides = {};
+window._restaurantes = [];
+
+window.setModulosView = function(view) {
+  window._modulosView = view;
+  document.getElementById('modulos-cards-view').style.display = view === 'cards' ? '' : 'none';
+  document.getElementById('modulos-matrix-view').style.display = view === 'matrix' ? '' : 'none';
+  document.getElementById('btn-view-cards').className = 'btn-action' + (view === 'cards' ? ' active' : '');
+  document.getElementById('btn-view-cards').style.background = view === 'cards' ? '#a855f7' : 'var(--bg-card)';
+  document.getElementById('btn-view-cards').style.color = view === 'cards' ? 'white' : 'var(--text-primary)';
+  document.getElementById('btn-view-matrix').className = 'btn-action' + (view === 'matrix' ? ' active' : '');
+  document.getElementById('btn-view-matrix').style.background = view === 'matrix' ? '#a855f7' : 'var(--bg-card)';
+  document.getElementById('btn-view-matrix').style.color = view === 'matrix' ? 'white' : 'var(--text-primary)';
+  if (view === 'matrix') carregarMatrizModulos();
+};
+
+window.filtrarModulos = function(q) {
+  var cards = document.querySelectorAll('#modulos-grid > div');
+  var lower = (q || '').toLowerCase();
+  cards.forEach(function(card) {
+    var text = (card.textContent || '').toLowerCase();
+    card.style.display = text.indexOf(lower) !== -1 ? '' : 'none';
   });
 };
 
-window.carregarPlugins = function() {
-  apiGet('/api/super/plugins', function(err, data) {
-    if (err || !data || !data.ok) return;
-    var plugins = data.plugins || [];
-    for (var i = 0; i < plugins.length; i++) {
-      var p = plugins[i];
-      var el = document.getElementById('plugin-status-' + p.plugin_id);
-      if (!el) continue;
-      if (p.ativo) {
-        el.textContent = 'Ativo (Global)';
-        el.className = 'badge badge-ativo';
-      } else {
-        el.textContent = 'Inativo';
-        el.className = 'badge badge-bloqueado';
-      }
+window.toggleModuloGlobal = function(moduloId, btn) {
+  var isActive = btn.dataset.ativo === '1';
+  apiPost('/api/super/modulos/global', { modulo_id: moduloId, ativo: !isActive }, function(err, data) {
+    if (err || !data || !data.ok) {
+      showToast('Erro: ' + (data ? data.erro : 'Conexão'), 'danger');
+      return;
     }
+    btn.dataset.ativo = (!isActive) ? '1' : '0';
+    btn.textContent = (!isActive) ? 'Ativo' : 'Inativo';
+    btn.className = 'badge ' + (!isActive ? 'badge-ativo' : 'badge-bloqueado');
+    showToast(moduloId + ' ' + (!isActive ? 'ativado' : 'desativado') + ' globalmente.', 'success');
   });
 };
+
+window.toggleModuloTenant = function(restauranteId, moduloId, checked) {
+  apiPost('/api/super/modulos/tenant', { restaurante_id: restauranteId, modulo_id: moduloId, ativo: checked }, function(err, data) {
+    if (err || !data || !data.ok) {
+      showToast('Erro ao alterar módulo: ' + (data ? data.erro : 'Conexão'), 'danger');
+      return;
+    }
+    showToast(moduloId + (checked ? ' ativado' : ' desativado') + ' para Restaurante #' + restauranteId, 'success');
+  });
+};
+
+function carregarModulos() {
+  apiGet('/api/super/modulos', function(err, data) {
+    if (err || !data || !data.ok) return;
+    window._modulosData = data.modulos || [];
+    window._modulosOverrides = data.overrides || {};
+    renderizarModulosCards();
+  });
+}
+
+function carregarRestaurantesModulos(cb) {
+  apiGet('/api/super/restaurantes', function(err, data) {
+    if (!err && data && data.ok) {
+      window._restaurantes = (data.restaurantes || []).filter(function(r) { return r.ativo !== 0; });
+    }
+    if (cb) cb();
+  });
+}
+
+function renderizarModulosCards() {
+  var grid = document.getElementById('modulos-grid');
+  if (!grid) return;
+  var modulos = window._modulosData;
+  var html = '';
+  modulos.forEach(function(m) {
+    var tipoLabel = m.tipo === 'system' ? 'Sistema' : m.tipo === 'plugin' ? 'Plugin' : 'Feature';
+    var tipoColor = m.tipo === 'system' ? '#6b7280' : m.tipo === 'plugin' ? '#a855f7' : '#3b82f6';
+    var ativoBadge = m.ativo_global ? '<span class="badge badge-ativo" id="mod-status-' + m.modulo_id + '">Ativo</span>'
+      : '<span class="badge badge-bloqueado" id="mod-status-' + m.modulo_id + '">Inativo</span>';
+    var obrigTag = m.obrigatorios ? ' <span style="font-size:0.7rem;color:#ef4444;">(obrigatório)</span>' : '';
+    var toggleBtn = m.obrigatorios ? ''
+      : '<button class="btn-action" style="width:100%;background:' + tipoColor + ';color:white;margin-top:8px;" '
+        + 'onclick="toggleModuloGlobal(\'' + m.modulo_id + '\', this)" '
+        + 'data-ativo="' + (m.ativo_global ? '1' : '0') + '">'
+        + '<i class="fa-solid fa-sliders"></i> ' + (m.ativo_global ? 'Ativo' : 'Inativo') + '</button>';
+    html += '<div style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:14px;padding:1.2rem;display:flex;flex-direction:column;justify-content:space-between;" data-modulo="' + m.modulo_id + '">'
+      + '<div>'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">'
+      + '<i class="fa-solid ' + (m.icone || 'fa-puzzle-piece') + '" style="font-size:22px;color:' + tipoColor + ';"></i>'
+      + '<span style="font-size:0.7rem;padding:3px 8px;border-radius:8px;background:' + tipoColor + '22;color:' + tipoColor + ';">' + tipoLabel + '</span>'
+      + '</div>'
+      + '<h4 style="margin:0 0 4px 0;font-size:1rem;">' + (m.nome || m.modulo_id) + obrigTag + '</h4>'
+      + '<p style="font-size:0.8rem;color:var(--text-muted);margin:0;">' + (m.descricao || '') + '</p>'
+      + '</div>'
+      + toggleBtn
+      + '</div>';
+  });
+  grid.innerHTML = html;
+}
+
+function carregarMatrizModulos() {
+  carregarRestaurantesModulos(function() {
+    var modulos = window._modulosData.filter(function(m) { return !m.obrigatorios; });
+    var restaurantes = window._restaurantes;
+    var overrides = window._modulosOverrides;
+
+    // Header
+    var header = document.getElementById('modulos-matrix-header');
+    var headerHtml = '<th style="text-align:left;padding:10px;position:sticky;left:0;background:var(--bg-card);z-index:2;min-width:180px;">Restaurante</th>';
+    modulos.forEach(function(m) {
+      headerHtml += '<th style="padding:10px;text-align:center;min-width:90px;white-space:nowrap;">'
+        + '<i class="fa-solid ' + (m.icone || 'fa-puzzle-piece') + '" style="color:' + (m.tipo === 'plugin' ? '#a855f7' : '#3b82f6') + ';"></i><br>'
+        + '<span style="font-size:0.75rem;">' + m.nome + '</span></th>';
+    });
+    header.innerHTML = headerHtml;
+
+    // Body
+    var body = document.getElementById('modulos-matrix-body');
+    var bodyHtml = '';
+    restaurantes.forEach(function(r) {
+      bodyHtml += '<tr>';
+      bodyHtml += '<td style="padding:8px 10px;border-bottom:1px solid var(--border-color);position:sticky;left:0;background:var(--bg-card);z-index:1;font-weight:500;">'
+        + (r.nome || 'Restaurante #' + r.id) + '</td>';
+      modulos.forEach(function(m) {
+        var over = overrides[r.id] && overrides[r.id][m.modulo_id];
+        var isOn = over !== undefined ? over === 1 : m.ativo_global === 1;
+        var hasOverride = over !== undefined;
+        var label = isOn ? '✓' : '✕';
+        var color = isOn ? '#22c55e' : '#ef4444';
+        var style = 'cursor:pointer;padding:6px 12px;border-radius:8px;border:none;font-size:0.9rem;font-weight:600;'
+          + 'background:' + color + '18;color:' + color + ';transition:all 0.2s;';
+        bodyHtml += '<td style="padding:6px;text-align:center;border-bottom:1px solid var(--border-color);">';
+        bodyHtml += '<button style="' + style + '" onclick="toggleModuloTenant(' + r.id + ',\'' + m.modulo_id + '\',' + !isOn + ')">';
+        bodyHtml += label + (hasOverride ? '<span style="font-size:0.6rem;">*</span>' : '');
+        bodyHtml += '</button></td>';
+      });
+      bodyHtml += '</tr>';
+    });
+    body.innerHTML = bodyHtml;
+  });
+}
+
+window.carregarPlugins = carregarModulos;
 
 /* ═══ DASHBOARD ═══ */
 function carregarDashboard() {
