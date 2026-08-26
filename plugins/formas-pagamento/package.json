@@ -1,0 +1,1 @@
+{ "name": "formas-pagamento", "version": "1.0.0", "description": "Gerenciamento de formas de pagamento (CRUD + broadcast)", "order": 4 }
