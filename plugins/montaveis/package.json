@@ -1,0 +1,6 @@
+{
+  "name": "montaveis",
+  "version": "1.0.0",
+  "description": "CRUD de itens montáveis (categorias, opções, vínculo com produtos)",
+  "order": 8
+}

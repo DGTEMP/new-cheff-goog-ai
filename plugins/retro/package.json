@@ -1,0 +1,6 @@
+{
+  "name": "retro",
+  "version": "1.0.0",
+  "description": "API retroativa para Android 3.2 (mesas, pedidos, cobrança, login)",
+  "order": 7
+}
