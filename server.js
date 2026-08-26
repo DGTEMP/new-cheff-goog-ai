@@ -6415,6 +6415,16 @@ io.on('connection', (socket) => {
 
       conn.device = `${conn.model} (${conn.os} • ${conn.browser})`;
 
+      /* ── Deduplicar: remover entradas antigas com mesmo serial ── */
+      if (conn.serial) {
+        for (const [oldId, oldDev] of activeSockets.entries()) {
+          if (oldId !== socket.id && oldDev.serial === conn.serial) {
+            try { io.sockets.sockets.get(oldId)?.disconnect(true); } catch (e) {}
+            activeSockets.delete(oldId);
+          }
+        }
+      }
+
       // Registro persistente: guarda/aplica apelido e tipo por serial
       if (conn.serial) {
         db.run(

@@ -5,14 +5,54 @@
 module.exports = function({ app, db, io, options, log }) {
   const { verificarToken, activeSockets, getTempoConectadoStr } = options;
 
-  log('Registering routes...');
+  /* ── Deduplicar lista por serial (manter conexão mais recente) ── */
+  function dedupDevices(deviceList) {
+    const bySerial = {};
+    const noSerial = [];
+    deviceList.forEach(d => {
+      if (d.serial) {
+        if (!bySerial[d.serial] || d.connectedAt > bySerial[d.serial].connectedAt) {
+          bySerial[d.serial] = d;
+        } else {
+          /* Guardar todos os socket IDs do mesmo serial no entry mais recente */
+        }
+        if (!bySerial[d.serial]._allSocketIds) bySerial[d.serial]._allSocketIds = [];
+        bySerial[d.serial]._allSocketIds.push(d.id);
+      } else {
+        noSerial.push(d);
+      }
+    });
+    return [...Object.values(bySerial), ...noSerial];
+  }
 
-  app.get('/api/dispositivos', verificarToken, (req, res) => {
-    const deviceList = Array.from(activeSockets.values()).map(d => ({
+  function buildDeviceList() {
+    const raw = Array.from(activeSockets.values()).map(d => ({
       ...d,
       tempoConectadoStr: getTempoConectadoStr(d.connectedAt)
     }));
-    res.json(deviceList);
+    return dedupDevices(raw);
+  }
+
+  log('Registering routes...');
+
+  app.get('/api/dispositivos', verificarToken, (req, res) => {
+    const deduped = buildDeviceList();
+    const serials = [...new Set(deduped.map(d => d.serial).filter(Boolean))];
+    if (!serials.length) return res.json(deduped);
+    db.all(`SELECT serial, apelido, tipo, modo FROM dispositivos WHERE serial IN (${serials.map(() => '?').join(',')})`, serials, (err, rows) => {
+      if (!err && rows) {
+        const mapa = {};
+        rows.forEach(r => { mapa[r.serial] = r; });
+        deduped.forEach(d => {
+          if (d.serial && mapa[d.serial]) {
+            d.apelido = d.apelido || mapa[d.serial].apelido || '';
+            d.tipo = d.tipo || mapa[d.serial].tipo || '';
+            d.modo = d.modo || mapa[d.serial].modo || 'normal';
+          }
+        });
+      }
+      res.json(deduped);
+    });
   });
 
   app.post('/api/dispositivos/:id/renomear', verificarToken, (req, res) => {
@@ -54,26 +94,7 @@ module.exports = function({ app, db, io, options, log }) {
 
   io.on('connection', (socket) => {
     socket.on('get_connected_devices', () => {
-      const deviceList = Array.from(activeSockets.values()).map(d => ({
-        ...d,
-        tempoConectadoStr: getTempoConectadoStr(d.connectedAt)
-      }));
-      /* Deduplicar por serial: manter apenas a conexão mais recente */
-      const bySerial = {};
-      const noSerial = [];
-      deviceList.forEach(d => {
-        if (d.serial) {
-          if (!bySerial[d.serial] || d.connectedAt > bySerial[d.serial].connectedAt) {
-            bySerial[d.serial] = d;
-          }
-          if (!bySerial[d.serial]._allSocketIds) bySerial[d.serial]._allSocketIds = [];
-          bySerial[d.serial]._allSocketIds.push(d.id);
-        } else {
-          noSerial.push(d);
-        }
-      });
-      const deduped = [...Object.values(bySerial), ...noSerial];
-
+      const deduped = buildDeviceList();
       const serials = [...new Set(deduped.map(d => d.serial).filter(Boolean))];
       if (!serials.length) return socket.emit('connected_devices', deduped);
       db.all(`SELECT serial, apelido, tipo, modo FROM dispositivos WHERE serial IN (${serials.map(() => '?').join(',')})`, serials, (err, rows) => {
