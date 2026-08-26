@@ -1,0 +1,6 @@
+{
+  "name": "exemplo-admin",
+  "version": "1.0.0",
+  "description": "Exemplo de plugin com autoloading no admin panel",
+  "order": 900
+}

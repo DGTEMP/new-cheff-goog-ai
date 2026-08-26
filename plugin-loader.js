@@ -74,6 +74,12 @@ function loadPlugins({ app, db, masterDb, io, options }) {
         app.use('/plugins/' + plugin.name, require('express').static(publicDir));
       }
 
+      // Serve admin frontend files from plugins/<name>/admin/ if it exists
+      const adminDir = path.join(plugin.path, 'admin');
+      if (fs.existsSync(adminDir) && fs.statSync(adminDir).isDirectory()) {
+        app.use('/plugins/' + plugin.name + '/admin', require('express').static(adminDir));
+      }
+
       // Load index.js (main plugin file)
       const indexPath = path.join(plugin.path, 'index.js');
       if (!fs.existsSync(indexPath)) {
@@ -178,6 +184,31 @@ function loadPlugins({ app, db, masterDb, io, options }) {
       res.json({ ok: true, plugins: list });
     } catch (e) {
       res.json({ ok: true, plugins: [] });
+    }
+  });
+
+  // API endpoint: list plugins with admin frontend (for configuracoes panel autoloading)
+  app.get('/api/plugins/admin-manifest', (req, res) => {
+    try {
+      const dirs = fs.readdirSync(PLUGINS_DIR, { withFileTypes: true })
+        .filter(e => e.isDirectory() && !e.name.startsWith('.'));
+      const manifest = [];
+      for (const d of dirs) {
+        const adminDir = path.join(PLUGINS_DIR, d.name, 'admin');
+        if (!fs.existsSync(adminDir) || !fs.statSync(adminDir).isDirectory()) continue;
+        let meta = { name: d.name, displayName: d.name, group: 'Plugins', order: 999, icon: 'ph-puzzle-piece' };
+        try {
+          const raw = JSON.parse(fs.readFileSync(path.join(adminDir, 'manifest.json'), 'utf8'));
+          meta = Object.assign(meta, raw);
+        } catch (e) { /* no manifest, use defaults */ }
+        meta.id = d.name;
+        meta.baseUrl = '/plugins/' + d.name + '/admin';
+        manifest.push(meta);
+      }
+      manifest.sort((a, b) => (a.order || 999) - (b.order || 999));
+      res.json({ ok: true, manifest });
+    } catch (e) {
+      res.json({ ok: true, manifest: [] });
     }
   });
 

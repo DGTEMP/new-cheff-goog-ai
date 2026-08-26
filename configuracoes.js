@@ -8236,3 +8236,108 @@ document.addEventListener('DOMContentLoaded', () => {
   window.carregarConfigAtalhosGarcom();
 });
 
+/* ═══════════════════════════════════════════════════════════════
+   PLUGIN AUTOLOADING — Frontend Autoloading para o Admin Panel
+   Escaneia /api/plugins/admin-manifest e cria abas automaticamente.
+   ═══════════════════════════════════════════════════════════════ */
+(function initPluginAutoloader() {
+  const _pluginTabsLoaded = {};
+  const _pluginTabInitFns = {};
+
+  function authHeadersPlugin() {
+    const t = localStorage.getItem('chef_token') || '';
+    return { 'Authorization': 'Bearer ' + t, 'Content-Type': 'application/json' };
+  }
+
+  async function discoverAdminPlugins() {
+    try {
+      const r = await fetch('/api/plugins/admin-manifest', { headers: authHeadersPlugin() });
+      const data = await r.json();
+      return (data.ok && Array.isArray(data.manifest)) ? data.manifest : [];
+    } catch (e) { return []; }
+  }
+
+  function ensurePluginGroup(groupName) {
+    let grp = document.querySelector('.action-group[data-plugin-group="' + groupName + '"]');
+    if (grp) return grp;
+    grp = document.createElement('div');
+    grp.className = 'action-group';
+    grp.setAttribute('data-plugin-group', groupName);
+    grp.innerHTML = '<div class="group-title">' + escHtml(groupName) + '</div>';
+    const sidebar = document.querySelector('.config-sidebar');
+    if (sidebar) sidebar.appendChild(grp);
+    return grp;
+  }
+
+  function createPluginTab(plugin) {
+    const tabId = 'plugin-' + plugin.id;
+    if (document.getElementById('admin-tab-' + tabId)) return;
+
+    const grp = ensurePluginGroup(plugin.group || 'Plugins');
+    const btn = document.createElement('button');
+    btn.className = 'admin-tab-btn';
+    btn.setAttribute('data-tab', tabId);
+    btn.innerHTML = '<i class="ph ' + (plugin.icon || 'ph-puzzle-piece') + '"></i> ' + escHtml(plugin.displayName || plugin.name);
+    grp.appendChild(btn);
+
+    const content = document.createElement('div');
+    content.id = 'admin-tab-' + tabId;
+    content.className = 'admin-tab-content';
+    content.style.display = 'none';
+    content.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#94a3b8;"><i class="ph ph-spinner ph-spin" style="font-size:24px;"></i></div>';
+    const workspace = document.querySelector('.main-workspace');
+    if (workspace) workspace.appendChild(content);
+
+    _pluginTabInitFns[tabId] = async function loadPluginContent() {
+      if (_pluginTabsLoaded[tabId]) return;
+      _pluginTabsLoaded[tabId] = true;
+      try {
+        const r = await fetch(plugin.baseUrl + '/index.html');
+        if (!r.ok) throw new Error('HTML not found');
+        const html = await r.text();
+        content.innerHTML = html;
+
+        const script = document.createElement('script');
+        script.src = plugin.baseUrl + '/index.js';
+        script.onload = function() {
+          const initFn = window['plugin_' + plugin.id + '_init'];
+          if (typeof initFn === 'function') {
+            try { initFn({ tab: content, tabId: tabId, plugin: plugin }); } catch (e) { console.error('[plugin-autoloader] init error:', e); }
+          }
+        };
+        script.onerror = function() { console.warn('[plugin-autoloader] No index.js for ' + plugin.id); };
+        content.appendChild(script);
+      } catch (e) {
+        content.innerHTML = '<div style="padding:40px;text-align:center;color:#ef4444;">Erro ao carregar módulo: ' + escHtml(e.message) + '</div>';
+      }
+    };
+  }
+
+  function patchActivateTab() {
+    if (window._pluginAutoloadPatched) return;
+    window._pluginAutoloadPatched = true;
+    const origActivate = window.activateTab;
+    if (typeof origActivate !== 'function') return;
+    window.activateTab = function(tabId, skipSave) {
+      if (tabId && tabId.startsWith('plugin-') && _pluginTabInitFns[tabId]) {
+        _pluginTabInitFns[tabId]();
+      }
+      return origActivate(tabId, skipSave);
+    };
+  }
+
+  async function boot() {
+    const plugins = await discoverAdminPlugins();
+    if (!plugins.length) return;
+    plugins.forEach(createPluginTab);
+    patchActivateTab();
+    console.log('[plugin-autoloader] ' + plugins.length + ' admin plugin tabs registered');
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    setTimeout(boot, 100);
+  }
+})();
+

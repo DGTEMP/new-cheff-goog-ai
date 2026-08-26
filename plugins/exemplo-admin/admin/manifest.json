@@ -1,0 +1,8 @@
+{
+  "name": "exemplo-admin",
+  "displayName": "Exemplo Autoloader",
+  "description": "Demonstração do sistema de autoloading de módulos no admin panel",
+  "group": "Plugins",
+  "order": 900,
+  "icon": "ph-flask"
+}
