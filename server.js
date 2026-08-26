@@ -11329,7 +11329,12 @@ app.post('/api/maquininha/testar', (req, res) => {
 
 // --- BACKUP & RESTORE API ---
 app.get('/api/backup', verificarToken, (req, res) => {
-  res.download(dbPath, 'backup.sqlite', (err) => {
+  const tid = req.restaurante_id || 1;
+  const tenantDbPath = getTenantDbPath(tid);
+  if (!fsSync.existsSync(tenantDbPath)) {
+    return res.status(404).json({ success: false, error: 'Banco do restaurante não encontrado.' });
+  }
+  res.download(tenantDbPath, 'backup_restaurante_' + tid + '.sqlite', (err) => {
     if (err) {
       console.error("Erro no download do backup:", err);
       if (!res.headersSent) {
@@ -11362,23 +11367,22 @@ app.post('/api/restore', verificarToken, upload.single('backup'), (req, res) => 
       }
 
       // Proceder com a restauração
+      const tid = req.restaurante_id || 1;
+      const tenantDbPath = getTenantDbPath(tid);
       db.close((closeErr) => {
         if (closeErr) {
           console.error("Erro ao fechar o banco de dados para restore:", closeErr);
-          // Tentar reabrir o banco original
-          db = new sqlite3.Database(dbPath, (err) => {
-            if (err) console.error("Erro ao reabrir banco após falha de fechamento:", err);
-          });
           try { fs.unlinkSync(tempFilePath); } catch (e) { }
           return res.json({ success: false, error: 'Erro ao fechar banco de dados atual.' });
         }
 
         try {
-          fs.copyFileSync(tempFilePath, dbPath);
+          fs.copyFileSync(tempFilePath, tenantDbPath);
           try { fs.unlinkSync(tempFilePath); } catch (e) { }
 
           // Reabrir conexão com o banco restaurado
-          db = new sqlite3.Database(dbPath, (openErr) => {
+          tenantDbs.delete(tid);
+          const freshDb = new sqlite3.Database(tenantDbPath, (openErr) => {
             if (openErr) {
               console.error("Erro ao reabrir banco restaurado:", openErr);
               return res.json({ success: false, error: 'Erro ao conectar ao banco restaurado.' });

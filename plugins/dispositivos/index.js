@@ -58,13 +58,29 @@ module.exports = function({ app, db, io, options, log }) {
         ...d,
         tempoConectadoStr: getTempoConectadoStr(d.connectedAt)
       }));
-      const serials = [...new Set(deviceList.map(d => d.serial).filter(Boolean))];
-      if (!serials.length) return socket.emit('connected_devices', deviceList);
+      /* Deduplicar por serial: manter apenas a conexão mais recente */
+      const bySerial = {};
+      const noSerial = [];
+      deviceList.forEach(d => {
+        if (d.serial) {
+          if (!bySerial[d.serial] || d.connectedAt > bySerial[d.serial].connectedAt) {
+            bySerial[d.serial] = d;
+          }
+          if (!bySerial[d.serial]._allSocketIds) bySerial[d.serial]._allSocketIds = [];
+          bySerial[d.serial]._allSocketIds.push(d.id);
+        } else {
+          noSerial.push(d);
+        }
+      });
+      const deduped = [...Object.values(bySerial), ...noSerial];
+
+      const serials = [...new Set(deduped.map(d => d.serial).filter(Boolean))];
+      if (!serials.length) return socket.emit('connected_devices', deduped);
       db.all(`SELECT serial, apelido, tipo, modo FROM dispositivos WHERE serial IN (${serials.map(() => '?').join(',')})`, serials, (err, rows) => {
         if (!err && rows) {
           const mapa = {};
           rows.forEach(r => { mapa[r.serial] = r; });
-          deviceList.forEach(d => {
+          deduped.forEach(d => {
             if (d.serial && mapa[d.serial]) {
               d.apelido = d.apelido || mapa[d.serial].apelido || '';
               d.tipo = d.tipo || mapa[d.serial].tipo || '';
@@ -72,7 +88,7 @@ module.exports = function({ app, db, io, options, log }) {
             }
           });
         }
-        socket.emit('connected_devices', deviceList);
+        socket.emit('connected_devices', deduped);
       });
     });
   });

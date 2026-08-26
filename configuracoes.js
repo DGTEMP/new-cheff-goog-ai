@@ -1045,7 +1045,9 @@ socket.on('connected_devices', (devices) => {
       '<td style="padding:10px 16px;color:#475569;">' + escapeHtml(d.ip || '-') + '</td>' +
       '<td style="padding:10px 16px;color:#64748b;">' + escapeHtml(tempo) + '</td>' +
       '<td style="padding:10px 16px;"><span style="color:#047857;font-weight:700;font-size:12px;">● Online</span></td>' +
-      '<td style="padding:10px 16px;text-align:right;white-space:nowrap;">' + selModo + ' ' + btnIdentificar + '</td>' +
+      '<td style="padding:10px 16px;text-align:right;white-space:nowrap;">' + selModo + ' ' + btnIdentificar +
+        (d.id ? ' <button onclick="window.desconectarDispositivo(\'' + escapeHtml(d.id) + '\', \'' + escapeHtml(nomeExibicao) + '\')" style="padding:5px 10px;border-radius:8px;border:1px solid #fecaca;background:#fef2f2;color:#dc2626;font-size:11px;font-weight:700;cursor:pointer;" title="Desconectar este dispositivo"><i class="ph ph-x-circle"></i> Desconectar</button>' : '') +
+      '</td>' +
     '</tr>';
   }).join('');
 });
@@ -1054,6 +1056,18 @@ socket.on('dispositivo_salvo_ok', () => {
   if (typeof window.showToast === 'function') window.showToast('✓ Dispositivo identificado com sucesso!', 'success');
   window.carregarGerenciadorDispositivos();
 });
+
+window.desconectarDispositivo = function(socketId, nome) {
+  if (!confirm('Deseja desconectar o dispositivo "' + nome + '"? O usuário será desconectado imediatamente.')) return;
+  const token = localStorage.getItem('chef_token') || '';
+  fetch('/api/dispositivos/' + encodeURIComponent(socketId) + '/desconectar', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }
+  }).then(r => r.json()).then(d => {
+    if (d.success) { if (typeof showToast === 'function') showToast('Dispositivo desconectado.', 'success'); }
+    else { if (typeof showToast === 'function') showToast('Erro: ' + (d.error || 'desconhecido'), 'danger'); }
+  }).catch(e => { if (typeof showToast === 'function') showToast('Falha ao desconectar: ' + e.message, 'danger'); });
+};
 
 /* ═════════ LAYOUT DO SALÃO — desenhador arrastável de mesas ═════════
    Coordenadas normalizadas: pos_x 0–1000, pos_y 0–600. Mesas próximas
@@ -4742,7 +4756,26 @@ window.salvarFilaEsperaConfig = function() {
 };
 
 // Backup
-window.downloadBackup = () => { window.location.href = '/api/backup'; };
+window.downloadBackup = () => {
+  const token = localStorage.getItem('chef_token') || '';
+  fetch('/api/backup', { headers: { 'Authorization': 'Bearer ' + token } })
+    .then(r => {
+      if (!r.ok) throw new Error('Erro ao gerar backup: ' + r.status);
+      return r.blob();
+    })
+    .then(blob => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'backup_restaurante.sqlite';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      if (typeof showToast === 'function') showToast('Backup baixado com sucesso!', 'success');
+    })
+    .catch(e => { if (typeof showToast === 'function') showToast('Falha no backup: ' + e.message, 'danger'); });
+};
 window.uploadRestore = (event) => {
   const file = event.target.files[0];
   if (!file) return;
