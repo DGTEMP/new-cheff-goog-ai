@@ -1,0 +1,59 @@
+{
+  "salvo_em": "2026-08-26T15:33:03.509Z",
+  "mesas": [
+    {
+      "nome": "Mesa 1",
+      "status": "Ocupada",
+      "pedidos_abertos": 3,
+      "valor_total": 63
+    },
+    {
+      "nome": "Mesa 10",
+      "status": "Ocupada",
+      "pedidos_abertos": 1,
+      "valor_total": 44
+    },
+    {
+      "nome": "Mesa 11",
+      "status": "Ocupada",
+      "pedidos_abertos": 14,
+      "valor_total": 1395
+    },
+    {
+      "nome": "Mesa 12",
+      "status": "Ocupada",
+      "pedidos_abertos": 3,
+      "valor_total": 141
+    },
+    {
+      "nome": "Mesa 15",
+      "status": "Ocupada",
+      "pedidos_abertos": 1,
+      "valor_total": 2000
+    },
+    {
+      "nome": "Mesa 2",
+      "status": "Ocupada",
+      "pedidos_abertos": 2,
+      "valor_total": 134
+    },
+    {
+      "nome": "Mesa 3",
+      "status": "Ocupada",
+      "pedidos_abertos": 1,
+      "valor_total": 21
+    },
+    {
+      "nome": "Mesa 6",
+      "status": "Ocupada",
+      "pedidos_abertos": 3,
+      "valor_total": 324
+    },
+    {
+      "nome": "Mesa 8",
+      "status": "Ocupada",
+      "pedidos_abertos": 1,
+      "valor_total": 16
+    }
+  ]
+}
