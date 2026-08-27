@@ -1820,6 +1820,195 @@
       color: var(--cfg-text) !important;
     }
 
+
+    /* ══════════════════════════════════════════════════════════════════
+       SISTEMA MODULAR FLUIDO PARA MONITORES WIDE / ULTRAWIDE & THEME
+       ══════════════════════════════════════════════════════════════════ */
+    :root, [data-theme="dark"] {
+      --cfg-bg: #09090b;
+      --cfg-sidebar-bg: #121218;
+      --cfg-header-bg: #121218;
+      --cfg-card-bg: #18181b;
+      --cfg-subtle-bg: #1e1e24;
+      --cfg-input-bg: #0c0c10;
+      --cfg-border: #2a2a32;
+      --cfg-text: #f4f4f5;
+      --cfg-text-muted: #a1a1aa;
+      --cfg-heading: #ffffff;
+      --cfg-primary: #fc4b15;
+      --cfg-success: #10b981;
+      --cfg-danger: #ef4444;
+      --cfg-warning: #f59e0b;
+    }
+
+    [data-theme="light"] {
+      --cfg-bg: #f4f4f5;
+      --cfg-sidebar-bg: #ffffff;
+      --cfg-header-bg: #ffffff;
+      --cfg-card-bg: #ffffff;
+      --cfg-subtle-bg: #f8fafc;
+      --cfg-input-bg: #ffffff;
+      --cfg-border: #e2e8f0;
+      --cfg-text: #0f172a;
+      --cfg-text-muted: #64748b;
+      --cfg-heading: #0f172a;
+      --cfg-primary: #fc4b15;
+      --cfg-success: #10b981;
+      --cfg-danger: #ef4444;
+      --cfg-warning: #f59e0b;
+    }
+
+    /* Ocupar 100% da tela em monitores Wide/Ultrawide sem desperdício de espaço */
+    .config-layout {
+      width: 100% !important;
+      max-width: 100% !important;
+      display: flex !important;
+    }
+
+    .main-workspace {
+      flex: 1 1 auto !important;
+      height: calc(100vh - 58px) !important;
+      overflow-y: auto !important;
+      overflow-x: hidden !important;
+      padding: 24px 32px 80px !important;
+      box-sizing: border-box !important;
+      max-width: 100% !important;
+      width: 100% !important;
+      margin: 0 !important;
+    }
+
+    .aba-titulo {
+      font-size: 22px !important;
+      font-weight: 900 !important;
+      color: var(--cfg-heading) !important;
+      margin: 0 0 20px 0 !important;
+      letter-spacing: -0.5px !important;
+    }
+
+    /* Grid Modular Bento Box em Telas Desktop/Wide */
+    @media (min-width: 901px) {
+      #admin-tab-gerais,
+      #admin-tab-sons,
+      #admin-tab-atalhos,
+      #admin-tab-funcionalidades {
+        display: grid !important;
+        grid-template-columns: repeat(auto-fit, minmax(440px, 1fr)) !important;
+        gap: 20px !important;
+        align-items: stretch !important;
+      }
+
+      /* Cards full-width ou com tabelas/listas ocupam todas as colunas */
+      #admin-tab-gerais > div:has(#cfg-pedidos-qr-ativo),
+      #admin-tab-gerais > div:has(#lista-ordem-categorias),
+      #admin-tab-gerais > div:has(#btn-deslogar-restaurante),
+      #admin-tab-gerais > div:last-child,
+      .grid-full,
+      .promo-card,
+      #admin-tab-modulos > div {
+        grid-column: 1 / -1 !important;
+      }
+    }
+
+    /* Cartões Modulares de Configuração */
+    .config-card,
+    .promo-card,
+    .admin-card,
+    #admin-tab-gerais > div,
+    #admin-tab-sons > div,
+    #admin-tab-atalhos > div {
+      background: var(--cfg-card-bg) !important;
+      border: 1px solid var(--cfg-border) !important;
+      border-radius: 16px !important;
+      padding: 20px 24px !important;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08) !important;
+      display: flex !important;
+      flex-direction: column !important;
+      justify-content: space-between !important;
+      margin-bottom: 0 !important;
+      box-sizing: border-box !important;
+    }
+
+    /* Títulos dos cards com alto contraste e nitidez */
+    #admin-tab-gerais h3,
+    #admin-tab-sons h3,
+    #admin-tab-atalhos h3,
+    .config-card h3 {
+      font-size: 16.5px !important;
+      font-weight: 800 !important;
+      color: var(--cfg-heading) !important;
+      display: flex !important;
+      align-items: center !important;
+      gap: 10px !important;
+      margin-top: 0 !important;
+      margin-bottom: 6px !important;
+    }
+
+    #admin-tab-gerais h3 i,
+    #admin-tab-sons h3 i {
+      color: var(--cfg-primary) !important;
+      font-size: 20px !important;
+    }
+
+    #admin-tab-gerais p,
+    #admin-tab-sons p,
+    #admin-tab-atalhos p,
+    .config-card p {
+      font-size: 13.5px !important;
+      color: var(--cfg-text-muted) !important;
+      line-height: 1.5 !important;
+      margin-bottom: 14px !important;
+    }
+
+    /* Inputs e Seleções Padronizados */
+    input[type="text"],
+    input[type="number"],
+    input[type="password"],
+    input[type="date"],
+    select,
+    textarea,
+    .form-input,
+    .promo-input,
+    .promo-select {
+      background: var(--cfg-input-bg) !important;
+      color: var(--cfg-text) !important;
+      border: 1px solid var(--cfg-border) !important;
+      border-radius: 10px !important;
+      padding: 11px 14px !important;
+      font-size: 14.5px !important;
+      font-family: inherit !important;
+      outline: none !important;
+      transition: border-color 0.2s, box-shadow 0.2s !important;
+      width: 100% !important;
+      box-sizing: border-box !important;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--cfg-primary) !important;
+      box-shadow: 0 0 0 3px rgba(252, 75, 21, 0.2) !important;
+    }
+
+    /* Topbar Icons & Buttons */
+    .config-header {
+      background: var(--cfg-header-bg) !important;
+      border-bottom: 1px solid var(--cfg-border) !important;
+      color: var(--cfg-text) !important;
+    }
+
+    .config-header button {
+      color: var(--cfg-text) !important;
+      background: rgba(255,255,255,0.06) !important;
+      border: 1px solid var(--cfg-border) !important;
+      border-radius: 8px !important;
+      padding: 8px 14px !important;
+      font-weight: 700 !important;
+      font-size: 13.5px !important;
+      cursor: pointer !important;
+    }
+
+    .config-header button:hover {
+      background: rgba(255,255,255,0.12) !important;
+    }
+
 </style>
 
 

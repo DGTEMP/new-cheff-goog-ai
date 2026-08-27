@@ -1,0 +1,26 @@
+{
+  "id": "tema-v2",
+  "nome": "Tema v2.0 Modular (Apple HIG)",
+  "versao": "2.0.0",
+  "autor": "Chef Cozinha Pro Team",
+  "descricao": "Interface executiva unificada baseada no Apple Human Interface Guidelines (HIG). Substitui a operação do Caixa e Painel de Configurações por uma plataforma modular customizável.",
+  "icone": "ph-apple-logo",
+  "categoria": "interface",
+  "targets": ["caixa", "admin", "configuracoes"],
+  "ativo": true,
+  "config": {
+    "nomeRestaurante": "Chef Cozinha Gourmet",
+    "logoUrl": "",
+    "corPrimaria": "#fc4b15",
+    "corAcento": "#3b82f6",
+    "modoVidro": true,
+    "widgetsAtivos": {
+      "pdv": true,
+      "mesas": true,
+      "balanca": true,
+      "kds": true,
+      "metricas": true,
+      "configExpress": true
+    }
+  }
+}

@@ -926,7 +926,149 @@
     body[data-layout-dono="dashboard"] .kpi-card.full { grid-column: 1 / -1 !important; }
     body[data-layout-dono="dashboard"] .kpi-grid > .kpi-card:not(.full) { grid-column: span 2 !important; }
     body[data-layout-dono="dashboard"] .features-grid { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
-  }</style>
+  }
+    /* ══════════════════════════════════════════════════════════════════
+       MOTOR MODULAR BENTO GRID PARA PAINEL DO DONO (MOBILE -> ULTRAWIDE)
+       ══════════════════════════════════════════════════════════════════ */
+    :root {
+      --bg: #090d16;
+      --card: #111827;
+      --card2: #1e293b;
+      --border: rgba(255,255,255,0.09);
+      --primary: #fc4b15;
+      --primary-light: rgba(252,75,21,0.15);
+      --green: #10b981;
+      --green-light: rgba(16,185,129,0.15);
+      --blue: #3b82f6;
+      --blue-light: rgba(59,130,246,0.15);
+      --purple: #8b5cf6;
+      --purple-light: rgba(139,92,246,0.15);
+      --text: #f8fafc;
+      --text-sub: #94a3b8;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      zoom: 1 !important;
+    }
+
+    /* Container Principal Fluido & Modular */
+    main {
+      padding: 24px 20px 80px !important;
+      margin: 0 auto !important;
+      width: 100% !important;
+      box-sizing: border-box !important;
+      transition: max-width 0.3s ease;
+    }
+
+    /* ─── Mobile (< 768px): Coluna Única Confortável ─── */
+    @media (max-width: 767px) {
+      main {
+        max-width: 600px !important;
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 18px !important;
+      }
+      .kpi-grid { grid-template-columns: 1fr 1fr !important; }
+      .remote-grid { grid-template-columns: 1fr 1fr !important; }
+    }
+
+    /* ─── Tablet & Telas Médias (768px a 1199px) ─── */
+    @media (min-width: 768px) and (max-width: 1199px) {
+      main {
+        max-width: 960px !important;
+        display: grid !important;
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 20px !important;
+        align-items: start !important;
+      }
+      .grid-span-all,
+      .sec-periodo-wrap,
+      .kpi-grid-container,
+      .features-container {
+        grid-column: 1 / -1 !important;
+      }
+      .kpi-grid { grid-template-columns: repeat(4, 1fr) !important; }
+      .remote-grid { grid-template-columns: repeat(2, 1fr) !important; }
+    }
+
+    /* ─── Desktop & Monitores Wide (1200px a 1799px) ─── */
+    @media (min-width: 1200px) and (max-width: 1799px) {
+      main {
+        max-width: 1440px !important;
+        display: grid !important;
+        grid-template-columns: repeat(3, 1fr) !important;
+        gap: 22px !important;
+        align-items: start !important;
+      }
+      .grid-span-all,
+      .sec-periodo-wrap,
+      .kpi-grid-container {
+        grid-column: 1 / -1 !important;
+      }
+      .kpi-grid { grid-template-columns: repeat(4, 1fr) !important; }
+      .remote-grid { grid-template-columns: repeat(4, 1fr) !important; }
+      .features-grid { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)) !important; }
+    }
+
+    /* ─── Monitores Ultrawide & 4K (≥ 1800px) ─── */
+    @media (min-width: 1800px) {
+      main {
+        max-width: 1800px !important;
+        display: grid !important;
+        grid-template-columns: repeat(4, 1fr) !important;
+        gap: 24px !important;
+        align-items: start !important;
+      }
+      .grid-span-all,
+      .sec-periodo-wrap,
+      .kpi-grid-container {
+        grid-column: 1 / -1 !important;
+      }
+      .kpi-grid { grid-template-columns: repeat(4, 1fr) !important; }
+      .remote-grid { grid-template-columns: repeat(4, 1fr) !important; }
+      .features-grid { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)) !important; }
+    }
+
+    /* Cartões Modulares com Acabamento Premium */
+    .kpi-card,
+    .remote-btn,
+    .colab-card,
+    .caixa-card,
+    .aviso-area,
+    .equipe-card,
+    .ranking-card,
+    .feed-card,
+    .meta-input-card {
+      background: var(--card) !important;
+      border: 1px solid var(--border) !important;
+      border-radius: var(--radius-lg) !important;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.2) !important;
+      transition: transform 0.2s, border-color 0.2s !important;
+    }
+
+    .kpi-card:hover,
+    .remote-btn:hover,
+    .colab-card:hover {
+      border-color: rgba(252,75,21,0.4) !important;
+      transform: translateY(-2px) !important;
+    }
+
+    /* Modais Centralizados com Backdrop Blur no Desktop */
+    @media (min-width: 768px) {
+      .modal-overlay {
+        align-items: center !important;
+        justify-content: center !important;
+      }
+      .modal-sheet {
+        border-radius: var(--radius-lg) !important;
+        max-width: 620px !important;
+        margin: auto !important;
+      }
+    }
+
+</style>
 </head>
 <body>
 
