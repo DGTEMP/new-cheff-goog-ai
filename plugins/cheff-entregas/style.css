@@ -1,0 +1,6 @@
+/* Estilos do plugin CheffEntregas */
+#btn-abrir-cheff-entregas:hover {
+  background: #ffedd5 !important;
+  border-color: #fdba74 !important;
+  transform: translateY(-1px);
+}

@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>CheffEntregas - App do Motoboy</title>
+  
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/vendor/phosphor/src/regular/style.css">
+  <link rel="stylesheet" href="/vendor/phosphor/src/bold/style.css">
+  <link rel="stylesheet" href="/vendor/phosphor/src/fill/style.css">
+  <script src="/socket.io.min.js"></script>
+
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', system-ui, sans-serif;
+      background: #0f172a;
+      color: #f8fafc;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .motoboy-header {
+      padding: 16px;
+      background: #1e293b;
+      border-bottom: 1px solid #334155;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .motoboy-card-rota {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 14px;
+      padding: 16px;
+      margin: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .item-entrega {
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .btn-maps {
+      background: #2563eb;
+      color: white;
+      text-decoration: none;
+      padding: 10px;
+      border-radius: 8px;
+      font-weight: 800;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .btn-confirmar {
+      background: #16a34a;
+      color: white;
+      border: none;
+      padding: 10px;
+      border-radius: 8px;
+      font-weight: 800;
+      font-size: 13px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+  </style>
+</head>
+<body>
+
+  <header class="motoboy-header">
+    <div style="display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 16px; color: #fb923c;">
+      <i class="ph-bold ph-moped" style="font-size: 24px;"></i> CheffEntregas
+    </div>
+    <div id="gps-status-badge" style="font-size: 11px; background: rgba(34,197,94,0.2); color: #4ade80; padding: 4px 10px; border-radius: 20px; font-weight: 700;">
+      📍 GPS Ligado
+    </div>
+  </header>
+
+  <main style="flex: 1;" id="conteudo-motoboy">
+    <div style="padding: 24px; text-align: center; color: #94a3b8;">
+      <i class="ph-bold ph-hourglass-medium" style="font-size: 40px; color: #fb923c; margin-bottom: 12px;"></i>
+      <h3 style="color: #f8fafc; margin: 0 0 6px 0;">Você está na Sala de Espera</h3>
+      <p style="font-size: 13px; margin: 0;">Aguardando o restaurante despachar sua próxima rota de entregas...</p>
+    </div>
+  </main>
+
+  <script>
+    const socket = io();
+    const urlParams = new URLSearchParams(window.location.search);
+    const motoboyId = parseInt(urlParams.get('id') || '1');
+
+    // Transmissão Contínua de GPS
+    if (navigator.geolocation) {
+      navigator.geolocation.watchPosition((pos) => {
+        socket.emit('motoboy_gps_update', {
+          motoboyId,
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude
+        });
+      }, null, { enableHighAccuracy: true });
+    }
+
+    async function checarRota() {
+      try {
+        const res = await fetch('/api/modulo/cheff-entregas/motoboy/' + motoboyId + '/rota-ativa');
+        const data = await res.json();
+        const container = document.getElementById('conteudo-motoboy');
+
+        if (!data || !data.temRota || !data.itens || data.itens.length === 0) {
+          container.innerHTML = `
+            <div style="padding: 30px; text-align: center; color: #94a3b8;">
+              <i class="ph-bold ph-hourglass-medium" style="font-size: 48px; color: #fb923c; margin-bottom: 12px;"></i>
+              <h3 style="color: #f8fafc; margin: 0 0 6px 0;">Na Sala de Espera</h3>
+              <p style="font-size: 13.5px; margin: 0;">Nenhuma rota ativa no momento. Você será notificado assim que o despachante liberar sua rota.</p>
+            </div>
+          `;
+          return;
+        }
+
+        const rota = data.rota;
+        const itens = data.itens;
+
+        container.innerHTML = `
+          <div class="motoboy-card-rota">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <b style="color: #fb923c; font-size: 15px;">🚀 Rota #${rota.id} (${itens.length} Entregas)</b>
+              <span style="font-size: 12px; font-weight: 700; color: #4ade80;">Taxa: R$ ${rota.total_taxas.toFixed(2)}</span>
+            </div>
+            <div style="font-size: 12px; color: #94a3b8;">Bairros: <b>${rota.bairros || 'Vários'}</b></div>
+            <div style="font-size: 12px; color: #fbbf24;">Cobrar em mãos: <b>R$ ${rota.total_a_receber.toFixed(2)}</b></div>
+
+            <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">
+              ${itens.map((item, idx) => `
+                <div class="item-entrega" style="${item.status === 'entregue' ? 'opacity: 0.5;' : ''}">
+                  <div style="display: flex; justify-content: space-between; font-weight: 800; font-size: 13px;">
+                    <span>#${idx + 1} - ${item.cliente_nome}</span>
+                    <span style="color: #4ade80;">${item.status === 'entregue' ? '✅ Entregue' : 'Pendente'}</span>
+                  </div>
+                  <div style="font-size: 12px; color: #cbd5e1;">📍 ${item.endereco} (${item.bairro})</div>
+                  <div style="font-size: 11.5px; color: #fbbf24;">Forma: <b>${item.forma_pagamento}</b> (R$ ${item.valor_pedido.toFixed(2)})</div>
+                  
+                  ${item.status !== 'entregue' ? `
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px;">
+                      <a class="btn-maps" href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(item.endereco)}" target="_blank">
+                        <i class="ph-bold ph-navigation-arrow"></i> Navegar
+                      </a>
+                      <button class="btn-confirmar" onclick="confirmarEntregaItem(${item.id})">
+                        <i class="ph-bold ph-check"></i> Entregue
+                      </button>
+                    </div>
+                  ` : ''}
+                </div>
+              `).join('')}
+            </div>
+
+            <button onclick="finalizarRotaCompleta(${rota.id})" style="background: #e11d48; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: 800; margin-top: 10px; cursor: pointer;">
+              🏁 Concluir Rota & Fazer Acerto na Loja
+            </button>
+          </div>
+        `;
+      } catch (e) {}
+    }
+
+    async function confirmarEntregaItem(itemId) {
+      if (!confirm('Confirmar que o pedido foi entregue ao cliente?')) return;
+      await fetch('/api/modulo/cheff-entregas/confirmar-entrega-item', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ itemId })
+      });
+      checarRota();
+    }
+
+    async function finalizarRotaCompleta(rotaId) {
+      if (!confirm('Finalizar esta rota e dirigir-se ao caixa da loja para conferência de comprovantes?')) return;
+      await fetch('/api/modulo/cheff-entregas/finalizar-rota', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rotaId, motoboyId })
+      });
+      alert('🛵 Rota finalizada! Apresente seus comprovantes no caixa para liberar sua comissão.');
+      checarRota();
+    }
+
+    socket.on('cheff_entregas_atualizado', () => checarRota());
+    document.addEventListener('DOMContentLoaded', checarRota);
+  </script>
+</body>
+</html>

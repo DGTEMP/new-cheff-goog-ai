@@ -1,0 +1,16 @@
+{
+  "id": "cheff-entregas",
+  "name": "CheffEntregas - Gestão de Motoboys, Rotas e Despacho em Massa",
+  "version": "1.0.0",
+  "author": "Chef Cozinha Dev Team",
+  "category": "delivery",
+  "icon": "ph-moped",
+  "enabled": true,
+  "description": "Gestão de despacho em dias de pico (400+ entregas), agrupamento por bairros, sala de espera de motoboys, GPS em tempo real, rotas otimizadas e acerto de comissões com conferência de comprovantes no caixa.",
+  "targets": ["caixa", "delivery", "configuracoes", "all"],
+  "hooks": {
+    "server": "index.js",
+    "widget": "widget.js",
+    "style": "style.css"
+  }
+}
