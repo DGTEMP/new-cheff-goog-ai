@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Loja de Temas & Theme Studio - Chef Cozinha</title>
+  
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/vendor/phosphor/src/regular/style.css">
+  <link rel="stylesheet" href="/vendor/phosphor/src/bold/style.css">
+  <link rel="stylesheet" href="/vendor/phosphor/src/fill/style.css">
+  <script src="/socket.io.min.js"></script>
+
+  <style>
+    :root {
+      --bg-page: #f8fafc;
+      --bg-panel: #ffffff;
+      --border-panel: #e2e8f0;
+      --text-dark: #0f172a;
+      --text-muted: #64748b;
+      --primary-color: #fc4b15;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg-page);
+      color: var(--text-dark);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .theme-navbar {
+      height: 60px;
+      background: var(--bg-panel);
+      border-bottom: 1px solid var(--border-panel);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      flex-shrink: 0;
+    }
+    .theme-nav-tabs {
+      display: flex;
+      gap: 6px;
+      background: #f1f5f9;
+      padding: 4px;
+      border-radius: 10px;
+    }
+    .theme-tab-btn {
+      background: transparent;
+      border: none;
+      padding: 8px 18px;
+      border-radius: 8px;
+      font-weight: 800;
+      font-size: 13px;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+    .theme-tab-btn.active {
+      background: #ffffff;
+      color: var(--text-dark);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    .theme-content-area {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px;
+      box-sizing: border-box;
+    }
+    
+    /* Vitrine Loja de Temas */
+    .themes-store-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+      max-width: 1300px;
+      margin: 0 auto;
+    }
+    .theme-store-card {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-panel);
+      border-radius: 16px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.03);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .theme-store-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 10px 24px rgba(0,0,0,0.08);
+    }
+    .theme-preview-box {
+      height: 140px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+    }
+    .theme-palette-dots {
+      display: flex;
+      gap: 6px;
+    }
+    .palette-dot {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.8);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    }
+    .theme-card-body {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      gap: 8px;
+    }
+    .btn-apply-theme {
+      background: var(--primary-color);
+      color: white;
+      border: none;
+      padding: 10px;
+      border-radius: 10px;
+      font-weight: 800;
+      font-size: 13px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      margin-top: auto;
+      transition: opacity 0.2s;
+    }
+    .btn-apply-theme:hover {
+      opacity: 0.9;
+    }
+
+    /* Estúdio de Criação */
+    .studio-layout {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 420px 1fr;
+      gap: 24px;
+      height: calc(100vh - 120px);
+    }
+    .studio-form-card {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-panel);
+      border-radius: 16px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      overflow-y: auto;
+    }
+    .studio-preview-card {
+      background: #0f172a;
+      border-radius: 16px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+      border: 1px solid #334155;
+    }
+    .color-picker-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .color-picker-row input[type="color"] {
+      border: none;
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      cursor: pointer;
+      background: transparent;
+    }
+  </style>
+</head>
+<body>
+
+  <header class="theme-navbar">
+    <div style="display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 18px; color: var(--primary-color);">
+      <i class="ph-bold ph-palette" style="font-size: 26px;"></i>
+      <span>Chef Cozinha • Theme Store & Studio</span>
+    </div>
+
+    <div class="theme-nav-tabs">
+      <button class="theme-tab-btn active" id="tab-btn-store" onclick="setTab('store')">
+        <i class="ph-bold ph-storefront"></i> Vitrine de Temas
+      </button>
+      <button class="theme-tab-btn" id="tab-btn-studio" onclick="setTab('studio')">
+        <i class="ph-bold ph-paint-brush"></i> Estúdio de Criação
+      </button>
+    </div>
+
+    <div>
+      <button onclick="window.close();" style="background: transparent; border: 1px solid var(--border-panel); padding: 8px 14px; border-radius: 8px; font-weight: 700; cursor: pointer;">
+        <i class="ph ph-x"></i> Fechar
+      </button>
+    </div>
+  </header>
+
+  <div class="theme-content-area">
+    
+    <!-- ABA 1: VITRINE DE TEMAS -->
+    <div id="view-store">
+      <div style="text-align: center; margin-bottom: 24px;">
+        <h2 style="margin: 0 0 6px 0; font-weight: 900; font-size: 22px;">🎨 Escolha a Identidade Visual do seu Restaurante</h2>
+        <p style="margin: 0; color: var(--text-muted); font-size: 14px;">Temas pré-configurados por nicho gastronômico. Aplique com 1 clique em todas as telas.</p>
+      </div>
+
+      <div class="themes-store-grid" id="themes-container">
+        <!-- Renderizado dinamicamente -->
+      </div>
+    </div>
+
+    <!-- ABA 2: ESTÚDIO DE CRIAÇÃO -->
+    <div id="view-studio" style="display: none;">
+      <div class="studio-layout">
+        
+        <!-- Controles do Estúdio -->
+        <div class="studio-form-card">
+          <h3 style="margin: 0; font-size: 16px; font-weight: 800; display: flex; align-items: center; gap: 8px;">
+            <i class="ph-bold ph-sliders"></i> Personalização de Cores
+          </h3>
+
+          <div>
+            <label style="font-size: 12px; font-weight: 800; color: var(--text-muted);">Nome do Tema</label>
+            <input id="input-theme-name" type="text" value="Novo Tema Custom" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border-panel); border-radius: 8px; font-weight: 700; margin-top: 4px; box-sizing: border-box;">
+          </div>
+
+          <div>
+            <label style="font-size: 12px; font-weight: 800; color: var(--text-muted);">Nicho / Categoria</label>
+            <select id="input-theme-cat" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border-panel); border-radius: 8px; font-weight: 700; margin-top: 4px; box-sizing: border-box;">
+              <option value="Hamburgueria">🍔 Hamburgueria</option>
+              <option value="Pizzaria">🍕 Pizzaria & Massas</option>
+              <option value="Japones">🍣 Sushi & Japonês</option>
+              <option value="Cafe">☕ Cafeteria & Bistrô</option>
+              <option value="Bar">🍺 Bar & Pub</option>
+              <option value="Healthy">🥗 Saudável & Açaí</option>
+              <option value="Geral">🍽️ Restaurante Geral</option>
+            </select>
+          </div>
+
+          <hr style="border: none; border-top: 1px solid var(--border-panel); margin: 6px 0;">
+
+          <div class="color-picker-row">
+            <span>Cor Primária (Destaque)</span>
+            <input type="color" id="clr-primary" value="#f97316" oninput="atualizarStudioPreview()">
+          </div>
+
+          <div class="color-picker-row">
+            <span>Fundo da Página (Body)</span>
+            <input type="color" id="clr-bg-page" value="#0f172a" oninput="atualizarStudioPreview()">
+          </div>
+
+          <div class="color-picker-row">
+            <span>Fundo dos Cards & Mesas</span>
+            <input type="color" id="clr-bg-card" value="#1e293b" oninput="atualizarStudioPreview()">
+          </div>
+
+          <div class="color-picker-row">
+            <span>Bordas & Divisores</span>
+            <input type="color" id="clr-border" value="#334155" oninput="atualizarStudioPreview()">
+          </div>
+
+          <div class="color-picker-row">
+            <span>Texto Principal</span>
+            <input type="color" id="clr-text-main" value="#f8fafc" oninput="atualizarStudioPreview()">
+          </div>
+
+          <div class="color-picker-row">
+            <span>Status Mesa Ocupada</span>
+            <input type="color" id="clr-ocupada" value="#ef4444" oninput="atualizarStudioPreview()">
+          </div>
+
+          <div class="color-picker-row">
+            <span>Status Mesa Livre</span>
+            <input type="color" id="clr-livre" value="#22c55e" oninput="atualizarStudioPreview()">
+          </div>
+
+          <button onclick="publicarNovoTema()" class="btn-apply-theme" style="margin-top: 12px; padding: 12px;">
+            <i class="ph-bold ph-rocket-launch"></i> Publicar na Loja de Temas
+          </button>
+        </div>
+
+        <!-- Live Preview -->
+        <div class="studio-preview-card" id="studio-preview-canvas">
+          <div style="position: absolute; top: 16px; left: 20px; font-size: 12px; font-weight: 800; color: #94a3b8; display: flex; align-items: center; gap: 6px;">
+            <i class="ph-bold ph-eye"></i> Pré-Visualização em Tempo Real (PDV & Mesas)
+          </div>
+
+          <!-- Card de Mesa Simulado -->
+          <div id="simulated-table-card" style="width: 320px; border-radius: 14px; padding: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); border: 2px solid #ef4444; background: #1e293b; color: #f8fafc; display: flex; flex-direction: column; gap: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <b style="font-size: 16px;">Mesa 04</b>
+              <span id="simulated-badge-ocupada" style="background: #ef4444; color: white; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 800;">OCUPADA</span>
+            </div>
+
+            <div style="font-size: 12px; color: #94a3b8;">Cliente: <b>Matheus Ramos</b> (há 35 min)</div>
+
+            <div style="background: rgba(0,0,0,0.15); border-radius: 8px; padding: 10px; font-size: 12px; display: flex; flex-direction: column; gap: 4px;">
+              <div style="display: flex; justify-content: space-between;"><span>1x Smash Burger Especial</span><b>R$ 38,00</b></div>
+              <div style="display: flex; justify-content: space-between;"><span>1x Batata Rústica Cheddar</span><b>R$ 24,00</b></div>
+              <div style="display: flex; justify-content: space-between;"><span>1x Refrigerante Lata</span><b>R$ 7,50</b></div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 14px; font-weight: 800;">
+              <span>Total:</span>
+              <span id="simulated-total" style="color: #f97316; font-size: 18px;">R$ 69,50</span>
+            </div>
+
+            <button id="simulated-btn" style="background: #f97316; color: white; border: none; padding: 10px; border-radius: 8px; font-weight: 800; font-size: 13px; cursor: pointer;">
+              🧾 Fechar Comanda
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    const socket = io();
+
+    // Catálogo de Temas Nativos
+    const CATALOGO_TEMAS_PADRAO = [
+      {
+        id: 'burger_neon',
+        nome: 'Burger Cyberpunk Neon',
+        nicho: '🍔 Hamburgueria',
+        descricao: 'Dark mode profundo com detalhes em neon laranja e roxo para hamburguerias artesanais.',
+        cores: {
+          primary: '#f97316',
+          bgPage: '#090d16',
+          bgCard: '#131c2e',
+          borderColor: '#1e293b',
+          textMain: '#f8fafc',
+          statusOcupada: '#ef4444',
+          statusLivre: '#10b981'
+        }
+      },
+      {
+        id: 'pizzaria_rustica',
+        nome: 'Pizzaria & Forno à Lenha',
+        nicho: '🍕 Pizzaria',
+        descricao: 'Tons quentes terrosos de terracota, madeira e dourado italiano para pizzarias e trattorias.',
+        cores: {
+          primary: '#c2410c',
+          bgPage: '#1c1917',
+          bgCard: '#292524',
+          borderColor: '#44403c',
+          textMain: '#fafaf9',
+          statusOcupada: '#e11d48',
+          statusLivre: '#22c55e'
+        }
+      },
+      {
+        id: 'sushi_zen',
+        nome: 'Sushi Bar Zen Minimalista',
+        nicho: '🍣 Japonês',
+        descricao: 'Visual sofisticado, minimalista e limpo com preto fosco e detalhes em carmim japonês.',
+        cores: {
+          primary: '#e11d48',
+          bgPage: '#0b0f19',
+          bgCard: '#111827',
+          borderColor: '#1f2937',
+          textMain: '#f3f4f6',
+          statusOcupada: '#dc2626',
+          statusLivre: '#059669'
+        }
+      },
+      {
+        id: 'cafe_bistro',
+        nome: 'Cafeteria & Bistrô Vintage',
+        nicho: '☕ Cafeteria',
+        descricao: 'Estilo aconchegante em tons de café, verde sálvia e creme suave para cafés e docerias.',
+        cores: {
+          primary: '#78350f',
+          bgPage: '#fdfbf7',
+          bgCard: '#ffffff',
+          borderColor: '#e7e5e4',
+          textMain: '#292524',
+          statusOcupada: '#b91c1c',
+          statusLivre: '#15803d'
+        }
+      },
+      {
+        id: 'pub_craft',
+        nome: 'Pub & Choperia Craft Beer',
+        nicho: '🍺 Bar & Pub',
+        descricao: 'Identidade moderna com tons âmbar cervejeiro, madeira escura e alto contraste no salão.',
+        cores: {
+          primary: '#d97706',
+          bgPage: '#0f172a',
+          bgCard: '#1e293b',
+          borderColor: '#334155',
+          textMain: '#f8fafc',
+          statusOcupada: '#f43f5e',
+          statusLivre: '#10b981'
+        }
+      },
+      {
+        id: 'healthy_tropical',
+        nome: 'Açaí & Tropical Fresh',
+        nicho: '🥗 Saudável & Açaí',
+        descricao: 'Vibrante e fresco com tons de roxo açaí e verde esmeralda para casas de suco e açaí.',
+        cores: {
+          primary: '#9333ea',
+          bgPage: '#faf5ff',
+          bgCard: '#ffffff',
+          borderColor: '#e9d5ff',
+          textMain: '#3b0764',
+          statusOcupada: '#e11d48',
+          statusLivre: '#059669'
+        }
+      }
+    ];
+
+    function setTab(tab) {
+      document.getElementById('tab-btn-store').classList.toggle('active', tab === 'store');
+      document.getElementById('tab-btn-studio').classList.toggle('active', tab === 'studio');
+      document.getElementById('view-store').style.display = tab === 'store' ? 'block' : 'none';
+      document.getElementById('view-studio').style.display = tab === 'studio' ? 'block' : 'none';
+    }
+
+    async function carregarTemasLoja() {
+      const container = document.getElementById('themes-container');
+      let temas = CATALOGO_TEMAS_PADRAO;
+
+      try {
+        const res = await fetch('/api/modulo/temas/loja');
+        const data = await res.json();
+        if (data && data.ok && data.temas && data.temas.length > 0) {
+          temas = [...CATALOGO_TEMAS_PADRAO, ...data.temas];
+        }
+      } catch (e) {}
+
+      container.innerHTML = temas.map(t => {
+        const c = t.cores;
+        return `
+          <div class="theme-store-card">
+            <div class="theme-preview-box" style="background: ${c.bgPage}; border-bottom: 1px solid ${c.borderColor};">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-size: 11px; font-weight:800; background: ${c.primary}; color:white; padding: 2px 8px; border-radius: 4px;">${t.nicho || 'Restaurante'}</span>
+                <div class="theme-palette-dots">
+                  <div class="palette-dot" style="background: ${c.primary};"></div>
+                  <div class="palette-dot" style="background: ${c.bgCard};"></div>
+                  <div class="palette-dot" style="background: ${c.statusOcupada};"></div>
+                </div>
+              </div>
+              <div style="background: ${c.bgCard}; border: 1px solid ${c.borderColor}; color: ${c.textMain}; padding: 8px 12px; border-radius: 8px; font-size: 11px; font-weight: 700; display: flex; justify-content: space-between;">
+                <span>Mesa 01</span>
+                <span style="color: ${c.primary}; font-weight: 800;">R$ 84,00</span>
+              </div>
+            </div>
+            <div class="theme-card-body">
+              <b style="font-size: 15px;">${t.nome}</b>
+              <p style="font-size: 12px; color: var(--text-muted); margin: 0; line-height: 1.4;">${t.descricao || ''}</p>
+              <button class="btn-apply-theme" onclick='aplicarTemaLoja(${JSON.stringify(t)})'>
+                <i class="ph-bold ph-check"></i> Aplicar Este Tema
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function atualizarStudioPreview() {
+      const p = document.getElementById('clr-primary').value;
+      const bgPage = document.getElementById('clr-bg-page').value;
+      const bgCard = document.getElementById('clr-bg-card').value;
+      const border = document.getElementById('clr-border').value;
+      const textMain = document.getElementById('clr-text-main').value;
+      const ocupada = document.getElementById('clr-ocupada').value;
+
+      const canvas = document.getElementById('studio-preview-canvas');
+      const card = document.getElementById('simulated-table-card');
+      const badge = document.getElementById('simulated-badge-ocupada');
+      const total = document.getElementById('simulated-total');
+      const btn = document.getElementById('simulated-btn');
+
+      canvas.style.background = bgPage;
+      card.style.background = bgCard;
+      card.style.color = textMain;
+      card.style.borderColor = ocupada;
+      badge.style.background = ocupada;
+      total.style.color = p;
+      btn.style.background = p;
+    }
+
+    async function aplicarTemaLoja(tema) {
+      try {
+        localStorage.setItem('chef_custom_theme_active', JSON.stringify(tema));
+        
+        // Emite evento para todas as telas abertas via Socket
+        socket.emit('tema_global_aplicar', tema);
+
+        // Aplica na tela atual
+        const c = tema.cores;
+        document.documentElement.style.setProperty('--bg-card', c.bgCard);
+        document.documentElement.style.setProperty('--primary', c.primary);
+
+        alert(`✅ Tema '${tema.nome}' aplicado com sucesso em todas as telas!`);
+      } catch (e) {
+        alert('Erro ao aplicar tema.');
+      }
+    }
+
+    async function publicarNovoTema() {
+      const nome = document.getElementById('input-theme-name').value;
+      const nicho = document.getElementById('input-theme-cat').value;
+
+      const tema = {
+        id: 'custom_' + Date.now(),
+        nome,
+        nicho,
+        descricao: `Tema personalizado para ${nicho}.`,
+        cores: {
+          primary: document.getElementById('clr-primary').value,
+          bgPage: document.getElementById('clr-bg-page').value,
+          bgCard: document.getElementById('clr-bg-card').value,
+          borderColor: document.getElementById('clr-border').value,
+          textMain: document.getElementById('clr-text-main').value,
+          statusOcupada: document.getElementById('clr-ocupada').value,
+          statusLivre: document.getElementById('clr-livre').value
+        }
+      };
+
+      try {
+        const res = await fetch('/api/modulo/temas/publicar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(tema)
+        });
+        const data = await res.json();
+        if (data.ok) {
+          alert('🚀 Tema publicado na Loja com sucesso!');
+          setTab('store');
+          carregarTemasLoja();
+        }
+      } catch (e) {
+        alert('Erro ao publicar tema.');
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      carregarTemasLoja();
+      atualizarStudioPreview();
+    });
+  </script>
+</body>
+</html>
