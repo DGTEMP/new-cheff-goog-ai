@@ -1,34 +1,13 @@
 /**
- * plugin-loader.js — Auto-discovery and loading of server-side plugins
+ * plugin-loader.js — Auto-discovery and loading of server-side plugins & modular extensions
  *
  * Convention:
  *   plugins/<plugin-name>/
- *     index.js       — required: module.exports = function({ app, db, io, options, log })
- *     package.json   — optional: { "name": "...", "description": "...", "order": 0 }
- *
- * Each plugin receives:
- *   app      — Express instance (WRAPPED with automatic moduloGuard)
- *   db       — tenant SQLite database (or masterDb for super-admin plugins)
- *   masterDb — master SQLite database
- *   io       — Socket.IO server instance
- *   options  — { JWT_SECRET, verificarToken, superAdminAuth, ... }
- *   log      — function(msg) that logs with plugin prefix
- *
- * Module system:
- *   modulo_sistemas — global on/off per plugin
- *   tenant_modulos  — per-tenant override
- *   moduloGuard     — AUTOMATICALLY applied to all plugin routes
- *   /api/plugins/list — returns only plugins enabled for the authenticated tenant
- *
- * USAGE IN PLUGINS:
- *   Plugins do NOT need to use moduloGuard manually. The loader wraps `app`
- *   with a Proxy that injects moduloGuard as the FIRST middleware on every
- *   app.get / app.post / app.put / app.delete / app.patch call.
- *   Routes starting with /api/super/ are always allowed (super admin bypass).
- *
- * Usage in server.js:
- *   const loadPlugins = require('./plugin-loader');
- *   loadPlugins({ app, db, masterDb, io, options });
+ *     module.json    — manifest: { id, name, version, icon, description, targets, hooks: { server, client, widget, style } }
+ *     index.js       — required for backend: module.exports = function({ app, db, io, options, log })
+ *     client.js      — optional frontend injection script
+ *     widget.js      — optional Caixa v1.1 widget script
+ *     style.css      — optional styles
  */
 
 'use strict';
@@ -37,6 +16,7 @@ const fs = require('fs');
 const path = require('path');
 
 const PLUGINS_DIR = path.join(__dirname, 'plugins');
+const MODULES_CONFIG_FILE = path.join(__dirname, 'chef-modules.json');
 
 // Map plugin directory name → modulo_id for the module system
 const PLUGIN_TO_MODULO = {
@@ -45,12 +25,6 @@ const PLUGIN_TO_MODULO = {
   'reserves': 'reservas',
 };
 
-/**
- * Creates a proxy around the Express app that automatically injects
- * moduloGuard as the first middleware for every route registered by the plugin.
- * This ensures ALL plugin routes are module-gated without plugin authors
- * needing to do anything.
- */
 function createGuardedApp(app, moduloGuard) {
   const HTTP_METHODS = ['get', 'post', 'put', 'delete', 'patch'];
 
@@ -58,18 +32,14 @@ function createGuardedApp(app, moduloGuard) {
     get(target, prop, receiver) {
       if (HTTP_METHODS.includes(prop)) {
         return function guardedRoute(method, ...handlers) {
-          // Prepend moduloGuard before all user-provided handlers
           return target[prop](method, moduloGuard, ...handlers);
         };
       }
-      // Also intercept app.use() for plugin-level middleware
       if (prop === 'use') {
         return function guardedUse(...args) {
-          // If first arg is a path string (not middleware), wrap the handlers
           if (args.length >= 2 && typeof args[0] === 'string') {
             return target.use(args[0], moduloGuard, ...args.slice(1));
           }
-          // If just middleware function(s), wrap first one
           return target.use(moduloGuard, ...args);
         };
       }
@@ -82,6 +52,25 @@ function createGuardedApp(app, moduloGuard) {
   });
 }
 
+function loadModulesConfig() {
+  if (fs.existsSync(MODULES_CONFIG_FILE)) {
+    try {
+      return JSON.parse(fs.readFileSync(MODULES_CONFIG_FILE, 'utf8'));
+    } catch(e) {
+      console.warn('[plugin-loader] Erro ao ler chef-modules.json, usando padrão.');
+    }
+  }
+  return { enabledModules: {}, order: [] };
+}
+
+function saveModulesConfig(cfg) {
+  try {
+    fs.writeFileSync(MODULES_CONFIG_FILE, JSON.stringify(cfg, null, 2), 'utf8');
+  } catch(e) {
+    console.error('[plugin-loader] Erro ao salvar chef-modules.json:', e);
+  }
+}
+
 function loadPlugins({ app, db, masterDb, io, options }) {
   const log = (msg) => console.log(`[plugin-loader] ${msg}`);
 
@@ -90,177 +79,286 @@ function loadPlugins({ app, db, masterDb, io, options }) {
     fs.mkdirSync(PLUGINS_DIR, { recursive: true });
   }
 
+  const modulesConfig = loadModulesConfig();
+
   const entries = fs.readdirSync(PLUGINS_DIR, { withFileTypes: true });
   const pluginDirs = entries.filter(e => e.isDirectory() && !e.name.startsWith('.'));
 
-  // Sort by order if specified in package.json, otherwise alphabetical
-  const plugins = pluginDirs.map(dir => {
+  const discoveredPlugins = [];
+
+  for (const dir of pluginDirs) {
     const pluginPath = path.join(PLUGINS_DIR, dir.name);
-    let order = 999;
-    let meta = {};
-    try {
-      const pkg = JSON.parse(fs.readFileSync(path.join(pluginPath, 'package.json'), 'utf8'));
-      order = pkg.order || 999;
-      meta = pkg;
-    } catch (e) { /* no package.json, that's fine */ }
-    return { name: dir.name, path: pluginPath, order, meta };
-  }).sort((a, b) => a.order - b.order);
+    let manifest = {
+      id: dir.name,
+      name: dir.name,
+      version: '1.0.0',
+      description: '',
+      category: 'geral',
+      icon: 'ph-puzzle-piece',
+      enabled: true,
+      targets: ['all'],
+      hooks: {}
+    };
+
+    // Check module.json first, then package.json
+    const moduleJsonPath = path.join(pluginPath, 'module.json');
+    const pkgJsonPath = path.join(pluginPath, 'package.json');
+
+    if (fs.existsSync(moduleJsonPath)) {
+      try {
+        const parsed = JSON.parse(fs.readFileSync(moduleJsonPath, 'utf8'));
+        manifest = Object.assign(manifest, parsed);
+      } catch(e) {}
+    } else if (fs.existsSync(pkgJsonPath)) {
+      try {
+        const parsed = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf8'));
+        manifest = Object.assign(manifest, parsed);
+      } catch(e) {}
+    }
+
+    // Auto-detect hooks if not explicitly specified
+    if (!manifest.hooks) manifest.hooks = {};
+    if (fs.existsSync(path.join(pluginPath, 'index.js')) && !manifest.hooks.server) manifest.hooks.server = 'index.js';
+    if (fs.existsSync(path.join(pluginPath, 'client.js')) && !manifest.hooks.client) manifest.hooks.client = 'client.js';
+    if (fs.existsSync(path.join(pluginPath, 'widget.js')) && !manifest.hooks.widget) manifest.hooks.widget = 'widget.js';
+    if (fs.existsSync(path.join(pluginPath, 'style.css')) && !manifest.hooks.style) manifest.hooks.style = 'style.css';
+
+    // Override with central config if specified
+    if (modulesConfig.enabledModules[manifest.id] !== undefined) {
+      manifest.enabled = !!modulesConfig.enabledModules[manifest.id];
+    } else {
+      modulesConfig.enabledModules[manifest.id] = manifest.enabled !== false;
+    }
+
+    discoveredPlugins.push({
+      dirName: dir.name,
+      path: pluginPath,
+      manifest: manifest
+    });
+  }
+
+  saveModulesConfig(modulesConfig);
 
   const loaded = [];
 
-  for (const plugin of plugins) {
+  for (const plugin of discoveredPlugins) {
+    if (plugin.manifest.enabled === false) {
+      log(`Módulo [${plugin.manifest.id}] está DESATIVADO no chef-modules.json.`);
+      continue;
+    }
+
     try {
-      const pluginLog = (msg) => console.log(`  [plugin:${plugin.name}] ${msg}`);
+      const pluginLog = (msg) => console.log(`  [plugin:${plugin.manifest.id}] ${msg}`);
 
-      // Serve static files from plugins/<name>/public/ if it exists
-      const publicDir = path.join(plugin.path, 'public');
-      if (fs.existsSync(publicDir) && fs.statSync(publicDir).isDirectory()) {
-        app.use('/plugins/' + plugin.name, require('express').static(publicDir));
-      }
+      // Serve static assets directly from plugin root so client.js, widget.js, style.css are accessible
+      const express = require('express');
+      app.use('/plugins/' + plugin.dirName, express.static(plugin.path));
 
-      // Serve admin frontend files from plugins/<name>/admin/ if it exists
-      const adminDir = path.join(plugin.path, 'admin');
-      if (fs.existsSync(adminDir) && fs.statSync(adminDir).isDirectory()) {
-        app.use('/plugins/' + plugin.name + '/admin', require('express').static(adminDir));
-      }
+      // Load server hook if present
+      if (plugin.manifest.hooks && plugin.manifest.hooks.server) {
+        const indexPath = path.join(plugin.path, plugin.manifest.hooks.server);
+        if (fs.existsSync(indexPath)) {
+          const pluginModule = require(indexPath);
 
-      // Load index.js (main plugin file)
-      const indexPath = path.join(plugin.path, 'index.js');
-      if (!fs.existsSync(indexPath)) {
-        pluginLog('WARN: No index.js found, skipping.');
-        continue;
-      }
-
-      const pluginModule = require(indexPath);
-
-      // Create a module guard middleware for this plugin
-      const moduloId = PLUGIN_TO_MODULO[plugin.name] || plugin.name;
-      const moduloGuard = (req, res, next) => {
-        // Always allow super admin routes
-        if (req.path && req.path.startsWith('/api/super/')) return next();
-        // Always allow system modules
-        masterDb.get(`SELECT obrigatorios FROM modulo_sistemas WHERE modulo_id = ?`, [moduloId], (e, row) => {
-          if (e || !row || row.obrigatorios) return next();
-          // Check global status
-          masterDb.get(`SELECT ativo_global FROM modulo_sistemas WHERE modulo_id = ?`, [moduloId], (e2, row2) => {
-            if (e2 || !row2 || !row2.ativo_global) return next(); // default: allow (backwards compat)
-            // Check tenant override if authenticated
-            const tid = req.restaurante_id || (req.user && req.user.restaurante_id);
-            if (!tid) return next(); // no tenant context → allow
-            masterDb.get(`SELECT ativo FROM tenant_modulos WHERE restaurante_id = ? AND modulo_id = ?`, [tid, moduloId], (e3, over) => {
-              if (e3 || !over) return next(); // no override → use global default
-              if (over.ativo === 0) return res.status(403).json({ error: 'Módulo desativado para este restaurante.' });
-              next();
+          const moduloId = PLUGIN_TO_MODULO[plugin.manifest.id] || plugin.manifest.id;
+          const moduloGuard = (req, res, next) => {
+            if (req.path && req.path.startsWith('/api/super/')) return next();
+            if (!masterDb) return next();
+            masterDb.get(`SELECT obrigatorios FROM modulo_sistemas WHERE modulo_id = ?`, [moduloId], (e, row) => {
+              if (e || !row || row.obrigatorios) return next();
+              masterDb.get(`SELECT ativo_global FROM modulo_sistemas WHERE modulo_id = ?`, [moduloId], (e2, row2) => {
+                if (e2 || !row2 || !row2.ativo_global) return next();
+                const tid = req.restaurante_id || (req.user && req.user.restaurante_id);
+                if (!tid) return next();
+                masterDb.get(`SELECT ativo FROM tenant_modulos WHERE restaurante_id = ? AND modulo_id = ?`, [tid, moduloId], (e3, over) => {
+                  if (e3 || !over) return next();
+                  if (over.ativo === 0) return res.status(403).json({ error: 'Módulo desativado para este restaurante.' });
+                  next();
+                });
+              });
             });
-          });
-        });
-      };
+          };
 
-      // Wrap app with a Proxy that auto-injects moduloGuard on all route registrations
-      const guardedApp = createGuardedApp(app, moduloGuard);
+          const guardedApp = createGuardedApp(app, moduloGuard);
 
-      // Initialize the plugin with the GUARDED app
-      const ctx = {
-        app: guardedApp,
-        db,
-        masterDb,
-        io,
-        options,
-        log: pluginLog,
-        name: plugin.name,
-        meta: plugin.meta,
-        moduloGuard  // still passed for backward compat (plugins can use it manually)
-      };
+          const ctx = {
+            app: guardedApp,
+            db,
+            masterDb,
+            io,
+            options,
+            log: pluginLog,
+            name: plugin.manifest.id,
+            meta: plugin.manifest,
+            moduloGuard
+          };
 
-      if (typeof pluginModule === 'function') {
-        pluginModule(ctx);
-        loaded.push(plugin.name);
-        pluginLog(`Loaded (v${plugin.meta.version || '1.0.0'}) [guard: ${moduloId}]`);
-      } else {
-        pluginLog('WARN: index.js does not export a function, skipping.');
+          if (typeof pluginModule === 'function') {
+            pluginModule(ctx);
+            loaded.push(plugin.manifest.id);
+            pluginLog(`Backend carregado com sucesso (v${plugin.manifest.version || '1.0.0'})`);
+          }
+        }
       }
     } catch (err) {
-      console.error(`  [plugin:${plugin.name}] ERROR loading: ${err.message}`);
+      console.error(`  [plugin:${plugin.manifest.id}] ERRO ao carregar: ${err.message}`);
     }
   }
 
-  // API endpoint: list available plugins for the authenticated tenant
-  app.get('/api/plugins/list', (req, res) => {
+  // Endpoint: Retorna lista de módulos ativos para o Frontend (auto-discovery)
+  app.get('/api/modules/active', (req, res) => {
     try {
-      const dirs = fs.readdirSync(PLUGINS_DIR, { withFileTypes: true })
-        .filter(e => e.isDirectory() && !e.name.startsWith('.'));
-      const list = dirs.map(d => {
-        let meta = { name: d.name };
-        try {
-          meta = Object.assign(meta, JSON.parse(
-            fs.readFileSync(path.join(PLUGINS_DIR, d.name, 'package.json'), 'utf8')
-          ));
-        } catch (e) { /* no package.json */ }
-        return meta;
+      const active = discoveredPlugins
+        .filter(p => p.manifest.enabled !== false)
+        .map(p => ({
+          ...p.manifest,
+          dirName: p.dirName
+        }));
+      res.json({ sucesso: true, modules: active });
+    } catch (err) {
+      res.status(500).json({ sucesso: false, error: err.message });
+    }
+  });
+
+  // Endpoint: Retorna TODOS os módulos (para a Central de Desenvolvimento e Suporte)
+  app.get('/api/modules/all', (req, res) => {
+    try {
+      const cfg = loadModulesConfig();
+      const all = discoveredPlugins.map(p => ({
+        ...p.manifest,
+        enabled: cfg.enabledModules[p.manifest.id] !== false,
+        dirName: p.dirName
+      }));
+      res.json({ sucesso: true, modules: all });
+    } catch (err) {
+      res.status(500).json({ sucesso: false, error: err.message });
+    }
+  });
+
+  // Endpoint: Criação visual de novos módulos plug-and-play
+  app.post('/api/modules/create', (req, res) => {
+    try {
+      const { id, name, icon, category, description, targets } = req.body;
+      if (!id) return res.status(400).json({ sucesso: false, error: 'ID do módulo é obrigatório.' });
+
+      const rawId = String(id).toLowerCase().replace(/[^a-z0-9_-]/g, '-');
+      const moduleName = name || rawId.replace(/[-_]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+      const moduleIcon = icon || 'ph-puzzle-piece';
+      const moduleCat = category || 'geral';
+
+      const targetDir = path.join(PLUGINS_DIR, rawId);
+      if (fs.existsSync(targetDir)) {
+        return res.status(400).json({ sucesso: false, error: 'Módulo já existe com este ID.' });
+      }
+
+      fs.mkdirSync(targetDir, { recursive: true });
+
+      // module.json
+      const manifest = {
+        id: rawId,
+        name: moduleName,
+        version: '1.0.0',
+        author: 'Chef Cozinha Dev Team',
+        description: description || `Módulo plug-and-play de ${moduleName}.`,
+        category: moduleCat,
+        icon: moduleIcon,
+        enabled: true,
+        targets: Array.isArray(targets) && targets.length > 0 ? targets : ['all'],
+        hooks: {
+          server: 'index.js',
+          client: 'client.js',
+          widget: 'widget.js',
+          style: 'style.css'
+        }
+      };
+      fs.writeFileSync(path.join(targetDir, 'module.json'), JSON.stringify(manifest, null, 2), 'utf8');
+
+      // index.js (backend)
+      fs.writeFileSync(path.join(targetDir, 'index.js'), `module.exports = function ({ app, db, io, log }) {
+  log('Módulo ${moduleName} inicializado.');
+  app.get('/api/modulo/${rawId}/status', (req, res) => {
+    res.json({ modulo: '${rawId}', nome: '${moduleName}', status: 'online' });
+  });
+};
+`, 'utf8');
+
+      // widget.js (Caixa v1.1)
+      fs.writeFileSync(path.join(targetDir, 'widget.js'), `(function () {
+  if (!window.ChefModules) return;
+  ChefModules.register({ id: '${rawId}', name: '${moduleName}', icon: '${moduleIcon}' }, ({ registerWidget }) => {
+    registerWidget({
+      id: '${rawId}_widget',
+      title: '${moduleName}',
+      icon: '${moduleIcon}',
+      defaultSize: 'sz-m',
+      render(container) {
+        container.innerHTML = \`<div style="padding:14px; text-align:center;">
+          <i class="ph-bold ${moduleIcon}" style="font-size:28px; color:var(--v11-accent,#fc4b15);"></i>
+          <h4 style="margin:6px 0;">\${moduleName}</h4>
+          <p style="font-size:12px; color:var(--v11-text-sub,#64748b);">Widget modular plug-and-play ativo.</p>
+        </div>\`;
+      }
+    });
+  });
+})();
+`, 'utf8');
+
+      // client.js
+      fs.writeFileSync(path.join(targetDir, 'client.js'), `(function () {
+  if (!window.ChefModules) return;
+  ChefModules.register({ id: '${rawId}', name: '${moduleName}', icon: '${moduleIcon}' }, ({ registerNavbarAction }) => {
+    registerNavbarAction({
+      id: '${rawId}_btn',
+      label: '${moduleName}',
+      icon: '${moduleIcon}',
+      onClick() { console.log('Módulo ${moduleName} acionado!'); }
+    });
+  });
+})();
+`, 'utf8');
+
+      // style.css
+      fs.writeFileSync(path.join(targetDir, 'style.css'), `/* Estilos do módulo ${rawId} */\n`, 'utf8');
+
+      // Atualizar chef-modules.json
+      const cfg = loadModulesConfig();
+      cfg.enabledModules[rawId] = true;
+      saveModulesConfig(cfg);
+
+      // Adicionar à lista em memória
+      discoveredPlugins.push({
+        dirName: rawId,
+        path: targetDir,
+        manifest: manifest
       });
 
-      // If tenant is authenticated, filter by tenant_modulos
-      const authHeader = req.headers['authorization'];
-      if (authHeader && options.verificarToken) {
-        try {
-          const jwt = require('jsonwebtoken');
-          const token = authHeader.split(' ')[1];
-          const decoded = jwt.verify(token, options.JWT_SECRET);
-          const tid = decoded.restaurante_id;
-          if (tid) {
-            masterDb.all(`SELECT modulo_id, ativo FROM tenant_modulos WHERE restaurante_id = ?`, [tid], (e, over) => {
-              const overMap = {};
-              (over || []).forEach(o => { overMap[o.modulo_id] = o.ativo; });
-              const filtered = list.filter(p => {
-                const modId = PLUGIN_TO_MODULO[p.name] || p.name;
-                // Check modulo_sistemas for this plugin
-                masterDb.get(`SELECT ativo_global, obrigatorios FROM modulo_sistemas WHERE modulo_id = ?`, [modId], (eM, modRow) => {
-                  // This is async but we can't await in sync map...
-                });
-                // Simplified: if there's a tenant override, use it; otherwise allow
-                if (overMap[modId] !== undefined) return overMap[modId] === 1;
-                return true;
-              });
-              return res.json({ ok: true, plugins: filtered });
-            });
-            return;
-          }
-        } catch (e) { /* invalid token, return all */ }
-      }
+      // Servir arquivos estáticos do novo módulo
+      const express = require('express');
+      app.use('/plugins/' + rawId, express.static(targetDir));
 
-      res.json({ ok: true, plugins: list });
-    } catch (e) {
-      res.json({ ok: true, plugins: [] });
+      res.json({ sucesso: true, rawId, manifest });
+    } catch (err) {
+      res.status(500).json({ sucesso: false, error: err.message });
     }
   });
 
-  // API endpoint: list plugins with admin frontend (for configuracoes panel autoloading)
-  app.get('/api/plugins/admin-manifest', (req, res) => {
+  // Endpoint: Alternar ativação de módulo
+  app.post('/api/modules/toggle', (req, res) => {
     try {
-      const dirs = fs.readdirSync(PLUGINS_DIR, { withFileTypes: true })
-        .filter(e => e.isDirectory() && !e.name.startsWith('.'));
-      const manifest = [];
-      for (const d of dirs) {
-        const adminDir = path.join(PLUGINS_DIR, d.name, 'admin');
-        if (!fs.existsSync(adminDir) || !fs.statSync(adminDir).isDirectory()) continue;
-        let meta = { name: d.name, displayName: d.name, group: 'Plugins', order: 999, icon: 'ph-puzzle-piece' };
-        try {
-          const raw = JSON.parse(fs.readFileSync(path.join(adminDir, 'manifest.json'), 'utf8'));
-          meta = Object.assign(meta, raw);
-        } catch (e) { /* no manifest, use defaults */ }
-        meta.id = d.name;
-        meta.baseUrl = '/plugins/' + d.name + '/admin';
-        manifest.push(meta);
-      }
-      manifest.sort((a, b) => (a.order || 999) - (b.order || 999));
-      res.json({ ok: true, manifest });
-    } catch (e) {
-      res.json({ ok: true, manifest: [] });
+      const { moduleId, enabled } = req.body;
+      if (!moduleId) return res.status(400).json({ error: 'moduleId obrigatório.' });
+
+      const cfg = loadModulesConfig();
+      cfg.enabledModules[moduleId] = !!enabled;
+      saveModulesConfig(cfg);
+
+      res.json({ sucesso: true, moduleId, enabled: !!enabled });
+    } catch (err) {
+      res.status(500).json({ sucesso: false, error: err.message });
     }
   });
 
-  log(`${loaded.length}/${plugins.length} plugins loaded: [${loaded.join(', ')}]`);
-  return loaded;
+  log(`Sistema Modular Ativo: ${loaded.length} de ${discoveredPlugins.length} módulos carregados.`);
 }
 
 module.exports = loadPlugins;

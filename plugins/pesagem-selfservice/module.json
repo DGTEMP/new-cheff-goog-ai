@@ -1,0 +1,17 @@
+{
+  "id": "pesagem-selfservice",
+  "name": "Pesagem Automática & Autoatendimento Buffet",
+  "version": "1.0.0",
+  "author": "Chef Cozinha Dev Team",
+  "category": "hardware",
+  "icon": "ph-scales",
+  "enabled": true,
+  "description": "Pesagem automática de buffet/self-service com impressão instantânea de comanda e abertura por QR Code.",
+  "targets": ["caixa", "pdv", "configuracoes", "totem", "all"],
+  "hooks": {
+    "server": "index.js",
+    "client": "client.js",
+    "widget": "widget.js",
+    "style": "style.css"
+  }
+}

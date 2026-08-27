@@ -15,7 +15,8 @@
         "obfuscate": "node obfuscate.js",
         "build:hub": "powershell -ExecutionPolicy Bypass -File build-hub.ps1",
         "build:pkg": "npm run build && node sync-prod.js && node obfuscate.js && powershell -ExecutionPolicy Bypass -File build-pkg.ps1",
-        "build:installer": "powershell -ExecutionPolicy Bypass -File installer\\build-installer.ps1"
+        "build:installer": "powershell -ExecutionPolicy Bypass -File installer\\build-installer.ps1",
+        "novo-modulo": "node scripts/create-module.js"
     },
     "keywords": [],
     "author": "",

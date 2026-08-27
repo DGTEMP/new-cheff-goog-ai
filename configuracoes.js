@@ -2597,33 +2597,68 @@ window.zerarTodosDados = function() {
   socket.emit('zerar_todos_dados', { senha: senha });
 };
 
-// ── Deslogar Restaurante do Sistema ──
+// ── Deslogar Restaurante do Sistema (Único Logout Global Oficial) ──
 const btnDeslogarRest = document.getElementById('btn-deslogar-restaurante');
 if (btnDeslogarRest) {
-  btnDeslogarRest.addEventListener('click', () => {
-    if (!confirm('Tem certeza que deseja deslogar este restaurante do sistema?\n\nVoce precisara fazer login novamente para acessar.')) return;
-    const senha = prompt('Digite a senha de administrador para confirmar o deslogamento:');
-    if (!senha) return;
-    const restauranteId = localStorage.getItem('restaurante_id');
+  btnDeslogarRest.onclick = async () => {
+    let senha = '';
+    if (typeof Swal !== 'undefined') {
+      const { value: pass, isConfirmed } = await Swal.fire({
+        title: '⚠️ Deslogar Restaurante do Sistema?',
+        html: '<p style="font-size:14px; color:#ef4444; font-weight:700;">Esta ação desconectará IMEDIATAMENTE todos os funcionários, caixas e totens em tempo real.</p><p style="font-size:13px; color:#64748b;">Será necessário fazer login com seu usuário mestre em login.html para reconectar.</p>',
+        input: 'password',
+        inputPlaceholder: 'Digite a senha do administrador...',
+        inputAttributes: { autocapitalize: 'off', autocorrect: 'off' },
+        showCancelButton: true,
+        confirmButtonColor: '#991b1b',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: '<i class="ph-bold ph-sign-out"></i> Sim, Deslogar Todo o Sistema',
+        cancelButtonText: 'Cancelar'
+      });
+      if (!isConfirmed || !pass) return;
+      senha = pass;
+    } else {
+      if (!confirm('Tem certeza que deseja deslogar toda a instalação do restaurante? Todos os funcionários serão desconectados.')) return;
+      senha = prompt('Digite a senha de administrador para confirmar:');
+      if (!senha) return;
+    }
+
+    const restauranteId = localStorage.getItem('restaurante_id') || 1;
     const token = localStorage.getItem('chef_token');
+
     fetch('/api/auth/deslogar-restaurante', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
       body: JSON.stringify({ restaurante_id: restauranteId, senha })
     }).then(r => r.json()).then(data => {
       if (data.success) {
-        localStorage.removeItem('chef_token');
-        localStorage.removeItem('restaurante_id');
-        localStorage.removeItem('chef_credentials');
-        alert('Restaurante deslogado com sucesso!');
-        window.location.href = '/login.html';
+        localStorage.clear();
+        sessionStorage.clear();
+        if (typeof Swal !== 'undefined') {
+          Swal.fire({
+            icon: 'success',
+            title: 'Restaurante Deslogado!',
+            text: 'Todos os terminais foram desconectados e a equipe de suporte foi notificada.',
+            showConfirmButton: false,
+            timer: 2000
+          }).then(() => {
+            window.location.href = '/login.html';
+          });
+        } else {
+          alert('Restaurante deslogado com sucesso! Redirecionando para a tela de login...');
+          window.location.href = '/login.html';
+        }
       } else {
-        alert(data.error || 'Erro ao deslogar restaurante.');
+        if (typeof Swal !== 'undefined') {
+          Swal.fire({ icon: 'error', title: 'Erro ao Deslogar', text: data.error || 'Senha incorreta ou falha no servidor.' });
+        } else {
+          alert(data.error || 'Erro ao deslogar restaurante.');
+        }
       }
     }).catch(() => {
-      alert('Erro de conexao com o servidor.');
+      alert('Erro de conexão com o servidor.');
     });
-  });
+  };
 }
 
 socket.on('zerar_concluido', (data) => {
@@ -8563,5 +8598,206 @@ window.salvarConfigTourGastronomico = function() {
 document.addEventListener('DOMContentLoaded', () => {
   if (typeof window.carregarConfigBalanca === 'function') {
     window.carregarConfigBalanca();
+  }
+});
+
+
+// ══════════════════════════════════════════════════════════════════
+// CENTRAL DE MÓDULOS & EXTENSÕES PLUG-AND-PLAY
+// ══════════════════════════════════════════════════════════════════
+window.carregarListaModulosUI = function() {
+  const grid = document.getElementById('grid-modulos-instalados');
+  if (!grid) return;
+  grid.innerHTML = '<div style="text-align:center; padding:20px; color:var(--cfg-text-muted); grid-column:1/-1;">Buscando módulos instalados...</div>';
+
+  fetch('/api/modules/all')
+    .then(r => r.json())
+    .then(data => {
+      if (!data || !data.modules || data.modules.length === 0) {
+        grid.innerHTML = '<div style="text-align:center; padding:30px; color:var(--cfg-text-muted); grid-column:1/-1;">Nenhum módulo encontrado na pasta plugins/.</div>';
+        return;
+      }
+
+      grid.innerHTML = data.modules.map(m => {
+        const isAtivo = m.enabled !== false;
+        const icon = m.icon || 'ph-puzzle-piece';
+        return `
+          <div style="background:var(--cfg-card-bg); border: 1.5px solid var(--cfg-border); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; justify-content: space-between; gap: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.02);">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="width: 38px; height: 38px; border-radius: 10px; background: ${isAtivo ? 'rgba(139, 92, 246, 0.12)' : 'rgba(148, 163, 184, 0.15)'}; color: ${isAtivo ? '#8b5cf6' : '#64748b'}; display: flex; align-items: center; justify-content: center; font-size: 20px;">
+                  <i class="ph-bold ${icon}"></i>
+                </div>
+                <div>
+                  <h4 style="margin: 0; font-size: 14.5px; color: var(--cfg-text); font-weight: 800;">${m.name || m.id}</h4>
+                  <span style="font-size: 11px; color: var(--cfg-text-muted);">v${m.version || '1.0.0'} • ${m.category || 'geral'}</span>
+                </div>
+              </div>
+              <span style="font-size: 11px; font-weight: 800; padding: 3px 8px; border-radius: 12px; background: ${isAtivo ? '#dcfce7' : '#f1f5f9'}; color: ${isAtivo ? '#15803d' : '#64748b'};">
+                ${isAtivo ? 'Ativo' : 'Inativo'}
+              </span>
+            </div>
+            <p style="font-size: 12px; color: var(--cfg-text-muted); margin: 0; line-height: 1.4;">
+              ${m.description || 'Módulo plug-and-play instalado no sistema.'}
+            </p>
+            <div style="display: flex; gap: 8px; border-top: 1px solid var(--cfg-border); padding-top: 10px;">
+              <button onclick="window.alternarModuloUI('${m.id}', ${!isAtivo})" style="flex: 1; padding: 8px; border-radius: 8px; background: ${isAtivo ? '#fee2e2' : '#dcfce7'}; color: ${isAtivo ? '#b91c1c' : '#15803d'}; border: 1px solid ${isAtivo ? '#fca5a5' : '#86efac'}; font-weight: 800; font-size: 12px; cursor: pointer;">
+                ${isAtivo ? 'Desativar' : 'Ativar Módulo'}
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    })
+    .catch(err => {
+      grid.innerHTML = '<div style="text-align:center; padding:20px; color:#ef4444; grid-column:1/-1;">Erro ao carregar lista de módulos.</div>';
+    });
+};
+
+window.alternarModuloUI = function(moduleId, enabled) {
+  fetch('/api/modules/toggle', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ moduleId, enabled })
+  }).then(r => r.json()).then(res => {
+    if (res && res.sucesso) {
+      window.carregarListaModulosUI();
+      if (typeof Swal !== 'undefined') {
+        Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: enabled ? 'Módulo Ativado!' : 'Módulo Desativado!', showConfirmButton: false, timer: 2000 });
+      }
+    }
+  }).catch(() => {
+    alert('Erro ao alternar módulo.');
+  });
+};
+
+window.criarNovoModuloUI = function() {
+  const id = document.getElementById('novo-mod-id')?.value.trim();
+  const name = document.getElementById('novo-mod-nome')?.value.trim();
+  const icon = document.getElementById('novo-mod-icone')?.value.trim();
+  const category = document.getElementById('novo-mod-categoria')?.value;
+
+  if (!id) return alert('Por favor, informe o ID do módulo.');
+
+  fetch('/api/modules/create', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id, name, icon, category })
+  }).then(r => r.json()).then(res => {
+    if (res && res.sucesso) {
+      if (typeof Swal !== 'undefined') {
+        Swal.fire({ icon: 'success', title: 'Módulo Criado!', text: `O módulo "${res.rawId}" foi gerado na pasta plugins/${res.rawId}/ e já está pronto para uso.`, timer: 3000, showConfirmButton: false });
+      } else {
+        alert('Módulo criado com sucesso!');
+      }
+      if (document.getElementById('novo-mod-id')) document.getElementById('novo-mod-id').value = '';
+      if (document.getElementById('novo-mod-nome')) document.getElementById('novo-mod-nome').value = '';
+      window.carregarListaModulosUI();
+    } else {
+      alert('Erro: ' + (res.error || 'Falha ao criar módulo.'));
+    }
+  }).catch(() => {
+    alert('Erro ao comunicar com o servidor.');
+  });
+};
+
+// Carregar ao alternar para a aba de módulos
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-tab="modulos"]');
+  if (btn && typeof window.carregarListaModulosUI === 'function') {
+    setTimeout(window.carregarListaModulosUI, 100);
+  }
+});
+
+
+// ══════════════════════════════════════════════════════════════════
+// HANDLERS DO MÓDULO DE PESAGEM AUTOMÁTICA & BLUEPRINTS PARA SUPORTE
+// ══════════════════════════════════════════════════════════════════
+window.carregarConfigPesagemUI = function() {
+  fetch('/api/modulo/pesagem-selfservice/config')
+    .then(r => r.json())
+    .then(d => {
+      if (d && d.sucesso && d.config) {
+        const c = d.config;
+        if (document.getElementById('cfg-peso-preco-kg')) document.getElementById('cfg-peso-preco-kg').value = c.precoKg || 69.90;
+        if (document.getElementById('cfg-peso-preco-livre')) document.getElementById('cfg-peso-preco-livre').value = c.precoLivre || 35.00;
+        if (document.getElementById('cfg-peso-tara')) document.getElementById('cfg-peso-tara').value = c.taraPratoKg || 0.450;
+        if (document.getElementById('cfg-peso-modo')) document.getElementById('cfg-peso-modo').value = c.modoPadrao || 'peso';
+      }
+    }).catch(() => {});
+};
+
+window.salvarConfigPesagemUI = function() {
+  const precoKg = parseFloat(document.getElementById('cfg-peso-preco-kg')?.value) || 69.90;
+  const precoLivre = parseFloat(document.getElementById('cfg-peso-preco-livre')?.value) || 35.00;
+  const taraPratoKg = parseFloat(document.getElementById('cfg-peso-tara')?.value) || 0.450;
+  const modoPadrao = document.getElementById('cfg-peso-modo')?.value || 'peso';
+
+  fetch('/api/modulo/pesagem-selfservice/config', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ precoKg, precoLivre, taraPratoKg, modoPadrao })
+  })
+  .then(r => r.json())
+  .then(res => {
+    if (res && res.sucesso) {
+      if (typeof Swal !== 'undefined') {
+        Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Valores de Pesagem Salvos!', showConfirmButton: false, timer: 2500 });
+      } else {
+        alert('Configurações de pesagem salvas com sucesso!');
+      }
+    }
+  }).catch(() => alert('Erro ao salvar valores de pesagem.'));
+};
+
+window.testarSimulacaoPesagem = function(bruto, modo) {
+  fetch('/api/modulo/pesagem-selfservice/pesar', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pesoBruto: bruto, modo: modo || 'peso' })
+  })
+  .then(r => r.json())
+  .then(res => {
+    if (res && res.sucesso) {
+      const reg = res.registro;
+      if (typeof Swal !== 'undefined') {
+        Swal.fire({
+          icon: 'success',
+          title: '⚡ Simulação de Pesagem Executada!',
+          html: `<b>ID:</b> ${reg.id}<br><b>Item:</b> ${reg.descricaoItem}<br><b>Líquido:</b> ${reg.pesoLiquido} kg<br><b style="font-size:18px; color:#fc4b15;">Total: R$ ${reg.valorTotal.toFixed(2)}</b>`,
+          timer: 3500
+        });
+      } else {
+        alert(`Pesagem Similada: ${reg.descricaoItem} -> R$ ${reg.valorTotal.toFixed(2)}`);
+      }
+    }
+  });
+};
+
+window.aplicarBlueprint = function(tipo) {
+  const blueprints = {
+    balanca: { id: 'pesagem-automatica', nome: 'Pesagem Automática Balança', icone: 'ph-scales', categoria: 'hardware' },
+    fidelidade: { id: 'cashback-fidelidade', nome: 'Cashback & Fidelidade VIP', icone: 'ph-gift', categoria: 'marketing' },
+    totem: { id: 'totem-autoatendimento', nome: 'Totem de Autoatendimento Touch', icone: 'ph-device-mobile', categoria: 'operacao' },
+    fiscal: { id: 'pagamento-tef', nome: 'Integração TEF & Cartões', icone: 'ph-receipt', categoria: 'fiscal' }
+  };
+
+  const bp = blueprints[tipo];
+  if (!bp) return;
+
+  if (document.getElementById('novo-mod-id')) document.getElementById('novo-mod-id').value = bp.id;
+  if (document.getElementById('novo-mod-nome')) document.getElementById('novo-mod-nome').value = bp.nome;
+  if (document.getElementById('novo-mod-icone')) document.getElementById('novo-mod-icone').value = bp.icone;
+  if (document.getElementById('novo-mod-categoria')) document.getElementById('novo-mod-categoria').value = bp.categoria;
+};
+
+// Ao alternar para a aba módulos, carregar a config de pesagem
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-tab="modulos"]');
+  if (btn) {
+    setTimeout(() => {
+      if (typeof window.carregarListaModulosUI === 'function') window.carregarListaModulosUI();
+      if (typeof window.carregarConfigPesagemUI === 'function') window.carregarConfigPesagemUI();
+    }, 100);
   }
 });

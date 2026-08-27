@@ -2536,37 +2536,44 @@ const CMD_BLOCKLIST_TERMINAL = [
   /\bdrop\s+database\b/i
 ];
 
-const CMD_ALLOW_TERMINAL = /^(ls|dir|cat|type|head|tail|wc|df|du|free|uptime|ps|top|tasklist|systeminfo|wmic|netstat|ss|ip|ifconfig|ipconfig|ping|host|dig|nslookup|date|time|ver|hostname|pwd|whoami|id|env|printenv|node|npm|npx|pm2|sqlite3|git|docker|echo|curl|cls|clear|findstr|find|tree|where|which)/i;
+const { exec: execCmd } = require('child_process');
+
+const CMD_ALLOW_TERMINAL = /^(ls|dir|cat|type|head|tail|wc|df|du|free|uptime|ps|top|tasklist|systeminfo|wmic|netstat|ss|ip|ifconfig|ipconfig|ping|host|dig|nslookup|date|time|ver|hostname|pwd|whoami|id|env|printenv|node|npm|npx|pm2|sqlite3|git|docker|echo|curl|cls|clear|findstr|find|tree|where|which|powershell)/i;
 
 app.post('/api/super/exec', superAdminAuth, (req, res) => {
-  const { command } = req.body;
-  if (!command || typeof command !== 'string') return res.json({ ok: false, erro: 'Comando obrigatório.' });
-  const cmdTrim = command.trim();
-  if (cmdTrim.length > 600) return res.json({ ok: false, erro: 'Comando muito longo (máx 600 caracteres).' });
-  if (CMD_BLOCKLIST_TERMINAL.some(rx => rx.test(cmdTrim))) return res.json({ ok: false, erro: 'Comando bloqueado por segurança.' });
-  if (!CMD_ALLOW_TERMINAL.test(cmdTrim)) {
-    return res.json({ ok: false, erro: 'Comando não permitido por política de segurança. Permitidos: node, npm, dir, ls, tasklist, systeminfo, wmic, git, ping, netstat, etc.' });
-  }
+  try {
+    const { command } = req.body;
+    if (!command || typeof command !== 'string') return res.json({ ok: false, erro: 'Comando obrigatório.' });
+    const cmdTrim = command.trim();
+    if (cmdTrim.length > 800) return res.json({ ok: false, erro: 'Comando muito longo (máx 800 caracteres).' });
+    if (CMD_BLOCKLIST_TERMINAL.some(rx => rx.test(cmdTrim))) return res.json({ ok: false, erro: 'Comando bloqueado por segurança.' });
+    if (!CMD_ALLOW_TERMINAL.test(cmdTrim)) {
+      return res.json({ ok: false, erro: 'Comando não permitido por política de segurança. Permitidos: node, npm, dir, ls, tasklist, systeminfo, wmic, git, ping, netstat, etc.' });
+    }
 
-  console.log(`[SuperAdmin Exec] ${req.superAdmin?.role || 'admin'}: ${cmdTrim.substring(0, 200)}`);
-  if (typeof registrarAuditoria === 'function') {
-    registrarAuditoria('exec_comando', `Comando: ${cmdTrim.substring(0, 500)}`);
-  }
+    console.log(`[SuperAdmin Exec] ${req.superAdmin?.role || 'admin'}: ${cmdTrim.substring(0, 200)}`);
+    if (typeof registrarAuditoria === 'function') {
+      try { registrarAuditoria('exec_comando', `Comando: ${cmdTrim.substring(0, 500)}`); } catch(e) {}
+    }
 
-  const isWin = process.platform === 'win32';
-  const shellOpt = isWin ? 'cmd.exe' : '/bin/bash';
+    const isWin = process.platform === 'win32';
+    const shellOpt = isWin ? 'cmd.exe' : '/bin/bash';
 
-  exec(cmdTrim, { cwd: __dirname, timeout: 30000, maxBuffer: 2 * 1024 * 1024, shell: shellOpt }, (error, stdout, stderr) => {
-    const out = (stdout || '').substring(0, 20000);
-    const err = (stderr || (error ? error.message : '')).substring(0, 10000);
-    res.json({
-      ok: !error,
-      stdout: out,
-      stderr: err,
-      exitCode: error ? (error.code || 1) : 0,
-      command: cmdTrim.substring(0, 300)
+    execCmd(cmdTrim, { cwd: __dirname, timeout: 30000, maxBuffer: 4 * 1024 * 1024, shell: shellOpt }, (error, stdout, stderr) => {
+      const out = (stdout || '').substring(0, 30000);
+      const err = (stderr || (error ? error.message : '')).substring(0, 15000);
+      res.json({
+        ok: !error,
+        stdout: out,
+        stderr: err,
+        exitCode: error ? (error.code || 1) : 0,
+        command: cmdTrim.substring(0, 300)
+      });
     });
-  });
+  } catch (errExec) {
+    console.error('[SuperAdmin Exec Error]', errExec);
+    res.json({ ok: false, erro: 'Erro interno ao executar comando: ' + (errExec.message || errExec) });
+  }
 });
 
 // ── SUPER ADMIN: EQUIPE DE SUPORTE CRUD ── extraído para plugins/equipe/ ──
@@ -12237,23 +12244,77 @@ app.post('/api/auth/trocar-restaurante', verificarToken, async (req, res) => {
   });
 });
 
-// ── Deslogar Restaurante do Sistema ──
+// ── Deslogar Restaurante do Sistema (Único Logout Global + Notificação Super Admin + Tarefa Suporte + Drop Sockets) ──
 app.post('/api/auth/deslogar-restaurante', verificarToken, async (req, res) => {
   const { senha, restaurante_id } = req.body;
-  const adminId = req.restaurante_id;
-  if (!senha) return res.status(400).json({ success: false, error: 'Senha obrigatoria.' });
+  const adminId = req.restaurante_id || restaurante_id;
+  if (!senha) return res.status(400).json({ success: false, error: 'Senha de administrador obrigatória.' });
 
-  masterDb.get(`SELECT * FROM usuarios WHERE restaurante_id = ? AND role = 'admin' AND ativo = 1`, [adminId], async (err, user) => {
-    if (err || !user) return res.status(404).json({ success: false, error: 'Admin nao encontrado.' });
+  masterDb.get(`SELECT * FROM usuarios WHERE restaurante_id = ? AND (role = 'admin' OR role = 'administrador' OR role = 'dono') AND ativo = 1`, [adminId], async (err, user) => {
+    if (err || !user) return res.status(404).json({ success: false, error: 'Administrador do restaurante não encontrado.' });
     const match = await bcrypt.compare(senha, user.password_hash);
     if (!match) return res.status(401).json({ success: false, error: 'Senha incorreta.' });
 
-    masterDb.run(`UPDATE restaurantes SET ativo = 0 WHERE id = ?`, [adminId], function (errUp) {
-      if (errUp) return res.status(500).json({ success: false, error: 'Erro ao desativar.' });
+    masterDb.get(`SELECT nome, id FROM restaurantes WHERE id = ?`, [adminId], (errRest, rest) => {
+      const restNome = rest?.nome || ('Restaurante #' + adminId);
 
-      masterDb.run(`UPDATE usuarios SET ativo = 0 WHERE restaurante_id = ?`, [adminId], () => {
-        res.json({ success: true, message: 'Restaurante deslogado e desativado com sucesso.' });
-      });
+      // 1. Derruba a conexão e força logout em TODOS os terminais e funcionários
+      if (typeof io !== 'undefined' && io) {
+        io.to(`restaurante_${adminId}`).emit('forcar_logout_global', {
+          restaurante_id: adminId,
+          motivo: 'O restaurante encerrou a sessão global do sistema. Faça login novamente em login.html para continuar.'
+        });
+        io.emit('forcar_logout_global', {
+          restaurante_id: adminId,
+          motivo: 'O restaurante encerrou a sessão global do sistema. Faça login novamente em login.html para continuar.'
+        });
+      }
+
+      // 2. Registra Notificação de Alerta para o Super Admin
+      if (typeof io !== 'undefined' && io) {
+        io.emit('super_admin_notificacao', {
+          id: 'logout-' + Date.now(),
+          tipo: 'urgente',
+          titulo: `🚨 Instalação #${adminId} Deslogada`,
+          corpo: `O restaurante "${restNome}" deslogou toda a instalação globalmente. Todos os funcionários foram desconectados.`
+        });
+      }
+
+      // 3. Cria Tarefa de Acompanhamento para a Equipe de Suporte
+      try {
+        masterDb.run(
+          `CREATE TABLE IF NOT EXISTS tarefas_suporte (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            restaurante_id INTEGER,
+            titulo TEXT,
+            descricao TEXT,
+            status TEXT DEFAULT 'pendente',
+            prioridade TEXT DEFAULT 'alta',
+            criado_em DATETIME DEFAULT CURRENT_TIMESTAMP
+          )`,
+          () => {
+            masterDb.run(
+              `INSERT INTO tarefas_suporte (restaurante_id, titulo, descricao, status, prioridade)
+               VALUES (?, ?, ?, 'pendente', 'alta')`,
+              [
+                adminId,
+                `Instalação Deslogada: #${adminId} - ${restNome}`,
+                `O administrador deslogou o restaurante #${adminId} (${restNome}) do sistema. Verificar se a equipe precisa de suporte para reautenticação ou reativação de terminais.`
+              ]
+            );
+          }
+        );
+      } catch (eTask) {
+        console.error('[Tarefa Suporte Error]', eTask);
+      }
+
+      // 4. Registra Auditoria
+      if (typeof registrarAuditoria === 'function') {
+        try { registrarAuditoria('logout_global_restaurante', `Restaurante #${adminId} (${restNome}) deslogou toda a instalação.`); } catch(e) {}
+      }
+
+      console.log(`[Logout Global] Restaurante #${adminId} (${restNome}) deslogado de todos os terminais.`);
+      res.json({ success: true, message: 'Restaurante deslogado de todos os terminais com sucesso!' });
     });
   });
 });

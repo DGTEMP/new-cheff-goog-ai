@@ -1,0 +1,12 @@
+/* Estilos do Módulo Balança Comercial (balanca) */
+.modulo-balanca-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: rgba(252, 75, 21, 0.1);
+  color: #fc4b15;
+  font-weight: 700;
+  font-size: 12px;
+}

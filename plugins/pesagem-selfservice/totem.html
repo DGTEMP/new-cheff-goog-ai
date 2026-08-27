@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Totem de Pesagem Automática | Chef Cozinha</title>
+  <link rel="stylesheet" href="/vendor/phosphor/src/bold/style.css">
+  <link rel="stylesheet" href="/vendor/phosphor/src/fill/style.css">
+  <script src="/socket.io/socket.io.js"></script>
+  <!-- QR Code Local -->
+  <script src="/vendor/qrcode/qrcode-generator.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; font-family: 'Inter', system-ui, sans-serif; }
+    body { background: #090d16; color: #f8fafc; min-height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+    /* Top Bar */
+    .totem-topbar {
+      background: #111827;
+      border-bottom: 1.5px solid #1f2937;
+      padding: 16px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .totem-logo { display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 900; color: #fc4b15; }
+    .totem-status-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(16, 185, 129, 0.15);
+      color: #10b981;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    /* Main Container */
+    .totem-main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 24px;
+      padding: 24px;
+      max-width: 1200px;
+      margin: 0 auto;
+      width: 100%;
+      align-items: center;
+    }
+
+    @media (max-width: 900px) {
+      .totem-main { grid-template-columns: 1fr; overflow-y: auto; }
+    }
+
+    /* Display Card */
+    .scale-card {
+      background: #131b2e;
+      border: 2px solid #1e293b;
+      border-radius: 24px;
+      padding: 32px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+      position: relative;
+    }
+
+    .scale-label { font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: #94a3b8; margin-bottom: 8px; }
+    .scale-weight {
+      font-size: 64px;
+      font-weight: 900;
+      color: #f8fafc;
+      font-family: monospace;
+      letter-spacing: -2px;
+      margin: 10px 0;
+      text-shadow: 0 0 30px rgba(252, 75, 21, 0.3);
+    }
+    .scale-weight small { font-size: 24px; color: #fc4b15; font-weight: 700; margin-left: 6px; }
+
+    .scale-price-calc {
+      font-size: 40px;
+      font-weight: 900;
+      color: #10b981;
+      margin: 12px 0 24px;
+    }
+
+    .scale-info-pills {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-bottom: 24px;
+    }
+    .info-pill {
+      background: #1f293d;
+      padding: 6px 14px;
+      border-radius: 12px;
+      font-size: 13px;
+      color: #cbd5e1;
+      font-weight: 700;
+    }
+
+    /* Actions Panel */
+    .actions-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .totem-btn {
+      padding: 20px;
+      border-radius: 18px;
+      border: none;
+      font-size: 18px;
+      font-weight: 900;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      transition: transform 0.15s, filter 0.15s;
+    }
+    .totem-btn:active { transform: scale(0.97); }
+
+    .btn-print {
+      background: linear-gradient(135deg, #fc4b15 0%, #ea580c 100%);
+      color: white;
+      box-shadow: 0 10px 25px rgba(252, 75, 21, 0.4);
+    }
+    .btn-scan {
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+      color: white;
+      box-shadow: 0 10px 25px rgba(59, 130, 246, 0.35);
+    }
+    .btn-buffet-livre {
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      color: white;
+      box-shadow: 0 10px 25px rgba(16, 185, 129, 0.35);
+    }
+
+    /* Ticket Modal / Feedback */
+    #modal-ticket {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.85);
+      backdrop-filter: blur(8px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      padding: 20px;
+    }
+    .ticket-box {
+      background: #ffffff;
+      color: #111827;
+      border-radius: 20px;
+      padding: 28px;
+      width: 100%;
+      max-width: 380px;
+      text-align: center;
+      box-shadow: 0 25px 60px rgba(0,0,0,0.6);
+      animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    @keyframes popIn { from { opacity: 0; transform: scale(0.85); } to { opacity: 1; transform: scale(1); } }
+  </style>
+</head>
+<body>
+
+  <header class="totem-topbar">
+    <div class="totem-logo">
+      <i class="ph-bold ph-scales"></i>
+      <span>Balança Autoatendimento</span>
+    </div>
+    <div class="totem-status-badge">
+      <i class="ph-fill ph-circle" style="font-size: 8px;"></i>
+      <span>Balança Conectada</span>
+    </div>
+  </header>
+
+  <main class="totem-main">
+    <!-- Display da Balança -->
+    <div class="scale-card">
+      <span class="scale-label">Peso Líquido do Prato</span>
+      <div class="scale-weight" id="totem-peso">
+        0.000 <small>kg</small>
+      </div>
+      <div class="scale-price-calc" id="totem-valor">
+        R$ 0,00
+      </div>
+
+      <div class="scale-info-pills">
+        <div class="info-pill" id="pill-preco-kg">Preço/Kg: R$ 69,90</div>
+        <div class="info-pill" id="pill-tara">Tara Prato: 450g</div>
+      </div>
+
+      <div style="display:flex; gap:10px; width:100%;">
+        <button onclick="simularPeso(0.380)" style="flex:1; padding:10px; border-radius:10px; background:#1e293b; color:#94a3b8; border:none; font-weight:700; font-size:12px; cursor:pointer;">
+          ⚡ Simular 380g
+        </button>
+        <button onclick="simularPeso(0.620)" style="flex:1; padding:10px; border-radius:10px; background:#1e293b; color:#94a3b8; border:none; font-weight:700; font-size:12px; cursor:pointer;">
+          ⚡ Simular 620g
+        </button>
+        <button onclick="zerarPeso()" style="padding:10px 14px; border-radius:10px; background:#ef4444; color:white; border:none; font-weight:700; font-size:12px; cursor:pointer;">
+          Zerar
+        </button>
+      </div>
+    </div>
+
+    <!-- Painel de Ações do Cliente -->
+    <div class="actions-panel">
+      <button class="totem-btn btn-print" onclick="finalizarPesagem('imprimir')">
+        <i class="ph-bold ph-printer" style="font-size: 26px;"></i>
+        <span>1. Imprimir Comanda de Peso</span>
+      </button>
+
+      <button class="totem-btn btn-scan" onclick="solicitarQrComanda()">
+        <i class="ph-bold ph-qr-code" style="font-size: 26px;"></i>
+        <span>2. Escanear QR da Minha Comanda</span>
+      </button>
+
+      <button class="totem-btn btn-buffet-livre" onclick="finalizarPesagem('livre')">
+        <i class="ph-bold ph-fork-knife" style="font-size: 26px;"></i>
+        <span id="btn-livre-label">3. Buffet Livre (R$ 35,00)</span>
+      </button>
+    </div>
+  </main>
+
+  <!-- Modal do Ticket Impresso -->
+  <div id="modal-ticket">
+    <div class="ticket-box">
+      <i class="ph-bold ph-check-circle" style="font-size: 52px; color: #10b981; margin-bottom: 8px;"></i>
+      <h3 style="margin-bottom: 4px; font-size: 20px;">Comanda Gerada!</h3>
+      <p style="color: #64748b; font-size: 13px; margin-bottom: 16px;">Retire seu ticket e apresente no caixa.</p>
+      
+      <div id="ticket-qrcode-container" style="display:flex; justify-content:center; margin-bottom: 16px;"></div>
+
+      <div style="background:#f8fafc; border-radius:12px; padding:14px; text-align:left; font-size:13.5px; margin-bottom: 16px;">
+        <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+          <span>Código:</span> <strong id="ticket-id">PESO-123456</strong>
+        </div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+          <span>Peso Líquido:</span> <strong id="ticket-peso">0.500 kg</strong>
+        </div>
+        <div style="display:flex; justify-content:space-between; font-size:16px; color:#fc4b15; margin-top:8px; border-top:1px dashed #cbd5e1; padding-top:8px;">
+          <span>Total:</span> <strong id="ticket-total">R$ 34,95</strong>
+        </div>
+      </div>
+
+      <button onclick="fecharTicket()" style="width:100%; padding:14px; background:#111827; color:white; border:none; border-radius:12px; font-weight:800; font-size:15px; cursor:pointer;">
+        Concluir
+      </button>
+    </div>
+  </div>
+
+  <script>
+    let config = { precoKg: 69.90, precoLivre: 35.00, taraPratoKg: 0.450 };
+    let pesoBrutoAtual = 0;
+
+    function carregarConfig() {
+      fetch('/api/modulo/pesagem-selfservice/config')
+        .then(r => r.json())
+        .then(d => {
+          if (d && d.sucesso && d.config) {
+            config = d.config;
+            document.getElementById('pill-preco-kg').innerText = `Preço/Kg: R$ ${config.precoKg.toFixed(2).replace('.', ',')}`;
+            document.getElementById('pill-tara').innerText = `Tara Prato: ${(config.taraPratoKg * 1000).toFixed(0)}g`;
+            document.getElementById('btn-livre-label').innerText = `3. Buffet Livre (R$ ${config.precoLivre.toFixed(2).replace('.', ',')})`;
+            atualizarCalculo();
+          }
+        });
+    }
+
+    function simularPeso(bruto) {
+      pesoBrutoAtual = bruto;
+      atualizarCalculo();
+    }
+
+    function zerarPeso() {
+      pesoBrutoAtual = 0;
+      atualizarCalculo();
+    }
+
+    function atualizarCalculo() {
+      const liquido = Math.max(0, pesoBrutoAtual - config.taraPratoKg);
+      const valor = liquido * config.precoKg;
+      document.getElementById('totem-peso').innerHTML = `${liquido.toFixed(3)} <small>kg</small>`;
+      document.getElementById('totem-valor').innerText = `R$ ${valor.toFixed(2).replace('.', ',')}`;
+    }
+
+    function finalizarPesagem(tipo) {
+      const payload = {
+        modo: tipo === 'livre' ? 'livre' : 'peso',
+        pesoBruto: pesoBrutoAtual
+      };
+
+      fetch('/api/modulo/pesagem-selfservice/pesar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+      .then(r => r.json())
+      .then(res => {
+        if (res && res.sucesso) {
+          exibirTicketModal(res.registro);
+        } else {
+          alert('Erro ao registrar pesagem.');
+        }
+      });
+    }
+
+    function solicitarQrComanda() {
+      const comanda = prompt('Aproxime o leitor de QR Code ou digite o número da sua comanda/mesa:');
+      if (!comanda) return;
+
+      fetch('/api/modulo/pesagem-selfservice/pesar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          modo: 'peso',
+          pesoBruto: pesoBrutoAtual,
+          comandaId: comanda
+        })
+      })
+      .then(r => r.json())
+      .then(res => {
+        if (res && res.sucesso) {
+          alert(`✅ Sucesso! O valor de R$ ${res.registro.valorTotal.toFixed(2)} foi lançado diretamente na Comanda #${comanda}!`);
+          zerarPeso();
+        }
+      });
+    }
+
+    function exibirTicketModal(reg) {
+      document.getElementById('ticket-id').innerText = reg.id;
+      document.getElementById('ticket-peso').innerText = `${reg.pesoLiquido.toFixed(3)} kg`;
+      document.getElementById('ticket-total').innerText = `R$ ${reg.valorTotal.toFixed(2).replace('.', ',')}`;
+
+      const container = document.getElementById('ticket-qrcode-container');
+      container.innerHTML = '';
+      if (typeof qrcode !== 'undefined') {
+        const qr = qrcode(4, 'M');
+        qr.addData(`PESO|${reg.id}|${reg.valorTotal}`);
+        qr.make();
+        container.innerHTML = qr.createImgTag(4, 8);
+      }
+
+      document.getElementById('modal-ticket').style.display = 'flex';
+    }
+
+    function fecharTicket() {
+      document.getElementById('modal-ticket').style.display = 'none';
+      zerarPeso();
+    }
+
+    carregarConfig();
+  </script>
+</body>
+</html>

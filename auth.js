@@ -81,3 +81,24 @@ if (typeof socket !== 'undefined' && socket.emit) {
   const pageTitle = document.title || 'Módulo do Sistema';
   socket.emit('registrar_acesso_pagina', { pagina: currentPath, titulo: pageTitle, autorizado: true });
 }
+
+
+// Ouvinte global para forçar logout de todos os funcionários quando o restaurante é deslogado
+if (typeof window !== 'undefined') {
+  window.addEventListener('DOMContentLoaded', () => {
+    if (typeof io !== 'undefined' || typeof socket !== 'undefined') {
+      const s = window.socket || (typeof io === 'function' ? io() : null);
+      if (s && s.on) {
+        s.on('forcar_logout_global', function(data) {
+          const myRestId = localStorage.getItem('restaurante_id') || (localStorage.getItem('chef_credentials') ? JSON.parse(localStorage.getItem('chef_credentials')).restaurante_id : null);
+          if (!data || !data.restaurante_id || String(data.restaurante_id) === String(myRestId)) {
+            localStorage.clear();
+            sessionStorage.clear();
+            alert(data?.motivo || 'A sessão do restaurante foi encerrada pelo administrador. Faça login novamente.');
+            window.location.href = '/login.html';
+          }
+        });
+      }
+    }
+  });
+}

@@ -369,14 +369,72 @@
   }
 
   // ─── VOLTAR AO TEMA CLÁSSICO ─────────────────────────────────
-  document.getElementById('v11-btn-classico').addEventListener('click', () => {
-    try { localStorage.setItem('chef_caixa_tema', 'classico'); } catch (e) { }
-    fetch('/api/config', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...authHeaders() },
-      body: JSON.stringify({ caixa_tema: 'classico' })
-    }).catch(() => { });
-    window.location.href = '/index.html';
-  });
+  const btnClassico = document.getElementById('v11-btn-classico');
+  if (btnClassico) {
+    btnClassico.addEventListener('click', () => {
+      try { localStorage.setItem('chef_caixa_tema', 'classico'); } catch (e) { }
+      fetch('/api/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ caixa_tema: 'classico' })
+      }).catch(() => { });
+      window.location.href = '/index.html';
+    });
+  }
+
+  // ─── PLUG-AND-PLAY MODULES (CHEFMODULES BUS) ─────────────────
+  function renderModuleWidget(fullId, widget) {
+    let existing = grid.querySelector('[data-w="' + fullId + '"]');
+    if (existing) return;
+
+    const el = document.createElement('article');
+    const sizeClass = widget.defaultSize || 'sz-m';
+    el.className = 'v11-widget ' + sizeClass;
+    el.setAttribute('data-w', fullId);
+    el.dataset.defaultSize = sizeClass.replace('sz-', '');
+
+    el.innerHTML =
+      '<header>' +
+        '<i class="ph-fill ' + (widget.icon || 'ph-puzzle-piece') + '"></i>' +
+        '<h2>' + (widget.title || 'Módulo') + '</h2>' +
+        '<div class="w-ctl">' +
+          '<button class="w-size" title="Tamanho">M</button>' +
+          '<button class="w-hide" title="Ocultar">×</button>' +
+        '</div>' +
+      '</header>' +
+      '<div class="w-body v11-module-widget-body" id="widget-body-' + fullId.replace(/[^a-zA-Z0-9_-]/g, '_') + '">' +
+      '</div>';
+
+    grid.appendChild(el);
+    const bodyContainer = el.querySelector('.v11-module-widget-body');
+
+    if (typeof widget.render === 'function') {
+      try {
+        widget.render(bodyContainer, { socket, authHeaders });
+      } catch(err) {
+        console.error('[ChefModules] Erro ao renderizar widget "' + fullId + '":', err);
+      }
+    } else if (typeof widget.template === 'string') {
+      bodyContainer.innerHTML = widget.template;
+    }
+
+    if (typeof widget.onMount === 'function') {
+      try { widget.onMount(bodyContainer, { socket, authHeaders }); } catch(e) {}
+    }
+  }
+
+  if (window.ChefModules) {
+    window.ChefModules.on('widget_registered', ({ fullId, widget }) => {
+      renderModuleWidget(fullId, widget);
+      aplicarLayout();
+    });
+
+    window.ChefModules.initAutoLoader('caixa_v11').then(() => {
+      window.ChefModules.getWidgets().forEach(w => {
+        renderModuleWidget(w.fullId, w);
+      });
+      aplicarLayout();
+    });
+  }
 
 })();

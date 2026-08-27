@@ -578,12 +578,12 @@
     }
 
 
-    /* ══════ GLOBAL SCROLL FIX ══════ */
+        /* ══════ GLOBAL SCROLL & WORKSPACE RESILIENTE ══════ */
     html, body {
-      overflow: hidden !important;
-      height: 100vh !important;
       margin: 0 !important;
       padding: 0 !important;
+      height: 100vh !important;
+      overflow: hidden !important;
     }
 
     .config-layout {
@@ -594,26 +594,29 @@
     }
 
     .main-workspace {
+      flex: 1 1 auto !important;
       height: 100% !important;
       min-height: 0 !important;
-      overflow: hidden !important;
+      overflow-y: auto !important;
+      overflow-x: hidden !important;
       display: flex !important;
       flex-direction: column !important;
+      padding: 24px !important;
+      box-sizing: border-box !important;
+      -webkit-overflow-scrolling: touch !important;
+    }
+
+    .admin-tab-content {
+      width: 100% !important;
+      box-sizing: border-box !important;
     }
 
     .admin-tab-content.active {
-      flex: 1 !important;
-      min-height: 0 !important;
       display: flex !important;
       flex-direction: column !important;
-      overflow-x: hidden !important;
-      overflow-y: auto !important;
-      -webkit-overflow-scrolling: touch;
-    }
-
-    /* Abas com tabela interna: a tabela rola, o container NÃO */
-    .admin-tab-content.active:has(.tab-table-scroll) {
-      overflow: hidden !important;
+      gap: 16px !important;
+      min-height: 100% !important;
+      padding-bottom: 60px !important;
     }
 
     .tab-table-scroll {
@@ -1434,20 +1437,396 @@
       }
     }
 
-  </style>
+  
+    /* ══════════════════════════════════════════════════════════════════
+       REFORMULAÇÃO RESPONSIVA ULTRA-FLUIDA PARA MOBILE (CONFIGURAÇÕES)
+       ══════════════════════════════════════════════════════════════════ */
+    @media (max-width: 900px) {
+      html, body {
+        overflow-y: auto !important;
+        height: auto !important;
+        min-height: 100vh !important;
+      }
+
+      .config-header {
+        padding: 10px 14px !important;
+        height: 52px !important;
+      }
+
+      .config-layout {
+        flex-direction: column !important;
+        height: auto !important;
+        min-height: calc(100vh - 52px) !important;
+        margin-top: 52px !important;
+        overflow: visible !important;
+      }
+
+      /* Sidebar convertida em barra de abas horizontal com rolagem suave no toque */
+      .config-sidebar {
+        width: 100% !important;
+        min-width: 100% !important;
+        height: auto !important;
+        max-height: none !important;
+        border-right: none !important;
+        border-bottom: 1.5px solid var(--cfg-border) !important;
+        padding: 8px 10px !important;
+        display: flex !important;
+        flex-direction: row !important;
+        overflow-x: auto !important;
+        white-space: nowrap !important;
+        scrollbar-width: none !important;
+        gap: 6px !important;
+        position: sticky !important;
+        top: 52px !important;
+        z-index: 900 !important;
+        background: var(--cfg-sidebar-bg) !important;
+      }
+
+      .config-sidebar::-webkit-scrollbar {
+        display: none !important;
+      }
+
+      .config-sidebar-search-wrap,
+      .group-title {
+        display: none !important;
+      }
+
+      .action-group {
+        display: flex !important;
+        flex-direction: row !important;
+        gap: 6px !important;
+        margin: 0 !important;
+      }
+
+      .admin-tab-btn {
+        padding: 8px 14px !important;
+        border-radius: 20px !important;
+        font-size: 13px !important;
+        white-space: nowrap !important;
+        background: var(--cfg-card-alt, #f4f4f5) !important;
+        border: 1px solid var(--cfg-border) !important;
+        flex-shrink: 0 !important;
+      }
+
+      .admin-tab-btn.active {
+        background: var(--cfg-primary, #fc4b15) !important;
+        color: white !important;
+        border-color: var(--cfg-primary, #fc4b15) !important;
+        box-shadow: 0 3px 10px rgba(252, 75, 21, 0.3) !important;
+      }
+
+      .main-workspace,
+      .config-content,
+      .admin-tab-content {
+        padding: 12px 10px 60px !important;
+        height: auto !important;
+        overflow: visible !important;
+        display: flex !important;
+        flex-direction: column !important;
+      }
+
+      /* ── MESAS & COMANDAS: EMPILHAMENTO VERTICAL 100% LIMPO ── */
+      #admin-tab-mesas > div {
+        flex-direction: column !important;
+        height: auto !important;
+        overflow: visible !important;
+        gap: 20px !important;
+      }
+
+      #admin-tab-mesas > div > div {
+        height: auto !important;
+        overflow: visible !important;
+        width: 100% !important;
+      }
+
+      #admin-tab-mesas .tab-table-scroll {
+        max-height: 340px !important;
+        overflow-y: auto !important;
+        border: 1px solid var(--cfg-border) !important;
+        border-radius: 12px !important;
+        background: var(--cfg-card-bg) !important;
+      }
+
+      #admin-tab-mesas .tab-form-header {
+        padding: 12px !important;
+        background: var(--cfg-card-bg) !important;
+        border: 1px solid var(--cfg-border) !important;
+        border-radius: 12px !important;
+        margin-bottom: 8px !important;
+      }
+
+      /* ── TABELAS RESPONSIVAS & FORMULÁRIOS ── */
+      .promo-table-wrap,
+      .tab-table-scroll,
+      .table-responsive {
+        width: 100% !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+      }
+
+      table {
+        min-width: 480px !important;
+      }
+
+      /* Grids viram coluna única no celular */
+      [style*="grid-template-columns"],
+      .form-grid-2,
+      .form-grid-3,
+      .form-grid-4 {
+        grid-template-columns: 1fr !important;
+      }
+
+      /* Inputs com toque generoso */
+      input, select, textarea, button {
+        min-height: 42px !important;
+        font-size: 14.5px !important;
+        box-sizing: border-box !important;
+      }
+    }
 
 
-  <script>
+    /* === FIX DE VISIBILIDADE E ALTURA PARA TODOS OS CARDS === */
+    .promo-card,
+    .admin-card,
+    .config-card {
+      height: auto !important;
+      max-height: none !important;
+      overflow: visible !important;
+    }
+
+    .promo-card-body {
+      overflow: visible !important;
+      height: auto !important;
+    }
+
+
+    /* ══════════════════════════════════════════════════════════════════
+       PURA HARMONIA OLED / DARK THEME — ELIMINAÇÃO DE FUNDOS BRANCOS
+       ══════════════════════════════════════════════════════════════════ */
+    [data-theme="dark"] .tab-form-header,
+    [data-theme="dark"] .tab-form-header > div,
+    [data-theme="dark"] .tab-form-header div[style*="background"],
+    [data-theme="dark"] #admin-tab-nfce div[style*="background"],
+    [data-theme="dark"] #admin-tab-gerenciar-notas div[style*="background"],
+    [data-theme="dark"] .nfce-filter-card,
+    [data-theme="dark"] .promo-card,
+    [data-theme="dark"] .promo-card-header,
+    [data-theme="dark"] .promo-card-body,
+    [data-theme="dark"] .promo-card-body > div,
+    [data-theme="dark"] .admin-card,
+    [data-theme="dark"] .config-card,
+    [data-theme="dark"] tr[style*="background"],
+    [data-theme="dark"] th[style*="background"],
+    [data-theme="dark"] div[style*="background: #f8fafc"],
+    [data-theme="dark"] div[style*="background:#f8fafc"],
+    [data-theme="dark"] div[style*="background: #fff"],
+    [data-theme="dark"] div[style*="background:#fff"],
+    [data-theme="dark"] div[style*="background: white"],
+    [data-theme="dark"] div[style*="background:white"] {
+      background: var(--cfg-card-bg) !important;
+      color: var(--cfg-text) !important;
+      border-color: var(--cfg-border) !important;
+    }
+
+    [data-theme="dark"] input,
+    [data-theme="dark"] select,
+    [data-theme="dark"] textarea {
+      background: var(--cfg-input-bg) !important;
+      color: var(--cfg-text) !important;
+      border-color: var(--cfg-border) !important;
+    }
+
+    [data-theme="dark"] input::placeholder,
+    [data-theme="dark"] textarea::placeholder {
+      color: #71717a !important;
+    }
+
+    [data-theme="dark"] table thead tr,
+    [data-theme="dark"] table th {
+      background: var(--cfg-subtle-bg) !important;
+      color: var(--cfg-text-muted) !important;
+      border-bottom-color: var(--cfg-border) !important;
+    }
+
+    [data-theme="dark"] table tbody tr {
+      border-bottom-color: var(--cfg-border) !important;
+    }
+
+    [data-theme="dark"] table tbody tr:hover {
+      background: var(--cfg-row-hover) !important;
+    }
+
+    [data-theme="dark"] .promo-table td {
+      color: var(--cfg-text) !important;
+      border-bottom-color: var(--cfg-border) !important;
+    }
+
+    [data-theme="dark"] .badge,
+    [data-theme="dark"] label[style*="background"] {
+      background: rgba(255,255,255,0.05) !important;
+      color: var(--cfg-text) !important;
+      border-color: var(--cfg-border) !important;
+    }
+
+    [data-theme="dark"] .aba-titulo,
+    [data-theme="dark"] h2,
+    [data-theme="dark"] h3,
+    [data-theme="dark"] h4,
+    [data-theme="dark"] strong {
+      color: var(--cfg-heading, #fafafa) !important;
+    }
+
+
+    /* ══════════════════════════════════════════════════════════════════
+       ZONA DE PERIGO NO TEMA ESCURO — FUNDO HARMONIOSO SEM BRANCO
+       ══════════════════════════════════════════════════════════════════ */
+    [data-theme="dark"] div[style*="background: #fef2f2"],
+    [data-theme="dark"] div[style*="background:#fef2f2"],
+    [data-theme="dark"] div[style*="#fef2f2"] {
+      background: rgba(220, 38, 38, 0.12) !important;
+      border: 1.5px solid rgba(220, 38, 38, 0.35) !important;
+    }
+    [data-theme="dark"] div[style*="#fef2f2"] h3 {
+      color: #f87171 !important;
+    }
+    [data-theme="dark"] div[style*="#fef2f2"] p,
+    [data-theme="dark"] div[style*="#fef2f2"] span {
+      color: #fca5a5 !important;
+    }
+
+
+    /* ══════════════════════════════════════════════════════════════════
+       DESIGN SYSTEM MASTER: PROPORÇÕES NÍTIDAS, ESCALA 100% & MODAIS DARK
+       ══════════════════════════════════════════════════════════════════ */
+    :root {
+      --cfg-bg: #09090b;
+      --cfg-sidebar-bg: #121218;
+      --cfg-header-bg: #121218;
+      --cfg-card-bg: #18181b;
+      --cfg-subtle-bg: #202026;
+      --cfg-input-bg: #0c0c10;
+      --cfg-border: #2a2a32;
+      --cfg-text: #f4f4f5;
+      --cfg-text-muted: #a1a1aa;
+      --cfg-heading: #ffffff;
+      --cfg-primary: #fc4b15;
+      --cfg-success: #10b981;
+      --cfg-danger: #ef4444;
+    }
+
+    body {
+      font-size: 14px;
+      line-height: 1.5;
+      zoom: 1 !important;
+    }
+
+    .main-workspace {
+      flex: 1 1 auto !important;
+      height: calc(100vh - 58px) !important;
+      overflow-y: auto !important;
+      overflow-x: hidden !important;
+      padding: 24px 32px 80px !important;
+      box-sizing: border-box !important;
+      max-width: 1300px !important;
+      margin: 0 auto !important;
+      width: 100% !important;
+    }
+
+    .admin-tab-content {
+      width: 100% !important;
+      box-sizing: border-box !important;
+    }
+
+    .admin-tab-content.active {
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 20px !important;
+      width: 100% !important;
+    }
+
+    /* Modais Dark OLED 100% Legíveis */
+    .modal-overlay,
+    #modal-fechar-folha,
+    #modal-pagamento-rapido,
+    #modal-editar-funcionario,
+    #modal-forma-pagamento,
+    #modal-editar-produto {
+      background: rgba(0, 0, 0, 0.82) !important;
+      backdrop-filter: blur(8px) !important;
+    }
+
+    .modal-overlay > div,
+    .modal {
+      background: var(--cfg-card-bg) !important;
+      color: var(--cfg-text) !important;
+      border: 1.5px solid var(--cfg-border) !important;
+      border-radius: 18px !important;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6) !important;
+    }
+
+    .modal-overlay header,
+    .modal-overlay > div > div:first-child,
+    .modal-overlay div[style*="background: linear-gradient"],
+    .modal-overlay div[style*="background: #f8f9fa"],
+    .modal-overlay div[style*="background:#f8f9fa"],
+    .modal-overlay div[style*="border-top"],
+    .modal-overlay div[style*="border-bottom"] {
+      background: var(--cfg-subtle-bg) !important;
+      border-color: var(--cfg-border) !important;
+      color: var(--cfg-text) !important;
+    }
+
+    .modal-overlay div[style*="background: #f8fafc"],
+    .modal-overlay div[style*="background: #fffdfa"],
+    .modal-overlay div[style*="background: #fffbfa"],
+    .modal-overlay div[style*="background: #e8f5e9"],
+    .modal-overlay div[style*="background: #ecfdf5"],
+    .modal-overlay div[style*="background: #fff1f2"],
+    .modal-overlay div[style*="background: #fff7ed"],
+    .modal-overlay div[style*="background: #f0fdf4"] {
+      background: var(--cfg-subtle-bg) !important;
+      border-color: var(--cfg-border) !important;
+      color: var(--cfg-text) !important;
+    }
+
+    .modal-overlay label,
+    .modal-overlay span,
+    .modal-overlay p,
+    .modal-overlay h2,
+    .modal-overlay h3,
+    .modal-overlay h4,
+    .modal-overlay strong {
+      color: var(--cfg-text) !important;
+    }
+
+    .modal-overlay input,
+    .modal-overlay select,
+    .modal-overlay textarea {
+      background: var(--cfg-input-bg) !important;
+      color: var(--cfg-text) !important;
+      border: 1px solid var(--cfg-border) !important;
+      border-radius: 8px !important;
+    }
+
+    /* Cartões e Formulários com proporções fluidas */
+    .card,
+    .promo-card,
+    .admin-card,
+    .tab-form-header > div,
+    [style*="background: var(--cfg-card-bg)"] {
+      background: var(--cfg-card-bg) !important;
+      border: 1px solid var(--cfg-border) !important;
+      border-radius: 14px !important;
+      color: var(--cfg-text) !important;
+    }
+
+</style>
+
+
+    <script>
     (function () {
-      const res = localStorage.getItem('chef_app_resolution') || 'auto';
-      const zoom = localStorage.getItem('chef_app_zoom_percent') || '100';
-      let target = '';
-      if (res === 'compact') target = '88%';
-      else if (res === 'standard') target = '100%';
-      else if (res === 'large') target = '118%';
-      else if (res === 'touch') target = '112%';
-      else if (res === 'custom') target = zoom + '%';
-      if (target) document.documentElement.style.zoom = target;
+      // Garantir 100% de escala natural e proporções nítidas sem zoom quebrado
+      document.documentElement.style.zoom = '1';
     })();
   </script>
   <script type="module" src="/auth.js"></script>
@@ -1589,6 +1968,9 @@
         
         <button class="admin-tab-btn" data-tab="dispositivos" style="color:#0284c7; font-weight: bold;">
           <i class="ph ph-devices"></i> Dispositivos & Terminais
+        </button>
+        <button class="admin-tab-btn" data-tab="modulos" style="color: #8b5cf6; font-weight: 800;">
+          <i class="ph ph-puzzle-piece"></i> Módulos & Extensões
         </button>
         <button class="admin-tab-btn" data-tab="auditoria" style="color:#e11d48;">
           <i class="ph ph-shield-warning"></i> Auditoria &amp; Anti-Fraude
@@ -2046,10 +2428,10 @@
         </div>
 
         <div
-          style="background: #fef2f2; padding: 20px; border-radius: 12px; border: 2px solid #fecaca; margin-bottom: 20px;">
-          <h3 style="margin-top:0; color: #dc2626;"><i class="ph ph-warning"></i> Zona de Perigo</h3>
-          <p style="color: #991b1b; font-size: 14px; margin-bottom: 15px;">
-            Esta ação irá apagar <strong>TODOS</strong> os dados do sistema: pedidos, mesas, clientes, promoções, movimentações, turnos, produtos e configurações de IA. Esta ação é <strong>IRREVERSÍVEL</strong>.
+          style="background: rgba(220, 38, 38, 0.1); padding: 22px; border-radius: 14px; border: 1.5px solid rgba(220, 38, 38, 0.35); margin-bottom: 20px;">
+          <h3 style="margin-top:0; color: #f87171; font-size: 18px; font-weight: 800; display:flex; align-items:center; gap:8px;"><i class="ph-bold ph-warning"></i> Zona de Perigo</h3>
+          <p style="color: #fca5a5; font-size: 14px; line-height: 1.5; margin-bottom: 16px;">
+            Esta ação irá apagar <strong style="color:#ffffff;">TODOS</strong> os dados do sistema: pedidos, mesas, clientes, promoções, movimentações, turnos, produtos e configurações de IA. Esta ação é <strong style="color:#ffffff;">IRREVERSÍVEL</strong>.
           </p>
           <button id="btn-zerar-dados"
             onclick="window.zerarTodosDados()"
@@ -4543,6 +4925,107 @@
       </div>
 
 
+      
+      <!-- ════ ABA CENTRAL DE MÓDULOS, CRIAÇÃO & SUPORTE PLUG-AND-PLAY ════ -->
+      <div class="admin-tab-content" id="admin-tab-modulos" style="display:none; flex-direction:column; gap:20px; overflow-y:auto; padding:16px;">
+        
+        <!-- Header com Estatísticas -->
+        <div style="background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%); border-radius: 20px; padding: 24px; color: white; box-shadow: 0 10px 30px rgba(139, 92, 246, 0.25); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+          <div>
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
+              <span style="background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 800;">Ecossistema v1.1</span>
+              <span style="font-size: 13px; opacity: 0.9;">100% Plug-and-Play</span>
+            </div>
+            <h2 style="margin: 0; font-size: 24px; font-weight: 900;">Central de Módulos & Extensões</h2>
+            <p style="margin: 6px 0 0 0; opacity: 0.9; font-size: 14px; max-width: 540px;">
+              Crie novos módulos em 1 clique, ative ou desative extensões e personalize o Caixa v1.1 e o PDV sem risco de quebrar o sistema.
+            </p>
+          </div>
+          <button onclick="window.carregarListaModulosUI()" style="padding: 12px 20px; border-radius: 12px; background: rgba(255,255,255,0.2); border: 1.5px solid rgba(255,255,255,0.4); color: white; font-weight: 800; font-size: 14px; cursor: pointer; display: flex; align-items: center; gap: 8px; backdrop-filter: blur(8px);">
+            <i class="ph-bold ph-arrows-clockwise"></i> Atualizar Lista
+          </button>
+        </div>
+
+        <!-- SEÇÃO 1: CRIADOR VISUAL DE MÓDULOS -->
+        <div style="background:var(--cfg-card-bg); border: 1.5px solid var(--cfg-border); border-radius: 18px; padding: 20px; box-shadow: 0 4px 16px rgba(0,0,0,0.03);">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom: 16px; border-bottom: 1px dashed var(--cfg-border); padding-bottom: 12px;">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <div style="width:40px; height:40px; border-radius:10px; background:#f3e8ff; color:#8b5cf6; display:flex; align-items:center; justify-content:center; font-size:22px;">
+                <i class="ph-bold ph-magic-wand"></i>
+              </div>
+              <div>
+                <h3 style="margin:0; font-size:16.5px; color:var(--cfg-text); font-weight:800;">Criador de Novo Módulo (1 Clique)</h3>
+                <span style="font-size:12px; color:var(--cfg-text-muted);">Gera toda a estrutura na pasta plugins/ com backend, frontend e widget do Caixa v1.1</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:14px; margin-bottom: 16px;">
+            <div class="form-group">
+              <label class="form-label" style="font-size:12px; font-weight:700; color:var(--cfg-text-muted);">ID do Módulo (sem espaços)</label>
+              <input type="text" id="novo-mod-id" placeholder="ex: controle-estoque" class="form-input" style="padding:10px; border-radius:8px; border:1px solid var(--cfg-border); background:var(--cfg-card-bg); color:var(--cfg-text);">
+            </div>
+            <div class="form-group">
+              <label class="form-label" style="font-size:12px; font-weight:700; color:var(--cfg-text-muted);">Nome Visual do Módulo</label>
+              <input type="text" id="novo-mod-nome" placeholder="ex: Controle de Estoque" class="form-input" style="padding:10px; border-radius:8px; border:1px solid var(--cfg-border); background:var(--cfg-card-bg); color:var(--cfg-text);">
+            </div>
+            <div class="form-group">
+              <label class="form-label" style="font-size:12px; font-weight:700; color:var(--cfg-text-muted);">Ícone Phosphor</label>
+              <input type="text" id="novo-mod-icone" value="ph-puzzle-piece" placeholder="ex: ph-scales, ph-gift" class="form-input" style="padding:10px; border-radius:8px; border:1px solid var(--cfg-border); background:var(--cfg-card-bg); color:var(--cfg-text);">
+            </div>
+            <div class="form-group">
+              <label class="form-label" style="font-size:12px; font-weight:700; color:var(--cfg-text-muted);">Categoria</label>
+              <select id="novo-mod-categoria" class="form-input" style="padding:10px; border-radius:8px; border:1px solid var(--cfg-border); background:var(--cfg-card-bg); color:var(--cfg-text);">
+                <option value="operacao">Operação & Cozinha</option>
+                <option value="hardware">Hardware & Balança</option>
+                <option value="marketing">Marketing & Fidelidade</option>
+                <option value="fiscal">Fiscal & Pagamentos</option>
+                <option value="integracao">Integração Externa</option>
+                <option value="geral">Geral</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="display:flex; justify-content:flex-end;">
+            <button onclick="window.criarNovoModuloUI()" style="padding:11px 24px; border-radius:10px; background:#8b5cf6; color:white; border:none; font-weight:800; font-size:14px; cursor:pointer; display:flex; align-items:center; gap:8px; box-shadow:0 4px 14px rgba(139,92,246,0.3);">
+              <i class="ph-bold ph-plus-circle"></i> Criar Módulo Plug-and-Play
+            </button>
+          </div>
+        </div>
+
+        <!-- SEÇÃO 2: CATÁLOGO DE MÓDULOS INSTALADOS -->
+        <div style="background:var(--cfg-card-bg); border: 1.5px solid var(--cfg-border); border-radius: 18px; padding: 20px; box-shadow: 0 4px 16px rgba(0,0,0,0.03);">
+          <h3 style="margin:0 0 16px 0; font-size:16.5px; color:var(--cfg-text); font-weight:800; display:flex; align-items:center; gap:8px;">
+            <i class="ph-bold ph-squares-four" style="color:#8b5cf6;"></i> Módulos Instalados no Sistema
+          </h3>
+          <div id="grid-modulos-instalados" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:14px;">
+            <div style="text-align:center; padding:30px; color:var(--cfg-text-muted); grid-column:1/-1;">Carregando módulos...</div>
+          </div>
+        </div>
+
+        <!-- SEÇÃO 3: GUIA & DOCUMENTAÇÃO DE HOOKS PARA DEVS E SUPORTE -->
+        <div style="background:var(--cfg-card-bg); border: 1.5px solid var(--cfg-border); border-radius: 18px; padding: 20px; box-shadow: 0 4px 16px rgba(0,0,0,0.03);">
+          <h3 style="margin:0 0 12px 0; font-size:16.5px; color:var(--cfg-text); font-weight:800; display:flex; align-items:center; gap:8px;">
+            <i class="ph-bold ph-code" style="color:#0284c7;"></i> Como Desenvolver & Dar Suporte a Módulos
+          </h3>
+          <div style="background:var(--bg-app, #0f172a); color:#f8fafc; border-radius:12px; padding:16px; font-family:monospace; font-size:13px; line-height:1.5; overflow-x:auto;">
+// 1. Injetar Widget no Caixa v1.1 (plugins/meu-modulo/widget.js)
+ChefModules.register({ id: 'meu_modulo', name: 'Meu Módulo' }, ({ registerWidget }) => {
+  registerWidget({
+    id: 'meu_widget',
+    title: 'Meu Widget',
+    icon: 'ph-sparkle',
+    render(container) { container.innerHTML = '<h3>Olá Mundo!</h3>'; }
+  });
+});
+
+// 2. Injetar Botão na Barra Superior (plugins/meu-modulo/client.js)
+ChefModules.registerNavbarAction({ id: 'btn_acao', label: 'Meu Botão', onClick: () => alert('Ação!') });
+          </div>
+        </div>
+
+      </div>
+
       <div id="admin-tab-auditoria" class="admin-tab-content" style="display:none; flex-direction:column; gap:16px;">
         <div class="tab-form-header">
           <div
@@ -4723,7 +5206,7 @@
         style="display:none; flex-direction:column; gap:16px; overflow-y:auto; padding-right: 8px;">
         <h2 class="aba-titulo"><i class="ph ph-receipt" style="color: #2563eb;"></i> Configurações Fiscais - NFC-e (Modelo 65)</h2>
         <div class="tab-form-header" style="max-height: none;">
-          <div style="background: #f8fafc; border: 1px solid var(--cfg-border); border-radius: 12px; padding: 20px; margin-bottom: 20px;">
+          <div style="background: var(--cfg-card-bg); border: 1px solid var(--cfg-border); border-radius: 12px; padding: 20px; margin-bottom: 20px;">
             <h3 style="margin-top: 0; color:var(--cfg-text); font-size: 16px; border-bottom: 1px solid var(--cfg-border); padding-bottom: 8px;">
               <i class="ph ph-buildings"></i> Dados da Empresa Emitente
             </h3>

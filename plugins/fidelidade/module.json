@@ -1,0 +1,15 @@
+{
+  "id": "fidelidade",
+  "name": "Clube de Fidelidade",
+  "version": "1.1.0",
+  "author": "Chef Cozinha Dev Team",
+  "description": "Gestão de pontos de fidelidade, cashback e resgate de brindes no Caixa e PDV.",
+  "category": "marketing",
+  "icon": "ph-gift",
+  "enabled": true,
+  "targets": ["caixa_v11", "pdv_classico", "configuracoes"],
+  "hooks": {
+    "server": "index.js",
+    "widget": "widget.js"
+  }
+}

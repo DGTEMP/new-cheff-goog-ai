@@ -1,0 +1,21 @@
+{
+  "id": "balanca",
+  "name": "Balança Comercial",
+  "version": "1.0.0",
+  "author": "Chef Cozinha Dev Team",
+  "description": "Módulo plug-and-play de Balança Comercial para o ecossistema Chef Cozinha.",
+  "category": "hardware",
+  "icon": "ph-scales",
+  "enabled": true,
+  "targets": [
+    "caixa_v11",
+    "pdv_classico",
+    "configuracoes"
+  ],
+  "hooks": {
+    "server": "index.js",
+    "client": "client.js",
+    "widget": "widget.js",
+    "style": "style.css"
+  }
+}

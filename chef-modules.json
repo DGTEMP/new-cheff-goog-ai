@@ -1,0 +1,23 @@
+{
+  "enabledModules": {
+    "balanca": true,
+    "caixa": true,
+    "cozinha": true,
+    "dispositivos": true,
+    "equipe": true,
+    "fidelidade": true,
+    "formas-pagamento": true,
+    "garcom": true,
+    "image-providers": true,
+    "logs": true,
+    "montaveis": true,
+    "nfce": true,
+    "pix": true,
+    "reserves": true,
+    "retro": true,
+    "tarefas": true,
+    "temas": true,
+    "pesagem-selfservice": true
+  },
+  "order": []
+}
