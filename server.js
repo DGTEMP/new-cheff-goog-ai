@@ -6266,6 +6266,11 @@ io.on('connection', (socket) => {
     });
   }
 
+  const chamarTimestamps = {};
+  let pdvCalls = [];
+  const mesasFechando = new Set();
+  const avisarClienteMesa = function() {};
+
   // ── PLUGIN GARÇOM: registrar handlers de salão/mesa/garçom ──
   try {
     const garcomPlugin = require('./plugins/garcom');
@@ -6994,8 +6999,6 @@ io.on('connection', (socket) => {
       });
     });
   });
-
-  const chamarTimestamps = {};
 
   socket.on('get_esteira', (userName) => {
     db.all(`SELECT * FROM pedidos WHERE (userName = ? OR garcom_call IS NOT NULL) AND status = 'Pronto'`, [userName], (err, rows) => {

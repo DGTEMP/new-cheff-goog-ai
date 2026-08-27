@@ -1337,16 +1337,16 @@ module.exports = function (app, masterDb, sqlite3, options) {
     try {
       const state = loadControl.getState();
       const metrics = loadControl.getMetrics();
-      const fila = loadControl.getFilaSnapshot();
-      const overrides = loadControl.getTenantOverrides();
+      const fila = typeof loadControl.getFilaSnapshot === 'function' ? loadControl.getFilaSnapshot() : {};
+      const overrides = typeof loadControl.getTenantOverrides === 'function' ? loadControl.getTenantOverrides() : {};
 
       const rests = await new Promise((resolve) => {
         masterDb.all(`SELECT id, nome, ativo FROM restaurantes ORDER BY id`, [], (e, r) => resolve(e ? [] : (r || [])));
       });
 
       const tenantsList = rests.map(r => {
-        const ppm = loadControl.getTenantOrdersPerMin(r.id);
-        const modoEfetivo = loadControl.getModoEfetivoTenant(r.id);
+        const ppm = typeof loadControl.getTenantOrdersPerMin === 'function' ? loadControl.getTenantOrdersPerMin(r.id) : 0;
+        const modoEfetivo = typeof loadControl.getModoEfetivoTenant === 'function' ? loadControl.getModoEfetivoTenant(r.id) : (state.modo_efetivo || 'normal');
         return {
           id: r.id,
           nome: r.nome,
@@ -1361,11 +1361,10 @@ module.exports = function (app, masterDb, sqlite3, options) {
 
       res.json({
         ok: true,
-        modo_global: loadControl.getModoGlobal(),
-        fila_duravel: loadControl.isFilaDuravelAtiva(),
-        intervalo_amostragem: loadControl.getIntervaloAmostragem(),
-        circuit_breaker: loadControl.getCircuitBreakerConfig(),
-        metricas_recentes: loadControl.getMetricasRecentes(),
+        controle: state,
+        metricas: metrics,
+        modo_global: state.modo_efetivo || 'normal',
+        fila_duravel: state.modo_efetivo === 'spool',
         tenants: tenantsList
       });
     } catch (e) {
@@ -1388,6 +1387,20 @@ module.exports = function (app, masterDb, sqlite3, options) {
       });
     });
   }
+
+  // GET /api/super/infra-cloud — carregar todas configs de infraestrutura cloud
+  app.get('/api/super/infra-cloud', superAdminAuth, async (req, res) => {
+    try {
+      masterDb.all("SELECT chave, valor FROM configuracoes_global WHERE chave LIKE 'r2_%' OR chave LIKE 'redis_%' OR chave LIKE 'backup_%' OR chave LIKE 'crash_%'", [], (err, rows) => {
+        if (err) return res.json({ ok: false, erro: err.message });
+        const config = {};
+        (rows || []).forEach(r => { config[r.chave] = r.valor; });
+        res.json({ ok: true, config });
+      });
+    } catch (e) {
+      res.json({ ok: false, erro: e.message });
+    }
+  });
 
   // POST /api/super/infra-cloud/r2 — salvar config R2
   app.post('/api/super/infra-cloud/r2', superAdminAuth, async (req, res) => {

@@ -647,6 +647,14 @@ function switchTab(targetId) {
       history.replaceState(null, null, '#' + targetId);
     }
   } catch(e) {}
+  
+  /* Atualizar item ativo no bottom nav mobile */
+  var mobNavItems = document.querySelectorAll('.mob-nav-item');
+  mobNavItems.forEach(function(btn) {
+    var isTarget = btn.getAttribute('data-target') === targetId;
+    btn.classList.toggle('active', isTarget);
+  });
+
   var earlyStyle = document.getElementById('early-tab-style');
   if (earlyStyle) earlyStyle.remove();
 
@@ -657,10 +665,11 @@ function switchTab(targetId) {
   if (overlay) overlay.classList.remove('open');
 
   var t = titles[targetId] || ['', ''];
-  document.getElementById('panel-title').textContent = t[0];
-  document.getElementById('panel-subtitle').textContent = t[1];
+  var titleEl = document.getElementById('panel-title');
+  var subTitleEl = document.getElementById('panel-subtitle');
+  if (titleEl) titleEl.textContent = t[0];
+  if (subTitleEl) subTitleEl.textContent = t[1];
 
-  /* ═══ Chaves de Ativação — Upsell Offline-First ═══ */
   window.carregarChavesOffline = function () {
     fetch('/api/super/chaves', { headers: authHeaders() })
       .then(r => r.json())
@@ -3107,10 +3116,56 @@ window.salvarMissaoSurpresa = function() {
     showToast('Modo cloud indisponível. Use o login local.', 'warning');
   });
 
-  /* Header - Nova Licença (redireciona para criar restaurante) */
+  /* Header - Nova Licença (vai para aba de gerar licença) */
   var btnHeaderNewKey = document.getElementById('btn-header-new-key');
   if (btnHeaderNewKey) btnHeaderNewKey.addEventListener('click', function() {
-    switchTab('sec-restaurantes');
+    switchTab('sec-licencas');
+    setTimeout(function() {
+      var inp = document.getElementById('lic-restaurante-nome');
+      if (inp) {
+        inp.focus();
+        inp.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 120);
+  });
+
+  /* ═══ MOBILE: Drawer Sidebar & Bottom Navigation ═══ */
+  document.addEventListener('click', function(e) {
+    // Abrir/fechar drawer via hambúrguer ou botão 'Menu' no bottom nav
+    var btnHam = e.target.closest ? e.target.closest('#btn-hamburger, #btn-mobile-more') : null;
+    if (btnHam) {
+      e.preventDefault();
+      var sb = document.querySelector('.sidebar');
+      var ov = document.getElementById('sidebar-overlay');
+      if (sb) sb.classList.toggle('open');
+      if (ov) ov.classList.toggle('open');
+      return;
+    }
+
+    // Fechar ao clicar no overlay escuro
+    var ovClick = e.target.closest ? e.target.closest('#sidebar-overlay') : null;
+    if (ovClick) {
+      e.preventDefault();
+      var sb2 = document.querySelector('.sidebar');
+      var ov2 = document.getElementById('sidebar-overlay');
+      if (sb2) sb2.classList.remove('open');
+      if (ov2) ov2.classList.remove('open');
+      return;
+    }
+
+    // Trocar aba via bottom nav
+    var mobItem = e.target.closest ? e.target.closest('.mob-nav-item[data-target]') : null;
+    if (mobItem) {
+      e.preventDefault();
+      var tgt = mobItem.getAttribute('data-target');
+      if (tgt) {
+        switchTab(tgt);
+        var mainEl = document.querySelector('.main-content');
+        if (mainEl) mainEl.scrollTo({ top: 0, behavior: 'smooth' });
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+      return;
+    }
   });
 
   /* Toggle senha recovery */
@@ -3279,20 +3334,31 @@ window.salvarMissaoSurpresa = function() {
   }
 
   window.gerarChave = function() {
-    var nome = document.getElementById('lic-restaurante-nome').value.trim();
-    var plano = document.getElementById('lic-plano').value;
-    var dias = parseInt(document.getElementById('lic-dias').value) || 365;
-    var maxDisp = parseInt(document.getElementById('lic-maxdisp').value) || 0;
-    var obs = document.getElementById('lic-obs').value.trim();
+    var nomeInp = document.getElementById('lic-restaurante-nome');
+    var nome = (nomeInp ? nomeInp.value : '').trim();
+    var plano = document.getElementById('lic-plano') ? document.getElementById('lic-plano').value : 'premium';
+    var dias = parseInt(document.getElementById('lic-dias') ? document.getElementById('lic-dias').value : 365) || 365;
+    var maxDisp = parseInt(document.getElementById('lic-maxdisp') ? document.getElementById('lic-maxdisp').value : 0) || 0;
+    var obs = (document.getElementById('lic-obs') ? document.getElementById('lic-obs').value : '').trim();
+
+    if (!nome) {
+      showToast('Por favor, informe o nome do restaurante para a licença.', 'warning');
+      if (nomeInp) nomeInp.focus();
+      return;
+    }
+
     apiPost('/api/super/licencas/gerar', { restaurante_nome: nome, plano: plano, dias: dias, max_dispositivos: maxDisp, obs: obs }, function(err, data) {
-      if (err || !data || !data.ok) { showToast(data && data.erro ? data.erro : 'Erro ao gerar chave', 'danger'); return; }
+      if (err || !data || !data.ok) {
+        showToast(data && data.erro ? data.erro : 'Erro ao gerar chave', 'danger');
+        return;
+      }
       var box = document.getElementById('lic-result');
       var keyEl = document.getElementById('lic-result-key');
-      if (box && keyEl) {
+      if (box && keyEl && data.licenca) {
         keyEl.innerText = data.licenca.chave;
         box.style.display = 'block';
       }
-      showToast('Chave gerada com sucesso!', 'success');
+      showToast('Chave gerada com sucesso: ' + (data.licenca ? data.licenca.chave : ''), 'success');
       carregarChaves();
     });
   };
