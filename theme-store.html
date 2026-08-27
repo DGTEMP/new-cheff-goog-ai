@@ -3,21 +3,30 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Loja de Temas & Theme Studio - Chef Cozinha</title>
+  <title>Chef Cozinha - Loja de Temas & Estúdio de Criação Pro</title>
   
   <link rel="stylesheet" href="/style.css">
   <link rel="stylesheet" href="/vendor/phosphor/src/regular/style.css">
   <link rel="stylesheet" href="/vendor/phosphor/src/bold/style.css">
   <link rel="stylesheet" href="/vendor/phosphor/src/fill/style.css">
   <script src="/socket.io.min.js"></script>
+  <script>
+    window.fecharOuVoltarStudio = function() {
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage('fechar_theme_studio', '*');
+      } else {
+        window.location.href = '/suporte.html';
+      }
+    };
+  </script>
 
   <style>
     :root {
-      --bg-page: #f8fafc;
-      --bg-panel: #ffffff;
-      --border-panel: #e2e8f0;
-      --text-dark: #0f172a;
-      --text-muted: #64748b;
+      --bg-page: #0b0f19;
+      --bg-panel: #111827;
+      --border-panel: #1f2937;
+      --text-light: #f3f4f6;
+      --text-muted: #9ca3af;
       --primary-color: #fc4b15;
     }
     body {
@@ -25,7 +34,7 @@
       padding: 0;
       font-family: 'Inter', system-ui, sans-serif;
       background: var(--bg-page);
-      color: var(--text-dark);
+      color: var(--text-light);
       height: 100vh;
       display: flex;
       flex-direction: column;
@@ -38,17 +47,18 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0 24px;
+      padding: 0 20px;
       flex-shrink: 0;
+      z-index: 100;
     }
-    .theme-nav-tabs {
+    .main-nav-tabs {
       display: flex;
       gap: 6px;
-      background: #f1f5f9;
+      background: #1f2937;
       padding: 4px;
       border-radius: 10px;
     }
-    .theme-tab-btn {
+    .nav-tab-btn {
       background: transparent;
       border: none;
       padding: 8px 18px;
@@ -59,26 +69,62 @@
       cursor: pointer;
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 8px;
       transition: all 0.2s;
     }
-    .theme-tab-btn.active {
-      background: #ffffff;
-      color: var(--text-dark);
-      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    .nav-tab-btn.active {
+      background: #374151;
+      color: #ffffff;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
     }
-    .theme-content-area {
+    .nav-tab-btn.active[data-role="store"] {
+      border-left: 3px solid #22c55e;
+    }
+    .nav-tab-btn.active[data-role="studio"] {
+      border-left: 3px solid var(--primary-color);
+    }
+
+    .undo-redo-cluster {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: #1f2937;
+      padding: 4px;
+      border-radius: 8px;
+    }
+    .btn-undo-redo {
+      background: transparent;
+      border: none;
+      color: var(--text-light);
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 800;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: background 0.15s;
+    }
+    .btn-undo-redo:hover:not(:disabled) {
+      background: #374151;
+    }
+    .btn-undo-redo:disabled {
+      color: #4b5563;
+      cursor: not-allowed;
+    }
+
+    /* VIEW 1: VITRINE DA LOJA DE TEMAS (PARA DONOS DE RESTAURANTES) */
+    #view-store {
       flex: 1;
       overflow-y: auto;
       padding: 24px;
       box-sizing: border-box;
     }
-    
-    /* Vitrine Loja de Temas */
     .themes-store-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-      gap: 20px;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 22px;
       max-width: 1300px;
       margin: 0 auto;
     }
@@ -89,15 +135,16 @@
       overflow: hidden;
       display: flex;
       flex-direction: column;
-      box-shadow: 0 4px 14px rgba(0,0,0,0.03);
+      box-shadow: 0 6px 16px rgba(0,0,0,0.2);
       transition: transform 0.2s, box-shadow 0.2s;
     }
     .theme-store-card:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 10px 24px rgba(0,0,0,0.08);
+      transform: translateY(-4px);
+      box-shadow: 0 12px 28px rgba(0,0,0,0.4);
+      border-color: #374151;
     }
     .theme-preview-box {
-      height: 140px;
+      height: 150px;
       padding: 16px;
       display: flex;
       flex-direction: column;
@@ -109,24 +156,24 @@
       gap: 6px;
     }
     .palette-dot {
-      width: 18px;
-      height: 18px;
+      width: 20px;
+      height: 20px;
       border-radius: 50%;
       border: 2px solid rgba(255,255,255,0.8);
-      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
     }
     .theme-card-body {
-      padding: 16px;
+      padding: 18px;
       display: flex;
       flex-direction: column;
       flex: 1;
-      gap: 8px;
+      gap: 10px;
     }
     .btn-apply-theme {
       background: var(--primary-color);
       color: white;
       border: none;
-      padding: 10px;
+      padding: 11px;
       border-radius: 10px;
       font-weight: 800;
       font-size: 13px;
@@ -135,309 +182,643 @@
       align-items: center;
       justify-content: center;
       gap: 6px;
-      margin-top: auto;
-      transition: opacity 0.2s;
+      box-shadow: 0 4px 14px rgba(252,75,21,0.25);
     }
-    .btn-apply-theme:hover {
-      opacity: 0.9;
+    .btn-request-changes {
+      background: #1f2937;
+      color: #38bdf8;
+      border: 1px solid #374151;
+      padding: 9px;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .btn-request-changes:hover {
+      background: #374151;
     }
 
-    /* Estúdio de Criação */
-    .studio-layout {
-      max-width: 1200px;
-      margin: 0 auto;
+    /* VIEW 2: ESTÚDIO DE CRIAÇÃO PRO */
+    #view-studio {
+      flex: 1;
       display: grid;
-      grid-template-columns: 420px 1fr;
-      gap: 24px;
-      height: calc(100vh - 120px);
+      grid-template-columns: 520px 1fr;
+      overflow: hidden;
     }
-    .studio-form-card {
+    .studio-sidebar {
       background: var(--bg-panel);
-      border: 1px solid var(--border-panel);
-      border-radius: 16px;
-      padding: 20px;
+      border-right: 1px solid var(--border-panel);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .sidebar-subtabs {
+      display: flex;
+      border-bottom: 1px solid var(--border-panel);
+      background: rgba(0,0,0,0.25);
+      flex-wrap: wrap;
+    }
+    .subtab-btn {
+      flex: 1;
+      min-width: 60px;
+      background: transparent;
+      border: none;
+      padding: 10px 4px;
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      text-align: center;
+      transition: all 0.15s;
+    }
+    .subtab-btn.active {
+      color: var(--primary-color);
+      border-bottom-color: var(--primary-color);
+      background: rgba(252,75,21,0.08);
+    }
+    .sidebar-scroll-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 18px;
       display: flex;
       flex-direction: column;
       gap: 14px;
-      overflow-y: auto;
     }
-    .studio-preview-card {
-      background: #0f172a;
-      border-radius: 16px;
-      padding: 24px;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-      justify-content: center;
-      align-items: center;
-      position: relative;
-      border: 1px solid #334155;
-    }
-    .color-picker-row {
+    .control-row {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      font-size: 13px;
+      font-size: 12.5px;
       font-weight: 700;
     }
-    .color-picker-row input[type="color"] {
+    .control-row input[type="range"] {
+      width: 140px;
+    }
+    .control-row input[type="color"] {
       border: none;
-      width: 36px;
-      height: 36px;
-      border-radius: 8px;
+      width: 34px;
+      height: 34px;
+      border-radius: 6px;
       cursor: pointer;
       background: transparent;
     }
+    .code-editor {
+      width: 100%;
+      height: 220px;
+      background: #090d16;
+      border: 1px solid #1e293b;
+      border-radius: 8px;
+      color: #38bdf8;
+      font-family: 'Fira Code', monospace;
+      font-size: 12px;
+      padding: 12px;
+      box-sizing: border-box;
+      resize: vertical;
+    }
+    .gesture-select {
+      background: #090d16;
+      border: 1px solid #374151;
+      color: #f3f4f6;
+      padding: 8px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      width: 100%;
+      box-sizing: border-box;
+      margin-top: 4px;
+    }
+
+    /* PREVIEW CANVAS DRAG & DROP */
+    .preview-canvas {
+      background: #090d16;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow-y: auto;
+      position: relative;
+    }
+    .card-drop-zone {
+      width: 360px;
+      border-radius: 16px;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      position: relative;
+      background: #131c2e;
+      border: 2px solid #fc4b15;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+      transition: all 0.3s;
+    }
+    .draggable-block {
+      background: rgba(255,255,255,0.05);
+      border: 1px dashed rgba(255,255,255,0.2);
+      border-radius: 8px;
+      padding: 10px;
+      cursor: grab;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      user-select: none;
+      transition: background 0.15s;
+    }
+    .draggable-block:active {
+      cursor: grabbing;
+      opacity: 0.7;
+    }
+    .draggable-block.drag-over {
+      border-color: #38bdf8;
+      background: rgba(56,189,248,0.15);
+    }
+    .btn-delete-block {
+      background: #ef4444;
+      color: white;
+      border: none;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      opacity: 0.6;
+    }
+    .btn-delete-block:hover {
+      opacity: 1;
+      transform: scale(1.1);
+    }
+    
+    /* Efeitos FX */
+    .fx-neon-pulse { animation: neonPulse 2s infinite alternate; }
+    @keyframes neonPulse { 0% { box-shadow: 0 0 10px rgba(252,75,21,0.2); } 100% { box-shadow: 0 0 25px rgba(252,75,21,0.6); } }
+    .fx-glassmorphism { backdrop-filter: blur(14px) !important; background: rgba(19, 28, 46, 0.75) !important; }
+    .fx-3d-tilt:hover { transform: perspective(600px) rotateX(4deg) rotateY(-4deg) translateY(-6px) !important; }
+    
+    /* Menu Contexto Simulado */
+    .simulated-context-menu {
+      position: absolute;
+      background: #1e293b;
+      border: 1px solid #475569;
+      border-radius: 10px;
+      padding: 6px;
+      display: none;
+      flex-direction: column;
+      gap: 4px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+      z-index: 9999;
+      font-size: 12px;
+      font-weight: 700;
+      min-width: 180px;
+    }
+    .simulated-context-menu.active { display: flex; }
+    .context-item {
+      padding: 8px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #f8fafc;
+    }
+    .context-item:hover { background: #334155; color: var(--primary-color); }
   </style>
+  <style id="custom-injected-style"></style>
 </head>
 <body>
 
+  <!-- BARRA DE NAVEGAÇÃO COM DESFAZER/REFAZER E ATALHOS -->
   <header class="theme-navbar">
-    <div style="display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 18px; color: var(--primary-color);">
-      <i class="ph-bold ph-palette" style="font-size: 26px;"></i>
-      <span>Chef Cozinha • Theme Store & Studio</span>
+    <div style="display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 17px; color: var(--primary-color);">
+      <i class="ph-bold ph-palette" style="font-size: 24px;"></i>
+      <span>Chef Cozinha • Theme Studio Pro</span>
     </div>
 
-    <div class="theme-nav-tabs">
-      <button class="theme-tab-btn active" id="tab-btn-store" onclick="setTab('store')">
-        <i class="ph-bold ph-storefront"></i> Vitrine de Temas
+    <!-- ABAS PRINCIPAIS -->
+    <div class="main-nav-tabs">
+      <button class="nav-tab-btn active" id="main-tab-store" data-role="store" onclick="setMainRoleView('store')">
+        <i class="ph-bold ph-storefront"></i> 🛍️ Loja de Temas
       </button>
-      <button class="theme-tab-btn" id="tab-btn-studio" onclick="setTab('studio')">
-        <i class="ph-bold ph-paint-brush"></i> Estúdio de Criação
+      <button class="nav-tab-btn" id="main-tab-studio" data-role="studio" onclick="setMainRoleView('studio')">
+        <i class="ph-bold ph-paint-brush-broad"></i> 🎨 Estúdio de Criação Pro
       </button>
     </div>
 
-    <div>
-      <button onclick="window.close();" style="background: transparent; border: 1px solid var(--border-panel); padding: 8px 14px; border-radius: 8px; font-weight: 700; cursor: pointer;">
-        <i class="ph ph-x"></i> Fechar
+    <!-- CLUSTER DE DESFAZER / REFAZER COM ATALHOS DO WINDOWS (Ctrl+Z / Ctrl+Y) -->
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <div class="undo-redo-cluster">
+        <button class="btn-undo-redo" id="btn-undo" onclick="executarUndo()" title="Desfazer (Ctrl + Z)">
+          <i class="ph-bold ph-arrow-u-up-left"></i> Desfazer (Ctrl+Z)
+        </button>
+        <button class="btn-undo-redo" id="btn-redo" onclick="executarRedo()" title="Refazer (Ctrl + Y)">
+          <i class="ph-bold ph-arrow-u-up-right"></i> Refazer (Ctrl+Y)
+        </button>
+      </div>
+
+      <button onclick="fecharOuVoltarStudio()" style="background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.3); color: #fca5a5; padding: 7px 14px; border-radius: 8px; font-weight: 800; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+        <i class="ph-bold ph-arrow-left"></i> Voltar ao Painel
       </button>
     </div>
   </header>
 
-  <div class="theme-content-area">
-    
-    <!-- ABA 1: VITRINE DE TEMAS -->
-    <div id="view-store">
-      <div style="text-align: center; margin-bottom: 24px;">
-        <h2 style="margin: 0 0 6px 0; font-weight: 900; font-size: 22px;">🎨 Escolha a Identidade Visual do seu Restaurante</h2>
-        <p style="margin: 0; color: var(--text-muted); font-size: 14px;">Temas pré-configurados por nicho gastronômico. Aplique com 1 clique em todas as telas.</p>
-      </div>
-
-      <div class="themes-store-grid" id="themes-container">
-        <!-- Renderizado dinamicamente -->
-      </div>
+  <!-- ════════════════════════════════════════════════════════════════ -->
+  <!-- VIEW 1: VITRINE DA LOJA DE TEMAS (RESTAURANTES)                 -->
+  <!-- ════════════════════════════════════════════════════════════════ -->
+  <div id="view-store">
+    <div style="text-align: center; margin-bottom: 26px;">
+      <h2 style="margin: 0 0 6px 0; font-weight: 900; font-size: 22px;">🎨 Identidade Visual & Temas</h2>
+      <p style="margin: 0; color: var(--text-muted); font-size: 14px;">Escolha o tema do seu restaurante ou solicite ajustes customizados diretamente para nossa equipe de criação.</p>
     </div>
 
-    <!-- ABA 2: ESTÚDIO DE CRIAÇÃO -->
-    <div id="view-studio" style="display: none;">
-      <div class="studio-layout">
-        
-        <!-- Controles do Estúdio -->
-        <div class="studio-form-card">
-          <h3 style="margin: 0; font-size: 16px; font-weight: 800; display: flex; align-items: center; gap: 8px;">
-            <i class="ph-bold ph-sliders"></i> Personalização de Cores
-          </h3>
+    <div class="themes-store-grid" id="themes-container">
+      <!-- Renderizado dinamicamente -->
+    </div>
+  </div>
 
-          <div>
-            <label style="font-size: 12px; font-weight: 800; color: var(--text-muted);">Nome do Tema</label>
-            <input id="input-theme-name" type="text" value="Novo Tema Custom" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border-panel); border-radius: 8px; font-weight: 700; margin-top: 4px; box-sizing: border-box;">
+  <!-- ════════════════════════════════════════════════════════════════ -->
+  <!-- VIEW 2: ESTÚDIO DE CRIAÇÃO PRO                                 -->
+  <!-- ════════════════════════════════════════════════════════════════ -->
+  <main id="view-studio" style="display: none;">
+
+    <!-- BARRA LATERAL COM SUB-ABAS -->
+    <aside class="studio-sidebar">
+      <div class="sidebar-subtabs">
+        <button class="subtab-btn active" id="st-blocos" onclick="setStudioSubTab('blocos')">🧩 Blocos</button>
+        <button class="subtab-btn" id="st-gestos" onclick="setStudioSubTab('gestos')">🖱️ Gestos</button>
+        <button class="subtab-btn" id="st-dim" onclick="setStudioSubTab('dim')">📐 Tamanhos</button>
+        <button class="subtab-btn" id="st-cores" onclick="setStudioSubTab('cores')">🎨 Cores</button>
+        <button class="subtab-btn" id="st-efeitos" onclick="setStudioSubTab('efeitos')">✨ FX</button>
+        <button class="subtab-btn" id="st-css" onclick="setStudioSubTab('css')">💻 CSS</button>
+        <button class="subtab-btn" id="st-js" onclick="setStudioSubTab('js')">⚡ JS</button>
+        <button class="subtab-btn" id="st-api" onclick="setStudioSubTab('api')">🔌 APIs</button>
+      </div>
+
+      <div class="sidebar-scroll-content">
+
+        <!-- 1. BLOCOS & DRAG AND DROP -->
+        <div id="subview-blocos" style="display: flex; flex-direction: column; gap: 12px;">
+          <b style="font-size: 13px;">➕ Inserir Novos Blocos no Layout:</b>
+          <button onclick="adicionarNovoBloco('botao_whatsapp')" style="background: #16a34a; color: white; border: none; padding: 10px; border-radius: 8px; font-weight: 800; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+            <i class="ph-bold ph-whatsapp-logo"></i> + Botão WhatsApp do Cliente
+          </button>
+          <button onclick="adicionarNovoBloco('botao_pix')" style="background: #0284c7; color: white; border: none; padding: 10px; border-radius: 8px; font-weight: 800; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+            <i class="ph-bold ph-qr-code"></i> + Botão Pagamento PIX Direto
+          </button>
+          <button onclick="adicionarNovoBloco('bloco_garcom')" style="background: #7c3aed; color: white; border: none; padding: 10px; border-radius: 8px; font-weight: 800; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+            <i class="ph-bold ph-user-check"></i> + Bloco Info Garçom
+          </button>
+          <button onclick="adicionarNovoBloco('bloco_tempo')" style="background: #d97706; color: white; border: none; padding: 10px; border-radius: 8px; font-weight: 800; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+            <i class="ph-bold ph-timer"></i> + Bloco Contador de Tempo de Mesa
+          </button>
+          <div style="font-size: 11.5px; color: var(--text-muted); line-height: 1.4; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px;">
+            💡 <b>Dica:</b> Arraste os blocos no preview ao lado para reordenar. Pressione <b>Ctrl + Z</b> a qualquer momento para desfazer!
           </div>
+        </div>
 
-          <div>
-            <label style="font-size: 12px; font-weight: 800; color: var(--text-muted);">Nicho / Categoria</label>
-            <select id="input-theme-cat" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border-panel); border-radius: 8px; font-weight: 700; margin-top: 4px; box-sizing: border-box;">
-              <option value="Hamburgueria">🍔 Hamburgueria</option>
-              <option value="Pizzaria">🍕 Pizzaria & Massas</option>
-              <option value="Japones">🍣 Sushi & Japonês</option>
-              <option value="Cafe">☕ Cafeteria & Bistrô</option>
-              <option value="Bar">🍺 Bar & Pub</option>
-              <option value="Healthy">🥗 Saudável & Açaí</option>
-              <option value="Geral">🍽️ Restaurante Geral</option>
+        <!-- 2. GESTOS E CLIQUES -->
+        <div id="subview-gestos" style="display: none; flex-direction: column; gap: 12px;">
+          <b style="font-size: 13px;">⚙️ Comportamento por Componente:</b>
+          <div style="background: #1f2937; padding: 12px; border-radius: 8px; border: 1px solid #374151; display: flex; flex-direction: column; gap: 8px;">
+            <b style="font-size: 12.5px; color: #38bdf8;">🃏 Card da Mesa</b>
+            <label style="font-size: 11px; color: #9ca3af;">🖱️ Ao Clicar com Botão Direito:</label>
+            <select id="act-mesa-right" class="gesture-select" onchange="salvarSnapshotHistorico()">
+              <option value="menu_acoes">📋 Abrir Menu de Ações Rápidas</option>
+              <option value="transferir">🔀 Transferir Mesa de Lugar</option>
+              <option value="juntar">🔗 Juntar com Outra Mesa</option>
+              <option value="imprimir_parcial">🖨️ Imprimir Parcial</option>
+              <option value="nenhum">🚫 Nenhum</option>
+            </select>
+            <label style="font-size: 11px; color: #9ca3af; margin-top: 6px;">📱 Ao Manter Pressionado (Mobile):</label>
+            <select id="act-mesa-press" class="gesture-select" onchange="salvarSnapshotHistorico()">
+              <option value="menu_mobile_drag">✨ Exibir Menu Flutuante + Arrastar Mesa</option>
+              <option value="detalhes_comanda">🔍 Visualizar Extrato Completo</option>
+              <option value="chamar_garcom">🔔 Chamar Garçom</option>
             </select>
           </div>
+        </div>
 
-          <hr style="border: none; border-top: 1px solid var(--border-panel); margin: 6px 0;">
+        <!-- 3. DIMENSÕES -->
+        <div id="subview-dim" style="display: none; flex-direction: column; gap: 12px;">
+          <b style="font-size: 13px;">📐 Dimensionamento:</b>
+          <div class="control-row"><span>Largura do Card (px)</span><input type="range" id="rng-card-width" min="280" max="480" value="360" oninput="aplicarEstilosPreview(); salvarSnapshotHistorico();"></div>
+          <div class="control-row"><span>Arredondamento (Radius)</span><input type="range" id="rng-card-radius" min="0" max="32" value="16" oninput="aplicarEstilosPreview(); salvarSnapshotHistorico();"></div>
+          <div class="control-row"><span>Padding Interno (px)</span><input type="range" id="rng-card-pad" min="10" max="32" value="18" oninput="aplicarEstilosPreview(); salvarSnapshotHistorico();"></div>
+          <div class="control-row"><span>Espaçamento (Gap)</span><input type="range" id="rng-card-gap" min="4" max="24" value="10" oninput="aplicarEstilosPreview(); salvarSnapshotHistorico();"></div>
+        </div>
 
-          <div class="color-picker-row">
-            <span>Cor Primária (Destaque)</span>
-            <input type="color" id="clr-primary" value="#f97316" oninput="atualizarStudioPreview()">
+        <!-- 4. CORES -->
+        <div id="subview-cores" style="display: none; flex-direction: column; gap: 12px;">
+          <b style="font-size: 13px;">🎨 Paleta de Cores:</b>
+          <div class="control-row"><span>Cor Primária</span><input type="color" id="clr-prim" value="#fc4b15" oninput="aplicarEstilosPreview(); salvarSnapshotHistorico();"></div>
+          <div class="control-row"><span>Fundo do Card</span><input type="color" id="clr-card-bg" value="#131c2e" oninput="aplicarEstilosPreview(); salvarSnapshotHistorico();"></div>
+          <div class="control-row"><span>Borda do Card</span><input type="color" id="clr-border-color" value="#fc4b15" oninput="aplicarEstilosPreview(); salvarSnapshotHistorico();"></div>
+        </div>
+
+        <!-- 5. EFEITOS FX -->
+        <div id="subview-efeitos" style="display: none; flex-direction: column; gap: 12px;">
+          <b style="font-size: 13px;">✨ Efeitos Visuais & Animações:</b>
+          <label class="control-row"><input type="checkbox" id="chk-fx-glass" onchange="aplicarEstilosPreview(); salvarSnapshotHistorico();"> Glassmorphism Blur</label>
+          <label class="control-row"><input type="checkbox" id="chk-fx-neon" onchange="aplicarEstilosPreview(); salvarSnapshotHistorico();"> Borda Neon Pulse</label>
+          <label class="control-row"><input type="checkbox" id="chk-fx-tilt" onchange="aplicarEstilosPreview(); salvarSnapshotHistorico();"> Inclinação 3D no Hover</label>
+        </div>
+
+        <!-- 6. CSS CUSTOM -->
+        <div id="subview-css" style="display: none; flex-direction: column; gap: 10px;">
+          <b style="font-size: 13px;">💻 Escrever CSS Livre:</b>
+          <textarea id="txt-custom-css" class="code-editor" oninput="aplicarEstilosPreview()" placeholder="/* Digite suas regras CSS */"></textarea>
+        </div>
+
+        <!-- 7. JS / SCRIPTS (BLOQUEADO NO MODO THEME CUSTOM DO RESTAURANTE) -->
+        <div id="subview-js" style="display: none; flex-direction: column; gap: 10px;">
+          <div id="js-pro-banner" style="display: none; background: rgba(239,68,68,0.15); border: 1px solid #ef4444; color: #fca5a5; padding: 10px; border-radius: 8px; font-size: 12px; font-weight: 700;">
+            🔒 Modo ThemeCustom do Restaurante Ativo: A edição de scripts JS é restrita à Equipe de Suporte e Engenharia.
           </div>
+          <b style="font-size: 13px;">⚡ Escrever JavaScript / Lógica de Módulo:</b>
+          <textarea id="txt-custom-js" class="code-editor" style="color: #a7f3d0;" placeholder="// Scripts executados no salão"></textarea>
+        </div>
 
-          <div class="color-picker-row">
-            <span>Fundo da Página (Body)</span>
-            <input type="color" id="clr-bg-page" value="#0f172a" oninput="atualizarStudioPreview()">
-          </div>
+        <!-- 8. CATÁLOGO EXPANDIDO DE APIS & ENDPOINTS -->
+        <div id="subview-api" style="display: none; flex-direction: column; gap: 10px;">
+          <b style="font-size: 13px;">🔌 Catálogo Completo de APIs & Eventos:</b>
+          
+          <div style="font-size: 11px; font-weight: 800; color: #38bdf8; margin-top: 4px;">MESAS & COMANDAS:</div>
+          <div style="background:#1f2937; padding:6px 10px; border-radius:6px; font-size:11px;"><b>GET /api/mesas</b> - Lista todas as mesas e comandas</div>
+          <div style="background:#1f2937; padding:6px 10px; border-radius:6px; font-size:11px;"><b>POST /api/mesas/lancar-item</b> - Adiciona produto à comanda</div>
+          <div style="background:#1f2937; padding:6px 10px; border-radius:6px; font-size:11px;"><b>POST /api/mesas/transferir</b> - Transfere mesa de lugar</div>
+          
+          <div style="font-size: 11px; font-weight: 800; color: #4ade80; margin-top: 4px;">KDS COZINHA & PEDIDOS:</div>
+          <div style="background:#1f2937; padding:6px 10px; border-radius:6px; font-size:11px;"><b>GET /api/orders</b> - Consulta fila de pedidos da cozinha</div>
+          <div style="background:#1f2937; padding:6px 10px; border-radius:6px; font-size:11px;"><b>PUT /api/orders/:id/status</b> - Avança status (Preparo $\rightarrow$ Pronto)</div>
 
-          <div class="color-picker-row">
-            <span>Fundo dos Cards & Mesas</span>
-            <input type="color" id="clr-bg-card" value="#1e293b" oninput="atualizarStudioPreview()">
-          </div>
+          <div style="font-size: 11px; font-weight: 800; color: #fb923c; margin-top: 4px;">DELIVERY & MOTOBOYS:</div>
+          <div style="background:#1f2937; padding:6px 10px; border-radius:6px; font-size:11px;"><b>GET /api/modulo/cheff-entregas/motoboys</b> - Fila de entregadores</div>
+          <div style="background:#1f2937; padding:6px 10px; border-radius:6px; font-size:11px;"><b>POST /api/modulo/cheff-entregas/despachar-rota</b> - Despacha rota</div>
 
-          <div class="color-picker-row">
-            <span>Bordas & Divisores</span>
-            <input type="color" id="clr-border" value="#334155" oninput="atualizarStudioPreview()">
-          </div>
+          <div style="font-size: 11px; font-weight: 800; color: #a78bfa; margin-top: 4px;">HARDWARE & IMPRESSÃO:</div>
+          <div style="background:#1f2937; padding:6px 10px; border-radius:6px; font-size:11px;"><b>GET /api/modulo/balanca/peso</b> - Leitura da balança serial</div>
+          <div style="background:#1f2937; padding:6px 10px; border-radius:6px; font-size:11px;"><b>POST /api/imprimir/comanda</b> - Imprime ticket na impressora térmica</div>
+        </div>
 
-          <div class="color-picker-row">
-            <span>Texto Principal</span>
-            <input type="color" id="clr-text-main" value="#f8fafc" oninput="atualizarStudioPreview()">
-          </div>
-
-          <div class="color-picker-row">
-            <span>Status Mesa Ocupada</span>
-            <input type="color" id="clr-ocupada" value="#ef4444" oninput="atualizarStudioPreview()">
-          </div>
-
-          <div class="color-picker-row">
-            <span>Status Mesa Livre</span>
-            <input type="color" id="clr-livre" value="#22c55e" oninput="atualizarStudioPreview()">
-          </div>
-
-          <button onclick="publicarNovoTema()" class="btn-apply-theme" style="margin-top: 12px; padding: 12px;">
-            <i class="ph-bold ph-rocket-launch"></i> Publicar na Loja de Temas
+        <!-- BOTÃO PUBLICAR TEMA COMPLETO -->
+        <div style="margin-top: 10px; border-top: 1px solid var(--border-panel); padding-top: 14px;">
+          <button onclick="publicarTemaCompletoDoStudio()" style="width: 100%; background: var(--primary-color); color: white; border: none; padding: 12px; border-radius: 8px; font-weight: 800; font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+            <i class="ph-bold ph-rocket-launch"></i> 🚀 Publicar na Loja de Temas
           </button>
         </div>
 
-        <!-- Live Preview -->
-        <div class="studio-preview-card" id="studio-preview-canvas">
-          <div style="position: absolute; top: 16px; left: 20px; font-size: 12px; font-weight: 800; color: #94a3b8; display: flex; align-items: center; gap: 6px;">
-            <i class="ph-bold ph-eye"></i> Pré-Visualização em Tempo Real (PDV & Mesas)
+      </div>
+    </aside>
+
+    <!-- PREVIEW CANVAS DRAG & DROP E TESTE DE GESTOS -->
+    <section class="preview-canvas" id="canvas-area">
+      <div style="font-size: 12px; font-weight: 800; color: #94a3b8; margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
+        <i class="ph-bold ph-hand-pointing"></i> <b>Live Sandbox:</b> Arraste para reordenar blocos ou clique com <b>Botão Direito</b> para testar gestos:
+      </div>
+
+      <!-- CARD INTERATIVO DRAG & DROP -->
+      <div class="card-drop-zone" id="interactive-card">
+        <div class="draggable-block" draggable="true" id="block-header">
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <i class="ph-bold ph-dots-six-vertical" style="color: #64748b;"></i>
+            <b style="font-size: 15px; color: #ffffff;">Mesa 07</b>
+            <span style="background: #ef4444; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10.5px;">OCUPADA</span>
           </div>
-
-          <!-- Card de Mesa Simulado -->
-          <div id="simulated-table-card" style="width: 320px; border-radius: 14px; padding: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); border: 2px solid #ef4444; background: #1e293b; color: #f8fafc; display: flex; flex-direction: column; gap: 10px;">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-              <b style="font-size: 16px;">Mesa 04</b>
-              <span id="simulated-badge-ocupada" style="background: #ef4444; color: white; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 800;">OCUPADA</span>
-            </div>
-
-            <div style="font-size: 12px; color: #94a3b8;">Cliente: <b>Matheus Ramos</b> (há 35 min)</div>
-
-            <div style="background: rgba(0,0,0,0.15); border-radius: 8px; padding: 10px; font-size: 12px; display: flex; flex-direction: column; gap: 4px;">
-              <div style="display: flex; justify-content: space-between;"><span>1x Smash Burger Especial</span><b>R$ 38,00</b></div>
-              <div style="display: flex; justify-content: space-between;"><span>1x Batata Rústica Cheddar</span><b>R$ 24,00</b></div>
-              <div style="display: flex; justify-content: space-between;"><span>1x Refrigerante Lata</span><b>R$ 7,50</b></div>
-            </div>
-
-            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 14px; font-weight: 800;">
-              <span>Total:</span>
-              <span id="simulated-total" style="color: #f97316; font-size: 18px;">R$ 69,50</span>
-            </div>
-
-            <button id="simulated-btn" style="background: #f97316; color: white; border: none; padding: 10px; border-radius: 8px; font-weight: 800; font-size: 13px; cursor: pointer;">
-              🧾 Fechar Comanda
-            </button>
-          </div>
+          <button class="btn-delete-block" onclick="removerBloco('block-header')">✕</button>
         </div>
 
-      </div>
-    </div>
+        <div class="draggable-block" id="block-cliente" draggable="true">
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <i class="ph-bold ph-dots-six-vertical" style="color: #64748b;"></i>
+            <span style="font-size: 12px; color: #cbd5e1;">👤 Cliente: <b>Carlos Ferreira (4 pessoas)</b></span>
+          </div>
+          <button class="btn-delete-block" onclick="removerBloco('block-cliente')">✕</button>
+        </div>
 
-  </div>
+        <div class="draggable-block" id="block-itens" draggable="true">
+          <div style="width: 100%; display: flex; align-items: center; gap: 6px;">
+            <i class="ph-bold ph-dots-six-vertical" style="color: #64748b;"></i>
+            <div style="flex:1; font-size: 11.5px; color: #94a3b8;">
+              <div>2x Picanha na Chapa (R$ 138,00)</div>
+              <div>3x Chopp Artesanal 500ml (R$ 42,00)</div>
+            </div>
+          </div>
+          <button class="btn-delete-block" onclick="removerBloco('block-itens')">✕</button>
+        </div>
+
+        <div class="draggable-block" id="block-total" draggable="true">
+          <div style="width: 100%; display: flex; align-items: center; gap: 6px;">
+            <i class="ph-bold ph-dots-six-vertical" style="color: #64748b;"></i>
+            <div style="flex:1; display: flex; justify-content: space-between; font-size: 14px; font-weight: 800;">
+              <span>Subtotal:</span>
+              <span id="txt-card-total" style="color: var(--primary-color); font-size: 17px;">R$ 180,00</span>
+            </div>
+          </div>
+          <button class="btn-delete-block" onclick="removerBloco('block-total')">✕</button>
+        </div>
+
+        <div class="draggable-block" id="block-btn-fechar" draggable="true" style="background: rgba(252,75,21,0.15); border-color: var(--primary-color);">
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <i class="ph-bold ph-dots-six-vertical" style="color: var(--primary-color);"></i>
+            <b style="color: #ffffff; font-size: 13px;">🧾 [ Botão: Fechar Comanda ]</b>
+          </div>
+          <button class="btn-delete-block" onclick="removerBloco('block-btn-fechar')">✕</button>
+        </div>
+      </div>
+
+      <!-- MENU FLUTUANTE DE CONTEXTO SIMULADO -->
+      <div class="simulated-context-menu" id="simulated-menu">
+        <div class="context-item" onclick="executarAcaoSimulada('Menu de Ações')"><i class="ph-bold ph-list"></i> Menu de Ações</div>
+        <div class="context-item" onclick="executarAcaoSimulada('Transferir Mesa')"><i class="ph-bold ph-arrows-left-right"></i> Transferir Mesa</div>
+        <div class="context-item" onclick="executarAcaoSimulada('Dividir Conta')"><i class="ph-bold ph-divide"></i> Dividir Conta</div>
+        <div class="context-item" onclick="executarAcaoSimulada('Imprimir Parcial')"><i class="ph-bold ph-printer"></i> Imprimir Parcial</div>
+      </div>
+    </section>
+
+  </main>
 
   <script>
     const socket = io();
 
-    // Catálogo de Temas Nativos
+    function fecharOuVoltarStudio() {
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage('fechar_theme_studio', '*');
+      } else {
+        window.location.href = '/suporte.html';
+      }
+    }
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const isThemeCustomMode = urlParams.get('mode') === 'themecustom';
+
+    // ── PILHAS DE HISTÓRICO UNDO / REDO ───────────────────────────
+    const historyStack = [];
+    const redoStack = [];
+    let isUndoingOrRedoing = false;
+
+    function capturarEstadoAtual() {
+      const container = document.getElementById('interactive-card');
+      return {
+        htmlCards: container.innerHTML,
+        cardWidth: document.getElementById('rng-card-width').value,
+        cardRadius: document.getElementById('rng-card-radius').value,
+        cardPad: document.getElementById('rng-card-pad').value,
+        cardGap: document.getElementById('rng-card-gap').value,
+        clrPrim: document.getElementById('clr-prim').value,
+        clrCardBg: document.getElementById('clr-card-bg').value,
+        clrBorder: document.getElementById('clr-border-color').value,
+        fxGlass: document.getElementById('chk-fx-glass').checked,
+        fxNeon: document.getElementById('chk-fx-neon').checked,
+        fxTilt: document.getElementById('chk-fx-tilt').checked,
+        actRight: document.getElementById('act-mesa-right').value,
+        actPress: document.getElementById('act-mesa-press').value,
+        customCss: document.getElementById('txt-custom-css').value
+      };
+    }
+
+    function restaurarEstado(estado) {
+      if (!estado) return;
+      isUndoingOrRedoing = true;
+
+      const container = document.getElementById('interactive-card');
+      container.innerHTML = estado.htmlCards;
+
+      document.getElementById('rng-card-width').value = estado.cardWidth;
+      document.getElementById('rng-card-radius').value = estado.cardRadius;
+      document.getElementById('rng-card-pad').value = estado.cardPad;
+      document.getElementById('rng-card-gap').value = estado.cardGap;
+      document.getElementById('clr-prim').value = estado.clrPrim;
+      document.getElementById('clr-card-bg').value = estado.clrCardBg;
+      document.getElementById('clr-border-color').value = estado.clrBorder;
+      document.getElementById('chk-fx-glass').checked = estado.fxGlass;
+      document.getElementById('chk-fx-neon').checked = estado.fxNeon;
+      document.getElementById('chk-fx-tilt').checked = estado.fxTilt;
+      document.getElementById('act-mesa-right').value = estado.actRight;
+      document.getElementById('act-mesa-press').value = estado.actPress;
+      document.getElementById('txt-custom-css').value = estado.customCss;
+
+      initDragAndDrop();
+      aplicarEstilosPreview();
+      isUndoingOrRedoing = false;
+      atualizarBotoesUndoRedo();
+    }
+
+    function salvarSnapshotHistorico() {
+      if (isUndoingOrRedoing) return;
+      historyStack.push(capturarEstadoAtual());
+      if (historyStack.length > 50) historyStack.shift();
+      redoStack.length = 0; // Limpa pilha de refazer
+      atualizarBotoesUndoRedo();
+    }
+
+    function executarUndo() {
+      if (historyStack.length <= 1) return;
+      const estadoAtual = historyStack.pop();
+      redoStack.push(estadoAtual);
+      const estadoAnterior = historyStack[historyStack.length - 1];
+      restaurarEstado(estadoAnterior);
+    }
+
+    function executarRedo() {
+      if (redoStack.length === 0) return;
+      const proximoEstado = redoStack.pop();
+      historyStack.push(proximoEstado);
+      restaurarEstado(proximoEstado);
+    }
+
+    function atualizarBotoesUndoRedo() {
+      document.getElementById('btn-undo').disabled = historyStack.length <= 1;
+      document.getElementById('btn-redo').disabled = redoStack.length === 0;
+    }
+
+    // ── ATALHOS NATIVOS DO WINDOWS (Ctrl+Z e Ctrl+Y) ─────────────
+    window.addEventListener('keydown', (e) => {
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key.toLowerCase() === 'z') {
+          if (e.shiftKey) {
+            e.preventDefault();
+            executarRedo();
+          } else {
+            e.preventDefault();
+            executarUndo();
+          }
+        } else if (e.key.toLowerCase() === 'y') {
+          e.preventDefault();
+          executarRedo();
+        }
+      }
+    });
+
+    // ── NAVEGAÇÃO PRINCIPAL (LOJA vs ESTÚDIO) ─────────────────────
+    function setMainRoleView(role) {
+      document.getElementById('main-tab-store').classList.toggle('active', role === 'store');
+      document.getElementById('main-tab-studio').classList.toggle('active', role === 'studio');
+      document.getElementById('view-store').style.display = role === 'store' ? 'block' : 'none';
+      document.getElementById('view-studio').style.display = role === 'studio' ? 'grid' : 'none';
+
+      if (role === 'store') carregarTemasLoja();
+    }
+
+    function setStudioSubTab(tab) {
+      ['blocos', 'gestos', 'dim', 'cores', 'efeitos', 'css', 'js', 'api'].forEach(t => {
+        const btn = document.getElementById('st-' + t);
+        const view = document.getElementById('subview-' + t);
+        if (btn) btn.classList.toggle('active', t === tab);
+        if (view) view.style.display = t === tab ? 'flex' : 'none';
+      });
+    }
+
+    // ── CATÁLOGO DA LOJA DE TEMAS (PARA RESTAURANTES) ─────────────
     const CATALOGO_TEMAS_PADRAO = [
+      {
+        id: 'theme_themeia_01',
+        nome: 'Themeia',
+        nicho: '🧠 IA & High-Tech Futuristic',
+        descricao: 'Tema futurista com paleta Dark Glassmorphism, ciano elétrico espacial e bordas luminosas de alta performance.',
+        cores: { primary: '#06b6d4', bgPage: '#050811', bgCard: '#0c1322', borderColor: '#1e293b', textMain: '#f0f9ff', statusOcupada: '#f43f5e', statusLivre: '#10b981' }
+      },
       {
         id: 'burger_neon',
         nome: 'Burger Cyberpunk Neon',
         nicho: '🍔 Hamburgueria',
         descricao: 'Dark mode profundo com detalhes em neon laranja e roxo para hamburguerias artesanais.',
-        cores: {
-          primary: '#f97316',
-          bgPage: '#090d16',
-          bgCard: '#131c2e',
-          borderColor: '#1e293b',
-          textMain: '#f8fafc',
-          statusOcupada: '#ef4444',
-          statusLivre: '#10b981'
-        }
+        cores: { primary: '#f97316', bgPage: '#090d16', bgCard: '#131c2e', borderColor: '#1e293b', textMain: '#f8fafc', statusOcupada: '#ef4444', statusLivre: '#10b981' }
       },
       {
         id: 'pizzaria_rustica',
         nome: 'Pizzaria & Forno à Lenha',
         nicho: '🍕 Pizzaria',
         descricao: 'Tons quentes terrosos de terracota, madeira e dourado italiano para pizzarias e trattorias.',
-        cores: {
-          primary: '#c2410c',
-          bgPage: '#1c1917',
-          bgCard: '#292524',
-          borderColor: '#44403c',
-          textMain: '#fafaf9',
-          statusOcupada: '#e11d48',
-          statusLivre: '#22c55e'
-        }
+        cores: { primary: '#c2410c', bgPage: '#1c1917', bgCard: '#292524', borderColor: '#44403c', textMain: '#fafaf9', statusOcupada: '#e11d48', statusLivre: '#22c55e' }
       },
       {
         id: 'sushi_zen',
         nome: 'Sushi Bar Zen Minimalista',
         nicho: '🍣 Japonês',
         descricao: 'Visual sofisticado, minimalista e limpo com preto fosco e detalhes em carmim japonês.',
-        cores: {
-          primary: '#e11d48',
-          bgPage: '#0b0f19',
-          bgCard: '#111827',
-          borderColor: '#1f2937',
-          textMain: '#f3f4f6',
-          statusOcupada: '#dc2626',
-          statusLivre: '#059669'
-        }
+        cores: { primary: '#e11d48', bgPage: '#0b0f19', bgCard: '#111827', borderColor: '#1f2937', textMain: '#f3f4f6', statusOcupada: '#dc2626', statusLivre: '#059669' }
       },
       {
         id: 'cafe_bistro',
         nome: 'Cafeteria & Bistrô Vintage',
         nicho: '☕ Cafeteria',
         descricao: 'Estilo aconchegante em tons de café, verde sálvia e creme suave para cafés e docerias.',
-        cores: {
-          primary: '#78350f',
-          bgPage: '#fdfbf7',
-          bgCard: '#ffffff',
-          borderColor: '#e7e5e4',
-          textMain: '#292524',
-          statusOcupada: '#b91c1c',
-          statusLivre: '#15803d'
-        }
+        cores: { primary: '#78350f', bgPage: '#fdfbf7', bgCard: '#ffffff', borderColor: '#e7e5e4', textMain: '#292524', statusOcupada: '#b91c1c', statusLivre: '#15803d' }
       },
       {
         id: 'pub_craft',
         nome: 'Pub & Choperia Craft Beer',
         nicho: '🍺 Bar & Pub',
         descricao: 'Identidade moderna com tons âmbar cervejeiro, madeira escura e alto contraste no salão.',
-        cores: {
-          primary: '#d97706',
-          bgPage: '#0f172a',
-          bgCard: '#1e293b',
-          borderColor: '#334155',
-          textMain: '#f8fafc',
-          statusOcupada: '#f43f5e',
-          statusLivre: '#10b981'
-        }
-      },
-      {
-        id: 'healthy_tropical',
-        nome: 'Açaí & Tropical Fresh',
-        nicho: '🥗 Saudável & Açaí',
-        descricao: 'Vibrante e fresco com tons de roxo açaí e verde esmeralda para casas de suco e açaí.',
-        cores: {
-          primary: '#9333ea',
-          bgPage: '#faf5ff',
-          bgCard: '#ffffff',
-          borderColor: '#e9d5ff',
-          textMain: '#3b0764',
-          statusOcupada: '#e11d48',
-          statusLivre: '#059669'
-        }
+        cores: { primary: '#d97706', bgPage: '#0f172a', bgCard: '#1e293b', borderColor: '#334155', textMain: '#f8fafc', statusOcupada: '#f43f5e', statusLivre: '#10b981' }
       }
     ];
-
-    function setTab(tab) {
-      document.getElementById('tab-btn-store').classList.toggle('active', tab === 'store');
-      document.getElementById('tab-btn-studio').classList.toggle('active', tab === 'studio');
-      document.getElementById('view-store').style.display = tab === 'store' ? 'block' : 'none';
-      document.getElementById('view-studio').style.display = tab === 'studio' ? 'block' : 'none';
-    }
 
     async function carregarTemasLoja() {
       const container = document.getElementById('themes-container');
@@ -447,33 +828,38 @@
         const res = await fetch('/api/modulo/temas/loja');
         const data = await res.json();
         if (data && data.ok && data.temas && data.temas.length > 0) {
-          temas = [...CATALOGO_TEMAS_PADRAO, ...data.temas];
+          temas = [...CATALOGO_TEMAS_PADRAO, ...data.temas.filter(t => t.id !== 'theme_themeia_01')];
         }
       } catch (e) {}
 
       container.innerHTML = temas.map(t => {
-        const c = t.cores;
+        const c = t.cores || {};
         return `
           <div class="theme-store-card">
-            <div class="theme-preview-box" style="background: ${c.bgPage}; border-bottom: 1px solid ${c.borderColor};">
+            <div class="theme-preview-box" style="background: ${c.bgPage || '#0f172a'}; border-bottom: 1px solid ${c.borderColor || '#334155'};">
               <div style="display:flex; justify-content:space-between; align-items:center;">
-                <span style="font-size: 11px; font-weight:800; background: ${c.primary}; color:white; padding: 2px 8px; border-radius: 4px;">${t.nicho || 'Restaurante'}</span>
+                <span style="font-size: 11px; font-weight:800; background: ${c.primary || '#fc4b15'}; color:white; padding: 2px 8px; border-radius: 4px;">${t.nicho || 'Restaurante'}</span>
                 <div class="theme-palette-dots">
-                  <div class="palette-dot" style="background: ${c.primary};"></div>
-                  <div class="palette-dot" style="background: ${c.bgCard};"></div>
-                  <div class="palette-dot" style="background: ${c.statusOcupada};"></div>
+                  <div class="palette-dot" style="background: ${c.primary || '#fc4b15'};"></div>
+                  <div class="palette-dot" style="background: ${c.bgCard || '#1e293b'};"></div>
+                  <div class="palette-dot" style="background: ${c.statusOcupada || '#ef4444'};"></div>
                 </div>
               </div>
-              <div style="background: ${c.bgCard}; border: 1px solid ${c.borderColor}; color: ${c.textMain}; padding: 8px 12px; border-radius: 8px; font-size: 11px; font-weight: 700; display: flex; justify-content: space-between;">
+              <div style="background: ${c.bgCard || '#1e293b'}; border: 1px solid ${c.borderColor || '#334155'}; color: ${c.textMain || '#fff'}; padding: 8px 12px; border-radius: 8px; font-size: 11px; font-weight: 700; display: flex; justify-content: space-between;">
                 <span>Mesa 01</span>
-                <span style="color: ${c.primary}; font-weight: 800;">R$ 84,00</span>
+                <span style="color: ${c.primary || '#fc4b15'}; font-weight: 800;">R$ 84,00</span>
               </div>
             </div>
             <div class="theme-card-body">
               <b style="font-size: 15px;">${t.nome}</b>
               <p style="font-size: 12px; color: var(--text-muted); margin: 0; line-height: 1.4;">${t.descricao || ''}</p>
+              
               <button class="btn-apply-theme" onclick='aplicarTemaLoja(${JSON.stringify(t)})'>
-                <i class="ph-bold ph-check"></i> Aplicar Este Tema
+                <i class="ph-bold ph-check"></i> Aplicar no Restaurante
+              </button>
+
+              <button class="btn-request-changes" onclick='solicitarAjustesSuporte("${t.nome}")'>
+                <i class="ph-bold ph-chat-circle-dots"></i> 💬 Solicitar Ajustes à Equipe
               </button>
             </div>
           </div>
@@ -481,87 +867,236 @@
       }).join('');
     }
 
-    function atualizarStudioPreview() {
-      const p = document.getElementById('clr-primary').value;
-      const bgPage = document.getElementById('clr-bg-page').value;
-      const bgCard = document.getElementById('clr-bg-card').value;
-      const border = document.getElementById('clr-border').value;
-      const textMain = document.getElementById('clr-text-main').value;
-      const ocupada = document.getElementById('clr-ocupada').value;
-
-      const canvas = document.getElementById('studio-preview-canvas');
-      const card = document.getElementById('simulated-table-card');
-      const badge = document.getElementById('simulated-badge-ocupada');
-      const total = document.getElementById('simulated-total');
-      const btn = document.getElementById('simulated-btn');
-
-      canvas.style.background = bgPage;
-      card.style.background = bgCard;
-      card.style.color = textMain;
-      card.style.borderColor = ocupada;
-      badge.style.background = ocupada;
-      total.style.color = p;
-      btn.style.background = p;
-    }
-
-    async function aplicarTemaLoja(tema) {
-      try {
-        localStorage.setItem('chef_custom_theme_active', JSON.stringify(tema));
-        
-        // Emite evento para todas as telas abertas via Socket
-        socket.emit('tema_global_aplicar', tema);
-
-        // Aplica na tela atual
-        const c = tema.cores;
-        document.documentElement.style.setProperty('--bg-card', c.bgCard);
-        document.documentElement.style.setProperty('--primary', c.primary);
-
-        alert(`✅ Tema '${tema.nome}' aplicado com sucesso em todas as telas!`);
-      } catch (e) {
-        alert('Erro ao aplicar tema.');
+    function solicitarAjustesSuporte(nomeTema) {
+      const pedido = prompt(`Qual personalização você gostaria de solicitar para o tema "${nomeTema}"?`, 'Gostaria de mudar a cor dos botões para dourado e adicionar o logo do meu restaurante.');
+      if (pedido) {
+        alert('✅ Sua solicitação foi enviada para a Equipe de Criação & Suporte!');
       }
     }
 
-    async function publicarNovoTema() {
-      const nome = document.getElementById('input-theme-name').value;
-      const nicho = document.getElementById('input-theme-cat').value;
+    async function aplicarTemaLoja(tema) {
+      localStorage.setItem('chef_custom_theme_active', JSON.stringify(tema));
+      socket.emit('tema_global_aplicar', tema);
+      alert(`✅ Tema '${tema.nome}' aplicado com sucesso em todas as telas do restaurante!`);
+    }
 
-      const tema = {
-        id: 'custom_' + Date.now(),
-        nome,
-        nicho,
-        descricao: `Tema personalizado para ${nicho}.`,
-        cores: {
-          primary: document.getElementById('clr-primary').value,
-          bgPage: document.getElementById('clr-bg-page').value,
-          bgCard: document.getElementById('clr-bg-card').value,
-          borderColor: document.getElementById('clr-border').value,
-          textMain: document.getElementById('clr-text-main').value,
-          statusOcupada: document.getElementById('clr-ocupada').value,
-          statusLivre: document.getElementById('clr-livre').value
+    // ── DRAG & DROP LOGIC NO PREVIEW ──────────────────────────────
+    let draggedElement = null;
+
+    function initDragAndDrop() {
+      const container = document.getElementById('interactive-card');
+      const blocks = container.querySelectorAll('.draggable-block');
+
+      blocks.forEach(block => {
+        block.addEventListener('dragstart', (e) => {
+          draggedElement = block;
+          e.dataTransfer.effectAllowed = 'move';
+          block.style.opacity = '0.5';
+        });
+
+        block.addEventListener('dragend', () => {
+          if (draggedElement) draggedElement.style.opacity = '1';
+          draggedElement = null;
+          blocks.forEach(b => b.classList.remove('drag-over'));
+          salvarSnapshotHistorico();
+        });
+
+        block.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+          block.classList.add('drag-over');
+        });
+
+        block.addEventListener('dragleave', () => {
+          block.classList.remove('drag-over');
+        });
+
+        block.addEventListener('drop', (e) => {
+          e.preventDefault();
+          block.classList.remove('drag-over');
+          if (draggedElement && draggedElement !== block) {
+            const allBlocks = Array.from(container.children);
+            const droppedIndex = allBlocks.indexOf(block);
+            const draggedIndex = allBlocks.indexOf(draggedElement);
+
+            if (draggedIndex < droppedIndex) {
+              container.insertBefore(draggedElement, block.nextSibling);
+            } else {
+              container.insertBefore(draggedElement, block);
+            }
+          }
+        });
+      });
+    }
+
+    function removerBloco(id) {
+      const el = document.getElementById(id);
+      if (el) {
+        el.remove();
+        salvarSnapshotHistorico();
+      }
+    }
+
+    function adicionarNovoBloco(tipo) {
+      const container = document.getElementById('interactive-card');
+      const blockId = 'block_' + Date.now();
+      const div = document.createElement('div');
+      div.className = 'draggable-block';
+      div.id = blockId;
+      div.draggable = true;
+
+      let content = '';
+      if (tipo === 'botao_whatsapp') {
+        div.style.background = 'rgba(22, 163, 74, 0.15)';
+        div.style.borderColor = '#16a34a';
+        content = '<b style="color:#4ade80;">💬 [ Botão: WhatsApp do Cliente ]</b>';
+      } else if (tipo === 'botao_pix') {
+        div.style.background = 'rgba(2, 132, 199, 0.15)';
+        div.style.borderColor = '#0284c7';
+        content = '<b style="color:#38bdf8;">💳 [ Botão: PIX / QR Code ]</b>';
+      } else if (tipo === 'bloco_garcom') {
+        content = '<span style="color:#c4b5fd;">🧑‍🍳 Atendente: <b>Roberto Alencar</b></span>';
+      } else if (tipo === 'bloco_tempo') {
+        content = '<span style="color:#fde047;">⏱️ Tempo Aberto: <b>42 minutos</b></span>';
+      }
+
+      div.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <i class="ph-bold ph-dots-six-vertical" style="color: #64748b;"></i>
+          ${content}
+        </div>
+        <button class="btn-delete-block" onclick="removerBloco('${blockId}')">✕</button>
+      `;
+
+      container.appendChild(div);
+      initDragAndDrop();
+      salvarSnapshotHistorico();
+    }
+
+    function aplicarEstilosPreview() {
+      const card = document.getElementById('interactive-card');
+      const width = document.getElementById('rng-card-width').value + 'px';
+      const radius = document.getElementById('rng-card-radius').value + 'px';
+      const pad = document.getElementById('rng-card-pad').value + 'px';
+      const gap = document.getElementById('rng-card-gap').value + 'px';
+      const bg = document.getElementById('clr-card-bg').value;
+      const border = document.getElementById('clr-border-color').value;
+      const prim = document.getElementById('clr-prim').value;
+
+      card.style.width = width;
+      card.style.borderRadius = radius;
+      card.style.padding = pad;
+      card.style.gap = gap;
+      card.style.background = bg;
+      card.style.borderColor = border;
+
+      document.getElementById('txt-card-total').style.color = prim;
+
+      const isGlass = document.getElementById('chk-fx-glass').checked;
+      const isNeon = document.getElementById('chk-fx-neon').checked;
+      const isTilt = document.getElementById('chk-fx-tilt').checked;
+
+      card.classList.toggle('fx-glassmorphism', isGlass);
+      card.classList.toggle('fx-neon-pulse', isNeon);
+      card.classList.toggle('fx-3d-tilt', isTilt);
+
+      const cssCustom = document.getElementById('txt-custom-css').value;
+      document.getElementById('custom-injected-style').innerHTML = cssCustom;
+    }
+
+    // ── GESTURE ENGINE (SIMULADOR DE GESTOS) ───────────────────────
+    const menuContexto = document.getElementById('simulated-menu');
+    const cardMesa = document.getElementById('interactive-card');
+
+    cardMesa.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      const acao = document.getElementById('act-mesa-right').value;
+      if (acao === 'nenhum') return;
+
+      menuContexto.style.left = e.clientX + 'px';
+      menuContexto.style.top = e.clientY + 'px';
+      menuContexto.classList.add('active');
+    });
+
+    let pressTimer = null;
+    cardMesa.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      pressTimer = setTimeout(() => {
+        const acao = document.getElementById('act-mesa-press').value;
+        if (acao !== 'nenhum') {
+          menuContexto.style.left = e.clientX + 'px';
+          menuContexto.style.top = e.clientY + 'px';
+          menuContexto.classList.add('active');
         }
+      }, 400);
+    });
+
+    window.addEventListener('mouseup', () => { if (pressTimer) clearTimeout(pressTimer); });
+    document.addEventListener('click', (e) => {
+      if (!menuContexto.contains(e.target)) menuContexto.classList.remove('active');
+    });
+
+    function executarAcaoSimulada(nome) {
+      alert(`⚡ Gesto Executado: [ ${nome} ]`);
+      menuContexto.classList.remove('active');
+    }
+
+    async function publicarTemaCompletoDoStudio() {
+      const nome = prompt('Nome do Tema / Layout:', 'Tema Criativo Pro');
+      if (!nome) return;
+
+      const payload = {
+        id: 'theme_' + Date.now(),
+        nome,
+        nicho: '🎨 Criação Studio',
+        descricao: 'Tema e layout completo gerado no Creator Studio.',
+        dimensoes: {
+          width: document.getElementById('rng-card-width').value,
+          radius: document.getElementById('rng-card-radius').value,
+          padding: document.getElementById('rng-card-pad').value,
+          gap: document.getElementById('rng-card-gap').value
+        },
+        cores: {
+          primary: document.getElementById('clr-prim').value,
+          bgPage: '#0b0f19',
+          bgCard: document.getElementById('clr-card-bg').value,
+          borderColor: document.getElementById('clr-border-color').value,
+          textMain: '#f8fafc',
+          statusOcupada: '#ef4444',
+          statusLivre: '#22c55e'
+        },
+        gestos: {
+          mesaRightClick: document.getElementById('act-mesa-right').value,
+          mesaLongPress: document.getElementById('act-mesa-press').value
+        },
+        customCss: document.getElementById('txt-custom-css').value,
+        customJs: isThemeCustomMode ? '' : document.getElementById('txt-custom-js').value
       };
 
-      try {
-        const res = await fetch('/api/modulo/temas/publicar', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(tema)
-        });
-        const data = await res.json();
-        if (data.ok) {
-          alert('🚀 Tema publicado na Loja com sucesso!');
-          setTab('store');
-          carregarTemasLoja();
-        }
-      } catch (e) {
-        alert('Erro ao publicar tema.');
+      const res = await fetch('/api/modulo/temas/publicar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (data.ok) {
+        alert('🚀 Tema publicado na Loja com sucesso!');
+        setMainRoleView('store');
       }
     }
 
     document.addEventListener('DOMContentLoaded', () => {
+      if (isThemeCustomMode) {
+        // Bloqueia JS no modo ThemeCustom do Restaurante
+        document.getElementById('st-js').style.display = 'none';
+        document.getElementById('js-pro-banner').style.display = 'block';
+        document.getElementById('txt-custom-js').disabled = true;
+      }
+
       carregarTemasLoja();
-      atualizarStudioPreview();
+      initDragAndDrop();
+      aplicarEstilosPreview();
+      salvarSnapshotHistorico();
     });
   </script>
 </body>
