@@ -6913,6 +6913,38 @@ io.on('connection', (socket) => {
   if (!global.__chefNovoPedidoCore) global.__chefNovoPedidoCore = _novoPedidoCore;
   socket.on('novo_pedido', (pedido) => processarNovoPedido(pedido, { tenantId: socketTenantId, reply: (ev, pl) => socket.emit(ev, pl) }));
 
+  // --- ANALYTICS DE ENGAJAMENTO / DWELL-TIME DO CARDÁPIO DIGITAL ---
+  socket.on('cardapio_analytics_engajamento', (data) => {
+    try {
+      const tenantId = socketTenantId || (data && data.restaurante_id) || '1';
+      if (!global._cardapioAnalytics) global._cardapioAnalytics = new Map();
+      if (!global._cardapioAnalytics.has(tenantId)) global._cardapioAnalytics.set(tenantId, new Map());
+      
+      const tMap = global._cardapioAnalytics.get(tenantId);
+      const prodKey = String(data.produtoId || data.produtoNome || 'item');
+      
+      const current = tMap.get(prodKey) || { 
+        id: data.produtoId, 
+        nome: data.produtoNome, 
+        tempoTotal: 0, 
+        visualizacoes: 0, 
+        revisitas: 0, 
+        pedidos: 0, 
+        ultimaInteracao: Date.now() 
+      };
+      
+      current.tempoTotal += Number(data.tempoSegundos || 0);
+      current.visualizacoes += 1;
+      if (data.revisitas) current.revisitas += Number(data.revisitas);
+      if (data.adicionouCarrinho) current.pedidos += 1;
+      current.ultimaInteracao = Date.now();
+      
+      tMap.set(prodKey, current);
+    } catch (e) {
+      console.warn('[Analytics Cardápio]', e);
+    }
+  });
+
   // Atualiza Status (Cozinha/Bar)
   socket.on('atualizar_status', ({ id, status }) => {
     if (!socket.auth) return;

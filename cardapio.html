@@ -983,7 +983,256 @@
     body.dark-mode h1, body.dark-mode h2, body.dark-mode h3, body.dark-mode h4, body.dark-mode h5, body.dark-mode h6 { color: #f1f5f9; }
     body.dark-mode .menu-skeleton { background: #1e293b; }
     body.dark-mode .skel-line { background: #334155; }
-  </style>
+  
+    /* ══════════════════════════════════════════════════════════════════
+       TEMA ESCURO OLED REFINADO & ALTO CONTRASTE (CARDÁPIO DIGITAL)
+       ══════════════════════════════════════════════════════════════════ */
+    [data-theme="dark"],
+    body.dark-mode {
+      --primary: #fc4b15;
+      --primary-hover: #ff6b3d;
+      --bg: #090d16;
+      --surface: #111827;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --border: #1e293b;
+      --shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+    }
+
+    [data-theme="dark"] header,
+    body.dark-mode header {
+      background: rgba(17, 24, 39, 0.9) !important;
+      border-bottom-color: #1e293b !important;
+    }
+
+    [data-theme="dark"] .menu-card,
+    body.dark-mode .menu-card {
+      background: #111827 !important;
+      border-color: #1e293b !important;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3) !important;
+    }
+
+    [data-theme="dark"] .menu-card:hover,
+    body.dark-mode .menu-card:hover {
+      border-color: #fc4b15 !important;
+      box-shadow: 0 8px 25px rgba(252, 75, 21, 0.2) !important;
+      transform: translateY(-2px);
+    }
+
+    [data-theme="dark"] .menu-card-emoji,
+    body.dark-mode .menu-card-emoji {
+      background: #1e293b !important;
+      border-color: #334155 !important;
+    }
+
+    [data-theme="dark"] .category-tab,
+    body.dark-mode .category-tab {
+      background: #111827 !important;
+      border-color: #1e293b !important;
+      color: #94a3b8 !important;
+    }
+
+    [data-theme="dark"] .category-tab.active,
+    body.dark-mode .category-tab.active {
+      background: #fc4b15 !important;
+      color: #ffffff !important;
+      border-color: #fc4b15 !important;
+      box-shadow: 0 4px 14px rgba(252, 75, 21, 0.4) !important;
+    }
+
+    [data-theme="dark"] .search-input,
+    body.dark-mode .search-input {
+      background: #111827 !important;
+      border-color: #1e293b !important;
+      color: #f8fafc !important;
+    }
+
+    [data-theme="dark"] .modal-content,
+    [data-theme="dark"] .modal-sheet,
+    body.dark-mode .modal-content,
+    body.dark-mode .modal-sheet {
+      background: #111827 !important;
+      color: #f8fafc !important;
+      border-color: #1e293b !important;
+    }
+
+    [data-theme="dark"] .form-input,
+    body.dark-mode .form-input {
+      background: #1e293b !important;
+      border-color: #334155 !important;
+      color: #f8fafc !important;
+    }
+
+    [data-theme="dark"] .btn-qty,
+    body.dark-mode .btn-qty {
+      background: #1e293b !important;
+      color: #f8fafc !important;
+    }
+
+    [data-theme="dark"] #tracking-panel,
+    body.dark-mode #tracking-panel {
+      background: #111827 !important;
+      border: 1px solid #1e293b !important;
+      color: #f8fafc !important;
+    }
+
+    /* ══════════════════════════════════════════════════════════════════
+       TAMANHO DOS EMOJIS PROPORCIONAL & VIBRANTE
+       ══════════════════════════════════════════════════════════════════ */
+    .menu-card-emoji {
+      font-size: 38px !important;
+      width: 64px !important;
+      height: 64px !important;
+      border-radius: 16px !important;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: transform 0.2s ease;
+    }
+
+    .menu-card:hover .menu-card-emoji {
+      transform: scale(1.08);
+    }
+
+    .category-tab-emoji {
+      font-size: 1.45em !important;
+      margin-right: 6px !important;
+      display: inline-block;
+      vertical-align: middle;
+    }
+
+    #modal-emoji {
+      font-size: 52px !important;
+      display: inline-block;
+      margin-bottom: 8px;
+      animation: popIn 0.3s ease;
+    }
+
+    .cart-item-emoji {
+      font-size: 1.5em !important;
+      margin-right: 6px;
+    }
+
+    /* ══════════════════════════════════════════════════════════════════
+       BARRA DE LEITURA / PROGRESSO FIXA NO TOPO
+       ══════════════════════════════════════════════════════════════════ */
+    #menu-reading-progress {
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 4.5px;
+      width: 0%;
+      background: linear-gradient(90deg, #fc4b15 0%, #f59e0b 50%, #10b981 100%);
+      z-index: 9999999;
+      box-shadow: 0 0 12px rgba(252, 75, 21, 0.8);
+      transition: width 0.08s ease-out;
+      pointer-events: none;
+    }
+
+    /* BANNER DE SUGESTÃO POR ENGAJAMENTO (DWELL-TIME HEATMAP) */
+    #banner-interesse-cliente {
+      display: none;
+      background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%);
+      border: 1.5px solid #fed7aa;
+      border-radius: 18px;
+      padding: 14px 16px;
+      margin-bottom: 16px;
+      box-shadow: 0 4px 16px rgba(252, 75, 21, 0.08);
+      animation: slideToastDown 0.3s ease-out;
+    }
+
+    [data-theme="dark"] #banner-interesse-cliente,
+    body.dark-mode #banner-interesse-cliente {
+      background: linear-gradient(135deg, #1e1b18 0%, #291d15 100%) !important;
+      border-color: #7c2d12 !important;
+    }
+
+    /* ══════════════════════════════════════════════════════════════════
+       MODAL TOUR GASTRONÔMICO IMERSIVO
+       ══════════════════════════════════════════════════════════════════ */
+    .tour-modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      z-index: 999999;
+      justify-content: center;
+      align-items: center;
+      padding: 16px;
+    }
+
+    .tour-modal-card {
+      width: 100%;
+      max-width: 520px;
+      max-height: 90vh;
+      background: var(--surface, #ffffff);
+      border-radius: 28px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.4);
+      border: 1.5px solid var(--border, #e2e8f0);
+      animation: popIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .tour-card-header {
+      background: linear-gradient(135deg, #fc4b15 0%, #e03e09 100%);
+      color: white;
+      padding: 20px;
+      position: relative;
+    }
+
+    .tour-step-indicators {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+
+    .tour-step-dot {
+      flex: 1;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.35);
+      border-radius: 2px;
+      transition: background 0.3s ease;
+    }
+
+    .tour-step-dot.active {
+      background: #ffffff;
+      box-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
+    }
+
+    .tour-card-body {
+      padding: 20px;
+      overflow-y: auto;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .tour-item-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: var(--bg, #f8fafc);
+      border: 1px solid var(--border, #e2e8f0);
+      transition: transform 0.15s ease;
+    }
+
+    .tour-item-row:hover {
+      transform: translateY(-1px);
+    }
+
+</style>
   <script src="/locales.js"></script>
   <script src="/broadcast.js"></script>
   <script src="/i18n.js"></script>
@@ -997,6 +1246,7 @@
 </head>
 
 <body>
+  <div id="menu-reading-progress"></div>
   <script>
     /* Detect dark mode: localStorage > system preference */
     (function(){
@@ -1020,6 +1270,16 @@
         style="cursor: pointer; display: none; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 50%; background: #f1f5f9; color: #475569; font-size: 18px; border: 1px solid #cbd5e1;"
         title="Editar Perfil">
         <i class="ph ph-user"></i>
+      </div>
+      
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <button class="tour-toggle" onclick="window.abrirTourGastronomico()" style="background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%); border: 1.5px solid #fed7aa; color: #c2410c; padding: 7px 14px; border-radius: 20px; font-weight: 800; font-size: 12.5px; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 8px rgba(252,75,21,0.12);">
+          <i class="ph-fill ph-sparkle" style="color: #fc4b15; font-size: 16px;"></i>
+          <span>Tour da Casa</span>
+        </button>
+        <button onclick="if(window.ChefTheme && window.ChefTheme.toggle) window.ChefTheme.toggle(); else document.body.classList.toggle('dark-mode');" style="background: transparent; border: 1px solid var(--border); border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-muted);" title="Alternar Tema Claro / Escuro">
+          <i class="ph ph-moon"></i>
+        </button>
       </div>
       <div class="table-badge" id="mesa-badge">Mesa</div>
     </div>
@@ -1175,6 +1435,22 @@
       <div class="skeleton-card"></div>
     </div>
 
+    
+    <!-- BANNER DINÂMICO DE INTERESSE / DWELL TIME HEATMAP -->
+    <div id="banner-interesse-cliente">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
+        <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
+          <span id="banner-interesse-emoji" style="font-size: 32px;">🔥</span>
+          <div>
+            <strong style="font-size: 14px; color: var(--text); display: block;" id="banner-interesse-titulo">Você ficou de olho nisso!</strong>
+            <span style="font-size: 12px; color: var(--text-muted);" id="banner-interesse-sub">Que tal adicionar ao seu pedido agora?</span>
+          </div>
+        </div>
+        <button id="banner-interesse-btn-add" style="padding: 8px 14px; border-radius: 12px; background: #fc4b15; color: white; border: none; font-weight: 800; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(252,75,21,0.25);">
+          <i class="ph-bold ph-plus"></i> Pedir
+        </button>
+      </div>
+    </div>
     <div class="menu-grid" id="menu-items" style="display: none;">
       <!-- Grid items injected via JS -->
     </div>
@@ -3386,6 +3662,394 @@
   })();
   </script>
 
+
+  <!-- MODAL DO TOUR GASTRONÔMICO IMERSIVO -->
+  <div id="modal-tour-imersivo" class="tour-modal-overlay" onclick="if(event.target===this) window.fecharTourGastronomico()">
+    <div class="tour-modal-card">
+      
+      <!-- Cabeçalho com Indicadores de Etapas -->
+      <div class="tour-card-header">
+        <div class="tour-step-indicators">
+          <div class="tour-step-dot active" id="tour-dot-0"></div>
+          <div class="tour-step-dot" id="tour-dot-1"></div>
+          <div class="tour-step-dot" id="tour-dot-2"></div>
+          <div class="tour-step-dot" id="tour-dot-3"></div>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <span style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.9; font-weight: 800;" id="tour-capitulo-tag">Capítulo 1 de 4</span>
+            <h3 style="font-size: 18px; font-weight: 900; margin: 2px 0 0 0;" id="tour-capitulo-titulo">Nossa História & Paixão</h3>
+          </div>
+          <button onclick="window.fecharTourGastronomico()" style="background: rgba(255,255,255,0.2); border: none; width: 32px; height: 32px; border-radius: 50%; color: white; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center;">&times;</button>
+        </div>
+      </div>
+
+      <!-- Corpo do Slide Atual -->
+      <div class="tour-card-body" id="tour-conteudo-dinamico">
+        <!-- Renderizado dinamicamente por JS -->
+      </div>
+
+      <!-- Rodapé de Navegação do Tour -->
+      <div style="padding: 16px 20px; border-top: 1px solid var(--border, #e2e8f0); display: flex; justify-content: space-between; align-items: center; gap: 10px; background: var(--bg, #f8fafc);">
+        <button id="tour-btn-anterior" onclick="window.navegarTour(-1)" style="padding: 11px 16px; border-radius: 12px; background: transparent; border: 1px solid var(--border, #cbd5e1); color: var(--text-muted, #64748b); font-weight: 700; font-size: 13px; cursor: pointer;">
+          Anterior
+        </button>
+        <div style="display: flex; gap: 8px; flex: 1; justify-content: flex-end;">
+          <button id="tour-btn-proximo" onclick="window.navegarTour(1)" style="flex: 1; padding: 12px 18px; border-radius: 12px; background: #fc4b15; border: none; color: white; font-weight: 800; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 4px 14px rgba(252,75,21,0.3);">
+            <span>Próximo</span> <i class="ph-bold ph-arrow-right"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </body>
 
 </html>
+
+
+<script>
+// ══════════════════════════════════════════════════════════════════
+// 1. BARRA DE LEITURA / PROGRESSO FIXA NO TOPO
+// ══════════════════════════════════════════════════════════════════
+window.addEventListener('scroll', () => {
+  const scrollTop = window.scrollY || document.documentElement.scrollTop;
+  const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+  const progress = docHeight > 0 ? Math.min(100, Math.max(0, (scrollTop / docHeight) * 100)) : 0;
+  const bar = document.getElementById('menu-reading-progress');
+  if (bar) bar.style.width = progress + '%';
+}, { passive: true });
+
+// ══════════════════════════════════════════════════════════════════
+// 2. TRACKING DE DWELL TIME & RE-VISITAS (HEATMAP DE INTERESSE)
+// ══════════════════════════════════════════════════════════════════
+window._itemEngajamento = new Map();
+let _itemAbertoId = null;
+let _itemAbertoTimestamp = 0;
+
+function trackItemViewStart(itemId) {
+  _itemAbertoId = itemId;
+  _itemAbertoTimestamp = Date.now();
+  
+  const current = window._itemEngajamento.get(itemId) || { id: itemId, tempoSegundos: 0, revisitas: 0, adicionou: false };
+  current.revisitas += 1;
+  window._itemEngajamento.set(itemId, current);
+}
+
+function trackItemViewEnd(itemId, adicionouAoCarrinho = false) {
+  if (_itemAbertoTimestamp > 0 && _itemAbertoId === itemId) {
+    const duracaoSegundos = Math.round((Date.now() - _itemAbertoTimestamp) / 1000);
+    const current = window._itemEngajamento.get(itemId) || { id: itemId, tempoSegundos: 0, revisitas: 1, adicionou: false };
+    current.tempoSegundos += duracaoSegundos;
+    if (adicionouAoCarrinho) current.adicionou = true;
+    window._itemEngajamento.set(itemId, current);
+
+    // Enviar dados para o backend em tempo real para a IA do Dono
+    if (window.socket && window.socket.emit) {
+      const prod = (typeof MENU !== 'undefined' && MENU.find(x => x.id === itemId));
+      window.socket.emit('cardapio_analytics_engajamento', {
+        restaurante_id: typeof restauranteId !== 'undefined' ? restauranteId : (localStorage.getItem('restaurante_id') || '1'),
+        mesa: typeof mesaParam !== 'undefined' ? mesaParam : (localStorage.getItem('chef_mesa') || 'Mesa'),
+        produtoId: itemId,
+        produtoNome: prod ? prod.nome : 'Item',
+        tempoSegundos: duracaoSegundos,
+        revisitas: current.revisitas,
+        adicionouCarrinho: adicionouAoCarrinho
+      });
+    }
+
+    _itemAbertoId = null;
+    _itemAbertoTimestamp = 0;
+
+    // Verificar se deve exibir recomendação dinâmica "Você quase pediu isso!"
+    verificarSugestaoInteresse();
+  }
+}
+
+function verificarSugestaoInteresse() {
+  const banner = document.getElementById('banner-interesse-cliente');
+  if (!banner || typeof MENU === 'undefined') return;
+
+  // Encontrar o item não adicionado com maior engajamento (mais tempo ou revisitas)
+  let melhorCandidato = null;
+  let maxScore = 0;
+
+  window._itemEngajamento.forEach((data, id) => {
+    if (!data.adicionou) {
+      const score = data.tempoSegundos + (data.revisitas * 6);
+      if (score >= 8 && score > maxScore) {
+        maxScore = score;
+        melhorCandidato = MENU.find(x => x.id === id);
+      }
+    }
+  });
+
+  if (melhorCandidato) {
+    document.getElementById('banner-interesse-emoji').innerText = melhorCandidato.emoji || '🔥';
+    document.getElementById('banner-interesse-titulo').innerText = `Você ficou de olho em ${melhorCandidato.nome}!`;
+    document.getElementById('banner-interesse-sub').innerText = `R$ ${parseFloat(melhorCandidato.preco).toFixed(2).replace('.', ',')} • Receita especial do Chef`;
+    
+    const btn = document.getElementById('banner-interesse-btn-add');
+    btn.onclick = () => {
+      if (typeof window.adicionarDiretoAoCarrinho === 'function') {
+        window.adicionarDiretoAoCarrinho(melhorCandidato.id);
+      } else if (typeof window.abrirItemDetails === 'function') {
+        window.abrirItemDetails(melhorCandidato.id);
+      }
+      banner.style.display = 'none';
+      const d = window._itemEngajamento.get(melhorCandidato.id);
+      if (d) d.adicionou = true;
+    };
+
+    banner.style.display = 'block';
+  }
+}
+
+// Hook nos métodos existentes de abrir/fechar detalhes
+const originalAbrirDetails = window.abrirItemDetails;
+window.abrirItemDetails = function(id) {
+  trackItemViewStart(id);
+  if (originalAbrirDetails) originalAbrirDetails(id);
+};
+
+const originalFecharDetails = window.fecharItemDetails;
+window.fecharItemDetails = function() {
+  if (_itemAbertoId) trackItemViewEnd(_itemAbertoId, false);
+  if (originalFecharDetails) originalFecharDetails();
+};
+
+const originalAdicionarCarrinho = window.adicionarItemAoCarrinho;
+window.adicionarItemAoCarrinho = function() {
+  if (_itemAbertoId) trackItemViewEnd(_itemAbertoId, true);
+  if (originalAdicionarCarrinho) originalAdicionarCarrinho();
+};
+
+// ══════════════════════════════════════════════════════════════════
+// 3. MODO TOUR GASTRONÔMICO IMERSIVO DA CASA
+// ══════════════════════════════════════════════════════════════════
+let _tourEtapaAtual = 0;
+
+window.abrirTourGastronomico = function() {
+  _tourEtapaAtual = 0;
+  renderizarEtapaTour();
+  document.getElementById('modal-tour-imersivo').style.display = 'flex';
+};
+
+window.fecharTourGastronomico = function() {
+  document.getElementById('modal-tour-imersivo').style.display = 'none';
+};
+
+window.navegarTour = function(delta) {
+  _tourEtapaAtual += delta;
+  if (_tourEtapaAtual < 0) _tourEtapaAtual = 0;
+  if (_tourEtapaAtual > 3) {
+    window.fecharTourGastronomico();
+    if (typeof window.abrirCarrinho === 'function' && typeof CART !== 'undefined' && CART.length > 0) {
+      window.abrirCarrinho();
+    }
+    return;
+  }
+  renderizarEtapaTour();
+};
+
+let _customTourConfig = null;
+try {
+  fetch('/api/config?restaurante_id=' + encodeURIComponent(typeof restauranteId !== 'undefined' ? restauranteId : (localStorage.getItem('restaurante_id') || '1')))
+    .then(r => r.json())
+    .then(cfg => {
+      if (cfg && cfg.tour_gastronomico) {
+        try {
+          _customTourConfig = typeof cfg.tour_gastronomico === 'string' ? JSON.parse(cfg.tour_gastronomico) : cfg.tour_gastronomico;
+        } catch(e) {}
+      }
+    }).catch(() => {});
+} catch(e) {}
+
+function renderizarEtapaTour() {
+  // Atualizar dots
+  for (let i = 0; i < 4; i++) {
+    const dot = document.getElementById('tour-dot-' + i);
+    if (dot) dot.className = 'tour-step-dot' + (i === _tourEtapaAtual ? ' active' : '');
+  }
+
+  const tag = document.getElementById('tour-capitulo-tag');
+  const titulo = document.getElementById('tour-capitulo-titulo');
+  const conteudo = document.getElementById('tour-conteudo-dinamico');
+  const btnProximo = document.getElementById('tour-btn-proximo');
+
+  if (_tourEtapaAtual === 0) {
+    tag.innerText = 'Capítulo 1 de 4';
+    titulo.innerText = (_customTourConfig && _customTourConfig.titulo) ? _customTourConfig.titulo : 'Nossa História & Tradição';
+    const textoHist = (_customTourConfig && _customTourConfig.historia) ? _customTourConfig.historia : '${textoHist}';
+    conteudo.innerHTML = `
+      <div style="text-align:center; padding:10px 0;">
+        <div style="font-size:48px; margin-bottom:10px;">👨‍🍳🔥🥩</div>
+        <h4 style="font-size:16px; font-weight:800; color:var(--text); margin-bottom:8px;">Paixão pela Gastronomia Artesanal</h4>
+        <p style="font-size:13.5px; color:var(--text-muted); line-height:1.6; margin-bottom:12px;">
+          Bem-vindo à nossa mesa! Cada prato é preparado com ingredientes frescos selecionados diariamente, cortes nobres maturados e temperos frescos que garantem uma experiência inesquecível.
+        </p>
+        <div style="background:var(--bg); border:1px solid var(--border); border-radius:16px; padding:14px; text-align:left;">
+          <div style="font-size:12.5px; font-weight:700; color:var(--primary); margin-bottom:4px;">✨ Nossa Metodologia de Preparo:</div>
+          <ul style="font-size:12px; color:var(--text-muted); padding-left:18px; line-height:1.5;">
+            <li>Cocção lenta no ponto perfeito para máxima suculência.</li>
+            <li>Frituras sequinhas e crocantes em óleo de alta qualidade.</li>
+            <li>Molhos e temperos autorais da casa feitos do zero.</li>
+          </ul>
+        </div>
+      </div>
+    `;
+    btnProximo.innerHTML = '<span>Ver Entradas</span> <i class="ph-bold ph-arrow-right"></i>';
+  } else if (_tourEtapaAtual === 1) {
+    tag.innerText = 'Capítulo 2 de 4';
+    titulo.innerText = 'Para Abrir o Apetite (Entradas)';
+    
+    // Buscar itens de entradas / porções
+    let entradas = (typeof MENU !== 'undefined') ? MENU.filter(m => {
+      const cat = (m.categoria || m.category || '').toLowerCase();
+      const nome = (m.nome || m.name || '').toLowerCase();
+      return cat.includes('entrada') || cat.includes('porç') || cat.includes('petisco') || nome.includes('pastel') || nome.includes('bolinho') || nome.includes('frita');
+    }).slice(0, 4) : [];
+
+    if (entradas.length === 0 && typeof MENU !== 'undefined') entradas = MENU.slice(0, 3);
+
+    const itensHtml = entradas.map(item => `
+      <div class="tour-item-row">
+        <div style="display:flex; align-items:center; gap:10px; flex:1; min-width:0;">
+          <span style="font-size:26px; flex-shrink:0;">${item.emoji || '🥟'}</span>
+          <div style="min-width:0; flex:1;">
+            <strong style="font-size:13.5px; color:var(--text); display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${item.nome || item.name}</strong>
+            <span style="font-size:12px; font-weight:800; color:var(--primary);">R$ ${parseFloat(item.preco || item.price).toFixed(2).replace('.', ',')}</span>
+          </div>
+        </div>
+        <button onclick="window.adicionarItemTourDireto(${item.id})" style="padding:8px 12px; border-radius:10px; background:#fc4b15; color:white; border:none; font-weight:800; font-size:12px; cursor:pointer; display:flex; align-items:center; gap:4px; box-shadow:0 2px 8px rgba(252,75,21,0.25);">
+          <i class="ph-bold ph-plus"></i> Pedir
+        </button>
+      </div>
+    `).join('');
+
+    conteudo.innerHTML = `
+      <p style="font-size:13px; color:var(--text-muted); margin:0 0 10px 0;">
+        Recomendamos começar com nossos pastéis crocantes, bolinhos artesanais ou batatas rústicas:
+      </p>
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        ${itensHtml}
+      </div>
+    `;
+    btnProximo.innerHTML = '<span>Pratos Principais</span> <i class="ph-bold ph-arrow-right"></i>';
+  } else if (_tourEtapaAtual === 2) {
+    tag.innerText = 'Capítulo 3 de 4';
+    titulo.innerText = 'Pratos Principais & Carros-Chefes';
+
+    let pratos = (typeof MENU !== 'undefined') ? MENU.filter(m => {
+      const cat = (m.categoria || m.category || '').toLowerCase();
+      return !cat.includes('bebida') && !cat.includes('entrada') && !cat.includes('sobremesa');
+    }).slice(0, 4) : [];
+
+    if (pratos.length === 0 && typeof MENU !== 'undefined') pratos = MENU.slice(0, 3);
+
+    const itensHtml = pratos.map(item => `
+      <div class="tour-item-row">
+        <div style="display:flex; align-items:center; gap:10px; flex:1; min-width:0;">
+          <span style="font-size:26px; flex-shrink:0;">${item.emoji || '🍽️'}</span>
+          <div style="min-width:0; flex:1;">
+            <strong style="font-size:13.5px; color:var(--text); display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${item.nome || item.name}</strong>
+            <span style="font-size:12px; font-weight:800; color:var(--primary);">R$ ${parseFloat(item.preco || item.price).toFixed(2).replace('.', ',')}</span>
+          </div>
+        </div>
+        <button onclick="window.adicionarItemTourDireto(${item.id})" style="padding:8px 12px; border-radius:10px; background:#fc4b15; color:white; border:none; font-weight:800; font-size:12px; cursor:pointer; display:flex; align-items:center; gap:4px; box-shadow:0 2px 8px rgba(252,75,21,0.25);">
+          <i class="ph-bold ph-plus"></i> Pedir
+        </button>
+      </div>
+    `).join('');
+
+    conteudo.innerHTML = `
+      <p style="font-size:13px; color:var(--text-muted); margin:0 0 10px 0;">
+        Os cortes mais elogiados pelos nossos clientes, servidos no ponto e com guarnições caprichadas:
+      </p>
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        ${itensHtml}
+      </div>
+    `;
+    btnProximo.innerHTML = '<span>Bebidas & Sobremesas</span> <i class="ph-bold ph-arrow-right"></i>';
+  } else {
+    tag.innerText = 'Capítulo 4 de 4';
+    titulo.innerText = 'Bebidas, Drinks & Sobremesas';
+
+    let bebidas = (typeof MENU !== 'undefined') ? MENU.filter(m => {
+      const cat = (m.categoria || m.category || '').toLowerCase();
+      return cat.includes('bebida') || cat.includes('drink') || cat.includes('sobremesa') || cat.includes('doce');
+    }).slice(0, 4) : [];
+
+    if (bebidas.length === 0 && typeof MENU !== 'undefined') bebidas = MENU.slice(0, 3);
+
+    const itensHtml = bebidas.map(item => `
+      <div class="tour-item-row">
+        <div style="display:flex; align-items:center; gap:10px; flex:1; min-width:0;">
+          <span style="font-size:26px; flex-shrink:0;">${item.emoji || '🍹'}</span>
+          <div style="min-width:0; flex:1;">
+            <strong style="font-size:13.5px; color:var(--text); display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${item.nome || item.name}</strong>
+            <span style="font-size:12px; font-weight:800; color:var(--primary);">R$ ${parseFloat(item.preco || item.price).toFixed(2).replace('.', ',')}</span>
+          </div>
+        </div>
+        <button onclick="window.adicionarItemTourDireto(${item.id})" style="padding:8px 12px; border-radius:10px; background:#fc4b15; color:white; border:none; font-weight:800; font-size:12px; cursor:pointer; display:flex; align-items:center; gap:4px; box-shadow:0 2px 8px rgba(252,75,21,0.25);">
+          <i class="ph-bold ph-plus"></i> Pedir
+        </button>
+      </div>
+    `).join('');
+
+    const cartCount = typeof CART !== 'undefined' ? CART.length : 0;
+    conteudo.innerHTML = `
+      <p style="font-size:13px; color:var(--text-muted); margin:0 0 10px 0;">
+        Para completar sua experiência, confira nossos drinks refrescantes e sobremesas especiais:
+      </p>
+      <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:12px;">
+        ${itensHtml}
+      </div>
+      <div style="background:var(--bg); border:1px dashed var(--border); border-radius:14px; padding:12px; text-align:center; font-size:13px; font-weight:700; color:var(--text);">
+        🛒 Itens no seu pedido: <strong style="color:var(--primary);">${cartCount} itens</strong>
+      </div>
+    `;
+    btnProximo.innerHTML = '<span>Finalizar Tour</span> <i class="ph-bold ph-check"></i>';
+  }
+}
+
+window.adicionarItemTourDireto = function(itemId) {
+  const item = (typeof MENU !== 'undefined' && MENU.find(x => x.id === itemId));
+  if (!item) return;
+
+  if (typeof CART !== 'undefined') {
+    const existing = CART.find(x => x.id === item.id);
+    const precoUnit = parseFloat(item.preco || item.price);
+    if (existing) {
+      existing.quantity += 1;
+      existing.total = existing.quantity * precoUnit;
+    } else {
+      CART.push({
+        id: item.id,
+        productName: item.nome || item.name,
+        productEmoji: item.emoji,
+        quantity: 1,
+        preco: precoUnit,
+        obs: '',
+        composicoes: [],
+        sector: item.setor || item.sector || 'Cozinha 1',
+        total: precoUnit
+      });
+    }
+
+    if (typeof atualizarBadgeCarrinho === 'function') atualizarBadgeCarrinho();
+    if (typeof salvarCarrinhoLocalStorage === 'function') salvarCarrinhoLocalStorage();
+    
+    // Notificação visual
+    trackItemViewEnd(item.id, true);
+    
+    const toast = document.createElement('div');
+    toast.style.cssText = 'position:fixed;top:16px;left:50%;transform:translateX(-50%);background:#10b981;color:white;padding:10px 18px;border-radius:20px;font-size:13px;font-weight:800;z-index:9999999;box-shadow:0 8px 25px rgba(0,0,0,0.25);animation:slideToastDown 0.3s ease;';
+    toast.innerHTML = `✓ ${item.nome || item.name} adicionado ao pedido!`;
+    document.body.appendChild(toast);
+    setTimeout(() => { toast.remove(); }, 2200);
+
+    renderizarEtapaTour();
+  }
+};
+</script>
