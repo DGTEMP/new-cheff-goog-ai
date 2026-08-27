@@ -7,11 +7,11 @@ let isMatrixAnimating = true;
 const pendingLogs = [];
 let tableGames = {};
 
-// â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?
+// ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?
 // ðŸŽ‰ ANIMAÃ‡ÃƒO DE VITÃ“RIA â€” NOVO RESTAURANTE CADASTRADO
-// â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?
+// ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?
 function celebrarNovoRestaurante(nome, id, dono) {
-  const frames = ['ðŸŽ‰', 'ðŸŽŠ', 'âœ¨', 'ðŸ?†', 'ðŸŒŸ', 'ðŸŽ†', 'ðŸŽ‡'];
+  const frames = ['ðŸŽ‰', 'ðŸŽŠ', 'âœ¨', 'ï¿½?ï¿½', 'ðŸŒŸ', 'ðŸŽ†', 'ðŸŽ‡'];
   let f = 0;
   const spinner = setInterval(() => {
     process.stdout.write(`\r  ${frames[f % frames.length]}  Processando novo cliente... `);
@@ -25,14 +25,14 @@ function celebrarNovoRestaurante(nome, id, dono) {
     const ts = new Date().toLocaleTimeString('pt-BR');
     const banner = [
       '',
-      `${ANSI.yellow}${ANSI.bright}  â•”â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•—${ANSI.reset}`,
-      `${ANSI.yellow}${ANSI.bright}  â•‘   ðŸ?†  NOVO RESTAURANTE CADASTRADO  ðŸ?†            â•‘${ANSI.reset}`,
-      `${ANSI.yellow}${ANSI.bright}  â• â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•£${ANSI.reset}`,
-      `${ANSI.yellow}  â•‘${ANSI.reset}  ${ANSI.cyan}ðŸ?ª Nome:${ANSI.reset}   ${ANSI.bright}${nome}${ANSI.reset}`,
+      `${ANSI.yellow}${ANSI.bright}  â•”ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?â•—${ANSI.reset}`,
+      `${ANSI.yellow}${ANSI.bright}  â•‘   ï¿½?ï¿½  NOVO RESTAURANTE CADASTRADO  ï¿½?ï¿½            â•‘${ANSI.reset}`,
+      `${ANSI.yellow}${ANSI.bright}  â• ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?â•£${ANSI.reset}`,
+      `${ANSI.yellow}  â•‘${ANSI.reset}  ${ANSI.cyan}ï¿½?ï¿½ Nome:${ANSI.reset}   ${ANSI.bright}${nome}${ANSI.reset}`,
       `${ANSI.yellow}  â•‘${ANSI.reset}  ${ANSI.green}ðŸ†” ID:${ANSI.reset}     #${id}`,
       dono ? `${ANSI.yellow}  â•‘${ANSI.reset}  ${ANSI.magenta}ðŸ‘¤ Dono:${ANSI.reset}   ${dono}` : null,
-      `${ANSI.yellow}  â•‘${ANSI.reset}  ${ANSI.dim}ðŸ•? Hora:${ANSI.reset}   ${ts}`,
-      `${ANSI.yellow}${ANSI.bright}  â•šâ•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?${ANSI.reset}`,
+      `${ANSI.yellow}  â•‘${ANSI.reset}  ${ANSI.dim}ï¿½? Hora:${ANSI.reset}   ${ts}`,
+      `${ANSI.yellow}${ANSI.bright}  â•šï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?${ANSI.reset}`,
       `  ${ANSI.green}${ANSI.bright}ðŸŽŠ Bem-vindo ao ecossistema Chef Cozinha SaaS! ðŸŽŠ${ANSI.reset}`,
       '',
     ].filter(Boolean).join('\n');
@@ -78,10 +78,10 @@ const ANSI = {
 const serverStartTime = Date.now();
 function getEfficiencyStars() {
   const memRssMb = process.memoryUsage().rss / (1024 * 1024);
-  if (memRssMb < 150) return "â­?â­?â­?â­?â­? [100% EXCELENTE]";
-  if (memRssMb < 300) return "â­?â­?â­?â­? [95% Ã“TIMO]";
-  if (memRssMb < 500) return "â­?â­?â­? [85% BOM]";
-  return "â­?â­? [ATENÃ‡ÃƒO RESTRIÃ‡ÃƒO]";
+  if (memRssMb < 150) return "ï¿½?ï¿½?ï¿½?ï¿½?ï¿½? [100% EXCELENTE]";
+  if (memRssMb < 300) return "ï¿½?ï¿½?ï¿½?ï¿½? [95% Ã“TIMO]";
+  if (memRssMb < 500) return "ï¿½?ï¿½?ï¿½? [85% BOM]";
+  return "ï¿½?ï¿½? [ATENÃ‡ÃƒO RESTRIÃ‡ÃƒO]";
 }
 
 console.log = function (...args) {
@@ -96,7 +96,7 @@ console.log = function (...args) {
   if (/^\[Cli-Click\]/.test(line)) {
     const content = line.replace(/^\[Cli-Click\]/, '').trim();
     const parts = content.split(' | ');
-    formatted = `${ANSI.magenta}â•­â”€ ðŸ–±ï¸?  ${ANSI.bright}AÃ‡ÃƒO DO USUÃ?RIO${ANSI.reset} ${ANSI.dim}â”€â”€â”€â”€â”€â”€ [${timeStr}] â”€â”€â•®${ANSI.reset}\n` +
+    formatted = `${ANSI.magenta}â•­â”€ ðŸ–±ï¿½?  ${ANSI.bright}AÃ‡ÃƒO DO USUï¿½?RIO${ANSI.reset} ${ANSI.dim}â”€â”€â”€â”€â”€â”€ [${timeStr}] â”€â”€â•®${ANSI.reset}\n` +
                 parts.map(p => `${ANSI.magenta}â”‚${ANSI.reset}   ${ANSI.cyan}â€¢${ANSI.reset} ${p}`).join('\n') + `\n` +
                 `${ANSI.magenta}â•°â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â•¯${ANSI.reset}`;
   }
@@ -133,7 +133,7 @@ console.error = function (...args) {
   const line = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(' ');
   logLines.push(`[ERR] ${new Date().toLocaleTimeString('pt-BR')} - ${line}`);
   if (logLines.length > 100) logLines.shift();
-  originalError.apply(console, [`\n${ANSI.red}${ANSI.bright}â?Œ [${new Date().toLocaleTimeString('pt-BR')}] [ERRO] ${line}${ANSI.reset}\n`]);
+  originalError.apply(console, [`\n${ANSI.red}${ANSI.bright}ï¿½?ï¿½ [${new Date().toLocaleTimeString('pt-BR')}] [ERRO] ${line}${ANSI.reset}\n`]);
 };
 
 const express = require('express');
@@ -411,23 +411,23 @@ app.use((req, res, next) => {
   // Mensagens engraÃ§adas por NÃ­vel de Ataque (ZoaÃ§Ãµes Inteligentes)
   const ZOACIONAL_NIVEIS = {
     blacklist: [
-      "ðŸš« NÃ?VEL MAXIMO: Calma lÃ¡, Hacker de Lanchonete! Seu IP tomou um BAN permanente. Vai tomar um cafÃ©!",
+      "ðŸš« Nï¿½?VEL MAXIMO: Calma lÃ¡, Hacker de Lanchonete! Seu IP tomou um BAN permanente. Vai tomar um cafÃ©!",
       "â›” ERRO 403: VocÃª foi bloqueado pelo Chef! Nem com tempero secreto seu IP entra aqui de novo.",
       "ðŸš« ACESSO NEGADO: Detectamos que vocÃª Ã© o hacker da NASA de fundo de quintal. IP na Blacklist!"
     ],
     sqli_xss: [
-      "ðŸ§™â€?â™‚ï¸? NÃ?VEL 2: Tentando SQL Injection em 2026? Meu banco de dados deu risada e mandou um abraÃ§o!",
-      "ðŸ•µï¸?â€?â™‚ï¸? NÃ?VEL 2: Achou que ia mandar um <script>alert('hacked')</script> e virar o Mr. Robot? Tenta no Paint!",
-      "ðŸ¤¡ NÃ?VEL 2: 'DROP TABLE'? A Ãºnica coisa que vai cair aqui Ã© a sua autoestima. InjeÃ§Ã£o bloqueada!"
+      "ðŸ§™ï¿½?â™‚ï¿½? Nï¿½?VEL 2: Tentando SQL Injection em 2026? Meu banco de dados deu risada e mandou um abraÃ§o!",
+      "ðŸ•µï¿½?ï¿½?â™‚ï¿½? Nï¿½?VEL 2: Achou que ia mandar um <script>alert('hacked')</script> e virar o Mr. Robot? Tenta no Paint!",
+      "ðŸ¤¡ Nï¿½?VEL 2: 'DROP TABLE'? A Ãºnica coisa que vai cair aqui Ã© a sua autoestima. InjeÃ§Ã£o bloqueada!"
     ],
     rate_limit: [
-      "ðŸ?Žï¸? NÃ?VEL 1: Ei, Ligeirinho! Mandou requisiÃ§Ã£o demais e fundiu o motor. Respira 1 minuto!",
-      "ðŸ?¢ NÃ?VEL 1: Calma, afobado! 300 requisiÃ§Ãµes num minuto? Nem robÃ´ de entrega Ã© tÃ£o rÃ¡pido. Espera aÃ­ um pouco!",
-      "ðŸš¦ NÃ?VEL 1: Freia esse flood! O servidor Ã© forte, mas sua apressaÃ§Ã£o levou um Red Card temporÃ¡rio."
+      "ï¿½?ï¿½ï¿½? Nï¿½?VEL 1: Ei, Ligeirinho! Mandou requisiÃ§Ã£o demais e fundiu o motor. Respira 1 minuto!",
+      "ï¿½?ï¿½ Nï¿½?VEL 1: Calma, afobado! 300 requisiÃ§Ãµes num minuto? Nem robÃ´ de entrega Ã© tÃ£o rÃ¡pido. Espera aÃ­ um pouco!",
+      "ðŸš¦ Nï¿½?VEL 1: Freia esse flood! O servidor Ã© forte, mas sua apressaÃ§Ã£o levou um Red Card temporÃ¡rio."
     ],
     path_traversal: [
-      "ðŸ“‚ NÃ?VEL 3: Tentando '..//..//etc/passwd'? O mÃ¡ximo que vocÃª vai achar aqui Ã© a receita de pÃ£o de alho da vovÃ³!",
-      "ðŸ›‘ NÃ?VEL 3: NavegaÃ§Ã£o de diretÃ³rios? Esse caminho nÃ£o leva ao tesouro, sÃ³ a um 403 bem bonito!"
+      "ðŸ“‚ Nï¿½?VEL 3: Tentando '..//..//etc/passwd'? O mÃ¡ximo que vocÃª vai achar aqui Ã© a receita de pÃ£o de alho da vovÃ³!",
+      "ðŸ›‘ Nï¿½?VEL 3: NavegaÃ§Ã£o de diretÃ³rios? Esse caminho nÃ£o leva ao tesouro, sÃ³ a um 403 bem bonito!"
     ]
   };
 
@@ -458,7 +458,7 @@ app.use((req, res, next) => {
   if (wafConfig.block_sqli_xss) {
     const urlCheck = (req.originalUrl || '').toLowerCase();
     if (urlCheck.includes('<script>') || urlCheck.includes('union select') || urlCheck.includes('drop table') || urlCheck.includes('or 1=1') || urlCheck.includes('eval(')) {
-      console.warn(`âš ï¸? [WAF Anti-XSS/SQLi] Tentativa de injeÃ§Ã£o bloqueada de ${ip}`);
+      console.warn(`âš ï¿½? [WAF Anti-XSS/SQLi] Tentativa de injeÃ§Ã£o bloqueada de ${ip}`);
       const msg = pegarZoacao('sqli_xss');
       wafAttackLogs.unshift({ data: new Date().toISOString(), ip, metodo: req.method, endpoint: req.originalUrl, motivo: 'Tentativa de InjeÃ§Ã£o SQL/XSS' });
       if (wafAttackLogs.length > 100) wafAttackLogs.pop();
@@ -478,12 +478,12 @@ app.use((req, res, next) => {
   } else {
     record.count++;
     if (record.count > maxReqs) {
-      console.warn(`âš ï¸? [Anti-DDoS] IP bloqueado por limite de taxa (${record.count} reqs/min): ${ip}`);
+      console.warn(`âš ï¿½? [Anti-DDoS] IP bloqueado por limite de taxa (${record.count} reqs/min): ${ip}`);
       const msg = pegarZoacao('rate_limit');
       wafAttackLogs.unshift({ data: new Date().toISOString(), ip, metodo: req.method, endpoint: req.originalUrl, motivo: `Limite Rate Limit excedido (${record.count}/${maxReqs})` });
       if (wafAttackLogs.length > 100) wafAttackLogs.pop();
       res.setHeader('X-Troll-Security', 'Too-Fast-Too-Furious');
-      return res.status(429).json({ success: false, error: 'Muitas RequisiÃ§Ãµes', zombaria: msg, tempo_espera: 'Aguarde 60 segundos â?³' });
+      return res.status(429).json({ success: false, error: 'Muitas RequisiÃ§Ãµes', zombaria: msg, tempo_espera: 'Aguarde 60 segundos ï¿½?ï¿½' });
     }
   }
 
@@ -518,7 +518,7 @@ app.use('/api', (req, res, next) => {
   next();
 });
 
-// --- DOMÃ?NIO POR TENANT (subdomÃ­nio + domÃ­nio prÃ³prio) ---
+// --- DOMï¿½?NIO POR TENANT (subdomÃ­nio + domÃ­nio prÃ³prio) ---
 let BASE_DOMAIN = (process.env.BASE_DOMAIN || 'chefcozinha.com.br').toLowerCase();
 const domainMap = new Map(); // custom_domain â†’ tenant_id
 const slugMap = new Map();   // slug â†’ tenant_id
@@ -647,8 +647,8 @@ app.use((req, res, next) => {
   try { decoded = decodeURIComponent(req.path || '/').toLowerCase(); } catch (e) { decoded = urlPath; }
 
   const TROLL_BLOCKED_RESP = '<div style="font-family:sans-serif;text-align:center;padding:50px;background:#111;color:#ff5722;min-height:100vh;">' +
-    '<h1>ðŸ•µï¸?â€?â™‚ï¸? Tentando espiar arquivos do Servidor?</h1>' +
-    '<p style="font-size:18px;color:#eee;">Acesso Negado! O mÃ¡ximo que vocÃª vai encontrar aqui Ã© o segredo do nosso molho especial. ðŸ?•</p>' +
+    '<h1>ðŸ•µï¿½?ï¿½?â™‚ï¿½? Tentando espiar arquivos do Servidor?</h1>' +
+    '<p style="font-size:18px;color:#eee;">Acesso Negado! O mÃ¡ximo que vocÃª vai encontrar aqui Ã© o segredo do nosso molho especial. ï¿½?ï¿½</p>' +
     '<small style="color:#777;">(Seu IP foi gravado nos logs de auditoria para fins de diversÃ£o da equipe)</small>' +
   '</div>';
 
@@ -758,7 +758,7 @@ app.use(express.static(path.join(__dirname, 'dist'), {
   }
 }));
 
-// â•?â•?â•? PLUGIN LOADER removido daqui â€” ver abaixo, apÃ³s definiÃ§Ã£o de db e superAdminAuth â•?â•?â•?
+// ï¿½?ï¿½?ï¿½? PLUGIN LOADER removido daqui â€” ver abaixo, apÃ³s definiÃ§Ã£o de db e superAdminAuth ï¿½?ï¿½?ï¿½?
 
 app.get('/super-admin', (req, res) => {
   const distPath = path.join(__dirname, 'dist', 'super-admin.html');
@@ -844,7 +844,7 @@ app.get('/api/public/tracking-config', (req, res) => {
 });
 
 // â”€â”€ SUPER ADMIN: Save Tracking Config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// â•?â•?â•?â•?â•?â•? MONITOR DE CADASTRO AO VIVO (super-admin vÃª o restaurante digitando) â•?â•?â•?â•?â•?â•?
+// ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½? MONITOR DE CADASTRO AO VIVO (super-admin vÃª o restaurante digitando) ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?
 app.post('/api/monitor/cadastro-progresso', (req, res) => {
   try {
     const b = req.body || {};
@@ -958,7 +958,7 @@ app.post('/api/super/anuncios/gerar-copy', superAdminAuth, (req, res) => {
       link: '/site'
     },
     clientes: {
-      titulo: 'ðŸ?• FaÃ§a seu Pedido Sem Filas e Ganhe Cupons Exclusivos!',
+      titulo: 'ï¿½?ï¿½ FaÃ§a seu Pedido Sem Filas e Ganhe Cupons Exclusivos!',
       subtitulo: 'Acesse o CardÃ¡pio Digital no seu celular, peÃ§a Ã  mesa ou pelo Delivery com PIX automÃ¡tico.',
       texto: 'Quer a melhor experiÃªncia gastronÃ´mica nos melhores restaurantes da sua cidade? PeÃ§a pelo cardÃ¡pio digital Chef Cozinha e aproveite descontos no Programa de Fidelidade!',
       call_to_action: 'Ver Restaurantes Parceiros',
@@ -1315,7 +1315,7 @@ async function superAdminAuth(req, res, next) {
   return res.status(401).json({ ok: false, erro: 'Acesso nÃ£o autorizado. Autentique-se novamente.' });
 }
 
-// â”€â”€â”€ GUARDA GLOBAL DE SEGURANÃ‡A SUPER-ADMIN (PROTEÃ‡ÃƒO 100% INVIOLÃ?VEL) â”€â”€â”€â”€â”€â”€â”€
+// â”€â”€â”€ GUARDA GLOBAL DE SEGURANÃ‡A SUPER-ADMIN (PROTEÃ‡ÃƒO 100% INVIOLï¿½?VEL) â”€â”€â”€â”€â”€â”€â”€
 app.use('/api/super', (req, res, next) => {
   // Rotas pÃºblicas do super admin: login
   if (req.path === '/login-local' || req.path === '/login-cloud') {
@@ -1616,7 +1616,7 @@ function coletarTelemetriaLocal() {
 setTimeout(() => { coletarTelemetriaLocal(); }, 3000);
 setInterval(() => { coletarTelemetriaLocal(); }, 5 * 60 * 1000);
 
-// â”€â”€ SUPER ADMIN: ROTAS DE USUÃ?RIOS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â”€â”€ SUPER ADMIN: ROTAS DE USUï¿½?RIOS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/super/usuarios', superAdminAuth, (req, res) => {
   masterDb.all(`SELECT id, restaurante_id, username, role, ativo, data_cadastro FROM usuarios ORDER BY id`, [], (err, rows) => {
     if (err) return res.json({ ok: false, erro: err.message });
@@ -2353,7 +2353,7 @@ app.get('/api/super/tenant-temas', superAdminAuth, (req, res) => {
 
 /* â”€â”€ PIX COPIA E COLA DINÃ‚MICO â”€â”€ extraÃ­do para plugins/pix/ â”€â”€ */
 
-// â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?
+// ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?
 // â”€â”€ TEMAS GLOBAIS MULTI-VERSÃƒO â”€â”€ extraÃ­do para plugins/temas/ â”€â”€
 masterDb.run(`CREATE TABLE IF NOT EXISTS temas_global (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -2507,7 +2507,7 @@ app.get('/api/super/clientes/:id', superAdminAuth, (req, res) => {
   });
 });
 
-// â”€â”€ SUPER ADMIN: FUNCIONÃ?RIOS POR RESTAURANTE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â”€â”€ SUPER ADMIN: FUNCIONï¿½?RIOS POR RESTAURANTE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/super/restaurantes/:id/funcionarios', superAdminAuth, (req, res) => {
   const restauranteId = parseInt(req.params.id);
   const tenantDbPath = getTenantDbPath(restauranteId);
@@ -2588,9 +2588,9 @@ app.post('/api/super/exec', superAdminAuth, (req, res) => {
 
 // â”€â”€ SUPER ADMIN: EQUIPE DE SUPORTE CRUD â”€â”€ extraÃ­do para plugins/equipe/ â”€â”€
 
-// â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?
+// ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?
 // PAINEL DE SUPORTE â€” AUTH, GESTÃƒO & GAMIFICAÃ‡ÃƒO
-// â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?
+// ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?
 
 const suporteJwtSecret = process.env.SUPORTE_JWT_SECRET || 'chef-suporte-secret-key-2026';
 
@@ -2873,7 +2873,7 @@ app.get('/api/suporte/minhas-conquistas', suporteAuth, (req, res) => {
   });
 });
 
-// â•?â•?â•? Ã?REA DE VENDAS E ONBOARDING DO SUPORTE â•?â•?â•?
+// ï¿½?ï¿½?ï¿½? ï¿½?REA DE VENDAS E ONBOARDING DO SUPORTE ï¿½?ï¿½?ï¿½?
 
 // GET /api/suporte/minhas-vendas â€” Vendas realizadas pelo suporte logado
 app.get('/api/suporte/minhas-vendas', suporteAuth, (req, res) => {
@@ -3234,7 +3234,7 @@ app.post('/api/super/criar-restaurante-completo', superAdminAuth, async (req, re
   } catch (e) { res.json({ ok: false, erro: e.message }); }
 });
 
-// â”€â”€ SUPER ADMIN: DOMÃ?NIOS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â”€â”€ SUPER ADMIN: DOMï¿½?NIOS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/super/dominios', superAdminAuth, (req, res) => {
   masterDb.all(`SELECT id, nome, slug, custom_domain FROM restaurantes ORDER BY id`, [], (err, rows) => {
     if (err) return res.json({ ok: false, erro: err.message });
@@ -3823,7 +3823,7 @@ function superAdminAuth(req, res, next) {
   return res.status(401).json({ ok: false, erro: 'Acesso nÃ£o autorizado ao Super Admin.' });
 }
 
-// â”€â”€â”€ GUARDA GLOBAL DE SEGURANÃ‡A SUPER-ADMIN (PROTEÃ‡ÃƒO 100% INVIOLÃ?VEL) â”€â”€â”€â”€â”€â”€â”€
+// â”€â”€â”€ GUARDA GLOBAL DE SEGURANÃ‡A SUPER-ADMIN (PROTEÃ‡ÃƒO 100% INVIOLï¿½?VEL) â”€â”€â”€â”€â”€â”€â”€
 app.use('/api/super', (req, res, next) => {
   if (req.path === '/login-local' || req.path === '/login-cloud') {
     return next();
@@ -4112,11 +4112,11 @@ if (deploymentConfig.isOnPremise()) {
 }
 // ------------------------------
 
-// â•?â•?â•? PLUGIN LOADER â€” carrega todos os plugins de plugins/ â•?â•?â•?
+// ï¿½?ï¿½?ï¿½? PLUGIN LOADER â€” carrega todos os plugins de plugins/ ï¿½?ï¿½?ï¿½?
 const pluginOptions = { JWT_SECRET, verificarToken, superAdminAuth, withTenant, resolveTenantId, nfceService, activeSockets, getTempoConectadoStr, licenseManager, verificarSenhaFuncionario, funcionarioPublico, masterDb, isValidId, exigirAdminSocket, resumirUserAgent, sendPush, upload: require('multer')(), getTenantDbPath, tenantDbs, isTenantFeatureEnabled, tenantContext, getPontoToken: () => pontoToken, getLocalTimestamp, getLocalDateOnly, safeFloat };
 loadPlugins({ app, db, masterDb, io, options: pluginOptions });
 
-// â•?â•?â•? NÃšCLEO DE CRIAÃ‡ÃƒO DE PEDIDO (compartilhado socket + REST offline-sync) â•?â•?â•?
+// ï¿½?ï¿½?ï¿½? NÃšCLEO DE CRIAÃ‡ÃƒO DE PEDIDO (compartilhado socket + REST offline-sync) ï¿½?ï¿½?ï¿½?
 // O corpo vive em io.on('connection') como _novoPedidoCore e Ã© exposto no
 // primeiro connect. Aqui garantimos licenÃ§a, dedupe por uuid e contexto ALS.
 function processarNovoPedido(pedido, opts = {}) {
@@ -4124,7 +4124,7 @@ function processarNovoPedido(pedido, opts = {}) {
   if (!core) return false;
   const reply = opts.reply || function () { };
   if (licenseManager.isRestricted()) {
-    reply('pedido_erro', { msg: 'âš ï¸? Sistema em modo restrito. Ative a licenÃ§a para adicionar pedidos.' });
+    reply('pedido_erro', { msg: 'âš ï¿½? Sistema em modo restrito. Ative a licenÃ§a para adicionar pedidos.' });
     return false;
   }
   if (!pedido || typeof pedido !== 'object') return false;
@@ -4272,7 +4272,7 @@ db.serialize(() => {
   db.run(`ALTER TABLE produtos ADD COLUMN foto_url TEXT`, (err) => { });
   db.run(`ALTER TABLE promocoes ADD COLUMN config TEXT`, (err) => { });
 
-  // --- ITENS MONTÃ?VEIS (Build Your Own) ---
+  // --- ITENS MONTï¿½?VEIS (Build Your Own) ---
   db.run(`CREATE TABLE IF NOT EXISTS itens_montaveis (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     produto_id INTEGER,
@@ -5199,7 +5199,7 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
       }
     });
 
-    // Criar Ã?ndices no SQLite para Desempenho e EficiÃªncia Extrema
+    // Criar ï¿½?ndices no SQLite para Desempenho e EficiÃªncia Extrema
     db.run("CREATE INDEX IF NOT EXISTS idx_pedidos_status ON pedidos(status)");
     db.run("CREATE INDEX IF NOT EXISTS idx_pedidos_local ON pedidos(localName)");
     db.run("CREATE INDEX IF NOT EXISTS idx_pedidos_payment ON pedidos(paymentMethod)");
@@ -5243,7 +5243,7 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
   db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('qr_order_flow', 'caixa')`);
   db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('qr_pix_key', '')`);
   db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('qr_pix_name', '')`);
-  // â•?â•?â•?â•?â•?â•? MÃ“DULO TOTEM (autoatendimento kiosk â€” upsell SaaS) â•?â•?â•?â•?â•?â•?
+  // ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½? MÃ“DULO TOTEM (autoatendimento kiosk â€” upsell SaaS) ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?
   db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('totem_enabled', 'false')`);
   db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('totem_mesa', 'Totem 1')`);
   db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('totem_idle_timeout', '45')`);
@@ -5281,7 +5281,7 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
   db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('jogos_pontos_vitoria', '10')`);
   db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('jogos_pontos_derrota', '2')`);
 
-  // â•?â•?â•?â•?â•?â•? TABELAS DE JOGOS/GAMIFICAÃ‡ÃƒO â•?â•?â•?â•?â•?â•?
+  // ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½? TABELAS DE JOGOS/GAMIFICAÃ‡ÃƒO ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?
   db.run(`
     CREATE TABLE IF NOT EXISTS jogos (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -5339,8 +5339,8 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
 
   // Inserir um cupom de teste inicial
   const testItems = [
-    { nome: "Cerveja Lata", emoji: "ðŸ?º", quantity: 1, sector: "Bar" },
-    { nome: "PorÃ§Ã£o Extra - Arroz/PirÃ£o/Salada", emoji: "ðŸ?š", quantity: 1, sector: "Cozinha 1" }
+    { nome: "Cerveja Lata", emoji: "ï¿½?ï¿½", quantity: 1, sector: "Bar" },
+    { nome: "PorÃ§Ã£o Extra - Arroz/PirÃ£o/Salada", emoji: "ï¿½?ï¿½", quantity: 1, sector: "Cozinha 1" }
   ];
   db.run(`INSERT OR IGNORE INTO cupons (codigo, itens_json, usado) VALUES (?, ?, 0)`, ['CUPOM-TESTE-123', JSON.stringify(testItems)]);
 
@@ -5358,38 +5358,38 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
   db.get('SELECT count(*) as count FROM produtos', (err, row) => {
     if (row && row.count === 0) {
       const defaultProducts = [
-        ['Cervejas', 'Heineken 600ml', 21.00, 'ðŸ?º', false, 'Bar', 'Em espera'],
-        ['Cervejas', 'Stella 600ml', 21.00, 'ðŸ?º', false, 'Bar', 'Em espera'],
-        ['Cervejas', 'Spaten 600ml', 18.00, 'ðŸ?º', false, 'Bar', 'Em espera'],
-        ['Cervejas', 'Budweiser 600ml', 18.00, 'ðŸ?º', false, 'Bar', 'Em espera'],
-        ['Cervejas', 'Amstel 600ml', 18.00, 'ðŸ?º', false, 'Bar', 'Em espera'],
-        ['Cervejas', 'Eisenbahn 600ml', 18.00, 'ðŸ?º', false, 'Bar', 'Em espera'],
-        ['Cervejas', 'Original 600ml', 18.00, 'ðŸ?º', false, 'Bar', 'Em espera'],
-        ['Cervejas', 'Brahma 600ml', 15.00, 'ðŸ?º', false, 'Bar', 'Em espera'],
-        ['Cervejas', 'Cerveja Lata', 10.00, 'ðŸ?º', false, 'Bar', 'Em espera'],
-        ['Cervejas', 'Cerveja Artesanal', 25.00, 'ðŸ?º', false, 'Bar', 'Em espera'],
+        ['Cervejas', 'Heineken 600ml', 21.00, 'ï¿½?ï¿½', false, 'Bar', 'Em espera'],
+        ['Cervejas', 'Stella 600ml', 21.00, 'ï¿½?ï¿½', false, 'Bar', 'Em espera'],
+        ['Cervejas', 'Spaten 600ml', 18.00, 'ï¿½?ï¿½', false, 'Bar', 'Em espera'],
+        ['Cervejas', 'Budweiser 600ml', 18.00, 'ï¿½?ï¿½', false, 'Bar', 'Em espera'],
+        ['Cervejas', 'Amstel 600ml', 18.00, 'ï¿½?ï¿½', false, 'Bar', 'Em espera'],
+        ['Cervejas', 'Eisenbahn 600ml', 18.00, 'ï¿½?ï¿½', false, 'Bar', 'Em espera'],
+        ['Cervejas', 'Original 600ml', 18.00, 'ï¿½?ï¿½', false, 'Bar', 'Em espera'],
+        ['Cervejas', 'Brahma 600ml', 15.00, 'ï¿½?ï¿½', false, 'Bar', 'Em espera'],
+        ['Cervejas', 'Cerveja Lata', 10.00, 'ï¿½?ï¿½', false, 'Bar', 'Em espera'],
+        ['Cervejas', 'Cerveja Artesanal', 25.00, 'ï¿½?ï¿½', false, 'Bar', 'Em espera'],
         ['Bebidas', 'Refrigerante Lata', 8.00, 'ðŸ¥¤', false, 'Bar', 'Em espera'],
-        ['Bebidas', 'Ã?gua sem gÃ¡s', 4.00, 'ðŸ’§', false, 'Bar', 'Em espera'],
-        ['Bebidas', 'Ã?gua com gÃ¡s', 5.00, 'ðŸ’§', false, 'Bar', 'Em espera'],
+        ['Bebidas', 'ï¿½?gua sem gÃ¡s', 4.00, 'ðŸ’§', false, 'Bar', 'Em espera'],
+        ['Bebidas', 'ï¿½?gua com gÃ¡s', 5.00, 'ðŸ’§', false, 'Bar', 'Em espera'],
         ['Bebidas', 'TÃ´nica Lata', 8.80, 'ðŸ¥¤', false, 'Bar', 'Em espera'],
         ['Bebidas', 'H2O Garrafa', 8.80, 'ðŸ’§', false, 'Bar', 'Em espera'],
         ['Bebidas', 'Citrus Lata', 8.80, 'ðŸ¥¤', false, 'Bar', 'Em espera'],
         ['Bebidas', 'Suco copo/lata', 8.80, 'ðŸ§ƒ', false, 'Bar', 'Em espera'],
-        ['Bebidas', 'Suco Jarra Laranja', 18.00, 'ðŸ?Š', false, 'Bar', 'Em espera'],
-        ['Bebidas', 'Suco Jarra LimÃ£o', 23.00, 'ðŸ?‹', false, 'Bar', 'Em espera'],
+        ['Bebidas', 'Suco Jarra Laranja', 18.00, 'ï¿½?ï¿½', false, 'Bar', 'Em espera'],
+        ['Bebidas', 'Suco Jarra LimÃ£o', 23.00, 'ï¿½?ï¿½', false, 'Bar', 'Em espera'],
         ['Bebidas', 'EnergÃ©tico Baly', 18.00, 'âš¡', false, 'Bar', 'Em espera'],
         ['Bebidas', 'EnergÃ©tico Redbull', 18.00, 'âš¡', false, 'Bar', 'Em espera'],
         ['Bebidas', 'EnergÃ©tico Monster', 18.00, 'âš¡', false, 'Bar', 'Em espera'],
-        ['Bebidas', 'Heineken 0%', 15.00, 'ðŸ?º', false, 'Bar', 'Em espera'],
-        ['Bebidas', 'Brahma 0%', 10.00, 'ðŸ?º', false, 'Bar', 'Em espera'],
-        ['Caipirinhas', 'Caipirinha Smirnoff', 20.00, 'ðŸ?¹', false, 'Bar', 'Em espera'],
-        ['Caipirinhas', 'Caipirinha Bacardi', 20.00, 'ðŸ?¹', false, 'Bar', 'Em espera'],
-        ['Caipirinhas', 'Caipirinha CachaÃ§a Branca', 20.00, 'ðŸ?¹', false, 'Bar', 'Em espera'],
-        ['Caipirinhas', 'Caipirinha CachaÃ§a Amarela', 20.00, 'ðŸ?¹', false, 'Bar', 'Em espera'],
-        ['Caipirinhas', 'Caipirinha Vinho', 20.00, 'ðŸ?·', false, 'Bar', 'Em espera'],
-        ['Caipirinhas', 'Caipirinha Skyy', 20.00, 'ðŸ?¹', false, 'Bar', 'Em espera'],
-        ['Caipirinhas', 'Caipirinha Absolut', 26.00, 'ðŸ?¹', false, 'Bar', 'Em espera'],
-        ['Caipirinhas', 'Caipirinha Havana', 28.00, 'ðŸ?¹', false, 'Bar', 'Em espera'],
+        ['Bebidas', 'Heineken 0%', 15.00, 'ï¿½?ï¿½', false, 'Bar', 'Em espera'],
+        ['Bebidas', 'Brahma 0%', 10.00, 'ï¿½?ï¿½', false, 'Bar', 'Em espera'],
+        ['Caipirinhas', 'Caipirinha Smirnoff', 20.00, 'ï¿½?ï¿½', false, 'Bar', 'Em espera'],
+        ['Caipirinhas', 'Caipirinha Bacardi', 20.00, 'ï¿½?ï¿½', false, 'Bar', 'Em espera'],
+        ['Caipirinhas', 'Caipirinha CachaÃ§a Branca', 20.00, 'ï¿½?ï¿½', false, 'Bar', 'Em espera'],
+        ['Caipirinhas', 'Caipirinha CachaÃ§a Amarela', 20.00, 'ï¿½?ï¿½', false, 'Bar', 'Em espera'],
+        ['Caipirinhas', 'Caipirinha Vinho', 20.00, 'ï¿½?ï¿½', false, 'Bar', 'Em espera'],
+        ['Caipirinhas', 'Caipirinha Skyy', 20.00, 'ï¿½?ï¿½', false, 'Bar', 'Em espera'],
+        ['Caipirinhas', 'Caipirinha Absolut', 26.00, 'ï¿½?ï¿½', false, 'Bar', 'Em espera'],
+        ['Caipirinhas', 'Caipirinha Havana', 28.00, 'ï¿½?ï¿½', false, 'Bar', 'Em espera'],
         ['Doses', 'Smirnoff', 12.00, 'ðŸ¥ƒ', false, 'Bar', 'Em espera'],
         ['Doses', 'Bacardi', 12.00, 'ðŸ¥ƒ', false, 'Bar', 'Em espera'],
         ['Doses', 'Steinhager', 11.00, 'ðŸ¥ƒ', false, 'Bar', 'Em espera'],
@@ -5398,54 +5398,54 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
         ['Doses', 'Passport', 13.00, 'ðŸ¥ƒ', false, 'Bar', 'Em espera'],
         ['Doses', 'Licor 43', 28.00, 'ðŸ¥ƒ', false, 'Bar', 'Em espera'],
         ['Doses', 'Conhaque', 28.00, 'ðŸ¥ƒ', false, 'Bar', 'Em espera'],
-        ['Doses', 'Gin', 13.00, 'ðŸ?¸', false, 'Bar', 'Em espera'],
+        ['Doses', 'Gin', 13.00, 'ï¿½?ï¿½', false, 'Bar', 'Em espera'],
         ['Doses', 'Campari', 15.00, 'ðŸ¥ƒ', false, 'Bar', 'Em espera'],
-        ['PorÃ§Ãµes (800g)', 'Combinado SÃ£o JosÃ© (800g)', 134.00, 'ðŸ?¤', false, 'Cozinha 1', 'Em espera'],
-        ['PorÃ§Ãµes (800g)', 'Anchova Frita (6 postas) (800g)', 69.00, 'ðŸ?Ÿ', false, 'Cozinha 1', 'Em espera'],
-        ['PorÃ§Ãµes (800g)', 'Peixe Frito Misturinha (800g)', 59.00, 'ðŸ?Ÿ', false, 'Cozinha 1', 'Em espera'],
-        ['PorÃ§Ãµes (800g)', 'Isca de Peixe Ã  dorÃª (800g)', 74.00, 'ðŸ?Ÿ', false, 'Cozinha 1', 'Em espera'],
-        ['PorÃ§Ãµes (800g)', 'CamarÃ£o ao Bafo (800g)', 99.00, 'ðŸ?¤', false, 'Cozinha 1', 'Em espera'],
-        ['PorÃ§Ãµes (800g)', 'CamarÃ£o Ã  milanesa (800g)', 169.00, 'ðŸ?¤', false, 'Cozinha 1', 'Em espera'],
-        ['PorÃ§Ãµes (800g)', 'CamarÃ£o alho e Ã³leo (800g)', 119.90, 'ðŸ?¤', false, 'Cozinha 1', 'Em espera'],
+        ['PorÃ§Ãµes (800g)', 'Combinado SÃ£o JosÃ© (800g)', 134.00, 'ï¿½?ï¿½', false, 'Cozinha 1', 'Em espera'],
+        ['PorÃ§Ãµes (800g)', 'Anchova Frita (6 postas) (800g)', 69.00, 'ï¿½?ï¿½', false, 'Cozinha 1', 'Em espera'],
+        ['PorÃ§Ãµes (800g)', 'Peixe Frito Misturinha (800g)', 59.00, 'ï¿½?ï¿½', false, 'Cozinha 1', 'Em espera'],
+        ['PorÃ§Ãµes (800g)', 'Isca de Peixe Ã  dorÃª (800g)', 74.00, 'ï¿½?ï¿½', false, 'Cozinha 1', 'Em espera'],
+        ['PorÃ§Ãµes (800g)', 'CamarÃ£o ao Bafo (800g)', 99.00, 'ï¿½?ï¿½', false, 'Cozinha 1', 'Em espera'],
+        ['PorÃ§Ãµes (800g)', 'CamarÃ£o Ã  milanesa (800g)', 169.00, 'ï¿½?ï¿½', false, 'Cozinha 1', 'Em espera'],
+        ['PorÃ§Ãµes (800g)', 'CamarÃ£o alho e Ã³leo (800g)', 119.90, 'ï¿½?ï¿½', false, 'Cozinha 1', 'Em espera'],
         ['PorÃ§Ãµes (800g)', 'Ostra ao Bafo (dÃºzia) (800g)', 34.00, 'ðŸ¦ª', false, 'Cozinha 1', 'Em espera'],
         ['PorÃ§Ãµes (800g)', 'Ostra Gratinada (dÃºzia) (800g)', 69.00, 'ðŸ¦ª', false, 'Cozinha 1', 'Em espera'],
         ['PorÃ§Ãµes (800g)', 'Bolinho de Siri (4 unidades) (800g)', 44.90, 'ðŸ¦€', false, 'Cozinha 1', 'Em espera'],
         ['PorÃ§Ãµes (800g)', 'Marisco ao Bafo (1 kg) (800g)', 45.00, 'ðŸ¦ª', false, 'Cozinha 1', 'Em espera'],
         ['PorÃ§Ãµes (800g)', 'Lula em anÃ©is a dorÃª (800g)', 89.90, 'ðŸ¦‘', false, 'Cozinha 1', 'Em espera'],
-        ['PorÃ§Ãµes (800g)', 'Frango Ã  Passarinho (1 kg) (800g)', 59.00, 'ðŸ?—', false, 'Cozinha 1', 'Em espera'],
-        ['PorÃ§Ãµes (800g)', 'Fritas (800g)', 49.00, 'ðŸ?Ÿ', false, 'Cozinha 1', 'Em espera'],
+        ['PorÃ§Ãµes (800g)', 'Frango Ã  Passarinho (1 kg) (800g)', 59.00, 'ï¿½?ï¿½', false, 'Cozinha 1', 'Em espera'],
+        ['PorÃ§Ãµes (800g)', 'Fritas (800g)', 49.00, 'ï¿½?ï¿½', false, 'Cozinha 1', 'Em espera'],
         ['PorÃ§Ãµes (800g)', 'PorÃ§Ã£o 4 PastÃ©is - CamarÃ£o', 28.00, 'ðŸ¥Ÿ', false, 'Cozinha 1', 'Em espera'],
         ['PorÃ§Ãµes (800g)', 'PorÃ§Ã£o 4 PastÃ©is - BerbigÃ£o', 28.00, 'ðŸ¥Ÿ', false, 'Cozinha 1', 'Em espera'],
         ['PorÃ§Ãµes (800g)', 'PorÃ§Ã£o 4 PastÃ©is - Queijo', 28.00, 'ðŸ¥Ÿ', false, 'Cozinha 1', 'Em espera'],
-        ['PorÃ§Ãµes (500g)', '1/2 Peixe Frito Misturinha (500g)', 48.00, 'ðŸ?Ÿ', false, 'Cozinha 1', 'Em espera'],
-        ['PorÃ§Ãµes (500g)', '1/2 Isca de Peixe Ã  dorÃª (500g)', 64.00, 'ðŸ?Ÿ', false, 'Cozinha 1', 'Em espera'],
-        ['PorÃ§Ãµes (500g)', '1/2 CamarÃ£o Maluquinho (500g)', 84.90, 'ðŸ?¤', false, 'Cozinha 1', 'Em espera'],
-        ['PorÃ§Ãµes (500g)', '1/2 CamarÃ£o ao Bafo (500g)', 99.00, 'ðŸ?¤', false, 'Cozinha 1', 'Em espera'],
-        ['PorÃ§Ãµes (500g)', '1/2 CamarÃ£o Ã  milanesa (500g)', 135.00, 'ðŸ?¤', false, 'Cozinha 1', 'Em espera'],
-        ['PorÃ§Ãµes (500g)', '1/2 CamarÃ£o alho e Ã³leo (500g)', 99.90, 'ðŸ?¤', false, 'Cozinha 1', 'Em espera'],
+        ['PorÃ§Ãµes (500g)', '1/2 Peixe Frito Misturinha (500g)', 48.00, 'ï¿½?ï¿½', false, 'Cozinha 1', 'Em espera'],
+        ['PorÃ§Ãµes (500g)', '1/2 Isca de Peixe Ã  dorÃª (500g)', 64.00, 'ï¿½?ï¿½', false, 'Cozinha 1', 'Em espera'],
+        ['PorÃ§Ãµes (500g)', '1/2 CamarÃ£o Maluquinho (500g)', 84.90, 'ï¿½?ï¿½', false, 'Cozinha 1', 'Em espera'],
+        ['PorÃ§Ãµes (500g)', '1/2 CamarÃ£o ao Bafo (500g)', 99.00, 'ï¿½?ï¿½', false, 'Cozinha 1', 'Em espera'],
+        ['PorÃ§Ãµes (500g)', '1/2 CamarÃ£o Ã  milanesa (500g)', 135.00, 'ï¿½?ï¿½', false, 'Cozinha 1', 'Em espera'],
+        ['PorÃ§Ãµes (500g)', '1/2 CamarÃ£o alho e Ã³leo (500g)', 99.90, 'ï¿½?ï¿½', false, 'Cozinha 1', 'Em espera'],
         ['PorÃ§Ãµes (500g)', '1/2 Ostra ao Bafo (6 unidades)', 16.90, 'ðŸ¦ª', false, 'Cozinha 1', 'Em espera'],
         ['PorÃ§Ãµes (500g)', '1/2 Ostra Gratinada (6 unidades)', 54.00, 'ðŸ¦ª', false, 'Cozinha 1', 'Em espera'],
         ['PorÃ§Ãµes (500g)', 'Bolinho de Siri (1 unidade)', 12.00, 'ðŸ¦€', false, 'Cozinha 1', 'Em espera'],
         ['PorÃ§Ãµes (500g)', '1/2 Lula a dorÃª (500g)', 79.90, 'ðŸ¦‘', false, 'Cozinha 1', 'Em espera'],
-        ['PorÃ§Ãµes (500g)', 'FilÃ© de Frango Individual', 19.90, 'ðŸ?—', false, 'Cozinha 1', 'Em espera'],
-        ['PorÃ§Ãµes (500g)', 'FilÃ© de Peixe Individual', 19.90, 'ðŸ?Ÿ', false, 'Cozinha 1', 'Em espera'],
-        ['PorÃ§Ãµes (500g)', '1/2 Fritas (500g)', 39.00, 'ðŸ?Ÿ', false, 'Cozinha 1', 'Em espera'],
+        ['PorÃ§Ãµes (500g)', 'FilÃ© de Frango Individual', 19.90, 'ï¿½?ï¿½', false, 'Cozinha 1', 'Em espera'],
+        ['PorÃ§Ãµes (500g)', 'FilÃ© de Peixe Individual', 19.90, 'ï¿½?ï¿½', false, 'Cozinha 1', 'Em espera'],
+        ['PorÃ§Ãµes (500g)', '1/2 Fritas (500g)', 39.00, 'ï¿½?ï¿½', false, 'Cozinha 1', 'Em espera'],
         ['PorÃ§Ãµes (500g)', 'Pastel 1 unidade - CamarÃ£o', 8.00, 'ðŸ¥Ÿ', false, 'Cozinha 1', 'Em espera'],
         ['PorÃ§Ãµes (500g)', 'Pastel 1 unidade - BerbigÃ£o', 8.00, 'ðŸ¥Ÿ', false, 'Cozinha 1', 'Em espera'],
         ['PorÃ§Ãµes (500g)', 'Pastel 1 unidade - Queijo', 8.00, 'ðŸ¥Ÿ', false, 'Cozinha 1', 'Em espera'],
-        ['A La Carte', 'PirÃ£o SÃ£o JosÃ© (700g) (2 pessoas)', 164.90, 'ðŸ?²', false, 'Cozinha 1', 'Em espera'],
-        ['A La Carte', 'SalmÃ£o Ã  Moda da Casa (500g)', 209.00, 'ðŸ?Ÿ', false, 'Cozinha 1', 'Em espera'],
-        ['A La Carte', 'FilÃ© de Pescada Ã  Milanesa (800g)', 154.00, 'ðŸ?Ÿ', false, 'Cozinha 1', 'Em espera'],
-        ['A La Carte', '1/2 FilÃ© Pescada Ã  Milanesa (500g)', 134.00, 'ðŸ?Ÿ', false, 'Cozinha 1', 'Em espera'],
-        ['A La Carte', 'FilÃ© de Pescada Ã  Milanesa ao Molho de CamarÃ£o (800g)', 209.00, 'ðŸ?Ÿ', false, 'Cozinha 1', 'Em espera'],
-        ['A La Carte', '1/2 FilÃ© de Pescada ao Molho de CamarÃ£o (500g)', 178.00, 'ðŸ?Ÿ', false, 'Cozinha 1', 'Em espera'],
-        ['A La Carte', 'Peixe Grelhado Anchova (Chapa)', 118.00, 'ðŸ?Ÿ', false, 'Cozinha 1', 'Em espera'],
-        ['A La Carte', 'Peixe Frito em Postas (6 postas)', 115.00, 'ðŸ?Ÿ', false, 'Cozinha 1', 'Em espera'],
-        ['A La Carte', 'CamarÃ£o Ã  Milanesa (800g)', 209.00, 'ðŸ?¤', false, 'Cozinha 1', 'Em espera'],
-        ['A La Carte', '1/2 CamarÃ£o Ã  Milanesa (500g)', 181.00, 'ðŸ?¤', false, 'Cozinha 1', 'Em espera'],
-        ['A La Carte', 'FilÃ© de Frango Ã  Milanesa (800g)', 119.00, 'ðŸ?—', false, 'Cozinha 1', 'Em espera'],
-        ['A La Carte', '1/2 FilÃ© de Frango Ã  Milanesa (500g)', 99.00, 'ðŸ?—', false, 'Cozinha 1', 'Em espera'],
-        ['A La Carte', 'PorÃ§Ã£o Extra - Arroz/PirÃ£o/Salada', 20.00, 'ðŸ?š', false, 'Cozinha 1', 'Em espera']
+        ['A La Carte', 'PirÃ£o SÃ£o JosÃ© (700g) (2 pessoas)', 164.90, 'ï¿½?ï¿½', false, 'Cozinha 1', 'Em espera'],
+        ['A La Carte', 'SalmÃ£o Ã  Moda da Casa (500g)', 209.00, 'ï¿½?ï¿½', false, 'Cozinha 1', 'Em espera'],
+        ['A La Carte', 'FilÃ© de Pescada Ã  Milanesa (800g)', 154.00, 'ï¿½?ï¿½', false, 'Cozinha 1', 'Em espera'],
+        ['A La Carte', '1/2 FilÃ© Pescada Ã  Milanesa (500g)', 134.00, 'ï¿½?ï¿½', false, 'Cozinha 1', 'Em espera'],
+        ['A La Carte', 'FilÃ© de Pescada Ã  Milanesa ao Molho de CamarÃ£o (800g)', 209.00, 'ï¿½?ï¿½', false, 'Cozinha 1', 'Em espera'],
+        ['A La Carte', '1/2 FilÃ© de Pescada ao Molho de CamarÃ£o (500g)', 178.00, 'ï¿½?ï¿½', false, 'Cozinha 1', 'Em espera'],
+        ['A La Carte', 'Peixe Grelhado Anchova (Chapa)', 118.00, 'ï¿½?ï¿½', false, 'Cozinha 1', 'Em espera'],
+        ['A La Carte', 'Peixe Frito em Postas (6 postas)', 115.00, 'ï¿½?ï¿½', false, 'Cozinha 1', 'Em espera'],
+        ['A La Carte', 'CamarÃ£o Ã  Milanesa (800g)', 209.00, 'ï¿½?ï¿½', false, 'Cozinha 1', 'Em espera'],
+        ['A La Carte', '1/2 CamarÃ£o Ã  Milanesa (500g)', 181.00, 'ï¿½?ï¿½', false, 'Cozinha 1', 'Em espera'],
+        ['A La Carte', 'FilÃ© de Frango Ã  Milanesa (800g)', 119.00, 'ï¿½?ï¿½', false, 'Cozinha 1', 'Em espera'],
+        ['A La Carte', '1/2 FilÃ© de Frango Ã  Milanesa (500g)', 99.00, 'ï¿½?ï¿½', false, 'Cozinha 1', 'Em espera'],
+        ['A La Carte', 'PorÃ§Ã£o Extra - Arroz/PirÃ£o/Salada', 20.00, 'ï¿½?ï¿½', false, 'Cozinha 1', 'Em espera']
       ];
       const insertProd = `INSERT INTO produtos (categoria, nome, preco, emoji, hasAddons, setor, status_inicial) VALUES (?, ?, ?, ?, ?, ?, ?)`;
       defaultProducts.forEach(p => {
@@ -6053,7 +6053,7 @@ io.on('connection', (socket) => {
 
   let mpPollInterval = null;
 
-  // --- CAPTURA AUTOMÃ?TICA DE TODOS OS LOGS DE SOCKET.IO + AÃ‡Ã•ES DO USUÃ?RIO ---
+  // --- CAPTURA AUTOMï¿½?TICA DE TODOS OS LOGS DE SOCKET.IO + AÃ‡Ã•ES DO USUï¿½?RIO ---
   socket.onAny((event, ...args) => {
     // Filtra pings, heartbeats e requisiÃ§Ãµes iniciais de leitura para manter o terminal limpo
     if ([
@@ -6087,9 +6087,9 @@ io.on('connection', (socket) => {
     // Log bonitÃ£o no terminal do servidor com detalhes completos da aÃ§Ã£o/botÃ£o
     if (event === 'registrar_clique_botao') {
       const btnInfo = args[0] || {};
-      console.log(`[Cli-Click] ðŸ‘¤ Usuario: ${operador} (${cargo}) | ðŸ?ª Rest. ID: #${socketTenantId} | ðŸ“„ Tela: ${btnInfo.pagina || 'Sistema'} | ðŸ”˜ Botao/Acao: '${btnInfo.botao || event}'`);
+      console.log(`[Cli-Click] ðŸ‘¤ Usuario: ${operador} (${cargo}) | ï¿½?ï¿½ Rest. ID: #${socketTenantId} | ðŸ“„ Tela: ${btnInfo.pagina || 'Sistema'} | ðŸ”˜ Botao/Acao: '${btnInfo.botao || event}'`);
     } else {
-      console.log(`[Socket] ðŸ‘¤ Usuario: ${operador} (${cargo}) | ðŸ?ª Rest. ID: #${socketTenantId} | âš¡ Evento: ${event} | ðŸ“¦ Dados: ${payload || '{}'}`);
+      console.log(`[Socket] ðŸ‘¤ Usuario: ${operador} (${cargo}) | ï¿½?ï¿½ Rest. ID: #${socketTenantId} | âš¡ Evento: ${event} | ðŸ“¦ Dados: ${payload || '{}'}`);
     }
 
     tenantContext.run(socketTenantId, () => {
@@ -6103,7 +6103,7 @@ io.on('connection', (socket) => {
     });
   });
 
-  // --- AUDITORIA DE ACESSO E NAVEGAÃ‡ÃƒO DE PÃ?GINAS ---
+  // --- AUDITORIA DE ACESSO E NAVEGAÃ‡ÃƒO DE Pï¿½?GINAS ---
   socket.on('registrar_acesso_pagina', (data) => {
     if (!data) return;
     const { pagina, titulo, autorizado, motivo } = data;
@@ -6111,7 +6111,7 @@ io.on('connection', (socket) => {
     const operador = (conn && conn.user && conn.user !== 'Visitante') ? conn.user : 'Operador do Sistema';
     const cargo = conn?.cargo || 'Operador';
 
-    console.log(`[Cli-Click] ðŸ“„ NAVEGACAO | ðŸ‘¤ ${operador} (${cargo}) | ðŸ?ª Rest. ID: #${socketTenantId} | SeÃ§Ã£o: ${titulo || pagina}`);
+    console.log(`[Cli-Click] ðŸ“„ NAVEGACAO | ðŸ‘¤ ${operador} (${cargo}) | ï¿½?ï¿½ Rest. ID: #${socketTenantId} | SeÃ§Ã£o: ${titulo || pagina}`);
 
     const acao = (autorizado === false) ? 'TENTATIVA_ACESSO_NEGADO' : 'ACESSO_PAGINA';
     const detalhes = `Acessou/Navegou para a seÃ§Ã£o: ${titulo || pagina || 'Sistema'} (${pagina || ''})`;
@@ -6599,7 +6599,7 @@ io.on('connection', (socket) => {
           itens.forEach((item) => {
             db.run(
               `INSERT INTO pedidos (productName, productEmoji, quantity, total, status, localName, userName, time, sector, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
-              [item.nome + ' (Resgate)', item.emoji || 'ðŸŽ?Â?', item.quantity || 1, '0,00', 'Em espera', mesaName, userName || 'GarÃ§om', timeStr, item.sector || 'Bar']
+              [item.nome + ' (Resgate)', item.emoji || 'ï¿½?ï¿½?', item.quantity || 1, '0,00', 'Em espera', mesaName, userName || 'GarÃ§om', timeStr, item.sector || 'Bar']
             );
             hasInserted = true;
           });
@@ -6608,7 +6608,7 @@ io.on('connection', (socket) => {
           if (cupom.valor_tipo === 'desconto_fixo' && cupom.valor > 0) {
             db.run(
               `INSERT INTO pedidos (productName, productEmoji, quantity, total, status, localName, userName, time, sector, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
-              ['Desconto Promocional', 'ðŸ??Â·ï¸?Â?', 1, '-' + cupom.valor.toFixed(2).replace('.', ','), 'Pronto', mesaName, userName || 'GarÃ§om', timeStr, 'Caixa']
+              ['Desconto Promocional', 'ï¿½??Â·ï¿½?ï¿½?', 1, '-' + cupom.valor.toFixed(2).replace('.', ','), 'Pronto', mesaName, userName || 'GarÃ§om', timeStr, 'Caixa']
             );
             hasInserted = true;
           } else if (cupom.valor_tipo === 'preco_fixo' && cupom.valor > 0) {
@@ -6789,7 +6789,7 @@ io.on('connection', (socket) => {
               if (comboBonus) {
                 db.get(`SELECT emoji, categoria FROM produtos WHERE nome = ?`, [comboBonus], (err, bonusProd) => {
                   const bonusSector = (bonusProd && bonusProd.categoria === 'Bebidas') ? 'Bar' : 'Cozinha 1';
-                  const bonusEmoji = bonusProd ? bonusProd.emoji : 'ðŸŽ?Â?';
+                  const bonusEmoji = bonusProd ? bonusProd.emoji : 'ï¿½?ï¿½?';
                   db.run(
                     `INSERT INTO pedidos (productName, productEmoji, quantity, time, localName, userName, total, status, sector, mesa_comanda, createdAt)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
@@ -6849,7 +6849,7 @@ io.on('connection', (socket) => {
   if (!global.__chefNovoPedidoCore) global.__chefNovoPedidoCore = _novoPedidoCore;
   socket.on('novo_pedido', (pedido) => processarNovoPedido(pedido, { tenantId: socketTenantId, reply: (ev, pl) => socket.emit(ev, pl) }));
 
-  // --- ANALYTICS DE ENGAJAMENTO / DWELL-TIME DO CARDÃ?PIO DIGITAL ---
+  // --- ANALYTICS DE ENGAJAMENTO / DWELL-TIME DO CARDï¿½?PIO DIGITAL ---
   socket.on('cardapio_analytics_engajamento', (data) => {
     try {
       const tenantId = socketTenantId || (data && data.restaurante_id) || '1';
@@ -6936,7 +6936,7 @@ io.on('connection', (socket) => {
             prontoEm: row.prontoEm
           });
           // Persiste tambÃ©m como alerta: cliente que fechou a tela recebe ao reabrir
-          const iconesStatus = { 'Em preparo': 'ðŸ‘¨â€?ðŸ?³', 'Pronto': 'âœ…', 'Entregue': 'ðŸ?½ï¸?', 'Recusado': 'âš ï¸?' };
+          const iconesStatus = { 'Em preparo': 'ðŸ‘¨ï¿½?ï¿½?ï¿½', 'Pronto': 'âœ…', 'Entregue': 'ï¿½?ï¿½ï¿½?', 'Recusado': 'âš ï¿½?' };
           avisarClienteMesa(row.localName, {
             tipo: 'status',
             titulo: `Pedido ${row.status}`,
@@ -7159,7 +7159,7 @@ io.on('connection', (socket) => {
     const { mesa, cliente_nome, itens, valor_total, pago_pix, chave_pix, cliente_id, comanda_nome, is_fila, requires_validacao, mesa_origem } = data;
     const needsValidation = requires_validacao ? 1 : 0;
 
-    // â•?â•?â•?â•?â•?â•? GATE DO MÃ“DULO TOTEM (upsell SaaS) â•?â•?â•?â•?â•?â•?
+    // ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½? GATE DO MÃ“DULO TOTEM (upsell SaaS) ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?
     // Pedidos vindos do totem (origem marcada ou pseudo-mesa "Totem ...") sÃ³ passam
     // se a feature 'totem' estiver contratada E o dono tiver o mÃ³dulo ligado.
     const _ehTotem = (data && data.origem === 'totem') || /^totem/i.test(String(mesa || ''));
@@ -7240,7 +7240,7 @@ io.on('connection', (socket) => {
 
       checkCaixa(turno => {
         if (!turno) {
-          socket.emit('aprovar_pedido_qr_resposta', { success: false, error: 'âš ï¸?Â? O caixa estÃ¡ fechado! Abra o caixa antes de aprovar pedidos.' });
+          socket.emit('aprovar_pedido_qr_resposta', { success: false, error: 'âš ï¿½?ï¿½? O caixa estÃ¡ fechado! Abra o caixa antes de aprovar pedidos.' });
           return;
         }
 
@@ -7277,7 +7277,7 @@ io.on('connection', (socket) => {
             db.run(
               `INSERT INTO pedidos (productName, productEmoji, quantity, time, localName, userName, total, status, sector, turno_id, mesa_comanda, cliente_id, observations, composicoes, createdAt) 
                VALUES (?, ?, ?, ?, ?, 'QR Code', ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
-              [item.productName, item.productEmoji || 'ðŸ?½ï¸?', item.quantity, timeStr, mesaName, String(item.total).replace('.', ','), status, item.sector || 'Cozinha 1', turno.id, comandaNome || null, pendingOrder.cliente_id || null, item.observations || '', JSON.stringify(item.composicoes || [])],
+              [item.productName, item.productEmoji || 'ï¿½?ï¿½ï¿½?', item.quantity, timeStr, mesaName, String(item.total).replace('.', ','), status, item.sector || 'Cozinha 1', turno.id, comandaNome || null, pendingOrder.cliente_id || null, item.observations || '', JSON.stringify(item.composicoes || [])],
               function (errInsert) {
                 if (errInsert) {
                   hasError = true;
@@ -7289,7 +7289,7 @@ io.on('connection', (socket) => {
                   io.emit('pedido_adicionado', {
                     id: insertedId,
                     productName: item.productName,
-                    productEmoji: item.productEmoji || 'ðŸ?½ï¸?',
+                    productEmoji: item.productEmoji || 'ï¿½?ï¿½ï¿½?',
                     quantity: item.quantity,
                     time: timeStr,
                     localName: mesaName,
@@ -7846,7 +7846,7 @@ io.on('connection', (socket) => {
         const qtd = parseInt(item.qtd) || 1;
         const precoUnit = parseFloat(item.preco) || 0;
         const itemTotal = (precoUnit * qtd).toFixed(2);
-        const emoji = item.emoji || 'ðŸ?½ï¸?';
+        const emoji = item.emoji || 'ï¿½?ï¿½ï¿½?';
 
         db.run(insertStmt, [
           item.nome || 'Item',
@@ -7874,7 +7874,7 @@ io.on('connection', (socket) => {
                 broadcastHubPedidos();
                 broadcastPedidos();
                 socket.emit('hub_pedido_enviado_cozinha', { hubId: idNum, pedidoIds, comanda: comandaNome });
-                sendPush('garcom', 'ðŸ?½ï¸? Novo Delivery!', `${canal} â€” ${clienteNome} â€” ${itens.length} item(ns)`, 'hub-' + idNum, '/fila-pedidos.html');
+                sendPush('garcom', 'ï¿½?ï¿½ï¿½? Novo Delivery!', `${canal} â€” ${clienteNome} â€” ${itens.length} item(ns)`, 'hub-' + idNum, '/fila-pedidos.html');
               });
           }
         });
@@ -8324,7 +8324,7 @@ io.on('connection', (socket) => {
                   localName: mesaName,
                   userName: 'App GarÃ§om',
                   productName: produto + ' (PrÃªmio Fidelidade)',
-                  productEmoji: 'ðŸŽ?Â?',
+                  productEmoji: 'ï¿½?ï¿½?',
                   quantity: 1,
                   total: '0,00',
                   status: 'Recebido',
@@ -8476,7 +8476,7 @@ io.on('connection', (socket) => {
                 };
               });
 
-              // â•?â•?â•? ESTRATÃ‰GIA 1: FREQUENTEMENTE JUNTOS (Market Basket) â•?â•?â•?
+              // ï¿½?ï¿½?ï¿½? ESTRATÃ‰GIA 1: FREQUENTEMENTE JUNTOS (Market Basket) ï¿½?ï¿½?ï¿½?
               // Agrupa vendas por timestamp (mesma mesa/pedido) para encontrar pares co-frequentes
               const pedidoGrupos = {};
               (sales || []).forEach(s => {
@@ -8528,7 +8528,7 @@ io.on('connection', (socket) => {
                 });
               });
 
-              // â•?â•?â•? ESTRATÃ‰GIA 2: ESTRELA + DORMÃŠNCIA â•?â•?â•?
+              // ï¿½?ï¿½?ï¿½? ESTRATÃ‰GIA 2: ESTRELA + DORMÃŠNCIA ï¿½?ï¿½?ï¿½?
               // Parear produto mais vendido com produto menos vendido (do mesmo tipo)
               const allProds = Object.values(prodMap).sort((a, b) => b.vendas30d.qty - a.vendas30d.qty);
               const bestSellers = allProds.filter(p => p.vendas30d.qty >= 3);
@@ -8554,12 +8554,12 @@ io.on('connection', (socket) => {
                   descontoPct: desconto,
                   economiaEstimada: +(soma - comboPrice).toFixed(2),
                   prioridade: best.vendas30d.qty * 3 + 5,
-                  icon: 'â­?',
+                  icon: 'ï¿½?',
                   evidencia: `${best.vendas30d.qty} vendas vs ${complemento.vendas30d.qty} venda(s)`
                 });
               });
 
-              // â•?â•?â•? ESTRATÃ‰GIA 3: COMBO DO MOMENTO (Hora do dia) â•?â•?â•?
+              // ï¿½?ï¿½?ï¿½? ESTRATÃ‰GIA 3: COMBO DO MOMENTO (Hora do dia) ï¿½?ï¿½?ï¿½?
               const hora = new Date().getHours();
               let periodo = 'noite';
               if (hora >= 6 && hora < 12) periodo = 'manha';
@@ -8609,13 +8609,13 @@ io.on('connection', (socket) => {
                     descontoPct: desconto,
                     economiaEstimada: +(soma - comboPrice).toFixed(2),
                     prioridade: 15,
-                    icon: periodo === 'manha' ? 'â˜€ï¸?' : periodo === 'almoco' ? 'ðŸ?½ï¸?' : periodo === 'tarde' ? 'ðŸŒ…' : 'ðŸŒ™',
+                    icon: periodo === 'manha' ? 'â˜€ï¿½?' : periodo === 'almoco' ? 'ï¿½?ï¿½ï¿½?' : periodo === 'tarde' ? 'ðŸŒ…' : 'ðŸŒ™',
                     evidencia: `Sugerido para ${labelsPeriodo[periodo].toLowerCase()}`
                   });
                 }
               }
 
-              // â•?â•?â•? ESTRATÃ‰GIA 4: CROSS-SELL INTELIGENTE â•?â•?â•?
+              // ï¿½?ï¿½?ï¿½? ESTRATÃ‰GIA 4: CROSS-SELL INTELIGENTE ï¿½?ï¿½?ï¿½?
               // Se o cliente pediu comida, sugira bebida e vice-versa (baseado nos top sellers)
               const foods = allProds.filter(p => p.categoria_fiscal === 'Alimentacao' && p.vendas30d.qty > 0);
               const drinks = allProds.filter(p => (p.categoria_fiscal === 'Bebida_Alcoolica' || p.categoria_fiscal === 'Bebida_Nao_Alcoolica') && p.vendas30d.qty > 0);
@@ -8637,13 +8637,13 @@ io.on('connection', (socket) => {
                     descontoPct: desconto,
                     economiaEstimada: +(soma - comboPrice).toFixed(2),
                     prioridade: topFood.vendas30d.qty + topDrink.vendas30d.qty + 20,
-                    icon: 'ðŸ?†',
+                    icon: 'ï¿½?ï¿½',
                     evidencia: `Top 1 em cada categoria`
                   });
                 }
               }
 
-              // â•?â•?â•? ESTRATÃ‰GIA 5: ALTO MARGEM COM BAIXA VISIBILIDADE â•?â•?â•?
+              // ï¿½?ï¿½?ï¿½? ESTRATÃ‰GIA 5: ALTO MARGEM COM BAIXA VISIBILIDADE ï¿½?ï¿½?ï¿½?
               // Produtos com preÃ§o alto mas poucas vendas â€” precisa de promo
               const altoMargemBaixa = allProds.filter(p =>
                 p.preco > 20 && p.vendas30d.qty <= 2 && p.vendas30d.qty >= 0
@@ -8756,7 +8756,7 @@ io.on('connection', (socket) => {
     });
   });
 
-  // â•?â•?â•?â•?â•?â•? JOGOS / GAMIFICAÃ‡ÃƒO â•?â•?â•?â•?â•?â•?
+  // ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½? JOGOS / GAMIFICAÃ‡ÃƒO ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?
   const jogosEmAndamento = {};
 
   // Listar jogos disponÃ­veis
@@ -9240,7 +9240,7 @@ io.on('connection', (socket) => {
         const msgPayload = `0001${String(42).padStart(4, '0')}${terminal}${estab}${modalidade}${valorCentavos}`;
         const msgLen = String(msgPayload.length).padStart(4, '0');
         const fullMsg = `${msgLen}${msgPayload}`;
-        socket.emit('mp_status_pagamento', { status: 'processando', msg: 'âš™ï¸?Â? Enviando cobranÃ§a para servidor SiTef...' });
+        socket.emit('mp_status_pagamento', { status: 'processando', msg: 'âš™ï¿½?ï¿½? Enviando cobranÃ§a para servidor SiTef...' });
         const client = new net.Socket();
         let sitefBuf = '';
         client.setTimeout(90000);
@@ -10142,11 +10142,11 @@ app.get('/api/server-status', (req, res) => {
 // --- ALERTAS AO CLIENTE ---
 // â†’ migrado para plugins/cozinha/
 
-// --- ITENS MONTÃ?VEIS CRUD â†’ migrado para plugins/montaveis/ ---
+// --- ITENS MONTï¿½?VEIS CRUD â†’ migrado para plugins/montaveis/ ---
 
-// â•?â•?â•?â•?â•?â•? FIDELIDADE/AVAILACOES â†’ migrado para plugins/fidelidade/ â•?â•?â•?â•?â•?â•?
+// ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½? FIDELIDADE/AVAILACOES â†’ migrado para plugins/fidelidade/ ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?
 
-// â•?â•?â•?â•?â•?â•? FUNÃ‡Ã•ES POR TENANT: status + solicitaÃ§Ã£o de ativaÃ§Ã£o â•?â•?â•?â•?â•?â•?
+// ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½? FUNÃ‡Ã•ES POR TENANT: status + solicitaÃ§Ã£o de ativaÃ§Ã£o ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?
 app.get('/api/funcoes', verificarToken, (req, res) => {
   const tid = req.restaurante_id || 1;
   masterDb.get(`SELECT licenca FROM restaurantes WHERE id = ?`, [tid], (errL, rowL) => {
@@ -10295,9 +10295,9 @@ const HOST = '0.0.0.0';
 
 // â”€â”€ SUGESTÃ•ES DE PROMOÃ‡Ã•ES â†’ migrado para plugins/caixa/ â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-// â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?
-// â•?â•? IA ASSISTENTE - SUGESTÃ•ES INTELIGENTES POR PERFIL â•?â•?â•?â•?â•?â•?â•?â•?
-// â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?
+// ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?
+// ï¿½?ï¿½? IA ASSISTENTE - SUGESTÃ•ES INTELIGENTES POR PERFIL ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?
+// ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?
 const IA_CONFIG = {
   iaEnabled: true,              // toggle global de alertas IA
   intervaloVerificacao: 60000,     // 60 segundos
@@ -10393,7 +10393,7 @@ function runIAVerificacao() {
       const chaveAlerta = `pedido_${p.id}`;
 
       if (minsEspera >= IA_CONFIG.minutosCriticoEspera && p.status !== 'Pronto') {
-        // NÃ­vel CRÃ?TICO - emitir alerta ao caixa e marcar pedido como urgente
+        // NÃ­vel CRï¿½?TICO - emitir alerta ao caixa e marcar pedido como urgente
         if (!iaState.alertasAtivos.has(chaveAlerta) ||
           (agora - iaState.alertasAtivos.get(chaveAlerta).timestamp) > 300000) {
 
@@ -10861,7 +10861,7 @@ app.post('/api/auth/registro', async (req, res) => {
                       [afil.id, restauranteId, restauranteNome, valorPlanoPadrao, comissaoVal],
                       function(errVenda) {
                         if (!errVenda) {
-                          console.log(`ðŸ¤? [Afiliados] Venda registrada para Afiliado #${afil.id} (${afil.codigo_ref}) no Restaurante #${restauranteId}`);
+                          console.log(`ï¿½? [Afiliados] Venda registrada para Afiliado #${afil.id} (${afil.codigo_ref}) no Restaurante #${restauranteId}`);
                         }
                       }
                     );
@@ -10900,9 +10900,9 @@ app.post('/api/auth/registro', async (req, res) => {
 });
 
 
-// â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?
+// ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?
 // PAINEL DO DONO â€” SOCKET HANDLERS (Controle Remoto & RH)
-// â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?
+// ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?
 io.on('connection', (socket) => {
   const _donoToken = socket.handshake.query.token;
   let _donoTenantId = parseInt(socket.handshake.query.restaurante_id, 10) || 1;
@@ -11075,7 +11075,7 @@ app.post('/api/auth/registro', async (req, res) => {
                     [afil.id, restauranteId, restauranteNome, valorPlanoPadrao, comissaoVal],
                     function(errVenda) {
                       if (!errVenda) {
-                        console.log(`ðŸ¤? [Afiliados] Venda registrada para Afiliado #${afil.id} (${afil.codigo_ref}) no Restaurante #${restauranteId}`);
+                        console.log(`ï¿½? [Afiliados] Venda registrada para Afiliado #${afil.id} (${afil.codigo_ref}) no Restaurante #${restauranteId}`);
                       }
                     }
                   );
@@ -11516,26 +11516,20 @@ const EMERGENCY_STATE_PATH = path.join(__dirname, 'emergency-state.json');
 function salvarEstadoEmergencia() {
   try {
     if (typeof db === 'undefined' || !db) return;
-    db.all(
-      `SELECT m.nome, m.status, COUNT(p.id) as pedidos_abertos, SUM(CAST(p.total AS REAL)) as valor_total
-       FROM mesas m LEFT JOIN pedidos p ON (p.localName = m.nome OR p.mesa_grupo = m.nome)
-         AND p.status NOT IN ('Finalizado','Pago','Cancelado','Fracionado')
-       WHERE m.status != 'DisponÃ­vel'
-       GROUP BY m.nome HAVING pedidos_abertos > 0`,
-      [], (err, rows) => {
-        if (err || !rows || rows.length === 0) return;
-        const state = {
-          salvo_em: new Date().toISOString(),
-          mesas: rows.map(r => ({
-            nome: r.nome,
-            status: r.status,
-            pedidos_abertos: r.pedidos_abertos,
-            valor_total: Math.round((r.valor_total || 0) * 100) / 100
-          }))
-        };
-        fs.writeFileSync(EMERGENCY_STATE_PATH, JSON.stringify(state, null, 2));
-      }
-    );
+    // Isola a consulta num processo filho: uma falha nativa do sqlite3 (napi_throw)
+    // num processo separado NÃƒO derruba o servidor principal â€” apenas o filho.
+    const bancos = listarBancosTenant();
+    if (!bancos.length) return;
+    const scriptPath = path.join(__dirname, 'salvar-estado-emergencia.js');
+    if (!fs.existsSync(scriptPath)) return;
+    const child = require('child_process').fork(scriptPath, [...bancos, EMERGENCY_STATE_PATH], {
+      silent: true,
+      env: { ...process.env }
+    });
+    // Timeout de seguranÃ§a: nunca deixar um Ã³rfÃ£o pendurado.
+    const killer = setTimeout(() => { try { child.kill(); } catch (e) { } }, 7000);
+    child.on('exit', () => clearTimeout(killer));
+    child.on('error', () => clearTimeout(killer));
   } catch (e) { }
 }
 
@@ -11638,9 +11632,9 @@ function shutdown(signal) {
 process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 
-// â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?
+// ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?
 // â”€â”€ REDE DE SEGURANÃ‡A ANTI-CRASH (nenhuma movimentaÃ§Ã£o pode se perder) â”€â”€
-// â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?
+// ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?
 // Qualquer exceÃ§Ã£o nÃ£o tratada NÃƒO derruba mais o processo: Ã© registrada em
 // logs/falhas.log, cria task automÃ¡tica na fila do suporte e avisa os painÃ©is.
 const LOGS_DIR_FALHAS = path.join(__dirname, 'logs');
@@ -11686,20 +11680,33 @@ function registrarFalhaCritica(tipo, detalhe, restauranteId) {
 }
 
 process.on('uncaughtException', (err) => {
-  try { salvarEstadoEmergencia(); } catch (e) { }
+  // Registra a falha ANTES de qualquer consulta â€” a origem do problema nunca se perde.
   try { registrarFalhaCritica('uncaughtException', (err && err.stack) || String(err), null); } catch (e) { }
+  // Salva o Ãºltimo estado das mesas num processo isolado (nÃ£o pode crashar o servidor).
+  try { salvarEstadoEmergencia(); } catch (e) { }
   // DÃ¡ 2s para flush de emergÃªncia e encerra â€” o watchdog reinicia limpo
   setTimeout(() => { try { process.exit(1); } catch (e) { } }, 2000);
 });
 process.on('unhandledRejection', (reason) => {
-  try { salvarEstadoEmergencia(); } catch (e) { }
   try { registrarFalhaCritica('unhandledRejection', (reason && (reason.stack || reason.message)) || String(reason), null); } catch (e) { }
+  try { salvarEstadoEmergencia(); } catch (e) { }
   setTimeout(() => { try { process.exit(1); } catch (e) { } }, 2000);
 });
 
 
 // Inicializar licenÃ§a e depois subir o servidor com AnimaÃ§Ã£o Visualizer / Matrix â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 licenseManager.initLicense().then((licState) => {
+  // Trata erro de bind (ex.: EADDRINUSE â€” porta jÃ¡ em uso) sem virar uncaughtException
+  server.on('error', (err) => {
+    if (err && (err.code === 'EADDRINUSE' || err.code === 'EACCES')) {
+      console.error(`\n[ERRO] NÃ£o foi possÃ­vel subir o servidor na porta ${PORT}: ${err.code === 'EADDRINUSE' ? 'a porta jÃ¡ estÃ¡ em uso.' : 'sem permissÃ£o.'}\n`);
+      console.error('Encerre o processo que ocupa a porta e tente novamente.\n');
+      try { process.exit(1); } catch (e) { process.exit(1); }
+      return;
+    }
+    console.error('[ERRO] Falha ao iniciar o servidor:', err && err.message);
+    try { process.exit(1); } catch (e) { process.exit(1); }
+  });
   server.listen(PORT, HOST, () => {
     const ip = getLocalIp();
 
@@ -11742,7 +11749,7 @@ ${ANSI.dim}â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     originalLog.apply(console, [banner]);
 
     // AnimaÃ§Ã£o de Chuva Digital Matrix Rain por 2.5s
-    const katakana = "ï½¦ï½±ï½³ï½´ï½µï½¶ï½·ï½¹ï½ºï½»ï½¼ï½½ï½¾ï½¿ï¾€ï¾‚ï¾ƒï¾…ï¾†ï¾‡ï¾ˆï¾Šï¾‹ï¾Žï¾?ï¾?ï¾‘ï¾’ï¾“ï¾”ï¾•ï¾—ï¾˜ï¾œ1234567890";
+    const katakana = "ï½¦ï½±ï½³ï½´ï½µï½¶ï½·ï½¹ï½ºï½»ï½¼ï½½ï½¾ï½¿ï¾€ï¾‚ï¾ƒï¾…ï¾†ï¾‡ï¾ˆï¾Šï¾‹ï¾Žï¿½?ï¿½?ï¾‘ï¾’ï¾“ï¾”ï¾•ï¾—ï¾˜ï¾œ1234567890";
     let animFrames = 0;
     const animInterval = setInterval(() => {
       animFrames++;
@@ -11776,9 +11783,9 @@ ${ANSI.dim}â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 });
 
 
-// â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?
+// ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?
 // AFILIADOS & PARCEIROS (MÃ‰TRICAS E AMBIENTE PRÃ“PRIO)
-// â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?
+// ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?
 
 // Listar todos os afiliados (Super Admin)
 app.get('/api/super/afiliados', superAdminAuth, (req, res) => {
@@ -12039,7 +12046,7 @@ app.post('/api/auth/notificar-impostor', (req, res) => {
 
   masterDb.get(`SELECT nome FROM restaurantes WHERE id = ?`, [restId], (errRest, restRow) => {
     const nomeRestaurante = restRow ? restRow.nome : `Restaurante #${restId}`;
-    const detalhes = `âš ï¸? TENTATIVA DE IMPOSTOR: UsuÃ¡rio '${email}' (Cargo: ${cargo}) tentou acessar o Painel do Dono sem permissÃ£o! IP: ${ip}`;
+    const detalhes = `âš ï¿½? TENTATIVA DE IMPOSTOR: UsuÃ¡rio '${email}' (Cargo: ${cargo}) tentou acessar o Painel do Dono sem permissÃ£o! IP: ${ip}`;
 
     // 1. Registra no Log de Auditoria
     masterDb.run(
@@ -12061,7 +12068,7 @@ app.post('/api/auth/notificar-impostor', (req, res) => {
 
       // 3. Notifica o Gerente/Dono do Restaurante via Socket.IO
       io.to(`restaurante_${restId}`).emit('alerta_seguranca_gerente', {
-        titulo: 'âš ï¸? Alerta de SeguranÃ§a',
+        titulo: 'âš ï¿½? Alerta de SeguranÃ§a',
         mensagem: `O colaborador '${email}' (${cargo}) tentou acessar o Painel do Dono sem autorizaÃ§Ã£o.`,
         ip,
         data: new Date().toLocaleTimeString('pt-BR')
@@ -12072,7 +12079,7 @@ app.post('/api/auth/notificar-impostor', (req, res) => {
   });
 });
 
-// â•?â•?â•?â•?â•?â•? MÃ“DULOS DO SISTEMA â€” Controle global + per-tenant â•?â•?â•?â•?â•?â•?
+// ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½? MÃ“DULOS DO SISTEMA â€” Controle global + per-tenant ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?
 masterDb.serialize(() => {
   // Tabela global: define todos os mÃ³dulos disponÃ­veis no sistema
   masterDb.run(`CREATE TABLE IF NOT EXISTS modulo_sistemas (
@@ -12095,7 +12102,7 @@ masterDb.serialize(() => {
     PRIMARY KEY (restaurante_id, modulo_id)
   )`);
 
-  // â•?â•?â•? TABELA: Tarefas de Suporte â•?â•?â•?
+  // ï¿½?ï¿½?ï¿½? TABELA: Tarefas de Suporte ï¿½?ï¿½?ï¿½?
   masterDb.run(`CREATE TABLE IF NOT EXISTS tarefas_suporte (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     titulo TEXT NOT NULL,
@@ -12113,7 +12120,7 @@ masterDb.serialize(() => {
     concluido_em DATETIME
   )`);
 
-  // â•?â•?â•? TABELA: Temas por Tenant â•?â•?â•?
+  // ï¿½?ï¿½?ï¿½? TABELA: Temas por Tenant ï¿½?ï¿½?ï¿½?
   masterDb.run(`CREATE TABLE IF NOT EXISTS tenant_temas (
     restaurante_id INTEGER PRIMARY KEY,
     tema_json TEXT NOT NULL,
@@ -12440,7 +12447,7 @@ app.get('/api/suporte/tarefas-relatadas', relatoSuporteAuth, (req, res) => {
   );
 });
 
-// â•?â•?â•? CHAVES DE ATIVAÃ‡ÃƒO â€” Upsell Offline-First (Super Admin) â•?â•?â•?
+// ï¿½?ï¿½?ï¿½? CHAVES DE ATIVAÃ‡ÃƒO â€” Upsell Offline-First (Super Admin) ï¿½?ï¿½?ï¿½?
 // GET: lista todas as chaves emitidas
 app.get('/api/super/chaves', superAdminAuth, (req, res) => {
   masterDb.all(
@@ -12481,7 +12488,7 @@ app.post('/api/super/chaves/:id/revogar', superAdminAuth, (req, res) => {
   });
 });
 
-// â•?â•?â•? SYNC OFFLINE â€” recebido por plugins/cozinha/ â•?â•?â•?
+// ï¿½?ï¿½?ï¿½? SYNC OFFLINE â€” recebido por plugins/cozinha/ ï¿½?ï¿½?ï¿½?
 
 // POST /api/super/delegar-suporte â€” Super admin delega pendÃªncias/obrigaÃ§Ãµes ao time de suporte
 app.post('/api/super/delegar-suporte', superAdminAuth, (req, res) => {
@@ -12572,9 +12579,9 @@ app.post('/api/super/deploy-commit', superAdminAuth, (req, res) => {
   });
 });
 
-// â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?
+// ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?
 // â”€â”€ GIT AVANÃ‡ADO: CONEXÃƒO, PULL, DEPLOY PARCIAL & AUTO-DEPLOY â”€â”€â”€â”€â”€â”€â”€â”€
-// â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?
+// ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?
 
 const { exec: _gitExecCb } = require('child_process');
 function gitExec(cmd, timeoutMs) {
@@ -12796,9 +12803,9 @@ setInterval(async () => {
 }, 60000);
 
 
-// â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?
+// ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?
 // â”€â”€ SUPER ADMIN: SUPABASE CONFIG â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?
+// ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?
 
 // GET â€” carrega configuraÃ§Ã£o do Supabase
 app.get('/api/super/supabase-config', superAdminAuth, (req, res) => {
@@ -12866,9 +12873,9 @@ app.post('/api/super/supabase-test', superAdminAuth, async (req, res) => {
   }
 });
 
-// â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?
+// ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?
 // â”€â”€ SUPER ADMIN: MULTI-SERVER / BALANCEAMENTO DE CARGA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?
+// ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?
 
 // GET â€” lista servidores configurados
 app.get('/api/super/servers', superAdminAuth, (req, res) => {
@@ -12955,9 +12962,9 @@ app.post('/api/super/servers/test', superAdminAuth, async (req, res) => {
   }
 });
 
-// â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?
+// ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?
 // TÃšNEIS & FALLBACK â€” endpoints para gerenciamento de tÃºneis
-// â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?
+// ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?
 
 // GET /api/super/tuneis/status â€” status de todos os tÃºneis
 app.get('/api/super/tuneis/status', superAdminAuth, async (req, res) => {
