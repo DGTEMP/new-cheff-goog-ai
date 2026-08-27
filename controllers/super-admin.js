@@ -2102,4 +2102,77 @@ module.exports = function (app, masterDb, sqlite3, options) {
     });
   });
 
+
+  // ── CENTRAL DE NOTIFICAÇÕES ENTERPRISE (31k Tenants) ──
+  const SuperAdminNotificationEngine = require('../super-admin-notification-engine');
+  const notificationEngine = new SuperAdminNotificationEngine({ masterDb, io });
+
+  // GET /api/super/notificacoes
+  app.get('/api/super/notificacoes', superAdminAuth, async (req, res) => {
+    try {
+      const { restaurante_id, categoria, prioridade, lida, busca, limit, offset } = req.query;
+      const data = await notificationEngine.listar({
+        restaurante_id,
+        categoria,
+        prioridade,
+        lida,
+        busca,
+        limit: limit ? parseInt(limit) : 50,
+        offset: offset ? parseInt(offset) : 0
+      });
+      res.json({ ok: true, ...data });
+    } catch (e) {
+      res.json({ ok: false, erro: e.message });
+    }
+  });
+
+  // GET /api/super/notificacoes/stats
+  app.get('/api/super/notificacoes/stats', superAdminAuth, async (req, res) => {
+    try {
+      const stats = await notificationEngine.obterStats();
+      res.json({ ok: true, stats });
+    } catch (e) {
+      res.json({ ok: false, erro: e.message });
+    }
+  });
+
+  // POST /api/super/notificacoes/marcar-lida/:id
+  app.post('/api/super/notificacoes/marcar-lida/:id', superAdminAuth, async (req, res) => {
+    try {
+      const result = await notificationEngine.marcarComoLida(req.params.id);
+      res.json(result);
+    } catch (e) {
+      res.json({ ok: false, erro: e.message });
+    }
+  });
+
+  // POST /api/super/notificacoes/marcar-todas-lidas
+  app.post('/api/super/notificacoes/marcar-todas-lidas', superAdminAuth, async (req, res) => {
+    try {
+      const { restaurante_id } = req.body || {};
+      const result = await notificationEngine.marcarTodasComoLidas(restaurante_id);
+      res.json(result);
+    } catch (e) {
+      res.json({ ok: false, erro: e.message });
+    }
+  });
+
+  // POST /api/super/notificacoes/broadcast
+  app.post('/api/super/notificacoes/broadcast', superAdminAuth, async (req, res) => {
+    try {
+      const { titulo, mensagem, prioridade, categoria, target_restaurante_id } = req.body || {};
+      if (!titulo || !mensagem) return res.json({ ok: false, erro: 'Título e mensagem são obrigatórios.' });
+      const notif = notificationEngine.dispararBroadcast({
+        titulo,
+        mensagem,
+        prioridade,
+        categoria,
+        target_restaurante_id
+      });
+      res.json({ ok: true, mensagem: 'Broadcast disparado com sucesso para os tenants!', notif });
+    } catch (e) {
+      res.json({ ok: false, erro: e.message });
+    }
+  });
+
 };

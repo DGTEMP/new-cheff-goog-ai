@@ -16,6 +16,11 @@
                 <i class="fa-solid fa-chart-line"></i>
                 <span>Dashboard</span>
               </div>
+              <div class="menu-item" data-target="sec-notificacoes" id="menu-item-notificacoes">
+                <i class="fa-solid fa-bell" style="color:var(--warning,#f59e0b);"></i>
+                <span>Central Notificações</span>
+                <span id="notif-menu-badge" style="display:none;margin-left:auto;background:var(--danger,#ef4444);color:#fff;font-size:0.65rem;padding:2px 7px;border-radius:99px;font-weight:700;">0</span>
+              </div>
               <div class="menu-item" data-target="sec-bi">
                 <i class="fa-solid fa-chart-pie"></i>
                 <span>BI / Franquias</span>
@@ -221,6 +226,11 @@
           </div>
         </div>
         <div class="header-actions">
+          <button class="btn-action" id="btn-header-notificacoes" onclick="toggleCentralNotificacoesSuper()" title="Central de Notificações Enterprise (31k Tenants)" style="position:relative;">
+            <i class="fa-solid fa-bell" style="color:var(--warning,#f59e0b);"></i>
+            <span>Alertas</span>
+            <span id="notif-header-badge" style="position:absolute;top:-4px;right:-4px;background:var(--danger,#ef4444);color:#fff;font-size:0.65rem;padding:2px 6px;border-radius:10px;font-weight:bold;display:none;">0</span>
+          </button>
           <button class="btn-action" id="btn-theme-toggle-super" onclick="if(window.ChefTheme) window.ChefTheme.toggle()" title="Alternar Modo Claro / Escuro">
             <i class="fa-solid fa-sun" id="theme-toggle-icon-super"></i>
             <span id="theme-toggle-text-super">Modo Claro</span>
@@ -240,6 +250,136 @@
       <div class="content-body">
 
         <!-- ════ SEÇÃO 1: DASHBOARD ════ -->
+        
+        <!-- ════ SEÇÃO: CENTRAL DE NOTIFICAÇÕES ENTERPRISE (31.000 TENANTS) ════ -->
+        <div class="content-section" id="sec-notificacoes">
+          <!-- Métricas de Alertas Globais -->
+          <div class="stats-grid" style="margin-bottom:1.5rem;">
+            <div class="stat-card" style="border-left:4px solid var(--danger,#ef4444);">
+              <div class="stat-icon" style="background:rgba(239,68,68,0.15);color:var(--danger,#ef4444);"><i class="fa-solid fa-triangle-exclamation"></i></div>
+              <div class="stat-meta">
+                <span>Críticas &amp; Fraudes (P1)</span>
+                <h3 id="stat-notif-criticas" style="color:var(--danger,#ef4444);">0</h3>
+              </div>
+            </div>
+            <div class="stat-card" style="border-left:4px solid var(--warning,#f59e0b);">
+              <div class="stat-icon" style="background:rgba(245,158,11,0.15);color:var(--warning,#f59e0b);"><i class="fa-solid fa-shield-virus"></i></div>
+              <div class="stat-meta">
+                <span>Quarentena &amp; Licenças</span>
+                <h3 id="stat-notif-quarentena" style="color:var(--warning,#f59e0b);">0</h3>
+              </div>
+            </div>
+            <div class="stat-card" style="border-left:4px solid var(--info,#3b82f6);">
+              <div class="stat-icon" style="background:rgba(59,130,246,0.15);color:var(--info,#3b82f6);"><i class="fa-solid fa-rotate"></i></div>
+              <div class="stat-meta">
+                <span>Alertas Sync (Cluster)</span>
+                <h3 id="stat-notif-sync" style="color:var(--info,#3b82f6);">0</h3>
+              </div>
+            </div>
+            <div class="stat-card" style="border-left:4px solid var(--success,#22c55e);">
+              <div class="stat-icon" style="background:rgba(34,197,94,0.15);color:var(--success,#22c55e);"><i class="fa-solid fa-inbox"></i></div>
+              <div class="stat-meta">
+                <span>Total Não Lidas</span>
+                <h3 id="stat-notif-nao-lidas" style="color:var(--success,#22c55e);">0</h3>
+              </div>
+            </div>
+          </div>
+
+          <!-- Barra de Filtros & Ações Enterprise -->
+          <div style="background:var(--bg-card,#161a2b);border:1px solid var(--border-color,#2a2d3e);border-radius:12px;padding:1rem;margin-bottom:1.5rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.8rem;">
+            <div style="display:flex;gap:0.6rem;flex-wrap:wrap;align-items:center;flex:1;">
+              <input type="text" id="notif-search-input" placeholder="🔍 Buscar por Nome, ID de Restaurante ou Mensagem (31k tenants)..." style="background:var(--bg-secondary,#11131f);border:1px solid var(--border-color,#2a2d3e);color:var(--text-primary,#fff);padding:8px 12px;border-radius:8px;font-size:0.85rem;min-width:280px;flex:1;" oninput="filtrarNotificacoesSuper()">
+              
+              <select id="notif-filter-cat" onchange="carregarCentralNotificacoes()" style="background:var(--bg-secondary,#11131f);border:1px solid var(--border-color,#2a2d3e);color:var(--text-primary,#fff);padding:8px 12px;border-radius:8px;font-size:0.85rem;">
+                <option value="todas">Todas as Categorias</option>
+                <option value="licenca">🔑 Licença</option>
+                <option value="fraude">🚨 Fraude / Shadow</option>
+                <option value="quarentena">⚠️ Quarentena</option>
+                <option value="sync">🔄 Sync</option>
+                <option value="vendas">💰 Vendas / Add-ons</option>
+                <option value="broadcast">📢 Broadcasts</option>
+                <option value="sistema">ℹ️ Sistema</option>
+              </select>
+
+              <select id="notif-filter-prio" onchange="carregarCentralNotificacoes()" style="background:var(--bg-secondary,#11131f);border:1px solid var(--border-color,#2a2d3e);color:var(--text-primary,#fff);padding:8px 12px;border-radius:8px;font-size:0.85rem;">
+                <option value="todas">Todas as Prioridades</option>
+                <option value="P1_CRITICA">🚨 P1 - Crítica</option>
+                <option value="P2_ALTA">⚠️ P2 - Alta</option>
+                <option value="P3_MEDIA">💡 P3 - Média</option>
+                <option value="P4_INFO">ℹ️ P4 - Info</option>
+              </select>
+
+              <select id="notif-filter-lida" onchange="carregarCentralNotificacoes()" style="background:var(--bg-secondary,#11131f);border:1px solid var(--border-color,#2a2d3e);color:var(--text-primary,#fff);padding:8px 12px;border-radius:8px;font-size:0.85rem;">
+                <option value="0">📬 Não Lidas</option>
+                <option value="1">✓ Lidas</option>
+                <option value="todas">Todas</option>
+              </select>
+            </div>
+
+            <div style="display:flex;gap:0.6rem;align-items:center;">
+              <button class="btn btn-sm" onclick="marcarTodasNotificacoesLidas()" style="background:rgba(34,197,94,0.15);color:var(--success,#22c55e);border:1px solid rgba(34,197,94,0.3);padding:8px 14px;border-radius:8px;font-weight:700;cursor:pointer;">
+                <i class="fa-solid fa-check-double"></i> Marcar Todas Lidas
+              </button>
+              <button class="btn btn-sm btn-primary" onclick="abrirModalBroadcastSuper()" style="background:var(--primary,#fc4b15);color:#fff;border:none;padding:8px 14px;border-radius:8px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;">
+                <i class="fa-solid fa-bullhorn"></i> 📢 Disparar Broadcast (31k)
+              </button>
+            </div>
+          </div>
+
+          <!-- Feed de Notificações -->
+          <div id="notif-feed-container" style="display:flex;flex-direction:column;gap:10px;">
+            <!-- Renderizado dinamicamente via super-admin.js -->
+          </div>
+
+          <!-- Paginação -->
+          <div id="notif-pagination" style="display:flex;justify-content:space-between;align-items:center;margin-top:1.5rem;padding:0.5rem;color:var(--text-muted,#888);font-size:0.85rem;"></div>
+        </div>
+
+        <!-- MODAL DISPARO BROADCAST PARA 31.000 RESTAURANTES -->
+        <div class="modal" id="modal-broadcast-super" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:999999;align-items:center;justify-content:center;">
+          <div style="background:var(--bg-card,#161a2b);border:1px solid var(--border-color,#2a2d3e);border-radius:16px;max-width:540px;width:90%;padding:1.5rem;box-shadow:0 10px 40px rgba(0,0,0,0.5);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+              <h3 style="margin:0;font-size:1.2rem;color:var(--primary,#fc4b15);display:flex;align-items:center;gap:8px;">
+                <i class="fa-solid fa-bullhorn"></i> Broadcast Global para Restaurantes
+              </h3>
+              <button onclick="fecharModalBroadcastSuper()" style="background:transparent;border:none;color:#aaa;font-size:1.2rem;cursor:pointer;">✕</button>
+            </div>
+            <p style="font-size:0.85rem;color:var(--text-muted,#888);margin-bottom:1rem;">
+              Esta mensagem será transmitida em tempo real para os painéis de todos os 31.000 restaurantes ou grupo selecionado via WebSockets.
+            </p>
+            <div style="display:flex;flex-direction:column;gap:12px;">
+              <div>
+                <label style="font-size:0.8rem;color:#aaa;display:block;margin-bottom:4px;">Alvo / Destinatários:</label>
+                <select id="broad-target" style="width:100%;background:var(--bg-secondary,#11131f);border:1px solid var(--border-color,#2a2d3e);color:#fff;padding:8px 12px;border-radius:8px;">
+                  <option value="ALL">📢 Todos os 31.000 Restaurantes Conectados</option>
+                </select>
+              </div>
+              <div>
+                <label style="font-size:0.8rem;color:#aaa;display:block;margin-bottom:4px;">Título do Alerta / Notificação:</label>
+                <input type="text" id="broad-titulo" placeholder="Ex: Atualização do Sistema ou Manutenção Programada" style="width:100%;background:var(--bg-secondary,#11131f);border:1px solid var(--border-color,#2a2d3e);color:#fff;padding:8px 12px;border-radius:8px;box-sizing:border-box;">
+              </div>
+              <div>
+                <label style="font-size:0.8rem;color:#aaa;display:block;margin-bottom:4px;">Mensagem Detalhada:</label>
+                <textarea id="broad-mensagem" rows="4" placeholder="Digite as orientações para os donos e operadores de restaurantes..." style="width:100%;background:var(--bg-secondary,#11131f);border:1px solid var(--border-color,#2a2d3e);color:#fff;padding:8px 12px;border-radius:8px;box-sizing:border-box;resize:vertical;"></textarea>
+              </div>
+              <div>
+                <label style="font-size:0.8rem;color:#aaa;display:block;margin-bottom:4px;">Nível de Urgência:</label>
+                <select id="broad-prio" style="width:100%;background:var(--bg-secondary,#11131f);border:1px solid var(--border-color,#2a2d3e);color:#fff;padding:8px 12px;border-radius:8px;">
+                  <option value="P3_MEDIA">💡 P3 - Informativo / Comercial</option>
+                  <option value="P2_ALTA">⚠️ P2 - Alta Prioridade (Pop-up Amarelo)</option>
+                  <option value="P1_CRITICA">🚨 P1 - Crítica / Urgente (Bloqueio ou Atenção Imediata)</option>
+                </select>
+              </div>
+            </div>
+            <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:1.5rem;">
+              <button onclick="fecharModalBroadcastSuper()" style="background:transparent;border:1px solid var(--border-color,#2a2d3e);color:#fff;padding:8px 16px;border-radius:8px;cursor:pointer;">Cancelar</button>
+              <button onclick="enviarBroadcastSuper()" style="background:var(--primary,#fc4b15);color:#fff;border:none;padding:8px 18px;border-radius:8px;font-weight:bold;cursor:pointer;display:flex;align-items:center;gap:6px;">
+                <i class="fa-solid fa-paper-plane"></i> Transmitir Agora
+              </button>
+            </div>
+          </div>
+        </div>
+
         <div class="content-section active" id="sec-dash">
           <div class="stats-grid">
             <div class="stat-card active-card">

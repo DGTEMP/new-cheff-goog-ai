@@ -752,6 +752,7 @@ function switchTab(targetId) {
    else if (targetId === 'sec-infra-cloud') carregarInfraCloud();
    else if (targetId === 'sec-tuneis') carregarTuneis();
    else if (targetId === 'sec-image-providers') carregarImageProviders();
+   else if (targetId === 'sec-notificacoes') carregarCentralNotificacoes();
 }
 
 /* ═══ SUPABASE — ASSISTENTE GUIADO ═══ */
@@ -4682,7 +4683,6 @@ window.salvarMissaoSurpresa = function() {
   if (btnSbTest) btnSbTest.addEventListener('click', function() { window.testarSupabase(); });
   if (btnSbSave) btnSbSave.addEventListener('click', function() { window.salvarSupabase(); });
 
-});
 
 
 /* ═══════════════════════════════════════════════════════════════════════ */
