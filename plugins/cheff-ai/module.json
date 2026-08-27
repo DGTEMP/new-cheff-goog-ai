@@ -1,0 +1,29 @@
+{
+  "id": "cheff-ai",
+  "name": "CheffAI",
+  "version": "1.0.0",
+  "author": "Chef Cozinha Dev Team",
+  "description": "IA completa para restaurantes: automatiza pedidos, responde clientes no WhatsApp, entende mensagens e áudios, monta pedidos e envia para operação. Inclui funil de vendas, bot WhatsApp, disparador, fidelidade IA, cupons Google, recuperador de vendas, notas fiscais, frente de caixa, controle de entregas e relatórios.",
+  "category": "ia",
+  "icon": "fa-robot",
+  "enabled": false,
+  "price": "on_demand",
+  "badge": "CheffAI Pro",
+  "targets": ["painel_restaurante", "configuracoes", "suporte"],
+  "hooks": {
+    "server": "index.js"
+  },
+  "features": [
+    "whatsapp_bot",
+    "whatsapp_broadcaster",
+    "funil_vendas",
+    "programa_fidelidade_ia",
+    "cupons_google",
+    "recuperador_vendas",
+    "emissao_nfe",
+    "frente_caixa",
+    "controle_entregas",
+    "relatorio_pedidos",
+    "suporte_humanizado"
+  ]
+}

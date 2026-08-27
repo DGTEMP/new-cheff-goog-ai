@@ -416,6 +416,7 @@
         <div class="menu-item" data-target="sec-tarefas"><i class="fa-solid fa-list-check"></i> Atividades</div>
         <div class="menu-item" data-target="sec-ranking"><i class="fa-solid fa-trophy"></i> Ranking</div>
         <div class="menu-item" data-target="sec-theme-studio"><i class="fa-solid fa-wand-magic-sparkles" style="color:var(--accent);"></i> Theme Studio Pro</div>
+        <div class="menu-item" data-target="sec-temas-curadoria"><i class="fa-solid fa-palette" style="color:#a78bfa;"></i> Curadoria de Temas</div>
       </div>
 
       <div class="content-area">
@@ -624,6 +625,87 @@
             </table>
           </div>
         </div>
+
+        <!-- ══════════════════════════════════════════════════════════════
+             SEÇÃO: CURADORIA DA APP STORE DE TEMAS
+             ══════════════════════════════════════════════════════════════ -->
+        <div class="content-section" id="sec-temas-curadoria">
+
+          <!-- HEADER -->
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;flex-wrap:wrap;gap:0.8rem;">
+            <div>
+              <h2 style="font-family:'Outfit',sans-serif;margin:0;display:flex;align-items:center;gap:0.5rem;">
+                <i class="fa-solid fa-palette" style="color:#a78bfa;"></i> Curadoria da App Store de Temas
+              </h2>
+              <p style="color:var(--text-muted);font-size:0.82rem;margin:0.3rem 0 0;">Gerencie o catálogo, badges, ordem de exibição e visibilidade dos temas para os restaurantes.</p>
+            </div>
+            <div style="display:flex;gap:0.5rem;">
+              <button class="btn btn-primary" onclick="abrirModalNovoTema()">
+                <i class="fa-solid fa-plus"></i> Novo Tema
+              </button>
+              <button class="btn" onclick="carregarCuradoriaTemas()">
+                <i class="fa-solid fa-rotate"></i> Atualizar
+              </button>
+            </div>
+          </div>
+
+          <!-- STATS RÁPIDOS -->
+          <div id="temas-stats-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:0.8rem;margin-bottom:1.5rem;"></div>
+
+          <!-- FILTROS + BUSCA -->
+          <div style="display:flex;gap:0.6rem;margin-bottom:1rem;flex-wrap:wrap;align-items:center;">
+            <input id="cur-busca" type="text" placeholder="🔍 Buscar tema..." style="flex:1;min-width:200px;background:var(--bg-tertiary);border:1px solid var(--border-color);color:var(--text-primary);padding:0.5rem 0.9rem;border-radius:8px;font-size:0.85rem;" oninput="filtrarCatalogo()">
+            <select id="cur-filtro-badge" style="background:var(--bg-tertiary);border:1px solid var(--border-color);color:var(--text-primary);padding:0.5rem;border-radius:8px;font-size:0.82rem;" onchange="filtrarCatalogo()">
+              <option value="">Todos os Badges</option>
+              <option value="destaque">🔥 Destaque</option>
+              <option value="lancamento">🆕 Lançamento</option>
+              <option value="desconto">🏷️ Desconto</option>
+              <option value="">— Sem Badge</option>
+            </select>
+            <select id="cur-ordenar" style="background:var(--bg-tertiary);border:1px solid var(--border-color);color:var(--text-primary);padding:0.5rem;border-radius:8px;font-size:0.82rem;" onchange="carregarCuradoriaTemas()">
+              <option value="ordem">Ordenar: Posição</option>
+              <option value="estrelas">Melhor Avaliados</option>
+              <option value="novos">Mais Recentes</option>
+            </select>
+          </div>
+
+          <!-- TABELA DO CATÁLOGO -->
+          <div class="card" style="padding:0;overflow:hidden;">
+            <div class="table-container">
+              <table id="temas-catalogo-table">
+                <thead>
+                  <tr>
+                    <th style="width:40px;text-align:center;">#</th>
+                    <th style="width:50px;">Visual</th>
+                    <th>Nome / Nicho</th>
+                    <th>Badge</th>
+                    <th style="width:80px;text-align:center;">Desconto</th>
+                    <th style="width:80px;text-align:center;">⭐ Nota</th>
+                    <th style="width:70px;text-align:center;">Posição</th>
+                    <th style="width:80px;text-align:center;">Visível</th>
+                    <th style="width:120px;text-align:center;">Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="temas-catalogo-body">
+                  <tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:2rem;"><i class="fa-solid fa-spinner fa-spin"></i> Carregando catálogo...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- VISUALIZAÇÃO PRÉVIA DA APP STORE -->
+          <div class="card" style="margin-top:1.5rem;padding:0;overflow:hidden;">
+            <div style="padding:1rem;background:rgba(167,139,250,0.07);border-bottom:1px solid var(--border-color);display:flex;justify-content:space-between;align-items:center;">
+              <h4 style="margin:0;"><i class="fa-solid fa-eye" style="color:#a78bfa;"></i> Pré-visualização da App Store</h4>
+              <span style="font-size:0.78rem;color:var(--text-muted);">Como os restaurantes veem a loja de temas</span>
+            </div>
+            <div style="height:480px;overflow:hidden;position:relative;">
+              <iframe id="iframe-loja-preview" src="/theme-store.html" style="width:100%;height:100%;border:none;border-radius:0 0 var(--radius) var(--radius);pointer-events:none;transform:scale(0.9);transform-origin:top left;width:111.1%;height:111.1%;"></iframe>
+              <div style="position:absolute;inset:0;cursor:default;"></div>
+            </div>
+          </div>
+
+        </div>
       </div>
     </div>
   </div>
@@ -808,5 +890,286 @@
   <div class="content-section" id="sec-theme-studio" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9999999; background: #0b0f19; padding: 0; margin: 0; display: none;">
     <iframe id="iframe-theme-studio" src="/theme-store.html?mode=studio_pro" style="width: 100vw; height: 100vh; border: none; outline: none; background: #0b0f19; margin: 0; padding: 0; display: block;"></iframe>
   </div>
+
+  <!-- MODAL: NOVO / EDITAR TEMA -->
+  <div class="modal-overlay" id="modal-tema-editor">
+    <div class="modal-content" style="max-width:680px;width:95%;">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-palette" style="color:#a78bfa;"></i> <span id="modal-tema-title">Novo Tema</span></h3>
+        <button class="btn btn-sm" onclick="fecharModalTema()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body" style="padding:1.2rem;max-height:78vh;overflow-y:auto;">
+        <input type="hidden" id="tema-edit-id">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+          <div class="form-group">
+            <label>ID do Tema * <span style="font-size:0.75rem;color:var(--text-muted);">(snake_case)</span></label>
+            <input type="text" id="tema-id" placeholder="ex: sushi_zen_pro">
+          </div>
+          <div class="form-group">
+            <label>Nome do Tema *</label>
+            <input type="text" id="tema-nome" placeholder="ex: Sushi Bar Zen Pro">
+          </div>
+          <div class="form-group">
+            <label>Nicho</label>
+            <input type="text" id="tema-nicho" placeholder="ex: Japones">
+          </div>
+          <div class="form-group">
+            <label>Emoji</label>
+            <input type="text" id="tema-emoji" placeholder="&#x1F363;" style="font-size:1.4rem;width:70px;">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Descricao</label>
+          <textarea id="tema-descricao" rows="2" placeholder="Descreva o estilo do tema..."></textarea>
+        </div>
+        <div style="font-size:0.82rem;font-weight:700;color:#a78bfa;margin:0.8rem 0 0.5rem;">&#x1F3A8; Paleta de Cores</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:0.8rem;margin-bottom:1rem;">
+          <div class="form-group"><label style="font-size:0.75rem;">Cor Principal</label><div style="display:flex;gap:5px;align-items:center;"><input type="color" id="clr-primary" value="#fc4b15" style="width:36px;height:28px;border:none;cursor:pointer;border-radius:5px;"><input type="text" id="txt-primary" value="#fc4b15" style="flex:1;font-size:0.75rem;" oninput="syncColorInput('clr-primary','txt-primary')"></div></div>
+          <div class="form-group"><label style="font-size:0.75rem;">Fundo Pagina</label><div style="display:flex;gap:5px;align-items:center;"><input type="color" id="clr-bgPage" value="#0b0f19" style="width:36px;height:28px;border:none;cursor:pointer;border-radius:5px;"><input type="text" id="txt-bgPage" value="#0b0f19" style="flex:1;font-size:0.75rem;" oninput="syncColorInput('clr-bgPage','txt-bgPage')"></div></div>
+          <div class="form-group"><label style="font-size:0.75rem;">Fundo Card</label><div style="display:flex;gap:5px;align-items:center;"><input type="color" id="clr-bgCard" value="#111827" style="width:36px;height:28px;border:none;cursor:pointer;border-radius:5px;"><input type="text" id="txt-bgCard" value="#111827" style="flex:1;font-size:0.75rem;" oninput="syncColorInput('clr-bgCard','txt-bgCard')"></div></div>
+          <div class="form-group"><label style="font-size:0.75rem;">Borda</label><div style="display:flex;gap:5px;align-items:center;"><input type="color" id="clr-border" value="#1f2937" style="width:36px;height:28px;border:none;cursor:pointer;border-radius:5px;"><input type="text" id="txt-border" value="#1f2937" style="flex:1;font-size:0.75rem;" oninput="syncColorInput('clr-border','txt-border')"></div></div>
+          <div class="form-group"><label style="font-size:0.75rem;">Texto</label><div style="display:flex;gap:5px;align-items:center;"><input type="color" id="clr-text" value="#f3f4f6" style="width:36px;height:28px;border:none;cursor:pointer;border-radius:5px;"><input type="text" id="txt-text" value="#f3f4f6" style="flex:1;font-size:0.75rem;" oninput="syncColorInput('clr-text','txt-text')"></div></div>
+          <div class="form-group"><label style="font-size:0.75rem;">Mesa Livre</label><div style="display:flex;gap:5px;align-items:center;"><input type="color" id="clr-livre" value="#10b981" style="width:36px;height:28px;border:none;cursor:pointer;border-radius:5px;"><input type="text" id="txt-livre" value="#10b981" style="flex:1;font-size:0.75rem;" oninput="syncColorInput('clr-livre','txt-livre')"></div></div>
+          <div class="form-group"><label style="font-size:0.75rem;">Mesa Ocupada</label><div style="display:flex;gap:5px;align-items:center;"><input type="color" id="clr-ocupada" value="#ef4444" style="width:36px;height:28px;border:none;cursor:pointer;border-radius:5px;"><input type="text" id="txt-ocupada" value="#ef4444" style="flex:1;font-size:0.75rem;" oninput="syncColorInput('clr-ocupada','txt-ocupada')"></div></div>
+        </div>
+        <div style="font-size:0.82rem;font-weight:700;color:#a78bfa;margin:0.8rem 0 0.5rem;">&#x2699;&#xFE0F; Curadoria</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;">
+          <div class="form-group">
+            <label>Badge</label>
+            <select id="tema-badge" style="width:100%;background:var(--bg-tertiary);border:1px solid var(--border-color);color:var(--text-primary);padding:0.5rem;border-radius:8px;">
+              <option value="">Sem badge</option>
+              <option value="destaque">&#x1F525; Destaque</option>
+              <option value="lancamento">&#x1F195; Lancamento</option>
+              <option value="desconto">&#x1F3F7;&#xFE0F; Desconto</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Desconto (%)</label>
+            <input type="number" id="tema-desconto" min="0" max="100" value="0">
+          </div>
+          <div class="form-group">
+            <label>Posicao (Ordem)</label>
+            <input type="number" id="tema-ordem" min="1" max="999" value="99">
+          </div>
+        </div>
+        <div style="display:flex;gap:1.5rem;margin-top:0.5rem;">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;"><input type="checkbox" id="tema-novo"> Marcar como Novo</label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;"><input type="checkbox" id="tema-ativo" checked> Visivel na Loja</label>
+        </div>
+      </div>
+      <div class="modal-footer" style="padding:1rem 1.2rem;">
+        <button class="btn" onclick="fecharModalTema()">Cancelar</button>
+        <button class="btn btn-primary" onclick="salvarTemaEditor()"><i class="fa-solid fa-check"></i> Salvar Tema</button>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    .toggle-switch{position:relative;width:42px;height:22px;display:inline-block;}
+    .toggle-switch input{opacity:0;width:0;height:0;}
+    .toggle-slider{position:absolute;cursor:pointer;inset:0;background:#374151;border-radius:22px;transition:.2s;}
+    .toggle-slider:before{content:'';position:absolute;width:16px;height:16px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.2s;}
+    .toggle-switch input:checked+.toggle-slider{background:var(--success);}
+    .toggle-switch input:checked+.toggle-slider:before{transform:translateX(20px);}
+    .badge-select{background:var(--bg-tertiary);border:1px solid var(--border-color);color:var(--text-primary);padding:3px 6px;border-radius:6px;font-size:.78rem;cursor:pointer;}
+    .ordem-input{width:52px;text-align:center;background:var(--bg-tertiary);border:1px solid var(--border-color);color:var(--text-primary);padding:3px 6px;border-radius:6px;font-size:.82rem;}
+    .ordem-input:focus{border-color:#a78bfa;outline:none;}
+  </style>
+
+  <script>
+    var _catalogoCache=[];
+    var _salvarOrdemDebounce=null;
+
+    async function carregarCuradoriaTemas(){
+      var tbody=document.getElementById('temas-catalogo-body');
+      if(!tbody)return;
+      var ordenar=(document.getElementById('cur-ordenar')||{}).value||'ordem';
+      tbody.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:2rem;"><i class="fa-solid fa-spinner fa-spin"></i> Carregando...</td></tr>';
+      try{
+        var token=localStorage.getItem('token')||window._suporteToken||'';
+        var res=await fetch('/api/super/temas?ordenar='+ordenar,{headers:{'Authorization':'Bearer '+token}});
+        var data=await res.json();
+        if(!data.ok||!data.temas)throw new Error(data.erro||'Erro ao carregar');
+        _catalogoCache=data.temas;
+        renderizarCatalogo(data.temas);
+        renderizarStatsTemas(data.temas,data.stats);
+      }catch(e){
+        tbody.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--danger);padding:2rem;"><i class="fa-solid fa-triangle-exclamation"></i> '+e.message+'<br><small style="color:var(--text-muted);">Plugin theme-curator ativo?</small><br><br><button class="btn btn-sm" onclick="carregarCuradoriaTemas()">Tentar novamente</button></td></tr>';
+      }
+    }
+
+    function renderizarCatalogo(temas){
+      var tbody=document.getElementById('temas-catalogo-body');
+      if(!temas.length){tbody.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:2rem;">Nenhum tema encontrado.</td></tr>';return;}
+      tbody.innerHTML=temas.map(function(t,i){
+        var c=t.cores||{};
+        var bg=c.bgPage||'#0b0f19';
+        var primary=c.primary||'#fc4b15';
+        var badgeEl=t.badge==='destaque'?'<span style="font-size:10px;font-weight:800;background:linear-gradient(135deg,#f59e0b,#ef4444);color:#fff;padding:2px 7px;border-radius:10px;">&#x1F525; Destaque</span>':t.badge==='lancamento'?'<span style="font-size:10px;font-weight:800;background:#7c3aed;color:#fff;padding:2px 7px;border-radius:10px;">&#x1F195; Lancamento</span>':t.badge==='desconto'?'<span style="font-size:10px;font-weight:800;background:#10b981;color:#fff;padding:2px 7px;border-radius:10px;">&#x1F3F7;&#xFE0F; Desconto</span>':'<span style="font-size:10px;color:#6b7280;">—</span>';
+        return '<tr id="row-tema-'+t.id+'" style="'+(t.ativo?'':'opacity:.45;')+'">'+
+          '<td style="text-align:center;color:var(--text-muted);font-weight:700;">'+(i+1)+'</td>'+
+          '<td><div style="width:40px;height:30px;border-radius:7px;background:'+bg+';border:2px solid '+primary+';display:flex;align-items:center;justify-content:center;font-size:13px;" title="'+t.nome+'">'+(t.emoji_nicho||'&#x1F37D;&#xFE0F;')+'</div></td>'+
+          '<td><div style="font-weight:700;font-size:.88rem;">'+t.nome+'</div><div style="font-size:.75rem;color:var(--text-muted);">'+(t.emoji_nicho||'')+' '+(t.nicho||'')+'</div></td>'+
+          '<td><select class="badge-select" onchange="atualizarCampoBadge(\''+t.id+'\',this.value)"><option value="" '+(t.badge===''||!t.badge?'selected':'')+'>Sem badge</option><option value="destaque" '+(t.badge==='destaque'?'selected':'')+'>&#x1F525; Destaque</option><option value="lancamento" '+(t.badge==='lancamento'?'selected':'')+'>&#x1F195; Lancamento</option><option value="desconto" '+(t.badge==='desconto'?'selected':'')+'>&#x1F3F7;&#xFE0F; Desconto</option></select></td>'+
+          '<td style="text-align:center;"><input type="number" class="ordem-input" style="width:48px;" min="0" max="100" value="'+(t.desconto||0)+'" onchange="atualizarCampo(\''+t.id+'\',\'desconto\',this.value)" title="Desconto %">%</td>'+
+          '<td style="text-align:center;font-weight:700;color:#f59e0b;">'+(t.estrelas||5).toFixed(1)+' &#x2B50; <span style="font-size:.72rem;color:var(--text-muted);">('+  (t.votos||0)+')</span></td>'+
+          '<td style="text-align:center;"><input type="number" class="ordem-input" min="1" max="999" value="'+(t.ordem||99)+'" onchange="agendarSalvarOrdem(\''+t.id+'\',this.value)"></td>'+
+          '<td style="text-align:center;"><label class="toggle-switch"><input type="checkbox" '+(t.ativo?'checked':'')+' onchange="toggleVisibilidadeTema(\''+t.id+'\',this.checked)"><span class="toggle-slider"></span></label></td>'+
+          '<td style="text-align:center;"><div style="display:flex;gap:4px;justify-content:center;"><button class="btn btn-sm" onclick="editarTema(\''+t.id+'\')" title="Editar"><i class="fa-solid fa-pen"></i></button><button class="btn btn-sm btn-danger" onclick="ocultarTema(\''+t.id+'\')" title="Ocultar"><i class="fa-solid fa-eye-slash"></i></button></div></td>'+
+          '</tr>';
+      }).join('');
+    }
+
+    function renderizarStatsTemas(temas,stats){
+      var grid=document.getElementById('temas-stats-grid');
+      if(!grid)return;
+      var total=temas.length;
+      var ativos=temas.filter(function(t){return t.ativo;}).length;
+      var destaques=temas.filter(function(t){return t.badge==='destaque';}).length;
+      var lanca=temas.filter(function(t){return t.badge==='lancamento';}).length;
+      var media=temas.length?(temas.reduce(function(a,t){return a+(t.estrelas||5);},0)/temas.length).toFixed(1):'5.0';
+      grid.innerHTML=[
+        {icon:'fa-palette',val:total,label:'Temas no Catalogo',color:'#a78bfa'},
+        {icon:'fa-eye',val:ativos,label:'Visiveis na Loja',color:'#22c55e'},
+        {icon:'fa-fire',val:destaques,label:'Em Destaque',color:'#f59e0b'},
+        {icon:'fa-rocket',val:lanca,label:'Lancamentos',color:'#7c3aed'},
+        {icon:'fa-star',val:media+'&#x2B50;',label:'Media de Avaliacoes',color:'#f59e0b'},
+      ].map(function(s){return '<div class="stat-card"><div class="stat-icon" style="color:'+s.color+';"><i class="fa-solid '+s.icon+'"></i></div><div class="stat-value" style="color:'+s.color+';">'+s.val+'</div><div class="stat-label">'+s.label+'</div></div>';}).join('');
+    }
+
+    function filtrarCatalogo(){
+      var busca=((document.getElementById('cur-busca')||{}).value||'').toLowerCase();
+      var badge=(document.getElementById('cur-filtro-badge')||{}).value||'';
+      var temas=_catalogoCache;
+      if(busca)temas=temas.filter(function(t){return (t.nome||'').toLowerCase().includes(busca)||(t.nicho||'').toLowerCase().includes(busca);});
+      if(badge)temas=temas.filter(function(t){return t.badge===badge;});
+      renderizarCatalogo(temas);
+    }
+
+    async function atualizarCampo(id,campo,valor){
+      var token=localStorage.getItem('token')||window._suporteToken||'';
+      try{
+        var body={};
+        body[campo]=(campo==='desconto'||campo==='ordem')?parseInt(valor):valor;
+        await fetch('/api/super/temas/'+encodeURIComponent(id),{method:'PUT',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify(body)});
+        var idx=_catalogoCache.findIndex(function(t){return t.id===id;});
+        if(idx>=0)_catalogoCache[idx][campo]=body[campo];
+        mostrarToastCuradoria('&#x2705; '+campo+' atualizado!','success');
+      }catch(e){mostrarToastCuradoria('&#x274C; Erro: '+e.message,'danger');}
+    }
+
+    async function atualizarCampoBadge(id,valor){await atualizarCampo(id,'badge',valor);filtrarCatalogo();}
+
+    function agendarSalvarOrdem(id,valor){
+      atualizarCampo(id,'ordem',valor);
+      clearTimeout(_salvarOrdemDebounce);
+      _salvarOrdemDebounce=setTimeout(filtrarCatalogo,600);
+    }
+
+    async function toggleVisibilidadeTema(id,visivel){
+      await atualizarCampo(id,'ativo',visivel?1:0);
+      var row=document.getElementById('row-tema-'+id);
+      if(row)row.style.opacity=visivel?'1':'0.45';
+      var iframe=document.getElementById('iframe-loja-preview');
+      if(iframe)iframe.src=iframe.src;
+    }
+
+    async function ocultarTema(id){
+      if(!confirm('Ocultar este tema da loja?'))return;
+      await toggleVisibilidadeTema(id,false);
+      mostrarToastCuradoria('&#x1F648; Tema ocultado.','warning');
+    }
+
+    function abrirModalNovoTema(){
+      document.getElementById('modal-tema-title').textContent='Novo Tema';
+      document.getElementById('tema-edit-id').value='';
+      document.getElementById('tema-id').value='';
+      document.getElementById('tema-id').disabled=false;
+      document.getElementById('tema-nome').value='';
+      document.getElementById('tema-nicho').value='';
+      document.getElementById('tema-emoji').value='&#x1F37D;&#xFE0F;';
+      document.getElementById('tema-descricao').value='';
+      document.getElementById('tema-badge').value='';
+      document.getElementById('tema-desconto').value=0;
+      document.getElementById('tema-ordem').value=99;
+      document.getElementById('tema-novo').checked=false;
+      document.getElementById('tema-ativo').checked=true;
+      var d={primary:'#fc4b15',bgPage:'#0b0f19',bgCard:'#111827',border:'#1f2937',text:'#f3f4f6',livre:'#10b981',ocupada:'#ef4444'};
+      Object.keys(d).forEach(function(k){document.getElementById('clr-'+k).value=d[k];document.getElementById('txt-'+k).value=d[k];});
+      document.getElementById('modal-tema-editor').classList.add('active');
+    }
+
+    function editarTema(id){
+      var t=_catalogoCache.find(function(x){return x.id===id;});
+      if(!t)return;
+      var c=t.cores||{};
+      document.getElementById('modal-tema-title').textContent='Editar: '+t.nome;
+      document.getElementById('tema-edit-id').value=t.id;
+      document.getElementById('tema-id').value=t.id;
+      document.getElementById('tema-id').disabled=true;
+      document.getElementById('tema-nome').value=t.nome||'';
+      document.getElementById('tema-nicho').value=t.nicho||'';
+      document.getElementById('tema-emoji').value=t.emoji_nicho||'&#x1F37D;&#xFE0F;';
+      document.getElementById('tema-descricao').value=t.descricao||'';
+      document.getElementById('tema-badge').value=t.badge||'';
+      document.getElementById('tema-desconto').value=t.desconto||0;
+      document.getElementById('tema-ordem').value=t.ordem||99;
+      document.getElementById('tema-novo').checked=!!t.novo;
+      document.getElementById('tema-ativo').checked=!!t.ativo;
+      var map={primary:c.primary||'#fc4b15',bgPage:c.bgPage||'#0b0f19',bgCard:c.bgCard||'#111827',border:c.borderColor||'#1f2937',text:c.textMain||'#f3f4f6',livre:c.statusLivre||'#10b981',ocupada:c.statusOcupada||'#ef4444'};
+      Object.keys(map).forEach(function(k){document.getElementById('clr-'+k).value=map[k];document.getElementById('txt-'+k).value=map[k];});
+      document.getElementById('modal-tema-editor').classList.add('active');
+    }
+
+    function fecharModalTema(){
+      document.getElementById('modal-tema-editor').classList.remove('active');
+      document.getElementById('tema-id').disabled=false;
+    }
+
+    async function salvarTemaEditor(){
+      var editId=document.getElementById('tema-edit-id').value;
+      var isEdit=!!editId;
+      var id=document.getElementById('tema-id').value.trim();
+      var nome=document.getElementById('tema-nome').value.trim();
+      if(!id||!nome){alert('ID e Nome sao obrigatorios.');return;}
+      var cores={primary:document.getElementById('txt-primary').value,bgPage:document.getElementById('txt-bgPage').value,bgCard:document.getElementById('txt-bgCard').value,borderColor:document.getElementById('txt-border').value,textMain:document.getElementById('txt-text').value,statusLivre:document.getElementById('txt-livre').value,statusOcupada:document.getElementById('txt-ocupada').value};
+      var payload={nome:nome,nicho:document.getElementById('tema-nicho').value,emoji_nicho:document.getElementById('tema-emoji').value,descricao:document.getElementById('tema-descricao').value,badge:document.getElementById('tema-badge').value,desconto:parseInt(document.getElementById('tema-desconto').value)||0,ordem:parseInt(document.getElementById('tema-ordem').value)||99,novo:document.getElementById('tema-novo').checked?1:0,ativo:document.getElementById('tema-ativo').checked?1:0,cores:cores};
+      var token=localStorage.getItem('token')||window._suporteToken||'';
+      try{
+        var url=isEdit?'/api/super/temas/'+encodeURIComponent(editId):'/api/super/temas';
+        var method=isEdit?'PUT':'POST';
+        if(!isEdit)payload.id=id;
+        var res=await fetch(url,{method:method,headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify(payload)});
+        var data=await res.json();
+        if(!data.ok)throw new Error(data.erro||'Erro ao salvar');
+        fecharModalTema();
+        mostrarToastCuradoria('&#x2705; Tema "'+nome+'" '+(isEdit?'atualizado':'criado')+'!','success');
+        carregarCuradoriaTemas();
+        var iframe=document.getElementById('iframe-loja-preview');
+        if(iframe)setTimeout(function(){iframe.src=iframe.src;},800);
+      }catch(e){mostrarToastCuradoria('&#x274C; '+e.message,'danger');}
+    }
+
+    function syncColorInput(colorId,textId){
+      var val=document.getElementById(textId).value;
+      if(/^#[0-9a-fA-F]{6}$/.test(val))document.getElementById(colorId).value=val;
+    }
+
+    function mostrarToastCuradoria(msg,tipo){
+      var colors={success:'#22c55e',danger:'#ef4444',warning:'#f59e0b',info:'#3b82f6'};
+      var el=document.createElement('div');
+      el.style.cssText='position:fixed;bottom:80px;right:24px;background:'+(colors[tipo]||'#22c55e')+';color:#fff;padding:10px 18px;border-radius:10px;font-weight:700;font-size:13px;z-index:999999;box-shadow:0 4px 16px rgba(0,0,0,.3);max-width:320px;';
+      el.innerHTML=msg;
+      document.body.appendChild(el);
+      setTimeout(function(){el.remove();},2800);
+    }
+
+    // Auto-load quando aba de curadoria for clicada
+    document.addEventListener('DOMContentLoaded',function(){
+      document.querySelectorAll('.menu-item[data-target="sec-temas-curadoria"]').forEach(function(btn){
+        btn.addEventListener('click',function(){setTimeout(carregarCuradoriaTemas,80);});
+      });
+    });
+  </script>
 </body>
 </html>

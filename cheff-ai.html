@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CheffAI — Automação Inteligente para Restaurantes</title>
+  <meta name="description" content="CheffAI: Bot WhatsApp, Funil de Vendas, Disparador em Massa, Cupons Google, CRM e muito mais para o seu restaurante.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <style>
+    :root {
+      --bg: #0a0d1a;
+      --bg-card: #111524;
+      --bg-hover: #161b2e;
+      --border: #1e2340;
+      --primary: #7c3aed;
+      --primary-light: #8b5cf6;
+      --primary-glow: rgba(124, 58, 237, 0.25);
+      --secondary: #06b6d4;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --text: #e2e8f0;
+      --text-muted: #64748b;
+      --text-dim: #94a3b8;
+      --radius: 14px;
+      --shadow: 0 4px 24px rgba(0,0,0,0.4);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    /* ── TOP NAV ── */
+    .topnav {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(10,13,26,0.92); backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 0.8rem 1.5rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+    }
+    .topnav-brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+    .brand-icon { width: 36px; height: 36px; background: linear-gradient(135deg, var(--primary), var(--secondary)); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
+    .brand-name { font-size: 1.1rem; font-weight: 800; color: #fff; }
+    .brand-badge { font-size: 0.65rem; background: linear-gradient(135deg, var(--primary), var(--secondary)); color: #fff; padding: 2px 8px; border-radius: 20px; font-weight: 700; margin-left: 6px; }
+    .topnav-tabs { display: flex; gap: 4px; background: rgba(255,255,255,0.04); border-radius: 10px; padding: 4px; }
+    .topnav-tab { padding: 7px 16px; border-radius: 7px; font-size: 0.82rem; font-weight: 600; cursor: pointer; color: var(--text-muted); border: none; background: transparent; transition: all 0.2s; }
+    .topnav-tab.active, .topnav-tab:hover { background: var(--primary); color: #fff; }
+    .topnav-status { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); box-shadow: 0 0 8px var(--success); animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
+
+    /* ── MAIN ── */
+    .main { max-width: 1300px; margin: 0 auto; padding: 1.5rem; }
+
+    /* ── HERO STATS ── */
+    .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+    .stat-card {
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 1rem 1.2rem; display: flex; align-items: center; gap: 12px;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .stat-card:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+    .stat-icon { width: 42px; height: 42px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; flex-shrink: 0; }
+    .stat-val { font-size: 1.6rem; font-weight: 800; line-height: 1; }
+    .stat-label { font-size: 0.72rem; color: var(--text-muted); margin-top: 3px; }
+
+    /* ── SECTIONS ── */
+    .section { display: none; }
+    .section.active { display: block; }
+
+    /* ── FEATURE GRID ── */
+    .feature-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem; }
+    .feature-card {
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 1.4rem; cursor: pointer; transition: all 0.25s; position: relative; overflow: hidden;
+    }
+    .feature-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, var(--primary), var(--secondary)); border-radius: 4px 4px 0 0;
+    }
+    .feature-card:hover { border-color: var(--primary); transform: translateY(-3px); box-shadow: 0 8px 32px var(--primary-glow); }
+    .feature-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; margin-bottom: 1rem; }
+    .feature-title { font-size: 1rem; font-weight: 700; margin-bottom: 6px; }
+    .feature-desc { font-size: 0.82rem; color: var(--text-dim); line-height: 1.5; }
+    .feature-tag { margin-top: 0.8rem; display: inline-flex; align-items: center; gap: 6px; font-size: 0.72rem; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
+
+    /* ── KANBAN FUNIL ── */
+    .kanban { display: flex; gap: 0.8rem; overflow-x: auto; padding-bottom: 0.5rem; }
+    .kanban-col { min-width: 200px; flex: 1; background: var(--bg-card); border-radius: var(--radius); border: 1px solid var(--border); padding: 1rem; }
+    .kanban-col-header { font-size: 0.78rem; font-weight: 700; margin-bottom: 0.8rem; padding-bottom: 0.6rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+    .kanban-count { background: var(--primary); color: #fff; font-size: 0.7rem; padding: 2px 8px; border-radius: 20px; font-weight: 700; }
+    .kanban-card { background: var(--bg-hover); border: 1px solid var(--border); border-radius: 8px; padding: 10px; margin-bottom: 8px; font-size: 0.82rem; cursor: pointer; }
+    .kanban-card:hover { border-color: var(--primary); }
+    .kanban-card-name { font-weight: 600; margin-bottom: 3px; }
+    .kanban-card-tel { color: var(--text-muted); font-size: 0.75rem; }
+
+    /* ── CHAT WHATSAPP ── */
+    .wa-layout { display: grid; grid-template-columns: 280px 1fr; gap: 1rem; height: calc(100vh - 280px); min-height: 400px; }
+    .wa-contacts { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); overflow-y: auto; }
+    .wa-contact { padding: 12px 14px; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.04); display: flex; align-items: center; gap: 10px; }
+    .wa-contact:hover, .wa-contact.active { background: var(--bg-hover); }
+    .wa-avatar { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, var(--primary), var(--secondary)); display: flex; align-items: center; justify-content: center; font-size: 0.9rem; font-weight: 700; flex-shrink: 0; }
+    .wa-contact-name { font-size: 0.85rem; font-weight: 600; }
+    .wa-contact-last { font-size: 0.72rem; color: var(--text-muted); }
+    .wa-chat { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); display: flex; flex-direction: column; }
+    .wa-chat-header { padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+    .wa-messages { flex: 1; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: 8px; }
+    .wa-msg { max-width: 70%; padding: 9px 13px; border-radius: 14px; font-size: 0.84rem; line-height: 1.45; }
+    .wa-msg.in { background: rgba(255,255,255,0.06); align-self: flex-start; border-bottom-left-radius: 4px; }
+    .wa-msg.out { background: linear-gradient(135deg, rgba(124,58,237,0.4), rgba(6,182,212,0.3)); align-self: flex-end; border-bottom-right-radius: 4px; }
+    .wa-msg-time { font-size: 0.68rem; color: var(--text-muted); margin-top: 3px; }
+    .wa-input { padding: 12px 14px; border-top: 1px solid var(--border); display: flex; gap: 8px; }
+    .wa-input input { flex: 1; background: var(--bg-hover); border: 1px solid var(--border); color: var(--text); padding: 9px 14px; border-radius: 24px; font-size: 0.85rem; outline: none; }
+    .wa-input input:focus { border-color: var(--primary); }
+    .btn-send { background: var(--primary); color: #fff; border: none; width: 40px; height: 40px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; }
+
+    /* ── CAMPANHAS ── */
+    .camp-list { display: flex; flex-direction: column; gap: 0.8rem; }
+    .camp-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem 1.2rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+    .camp-info { flex: 1; }
+    .camp-name { font-weight: 700; margin-bottom: 4px; }
+    .camp-seg { font-size: 0.78rem; color: var(--text-muted); }
+    .camp-actions { display: flex; gap: 6px; }
+
+    /* ── CUPONS ── */
+    .cupon-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1rem; }
+    .cupon-card { background: var(--bg-card); border: 1px dashed var(--primary); border-radius: var(--radius); padding: 1.2rem; position: relative; overflow: hidden; }
+    .cupon-card::after { content: ''; position: absolute; right: -20px; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; background: var(--bg); border-radius: 50%; }
+    .cupon-code { font-family: monospace; font-size: 1.2rem; font-weight: 800; color: var(--primary-light); letter-spacing: 2px; margin-bottom: 6px; }
+    .cupon-titulo { font-size: 0.9rem; font-weight: 600; margin-bottom: 4px; }
+    .cupon-info { font-size: 0.75rem; color: var(--text-muted); }
+    .cupon-valor { font-size: 1.4rem; font-weight: 900; color: var(--success); margin-top: 10px; }
+
+    /* ── CRM ── */
+    .crm-table { width: 100%; border-collapse: collapse; }
+    .crm-table th { text-align: left; padding: 8px 12px; font-size: 0.75rem; color: var(--text-muted); font-weight: 600; border-bottom: 1px solid var(--border); text-transform: uppercase; }
+    .crm-table td { padding: 10px 12px; font-size: 0.83rem; border-bottom: 1px solid rgba(255,255,255,0.04); }
+    .crm-table tr:hover td { background: var(--bg-hover); }
+
+    /* ── BUTTONS ── */
+    .btn { display: inline-flex; align-items: center; gap: 7px; padding: 9px 18px; border-radius: 9px; font-size: 0.85rem; font-weight: 600; cursor: pointer; border: none; transition: all 0.2s; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-light); }
+    .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    .btn-outline:hover { border-color: var(--primary); color: var(--primary-light); }
+    .btn-success { background: var(--success); color: #fff; }
+    .btn-danger { background: rgba(239,68,68,0.15); color: var(--danger); border: 1px solid rgba(239,68,68,0.3); }
+    .btn-sm { padding: 6px 12px; font-size: 0.78rem; }
+
+    /* ── TOOLBAR ── */
+    .toolbar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.8rem; margin-bottom: 1.2rem; }
+    .toolbar-left { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .input-search { background: var(--bg-card); border: 1px solid var(--border); color: var(--text); padding: 8px 14px; border-radius: 9px; font-size: 0.84rem; outline: none; min-width: 240px; }
+    .input-search:focus { border-color: var(--primary); }
+    .input-select { background: var(--bg-card); border: 1px solid var(--border); color: var(--text); padding: 8px 12px; border-radius: 9px; font-size: 0.84rem; cursor: pointer; }
+
+    /* ── MODAL ── */
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 9999; align-items: center; justify-content: center; }
+    .modal-overlay.open { display: flex; }
+    .modal-box { background: var(--bg-card); border: 1px solid var(--border); border-radius: 18px; width: 90%; max-width: 520px; padding: 1.8rem; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.2rem; }
+    .modal-title { font-size: 1.1rem; font-weight: 700; }
+    .modal-close { background: transparent; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer; }
+    .form-group { margin-bottom: 1rem; }
+    .form-label { font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 5px; font-weight: 600; }
+    .form-input { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 9px 13px; border-radius: 9px; font-size: 0.85rem; outline: none; font-family: inherit; }
+    .form-input:focus { border-color: var(--primary); }
+    .form-row { display: flex; gap: 10px; }
+    .form-row .form-group { flex: 1; }
+    .form-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 1.4rem; }
+
+    /* ── EMPTY STATE ── */
+    .empty { text-align: center; padding: 3rem 1rem; color: var(--text-muted); }
+    .empty i { font-size: 2.5rem; margin-bottom: 0.8rem; opacity: 0.4; display: block; }
+    .empty p { font-size: 0.9rem; }
+
+    /* ── TOAST ── */
+    #toast-container { position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 99999; display: flex; flex-direction: column; gap: 8px; }
+    .toast { padding: 12px 18px; border-radius: 10px; font-size: 0.85rem; font-weight: 600; max-width: 320px; animation: slideIn 0.3s ease; backdrop-filter: blur(12px); }
+    .toast.success { background: rgba(16,185,129,0.9); color: #fff; }
+    .toast.error { background: rgba(239,68,68,0.9); color: #fff; }
+    .toast.info { background: rgba(124,58,237,0.9); color: #fff; }
+    @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 768px) {
+      .topnav-tabs { display: none; }
+      .wa-layout { grid-template-columns: 1fr; height: auto; }
+      .wa-contacts { max-height: 200px; }
+      .feature-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- TOP NAV -->
+<nav class="topnav">
+  <a class="topnav-brand" href="#">
+    <div class="brand-icon"><i class="fa-solid fa-robot"></i></div>
+    <span class="brand-name">CheffAI</span>
+    <span class="brand-badge">Pro</span>
+  </a>
+  <div class="topnav-tabs" id="main-tabs">
+    <button class="topnav-tab active" data-tab="tab-inicio">🏠 Início</button>
+    <button class="topnav-tab" data-tab="tab-whatsapp">💬 WhatsApp Bot</button>
+    <button class="topnav-tab" data-tab="tab-funil">📊 Funil</button>
+    <button class="topnav-tab" data-tab="tab-campanhas">📢 Disparador</button>
+    <button class="topnav-tab" data-tab="tab-cupons">🎫 Cupons</button>
+    <button class="topnav-tab" data-tab="tab-crm">♻️ CRM</button>
+  </div>
+  <div class="topnav-status">
+    <div class="status-dot" id="status-dot"></div>
+    <span id="status-label" style="font-size:0.78rem;color:var(--text-muted);">CheffAI ativo</span>
+  </div>
+</nav>
+
+<div class="main">
+
+  <!-- ═══ TAB: INÍCIO / DASHBOARD ═══ -->
+  <div class="section active" id="tab-inicio">
+    <div class="stats-row" id="stats-row">
+      <div class="stat-card">
+        <div class="stat-icon" style="background:rgba(124,58,237,0.15);color:#8b5cf6;"><i class="fa-solid fa-funnel-dollar"></i></div>
+        <div>
+          <div class="stat-val" id="st-leads">–</div>
+          <div class="stat-label">Leads no Funil</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="background:rgba(16,185,129,0.15);color:#10b981;"><i class="fa-solid fa-check-circle"></i></div>
+        <div>
+          <div class="stat-val" id="st-conv">–%</div>
+          <div class="stat-label">Taxa de Conversão</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="background:rgba(6,182,212,0.15);color:#06b6d4;"><i class="fa-brands fa-whatsapp"></i></div>
+        <div>
+          <div class="stat-val" id="st-msgs">–</div>
+          <div class="stat-label">Msgs Hoje</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="background:rgba(245,158,11,0.15);color:#f59e0b;"><i class="fa-solid fa-bullhorn"></i></div>
+        <div>
+          <div class="stat-val" id="st-camp">–</div>
+          <div class="stat-label">Campanhas</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="background:rgba(239,68,68,0.15);color:#ef4444;"><i class="fa-solid fa-ticket"></i></div>
+        <div>
+          <div class="stat-val" id="st-cups">–</div>
+          <div class="stat-label">Cupons Ativos</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="feature-grid">
+      <div class="feature-card" onclick="openTab('tab-whatsapp')">
+        <div class="feature-icon" style="background:rgba(37,211,102,0.15);color:#25d366;"><i class="fa-brands fa-whatsapp"></i></div>
+        <div class="feature-title">Bot de WhatsApp</div>
+        <div class="feature-desc">Resposta rápida e apoio inteligente na conversão de pedidos. Entende texto e áudios automaticamente.</div>
+        <div class="feature-tag" style="background:rgba(37,211,102,0.15);color:#25d366;"><i class="fa-solid fa-circle-check"></i> Ativo</div>
+      </div>
+      <div class="feature-card" onclick="openTab('tab-funil')">
+        <div class="feature-icon" style="background:rgba(124,58,237,0.15);color:#8b5cf6;"><i class="fa-solid fa-filter"></i></div>
+        <div class="feature-title">Funil de Vendas</div>
+        <div class="feature-desc">Acompanhe toda a jornada do cliente — do primeiro contato à conversão em pedido real.</div>
+        <div class="feature-tag" style="background:rgba(124,58,237,0.15);color:#8b5cf6;"><i class="fa-solid fa-chart-bar"></i> Kanban Visual</div>
+      </div>
+      <div class="feature-card" onclick="openTab('tab-campanhas')">
+        <div class="feature-icon" style="background:rgba(245,158,11,0.15);color:#f59e0b;"><i class="fa-solid fa-bullhorn"></i></div>
+        <div class="feature-title">Disparador de WhatsApp</div>
+        <div class="feature-desc">Envie campanhas personalizadas, promoções e mensagens em massa para toda sua base de clientes.</div>
+        <div class="feature-tag" style="background:rgba(245,158,11,0.15);color:#f59e0b;"><i class="fa-solid fa-rocket"></i> Até 1000 clientes</div>
+      </div>
+      <div class="feature-card" onclick="openTab('tab-cupons')">
+        <div class="feature-icon" style="background:rgba(239,68,68,0.15);color:#ef4444;"><i class="fa-solid fa-ticket"></i></div>
+        <div class="feature-title">Cupons no Google Ofertas</div>
+        <div class="feature-desc">Crie cupons de desconto e divulgue no Google para atrair novos clientes com ofertas irresistíveis.</div>
+        <div class="feature-tag" style="background:rgba(239,68,68,0.15);color:#ef4444;"><i class="fa-brands fa-google"></i> Google Integrado</div>
+      </div>
+      <div class="feature-card" onclick="openTab('tab-crm')">
+        <div class="feature-icon" style="background:rgba(16,185,129,0.15);color:#10b981;"><i class="fa-solid fa-arrows-rotate"></i></div>
+        <div class="feature-title">Recuperador de Vendas (CRM)</div>
+        <div class="feature-desc">Identifique clientes inativos ou que abandonaram o carrinho e recupere essas vendas automaticamente.</div>
+        <div class="feature-tag" style="background:rgba(16,185,129,0.15);color:#10b981;"><i class="fa-solid fa-user-clock"></i> Inativos há 30d+</div>
+      </div>
+      <div class="feature-card" style="opacity:0.6;cursor:default;">
+        <div class="feature-icon" style="background:rgba(100,116,139,0.15);color:#94a3b8;"><i class="fa-solid fa-file-invoice"></i></div>
+        <div class="feature-title">Emissão de NF-e</div>
+        <div class="feature-desc">Emita notas fiscais eletrônicas com alertas em tempo real e configuração simplificada.</div>
+        <div class="feature-tag" style="background:rgba(100,116,139,0.1);color:#64748b;"><i class="fa-solid fa-lock"></i> Módulo Fiscal</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ TAB: WHATSAPP BOT ═══ -->
+  <div class="section" id="tab-whatsapp">
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <input class="input-search" id="wa-search" placeholder="Buscar por telefone ou nome..." oninput="filtrarContatos()">
+        <button class="btn btn-outline btn-sm" onclick="carregarConversas()"><i class="fa-solid fa-rotate"></i> Atualizar</button>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="abrirModalEnviar()"><i class="fa-solid fa-paper-plane"></i> Nova Mensagem</button>
+    </div>
+    <div class="wa-layout">
+      <div class="wa-contacts" id="wa-contacts-list">
+        <div class="empty"><i class="fa-brands fa-whatsapp"></i><p>Nenhuma conversa ainda</p></div>
+      </div>
+      <div class="wa-chat">
+        <div class="wa-chat-header">
+          <div class="wa-avatar" id="chat-avatar">?</div>
+          <div>
+            <div style="font-weight:700;font-size:0.9rem;" id="chat-name">Selecione um contato</div>
+            <div style="font-size:0.72rem;color:var(--text-muted);" id="chat-tel"></div>
+          </div>
+        </div>
+        <div class="wa-messages" id="wa-messages"></div>
+        <div class="wa-input">
+          <input id="wa-msg-input" placeholder="Digite uma mensagem..." onkeydown="if(event.key==='Enter')enviarMensagem()">
+          <button class="btn-send" onclick="enviarMensagem()"><i class="fa-solid fa-paper-plane"></i></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ TAB: FUNIL DE VENDAS ═══ -->
+  <div class="section" id="tab-funil">
+    <div class="toolbar">
+      <h2 style="font-size:1rem;font-weight:700;">Funil de Vendas — Kanban</h2>
+      <button class="btn btn-primary btn-sm" onclick="abrirModalLead()"><i class="fa-solid fa-plus"></i> Novo Lead</button>
+    </div>
+    <div id="funil-stats" style="display:flex;gap:1rem;margin-bottom:1rem;flex-wrap:wrap;">
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:10px 18px;font-size:0.82rem;">
+        Total: <strong id="fn-total">–</strong>
+      </div>
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:10px 18px;font-size:0.82rem;">
+        Convertidos: <strong id="fn-conv" style="color:var(--success);">–</strong>
+      </div>
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:10px 18px;font-size:0.82rem;">
+        Valor Total: <strong id="fn-valor" style="color:var(--primary-light);">–</strong>
+      </div>
+    </div>
+    <div class="kanban" id="kanban-board"></div>
+  </div>
+
+  <!-- ═══ TAB: DISPARADOR ═══ -->
+  <div class="section" id="tab-campanhas">
+    <div class="toolbar">
+      <h2 style="font-size:1rem;font-weight:700;">Campanhas WhatsApp</h2>
+      <button class="btn btn-primary btn-sm" onclick="abrirModalCampanha()"><i class="fa-solid fa-plus"></i> Nova Campanha</button>
+    </div>
+    <div class="camp-list" id="camp-list">
+      <div class="empty"><i class="fa-solid fa-bullhorn"></i><p>Nenhuma campanha criada ainda</p></div>
+    </div>
+  </div>
+
+  <!-- ═══ TAB: CUPONS ═══ -->
+  <div class="section" id="tab-cupons">
+    <div class="toolbar">
+      <h2 style="font-size:1rem;font-weight:700;">Cupons de Desconto</h2>
+      <button class="btn btn-primary btn-sm" onclick="abrirModalCupom()"><i class="fa-solid fa-plus"></i> Novo Cupom</button>
+    </div>
+    <div class="cupon-grid" id="cupon-grid">
+      <div class="empty" style="grid-column:1/-1;"><i class="fa-solid fa-ticket"></i><p>Nenhum cupom criado ainda</p></div>
+    </div>
+  </div>
+
+  <!-- ═══ TAB: CRM ═══ -->
+  <div class="section" id="tab-crm">
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <label style="font-size:0.82rem;color:var(--text-muted);">Inativos há mais de:</label>
+        <select class="input-select" id="crm-dias" onchange="carregarCRM()">
+          <option value="15">15 dias</option>
+          <option value="30" selected>30 dias</option>
+          <option value="60">60 dias</option>
+          <option value="90">90 dias</option>
+        </select>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="carregarCRM()"><i class="fa-solid fa-rotate"></i> Atualizar</button>
+    </div>
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;">
+      <table class="crm-table">
+        <thead><tr>
+          <th>Cliente</th><th>Telefone</th><th>Última Compra</th>
+          <th>Total Pedidos</th><th>Valor Total</th><th>Ação</th>
+        </tr></thead>
+        <tbody id="crm-tbody">
+          <tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text-muted);">Carregando...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<!-- ═══ MODAIS ═══ -->
+
+<!-- Modal Novo Lead -->
+<div class="modal-overlay" id="modal-lead">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title"><i class="fa-solid fa-user-plus" style="color:var(--primary-light);"></i> Novo Lead</div>
+      <button class="modal-close" onclick="fecharModal('modal-lead')">✕</button>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Nome</label><input class="form-input" id="lead-nome" placeholder="Nome do cliente"></div>
+      <div class="form-group"><label class="form-label">Telefone</label><input class="form-input" id="lead-tel" placeholder="(11) 9xxxx-xxxx"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">E-mail</label><input class="form-input" id="lead-email" placeholder="email@exemplo.com"></div>
+      <div class="form-group">
+        <label class="form-label">Canal</label>
+        <select class="form-input" id="lead-canal"><option value="whatsapp">WhatsApp</option><option value="instagram">Instagram</option><option value="indicacao">Indicação</option><option value="google">Google</option></select>
+      </div>
+    </div>
+    <div class="form-group"><label class="form-label">Observações</label><textarea class="form-input" id="lead-notas" rows="3" placeholder="Anotações sobre o lead..."></textarea></div>
+    <div class="form-actions">
+      <button class="btn btn-outline" onclick="fecharModal('modal-lead')">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarLead()"><i class="fa-solid fa-check"></i> Salvar Lead</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Nova Campanha -->
+<div class="modal-overlay" id="modal-campanha">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title"><i class="fa-solid fa-bullhorn" style="color:var(--warning);"></i> Nova Campanha</div>
+      <button class="modal-close" onclick="fecharModal('modal-campanha')">✕</button>
+    </div>
+    <div class="form-group"><label class="form-label">Nome da Campanha</label><input class="form-input" id="camp-nome" placeholder="Ex: Promoção Fim de Semana"></div>
+    <div class="form-group">
+      <label class="form-label">Segmento de Clientes</label>
+      <select class="form-input" id="camp-seg">
+        <option value="todos">Todos os Clientes</option>
+        <option value="inativos">Clientes Inativos (30d+)</option>
+        <option value="novos">Novos Cadastros</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Mensagem <small style="color:var(--text-muted);">(use {nome} para personalizar)</small></label>
+      <textarea class="form-input" id="camp-msg" rows="4" placeholder="Olá {nome}! Temos uma promoção especial para você..."></textarea>
+    </div>
+    <div class="form-group"><label class="form-label">Agendar para (opcional)</label><input class="form-input" id="camp-data" type="datetime-local"></div>
+    <div class="form-actions">
+      <button class="btn btn-outline" onclick="fecharModal('modal-campanha')">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarCampanha()"><i class="fa-solid fa-check"></i> Criar Campanha</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Novo Cupom -->
+<div class="modal-overlay" id="modal-cupom">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title"><i class="fa-solid fa-ticket" style="color:var(--danger);"></i> Novo Cupom</div>
+      <button class="modal-close" onclick="fecharModal('modal-cupom')">✕</button>
+    </div>
+    <div class="form-group"><label class="form-label">Título do Cupom</label><input class="form-input" id="cup-titulo" placeholder="Ex: 10% OFF em qualquer pedido"></div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Tipo de Desconto</label>
+        <select class="form-input" id="cup-tipo"><option value="percentual">Percentual (%)</option><option value="fixo">Valor Fixo (R$)</option></select>
+      </div>
+      <div class="form-group"><label class="form-label">Valor</label><input class="form-input" id="cup-valor" type="number" placeholder="10" min="0"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Código (automático)</label><input class="form-input" id="cup-codigo" placeholder="Deixe vazio para gerar automaticamente"></div>
+      <div class="form-group"><label class="form-label">Usos Máximos</label><input class="form-input" id="cup-usos" type="number" placeholder="100" min="1"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Validade</label><input class="form-input" id="cup-validade" type="datetime-local"></div>
+    <div class="form-actions">
+      <button class="btn btn-outline" onclick="fecharModal('modal-cupom')">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarCupom()"><i class="fa-solid fa-check"></i> Criar Cupom</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Enviar Mensagem Manual -->
+<div class="modal-overlay" id="modal-enviar">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title"><i class="fa-brands fa-whatsapp" style="color:#25d366;"></i> Nova Mensagem</div>
+      <button class="modal-close" onclick="fecharModal('modal-enviar')">✕</button>
+    </div>
+    <div class="form-group"><label class="form-label">Telefone (com DDD)</label><input class="form-input" id="env-tel" placeholder="11987654321"></div>
+    <div class="form-group"><label class="form-label">Mensagem</label><textarea class="form-input" id="env-msg" rows="4" placeholder="Digite sua mensagem..."></textarea></div>
+    <div class="form-actions">
+      <button class="btn btn-outline" onclick="fecharModal('modal-enviar')">Cancelar</button>
+      <button class="btn btn-primary" onclick="enviarManual()"><i class="fa-solid fa-paper-plane"></i> Enviar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast Container -->
+<div id="toast-container"></div>
+
+<script>
+// ══════════════════════════════════════════════════════════
+// CheffAI — Client Logic
+// ══════════════════════════════════════════════════════════
+
+const TOKEN = localStorage.getItem('token') || localStorage.getItem('chef_token') || '';
+
+async function api(method, url, body) {
+  const opts = {
+    method,
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + TOKEN }
+  };
+  if (body) opts.body = JSON.stringify(body);
+  try {
+    const r = await fetch(url, opts);
+    return await r.json();
+  } catch (e) {
+    return { ok: false, erro: e.message };
+  }
+}
+
+function toast(msg, type = 'success') {
+  const tc = document.getElementById('toast-container');
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.textContent = msg;
+  tc.appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+function openTab(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.querySelectorAll('.topnav-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === id));
+  if (id === 'tab-whatsapp') carregarConversas();
+  if (id === 'tab-funil') carregarFunil();
+  if (id === 'tab-campanhas') carregarCampanhas();
+  if (id === 'tab-cupons') carregarCupons();
+  if (id === 'tab-crm') carregarCRM();
+}
+
+document.querySelectorAll('.topnav-tab').forEach(btn => {
+  btn.addEventListener('click', () => openTab(btn.dataset.tab));
+});
+
+function abrirModal(id) { document.getElementById(id).classList.add('open'); }
+function fecharModal(id) { document.getElementById(id).classList.remove('open'); }
+function abrirModalLead() { abrirModal('modal-lead'); }
+function abrirModalCampanha() { abrirModal('modal-campanha'); }
+function abrirModalCupom() { abrirModal('modal-cupom'); }
+function abrirModalEnviar() { abrirModal('modal-enviar'); }
+
+// ── DASHBOARD ──────────────────────────────────────────────
+async function carregarDashboard() {
+  const d = await api('GET', '/api/cheff-ai/dashboard');
+  if (!d.ok || !d.stats) return;
+  const s = d.stats;
+  document.getElementById('st-leads').textContent = s.leads.total;
+  document.getElementById('st-conv').textContent = s.leads.taxa + '%';
+  document.getElementById('st-msgs').textContent = s.whatsapp.hoje;
+  document.getElementById('st-camp').textContent = s.campanhas;
+  document.getElementById('st-cups').textContent = s.cupons_ativos;
+}
+
+// ── WHATSAPP ───────────────────────────────────────────────
+let waConversas = [];
+let waAtivo = null;
+
+async function carregarConversas() {
+  const d = await api('GET', '/api/cheff-ai/whatsapp/conversas?limit=100');
+  if (!d.ok) return;
+  waConversas = d.conversas || [];
+  renderContatos();
+}
+
+function renderContatos() {
+  const lista = document.getElementById('wa-contacts-list');
+  // Agrupar por telefone
+  const contatos = {};
+  waConversas.forEach(c => {
+    if (!contatos[c.telefone]) contatos[c.telefone] = { nome: c.nome_cliente || c.telefone, tel: c.telefone, last: '' };
+    if (c.conteudo) contatos[c.telefone].last = c.conteudo.substring(0, 35);
+  });
+  const keys = Object.keys(contatos);
+  if (!keys.length) {
+    lista.innerHTML = '<div class="empty"><i class="fa-brands fa-whatsapp"></i><p>Sem conversas</p></div>';
+    return;
+  }
+  lista.innerHTML = keys.map(tel => {
+    const c = contatos[tel];
+    const init = (c.nome || '?')[0].toUpperCase();
+    return `<div class="wa-contact${waAtivo===tel?' active':''}" onclick="abrirChat('${tel}','${c.nome.replace(/'/g,'\\'')}')">
+      <div class="wa-avatar">${init}</div>
+      <div><div class="wa-contact-name">${esc(c.nome)}</div><div class="wa-contact-last">${esc(c.last)}</div></div>
+    </div>`;
+  }).join('');
+}
+
+function filtrarContatos() {
+  const q = document.getElementById('wa-search').value.toLowerCase();
+  document.querySelectorAll('.wa-contact').forEach(el => {
+    el.style.display = el.textContent.toLowerCase().includes(q) ? '' : 'none';
+  });
+}
+
+function abrirChat(tel, nome) {
+  waAtivo = tel;
+  document.getElementById('chat-name').textContent = nome;
+  document.getElementById('chat-tel').textContent = tel;
+  document.getElementById('chat-avatar').textContent = (nome || '?')[0].toUpperCase();
+  renderContatos();
+  const msgs = waConversas.filter(c => c.telefone === tel).reverse();
+  const box = document.getElementById('wa-messages');
+  if (!msgs.length) { box.innerHTML = '<div class="empty"><i class="fa-solid fa-comments"></i><p>Sem mensagens</p></div>'; return; }
+  box.innerHTML = msgs.map(m => {
+    const dir = m.direcao === 'out' ? 'out' : 'in';
+    const hora = m.criado_em ? new Date(m.criado_em).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}) : '';
+    return `<div class="wa-msg ${dir}">${esc(m.conteudo||'')}<div class="wa-msg-time">${hora}</div></div>`;
+  }).join('');
+  box.scrollTop = box.scrollHeight;
+}
+
+async function enviarMensagem() {
+  if (!waAtivo) { toast('Selecione um contato primeiro.','error'); return; }
+  const msg = document.getElementById('wa-msg-input').value.trim();
+  if (!msg) return;
+  const d = await api('POST', '/api/cheff-ai/whatsapp/enviar', { telefone: waAtivo, mensagem: msg });
+  if (d.ok) {
+    document.getElementById('wa-msg-input').value = '';
+    await carregarConversas();
+    abrirChat(waAtivo, document.getElementById('chat-name').textContent);
+  } else toast(d.erro || 'Erro ao enviar.', 'error');
+}
+
+async function enviarManual() {
+  const tel = document.getElementById('env-tel').value.trim();
+  const msg = document.getElementById('env-msg').value.trim();
+  if (!tel || !msg) { toast('Preencha telefone e mensagem.', 'error'); return; }
+  const d = await api('POST', '/api/cheff-ai/whatsapp/enviar', { telefone: tel, mensagem: msg });
+  if (d.ok) { fecharModal('modal-enviar'); toast('Mensagem enviada!'); carregarConversas(); }
+  else toast(d.erro || 'Erro ao enviar.', 'error');
+}
+
+// ── FUNIL ──────────────────────────────────────────────────
+const ETAPAS_MAP = {
+  novo: { label: 'Novo', color: '#94a3b8' },
+  contato: { label: 'Em Contato', color: '#3b82f6' },
+  demonstracao: { label: 'Demonstração', color: '#8b5cf6' },
+  proposta: { label: 'Proposta', color: '#f59e0b' },
+  negociacao: { label: 'Negociação', color: '#f97316' },
+  ganho: { label: '✅ Ganho', color: '#10b981' },
+  perdido: { label: '❌ Perdido', color: '#ef4444' }
+};
+
+async function carregarFunil() {
+  const d = await api('GET', '/api/cheff-ai/funil');
+  if (!d.ok) return;
+  document.getElementById('fn-total').textContent = d.total || 0;
+  document.getElementById('fn-conv').textContent = d.convertidos || 0;
+  document.getElementById('fn-valor').textContent = 'R$ ' + (d.valor_total || 0).toFixed(2);
+  const board = document.getElementById('kanban-board');
+  board.innerHTML = Object.entries(ETAPAS_MAP).map(([key, cfg]) => {
+    const leads = (d.por_etapa && d.por_etapa[key]) || [];
+    const cards = leads.map(l => `
+      <div class="kanban-card" onclick="moverLead(${l.id},'${key}')">
+        <div class="kanban-card-name">${esc(l.nome || 'Lead #' + l.id)}</div>
+        <div class="kanban-card-tel">${esc(l.telefone || l.email || '')}</div>
+        ${l.notas ? `<div style="font-size:0.72rem;color:var(--text-muted);margin-top:4px;">${esc(l.notas.substring(0,50))}</div>` : ''}
+      </div>`).join('');
+    return `<div class="kanban-col">
+      <div class="kanban-col-header" style="color:${cfg.color};">${cfg.label}<span class="kanban-count">${leads.length}</span></div>
+      ${cards || '<div style="font-size:0.75rem;color:var(--text-muted);text-align:center;padding:10px;">Vazio</div>'}
+    </div>`;
+  }).join('');
+}
+
+async function salvarLead() {
+  const d = await api('POST', '/api/cheff-ai/funil/lead', {
+    nome: document.getElementById('lead-nome').value,
+    telefone: document.getElementById('lead-tel').value,
+    email: document.getElementById('lead-email').value,
+    canal: document.getElementById('lead-canal').value,
+    notas: document.getElementById('lead-notas').value
+  });
+  if (d.ok) { fecharModal('modal-lead'); toast('Lead adicionado!'); carregarFunil(); }
+  else toast(d.erro || 'Erro.', 'error');
+}
+
+async function moverLead(id, etapaAtual) {
+  const proximas = Object.keys(ETAPAS_MAP);
+  const idx = proximas.indexOf(etapaAtual);
+  const nova = proximas[(idx + 1) % proximas.length];
+  if (confirm(`Mover este lead para "${ETAPAS_MAP[nova].label}"?`)) {
+    await api('PUT', `/api/cheff-ai/funil/lead/${id}`, { etapa: nova });
+    carregarFunil();
+  }
+}
+
+// ── CAMPANHAS ──────────────────────────────────────────────
+const STATUS_COLORS = { rascunho:'#94a3b8', agendada:'#3b82f6', enviando:'#f59e0b', concluida:'#10b981', erro:'#ef4444' };
+
+async function carregarCampanhas() {
+  const d = await api('GET', '/api/cheff-ai/campanhas');
+  const list = document.getElementById('camp-list');
+  if (!d.ok || !d.campanhas || !d.campanhas.length) {
+    list.innerHTML = '<div class="empty"><i class="fa-solid fa-bullhorn"></i><p>Nenhuma campanha criada</p></div>';
+    return;
+  }
+  list.innerHTML = d.campanhas.map(c => `
+    <div class="camp-card">
+      <div class="camp-info">
+        <div class="camp-name">${esc(c.nome)}</div>
+        <div class="camp-seg">
+          <span style="background:rgba(124,58,237,0.15);color:#8b5cf6;padding:2px 8px;border-radius:4px;font-size:0.72rem;margin-right:6px;">${c.segmento}</span>
+          <span style="color:${STATUS_COLORS[c.status]||'#fff'};font-size:0.75rem;font-weight:700;">${c.status.toUpperCase()}</span>
+          ${c.enviados ? `<span style="font-size:0.72rem;color:var(--text-muted);margin-left:6px;">${c.enviados} enviados</span>` : ''}
+        </div>
+      </div>
+      <div class="camp-actions">
+        ${c.status === 'rascunho' || c.status === 'agendada' ? `<button class="btn btn-success btn-sm" onclick="dispararCampanha(${c.id})"><i class="fa-solid fa-rocket"></i> Disparar</button>` : ''}
+      </div>
+    </div>`).join('');
+}
+
+async function salvarCampanha() {
+  const d = await api('POST', '/api/cheff-ai/campanhas', {
+    nome: document.getElementById('camp-nome').value,
+    mensagem: document.getElementById('camp-msg').value,
+    segmento: document.getElementById('camp-seg').value,
+    agendado_em: document.getElementById('camp-data').value || null
+  });
+  if (d.ok) { fecharModal('modal-campanha'); toast('Campanha criada!'); carregarCampanhas(); }
+  else toast(d.erro || 'Erro.', 'error');
+}
+
+async function dispararCampanha(id) {
+  if (!confirm('Disparar esta campanha agora?')) return;
+  const d = await api('POST', `/api/cheff-ai/campanhas/${id}/disparar`);
+  if (d.ok) { toast(`Campanha disparada! ${d.enviados} clientes atingidos.`); carregarCampanhas(); }
+  else toast(d.erro || 'Erro ao disparar.', 'error');
+}
+
+// ── CUPONS ─────────────────────────────────────────────────
+async function carregarCupons() {
+  const d = await api('GET', '/api/cheff-ai/cupons');
+  const grid = document.getElementById('cupon-grid');
+  if (!d.ok || !d.cupons || !d.cupons.length) {
+    grid.innerHTML = '<div class="empty" style="grid-column:1/-1;"><i class="fa-solid fa-ticket"></i><p>Nenhum cupom criado</p></div>';
+    return;
+  }
+  grid.innerHTML = d.cupons.map(c => `
+    <div class="cupon-card">
+      <div class="cupon-code">${esc(c.codigo)}</div>
+      <div class="cupon-titulo">${esc(c.titulo)}</div>
+      <div class="cupon-info">Usos: ${c.usos}/${c.usos_max}${c.validade_em ? ' · Até ' + new Date(c.validade_em).toLocaleDateString('pt-BR') : ''}</div>
+      <div class="cupon-valor">${c.tipo === 'percentual' ? c.valor + '%' : 'R$ ' + parseFloat(c.valor).toFixed(2)} OFF</div>
+      <button class="btn btn-danger btn-sm" style="margin-top:10px;width:100%;" onclick="excluirCupom(${c.id})"><i class="fa-solid fa-trash"></i> Desativar</button>
+    </div>`).join('');
+}
+
+async function salvarCupom() {
+  const d = await api('POST', '/api/cheff-ai/cupons', {
+    titulo: document.getElementById('cup-titulo').value,
+    tipo: document.getElementById('cup-tipo').value,
+    valor: document.getElementById('cup-valor').value,
+    codigo: document.getElementById('cup-codigo').value || undefined,
+    usos_max: document.getElementById('cup-usos').value || 100,
+    validade_em: document.getElementById('cup-validade').value || null
+  });
+  if (d.ok) { fecharModal('modal-cupom'); toast(`Cupom ${d.codigo} criado!`); carregarCupons(); }
+  else toast(d.erro || 'Erro.', 'error');
+}
+
+async function excluirCupom(id) {
+  if (!confirm('Desativar este cupom?')) return;
+  const d = await api('DELETE', `/api/cheff-ai/cupons/${id}`);
+  if (d.ok) { toast('Cupom desativado.'); carregarCupons(); }
+  else toast(d.erro || 'Erro.', 'error');
+}
+
+// ── CRM ────────────────────────────────────────────────────
+async function carregarCRM() {
+  const dias = document.getElementById('crm-dias').value;
+  const d = await api('GET', `/api/cheff-ai/crm/inativos?dias=${dias}&limit=50`);
+  const tbody = document.getElementById('crm-tbody');
+  if (!d.ok || !d.clientes || !d.clientes.length) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text-muted);">Nenhum cliente inativo há ${dias} dias encontrado.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = d.clientes.map(c => `<tr>
+    <td><strong>${esc(c.nome || 'Sem nome')}</strong></td>
+    <td>${esc(c.telefone || '–')}</td>
+    <td>${c.ultima_compra ? new Date(c.ultima_compra).toLocaleDateString('pt-BR') : '<span style="color:var(--danger);">Nunca comprou</span>'}</td>
+    <td>${c.total_pedidos || 0}</td>
+    <td>R$ ${parseFloat(c.valor_total || 0).toFixed(2)}</td>
+    <td><button class="btn btn-success btn-sm" onclick="recuperarCliente(${c.id},'${(c.nome||'').replace(/'/g,"\\'")}')"><i class="fa-brands fa-whatsapp"></i> Recuperar</button></td>
+  </tr>`).join('');
+}
+
+async function recuperarCliente(id, nome) {
+  if (!confirm(`Registrar ação de recuperação para ${nome}?`)) return;
+  const d = await api('POST', '/api/cheff-ai/crm/recuperar', { cliente_id: id, tipo: 'whatsapp_manual', descricao: `Ação manual de recuperação para ${nome}` });
+  if (d.ok) toast(`Ação registrada para ${nome}!`);
+  else toast(d.erro || 'Erro.', 'error');
+}
+
+// ── UTILS ──────────────────────────────────────────────────
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── INIT ───────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  carregarDashboard();
+  // Fechar modais ao clicar fora
+  document.querySelectorAll('.modal-overlay').forEach(m => {
+    m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); });
+  });
+});
+</script>
+</body>
+</html>

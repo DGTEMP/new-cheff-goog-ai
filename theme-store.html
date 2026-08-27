@@ -114,92 +114,216 @@
       cursor: not-allowed;
     }
 
-    /* VIEW 1: VITRINE DA LOJA DE TEMAS (PARA DONOS DE RESTAURANTES) */
+    /* ═══════════════════════════════════════════════════════
+       APP STORE DE TEMAS — Premium UX
+       ═══════════════════════════════════════════════════════ */
     #view-store {
       flex: 1;
       overflow-y: auto;
-      padding: 24px;
       box-sizing: border-box;
+      background: #080b14;
     }
+
+    /* ── STORE TOOLBAR ── */
+    .store-toolbar {
+      position: sticky; top: 0; z-index: 50;
+      background: rgba(8,11,20,0.92); backdrop-filter: blur(16px);
+      border-bottom: 1px solid #1a2035;
+      padding: 12px 24px;
+      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    }
+    .store-search {
+      flex: 1; min-width: 200px;
+      background: #111827; border: 1px solid #1f2937;
+      color: #f3f4f6; padding: 9px 14px; border-radius: 10px;
+      font-size: 13px; outline: none;
+    }
+    .store-search:focus { border-color: var(--primary-color); }
+    .store-filter-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+    .filter-chip {
+      padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 700;
+      cursor: pointer; border: 1px solid #1f2937; background: #111827;
+      color: #9ca3af; transition: all 0.2s; white-space: nowrap;
+    }
+    .filter-chip.active { background: var(--primary-color); color: #fff; border-color: var(--primary-color); }
+    .filter-chip:hover:not(.active) { border-color: #374151; color: #fff; }
+    .sort-select {
+      background: #111827; border: 1px solid #1f2937; color: #9ca3af;
+      padding: 8px 12px; border-radius: 10px; font-size: 12px; cursor: pointer;
+    }
+
+    /* ── FEATURED BANNER ── */
+    .featured-banner {
+      position: relative; height: 200px; overflow: hidden;
+      margin: 0; padding: 0;
+    }
+    .featured-slide {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; padding: 0 40px;
+      opacity: 0; transition: opacity 0.6s ease;
+    }
+    .featured-slide.active { opacity: 1; }
+    .featured-content { max-width: 500px; z-index: 2; }
+    .featured-eyebrow { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 2px; opacity: 0.8; margin-bottom: 6px; }
+    .featured-title { font-size: 26px; font-weight: 900; line-height: 1.15; margin-bottom: 8px; }
+    .featured-desc { font-size: 13px; opacity: 0.75; line-height: 1.5; margin-bottom: 14px; }
+    .btn-featured-apply {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: rgba(255,255,255,0.15); backdrop-filter: blur(8px);
+      border: 1px solid rgba(255,255,255,0.3); color: #fff;
+      padding: 10px 20px; border-radius: 10px; font-weight: 800; font-size: 13px; cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-featured-apply:hover { background: rgba(255,255,255,0.25); }
+    .featured-orbs {
+      position: absolute; right: -40px; top: 50%; transform: translateY(-50%);
+      width: 320px; height: 320px; pointer-events: none;
+    }
+    .featured-orb {
+      position: absolute; border-radius: 50%; filter: blur(40px); opacity: 0.4;
+    }
+    .banner-dots {
+      position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%);
+      display: flex; gap: 6px; z-index: 10;
+    }
+    .banner-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: rgba(255,255,255,0.3); cursor: pointer; transition: all 0.2s;
+    }
+    .banner-dot.active { width: 20px; background: #fff; border-radius: 3px; }
+
+    /* ── STORE SECTIONS ── */
+    .store-section { padding: 28px 24px 0; max-width: 1400px; margin: 0 auto; }
+    .store-section-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 16px;
+    }
+    .store-section-title { font-size: 16px; font-weight: 800; color: #f3f4f6; }
+    .store-section-sub { font-size: 12px; color: #6b7280; margin-top: 2px; }
+    .store-see-all { font-size: 12px; color: var(--primary-color); cursor: pointer; font-weight: 700; }
+
+    /* ── THEME CARDS (App Store style) ── */
     .themes-store-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-      gap: 22px;
-      max-width: 1300px;
-      margin: 0 auto;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 18px;
+      padding-bottom: 32px;
     }
     .theme-store-card {
-      background: var(--bg-panel);
-      border: 1px solid var(--border-panel);
-      border-radius: 16px;
+      background: #111827;
+      border: 1px solid #1f2937;
+      border-radius: 18px;
       overflow: hidden;
       display: flex;
       flex-direction: column;
-      box-shadow: 0 6px 16px rgba(0,0,0,0.2);
-      transition: transform 0.2s, box-shadow 0.2s;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      transition: transform 0.25s, box-shadow 0.25s, border-color 0.25s;
+      cursor: pointer;
+      position: relative;
     }
     .theme-store-card:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 12px 28px rgba(0,0,0,0.4);
-      border-color: #374151;
+      transform: translateY(-5px) scale(1.01);
+      box-shadow: 0 16px 40px rgba(0,0,0,0.5);
     }
     .theme-preview-box {
-      height: 150px;
+      height: 160px;
       padding: 16px;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
       position: relative;
+      overflow: hidden;
+    }
+    .preview-mock-bar {
+      height: 6px; border-radius: 3px; opacity: 0.5; width: 60%;
+    }
+    .preview-mock-card {
+      border-radius: 8px; padding: 10px 12px;
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 11px; font-weight: 700;
     }
     .theme-palette-dots {
       display: flex;
       gap: 6px;
+      margin-top: 6px;
     }
     .palette-dot {
-      width: 20px;
-      height: 20px;
+      width: 16px;
+      height: 16px;
       border-radius: 50%;
-      border: 2px solid rgba(255,255,255,0.8);
+      border: 2px solid rgba(255,255,255,0.7);
       box-shadow: 0 2px 6px rgba(0,0,0,0.3);
     }
+
+    /* ── BADGES ── */
+    .badge-container { position: absolute; top: 10px; right: 10px; display: flex; flex-direction: column; gap: 4px; align-items: flex-end; }
+    .badge {
+      font-size: 10px; font-weight: 800; padding: 3px 9px; border-radius: 20px;
+      text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .badge-lancamento { background: #7c3aed; color: #fff; }
+    .badge-destaque { background: linear-gradient(135deg, #f59e0b, #ef4444); color: #fff; }
+    .badge-desconto { background: #10b981; color: #fff; }
+    .badge-novo { background: #3b82f6; color: #fff; }
+
+    /* ── CARD BODY ── */
     .theme-card-body {
-      padding: 18px;
+      padding: 16px;
       display: flex;
       flex-direction: column;
       flex: 1;
-      gap: 10px;
+      gap: 8px;
     }
+    .theme-card-nicho {
+      font-size: 11px; font-weight: 700; color: #6b7280; display: flex; align-items: center; gap: 4px;
+    }
+    .theme-card-name { font-size: 15px; font-weight: 800; color: #f3f4f6; line-height: 1.2; }
+    .theme-card-desc { font-size: 12px; color: #6b7280; line-height: 1.45; }
+    .theme-card-stars {
+      display: flex; align-items: center; gap: 4px; margin-top: 2px;
+    }
+    .star { color: #f59e0b; font-size: 11px; }
+    .star.empty { color: #374151; }
+    .star-val { font-size: 11px; font-weight: 700; color: #9ca3af; }
+    .star-votos { font-size: 10px; color: #4b5563; }
+    .theme-card-actions { display: flex; gap: 8px; margin-top: 6px; }
     .btn-apply-theme {
+      flex: 1;
       background: var(--primary-color);
       color: white;
       border: none;
-      padding: 11px;
+      padding: 10px;
       border-radius: 10px;
       font-weight: 800;
-      font-size: 13px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      box-shadow: 0 4px 14px rgba(252,75,21,0.25);
-    }
-    .btn-request-changes {
-      background: #1f2937;
-      color: #38bdf8;
-      border: 1px solid #374151;
-      padding: 9px;
-      border-radius: 8px;
-      font-weight: 700;
       font-size: 12px;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 6px;
+      transition: all 0.2s;
     }
-    .btn-request-changes:hover {
-      background: #374151;
+    .btn-apply-theme:hover { filter: brightness(1.15); transform: scale(1.02); }
+    .btn-request-changes {
+      background: #1f2937;
+      color: #38bdf8;
+      border: 1px solid #374151;
+      padding: 10px 12px;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      transition: all 0.2s;
+    }
+    .btn-request-changes:hover { background: #374151; }
+    .desconto-tag {
+      position: absolute; bottom: 10px; left: 10px;
+      background: #10b981; color: #fff; font-size: 10px; font-weight: 800;
+      padding: 3px 8px; border-radius: 6px;
     }
 
     /* VIEW 2: ESTÚDIO DE CRIAÇÃO PRO */
@@ -429,16 +553,42 @@
   </header>
 
   <!-- ════════════════════════════════════════════════════════════════ -->
-  <!-- VIEW 1: VITRINE DA LOJA DE TEMAS (RESTAURANTES)                 -->
+  <!-- VIEW 1: APP STORE DE TEMAS (RESTAURANTES)                       -->
   <!-- ════════════════════════════════════════════════════════════════ -->
   <div id="view-store">
-    <div style="text-align: center; margin-bottom: 26px;">
-      <h2 style="margin: 0 0 6px 0; font-weight: 900; font-size: 22px;">🎨 Identidade Visual & Temas</h2>
-      <p style="margin: 0; color: var(--text-muted); font-size: 14px;">Escolha o tema do seu restaurante ou solicite ajustes customizados diretamente para nossa equipe de criação.</p>
+
+    <!-- TOOLBAR: Busca + Filtros + Ordenação -->
+    <div class="store-toolbar">
+      <input class="store-search" id="store-search-input" placeholder="🔍 Buscar tema por nome, nicho ou estilo..." oninput="filtrarTemasLoja()">
+      <div class="store-filter-chips" id="store-filter-chips">
+        <div class="filter-chip active" data-filter="" onclick="setFiltroLoja(this, '')">✨ Todos</div>
+        <div class="filter-chip" data-filter="destaque" onclick="setFiltroLoja(this, 'destaque')">🔥 Destaques</div>
+        <div class="filter-chip" data-filter="lancamento" onclick="setFiltroLoja(this, 'lancamento')">🆕 Lançamentos</div>
+        <div class="filter-chip" data-filter="desconto" onclick="setFiltroLoja(this, 'desconto')">🏷️ Com Desconto</div>
+      </div>
+      <select class="sort-select" id="store-sort" onchange="carregarTemasLoja()">
+        <option value="ordem">Ordenar: Em Destaque</option>
+        <option value="estrelas">Melhor Avaliados</option>
+        <option value="novos">Mais Recentes</option>
+        <option value="az">A-Z</option>
+      </select>
     </div>
 
-    <div class="themes-store-grid" id="themes-container">
-      <!-- Renderizado dinamicamente -->
+    <!-- FEATURED BANNER (Destaques em Carrossel) -->
+    <div class="featured-banner" id="featured-banner">
+      <!-- Slides gerados dinamicamente -->
+      <div class="banner-dots" id="banner-dots"></div>
+    </div>
+
+    <!-- GRID DE TEMAS -->
+    <div class="store-section">
+      <div class="store-section-header">
+        <div>
+          <div class="store-section-title" id="store-section-title">🎨 Todos os Temas</div>
+          <div class="store-section-sub" id="store-section-count">Carregando...</div>
+        </div>
+      </div>
+      <div class="themes-store-grid" id="themes-container"></div>
     </div>
   </div>
 
@@ -774,110 +924,222 @@
       });
     }
 
-    // ── CATÁLOGO DA LOJA DE TEMAS (PARA RESTAURANTES) ─────────────
-    const CATALOGO_TEMAS_PADRAO = [
-      {
-        id: 'theme_themeia_01',
-        nome: 'Themeia',
-        nicho: '🧠 IA & High-Tech Futuristic',
-        descricao: 'Tema futurista com paleta Dark Glassmorphism, ciano elétrico espacial e bordas luminosas de alta performance.',
-        cores: { primary: '#06b6d4', bgPage: '#050811', bgCard: '#0c1322', borderColor: '#1e293b', textMain: '#f0f9ff', statusOcupada: '#f43f5e', statusLivre: '#10b981' }
-      },
-      {
-        id: 'burger_neon',
-        nome: 'Burger Cyberpunk Neon',
-        nicho: '🍔 Hamburgueria',
-        descricao: 'Dark mode profundo com detalhes em neon laranja e roxo para hamburguerias artesanais.',
-        cores: { primary: '#f97316', bgPage: '#090d16', bgCard: '#131c2e', borderColor: '#1e293b', textMain: '#f8fafc', statusOcupada: '#ef4444', statusLivre: '#10b981' }
-      },
-      {
-        id: 'pizzaria_rustica',
-        nome: 'Pizzaria & Forno à Lenha',
-        nicho: '🍕 Pizzaria',
-        descricao: 'Tons quentes terrosos de terracota, madeira e dourado italiano para pizzarias e trattorias.',
-        cores: { primary: '#c2410c', bgPage: '#1c1917', bgCard: '#292524', borderColor: '#44403c', textMain: '#fafaf9', statusOcupada: '#e11d48', statusLivre: '#22c55e' }
-      },
-      {
-        id: 'sushi_zen',
-        nome: 'Sushi Bar Zen Minimalista',
-        nicho: '🍣 Japonês',
-        descricao: 'Visual sofisticado, minimalista e limpo com preto fosco e detalhes em carmim japonês.',
-        cores: { primary: '#e11d48', bgPage: '#0b0f19', bgCard: '#111827', borderColor: '#1f2937', textMain: '#f3f4f6', statusOcupada: '#dc2626', statusLivre: '#059669' }
-      },
-      {
-        id: 'cafe_bistro',
-        nome: 'Cafeteria & Bistrô Vintage',
-        nicho: '☕ Cafeteria',
-        descricao: 'Estilo aconchegante em tons de café, verde sálvia e creme suave para cafés e docerias.',
-        cores: { primary: '#78350f', bgPage: '#fdfbf7', bgCard: '#ffffff', borderColor: '#e7e5e4', textMain: '#292524', statusOcupada: '#b91c1c', statusLivre: '#15803d' }
-      },
-      {
-        id: 'pub_craft',
-        nome: 'Pub & Choperia Craft Beer',
-        nicho: '🍺 Bar & Pub',
-        descricao: 'Identidade moderna com tons âmbar cervejeiro, madeira escura e alto contraste no salão.',
-        cores: { primary: '#d97706', bgPage: '#0f172a', bgCard: '#1e293b', borderColor: '#334155', textMain: '#f8fafc', statusOcupada: '#f43f5e', statusLivre: '#10b981' }
+    // ══════════════════════════════════════════════════════════════
+    // APP STORE DE TEMAS — Lógica completa com badges e carrossel
+    // ══════════════════════════════════════════════════════════════
+
+    let _temasCache = [];
+    let _filtroAtivo = '';
+    let _bannerInterval = null;
+    let _bannerAtual = 0;
+
+    function renderEstrelas(val, votos) {
+      const stars = [];
+      for (let i = 1; i <= 5; i++) {
+        stars.push(`<span class="star${i > Math.round(val) ? ' empty' : ''}">★</span>`);
       }
-    ];
+      return `<div class="theme-card-stars">${stars.join('')}<span class="star-val">${(val||5).toFixed(1)}</span><span class="star-votos">(${votos||0})</span></div>`;
+    }
+
+    function renderBadges(tema) {
+      const tags = [];
+      if (tema.badge === 'destaque') tags.push('<span class="badge badge-destaque">🔥 Destaque</span>');
+      if (tema.badge === 'lancamento') tags.push('<span class="badge badge-lancamento">🆕 Lançamento</span>');
+      if (tema.badge === 'desconto' || tema.desconto > 0) tags.push(`<span class="badge badge-desconto">-${tema.desconto||10}%</span>`);
+      if (tema.novo && tema.badge !== 'lancamento') tags.push('<span class="badge badge-novo">Novo</span>');
+      if (!tags.length) return '';
+      return `<div class="badge-container">${tags.join('')}</div>`;
+    }
+
+    function renderCardTema(t) {
+      const c = t.cores || {};
+      const bg = c.bgPage || '#0f172a';
+      const bgCard = c.bgCard || '#1e293b';
+      const border = c.borderColor || '#334155';
+      const primary = c.primary || '#fc4b15';
+      const textMain = c.textMain || '#fff';
+      return `
+        <div class="theme-store-card" style="border-color:${border};" onclick="abrirPreviewTema(${JSON.stringify(t).replace(/"/g,'&quot;')})">
+          <div class="theme-preview-box" style="background:${bg};border-bottom:1px solid ${border};">
+            ${renderBadges(t)}
+            <div class="theme-palette-dots">
+              <div class="palette-dot" style="background:${primary};"></div>
+              <div class="palette-dot" style="background:${bgCard};"></div>
+              <div class="palette-dot" style="background:${c.statusLivre||'#10b981'};"></div>
+              <div class="palette-dot" style="background:${c.statusOcupada||'#ef4444'};"></div>
+            </div>
+            <div class="preview-mock-card" style="background:${bgCard};border:1px solid ${border};color:${textMain};">
+              <span style="font-size:10px;">🍽️ Mesa 01</span>
+              <span style="color:${primary};font-weight:900;font-size:12px;">R$ 128,00</span>
+            </div>
+            ${t.desconto > 0 ? `<div class="desconto-tag">-${t.desconto}% OFF</div>` : ''}
+          </div>
+          <div class="theme-card-body">
+            <div class="theme-card-nicho">${t.emoji_nicho||'🍽️'} ${t.nicho||'Restaurante'}</div>
+            <div class="theme-card-name">${t.nome}</div>
+            <div class="theme-card-desc">${t.descricao||''}</div>
+            ${renderEstrelas(t.estrelas, t.votos)}
+            <div class="theme-card-actions">
+              <button class="btn-apply-theme" onclick="event.stopPropagation();aplicarTemaLoja(JSON.parse(this.dataset.tema))" data-tema="${JSON.stringify(t).replace(/"/g,'&quot;')}">
+                ✓ Aplicar Tema
+              </button>
+              <button class="btn-request-changes" onclick="event.stopPropagation();solicitarAjustesSuporte('${t.nome.replace(/'/g,"\\'")}')">💬</button>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    function renderFeaturedBanner(temas) {
+      const banner = document.getElementById('featured-banner');
+      const dots = document.getElementById('banner-dots');
+      const destaques = temas.filter(t => t.badge === 'destaque' || t.badge === 'lancamento').slice(0, 4);
+      if (!destaques.length) { banner.style.display = 'none'; return; }
+      banner.style.display = 'block';
+
+      const PALETTES = [
+        { grad: 'linear-gradient(135deg,#1e1b4b 0%,#312e81 50%,#1e1b4b 100%)', orb1: '#7c3aed', orb2: '#06b6d4' },
+        { grad: 'linear-gradient(135deg,#1f1615 0%,#7f1d1d 50%,#1f1615 100%)', orb1: '#ef4444', orb2: '#f59e0b' },
+        { grad: 'linear-gradient(135deg,#052e16 0%,#14532d 50%,#052e16 100%)', orb1: '#22c55e', orb2: '#10b981' },
+        { grad: 'linear-gradient(135deg,#0c1a2e 0%,#1e3a5f 50%,#0c1a2e 100%)', orb1: '#3b82f6', orb2: '#06b6d4' }
+      ];
+
+      const slides = destaques.map((t, i) => {
+        const pal = PALETTES[i % PALETTES.length];
+        const c = t.cores || {};
+        return `<div class="featured-slide${i===0?' active':''}" id="slide-${i}" style="background:${pal.grad};">
+          <div class="featured-content">
+            <div class="featured-eyebrow" style="color:${c.primary||'#fff'};">✨ ${t.badge==='lancamento'?'Novo Lançamento':'Tema em Destaque'}</div>
+            <div class="featured-title" style="color:#fff;">${t.nome}</div>
+            <div class="featured-desc" style="color:rgba(255,255,255,0.75);">${t.descricao||''}</div>
+            <button class="btn-featured-apply" onclick="aplicarTemaLoja(JSON.parse(this.dataset.tema))" data-tema="${JSON.stringify(t).replace(/"/g,'&quot;')}">✓ Aplicar Agora${t.desconto>0?` — -${t.desconto}%`:''}</button>
+          </div>
+          <div class="featured-orbs">
+            <div class="featured-orb" style="width:200px;height:200px;background:${pal.orb1};top:10%;right:10%;"></div>
+            <div class="featured-orb" style="width:150px;height:150px;background:${pal.orb2};bottom:5%;right:25%;opacity:0.3;"></div>
+          </div>
+        </div>`;
+      }).join('');
+
+      const dotsHtml = destaques.map((_, i) =>
+        `<div class="banner-dot${i===0?' active':''}" onclick="goToSlide(${i})"></div>`
+      ).join('');
+
+      banner.innerHTML = slides + `<div class="banner-dots">${dotsHtml}</div>`;
+
+      // Auto-play
+      if (_bannerInterval) clearInterval(_bannerInterval);
+      _bannerAtual = 0;
+      _bannerInterval = setInterval(() => {
+        _bannerAtual = (_bannerAtual + 1) % destaques.length;
+        goToSlide(_bannerAtual);
+      }, 4000);
+    }
+
+    function goToSlide(idx) {
+      _bannerAtual = idx;
+      document.querySelectorAll('.featured-slide').forEach((s, i) => s.classList.toggle('active', i === idx));
+      document.querySelectorAll('.banner-dot').forEach((d, i) => d.classList.toggle('active', i === idx));
+    }
 
     async function carregarTemasLoja() {
       const container = document.getElementById('themes-container');
-      let temas = CATALOGO_TEMAS_PADRAO;
+      const sort = (document.getElementById('store-sort')||{}).value || 'ordem';
+      container.innerHTML = '<div style="text-align:center;padding:40px;color:#6b7280;">Carregando temas...</div>';
 
+      let temas = [];
       try {
-        const res = await fetch('/api/modulo/temas/loja');
+        const res = await fetch(`/api/modulo/temas/loja?ordenar=${sort}`);
         const data = await res.json();
         if (data && data.ok && data.temas && data.temas.length > 0) {
-          temas = [...CATALOGO_TEMAS_PADRAO, ...data.temas.filter(t => t.id !== 'theme_themeia_01')];
+          temas = data.temas;
         }
       } catch (e) {}
 
-      container.innerHTML = temas.map(t => {
-        const c = t.cores || {};
-        return `
-          <div class="theme-store-card">
-            <div class="theme-preview-box" style="background: ${c.bgPage || '#0f172a'}; border-bottom: 1px solid ${c.borderColor || '#334155'};">
-              <div style="display:flex; justify-content:space-between; align-items:center;">
-                <span style="font-size: 11px; font-weight:800; background: ${c.primary || '#fc4b15'}; color:white; padding: 2px 8px; border-radius: 4px;">${t.nicho || 'Restaurante'}</span>
-                <div class="theme-palette-dots">
-                  <div class="palette-dot" style="background: ${c.primary || '#fc4b15'};"></div>
-                  <div class="palette-dot" style="background: ${c.bgCard || '#1e293b'};"></div>
-                  <div class="palette-dot" style="background: ${c.statusOcupada || '#ef4444'};"></div>
-                </div>
-              </div>
-              <div style="background: ${c.bgCard || '#1e293b'}; border: 1px solid ${c.borderColor || '#334155'}; color: ${c.textMain || '#fff'}; padding: 8px 12px; border-radius: 8px; font-size: 11px; font-weight: 700; display: flex; justify-content: space-between;">
-                <span>Mesa 01</span>
-                <span style="color: ${c.primary || '#fc4b15'}; font-weight: 800;">R$ 84,00</span>
-              </div>
-            </div>
-            <div class="theme-card-body">
-              <b style="font-size: 15px;">${t.nome}</b>
-              <p style="font-size: 12px; color: var(--text-muted); margin: 0; line-height: 1.4;">${t.descricao || ''}</p>
-              
-              <button class="btn-apply-theme" onclick='aplicarTemaLoja(${JSON.stringify(t)})'>
-                <i class="ph-bold ph-check"></i> Aplicar no Restaurante
-              </button>
+      // Fallback: temas embutidos
+      if (!temas.length) {
+        temas = [
+          { id:'theme_themeia_01', nome:'Themeia', nicho:'IA & High-Tech', emoji_nicho:'🧠', descricao:'Tema futurista Dark Glassmorphism com ciano elétrico.', badge:'destaque', desconto:0, estrelas:5.0, votos:128, novo:0, cores:{primary:'#06b6d4',bgPage:'#050811',bgCard:'#0c1322',borderColor:'#1e293b',textMain:'#f0f9ff',statusOcupada:'#f43f5e',statusLivre:'#10b981'} },
+          { id:'burger_neon', nome:'Burger Cyberpunk Neon', nicho:'Hamburgueria', emoji_nicho:'🍔', descricao:'Dark mode com neon laranja para hamburguerias artesanais.', badge:'lancamento', desconto:0, estrelas:4.8, votos:84, novo:1, cores:{primary:'#f97316',bgPage:'#090d16',bgCard:'#131c2e',borderColor:'#1e293b',textMain:'#f8fafc',statusOcupada:'#ef4444',statusLivre:'#10b981'} },
+          { id:'pizzaria_rustica', nome:'Pizzaria & Forno à Lenha', nicho:'Pizzaria', emoji_nicho:'🍕', descricao:'Tons terrosos de terracota e dourado para pizzarias.', badge:'desconto', desconto:20, estrelas:4.7, votos:62, novo:0, cores:{primary:'#c2410c',bgPage:'#1c1917',bgCard:'#292524',borderColor:'#44403c',textMain:'#fafaf9',statusOcupada:'#e11d48',statusLivre:'#22c55e'} },
+          { id:'sushi_zen', nome:'Sushi Bar Zen Minimalista', nicho:'Japonês', emoji_nicho:'🍣', descricao:'Minimalista preto fosco com detalhes em carmim japonês.', badge:'destaque', desconto:0, estrelas:4.9, votos:95, novo:0, cores:{primary:'#e11d48',bgPage:'#0b0f19',bgCard:'#111827',borderColor:'#1f2937',textMain:'#f3f4f6',statusOcupada:'#dc2626',statusLivre:'#059669'} },
+          { id:'cafe_bistro', nome:'Cafeteria & Bistrô Vintage', nicho:'Cafeteria', emoji_nicho:'☕', descricao:'Tom aconchegante em café, verde sálvia e creme suave.', badge:'', desconto:0, estrelas:4.5, votos:41, novo:0, cores:{primary:'#78350f',bgPage:'#fdfbf7',bgCard:'#ffffff',borderColor:'#e7e5e4',textMain:'#292524',statusOcupada:'#b91c1c',statusLivre:'#15803d'} },
+          { id:'pub_craft', nome:'Pub & Choperia Craft Beer', nicho:'Bar & Pub', emoji_nicho:'🍺', descricao:'Tom âmbar cervejeiro com madeira escura e alto contraste.', badge:'lancamento', desconto:15, estrelas:4.6, votos:53, novo:1, cores:{primary:'#d97706',bgPage:'#0f172a',bgCard:'#1e293b',borderColor:'#334155',textMain:'#f8fafc',statusOcupada:'#f43f5e',statusLivre:'#10b981'} },
+          { id:'churrascaria_premium', nome:'Churrascaria Premium', nicho:'Churrascaria', emoji_nicho:'🥩', descricao:'Vermelho vinho com dourado champanhe para churrascarias premium.', badge:'destaque', desconto:0, estrelas:4.8, votos:71, novo:0, cores:{primary:'#991b1b',bgPage:'#0c0a0a',bgCard:'#1c1917',borderColor:'#292524',textMain:'#fafaf9',statusOcupada:'#dc2626',statusLivre:'#16a34a'} },
+          { id:'acai_tropical', nome:'Açaí & Tropical Fresh', nicho:'Açaí & Sorveteria', emoji_nicho:'🫐', descricao:'Roxo vibrante com gradientes tropicais para açaí e sorvetes.', badge:'lancamento', desconto:25, estrelas:4.7, votos:38, novo:1, cores:{primary:'#7c3aed',bgPage:'#0f0a1e',bgCard:'#1a1030',borderColor:'#2d1b69',textMain:'#f5f3ff',statusOcupada:'#f43f5e',statusLivre:'#10b981'} }
+        ];
+      }
 
-              <button class="btn-request-changes" onclick='solicitarAjustesSuporte("${t.nome}")'>
-                <i class="ph-bold ph-chat-circle-dots"></i> 💬 Solicitar Ajustes à Equipe
-              </button>
-            </div>
-          </div>
-        `;
-      }).join('');
+      _temasCache = temas;
+      renderizarTemasLoja(temas);
     }
 
-    function solicitarAjustesSuporte(nomeTema) {
-      const pedido = prompt(`Qual personalização você gostaria de solicitar para o tema "${nomeTema}"?`, 'Gostaria de mudar a cor dos botões para dourado e adicionar o logo do meu restaurante.');
-      if (pedido) {
-        alert('✅ Sua solicitação foi enviada para a Equipe de Criação & Suporte!');
+    function renderizarTemasLoja(temas) {
+      const container = document.getElementById('themes-container');
+      const countEl = document.getElementById('store-section-count');
+      const titleEl = document.getElementById('store-section-title');
+
+      if (!temas.length) {
+        container.innerHTML = '<div style="text-align:center;padding:40px;color:#6b7280;">Nenhum tema encontrado para este filtro.</div>';
+        return;
+      }
+
+      const label = _filtroAtivo === 'destaque' ? '🔥 Temas em Destaque' :
+                    _filtroAtivo === 'lancamento' ? '🆕 Lançamentos' :
+                    _filtroAtivo === 'desconto' ? '🏷️ Com Desconto' : '🎨 Todos os Temas';
+      titleEl.textContent = label;
+      countEl.textContent = `${temas.length} tema${temas.length !== 1 ? 's' : ''} disponíve${temas.length !== 1 ? 'is' : 'l'}`;
+
+      container.innerHTML = temas.map(t => renderCardTema(t)).join('');
+      renderFeaturedBanner(temas);
+    }
+
+    function setFiltroLoja(el, filtro) {
+      document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+      el.classList.add('active');
+      _filtroAtivo = filtro;
+      filtrarTemasLoja();
+    }
+
+    function filtrarTemasLoja() {
+      const busca = (document.getElementById('store-search-input')||{}).value || '';
+      let temas = _temasCache;
+      if (_filtroAtivo) temas = temas.filter(t => t.badge === _filtroAtivo || ((_filtroAtivo === 'desconto') && t.desconto > 0));
+      if (busca) {
+        const q = busca.toLowerCase();
+        temas = temas.filter(t => (t.nome||'').toLowerCase().includes(q) || (t.nicho||'').toLowerCase().includes(q) || (t.descricao||'').toLowerCase().includes(q));
+      }
+      renderizarTemasLoja(temas);
+    }
+
+    function abrirPreviewTema(t) {
+      // Mostrar preview rápido — aplica temporariamente e pede confirmação
+      if (confirm(`Deseja visualizar e aplicar o tema "${t.nome}" no seu restaurante?`)) {
+        aplicarTemaLoja(t);
       }
     }
 
+    function solicitarAjustesSuporte(nomeTema) {
+      const pedido = prompt(`Qual personalização você gostaria para o tema "${nomeTema}"?`, 'Gostaria de ajustar as cores para combinar com meu logo.');
+      if (pedido) alert('✅ Solicitação enviada à Equipe de Criação & Suporte! Entraremos em contato em breve.');
+    }
+
     async function aplicarTemaLoja(tema) {
-      localStorage.setItem('chef_custom_theme_active', JSON.stringify(tema));
+      try { localStorage.setItem('chef_custom_theme_active', JSON.stringify(tema)); } catch(e) {}
       socket.emit('tema_global_aplicar', tema);
-      alert(`✅ Tema '${tema.nome}' aplicado com sucesso em todas as telas do restaurante!`);
+      // Registrar no backend
+      try {
+        await fetch('/api/modulo/temas/aplicar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (localStorage.getItem('token') || '') },
+          body: JSON.stringify({ tema_id: tema.id, tema_json: tema })
+        });
+      } catch(e) {}
+      // Toast visual
+      const toast = document.createElement('div');
+      toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#10b981;color:#fff;padding:14px 22px;border-radius:12px;font-weight:800;font-size:14px;z-index:99999;box-shadow:0 8px 24px rgba(0,0,0,0.4);animation:slideUp 0.3s ease;';
+      toast.textContent = `✅ Tema "${tema.nome}" aplicado em todas as telas!`;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 3500);
     }
 
     // ── DRAG & DROP LOGIC NO PREVIEW ──────────────────────────────

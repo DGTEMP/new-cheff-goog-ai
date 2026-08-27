@@ -1,0 +1,13 @@
+{
+  "id": "theme-curator",
+  "name": "Curadoria de Temas",
+  "version": "1.0.0",
+  "description": "Backend para curadoria da App Store de Temas: gerencia catálogo, badges (Lançamento, Destaque, Desconto), avaliações e ordenação. Acessível pelo painel de suporte.",
+  "category": "design",
+  "icon": "fa-palette",
+  "enabled": true,
+  "targets": ["suporte", "restaurante"],
+  "hooks": {
+    "server": "index.js"
+  }
+}

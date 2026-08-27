@@ -109,21 +109,6 @@ console.log = function (...args) {
                 `${ANSI.cyan}╰──────────────────────────────────────╯${ANSI.reset}`;
   }
   else if (/^\[iFood/.test(line)) {
-    formatted = `${ANSI.red}🛵 [${timeStr}] [iFood]${ANSI.reset} ${line.replace(/^\[iFood[^\]]*\]/, '').trim()}`;
-  } else if (/^\[Lazy DB Pool\]/.test(line)) {
-    formatted = `${ANSI.green}💾 [${timeStr}] [Lazy DB Pool]${ANSI.reset} ${line.replace(/^\[Lazy DB Pool\]/, '').trim()}`;
-  } else if (/^\[Deploy\]/.test(line)) {
-    formatted = `${ANSI.magenta}🚀 [${timeStr}] [Deploy]${ANSI.reset} ${line.replace(/^\[Deploy\]/, '').trim()}`;
-  } else if (/^\[Sync/.test(line)) {
-    formatted = `${ANSI.yellow}🔄 [${timeStr}] [Sync]${ANSI.reset} ${line.replace(/^\[Sync[^\]]*\]/, '').trim()}`;
-  } else if (/^\[Licença\]/.test(line)) {
-    formatted = `${ANSI.yellow}🔑 [${timeStr}] [Licença]${ANSI.reset} ${line.replace(/^\[Licença\]/, '').trim()}`;
-  } else if (/^Cliente conectado:/.test(line)) {
-    formatted = `${ANSI.green}🟢 [${timeStr}] [Conexão] Dispositivo: ${line.replace(/^Cliente conectado:/, '').trim()}${ANSI.reset}`;
-  }
-
-  if (typeof isMatrixAnimating !== 'undefined' && isMatrixAnimating) {
-    pendingLogs.push(() => originalLog.apply(console, [formatted]));
   } else {
     originalLog.apply(console, [formatted]);
   }
@@ -142,7 +127,19 @@ const { Server } = require('socket.io');
 const cors = require('cors');
 const os = require('os');
 const zlib = require('zlib');
+// ── PROTEÇÃO ANTI-CRASH GLOBAL ──────────────────────────────────────────────
+// Garante que uncaughtException/unhandledRejection NUNCA derrubem o servidor
+const { setupProcessGuard, asyncHandler, globalErrorMiddleware } = require('./middleware/safe-handler');
+setupProcessGuard({
+  onError: (tipo, err) => {
+    const msg = `[PROCESS GUARD] ${tipo}: ${err && (err.message || String(err))}`;
+    logLines.push(`[ERR] ${new Date().toLocaleTimeString('pt-BR')} - ${msg}`);
+    if (logLines.length > 100) logLines.shift();
+  }
+});
+// ────────────────────────────────────────────────────────────────────────────
 const sqlite3 = require('sqlite3').verbose();
+
 const { AsyncLocalStorage } = require('async_hooks');
 const tenantContext = new AsyncLocalStorage();
 const fsSync = require('fs');
