@@ -1315,6 +1315,16 @@ async function superAdminAuth(req, res, next) {
   return res.status(401).json({ ok: false, erro: 'Acesso não autorizado. Autentique-se novamente.' });
 }
 
+// ─── GUARDA GLOBAL DE SEGURANÇA SUPER-ADMIN (PROTEÇÃO 100% INVIOLÁVEL) ───────
+app.use('/api/super', (req, res, next) => {
+  // Rotas públicas do super admin: login
+  if (req.path === '/login-local' || req.path === '/login-cloud') {
+    return next();
+  }
+  return superAdminAuth(req, res, next);
+});
+
+
 app.get('/api/super/check-auth', superAdminAuth, (req, res) => {
   res.json({ ok: true, authenticated: true, superAdmin: req.superAdmin });
 });

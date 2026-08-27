@@ -1993,4 +1993,113 @@ module.exports = function (app, masterDb, sqlite3, options) {
   // ═══════════════════════════════════════════════════════════════
   // PROVEDORES DE IMAGEM → migrados para plugins/image-providers/
   // ═══════════════════════════════════════════════════════════════
+
+  // ═══════════════════════════════════════════════════════════════
+  // SYNCCHEFF INVIOLÁVEL — ENDPOINTS DE AUDITORIA & SEGURANÇA MESTRE
+  // ═══════════════════════════════════════════════════════════════
+  const syncCheff = require('../synccheff-security');
+  try {
+    syncCheff.initSyncCheffDb(masterDb);
+  } catch (e) {
+    console.error('[SyncCheff DB Init Error]', e);
+  }
+
+  // GET /api/super/synccheff/status — Dashboard e nós de sincronização
+  app.get('/api/super/synccheff/status', superAdminAuth, (req, res) => {
+    masterDb.all(`
+      SELECT n.*, r.nome as restaurante_nome_real
+      FROM synccheff_nodes n
+      LEFT JOIN restaurantes r ON r.id = n.restaurante_id
+      ORDER BY n.ultimo_sync DESC
+    `, [], (err, nodes) => {
+      if (err) return res.json({ ok: false, erro: err.message });
+
+      masterDb.all(`
+        SELECT l.*, r.nome as restaurante_nome
+        FROM synccheff_audit_logs l
+        LEFT JOIN restaurantes r ON r.id = l.restaurante_id
+        ORDER BY l.id DESC LIMIT 40
+      `, [], (errLogs, logs) => {
+        const totalNodes = (nodes || []).length;
+        const inviolados = (nodes || []).filter(n => n.status === 'inviolado').length;
+        const violados = (nodes || []).filter(n => n.status === 'violado').length;
+        const totalSyncs = (nodes || []).reduce((acc, n) => acc + (n.total_syncs || 0), 0);
+
+        res.json({
+          ok: true,
+          kpis: {
+            total_nos: totalNodes,
+            inviolados: inviolados,
+            violados: violados,
+            total_syncs: totalSyncs,
+            status_geral: violados > 0 ? 'ALERTA_VIOLACAO' : '100%_SEGURO_INVIOLAVEL',
+            algoritmo: 'AES-256-GCM + HMAC-SHA512'
+          },
+          nodes: nodes || [],
+          logs: logs || []
+        });
+      });
+    });
+  });
+
+  // POST /api/super/synccheff/validar-script — Sandbox de Auditoria de Integridade de Script
+  app.post('/api/super/synccheff/validar-script', superAdminAuth, (req, res) => {
+    const { script, restaurante_id } = req.body || {};
+    syncCheff.auditarIntegridadeScript(script, masterDb, (err, resultado) => {
+      if (err) return res.json({ ok: false, erro: err.message });
+      res.json({ ok: true, ...resultado });
+    });
+  });
+
+  // POST /api/super/synccheff/gerar-script — Gerador de Script Oficial Inviolável
+  app.post('/api/super/synccheff/gerar-script', superAdminAuth, (req, res) => {
+    const { restaurante_id, restaurante_nome } = req.body || {};
+    const rid = String(restaurante_id || '1');
+    const rnome = String(restaurante_nome || 'Restaurante Oficial');
+
+    const codigo = syncCheff.getOfficialGoogleAppsScript(rid, rnome);
+    const hash = syncCheff.calculateSha256(codigo);
+    const assinatura = syncCheff.signHmac(hash);
+
+    res.json({
+      ok: true,
+      restaurante_id: rid,
+      restaurante_nome: rnome,
+      versao: 'v2.4-inviolavel',
+      codigo: codigo,
+      hash_sha256: hash,
+      assinatura_hmac: assinatura,
+      selo: 'SYNCCHEFF_AUTHENTIC_SEALED'
+    });
+  });
+
+  // POST /api/super/synccheff/redefinir-status — Limpa flag de violação
+  app.post('/api/super/synccheff/redefinir-status', superAdminAuth, (req, res) => {
+    const { restaurante_id } = req.body || {};
+    if (!restaurante_id) return res.json({ ok: false, erro: 'ID do restaurante obrigatório.' });
+
+    masterDb.run(`
+      UPDATE synccheff_nodes 
+      SET status = 'inviolado', tentativas_violacao = 0 
+      WHERE restaurante_id = ?
+    `, [restaurante_id], (err) => {
+      if (err) return res.json({ ok: false, erro: err.message });
+      syncCheff.registrarAuditoria(masterDb, restaurante_id, 'status_resetado', 'Status de segurança redefinido pelo Super Admin.', getClientIp(req), 'info');
+      res.json({ ok: true, mensagem: 'Status do restaurante redefinido para INVIOLADO.' });
+    });
+  });
+
+  // POST /api/synccheff/sync — Ingestão de telemetria segura (Pública com Assinatura Digital)
+  app.post('/api/synccheff/sync', (req, res) => {
+    const payload = req.body || {};
+    const clientIp = getClientIp(req);
+
+    syncCheff.processarSyncCheffPayload(payload, clientIp, masterDb, io, (err, resultado) => {
+      if (err) {
+        return res.status(403).json({ ok: false, erro: err.message, status: 'VIOLACAO_DETECTADA' });
+      }
+      res.json(resultado);
+    });
+  });
+
 };

@@ -8141,3 +8141,295 @@ initSuperAdminSockets = function () {
     setTimeout(boot, 500);
   }
 })();
+
+
+// ══════════════════════════════════════════════════════════════════
+// CONTROLADOR CLIENTE: SYNCCHEFF INVIOLÁVEL & AUDITORIA DE SCRIPTS
+// ══════════════════════════════════════════════════════════════════
+(function () {
+  window.alternarAbaSyncCheff = function (aba) {
+    const abas = ['nos', 'validador', 'gerador', 'logs'];
+    abas.forEach(a => {
+      const el = document.getElementById('synccheff-subtab-' + a);
+      const btn = document.getElementById('btn-tab-synccheff-a');
+      if (el) el.style.display = a === aba ? 'block' : 'none';
+      const b = document.getElementById('btn-tab-synccheff-' + a);
+      if (b) {
+        if (a === aba) {
+          b.style.background = '#10b981';
+          b.style.color = '#fff';
+          b.style.border = 'none';
+        } else {
+          b.style.background = 'var(--bg-card)';
+          b.style.color = 'var(--text-main)';
+          b.style.border = '1px solid var(--border-color)';
+        }
+      }
+    });
+  };
+
+  window.carregarSyncCheffStatus = function () {
+    const token = localStorage.getItem('super_admin_token') || sessionStorage.getItem('super_admin_token');
+    fetch('/api/super/synccheff/status', {
+      headers: {
+        'Content-Type': 'application/json',
+        'x-super-admin-token': token || ''
+      }
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (!data.ok) return;
+
+      // KPIs
+      const k = data.kpis || {};
+      const elStatus = document.getElementById('synccheff-kpi-status');
+      const elNodes = document.getElementById('synccheff-kpi-nodes');
+      const elViolacoes = document.getElementById('synccheff-kpi-violacoes');
+      const badge = document.getElementById('synccheff-shield-badge');
+
+      if (elStatus) {
+        if (k.violados > 0) {
+          elStatus.innerHTML = '<span style="color:#ef4444;">⚠️ VIOLAÇÃO DETECTADA (' + k.violados + ')</span>';
+          if (badge) { badge.style.background = '#ef4444'; badge.innerText = k.violados + ' ALERTA'; }
+        } else {
+          elStatus.innerHTML = '<span style="color:#10b981;">🛡️ 100% INVIOLÁVEL</span>';
+          if (badge) { badge.style.background = '#10b981'; badge.innerText = '100% OK'; }
+        }
+      }
+
+      if (elNodes) elNodes.innerText = (k.total_nos || 0) + ' Restaurantes';
+      if (elViolacoes) {
+        elViolacoes.innerText = (k.violados || 0) + ' Bloqueios';
+        elViolacoes.style.color = k.violados > 0 ? '#ef4444' : '#10b981';
+      }
+
+      // Tabela de Nós
+      const tbody = document.getElementById('synccheff-nodes-table-body');
+      if (tbody) {
+        if (!data.nodes || data.nodes.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:30px; color:var(--text-muted);">Nenhum nó de restaurante sincronizado ainda. Crie ou ative um script em "Gerador de Script Assinado".</td></tr>';
+        } else {
+          tbody.innerHTML = data.nodes.map(n => {
+            const isInviolado = n.status === 'inviolado';
+            const statusBadge = isInviolado
+              ? '<span style="background:rgba(16,185,129,0.15); color:#10b981; padding:4px 10px; border-radius:6px; font-weight:800; font-size:12px; display:inline-flex; align-items:center; gap:5px;"><i class="fa-solid fa-check-double"></i> INVIOLADO</span>'
+              : '<span style="background:rgba(239,68,68,0.15); color:#ef4444; padding:4px 10px; border-radius:6px; font-weight:800; font-size:12px; display:inline-flex; align-items:center; gap:5px;"><i class="fa-solid fa-triangle-exclamation"></i> VIOLADO / ADULTERADO</span>';
+
+            const ultimoSync = n.ultimo_sync ? new Date(n.ultimo_sync).toLocaleString('pt-BR') : 'Nunca';
+
+            return `
+              <tr style="border-bottom:1px solid var(--border-color); ${!isInviolado ? 'background:rgba(239,68,68,0.05);' : ''}">
+                <td style="padding:12px; font-weight:700;">
+                  <div>#${n.restaurante_id} — ${n.restaurante_nome_real || n.nome_restaurante || 'Restaurante ' + n.restaurante_id}</div>
+                </td>
+                <td style="padding:12px;">${statusBadge}</td>
+                <td style="padding:12px; font-family:monospace; font-size:12px;">${n.versao_script || 'v2.4-e2ee'}</td>
+                <td style="padding:12px; color:var(--text-muted); font-size:12.5px;">${ultimoSync}</td>
+                <td style="padding:12px; font-weight:700;">${n.total_syncs || 0}</td>
+                <td style="padding:12px; font-family:monospace; font-size:12px;">${n.ip_origem || '127.0.0.1'}</td>
+                <td style="padding:12px; text-align:right;">
+                  ${!isInviolado ? `<button onclick="window.redefinirStatusViolacao(${n.restaurante_id})" style="padding:5px 10px; background:#10b981; color:#fff; border:none; border-radius:6px; font-weight:700; font-size:11.5px; cursor:pointer; margin-right:6px;"><i class="fa-solid fa-shield"></i> Limpar Alerta</button>` : ''}
+                  <button onclick="window.prepararGeradorSyncParaRestaurante(${n.restaurante_id}, '${(n.restaurante_nome_real || n.nome_restaurante || '').replace(/'/g, "\\'")}')" style="padding:5px 10px; background:var(--bg-dark); border:1px solid var(--border-color); color:var(--text-main); border-radius:6px; font-weight:700; font-size:11.5px; cursor:pointer;"><i class="fa-solid fa-code"></i> Gerar Script</button>
+                </td>
+              </tr>
+            `;
+          }).join('');
+        }
+      }
+
+      // Logs de Auditoria
+      const logsContainer = document.getElementById('synccheff-logs-container');
+      if (logsContainer) {
+        if (!data.logs || data.logs.length === 0) {
+          logsContainer.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-muted);">Nenhum registro de segurança recente.</div>';
+        } else {
+          logsContainer.innerHTML = data.logs.map(l => {
+            const isCritico = l.nivel_alerta === 'critico';
+            const isWarning = l.nivel_alerta === 'warning';
+            const cor = isCritico ? '#ef4444' : (isWarning ? '#f59e0b' : '#10b981');
+            const bg = isCritico ? 'rgba(239,68,68,0.1)' : (isWarning ? 'rgba(245,158,11,0.1)' : 'rgba(16,185,129,0.06)');
+
+            return `
+              <div style="background:${bg}; border:1px solid ${cor}; border-radius:10px; padding:12px 16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                <div style="display:flex; align-items:center; gap:10px;">
+                  <i class="fa-solid ${isCritico ? 'fa-triangle-exclamation' : (isWarning ? 'fa-circle-exclamation' : 'fa-circle-check')}" style="color:${cor}; font-size:16px;"></i>
+                  <div>
+                    <strong style="font-size:13.5px; color:var(--text-main);">[${l.tipo_evento.toUpperCase()}] — Restaurante #${l.restaurante_id} (${l.restaurante_nome || 'Nó'})</strong>
+                    <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">${l.detalhes}</div>
+                  </div>
+                </div>
+                <div style="text-align:right;">
+                  <span style="font-size:11.5px; color:var(--text-muted); display:block;">IP: ${l.ip || '127.0.0.1'}</span>
+                  <span style="font-size:11.5px; font-weight:700; color:var(--text-main);">${new Date(l.data_registro).toLocaleString('pt-BR')}</span>
+                </div>
+              </div>
+            `;
+          }).join('');
+        }
+      }
+    })
+    .catch(() => {});
+  };
+
+  window.validarScriptInviolavelSuper = function () {
+    const input = document.getElementById('synccheff-input-script');
+    const resultDiv = document.getElementById('synccheff-validador-result');
+    if (!input || !resultDiv) return;
+
+    const codigo = input.value.trim();
+    if (!codigo) {
+      alert('Cole o script para auditar!');
+      return;
+    }
+
+    resultDiv.style.display = 'block';
+    resultDiv.innerHTML = '<div style="padding:16px; text-align:center; color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Auditando hash criptográfico contra Master Root Key...</div>';
+
+    const token = localStorage.getItem('super_admin_token') || sessionStorage.getItem('super_admin_token');
+    fetch('/api/super/synccheff/validar-script', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-super-admin-token': token || ''
+      },
+      body: JSON.stringify({ script: codigo })
+    })
+    .then(r => r.json())
+    .then(res => {
+      if (!res.ok) {
+        resultDiv.innerHTML = '<div style="padding:16px; background:rgba(239,68,68,0.1); border:1px solid #ef4444; border-radius:10px; color:#ef4444; font-weight:700;">Erro na auditoria: ' + (res.erro || 'Falha ao processar') + '</div>';
+        return;
+      }
+
+      if (res.inviolado) {
+        resultDiv.innerHTML = `
+          <div style="background:rgba(16,185,129,0.1); border:2px solid #10b981; border-radius:12px; padding:20px;">
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+              <i class="fa-solid fa-shield-check" style="color:#10b981; font-size:24px;"></i>
+              <h4 style="margin:0; font-size:18px; color:#10b981; font-weight:900;">VEREDITO: 100% INVIOLADO &amp; AUTÊNTICO</h4>
+            </div>
+            <p style="font-size:13.5px; color:var(--text-main); margin:0 0 12px;">${res.detalhes}</p>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:10px; font-size:12px;">
+              <div style="background:var(--bg-card); padding:10px; border-radius:8px; border:1px solid var(--border-color);">
+                <strong>Checksum SHA-256 Calculado:</strong>
+                <div style="font-family:monospace; color:#10b981; word-break:break-all; margin-top:3px;">${res.hash_calculado}</div>
+              </div>
+              <div style="background:var(--bg-card); padding:10px; border-radius:8px; border:1px solid var(--border-color);">
+                <strong>Assinatura Digital Super Admin:</strong>
+                <div style="font-family:monospace; color:#8b5cf6; word-break:break-all; margin-top:3px;">${res.assinatura_oficial || 'HMAC-SHA512-VERIFIED'}</div>
+              </div>
+            </div>
+          </div>
+        `;
+      } else {
+        resultDiv.innerHTML = `
+          <div style="background:rgba(239,68,68,0.12); border:2px solid #ef4444; border-radius:12px; padding:20px;">
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+              <i class="fa-solid fa-triangle-exclamation" style="color:#ef4444; font-size:24px;"></i>
+              <h4 style="margin:0; font-size:18px; color:#ef4444; font-weight:900;">ALERTA CRÍTICO: CÓDIGO VIOLADO / ADULTERADO!</h4>
+            </div>
+            <p style="font-size:13.5px; color:var(--text-main); margin:0 0 12px;">${res.detalhes || 'O código fornecido foi alterado e difere da versão mestre oficial assinada.'}</p>
+            <div style="background:var(--bg-card); padding:12px; border-radius:8px; border:1px solid #ef4444; font-size:12px;">
+              <strong style="color:#ef4444;">Hash do Script Submetido:</strong>
+              <div style="font-family:monospace; color:#ef4444; word-break:break-all; margin:3px 0 8px;">${res.hash_calculado}</div>
+              <strong style="color:#10b981;">Hash Mestre Oficial Esperado:</strong>
+              <div style="font-family:monospace; color:#10b981; word-break:break-all; margin-top:3px;">${res.hash_oficial}</div>
+            </div>
+          </div>
+        `;
+      }
+    })
+    .catch(err => {
+      resultDiv.innerHTML = '<div style="padding:16px; background:rgba(239,68,68,0.1); border:1px solid #ef4444; border-radius:10px; color:#ef4444;">Erro de conexão com o validador: ' + err.message + '</div>';
+    });
+  };
+
+  window.prepararGeradorSyncParaRestaurante = function (restId, restNome) {
+    window.alternarAbaSyncCheff('gerador');
+    const inputId = document.getElementById('synccheff-gen-rest-id');
+    const inputNome = document.getElementById('synccheff-gen-rest-nome');
+    if (inputId) inputId.value = restId;
+    if (inputNome) inputNome.value = restNome || ('Restaurante #' + restId);
+    window.gerarScriptOficialSyncCheff();
+  };
+
+  window.gerarScriptOficialSyncCheff = function () {
+    const inputId = document.getElementById('synccheff-gen-rest-id');
+    const inputNome = document.getElementById('synccheff-gen-rest-nome');
+    const container = document.getElementById('synccheff-gen-output-container');
+    const codeEl = document.getElementById('synccheff-gen-code');
+
+    const restId = inputId ? inputId.value : '1';
+    const restNome = inputNome ? inputNome.value : 'Restaurante';
+
+    const token = localStorage.getItem('super_admin_token') || sessionStorage.getItem('super_admin_token');
+    fetch('/api/super/synccheff/gerar-script', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-super-admin-token': token || ''
+      },
+      body: JSON.stringify({ restaurante_id: restId, restaurante_nome: restNome })
+    })
+    .then(r => r.json())
+    .then(res => {
+      if (res.ok && container && codeEl) {
+        container.style.display = 'block';
+        codeEl.textContent = res.codigo;
+      }
+    });
+  };
+
+  window.copiarCodigoSyncCheff = function () {
+    const codeEl = document.getElementById('synccheff-gen-code');
+    if (!codeEl) return;
+    navigator.clipboard.writeText(codeEl.textContent).then(() => {
+      alert('Código oficial do SyncCheff copiado para a área de transferência!');
+    });
+  };
+
+  window.redefinirStatusViolacao = function (restauranteId) {
+    if (!confirm('Redefinir status de segurança do restaurante #' + restauranteId + ' para INVIOLADO?')) return;
+    const token = localStorage.getItem('super_admin_token') || sessionStorage.getItem('super_admin_token');
+    fetch('/api/super/synccheff/redefinir-status', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-super-admin-token': token || ''
+      },
+      body: JSON.stringify({ restaurante_id: restauranteId })
+    })
+    .then(r => r.json())
+    .then(res => {
+      if (res.ok) {
+        alert('Status redefinido com sucesso!');
+        window.carregarSyncCheffStatus();
+      }
+    });
+  };
+
+  // Carregar status quando a aba for clicada
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('#menu-item-synccheff') || e.target.closest('[data-target="sec-synccheff"]')) {
+      setTimeout(() => window.carregarSyncCheffStatus(), 100);
+    }
+  });
+
+  // Listener de Alerta em Tempo Real via Socket
+  if (typeof io !== 'undefined') {
+    try {
+      const socket = io();
+      socket.on('synccheff_alerta_violacao', (alerta) => {
+        window.carregarSyncCheffStatus();
+        if (typeof Swal !== 'undefined') {
+          Swal.fire({
+            icon: 'error',
+            title: '🚨 ALERTA DE SEGURANÇA SYNCCHEFF',
+            html: '<b>Violação Detectada no Restaurante #' + alerta.restaurante_id + '</b><br>' + alerta.motivo,
+            confirmButtonColor: '#ef4444'
+          });
+        }
+      });
+    } catch(e) {}
+  }
+})();

@@ -1537,6 +1537,174 @@
         </div>
 
         <!-- ════ SEÇÃO: CONFIGURAÇÕES GLOBAIS ════ -->
+        
+        <!-- ════ SEÇÃO: SYNCCHEFF INVIOLÁVEL & AUDITORIA DE SCRIPTS ════ -->
+        <div class="content-section" id="sec-synccheff">
+          <div style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(6, 78, 59, 0.15)); border: 1.5px solid #10b981; border-radius: 16px; padding: 22px 26px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+            <div>
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="background: #10b981; color: #fff; padding: 4px 10px; border-radius: 8px; font-weight: 900; font-size: 12px; letter-spacing: 0.05em;">ROOT SHIELD</span>
+                <h2 style="margin: 0; font-size: 24px; font-weight: 900; color: var(--text-main); display: flex; align-items: center; gap: 10px;">
+                  <i class="fa-solid fa-shield-virus" style="color: #10b981;"></i> SyncCheff — Sincronização Segura &amp; Script Inviolável
+                </h2>
+              </div>
+              <p style="margin: 6px 0 0; color: var(--text-muted); font-size: 14px;">
+                Auditoria criptográfica em tempo real, proteção contra adulteração de código (Anti-Tamper) e criptografia AES-256-GCM ponta-a-ponta para dados sensíveis.
+              </p>
+            </div>
+            <div style="display: flex; gap: 10px; align-items: center;">
+              <button onclick="window.carregarSyncCheffStatus()" class="btn-action" style="background: #10b981; color: #fff; border: none; font-weight: 700; padding: 10px 18px; border-radius: 10px; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);">
+                <i class="fa-solid fa-rotate"></i> Atualizar Auditoria
+              </button>
+            </div>
+          </div>
+
+          <!-- KPIS DE SEGURANÇA -->
+          <div class="stats-grid" style="margin-bottom: 24px;">
+            <div class="stat-card" style="border-top: 4px solid #10b981;">
+              <div class="stat-icon" style="color: #10b981; background: rgba(16, 185, 129, 0.1);"><i class="fa-solid fa-lock"></i></div>
+              <div class="stat-meta">
+                <span>Status de Blindagem</span>
+                <h3 id="synccheff-kpi-status" style="color: #10b981; font-size: 18px;">100% INVIOLÁVEL</h3>
+              </div>
+            </div>
+            <div class="stat-card" style="border-top: 4px solid #3b82f6;">
+              <div class="stat-icon" style="color: #3b82f6; background: rgba(59, 130, 246, 0.1);"><i class="fa-solid fa-network-wired"></i></div>
+              <div class="stat-meta">
+                <span>Nós Monitorados</span>
+                <h3 id="synccheff-kpi-nodes">0 Ativos</h3>
+              </div>
+            </div>
+            <div class="stat-card" style="border-top: 4px solid #ef4444;">
+              <div class="stat-icon" style="color: #ef4444; background: rgba(239, 68, 68, 0.1);"><i class="fa-solid fa-hand"></i></div>
+              <div class="stat-meta">
+                <span>Violações Bloqueadas</span>
+                <h3 id="synccheff-kpi-violacoes" style="color: #10b981;">0 Bloqueios</h3>
+              </div>
+            </div>
+            <div class="stat-card" style="border-top: 4px solid #8b5cf6;">
+              <div class="stat-icon" style="color: #8b5cf6; background: rgba(139, 92, 246, 0.1);"><i class="fa-solid fa-key"></i></div>
+              <div class="stat-meta">
+                <span>Criptografia / Algoritmo</span>
+                <h3 style="font-size: 15px; color: #8b5cf6;">AES-256 + HMAC</h3>
+              </div>
+            </div>
+          </div>
+
+          <!-- ABAS INTERNAS DO SYNCCHEFF -->
+          <div style="display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 2px solid var(--border-color); padding-bottom: 8px;">
+            <button onclick="window.alternarAbaSyncCheff('nos')" id="btn-tab-synccheff-nos" style="padding: 10px 18px; border-radius: 8px; border: none; background: #10b981; color: #fff; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+              <i class="fa-solid fa-store"></i> Restaurantes &amp; Nós Sincronizados
+            </button>
+            <button onclick="window.alternarAbaSyncCheff('validador')" id="btn-tab-synccheff-validador" style="padding: 10px 18px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-main); font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+              <i class="fa-solid fa-vial-circle-check"></i> Validador de Script (Anti-Tamper)
+            </button>
+            <button onclick="window.alternarAbaSyncCheff('gerador')" id="btn-tab-synccheff-gerador" style="padding: 10px 18px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-main); font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+              <i class="fa-solid fa-certificate"></i> Gerador de Script Assinado
+            </button>
+            <button onclick="window.alternarAbaSyncCheff('logs')" id="btn-tab-synccheff-logs" style="padding: 10px 18px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-main); font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+              <i class="fa-solid fa-list-check"></i> Logs de Auditoria &amp; Alertas
+            </button>
+          </div>
+
+          <!-- ABA 1: NÓS E RESTAURANTES -->
+          <div id="synccheff-subtab-nos" style="display: block;">
+            <div class="panel-card" style="padding: 20px; border-radius: 14px; background: var(--bg-card); border: 1px solid var(--border-color);">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h3 style="margin: 0; font-size: 16px; font-weight: 800; display: flex; align-items: center; gap: 8px;">
+                  <i class="fa-solid fa-tower-broadcast" style="color: #10b981;"></i> Status em Tempo Real dos Nós
+                </h3>
+              </div>
+              <div style="overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13.5px;">
+                  <thead>
+                    <tr style="border-bottom: 2px solid var(--border-color); color: var(--text-muted); font-size: 12px; text-transform: uppercase;">
+                      <th style="padding: 12px;">ID / Restaurante</th>
+                      <th style="padding: 12px;">Integridade do Script</th>
+                      <th style="padding: 12px;">Versão</th>
+                      <th style="padding: 12px;">Último Sync</th>
+                      <th style="padding: 12px;">Total Syncs</th>
+                      <th style="padding: 12px;">IP de Origem</th>
+                      <th style="padding: 12px; text-align: right;">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody id="synccheff-nodes-table-body">
+                    <tr><td colspan="7" style="text-align: center; padding: 30px; color: var(--text-muted);">Carregando nós de sincronização...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- ABA 2: VALIDADOR DE SCRIPT ANTI-TAMPER SANDBOX -->
+          <div id="synccheff-subtab-validador" style="display: none;">
+            <div class="panel-card" style="padding: 24px; border-radius: 14px; background: var(--bg-card); border: 1px solid var(--border-color);">
+              <h3 style="margin-top: 0; font-size: 17px; font-weight: 800; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-microscope" style="color: #3b82f6;"></i> Auditoria de Inviolabilidade de Código
+              </h3>
+              <p style="color: var(--text-muted); font-size: 13.5px; margin-bottom: 16px;">
+                Cole o script do Google Apps Script ou do Node Agent abaixo para auditar contra a Master Root Key do Super Admin e checar se houve qualquer alteração ou inserção de código malicioso.
+              </p>
+              <textarea id="synccheff-input-script" placeholder="Cole o código do script aqui para auditar..." style="width: 100%; height: 260px; padding: 14px; border-radius: 10px; border: 1px solid var(--border-color); background: var(--bg-dark); color: var(--text-main); font-family: monospace; font-size: 13px; box-sizing: border-box; resize: vertical;"></textarea>
+              <div style="margin-top: 14px; display: flex; gap: 10px; align-items: center;">
+                <button onclick="window.validarScriptInviolavelSuper()" style="padding: 12px 24px; background: #3b82f6; color: #fff; border: none; border-radius: 8px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                  <i class="fa-solid fa-magnifying-glass"></i> Auditar &amp; Validar Integridade Agora
+                </button>
+                <button onclick="document.getElementById('synccheff-input-script').value=''" style="padding: 12px 18px; background: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-muted); border-radius: 8px; font-weight: 700; cursor: pointer;">
+                  Limpar
+                </button>
+              </div>
+              <div id="synccheff-validador-result" style="margin-top: 20px; display: none;"></div>
+            </div>
+          </div>
+
+          <!-- ABA 3: GERADOR DE SCRIPT ASSINADO -->
+          <div id="synccheff-subtab-gerador" style="display: none;">
+            <div class="panel-card" style="padding: 24px; border-radius: 14px; background: var(--bg-card); border: 1px solid var(--border-color);">
+              <h3 style="margin-top: 0; font-size: 17px; font-weight: 800; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-stamp" style="color: #8b5cf6;"></i> Gerador de Script Oficial Inviolável
+              </h3>
+              <p style="color: var(--text-muted); font-size: 13.5px; margin-bottom: 20px;">
+                Gere um script assinado digitalmente pelo Super Admin com selo de autenticidade para um restaurante específico.
+              </p>
+              <div style="display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; align-items: flex-end;">
+                <div style="flex: 1; min-width: 200px;">
+                  <label style="display: block; font-size: 12px; font-weight: 700; color: var(--text-muted); margin-bottom: 6px;">ID do Restaurante:</label>
+                  <input type="number" id="synccheff-gen-rest-id" value="1" min="1" style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-card); color: var(--text-main); font-weight: 700;">
+                </div>
+                <div style="flex: 2; min-width: 260px;">
+                  <label style="display: block; font-size: 12px; font-weight: 700; color: var(--text-muted); margin-bottom: 6px;">Nome do Restaurante:</label>
+                  <input type="text" id="synccheff-gen-rest-nome" placeholder="Ex: Restaurante Central" style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-card); color: var(--text-main);">
+                </div>
+                <button onclick="window.gerarScriptOficialSyncCheff()" style="padding: 11px 24px; background: #8b5cf6; color: #fff; border: none; border-radius: 8px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                  <i class="fa-solid fa-wand-magic-sparkles"></i> Gerar Script Selado
+                </button>
+              </div>
+              <div id="synccheff-gen-output-container" style="display: none; margin-top: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                  <span style="font-size: 12.5px; font-weight: 700; color: #8b5cf6;"><i class="fa-solid fa-code"></i> Código Google Apps Script Assinado:</span>
+                  <button onclick="window.copiarCodigoSyncCheff()" style="padding: 6px 14px; background: rgba(139, 92, 246, 0.15); border: 1px solid #8b5cf6; color: #8b5cf6; border-radius: 6px; font-weight: 700; font-size: 12px; cursor: pointer;">
+                    <i class="fa-solid fa-copy"></i> Copiar Código
+                  </button>
+                </div>
+                <pre id="synccheff-gen-code" style="background: var(--bg-dark); padding: 16px; border-radius: 10px; border: 1px solid var(--border-color); font-family: monospace; font-size: 12.5px; color: var(--text-main); max-height: 360px; overflow-y: auto; white-space: pre-wrap;"></pre>
+              </div>
+            </div>
+          </div>
+
+          <!-- ABA 4: LOGS DE AUDITORIA & SEGURANÇA -->
+          <div id="synccheff-subtab-logs" style="display: none;">
+            <div class="panel-card" style="padding: 20px; border-radius: 14px; background: var(--bg-card); border: 1px solid var(--border-color);">
+              <h3 style="margin-top: 0; font-size: 16px; font-weight: 800; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-shield-heart" style="color: #10b981;"></i> Trilha de Auditoria &amp; Eventos de Segurança
+              </h3>
+              <div id="synccheff-logs-container" style="display: flex; flex-direction: column; gap: 8px; margin-top: 14px; max-height: 450px; overflow-y: auto;">
+                <div style="text-align: center; padding: 20px; color: var(--text-muted);">Nenhum log registrado ainda.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="content-section" id="sec-config">
           <div class="form-box">
             <h3 style="font-family:'Outfit',sans-serif;font-size:1.4rem;">Configurações Globais do Sistema</h3>
