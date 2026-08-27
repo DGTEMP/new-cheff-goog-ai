@@ -17,7 +17,34 @@
 
   <style>
     /* ── SISTEMA DE DESIGN & VARIÁVEIS ────────────────────────── */
-    :root, [data-theme="dark"] {
+    :root {
+      --bg-dark: #f8fafc;
+      --bg-card: #ffffff;
+      --bg-card-hover: #f1f5f9;
+      --bg-sidebar: #ffffff;
+      --border-color: #e2e8f0;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+
+      --primary: #fc4b15;
+      --primary-hover: #e03e0a;
+      --primary-glow: rgba(252, 75, 21, 0.25);
+
+      --success: #10b981;
+      --success-glow: rgba(16, 185, 129, 0.2);
+      --danger: #ef4444;
+      --danger-glow: rgba(239, 68, 68, 0.2);
+      --warning: #f59e0b;
+      --warning-glow: rgba(245, 158, 11, 0.2);
+      --info: #3b82f6;
+      --info-glow: rgba(59, 130, 246, 0.2);
+
+      --card-shadow: 0 10px 30px rgba(15, 23, 42, 0.06), 0 2px 8px rgba(15, 23, 42, 0.04);
+      --sidebar-width: 260px;
+      --transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    [data-theme="dark"] {
       --bg-dark: #0b0f19;
       --bg-card: rgba(22, 27, 44, 0.95);
       --bg-card-hover: rgba(30, 37, 60, 0.95);
@@ -112,6 +139,116 @@
     body.theme-light .sidebar {
       background: #ffffff !important;
       border-right: 1.5px solid #e2e8f0 !important;
+    }
+
+    /* ── LIGHT THEME: Override hardcoded inline styles from super-admin-panel.html ── */
+    [data-theme="light"] #admin-panel input,
+    [data-theme="light"] #admin-panel select,
+    [data-theme="light"] #admin-panel textarea,
+    body.theme-light #admin-panel input,
+    body.theme-light #admin-panel select,
+    body.theme-light #admin-panel textarea {
+      background: #f8fafc !important;
+      color: #0f172a !important;
+      border-color: #cbd5e1 !important;
+    }
+
+    [data-theme="light"] #admin-panel input::placeholder,
+    [data-theme="light"] #admin-panel textarea::placeholder,
+    body.theme-light #admin-panel input::placeholder,
+    body.theme-light #admin-panel textarea::placeholder {
+      color: #94a3b8 !important;
+    }
+
+    [data-theme="light"] #admin-panel input:focus,
+    [data-theme="light"] #admin-panel select:focus,
+    [data-theme="light"] #admin-panel textarea:focus,
+    body.theme-light #admin-panel input:focus,
+    body.theme-light #admin-panel select:focus,
+    body.theme-light #admin-panel textarea:focus {
+      background: #ffffff !important;
+      border-color: var(--primary) !important;
+      box-shadow: 0 0 0 3px var(--primary-glow) !important;
+    }
+
+    /* Override hardcoded white text in panels */
+    [data-theme="light"] #admin-panel,
+    body.theme-light #admin-panel {
+      color: #0f172a !important;
+    }
+
+    [data-theme="light"] #admin-panel h1,
+    [data-theme="light"] #admin-panel h2,
+    [data-theme="light"] #admin-panel h3,
+    [data-theme="light"] #admin-panel h4,
+    [data-theme="light"] #admin-panel h5,
+    body.theme-light #admin-panel h1,
+    body.theme-light #admin-panel h2,
+    body.theme-light #admin-panel h3,
+    body.theme-light #admin-panel h4,
+    body.theme-light #admin-panel h5 {
+      color: #0f172a !important;
+    }
+
+    /* Override hardcoded dark backgrounds */
+    [data-theme="light"] #admin-panel [style*="background:#11131f"],
+    [data-theme="light"] #admin-panel [style*="background: #11131f"],
+    [data-theme="light"] #admin-panel [style*="background:#1a1d24"],
+    [data-theme="light"] #admin-panel [style*="background: #1a1d24"],
+    [data-theme="light"] #admin-panel [style*="background:#161a2b"],
+    [data-theme="light"] #admin-panel [style*="background: #161a2b"],
+    body.theme-light #admin-panel [style*="background:#11131f"],
+    body.theme-light #admin-panel [style*="background:#1a1d24"],
+    body.theme-light #admin-panel [style*="background:#161a2b"] {
+      background: var(--bg-card) !important;
+    }
+
+    /* Override hardcoded color:white, color:#fff, color:#888, color:#999 */
+    [data-theme="light"] #admin-panel span[style*="color:white"],
+    [data-theme="light"] #admin-panel span[style*="color: white"],
+    [data-theme="light"] #admin-panel span[style*="color:#fff"],
+    [data-theme="light"] #admin-panel span[style*="color: #fff"],
+    [data-theme="light"] #admin-panel div[style*="color:white"],
+    [data-theme="light"] #admin-panel div[style*="color: white"],
+    [data-theme="light"] #admin-panel td[style*="color:white"],
+    [data-theme="light"] #admin-panel td[style*="color: white"],
+    [data-theme="light"] #admin-panel td[style*="color:#888"],
+    [data-theme="light"] #admin-panel td[style*="color: #888"],
+    [data-theme="light"] #admin-panel td[style*="color:#999"],
+    [data-theme="light"] #admin-panel td[style*="color: #999"],
+    [data-theme="light"] #admin-panel span[style*="color:#888"],
+    [data-theme="light"] #admin-panel span[style*="color: #888"],
+    [data-theme="light"] #admin-panel span[style*="color:#999"],
+    [data-theme="light"] #admin-panel span[style*="color: #999"],
+    body.theme-light #admin-panel span[style*="color:white"],
+    body.theme-light #admin-panel span[style*="color:#fff"],
+    body.theme-light #admin-panel div[style*="color:white"],
+    body.theme-light #admin-panel td[style*="color:white"],
+    body.theme-light #admin-panel td[style*="color:#888"],
+    body.theme-light #admin-panel td[style*="color:#999"],
+    body.theme-light #admin-panel span[style*="color:#888"],
+    body.theme-light #admin-panel span[style*="color:#999"] {
+      color: #0f172a !important;
+    }
+
+    /* Override hardcoded rgba(0,0,0,0.25) input backgrounds */
+    [data-theme="light"] #admin-panel [style*="rgba(0,0,0,0.25)"],
+    body.theme-light #admin-panel [style*="rgba(0,0,0,0.25)"] {
+      background: #f8fafc !important;
+      color: #0f172a !important;
+    }
+
+    /* Modal light overrides */
+    [data-theme="light"] .modal-overlay,
+    body.theme-light .modal-overlay {
+      background: rgba(15, 23, 42, 0.4) !important;
+    }
+
+    [data-theme="light"] .modal-content,
+    body.theme-light .modal-content {
+      background: #ffffff !important;
+      color: #0f172a !important;
+      border: 1px solid #e2e8f0 !important;
     }
 
     /* ── RESET & PADRÕES ──────────────────────────────────────── */
