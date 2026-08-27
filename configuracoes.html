@@ -1889,6 +1889,39 @@
         </div>
 
         <div style="background:var(--cfg-subtle-bg); padding: 20px; border-radius: 12px; border: 1px solid var(--cfg-border); margin-bottom: 20px;">
+          <h3 style="margin-top:0; color: #fc4b15;"><i class="ph ph-clock"></i> Fuso Horário</h3>
+          <p style="color:var(--cfg-text-muted); font-size: 14px; margin-bottom: 15px;">
+            Configure o fuso horário do restaurante. Todos os horários de pedidos, relatórios e auditoria seguirão esta configuração.
+          </p>
+          <div style="display: flex; gap: 10px; align-items: center;">
+            <select id="select-timezone" style="flex:1; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px;">
+              <option value="-180">GMT-3 — Horário de Brasília (SP, RJ, MG, etc.)</option>
+              <option value="-240">GMT-4 — Amazonas, Roraima, Mato Grosso</option>
+              <option value="-300">GMT-5 — Acre, Amapá</option>
+              <option value="-120">GMT-2 — Fernando de Noronha</option>
+              <option value="0">GMT+0 — UTC (Londres)</option>
+              <option value="60">GMT+1 — Lisboa, Western Europe</option>
+              <option value="120">GMT+2 — Grécia, Finlândia</option>
+              <option value="180">GMT+3 — Moscou, Arábia Saudita</option>
+              <option value="210">GMT+3:30 — Irã</option>
+              <option value="240">GMT+4 — Emirados Árabes</option>
+              <option value="270">GMT+4:30 — Afeganistão</option>
+              <option value="300">GMT+5 — Paquistão</option>
+              <option value="330">GMT+5:30 — Índia</option>
+              <option value="360">GMT+6 — Bangladesh</option>
+              <option value="390">GMT+6:30 — Myanmar</option>
+              <option value="420">GMT+7 — Tailândia, Vietnã</option>
+              <option value="480">GMT+8 — China, Singapura, Filipinas</option>
+              <option value="540">GMT+9 — Japão, Coreia</option>
+              <option value="570">GMT+9:30 — Austrália Central</option>
+              <option value="600">GMT+10 — Austrália Oriental</option>
+              <option value="720">GMT+12 — Nova Zelândia</option>
+            </select>
+            <span id="timezone-preview" style="font-size:13px; color:var(--cfg-text-muted); white-space:nowrap;"></span>
+          </div>
+        </div>
+
+        <div style="background:var(--cfg-subtle-bg); padding: 20px; border-radius: 12px; border: 1px solid var(--cfg-border); margin-bottom: 20px;">
           <h3 style="margin-top:0; color: #fc4b15;"><i class="ph ph-paint-brush"></i> Tema da Tela do Caixa</h3>
           <p style="color:var(--cfg-text-muted); font-size: 14px; margin-bottom: 15px;">
             Escolha entre a tela clássica (v1) ou o novo painel modular v1.1, com blocos arrastáveis e
@@ -5824,6 +5857,7 @@
     <script src="/socket.io.min.js"></script>
     <script src="/fuzzy-search.js"></script>
     <script src="/vendor/sortablejs/Sortable.min.js"></script>
+    <script src="/chef-tz.js"></script>
     <script type="module" src="configuracoes.js"></script>
     <script src="/fullscreen.js"></script>
     <script>

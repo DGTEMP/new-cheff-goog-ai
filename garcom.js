@@ -6,6 +6,7 @@ function parseUtc(s) { if (!s) return Date.now(); const t = s.includes('T') ? s 
 const HOST = window.location.hostname;
 const socket = io({ query: { token: localStorage.getItem('chef_token'), restaurante_id: localStorage.getItem('restaurante_id') || '1' } });
 window.socket = socket;
+if (typeof initChefTz === 'function') initChefTz(socket);
 
 socket.on('tenant_atualizado', (data) => {
   if (data && data.restaurante_id) {
@@ -2607,7 +2608,7 @@ socket.on('historico_cliente', (data) => {
   }
   var html = '<div style="padding:8px 0;"><div style="font-size:11px;font-weight:800;color:#64748b;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;"><i class="ph ph-clock-counter-clockwise"></i> Últimos pedidos:</div>';
   data.historico.forEach(function(p) {
-    var tempo = p.createdAt ? new Date(parseUtc(p.createdAt)).toLocaleDateString('pt-BR') : '';
+    var tempo = p.createdAt ? chefFormatDate(p.createdAt) : '';
     html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #f1f5f9;font-size:12px;">' +
       '<div><span style="font-weight:700;">' + (p.productEmoji || '') + ' ' + p.productName + '</span> <span style="color:#94a3b8;">x' + p.quantity + '</span></div>' +
       '<div style="display:flex;align-items:center;gap:8px;color:#94a3b8;"><span>' + tempo + '</span><span style="color:#16a34a;font-weight:700;">R$ ' + parseFloat(p.total || 0).toFixed(2).replace('.', ',') + '</span></div>' +

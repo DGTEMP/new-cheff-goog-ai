@@ -39,6 +39,7 @@ function redirecionarSemSessao() {
 }
 const socket = io({ query: { token: obterTokenAtual(), restaurante_id: localStorage.getItem('restaurante_id') || '1' } });
 window.socket = socket;
+if (typeof initChefTz === 'function') initChefTz(socket);
 
 socket.on('tenant_atualizado', (data) => {
   if (data && data.restaurante_id) localStorage.setItem('restaurante_id', data.restaurante_id);

@@ -8,6 +8,46 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // ─── FUSO HORÁRIO ──
+  const tzSelect = document.getElementById('select-timezone');
+  const tzPreview = document.getElementById('timezone-preview');
+  if (tzSelect) {
+    fetch('/api/config', { headers: authHeaders() })
+      .then(r => r.json())
+      .then(c => {
+        const tz = (c && c.timezone_offset) || '-180';
+        tzSelect.value = tz;
+        if (tzPreview) {
+          const off = parseInt(tz, 10);
+          const h = Math.abs(Math.floor(off / 60));
+          const m = Math.abs(off % 60);
+          const sign = off <= 0 ? '-' : '+';
+          tzPreview.textContent = `GMT${sign}${h}${m > 0 ? ':' + String(m).padStart(2,'0') : ''}`;
+        }
+      })
+      .catch(() => {
+        tzSelect.value = '-180';
+      });
+
+    tzSelect.addEventListener('change', (e) => {
+      const val = e.target.value;
+      if (tzPreview) {
+        const off = parseInt(val, 10);
+        const h = Math.abs(Math.floor(off / 60));
+        const m = Math.abs(off % 60);
+        const sign = off <= 0 ? '-' : '+';
+        tzPreview.textContent = `GMT${sign}${h}${m > 0 ? ':' + String(m).padStart(2,'0') : ''}`;
+      }
+      fetch('/api/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(typeof authHeaders === 'function' ? authHeaders() : {}) },
+        body: JSON.stringify({ timezone_offset: val })
+      }).then(() => {
+        if (typeof Swal !== 'undefined') Swal.fire({ toast:true, position:'top-end', icon:'success', title:'Fuso horário salvo!', showConfirmButton:false, timer:2000 });
+      });
+    });
+  }
+
   // ─── TEMA DA TELA DO CAIXA (clássico v1 / modular v1.1) ──
   const temaSelect = document.getElementById('select-caixa-tema');
   if (temaSelect) {
@@ -58,6 +98,7 @@ const socket = window.socket || (typeof io === 'function' ? io({ query: { token:
   on: () => { },
   once: () => { }
 });
+if (typeof initChefTz === 'function') initChefTz(socket);
 
 socket.on('tenant_atualizado', (data) => {
   if (data && data.restaurante_id) {
@@ -1989,8 +2030,8 @@ socket.on('rh_data', ({ vales, pontos, logins, pagamentos, metrics }) => {
     } else {
       pontos.forEach(p => {
         let statusLabel = p.pago ? `<span style="color:green; font-weight:bold;">PAGO</span>` : `<span style="color:#eb5757; font-weight:bold;">PENDENTE</span>`;
-        let entrada = p.entrada ? new Date(p.entrada).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '-';
-        let saida = p.saida ? new Date(p.saida).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '-';
+        let entrada = p.entrada ? chefFormatTime(p.entrada) : '-';
+        let saida = p.saida ? chefFormatTime(p.saida) : '-';
         let acoes = p.pago
           ? `-`
           : `<button onclick="pagarPonto(&quot;${p.id}&quot;)" style="padding:5px 10px; background:#3ab55b; color:white; border:none; border-radius:4px; cursor:pointer; font-weight:bold;">Marcar Pago</button>`.replace(/&quot;/g, '"');
@@ -4686,7 +4727,7 @@ async function carregarAvaliacoesAdmin() {
       tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#a8a29e; padding:16px;">Nenhuma avaliação recebida ainda.</td></tr>';
       return;
     }
-    const fmtData = (d) => { try { return new Date(d.replace(' ', 'T')).toLocaleDateString('pt-BR') + ' ' + new Date(d.replace(' ', 'T')).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); } catch (e) { return d; } };
+    const fmtData = (d) => { try { return chefFormatDate(d.replace(' ', 'T')); } catch (e) { return d; } };
     tbody.innerHTML = lista.slice(0, 50).map(a => `<tr>
       <td style="white-space:nowrap;">${fmtData(a.criado_em)}</td>
       <td style="font-weight:600;">${a.cliente_nome || 'Cliente'}</td>
@@ -7015,8 +7056,7 @@ function renderizarTodasNotasNfce(notas, total, page, limit) {
     const tr = document.createElement('tr');
     tr.style.borderBottom = '1px solid #e2e8f0';
     
-    const d = new Date(nota.created_at);
-    const dataHora = d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR');
+    const dataHora = chefFormatDate(nota.created_at);
     
     let statusStyle = '';
     let statusText = nota.status || 'Pendente';
@@ -7698,8 +7738,7 @@ if (btnPerfilAdmin) {
       let expiraTexto = '-';
       if (p.expira_em === 'SESSION') expiraTexto = 'Sessão';
       else if (p.expira_em) {
-        const d = new Date(p.expira_em);
-        expiraTexto = d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        expiraTexto = chefFormatDate(p.expira_em);
       }
       const categoriasHTML = cats.map(c => '<span style="display:inline-block;padding:2px 8px;background:#f3f4f6;border-radius:4px;font-size:11px;margin:1px;">' + c + '</span>').join(' ');
       html += '<tr style="border-bottom:1px solid #f3f4f6;">' +

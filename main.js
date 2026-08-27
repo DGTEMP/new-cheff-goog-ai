@@ -1044,6 +1044,7 @@ function showActionPopup(actions, x, y) {
 const HOST = window.location.hostname || 'localhost';
 const socket = io({ query: { token: localStorage.getItem('chef_token'), restaurante_id: localStorage.getItem('restaurante_id') || '1' } });
 window.socket = socket;
+if (typeof initChefTz === 'function') initChefTz(socket);
 
 // Inicializar plugins client-side
 if (window.ChefPluginLoader) window.ChefPluginLoader.init(socket, { currentPage: 'caixa' });
@@ -2441,8 +2442,8 @@ setInterval(() => {
   const now = new Date();
   const clk = document.getElementById('status-clock');
   const dt = document.getElementById('status-date');
-  if (clk) clk.innerText = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-  if (dt) dt.innerText = now.toLocaleDateString('pt-BR');
+  if (clk) clk.innerText = chefFormatTime(now.toISOString());
+  if (dt) dt.innerText = chefFormatDate(now.toISOString());
 }, 1000);
 
 window.updateTimers = () => {
@@ -8382,7 +8383,7 @@ function renderQrPedidosPendentesList() {
             <span style="font-size: 13px; color: var(--text-secondary); margin-left: 6px;">Cliente: ${order.cliente_nome}${order.cliente_telefone ? ' · ' + order.cliente_telefone : ''}</span>
             ${order.cliente_nome ? `<div style="margin-top: 4px;"><span style="background: #f3e8ff; color: #7c3aed; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: bold;">Comanda - ${order.cliente_nome}</span></div>` : ''}
           </div>
-          <span style="font-size: 11.5px; color: #94a3b8;">${new Date(order.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
+            <span style="font-size: 11.5px; color: #94a3b8;">${chefFormatTime(order.createdAt)}</span>
         </div>
         
         <div style="padding: 4px 0;">

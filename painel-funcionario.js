@@ -2,6 +2,7 @@ const HOST = window.location.hostname;
 const _ridUrl = new URLSearchParams(window.location.search).get('restaurante_id');
 if (_ridUrl) localStorage.setItem('restaurante_id', _ridUrl);
 const socket = typeof io === 'function' ? io({ query: { token: localStorage.getItem('chef_token'), restaurante_id: localStorage.getItem('restaurante_id') || '1' } }) : (window.socket || {});
+if (typeof initChefTz === 'function') initChefTz(socket);
 
 function esc(v) {
   return String(v == null ? '' : v)
@@ -331,7 +332,7 @@ function initPainelFuncionarioDOM() {
     const el = document.getElementById('current-time');
     if (el) {
       const now = new Date();
-      el.innerText = now.toLocaleTimeString('pt-BR');
+      el.innerText = chefFormatTime(new Date().toISOString());
     }
   }, 1000);
 }
@@ -478,7 +479,7 @@ socket.on('metricas_funcionario_response', ({ pontos, vales, pagamentos }) => {
       btnPonto.innerHTML = '<i class="ph ph-fingerprint" style="margin-right: 8px;"></i> REGISTRAR SAÍDA';
     }
     if (workStatus) {
-      workStatus.innerText = 'Turno em andamento (Entrada: ' + new Date(lastPonto.entrada).toLocaleTimeString('pt-BR') + ')';
+      workStatus.innerText = 'Turno em andamento (Entrada: ' + chefFormatTime(lastPonto.entrada) + ')';
     }
   } else {
     currentStatus = 'fora';
@@ -1143,11 +1144,11 @@ window.selectCalDay = function(dateStr) {
     detailHtml += `
       <div class="cal-summary-row">
         <span class="cal-summary-label">Entrada</span>
-        <span class="cal-summary-value">${ponto.entrada ? new Date(ponto.entrada).toLocaleTimeString('pt-BR') : '-'}</span>
+        <span class="cal-summary-value">${ponto.entrada ? chefFormatTime(ponto.entrada) : '-'}</span>
       </div>
       <div class="cal-summary-row">
         <span class="cal-summary-label">Saída</span>
-        <span class="cal-summary-value">${ponto.saida ? new Date(ponto.saida).toLocaleTimeString('pt-BR') : 'Em andamento'}</span>
+        <span class="cal-summary-value">${ponto.saida ? chefFormatTime(ponto.saida) : 'Em andamento'}</span>
       </div>
       <div class="cal-summary-row">
         <span class="cal-summary-label">Horas</span>
@@ -1813,8 +1814,8 @@ window.openModalPontoHoje = function() {
       return;
     }
     el.innerHTML = pontos.map(p => {
-      const entrada = p.entrada ? new Date(p.entrada).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '--:--';
-      const saida = p.saida ? new Date(p.saida).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '<span style="color:#facc15;">em aberto</span>';
+      const entrada = p.entrada ? chefFormatTime(p.entrada) : '--:--';
+      const saida = p.saida ? chefFormatTime(p.saida) : '<span style="color:#facc15;">em aberto</span>';
       const horas = p.total_horas ? parseFloat(p.total_horas).toFixed(1) + 'h' : '--';
       return `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #e2e8f0;">
         <span><strong>${esc(p.funcionario_nome)}</strong></span>

@@ -6470,6 +6470,19 @@ io.on('connection', (socket) => {
   socket.emit('restaurant_name', licenseManager.getRestaurantName());
   socket.emit('license_status', licenseManager.getState());
 
+  // Enviar fuso horário configurado do restaurante
+  db.get(`SELECT valor FROM configuracoes WHERE chave = 'timezone_offset'`, (err, row) => {
+    const offset = row ? parseInt(row.valor, 10) : -180;
+    socket.emit('timezone_offset', isNaN(offset) ? -180 : offset);
+  });
+
+  socket.on('get_timezone_offset', () => {
+    db.get(`SELECT valor FROM configuracoes WHERE chave = 'timezone_offset'`, (err, row) => {
+      const offset = row ? parseInt(row.valor, 10) : -180;
+      socket.emit('timezone_offset', isNaN(offset) ? -180 : offset);
+    });
+  });
+
   // ── Configuração do Apps Script ──────────────────────────
   const LICENSE_CONFIG_PATH_GLOBAL = require('path').join(
     require('os').homedir(), 'AppData', 'Roaming', 'ChefCozinha', 'license-config.json'
@@ -10478,6 +10491,11 @@ app.post('/api/config', verificarToken, (req, res) => {
   setTimeout(() => {
     io.emit('configuracoes_atualizadas');
     broadcastProdutos();
+    // Broadcast fuso horário se alterado
+    if (configs.timezone_offset !== undefined) {
+      const tz = parseInt(configs.timezone_offset, 10);
+      io.emit('timezone_offset', isNaN(tz) ? -180 : tz);
+    }
     res.json({ success: true });
   }, 500);
 });

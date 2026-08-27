@@ -26,6 +26,7 @@ const socket = (typeof io === 'function') ? io({
     restaurante_id: localStorage.getItem('restaurante_id') || '1'
   }
 }) : { on: () => {}, emit: () => {}, disconnect: () => {}, connect: () => {} };
+if (typeof initChefTz === 'function') initChefTz(socket);
 
 socket.on('tenant_atualizado', (data) => {
   if (data && data.restaurante_id) localStorage.setItem('restaurante_id', data.restaurante_id);
@@ -103,7 +104,7 @@ document.querySelectorAll('.modal-overlay').forEach(overlay => {
 function startClock() {
   const update = () => {
     const d = new Date();
-    if (headerTimeEl) headerTimeEl.innerText = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    if (headerTimeEl) headerTimeEl.innerText = chefFormatTime(new Date().toISOString());
   };
   update();
   setInterval(update, 60000);
@@ -774,7 +775,7 @@ window.notificarEquipe = function() {
 
 // ─── Feed de Atividade ────────────────────────────────────────
 function adicionarAoFeed(tipo, texto) {
-  const now = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const now = chefFormatTime(new Date().toISOString());
 
   let icon = 'ph-info', colorClass = 'blue';
   if (tipo === 'venda')  { icon = 'ph-currency-dollar'; colorClass = 'green'; }
@@ -1467,7 +1468,7 @@ window.abrirModalDesempenhoCupom = async function(codigo) {
           </div>
           <div style="text-align:right;">
             <span style="color:var(--green); font-weight:800; display:block;">Resgatado</span>
-            <span style="color:var(--text-sub); font-size:10px;">${new Date(u.data_uso).toLocaleDateString('pt-BR')} ${new Date(u.data_uso).toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'})}</span>
+            <span style="color:var(--text-sub); font-size:10px;">${chefFormatDate(u.data_uso)}</span>
           </div>
         </div>
       `).join('');

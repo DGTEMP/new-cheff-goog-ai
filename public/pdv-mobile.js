@@ -32,6 +32,7 @@ function initSocket() {
   if (typeof io === 'undefined') return;
   socket = io({ query: { token: localStorage.getItem('chef_token'), restaurante_id: localStorage.getItem('restaurante_id') || '1' } });
   window.socket = socket;
+  if (typeof initChefTz === 'function') initChefTz(socket);
 
   socket.on('erro_servidor', (msg) => showToast(msg, 'error'));
 
