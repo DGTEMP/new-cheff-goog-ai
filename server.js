@@ -6215,7 +6215,29 @@ io.on('connection', (socket) => {
     });
   });
 
+  function liberarMesaSeVazia(mesaName) {
+    if (!mesaName) return;
+    db.get(`SELECT COUNT(*) as cnt FROM pedidos WHERE localName = ? AND status NOT IN ('Finalizado','Pago','Cancelado')`, [mesaName], (err, row) => {
+      if (!err && row && row.cnt === 0) {
+        db.run(`UPDATE mesas SET status = 'Disponível' WHERE nome = ? AND status != 'Disponível'`, [mesaName], () => {
+          db.all(`SELECT * FROM mesas`, (e, rows) => io.emit('mesas_atualizadas', rows || []));
+        });
+      }
+    });
+  }
 
+  // ── PLUGIN GARÇOM: registrar handlers de salão/mesa/garçom ──
+  try {
+    const garcomPlugin = require('./plugins/garcom');
+    if (garcomPlugin.registerGarcomSockets) {
+      garcomPlugin.registerGarcomSockets(socket, {
+        db, io, socketTenantId, broadcastPedidos, broadcastMesaClientes,
+        sendPush, exigirAdminSocket, exigirAuthSocket,
+        chamarTimestamps, pdvCalls, liberarMesaSeVazia, avisarClienteMesa,
+        mesasFechando
+      });
+    }
+  } catch (e) { console.error('[garcom] Falha ao registrar sockets:', e.message); }
 
   socket.on('get_pedidos', () => {
     if (!socket.auth) return;
@@ -6493,153 +6515,23 @@ io.on('connection', (socket) => {
     socket.emit('license_status', { ...state, installId: state.installId });
   });
 
-  socket.on('transferir_mesa', ({ mesaAtual, novaMesa, operador }) => {
-    db.run(`UPDATE pedidos SET localName = ? WHERE localName = ? AND status != 'Finalizado'`, [novaMesa, mesaAtual], (err) => {
-      if (!err) {
-        global.registrarAuditoria(operador || 'Sistema', 'TRANSFERENCIA_MESA', `Mesa ${mesaAtual} transferida para ${novaMesa}`, 'Operação de Salão', 'MEDIO');
-        broadcastPedidos();
-      }
-    });
-  });
+  // ── transferir_mesa → migrado para plugins/garcom/ ──
 
-  socket.on('juntar_mesas', ({ mesaA, mesaB, operador }, ack) => {
-    const responder = (ok, mensagem) => {
-      if (typeof ack === 'function') ack({ ok, mensagem });
-      else if (!ok) socket.emit('erro_servidor', mensagem);
-    };
-    if (!mesaA || !mesaB || mesaA === mesaB) return responder(false, 'Mesas inválidas para junção.');
-    db.all(`SELECT * FROM mesas WHERE nome IN (?, ?)`, [mesaA, mesaB], (eSel, alvos) => {
-      if (eSel || !alvos || alvos.length < 2) return responder(false, 'Mesa não encontrada.');
-      // Se uma das mesas já pertence a um grupo, todo o grupo entra na junção
-      const tokenBase = alvos.map(m => m.grupo_juncao).filter(Boolean)[0] || `J${Date.now()}`;
-      const nomesAlvo = alvos.map(m => m.nome);
-      db.all(`SELECT * FROM mesas WHERE grupo_juncao = ? OR nome IN (?, ?)`, [tokenBase, mesaA, mesaB], (eGrp, grupo) => {
-        const integrantes = [...new Set([...(grupo || []).map(m => m.nome), ...nomesAlvo])];
-        const setters = integrantes.map(() => `nome = ?`).join(' OR ');
-        db.run(`UPDATE mesas SET grupo_juncao = ? WHERE grupo_juncao = ? OR nome IN (${integrantes.map(() => '?').join(', ')})`,
-          [tokenBase, tokenBase, ...integrantes], (eUp) => {
-            if (eUp) return responder(false, 'Falha ao juntar as mesas.');
-            const rotulo = integrantes.slice().sort((a, b) => a.localeCompare(b, 'pt-BR', { numeric: true })).join(' + ');
-            db.run(`UPDATE pedidos SET mesa_grupo = ? WHERE localName IN (${integrantes.map(() => '?').join(', ')}) AND status NOT IN ('Finalizado','Cancelado')`,
-              [rotulo, ...integrantes], () => {
-              global.registrarAuditoria(operador || 'Sistema', 'JUNCAO_MESAS', `${integrantes.join(' + ')} → grupo "${rotulo}"`, 'Operação de Salão', 'BAIXO');
-              db.all(`SELECT * FROM mesas`, (e, rows) => io.emit('mesas_atualizadas', rows || []));
-              broadcastPedidos();
-              responder(true, `Mesas unidas: ${rotulo}`);
-            });
-          });
-      });
-    });
-  });
+  // ── juntar_mesas → migrado para plugins/garcom/ ──
 
-  // Desfazer junção: libera o grupo de volta para mesas individuais
-  socket.on('desfazer_juncao', ({ mesaNome, operador }, ack) => {
-    const responder = (ok, mensagem) => {
-      if (typeof ack === 'function') ack({ ok, mensagem });
-      else if (!ok) socket.emit('erro_servidor', mensagem);
-    };
-    if (!mesaNome) return responder(false, 'Mesa inválida.');
-    db.get(`SELECT grupo_juncao FROM mesas WHERE nome = ?`, [mesaNome], (eSel, row) => {
-      if (eSel || !row) return responder(false, 'Mesa não encontrada.');
-      if (!row.grupo_juncao) return responder(true, 'Esta mesa não está em junção.');
-      db.all(`SELECT nome FROM mesas WHERE grupo_juncao = ?`, [row.grupo_juncao], (eG, grupo) => {
-        const nomes = (grupo || []).map(g => g.nome);
-        db.run(`UPDATE mesas SET grupo_juncao = NULL WHERE grupo_juncao = ?`, [row.grupo_juncao], () => {
-          if (nomes.length) {
-            db.run(`UPDATE pedidos SET mesa_grupo = NULL WHERE localName IN (${nomes.map(() => '?').join(', ')}) AND status NOT IN ('Finalizado','Cancelado')`,
-              nomes, () => { });
-          }
-          global.registrarAuditoria(operador || 'Sistema', 'DESFAZER_JUNCAO', `Grupo ${nomes.join(' + ')} desfeito`, 'Operação de Salão', 'BAIXO');
-          db.all(`SELECT * FROM mesas`, (e, rows) => io.emit('mesas_atualizadas', rows || []));
-          broadcastPedidos();
-          responder(true, 'Junção desfeita.');
-        });
-      });
-    });
-  });
+  // ── desfazer_juncao → migrado para plugins/garcom/ ──
 
   // ── sugerir_juncao → migrado para plugins/reserves/ ──
 
-  // Layout do salão: salva posição, capacidade e sala de cada mesa (desenhado nas configurações)
-  socket.on('salvar_layout_salao', ({ mesas: layout, operador } = {}, ack) => {
-    const responder = (ok, mensagem) => {
-      if (typeof ack === 'function') ack({ ok, mensagem });
-      else if (!ok) socket.emit('erro_servidor', mensagem);
-    };
-    if (!_socketIsAdmin(socket)) return responder(false, 'Apenas administradores podem editar o layout do salão.');
-    if (!Array.isArray(layout)) return responder(false, 'Layout inválido.');
-    let pendentes = layout.length;
-    if (!pendentes) return responder(true, 'Nada para salvar.');
-    let falhas = 0;
-    layout.forEach(m => {
-      if (!m || !m.id) { pendentes--; return; }
-      db.run(`UPDATE mesas SET pos_x = ?, pos_y = ?, lugares = ?, sala = ? WHERE id = ?`,
-        [Number(m.pos_x) || 0, Number(m.pos_y) || 0, Math.max(1, parseInt(m.lugares, 10) || 4), String(m.sala || 'Salão principal').slice(0, 60), m.id],
-        (err) => {
-          if (err) falhas++;
-          pendentes--;
-          if (pendentes <= 0) {
-            if (falhas) return responder(false, `${falhas} mesa(s) não puderam ser salvas.`);
-            global.registrarAuditoria(socket.auth?.nome || operador || 'Sistema', 'LAYOUT_SALAO', `Layout do salão atualizado (${layout.length} mesas)`, 'Configurações', 'BAIXO');
-            db.all(`SELECT * FROM mesas`, (e, rows) => io.emit('mesas_atualizadas', rows || []));
-            responder(true, 'Layout do salão salvo.');
-          }
-        });
-    });
-  });
+  // ── salvar_layout_salao → migrado para plugins/garcom/ ──
 
-  // Mover itens de uma mesa para outra (mesa origem fica livre)
-  socket.on('transferir_mesas_itens', ({ mesaA, mesaB, operador }) => {
-    db.run(`UPDATE pedidos SET localName = ?, mesa_grupo = NULL WHERE localName = ? AND status != 'Finalizado'`, [mesaB, mesaA], (err) => {
-      if (!err) {
-        db.run(`UPDATE mesas SET status = 'Disponível' WHERE nome = ?`, [mesaA], () => {
-          db.all(`SELECT * FROM mesas`, (e, rows) => {
-            io.emit('mesas_atualizadas', rows || []);
-          });
-        });
-        global.registrarAuditoria(operador || 'Sistema', 'TRANSFERENCIA_MESAS_ITENS', `Itens de ${mesaA} movidos para ${mesaB}. Mesa ${mesaA} liberada.`, 'Operação de Salão', 'MEDIO');
-        broadcastPedidos();
-      }
-    });
-  });
+  // ── transferir_mesas_itens → migrado para plugins/garcom/ ──
 
-  function liberarMesaSeVazia(mesaName) {
-    if (!mesaName) return;
-    db.get(`SELECT COUNT(*) as cnt FROM pedidos WHERE localName = ? AND status NOT IN ('Finalizado','Pago','Cancelado')`, [mesaName], (err, row) => {
-      if (!err && row && row.cnt === 0) {
-        db.run(`UPDATE mesas SET status = 'Disponível' WHERE nome = ? AND status != 'Disponível'`, [mesaName], () => {
-          db.all(`SELECT * FROM mesas`, (e, rows) => {
-            io.emit('mesas_atualizadas', rows || []);
-          });
-        });
-      }
-    });
-  }
+  // ── liberarMesaSeVazia → mantido (helper compartilhado) ──
 
-  socket.on('transferir_item', ({ itemId, novaMesa, operador }) => {
-    db.get(`SELECT localName FROM pedidos WHERE id = ?`, [itemId], (errGet, rowGet) => {
-      const mesaAntiga = rowGet ? rowGet.localName : null;
-      db.run(`UPDATE pedidos SET localName = ?, mesa_grupo = NULL WHERE id = ?`, [novaMesa, itemId], (err) => {
-        if (!err) {
-          global.registrarAuditoria(operador || 'Sistema', 'TRANSFERENCIA_ITEM', `Item ${itemId} transferido para ${novaMesa}`, 'Operação de Salão', 'MEDIO');
-          broadcastPedidos();
-          liberarMesaSeVazia(mesaAntiga);
-        }
-      });
-    });
-  });
+  // ── transferir_item → migrado para plugins/garcom/ ──
 
-  socket.on('atribuir_comanda_item', ({ itemId, comandaName, operador }) => {
-    const comandaVal = (comandaName && String(comandaName).trim()) ? String(comandaName).trim() : null;
-    db.run(`UPDATE pedidos SET mesa_comanda = ? WHERE id = ?`, [comandaVal, itemId], (err) => {
-      if (!err) {
-        global.registrarAuditoria(operador || 'Sistema', 'ATRIBUICAO_COMANDA', `Item ${itemId} associado à comanda: ${comandaVal}`, 'Operação de Salão', 'BAIXO');
-        broadcastPedidos();
-      } else {
-        console.error('Erro ao atribuir comanda ao item:', err);
-      }
-    });
-  });
+  // ── atribuir_comanda_item → migrado para plugins/garcom/ ──
 
   // Fetch all active orders and send to the new client (always, regardless of IA config)
   // Dados iniciais SEMPRE sao enviados — sem isso o caixa desktop nao mostra pedidos.
@@ -6748,17 +6640,7 @@ io.on('connection', (socket) => {
 
 
   // Garçom envia um novo pedido
-  socket.on('buscar_cliente_telefone', (telefone) => {
-    if (!telefone) return;
-    const cleanPhone = telefone.replace(/\D/g, '');
-    db.get(`SELECT nome FROM clientes WHERE telefone = ? OR telefone LIKE ? OR id IN (SELECT id FROM clientes WHERE REPLACE(REPLACE(REPLACE(REPLACE(telefone, ' ', ''), '-', ''), '(', ''), ')', '') = ?) LIMIT 1`, [telefone, `%${cleanPhone}`, cleanPhone], (err, row) => {
-      if (row) {
-        socket.emit('cliente_telefone_encontrado', { telefone, nome: row.nome });
-      } else {
-        socket.emit('cliente_telefone_encontrado', { telefone, nome: null });
-      }
-    });
-  });
+  // ── buscar_cliente_telefone → migrado para plugins/garcom/ ──
 
   const _novoPedidoCore = (pedido, opts = {}) => {
     const reply = opts.reply || ((ev, pl) => socket.emit(ev, pl));
@@ -7088,108 +6970,26 @@ io.on('connection', (socket) => {
     });
   });
 
-  socket.on('chamar_garcom', (data) => {
-    const d = data || {};
-    const id = d.id || null;
-    const productName = d.productName || d.mensagem || 'Garçom chamado';
-    const quantity = d.quantity || 1;
-    const localName = d.localName || d.nome || 'PDV Mobile';
-    const userName = d.userName || 'PDV Mobile';
-    const clienteNome = d.clienteNome || '';
-    const now = Date.now();
-    // (Segurança) Limite por socket (ex.: cliente do QR chamando garçom) para
-    // evitar spam de notificações.
-    if (socket._lastChamarTime && (now - socket._lastChamarTime) < 3000) return;
-    socket._lastChamarTime = now;
-    const lastCall = chamarTimestamps[id];
-    const isReChamado = lastCall && (now - lastCall) < 10000;
-    chamarTimestamps[id] = now;
-    if (!id) {
-      const entry = { id: 'pdv_' + now, localName, productName, quantity, userName, clienteNome, tipo: 'pdv', criadoEm: now, status: 'Pronto', targetGarcom: d.targetGarcom || null };
-      if (!isReChamado) pdvCalls.push(entry);
-      io.emit('notificacao_garcom', Object.assign({}, entry, { reChamado: isReChamado }));
-      if (!isReChamado) sendPush('garcom', '🔔 Garçom Chamado!', `${quantity}x ${productName} — ${localName}${clienteNome ? ' (' + clienteNome + ')' : ''}`, 'chamar-pdv-' + now, '/garcom.html');
-      broadcastPedidos();
-    } else {
-      io.emit('notificacao_garcom', { id, productName, quantity, localName, userName, clienteNome, tipo: 'chamada', reChamado: isReChamado, targetGarcom: d.targetGarcom || null });
-      if (!isReChamado) {
-        sendPush('garcom', '🔔 Garçom Chamado!', `${quantity}x ${productName} — ${localName}${clienteNome ? ' (' + clienteNome + ')' : ''}`, 'chamar-' + id, '/garcom.html');
-        db.run(`UPDATE pedidos SET garcom_call = datetime('now', 'localtime') WHERE id = ?`, [id]);
-        broadcastPedidos();
-      }
-    }
-  });
+  // ── chamar_garcom → migrado para plugins/garcom/ ──
 
-  socket.on('garcom_buscando', ({ pedidoId, garcomNome, localName, productName }) => {
-    if (typeof pedidoId === 'number' || !isNaN(pedidoId)) {
-      db.run(`UPDATE pedidos SET garcom_call = NULL WHERE id = ?`, [pedidoId], function () {
-        io.emit('garcom_buscando', { pedidoId, garcomNome, localName, productName });
-      });
-    } else {
-      io.emit('garcom_buscando', { pedidoId, garcomNome, localName, productName });
-    }
-  });
+  // ── garcom_buscando → migrado para plugins/garcom/ ──
 
-  socket.on('cliente_na_mesa', (localName) => {
-    if (localName) {
-      socket.join(`mesa_${localName}`);
-    }
-  });
+  // ── cliente_na_mesa → migrado para plugins/garcom/ ──
 
   // Painel super-admin entra na sala exclusiva de monitoramento em tempo real
   socket.on('entrar_super_admin', () => {
     socket.join('super_admin');
   });
 
-  // ── ALERTAS AO CLIENTE ──
-  // Caixa/envia mensagem para a mesa (usado pelo botão "Avisar Cliente" e pelo painel do dono)
-  socket.on('caixa_avisar_cliente', ({ mesaName, titulo, mensagem }, cb) => {
-    if (!mesaName || !mensagem || !String(mensagem).trim()) return cb && cb({ ok: false });
-    if (!exigirAuthSocket(socket)) return cb && cb({ ok: false, erro: 'sem_auth' });
-    avisarClienteMesa(mesaName, { tipo: 'mensagem', titulo: titulo || 'Aviso do Caixa', mensagem: String(mensagem).trim() }, (ok, id) => {
-      cb && cb({ ok: !!ok, id });
-    });
-  });
+  // ── caixa_avisar_cliente → migrado para plugins/garcom/ ──
 
-  // Cliente confirma que leu os alertas (chamado ao exibir)
-  socket.on('alerta_marcar_entregues', (ids) => {
-    if (!Array.isArray(ids) || !ids.length) return;
-    const safe = ids.map(Number).filter(n => Number.isInteger(n) && n > 0);
-    if (!safe.length) return;
-    db.run(`UPDATE alertas_cliente SET entregue = 1 WHERE id IN (${safe.map(() => '?').join(',')})`, safe);
-  });
+  // ── alerta_marcar_entregues → migrado para plugins/garcom/ ──
 
-  socket.on('verificar_mesa_conflict', ({ mesa, clienteId }, cb) => {
-    if (!mesa) return cb && cb({ conflict: false });
-    db.get(`SELECT cliente_nome, cliente_id FROM mesa_clientes WHERE mesa = ?`, [mesa], (err, row) => {
-      if (err || !row) return cb && cb({ conflict: false });
-      if (row.cliente_id && clienteId && row.cliente_id === clienteId) return cb && cb({ conflict: false });
-      if (row.cliente_nome) return cb && cb({ conflict: true, ocupadoPor: row.cliente_nome });
-      cb && cb({ conflict: false });
-    });
-  });
+  // ── verificar_mesa_conflict → migrado para plugins/garcom/ ──
 
-  // Cliente identificado pelo QR: associa cliente à mesa, abre a mesa no PDV
-  socket.on('cliente_entrou_mesa', ({ mesa, cliente }) => {
-    if (!mesa || !cliente || !cliente.nome) return;
-    db.run(
-      `INSERT INTO mesa_clientes (mesa, cliente_id, cliente_nome, cliente_telefone, updated_at) VALUES (?, ?, ?, ?, datetime('now', 'localtime'))
-       ON CONFLICT(mesa) DO UPDATE SET cliente_id = excluded.cliente_id, cliente_nome = excluded.cliente_nome, cliente_telefone = excluded.cliente_telefone, updated_at = datetime('now', 'localtime')`,
-      [mesa, cliente.id || null, cliente.nome, cliente.telefone || ''],
-      (err) => {
-        if (err) return console.error('[Mesa Cliente] Erro ao associar cliente à mesa:', err);
-        broadcastMesaClientes();
-        db.run(`UPDATE mesas SET status = 'Ocupada' WHERE nome = ? AND status IN ('Disponível','Disponivel')`, [mesa], () => {
-          db.all(`SELECT * FROM mesas`, (e, rows) => io.emit('mesas_atualizadas', rows || []));
-        });
-      }
-    );
-  });
+  // ── cliente_entrou_mesa → migrado para plugins/garcom/ ──
 
-  socket.on('garcom_aceitou_chamado', ({ localName, garcomNome }) => {
-    io.to(`mesa_${localName}`).emit('garcom_chegando', { garcomNome, localName });
-    io.emit('notificacao_garcom', { productName: `${garcomNome} aceitou`, localName, userName: 'Sistema', tipo: 'aceite' });
-  });
+  // ── garcom_aceitou_chamado → migrado para plugins/garcom/ ──
 
   socket.on('validar_pin_admin', async (data, ack) => {
     const val = (typeof data === 'object' && data !== null) ? (data.pin || data.senha) : data;
@@ -8393,26 +8193,7 @@ io.on('connection', (socket) => {
     });
   });
 
-  socket.on('atualizar_status_mesa', ({ nome, status, observacao }) => {
-    if (status === 'Disponível') {
-      mesasFechando.delete(nome);
-      io.emit('sync_mesas_fechando', Array.from(mesasFechando));
-    }
-    let query = `UPDATE mesas SET status = ?`;
-    let params = [status];
-    if (observacao !== undefined) {
-      query += `, observacao = ?`;
-      params.push(observacao);
-    }
-    query += ` WHERE nome = ?`;
-    params.push(nome);
-
-    db.run(query, params, () => {
-      db.all(`SELECT * FROM mesas`, (err, rows) => {
-        io.emit('mesas_atualizadas', rows || []);
-      });
-    });
-  });
+  // ── atualizar_status_mesa → migrado para plugins/garcom/ ──
 
   socket.on('alerta_pedir_conta', (mesaName) => {
     mesasFechando.add(mesaName);
@@ -8556,23 +8337,7 @@ io.on('connection', (socket) => {
   });
 
   // --- FIDELIDADE & PONTOS DO CLIENTE ---
-  socket.on('buscar_cliente_telefone', (query) => {
-    const q = (query || '').trim();
-    if (!q) {
-      socket.emit('resultado_cliente_telefone', null);
-      socket.emit('cliente_telefone_encontrado', { telefone: q, nome: null });
-      return;
-    }
-    db.get(
-      `SELECT * FROM clientes WHERE telefone LIKE ? OR nome LIKE ? LIMIT 1`,
-      [`%${q}%`, `%${q}%`],
-      (err, row) => {
-        socket.emit('resultado_cliente_telefone', row || null);
-        // Also emit the event garcom.js listens for
-        socket.emit('cliente_telefone_encontrado', { telefone: q, nome: row ? row.nome : null });
-      }
-    );
-  });
+  // ── buscar_cliente_telefone (dup) → já migrado para plugins/garcom/ ──
 
   socket.on('ajustar_pontos_cliente', ({ id, pontos }) => {
     const novosPontos = Math.max(0, parseInt(pontos, 10) || 0);
@@ -11228,101 +10993,7 @@ function registerAdminRhEvents(socket) {
   });
 }
 
-// =====================================
-// ROTAS DE RH / PAGAMENTO DE FOLHA
-// =====================================
-
-app.get('/api/rh/extrato/:id', verificarToken, (req, res) => {
-  const funcId = req.params.id;
-  db.get("SELECT nome FROM funcionarios WHERE id = ?", [funcId], (errF, func) => {
-    if (errF || !func) return res.status(404).send("Funcionário não encontrado");
-
-    const funcName = func.nome;
-    db.all("SELECT id, valor, data_pedido, observacao FROM vales WHERE funcionario_id = ? AND status = 'Aprovado' AND pagamento_id IS NULL", [funcId], (errV, vales) => {
-      // Para abatimento de consumo (Fiado)
-      // Procuramos pedidos finalizados onde o funcionario_id esteja preenchido explicitamente para o colaborador
-      db.all("SELECT id, total, productName, quantity, createdAt FROM pedidos WHERE status = 'Finalizado' AND paymentMethod = 'Fiado' AND pagamento_id IS NULL AND funcionario_id = ?", [funcId], (errP, fiados) => {
-        // Fallback: se não houver pedidos vinculados por funcionario_id, busca por userName
-        const buscarFiados = (fiados && fiados.length > 0) ? Promise.resolve(fiados) : new Promise((resolve) => {
-          db.all("SELECT id, total, productName, quantity, createdAt FROM pedidos WHERE status = 'Finalizado' AND paymentMethod = 'Fiado' AND pagamento_id IS NULL AND userName = ?", [funcName], (e, rows) => {
-            resolve(rows || []);
-          });
-        });
-
-        buscarFiados.then(fiadosLista => {
-          // Dias atípicos / extras pendentes de acerto
-          db.all("SELECT id, data, valor, justificativa, forma_pagamento FROM dias_atipicos WHERE funcionario_id = ? AND status = 'aprovado' AND pagamento_id IS NULL", [funcId], (errD, atipicos) => {
-            let totalVales = 0;
-            (vales || []).forEach(v => totalVales += parseFloat(v.valor || 0));
-
-            let totalConsumo = 0;
-            (fiadosLista || []).forEach(f => {
-              let rawTotal = String(f.total || '0').replace('R$', '').replace(/\./g, '').replace(',', '.').trim();
-              let val = parseFloat(rawTotal || 0);
-              // Proteção contra soma duplicada de arrays ou valores inválidos
-              if (!isNaN(val) && val > 0 && val < 5000) {
-                totalConsumo += val;
-              }
-            });
-
-            let totalAtipicos = 0;
-            (atipicos || []).forEach(a => totalAtipicos += parseFloat(a.valor || 0));
-
-            res.json({
-              vales: vales || [],
-              fiados: fiadosLista || [],
-              atipicos: atipicos || [],
-              total_vales: totalVales,
-              total_consumo: totalConsumo,
-              total_dias_extras: totalAtipicos,
-              suggested_bruto: totalAtipicos
-            });
-          });
-        });
-      });
-    });
-  });
-});
-
-app.post('/api/rh/pagamentos', verificarToken, (req, res) => {
-  const { funcionario_id, valor_bruto, total_vales_abatidos, total_consumo_abatido, valor_liquido, observacao, vales_ids, pedidos_ids } = req.body;
-  const dataPagamento = new Date().toISOString();
-
-  db.run(`INSERT INTO funcionarios_pagamentos (funcionario_id, data_pagamento, valor_bruto, total_vales_abatidos, total_consumo_abatido, valor_liquido, observacao) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [funcionario_id, dataPagamento, valor_bruto, total_vales_abatidos, total_consumo_abatido, valor_liquido, observacao || ''],
-    function (err) {
-      if (err) return res.status(500).send("Erro ao registrar pagamento");
-
-      const pagId = this.lastID;
-
-      // Update vales
-      if (vales_ids && vales_ids.length > 0) {
-        db.run(`UPDATE vales SET pagamento_id = ? WHERE id IN (${vales_ids.map(() => '?').join(',')})`, [pagId, ...vales_ids]);
-      }
-      // Update pedidos fiados
-      if (pedidos_ids && pedidos_ids.length > 0) {
-        db.run(`UPDATE pedidos SET pagamento_id = ? WHERE id IN (${pedidos_ids.map(() => '?').join(',')})`, [pagId, ...pedidos_ids]);
-      }
-
-      io.emit('rh_update');
-
-      // Broadcast celebration
-      db.get("SELECT nome FROM funcionarios WHERE id = ?", [funcionario_id], (errF, func) => {
-        const nome = func ? func.nome : 'Colaborador';
-        io.emit('pagamento_colaborador_celebracao', {
-          funcionario_id,
-          funcionario_nome: nome,
-          valor: valor_liquido || valor_bruto,
-          data_pagamento: dataPagamento,
-          observacao: observacao || '',
-          pagamento_id: pagId
-        });
-      });
-
-      res.json({ success: true, pagamento_id: pagId });
-    }
-  );
-});
+// ── RH / PAGAMENTO DE FOLHA → migrado para plugins/garcom/ ──────
 
 // ── PERFIL DE MESA → migrado para plugins/caixa/ ────────────
 

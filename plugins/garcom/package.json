@@ -1,0 +1,6 @@
+{
+  "name": "plugin-garcom",
+  "version": "1.0.0",
+  "description": "Módulo Garçom: salão, mesas, comandas, cupons, RH",
+  "order": 12
+}
