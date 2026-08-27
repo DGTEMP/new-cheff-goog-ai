@@ -17,7 +17,8 @@
     "retro": true,
     "tarefas": true,
     "temas": true,
-    "pesagem-selfservice": true
+    "pesagem-selfservice": true,
+    "tema-v2": true
   },
   "order": []
 }

@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>Chef Cozinha Pro — Tema v2.0 Modular (Apple HIG)</title>
+  
+  <!-- Google Fonts: Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  
+  <!-- Phosphor Icons -->
+  <link rel="stylesheet" href="/vendor/phosphor/src/bold/style.css">
+  <link rel="stylesheet" href="/vendor/phosphor/src/fill/style.css">
+  
+  <!-- Tema v2.0 Apple HIG CSS -->
+  <link rel="stylesheet" href="/caixa-v2.css">
+  
+  <!-- SweetAlert2 -->
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <!-- Socket.io -->
+  <script src="/socket.io/socket.io.js"></script>
+  <!-- Auth Guard -->
+  <script src="/auth.js"></script>
+</head>
+<body>
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       HEADER TRANSLÚCIDO HIG
+       ═══════════════════════════════════════════════════════════════════ -->
+  <header class="hig-header">
+    <div class="hig-brand">
+      <div class="hig-logo" id="hig-rest-logo">
+        <i class="ph-bold ph-fork-knife"></i>
+      </div>
+      <div class="hig-brand-info">
+        <h1 id="hig-rest-nome">Chef Cozinha Gourmet</h1>
+        <span>
+          <span class="hig-badge-live"><span class="dot"></span> Online</span>
+          • Tema v2.0 HIG • <span id="hig-clock">--:--:--</span>
+        </span>
+      </div>
+    </div>
+
+    <div class="hig-header-actions">
+      <!-- Botão de Customização de Marca para o Suporte -->
+      <button class="hig-btn-customizer" onclick="window.abrirCustomizadorSuporte()">
+        <i class="ph-bold ph-palette"></i> Customizar Marca (Suporte)
+      </button>
+
+      <!-- Alternador de Tema Dark/Light -->
+      <button class="hig-btn-icon" onclick="toggleTheme()" title="Alternar Tema">
+        <i class="ph-bold ph-moon"></i>
+      </button>
+
+      <!-- Tela Cheia -->
+      <button class="hig-btn-icon" onclick="toggleFullscreen()" title="Tela Cheia">
+        <i class="ph-bold ph-corners-out"></i>
+      </button>
+
+      <!-- Configurações Completas -->
+      <button class="hig-btn-icon" onclick="window.location.href='/configuracoes.html'" title="Painel Completo">
+        <i class="ph-bold ph-gear"></i>
+      </button>
+
+      <!-- Painel do Dono -->
+      <button class="hig-btn-icon" onclick="window.location.href='/painel-dono.html'" title="Painel do Dono">
+        <i class="ph-bold ph-crown"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       WORKSPACE MODULAR BENTO GRID
+       ═══════════════════════════════════════════════════════════════════ -->
+  <main class="hig-workspace">
+
+    <!-- 1. WIDGET KPIS DO TURNO (SPAN FULL) -->
+    <div class="hig-widget hig-widget-kpis">
+      <div class="hig-widget-header">
+        <div class="hig-widget-title">
+          <i class="ph-bold ph-chart-line-up"></i> Métricas em Tempo Real
+        </div>
+        <div class="hig-widget-tag">Turno Atual</div>
+      </div>
+      <div class="hig-kpi-grid">
+        <div class="hig-kpi-item">
+          <div class="hig-kpi-icon green"><i class="ph-bold ph-currency-dollar"></i></div>
+          <div class="hig-kpi-data">
+            <span>Faturamento Hoje</span>
+            <h3 id="kpi-faturamento">R$ 1.450,00</h3>
+          </div>
+        </div>
+        <div class="hig-kpi-item">
+          <div class="hig-kpi-icon orange"><i class="ph-bold ph-users-three"></i></div>
+          <div class="hig-kpi-data">
+            <span>Mesas Ocupadas</span>
+            <h3 id="kpi-mesas-ocupadas">3 / 12</h3>
+          </div>
+        </div>
+        <div class="hig-kpi-item">
+          <div class="hig-kpi-icon blue"><i class="ph-bold ph-receipt"></i></div>
+          <div class="hig-kpi-data">
+            <span>Ticket Médio</span>
+            <h3>R$ 84,20</h3>
+          </div>
+        </div>
+        <div class="hig-kpi-item">
+          <div class="hig-kpi-icon purple"><i class="ph-bold ph-timer"></i></div>
+          <div class="hig-kpi-data">
+            <span>Tempo Médio Cozinha</span>
+            <h3>14 min</h3>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. WIDGET PDV OPERACIONAL RÁPIDO -->
+    <div class="hig-widget hig-widget-pdv">
+      <div class="hig-widget-header">
+        <div class="hig-widget-title">
+          <i class="ph-bold ph-shopping-bag-open"></i> PDV Rápido & Caixa
+        </div>
+        <div class="hig-widget-tag">Venda Direta</div>
+      </div>
+
+      <div class="hig-search-bar">
+        <input type="text" class="hig-search-input" placeholder="Buscar produto por nome ou código..." oninput="filtrarProdutosUI(this.value)">
+      </div>
+
+      <div class="hig-products-grid" id="hig-produtos-container">
+        <!-- Injetado dinamicamente via JS -->
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--hig-border); padding-top: 14px;">
+        <div>
+          <span style="font-size: 12px; color: var(--hig-text-secondary); font-weight: 700; text-transform: uppercase;">Total Comanda:</span>
+          <h2 id="hig-pdv-total" style="font-size: 26px; font-weight: 900; color: var(--hig-accent);">R$ 0,00</h2>
+        </div>
+        <button class="hig-btn-action" onclick="window.finalizarVendaPDV()">
+          <i class="ph-bold ph-check-circle"></i> Finalizar Venda
+        </button>
+      </div>
+    </div>
+
+    <!-- 3. WIDGET MAPA DO SALÃO & MESAS -->
+    <div class="hig-widget hig-widget-mesas">
+      <div class="hig-widget-header">
+        <div class="hig-widget-title">
+          <i class="ph-bold ph-table"></i> Salão & Mesas
+        </div>
+        <div class="hig-widget-tag">Ao Vivo</div>
+      </div>
+      <div class="hig-mesas-grid" id="hig-mesas-container">
+        <!-- Injetado dinamicamente via JS -->
+      </div>
+    </div>
+
+    <!-- 4. WIDGET BALANÇA & PESAGEM SELF-SERVICE -->
+    <div class="hig-widget hig-widget-balanca">
+      <div class="hig-widget-header">
+        <div class="hig-widget-title">
+          <i class="ph-bold ph-scales"></i> Balança & Buffet
+        </div>
+        <div class="hig-widget-tag">R$ 69,90 / kg</div>
+      </div>
+
+      <div class="hig-balanca-display">
+        <span style="font-size: 12px; font-weight: 800; color: var(--hig-text-secondary); text-transform: uppercase;">Peso Líquido</span>
+        <div class="hig-balanca-peso" id="hig-display-peso">0.000 kg</div>
+        <div class="hig-balanca-total" id="hig-display-total-peso">R$ 0,00</div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+        <button class="hig-btn-icon" style="width:100%; font-size:12px; font-weight:800;" onclick="window.simularPesoBalanca(0.420)">
+          ⚡ 420g
+        </button>
+        <button class="hig-btn-icon" style="width:100%; font-size:12px; font-weight:800;" onclick="window.simularPesoBalanca(0.780)">
+          ⚡ 780g
+        </button>
+      </div>
+
+      <button class="hig-btn-action" onclick="window.lancarPesagemNoCaixa()">
+        <i class="ph-bold ph-plus-circle"></i> Lançar na Comanda
+      </button>
+    </div>
+
+    <!-- 5. WIDGET KDS FILA DA COZINHA -->
+    <div class="hig-widget hig-widget-kds">
+      <div class="hig-widget-header">
+        <div class="hig-widget-title">
+          <i class="ph-bold ph-cooking-pot"></i> Fila da Cozinha (KDS)
+        </div>
+        <div class="hig-widget-tag">3 em Preparo</div>
+      </div>
+
+      <div class="hig-kds-list">
+        <div class="hig-kds-item">
+          <div>
+            <strong style="font-size: 14.5px; display: block;">Mesa 02 — Picanha Nobre Grelhada</strong>
+            <span style="font-size: 12px; color: var(--hig-text-secondary);">Ao ponto • Batatas rústicas • 8 min</span>
+          </div>
+          <button class="hig-btn-icon" style="color: var(--hig-success);" title="Concluir Preparo">
+            <i class="ph-bold ph-check"></i>
+          </button>
+        </div>
+
+        <div class="hig-kds-item">
+          <div>
+            <strong style="font-size: 14.5px; display: block;">Mesa 05 — Salmão com Ervas</strong>
+            <span style="font-size: 12px; color: var(--hig-text-secondary);">Sem cebola • Arroz de jasmim • 3 min</span>
+          </div>
+          <button class="hig-btn-icon" style="color: var(--hig-success);" title="Concluir Preparo">
+            <i class="ph-bold ph-check"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 6. WIDGET CENTRAL DE CONFIGURAÇÕES EXPRESSA -->
+    <div class="hig-widget hig-widget-config">
+      <div class="hig-widget-header">
+        <div class="hig-widget-title">
+          <i class="ph-bold ph-sliders"></i> Central de Operações & Configurações Expressa
+        </div>
+        <button class="hig-btn-customizer" onclick="window.location.href='/configuracoes.html'">
+          <i class="ph-bold ph-arrow-up-right"></i> Abrir Painel Avançado
+        </button>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px;">
+        <div style="background: var(--hig-glass); padding: 14px; border-radius: var(--hig-radius-sm); border: 1px solid var(--hig-border);">
+          <strong style="font-size: 13.5px; display: block; margin-bottom: 4px;">🖨️ Impressoras Térmicas</strong>
+          <span style="font-size: 12px; color: var(--hig-text-secondary);">Impressão automática de pedidos no Caixa e Cozinha (ESC/POS 80mm).</span>
+        </div>
+        <div style="background: var(--hig-glass); padding: 14px; border-radius: var(--hig-radius-sm); border: 1px solid var(--hig-border);">
+          <strong style="font-size: 13.5px; display: block; margin-bottom: 4px;">🧾 Emissão NFC-e Automática</strong>
+          <span style="font-size: 12px; color: var(--hig-text-secondary);">Sincronização fiscal direta com SEFAZ ao fechar o caixa.</span>
+        </div>
+        <div style="background: var(--hig-glass); padding: 14px; border-radius: var(--hig-radius-sm); border: 1px solid var(--hig-border);">
+          <strong style="font-size: 13.5px; display: block; margin-bottom: 4px;">📱 QR Code nas Mesas</strong>
+          <span style="font-size: 12px; color: var(--hig-text-secondary);">Cardápio digital ativo e pedidos automáticos via celular do cliente.</span>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       MODAL DE CUSTOMIZAÇÃO RÁPIDA DE MARCA (PARA O SUPORTE E DONO)
+       ═══════════════════════════════════════════════════════════════════ -->
+  <div class="hig-modal-overlay" id="modal-customizador">
+    <div class="hig-modal-box">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h2 style="font-size: 20px; font-weight: 900; display: flex; align-items: center; gap: 8px;">
+          <i class="ph-bold ph-palette" style="color: var(--hig-accent);"></i> Customizador de Marca do Suporte
+        </h2>
+        <button class="hig-btn-icon" onclick="window.fecharCustomizadorSuporte()"><i class="ph-bold ph-x"></i></button>
+      </div>
+
+      <div class="hig-field-group">
+        <label>Nome do Estabelecimento / Restaurante</label>
+        <input type="text" id="input-custom-nome" class="hig-search-input" value="Chef Cozinha Gourmet">
+      </div>
+
+      <div class="hig-field-group">
+        <label>URL do Logo (ou Link da Imagem)</label>
+        <input type="text" id="input-custom-logo" class="hig-search-input" placeholder="https://exemplo.com/logo.png">
+      </div>
+
+      <div class="hig-field-group">
+        <label>Cor de Destaque da Marca (Apple HIG Accent)</label>
+        <div style="display: flex; gap: 10px; align-items: center;">
+          <input type="color" id="input-custom-cor" value="#fc4b15" style="width: 48px; height: 42px; border: none; border-radius: 8px; cursor: pointer; background: transparent;">
+          <div class="hig-colors-row">
+            <div class="hig-color-preset" style="background: #fc4b15;" onclick="window.definirPresetCor('#fc4b15')" title="Laranja Tangerina"></div>
+            <div class="hig-color-preset" style="background: #3b82f6;" onclick="window.definirPresetCor('#3b82f6')" title="Azul Safira"></div>
+            <div class="hig-color-preset" style="background: #8b5cf6;" onclick="window.definirPresetCor('#8b5cf6')" title="Roxo Elétrico"></div>
+            <div class="hig-color-preset" style="background: #10b981;" onclick="window.definirPresetCor('#10b981')" title="Verde Esmeralda"></div>
+            <div class="hig-color-preset" style="background: #ec4899;" onclick="window.definirPresetCor('#ec4899')" title="Rosa Rubi"></div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 10px;">
+        <button class="hig-btn-icon" style="width: auto; padding: 12px 20px;" onclick="window.fecharCustomizadorSuporte()">
+          Cancelar
+        </button>
+        <button class="hig-btn-action" onclick="window.salvarPersonalizacaoSuporte()">
+          <i class="ph-bold ph-floppy-disk"></i> Salvar e Injetar Marca
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function toggleTheme() {
+      const html = document.documentElement;
+      const current = html.getAttribute('data-theme') || 'dark';
+      const next = current === 'dark' ? 'light' : 'dark';
+      html.setAttribute('data-theme', next);
+    }
+
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      } else {
+        document.exitFullscreen().catch(() => {});
+      }
+    }
+
+    function filtrarProdutosUI(q) {
+      // Filtragem reativa do PDV
+    }
+  </script>
+
+  <!-- Script Orquestrador -->
+  <script src="/caixa-v2.js"></script>
+</body>
+</html>

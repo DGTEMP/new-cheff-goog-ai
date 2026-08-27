@@ -1,0 +1,636 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   CHEF COZINHA — TEMA v2.0 MODULAR (APPLE HUMAN INTERFACE GUIDELINES - HIG)
+   ═══════════════════════════════════════════════════════════════════════ */
+
+:root {
+  --hig-bg: #0b0d14;
+  --hig-surface: rgba(22, 27, 38, 0.72);
+  --hig-surface-card: rgba(30, 38, 54, 0.65);
+  --hig-surface-hover: rgba(45, 55, 78, 0.85);
+  --hig-glass: rgba(255, 255, 255, 0.05);
+  --hig-border: rgba(255, 255, 255, 0.10);
+  --hig-border-active: rgba(255, 255, 255, 0.22);
+  
+  --hig-accent: #fc4b15;
+  --hig-accent-gradient: linear-gradient(135deg, #fc4b15 0%, #ff8533 100%);
+  --hig-accent-subtle: rgba(252, 75, 21, 0.15);
+  
+  --hig-text-primary: #f8fafc;
+  --hig-text-secondary: #94a3b8;
+  --hig-text-tertiary: #64748b;
+  
+  --hig-success: #10b981;
+  --hig-success-bg: rgba(16, 185, 129, 0.15);
+  --hig-warning: #f59e0b;
+  --hig-warning-bg: rgba(245, 158, 11, 0.15);
+  --hig-danger: #f43f5e;
+  --hig-danger-bg: rgba(244, 63, 94, 0.15);
+  --hig-info: #3b82f6;
+  --hig-info-bg: rgba(59, 130, 246, 0.15);
+  
+  --hig-radius-sm: 12px;
+  --hig-radius-md: 18px;
+  --hig-radius-lg: 24px;
+  --hig-radius-xl: 32px;
+  
+  --hig-blur: blur(28px);
+  --hig-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+  --hig-shadow-sm: 0 4px 16px rgba(0, 0, 0, 0.25);
+  --hig-transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  --hig-font: 'Outfit', -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+}
+
+[data-theme="light"] {
+  --hig-bg: #f1f5f9;
+  --hig-surface: rgba(255, 255, 255, 0.85);
+  --hig-surface-card: rgba(255, 255, 255, 0.95);
+  --hig-surface-hover: #ffffff;
+  --hig-glass: rgba(0, 0, 0, 0.03);
+  --hig-border: rgba(0, 0, 0, 0.08);
+  --hig-border-active: rgba(0, 0, 0, 0.18);
+  --hig-text-primary: #0f172a;
+  --hig-text-secondary: #475569;
+  --hig-text-tertiary: #94a3b8;
+  --hig-shadow: 0 16px 40px rgba(0, 0, 0, 0.08);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: var(--hig-font);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+body {
+  background: var(--hig-bg);
+  color: var(--hig-text-primary);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   HEADER HIG TRANSLÚCIDO COM VIDRO FOSCO
+   ═══════════════════════════════════════════════════════════════════ */
+.hig-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 28px;
+  background: var(--hig-surface);
+  backdrop-filter: var(--hig-blur);
+  -webkit-backdrop-filter: var(--hig-blur);
+  border-bottom: 1px solid var(--hig-border);
+  box-shadow: var(--hig-shadow-sm);
+}
+
+.hig-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.hig-logo {
+  width: 46px;
+  height: 46px;
+  border-radius: var(--hig-radius-sm);
+  background: var(--hig-accent-gradient);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-size: 24px;
+  box-shadow: 0 6px 18px var(--hig-accent-subtle);
+  overflow: hidden;
+}
+
+.hig-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.hig-brand-info h1 {
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: -0.4px;
+  line-height: 1.15;
+}
+
+.hig-brand-info span {
+  font-size: 12.5px;
+  color: var(--hig-text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hig-badge-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  background: var(--hig-success-bg);
+  color: var(--hig-success);
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.hig-badge-live .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: hig-pulse 2s infinite;
+}
+
+@keyframes hig-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.85); }
+}
+
+.hig-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.hig-btn-icon {
+  background: var(--hig-glass);
+  border: 1px solid var(--hig-border);
+  color: var(--hig-text-primary);
+  width: 42px;
+  height: 42px;
+  border-radius: var(--hig-radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 19px;
+  cursor: pointer;
+  transition: var(--hig-transition);
+}
+
+.hig-btn-icon:hover {
+  background: var(--hig-surface-hover);
+  border-color: var(--hig-border-active);
+  transform: translateY(-1px);
+}
+
+.hig-btn-icon:active {
+  transform: scale(0.94);
+}
+
+.hig-btn-customizer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  background: var(--hig-accent-subtle);
+  border: 1.5px solid var(--hig-accent);
+  color: var(--hig-accent);
+  border-radius: var(--hig-radius-sm);
+  font-size: 13.5px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: var(--hig-transition);
+}
+
+.hig-btn-customizer:hover {
+  background: var(--hig-accent);
+  color: #ffffff;
+  box-shadow: 0 4px 16px var(--hig-accent-subtle);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   WORKSPACE MODULAR BENTO GRID (RESPONSIVO HIG)
+   ═══════════════════════════════════════════════════════════════════ */
+.hig-workspace {
+  flex: 1;
+  padding: 24px;
+  max-width: 1920px;
+  margin: 0 auto;
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 20px;
+}
+
+/* Bento Box Widget Base */
+.hig-widget {
+  background: var(--hig-surface-card);
+  backdrop-filter: var(--hig-blur);
+  -webkit-backdrop-filter: var(--hig-blur);
+  border: 1px solid var(--hig-border);
+  border-radius: var(--hig-radius-lg);
+  padding: 22px;
+  box-shadow: var(--hig-shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  transition: var(--hig-transition);
+  position: relative;
+  overflow: hidden;
+}
+
+.hig-widget:hover {
+  border-color: var(--hig-border-active);
+}
+
+.hig-widget-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.hig-widget-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 16.5px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+}
+
+.hig-widget-title i {
+  color: var(--hig-accent);
+  font-size: 22px;
+}
+
+.hig-widget-tag {
+  font-size: 11.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 20px;
+  background: var(--hig-glass);
+  color: var(--hig-text-secondary);
+  border: 1px solid var(--hig-border);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   DISPOSIÇÃO DOS WIDGETS POR COLUNAS (BENTO LAYOUT)
+   ═══════════════════════════════════════════════════════════════════ */
+/* Mobile / Telas Pequenas (< 900px) */
+@media (max-width: 899px) {
+  .hig-workspace {
+    display: flex;
+    flex-direction: column;
+    padding: 16px;
+    gap: 16px;
+  }
+}
+
+/* Tablet & Laptop (900px a 1399px) */
+@media (min-width: 900px) and (max-width: 1399px) {
+  .hig-widget-kpis { grid-column: span 12; }
+  .hig-widget-pdv { grid-column: span 7; }
+  .hig-widget-mesas { grid-column: span 5; }
+  .hig-widget-balanca { grid-column: span 6; }
+  .hig-widget-kds { grid-column: span 6; }
+  .hig-widget-config { grid-column: span 12; }
+}
+
+/* Desktop & Monitores Wide (1400px a 1899px) */
+@media (min-width: 1400px) and (max-width: 1899px) {
+  .hig-widget-kpis { grid-column: span 12; }
+  .hig-widget-pdv { grid-column: span 5; }
+  .hig-widget-mesas { grid-column: span 4; }
+  .hig-widget-balanca { grid-column: span 3; }
+  .hig-widget-kds { grid-column: span 6; }
+  .hig-widget-config { grid-column: span 6; }
+}
+
+/* Ultrawide & 4K (≥ 1900px) */
+@media (min-width: 1900px) {
+  .hig-widget-kpis { grid-column: span 12; }
+  .hig-widget-pdv { grid-column: span 4; }
+  .hig-widget-mesas { grid-column: span 3; }
+  .hig-widget-balanca { grid-column: span 2; }
+  .hig-widget-kds { grid-column: span 3; }
+  .hig-widget-config { grid-column: span 12; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   ESTILIZAÇÃO INTERNA DOS WIDGETS
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* 1. KPIs Row */
+.hig-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.hig-kpi-item {
+  background: var(--hig-glass);
+  border: 1px solid var(--hig-border);
+  border-radius: var(--hig-radius-md);
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.hig-kpi-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--hig-radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+}
+
+.hig-kpi-icon.green  { background: var(--hig-success-bg); color: var(--hig-success); }
+.hig-kpi-icon.orange { background: var(--hig-accent-subtle); color: var(--hig-accent); }
+.hig-kpi-icon.blue   { background: var(--hig-info-bg); color: var(--hig-info); }
+.hig-kpi-icon.purple { background: rgba(168, 85, 247, 0.15); color: #a855f7; }
+
+.hig-kpi-data span {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--hig-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.hig-kpi-data h3 {
+  font-size: 26px;
+  font-weight: 900;
+  letter-spacing: -0.8px;
+  line-height: 1.1;
+  color: var(--hig-text-primary);
+}
+
+/* 2. PDV Rápido */
+.hig-search-bar {
+  display: flex;
+  gap: 10px;
+}
+
+.hig-search-input {
+  flex: 1;
+  background: var(--hig-glass);
+  border: 1px solid var(--hig-border);
+  border-radius: var(--hig-radius-sm);
+  padding: 12px 16px;
+  color: var(--hig-text-primary);
+  font-size: 14.5px;
+  outline: none;
+  transition: var(--hig-transition);
+}
+
+.hig-search-input:focus {
+  border-color: var(--hig-accent);
+  box-shadow: 0 0 0 3px var(--hig-accent-subtle);
+}
+
+.hig-products-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 10px;
+  max-height: 380px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.hig-product-card {
+  background: var(--hig-glass);
+  border: 1px solid var(--hig-border);
+  border-radius: var(--hig-radius-sm);
+  padding: 12px;
+  cursor: pointer;
+  transition: var(--hig-transition);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.hig-product-card:hover {
+  background: var(--hig-surface-hover);
+  border-color: var(--hig-accent);
+  transform: translateY(-2px);
+}
+
+.hig-product-card:active {
+  transform: scale(0.95);
+}
+
+.hig-product-name {
+  font-size: 13.5px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.hig-product-price {
+  font-size: 14.5px;
+  font-weight: 900;
+  color: var(--hig-accent);
+}
+
+/* 3. Salão de Mesas */
+.hig-mesas-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  gap: 10px;
+  max-height: 380px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.hig-mesa-btn {
+  background: var(--hig-glass);
+  border: 1.5px solid var(--hig-border);
+  border-radius: var(--hig-radius-sm);
+  padding: 14px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: var(--hig-transition);
+}
+
+.hig-mesa-btn.ocupada {
+  border-color: var(--hig-danger);
+  background: var(--hig-danger-bg);
+  color: var(--hig-danger);
+}
+
+.hig-mesa-btn.livre {
+  border-color: var(--hig-success);
+  background: var(--hig-success-bg);
+  color: var(--hig-success);
+}
+
+.hig-mesa-num {
+  font-size: 17px;
+  font-weight: 900;
+}
+
+.hig-mesa-status {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+/* 4. Balança / Self-Service Widget */
+.hig-balanca-display {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--hig-border);
+  border-radius: var(--hig-radius-md);
+  padding: 20px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hig-balanca-peso {
+  font-size: 42px;
+  font-weight: 900;
+  font-family: monospace;
+  color: var(--hig-accent);
+  letter-spacing: -1px;
+}
+
+.hig-balanca-total {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--hig-success);
+}
+
+/* 5. KDS / Cozinha Widget */
+.hig-kds-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 380px;
+  overflow-y: auto;
+}
+
+.hig-kds-item {
+  background: var(--hig-glass);
+  border: 1px solid var(--hig-border);
+  border-radius: var(--hig-radius-sm);
+  padding: 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.hig-kds-item.pronto {
+  border-color: var(--hig-success);
+}
+
+/* Botões de Ação Primários HIG */
+.hig-btn-action {
+  background: var(--hig-accent-gradient);
+  border: none;
+  border-radius: var(--hig-radius-sm);
+  color: #ffffff;
+  padding: 14px 20px;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 6px 20px var(--hig-accent-subtle);
+  transition: var(--hig-transition);
+}
+
+.hig-btn-action:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px var(--hig-accent-subtle);
+}
+
+.hig-btn-action:active {
+  transform: scale(0.96);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   MODAL DE CUSTOMIZAÇÃO RÁPIDA DE MARCA (PARA O SUPORTE E DONO)
+   ═══════════════════════════════════════════════════════════════════ */
+.hig-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+  padding: 20px;
+}
+
+.hig-modal-overlay.active {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.hig-modal-box {
+  background: var(--hig-surface-card);
+  border: 1.5px solid var(--hig-border-active);
+  border-radius: var(--hig-radius-xl);
+  padding: 30px;
+  width: 100%;
+  max-width: 580px;
+  box-shadow: var(--hig-shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  transform: scale(0.92);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.hig-modal-overlay.active .hig-modal-box {
+  transform: scale(1);
+}
+
+.hig-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hig-field-group label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--hig-text-secondary);
+}
+
+.hig-colors-row {
+  display: flex;
+  gap: 12px;
+}
+
+.hig-color-preset {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: var(--hig-transition);
+}
+
+.hig-color-preset.active {
+  border-color: #ffffff;
+  transform: scale(1.15);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+}

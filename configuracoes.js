@@ -2879,7 +2879,7 @@ socket.on('produtos_atualizados', (prods) => {
   // 2. Populate product list in table
   const list = document.getElementById('admin-produtos-list');
   if (!list) return;
-  const toggleRapido = configs.feature_toggle_produto_rapido === true;
+  const cfgObj = (typeof configs !== "undefined" ? configs : (window.configs || {})); const toggleRapido = cfgObj.feature_toggle_produto_rapido === true;
   const importSection = document.getElementById('produtos-lote-import-section');
   if (importSection) importSection.style.display = configs.feature_produtos_lote === true ? 'flex' : 'none';
   /* Popular select de categorias do bulk */
@@ -8229,24 +8229,26 @@ window.renderMontavelCats = function() {
   list.innerHTML = _montavelCatsTemp.map((cat, ci) => {
     const optsHtml = (cat.opcoes || []).map((opt, oi) => {
       const vinculado = !!opt.produto_id;
-      return '<div style="display:flex; gap:6px; align-items:center; padding:4px 0; border-bottom:1px solid #f1f5f9;">' +
-        _montavelOpcoesProdutoHtml(ci, oi, opt) +
-        '<input type="text" value="' + escHtml(opt.nome) + '" onchange="_montavelCatsTemp[' + ci + '].opcoes[' + oi + '].nome=this.value;_montavelCatsTemp[' + ci + '].opcoes[' + oi + '].produto_id=null"' + (vinculado ? ' disabled title="Nome vem do produto vinculado"' : '') + ' placeholder="Nome da opção" style="flex:1; padding:6px 8px; border:1px solid #e2e8f0; border-radius:6px; font-size:12px;' + (vinculado ? ' background:#f1f5f9; color:#64748b;' : '') + '">' +
-        '<input type="number" step="0.01" min="0" value="' + (opt.preco || 0) + '" onchange="_montavelCatsTemp[' + ci + '].opcoes[' + oi + '].preco=parseFloat(this.value)||0"' + (vinculado ? ' disabled title="Preço vem do produto vinculado"' : '') + ' placeholder="+R$" style="width:80px; padding:6px 8px; border:1px solid #e2e8f0; border-radius:6px; font-size:12px;' + (vinculado ? ' background:#f1f5f9; color:#64748b;' : '') + '">' +
-        '<button onclick="_montavelCatsTemp[' + ci + '].opcoes.splice(' + oi + ',1);window.renderMontavelCats()" style="background:none; border:none; color:#dc2626; cursor:pointer; font-size:14px; padding:0 4px;">&times;</button>' +
+      return '<div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding:8px 0; border-bottom:1px solid var(--cfg-border);">' +
+        '<div style="flex:1.4; min-width:180px;">' + _montavelOpcoesProdutoHtml(ci, oi, opt) + '</div>' +
+        '<input type="text" value="' + escHtml(opt.nome) + '" onchange="_montavelCatsTemp[' + ci + '].opcoes[' + oi + '].nome=this.value;_montavelCatsTemp[' + ci + '].opcoes[' + oi + '].produto_id=null"' + (vinculado ? ' disabled title="Nome vem do produto vinculado"' : '') + ' placeholder="Nome da opção" style="flex:1.2; min-width:140px; padding:8px 10px; border:1px solid var(--cfg-border); background:var(--cfg-input-bg); color:var(--cfg-text); border-radius:8px; font-size:13px;' + (vinculado ? ' opacity:0.6;' : '') + '">' +
+        '<input type="number" step="0.01" min="0" value="' + (opt.preco || 0) + '" onchange="_montavelCatsTemp[' + ci + '].opcoes[' + oi + '].preco=parseFloat(this.value)||0"' + (vinculado ? ' disabled title="Preço vem do produto vinculado"' : '') + ' placeholder="+R$" style="width:90px; padding:8px 10px; border:1px solid var(--cfg-border); background:var(--cfg-input-bg); color:var(--cfg-text); border-radius:8px; font-size:13px;' + (vinculado ? ' opacity:0.6;' : '') + '">' +
+        '<button onclick="_montavelCatsTemp[' + ci + '].opcoes.splice(' + oi + ',1);window.renderMontavelCats()" style="background:none; border:none; color:#ef4444; cursor:pointer; font-size:18px; padding:4px 8px;" title="Remover opção">&times;</button>' +
         '</div>';
     }).join('');
 
-    return '<div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px; margin-bottom:8px;">' +
-      '<div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">' +
-      '<input type="text" value="' + escHtml(cat.nome) + '" onchange="_montavelCatsTemp[' + ci + '].nome=this.value" placeholder="Nome da categoria (ex: Recheio, Borda)" style="flex:1; padding:6px 8px; border:1px solid #e2e8f0; border-radius:6px; font-size:13px; font-weight:600;">' +
-      '<label style="font-size:11px; display:flex; align-items:center; gap:3px; white-space:nowrap;"><input type="checkbox" ' + (cat.obrigatoria ? 'checked' : '') + ' onchange="_montavelCatsTemp[' + ci + '].obrigatoria=this.checked?1:0"> Obrigatória</label>' +
-      '<label style="font-size:11px; white-space:nowrap;">Min: <input type="number" min="0" max="20" value="' + (cat.min_escolhas || 0) + '" onchange="_montavelCatsTemp[' + ci + '].min_escolhas=parseInt(this.value)||0" style="width:40px; padding:4px; border:1px solid #e2e8f0; border-radius:4px; font-size:11px;"></label>' +
-      '<label style="font-size:11px; white-space:nowrap;">Max: <input type="number" min="1" max="20" value="' + (cat.max_escolhas || 1) + '" onchange="_montavelCatsTemp[' + ci + '].max_escolhas=parseInt(this.value)||1" style="width:40px; padding:4px; border:1px solid #e2e8f0; border-radius:4px; font-size:11px;"></label>' +
-      '<button onclick="_montavelCatsTemp.splice(' + ci + ',1);window.renderMontavelCats()" style="background:#fef2f2; color:#dc2626; border:none; padding:4px 8px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer;">Remover</button>' +
+    return '<div style="background:var(--cfg-subtle-bg); border:1.5px solid var(--cfg-border); border-radius:14px; padding:16px; margin-bottom:14px;">' +
+      '<div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:12px;">' +
+      '<input type="text" value="' + escHtml(cat.nome) + '" onchange="_montavelCatsTemp[' + ci + '].nome=this.value" placeholder="Nome da categoria (ex: Recheio, Borda)" style="flex:1; min-width:180px; padding:8px 12px; border:1px solid var(--cfg-border); background:var(--cfg-input-bg); color:var(--cfg-text); border-radius:8px; font-size:14px; font-weight:700;">' +
+      '<label style="font-size:12.5px; display:flex; align-items:center; gap:6px; white-space:nowrap; cursor:pointer; font-weight:600; color:var(--cfg-text);"><input type="checkbox" ' + (cat.obrigatoria ? 'checked' : '') + ' onchange="_montavelCatsTemp[' + ci + '].obrigatoria=this.checked?1:0" style="width:16px; height:16px; accent-color:var(--cfg-primary);"> Obrigatória</label>' +
+      '<div style="display:flex; align-items:center; gap:6px;">' +
+      '<span style="font-size:12px; color:var(--cfg-text-muted); font-weight:600;">Min:</span><input type="number" min="0" max="20" value="' + (cat.min_escolhas || 0) + '" onchange="_montavelCatsTemp[' + ci + '].min_escolhas=parseInt(this.value)||0" style="width:50px; padding:6px; border:1px solid var(--cfg-border); background:var(--cfg-input-bg); color:var(--cfg-text); border-radius:6px; font-size:13px; text-align:center;">' +
+      '<span style="font-size:12px; color:var(--cfg-text-muted); font-weight:600;">Max:</span><input type="number" min="1" max="20" value="' + (cat.max_escolhas || 1) + '" onchange="_montavelCatsTemp[' + ci + '].max_escolhas=parseInt(this.value)||1" style="width:50px; padding:6px; border:1px solid var(--cfg-border); background:var(--cfg-input-bg); color:var(--cfg-text); border-radius:6px; font-size:13px; text-align:center;">' +
       '</div>' +
-      '<div style="padding-left:12px;">' + optsHtml + '</div>' +
-      '<button onclick="_montavelCatsTemp[' + ci + '].opcoes.push({nome:\'\',preco:0,ativo:1,produto_id:null});window.renderMontavelCats()" style="background:none; border:1px dashed #8b5cf6; color:#8b5cf6; padding:4px 10px; border-radius:6px; font-size:11px; font-weight:600; cursor:pointer; margin-top:4px;">+ Adicionar Opção</button>' +
+      '<button onclick="_montavelCatsTemp.splice(' + ci + ',1);window.renderMontavelCats()" style="background:rgba(239,68,68,0.12); color:#ef4444; border:1px solid rgba(239,68,68,0.3); padding:6px 12px; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;">Remover</button>' +
+      '</div>' +
+      '<div style="padding-left:6px; margin-bottom:8px;">' + optsHtml + '</div>' +
+      '<button onclick="_montavelCatsTemp[' + ci + '].opcoes.push({nome:'',preco:0,ativo:1,produto_id:null});window.renderMontavelCats()" style="background:transparent; border:1.5px dashed #8b5cf6; color:#8b5cf6; padding:8px 14px; border-radius:8px; font-size:12.5px; font-weight:700; cursor:pointer; margin-top:6px; display:inline-flex; align-items:center; gap:6px;">+ Adicionar Opção</button>' +
       '</div>';
   }).join('');
 };
@@ -8776,6 +8778,7 @@ window.testarSimulacaoPesagem = function(bruto, modo) {
 
 window.aplicarBlueprint = function(tipo) {
   const blueprints = {
+    hig: { id: 'tema-v2', nome: 'Tema v2.0 Modular (Apple HIG)', icone: 'ph-apple-logo', categoria: 'interface' },
     balanca: { id: 'pesagem-automatica', nome: 'Pesagem Automática Balança', icone: 'ph-scales', categoria: 'hardware' },
     fidelidade: { id: 'cashback-fidelidade', nome: 'Cashback & Fidelidade VIP', icone: 'ph-gift', categoria: 'marketing' },
     totem: { id: 'totem-autoatendimento', nome: 'Totem de Autoatendimento Touch', icone: 'ph-device-mobile', categoria: 'operacao' },
@@ -8801,3 +8804,291 @@ document.addEventListener('click', (e) => {
     }, 100);
   }
 });
+
+
+// ── Handlers do Customizador de Marca para o Suporte ──
+window.salvarMarcaSuporteUI = function() {
+  const nome = document.getElementById('cfg-sup-rest-nome')?.value || 'Chef Cozinha Gourmet';
+  const logo = document.getElementById('cfg-sup-rest-logo')?.value || '';
+  const cor = document.getElementById('cfg-sup-rest-cor')?.value || '#fc4b15';
+
+  fetch('/api/tema-v2/config', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nomeRestaurante: nome, logoUrl: logo, corPrimaria: cor })
+  })
+  .then(r => r.json())
+  .then(d => {
+    if (d && d.sucesso) {
+      if (typeof Swal !== 'undefined') {
+        Swal.fire({
+          icon: 'success',
+          title: 'Marca Injetada com Sucesso!',
+          text: 'As cores, logo e nome foram aplicados em todo o Tema v2.0 do restaurante.',
+          timer: 2500
+        });
+      } else {
+        alert('Identidade visual salva e injetada com sucesso no restaurante!');
+      }
+    }
+  }).catch(() => alert('Erro ao salvar identidade visual do restaurante.'));
+};
+
+
+// ══════════════════════════════════════════════════════════════════
+// ENGINE DINÂMICO DE MÓDULOS E PROPORÇÕES DA HOME (PÁGINA INICIAL)
+// ══════════════════════════════════════════════════════════════════
+(function () {
+  const DEFAULT_HOME_MODULES = [
+    { id: 'metricas', nome: 'Métricas & Faturamento do Turno', icone: 'ph-chart-line-up', cor: '#10b981', tamanho: 'g', ativo: true },
+    { id: 'atalhos', nome: 'Ações Rápidas de Operação', icone: 'ph-lightning', cor: '#fc4b15', tamanho: 'm', ativo: true },
+    { id: 'balanca', nome: 'Balança & Buffet Self-Service', icone: 'ph-scales', cor: '#fc4b15', tamanho: 'p', ativo: true },
+    { id: 'marca', nome: 'Identidade & Tema HIG v2.0', icone: 'ph-palette', cor: '#8b5cf6', tamanho: 'm', ativo: true },
+    { id: 'gerais', nome: 'Idioma, Fuso & Sistema', icone: 'ph-globe', cor: '#3b82f6', tamanho: 'p', ativo: true },
+    { id: 'salao_mesas', nome: 'Salão de Mesas & Comandas Live', icone: 'ph-table', cor: '#0ea5e9', tamanho: 'm', ativo: true },
+    { id: 'kds_cozinha', nome: 'KDS Cozinha & Alertas de Atraso', icone: 'ph-cooking-pot', cor: '#ea580c', tamanho: 'p', ativo: true },
+    { id: 'nfce_fiscal', nome: 'Emissor Fiscal NFC-e & TEF', icone: 'ph-receipt', cor: '#2563eb', tamanho: 'p', ativo: true },
+    { id: 'fidelidade', nome: 'Fidelidade & Cashback VIP', icone: 'ph-gift', cor: '#f59e0b', tamanho: 'p', ativo: true },
+    { id: 'modulos_hub', nome: 'Central de Módulos Plug-and-Play', icone: 'ph-puzzle-piece', cor: '#8b5cf6', tamanho: 'm', ativo: true },
+    { id: 'licenca', nome: 'Licença & Ativação do Sistema', icone: 'ph-seal-check', cor: '#10b981', tamanho: 'm', ativo: true }
+  ];
+
+  window.obterLayoutHome = function () {
+    try {
+      const salvo = localStorage.getItem('chef_home_modules_layout');
+      if (salvo) return JSON.parse(salvo);
+    } catch (e) {}
+    return DEFAULT_HOME_MODULES;
+  };
+
+  window.salvarLayoutHome = function (lista) {
+    try {
+      localStorage.setItem('chef_home_modules_layout', JSON.stringify(lista));
+    } catch (e) {}
+  };
+
+  window.carregarLayoutHomeUI = function () {
+    const container = document.getElementById('home-modular-container');
+    if (!container) return;
+
+    const lista = window.obterLayoutHome();
+    container.innerHTML = '';
+
+    lista.forEach(mod => {
+      if (!mod.ativo) return;
+
+      const card = document.createElement('div');
+      const sizeClass = mod.tamanho === 'p' ? 'card-size-p' : (mod.tamanho === 'g' ? 'card-size-g' : 'card-size-m');
+      card.className = `config-card ${sizeClass}`;
+      card.id = `home-card-${mod.id}`;
+      card.style.position = 'relative';
+
+      // Header do Card com controles de tamanho [P] [M] [G] [✕]
+      const cardHeaderHtml = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; border-bottom:1px solid var(--cfg-border); padding-bottom:10px;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <i class="ph-bold ${mod.icone}" style="color:${mod.cor}; font-size:20px;"></i>
+            <strong style="font-size:15px; color:var(--cfg-heading);">${mod.nome}</strong>
+          </div>
+          <div style="display:flex; align-items:center; gap:4px;">
+            <button onclick="window.alterarTamanhoCardHome('${mod.id}', 'p')" title="Tamanho Pequeno (1 Coluna)" style="padding:3px 7px; border-radius:5px; border:1px solid var(--cfg-border); background:${mod.tamanho === 'p' ? 'var(--cfg-primary)' : 'var(--cfg-subtle-bg)'}; color:${mod.tamanho === 'p' ? '#fff' : 'var(--cfg-text-muted)'}; font-size:11px; font-weight:800; cursor:pointer;">P</button>
+            <button onclick="window.alterarTamanhoCardHome('${mod.id}', 'm')" title="Tamanho Médio (2 Colunas)" style="padding:3px 7px; border-radius:5px; border:1px solid var(--cfg-border); background:${mod.tamanho === 'm' ? 'var(--cfg-primary)' : 'var(--cfg-subtle-bg)'}; color:${mod.tamanho === 'm' ? '#fff' : 'var(--cfg-text-muted)'}; font-size:11px; font-weight:800; cursor:pointer;">M</button>
+            <button onclick="window.alterarTamanhoCardHome('${mod.id}', 'g')" title="Tamanho Grande (Largura Total)" style="padding:3px 7px; border-radius:5px; border:1px solid var(--cfg-border); background:${mod.tamanho === 'g' ? 'var(--cfg-primary)' : 'var(--cfg-subtle-bg)'}; color:${mod.tamanho === 'g' ? '#fff' : 'var(--cfg-text-muted)'}; font-size:11px; font-weight:800; cursor:pointer;">G</button>
+            <button onclick="window.ocultarCardHome('${mod.id}')" title="Ocultar da Home" style="padding:3px 7px; border-radius:5px; border:none; background:transparent; color:var(--cfg-text-muted); font-size:14px; cursor:pointer;"><i class="ph-bold ph-x"></i></button>
+          </div>
+        </div>
+      `;
+
+      // Conteúdo Específico de Cada Módulo
+      let bodyHtml = '';
+      if (mod.id === 'metricas') {
+        bodyHtml = `
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px;">
+            <div style="background:var(--cfg-subtle-bg); padding:14px; border-radius:10px; border:1px solid var(--cfg-border);">
+              <span style="font-size:11.5px; color:var(--cfg-text-muted); font-weight:700; text-transform:uppercase;">Faturamento Hoje</span>
+              <h3 style="font-size:22px; margin:4px 0 0; color:#10b981; font-weight:900;">R$ 1.450,00</h3>
+            </div>
+            <div style="background:var(--cfg-subtle-bg); padding:14px; border-radius:10px; border:1px solid var(--cfg-border);">
+              <span style="font-size:11.5px; color:var(--cfg-text-muted); font-weight:700; text-transform:uppercase;">Mesas Ocupadas</span>
+              <h3 style="font-size:22px; margin:4px 0 0; color:#fc4b15; font-weight:900;">3 / 12</h3>
+            </div>
+            <div style="background:var(--cfg-subtle-bg); padding:14px; border-radius:10px; border:1px solid var(--cfg-border);">
+              <span style="font-size:11.5px; color:var(--cfg-text-muted); font-weight:700; text-transform:uppercase;">Ticket Médio</span>
+              <h3 style="font-size:22px; margin:4px 0 0; color:#3b82f6; font-weight:900;">R$ 84,20</h3>
+            </div>
+            <div style="background:var(--cfg-subtle-bg); padding:14px; border-radius:10px; border:1px solid var(--cfg-border);">
+              <span style="font-size:11.5px; color:var(--cfg-text-muted); font-weight:700; text-transform:uppercase;">Tempo Médio KDS</span>
+              <h3 style="font-size:22px; margin:4px 0 0; color:#a855f7; font-weight:900;">14 min</h3>
+            </div>
+          </div>
+        `;
+      } else if (mod.id === 'atalhos') {
+        bodyHtml = `
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:10px;">
+            <button onclick="window.open('/caixa-v2.html', '_blank')" style="padding:12px; border-radius:10px; border:1px solid var(--cfg-border); background:var(--cfg-subtle-bg); color:var(--cfg-text); cursor:pointer; font-weight:700; font-size:12.5px; display:flex; flex-direction:column; align-items:center; gap:6px;">
+              <span style="font-size:20px;">🍏</span> Tema v2.0 HIG
+            </button>
+            <button onclick="window.open('/index.html', '_blank')" style="padding:12px; border-radius:10px; border:1px solid var(--cfg-border); background:var(--cfg-subtle-bg); color:var(--cfg-text); cursor:pointer; font-weight:700; font-size:12.5px; display:flex; flex-direction:column; align-items:center; gap:6px;">
+              <span style="font-size:20px;">💻</span> Caixa Clássico
+            </button>
+            <button onclick="window.open('/painel-dono.html', '_blank')" style="padding:12px; border-radius:10px; border:1px solid var(--cfg-border); background:var(--cfg-subtle-bg); color:var(--cfg-text); cursor:pointer; font-weight:700; font-size:12.5px; display:flex; flex-direction:column; align-items:center; gap:6px;">
+              <span style="font-size:20px;">👑</span> Painel do Dono
+            </button>
+            <button onclick="window.open('/plugins/pesagem-selfservice/totem', '_blank')" style="padding:12px; border-radius:10px; border:1px solid var(--cfg-border); background:var(--cfg-subtle-bg); color:var(--cfg-text); cursor:pointer; font-weight:700; font-size:12.5px; display:flex; flex-direction:column; align-items:center; gap:6px;">
+              <span style="font-size:20px;">⚖️</span> Totem Balança
+            </button>
+          </div>
+        `;
+      } else if (mod.id === 'balanca') {
+        bodyHtml = `
+          <p style="font-size:13px; color:var(--cfg-text-muted); margin-bottom:10px;">Self-Service Automático: Preço/Kg atual R$ 69,90.</p>
+          <div style="display:flex; gap:8px;">
+            <button onclick="if(typeof testarSimulacaoPesagem==='function') testarSimulacaoPesagem(0.420)" style="flex:1; padding:8px 12px; border-radius:8px; border:1px solid #fc4b15; background:rgba(252,75,21,0.1); color:#fc4b15; font-weight:700; font-size:12px; cursor:pointer;">⚡ 420g</button>
+            <button onclick="if(typeof testarSimulacaoPesagem==='function') testarSimulacaoPesagem(0.780)" style="flex:1; padding:8px 12px; border-radius:8px; border:1px solid #fc4b15; background:rgba(252,75,21,0.1); color:#fc4b15; font-weight:700; font-size:12px; cursor:pointer;">⚡ 780g</button>
+          </div>
+        `;
+      } else if (mod.id === 'marca') {
+        bodyHtml = `
+          <p style="font-size:13px; color:var(--cfg-text-muted); margin-bottom:10px;">Injetar nome, logo e cor primária do restaurante contratante.</p>
+          <div style="display:flex; gap:8px;">
+            <button onclick="document.querySelector('[data-tab=\\'modulos\\']')?.click()" style="padding:10px 16px; border-radius:8px; background:var(--cfg-primary); color:#fff; border:none; font-weight:700; font-size:13px; cursor:pointer; display:flex; align-items:center; gap:6px;">
+              <i class="ph-bold ph-palette"></i> Injetar Marca
+            </button>
+          </div>
+        `;
+      } else if (mod.id === 'gerais') {
+        bodyHtml = `
+          <p style="font-size:13px; color:var(--cfg-text-muted); margin-bottom:10px;">Fuso: Horário de Brasília (GMT-3) • Idioma: Português (Brasil).</p>
+          <button onclick="document.querySelector('[data-tab=\\'gerais\\']')?.click()" style="padding:8px 14px; border-radius:8px; border:1px solid var(--cfg-border); background:var(--cfg-subtle-bg); color:var(--cfg-text); font-weight:600; font-size:12.5px; cursor:pointer;">
+            Alterar Fuso & Idioma
+          </button>
+        `;
+      } else if (mod.id === 'salao_mesas') {
+        bodyHtml = `
+          <p style="font-size:13px; color:var(--cfg-text-muted); margin-bottom:10px;">Monitoramento de 12 mesas ativas no salão principal.</p>
+          <button onclick="document.querySelector('[data-tab=\\'mesas\\']')?.click()" style="padding:8px 14px; border-radius:8px; background:#0ea5e9; color:#fff; border:none; font-weight:700; font-size:12.5px; cursor:pointer;">
+            Gerenciar Mesas & Comandas
+          </button>
+        `;
+      } else if (mod.id === 'kds_cozinha') {
+        bodyHtml = `
+          <p style="font-size:13px; color:var(--cfg-text-muted); margin-bottom:10px;">Tempo crítico: 20 min • Alerta sonoro ativo.</p>
+          <button onclick="document.querySelector('[data-tab=\\'sons\\']')?.click()" style="padding:8px 14px; border-radius:8px; border:1px solid var(--cfg-border); background:var(--cfg-subtle-bg); color:var(--cfg-text); font-weight:600; font-size:12.5px; cursor:pointer;">
+            Configurar Sons KDS
+          </button>
+        `;
+      } else if (mod.id === 'nfce_fiscal') {
+        bodyHtml = `
+          <p style="font-size:13px; color:var(--cfg-text-muted); margin-bottom:10px;">Transmissão SEFAZ: Modo Produção • TEF Integrado.</p>
+          <button onclick="document.querySelector('[data-tab=\\'nfce\\']')?.click()" style="padding:8px 14px; border-radius:8px; background:#2563eb; color:#fff; border:none; font-weight:700; font-size:12.5px; cursor:pointer;">
+            Configurações Fiscais
+          </button>
+        `;
+      } else if (mod.id === 'fidelidade') {
+        bodyHtml = `
+          <p style="font-size:13px; color:var(--cfg-text-muted); margin-bottom:10px;">Programa VIP ativo com cashback de 5% em créditos.</p>
+          <button onclick="document.querySelector('[data-tab=\\'fidelidade\\']')?.click()" style="padding:8px 14px; border-radius:8px; border:1px solid var(--cfg-border); background:var(--cfg-subtle-bg); color:var(--cfg-text); font-weight:600; font-size:12.5px; cursor:pointer;">
+            Gerenciar Fidelidade
+          </button>
+        `;
+      } else if (mod.id === 'modulos_hub') {
+        bodyHtml = `
+          <p style="font-size:13px; color:var(--cfg-text-muted); margin-bottom:10px;">Hub com 5 extensões plug-and-play ativas.</p>
+          <button onclick="document.querySelector('[data-tab=\\'modulos\\']')?.click()" style="padding:8px 14px; border-radius:8px; background:#8b5cf6; color:#fff; border:none; font-weight:700; font-size:12.5px; cursor:pointer;">
+            Central de Extensões (Suporte)
+          </button>
+        `;
+      } else if (mod.id === 'licenca') {
+        bodyHtml = `
+          <p style="font-size:13px; color:var(--cfg-text-muted); margin-bottom:10px;">Plano: Chef Cozinha Pro • Instalação Ativa.</p>
+          <button onclick="document.querySelector('[data-tab=\\'licenca\\']')?.click()" style="padding:8px 14px; border-radius:8px; border:1px solid var(--cfg-border); background:var(--cfg-subtle-bg); color:var(--cfg-text); font-weight:600; font-size:12.5px; cursor:pointer;">
+            Status da Licença
+          </button>
+        `;
+      }
+
+      card.innerHTML = cardHeaderHtml + bodyHtml;
+      container.appendChild(card);
+    });
+  };
+
+  // Trocar tamanho de um card específico (P, M, G)
+  window.alterarTamanhoCardHome = function (modId, novoTamanho) {
+    const lista = window.obterLayoutHome();
+    const item = lista.find(m => m.id === modId);
+    if (item) {
+      item.tamanho = novoTamanho;
+      window.salvarLayoutHome(lista);
+      window.carregarLayoutHomeUI();
+    }
+  };
+
+  // Ocultar card da Home
+  window.ocultarCardHome = function (modId) {
+    const lista = window.obterLayoutHome();
+    const item = lista.find(m => m.id === modId);
+    if (item) {
+      item.ativo = false;
+      window.salvarLayoutHome(lista);
+      window.carregarLayoutHomeUI();
+    }
+  };
+
+  // Modal de Personalização dos Módulos da Home
+  window.abrirModalPersonalizarHome = function () {
+    const modal = document.getElementById('modal-personalizar-home');
+    const container = document.getElementById('lista-config-modulos-home');
+    if (!modal || !container) return;
+
+    const lista = window.obterLayoutHome();
+    container.innerHTML = lista.map(mod => `
+      <div style="background:var(--cfg-subtle-bg); border:1px solid var(--cfg-border); border-radius:14px; padding:14px 18px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <input type="checkbox" id="cfg-home-mod-check-${mod.id}" ${mod.ativo ? 'checked' : ''} style="width:18px; height:18px; accent-color:var(--cfg-primary); cursor:pointer;">
+          <div>
+            <strong style="font-size:14.5px; color:var(--cfg-heading); display:block;">${mod.nome}</strong>
+            <span style="font-size:12px; color:var(--cfg-text-muted);">Módulo ID: ${mod.id}</span>
+          </div>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="font-size:12px; font-weight:700; color:var(--cfg-text-muted);">Proporção:</span>
+          <select id="cfg-home-mod-size-${mod.id}" style="padding:6px 12px; border-radius:8px; border:1px solid var(--cfg-border); background:var(--cfg-card-bg); color:var(--cfg-text); font-size:13px; font-weight:700; cursor:pointer;">
+            <option value="p" ${mod.tamanho === 'p' ? 'selected' : ''}>P (1 Coluna)</option>
+            <option value="m" ${mod.tamanho === 'm' ? 'selected' : ''}>M (2 Colunas)</option>
+            <option value="g" ${mod.tamanho === 'g' ? 'selected' : ''}>G (Largura Total)</option>
+          </select>
+        </div>
+      </div>
+    `).join('');
+
+    modal.style.display = 'flex';
+  };
+
+  window.fecharModalPersonalizarHome = function () {
+    const modal = document.getElementById('modal-personalizar-home');
+    if (modal) modal.style.display = 'none';
+  };
+
+  window.salvarLayoutHomeUI = function () {
+    const lista = window.obterLayoutHome();
+    lista.forEach(mod => {
+      const chk = document.getElementById(`cfg-home-mod-check-${mod.id}`);
+      const sel = document.getElementById(`cfg-home-mod-size-${mod.id}`);
+      if (chk) mod.ativo = chk.checked;
+      if (sel) mod.tamanho = sel.value;
+    });
+
+    window.salvarLayoutHome(lista);
+    window.fecharModalPersonalizarHome();
+    window.carregarLayoutHomeUI();
+
+    if (typeof Swal !== 'undefined') {
+      Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Layout da Página Inicial Salvo!', showConfirmButton: false, timer: 2000 });
+    }
+  };
+
+  // Inicializar Home quando a página carrega
+  document.addEventListener('DOMContentLoaded', () => {
+    window.carregarLayoutHomeUI();
+  });
+})();
