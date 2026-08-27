@@ -248,6 +248,82 @@ class LicenseGuard {
     }
   }
 
+  
+  /**
+   * Verifica se a licença está válida para operação plena local
+   */
+  estaOperacionalLocal() {
+    if (!this.state.ativado) return false;
+
+    // Se estiver no modo offline restrito dos primeiros 7 dias
+    if (this.state.status === 'offline_restrito_7d') {
+      const agora = Date.now();
+      const limite = new Date(this.state.autoDestruicaoEm).getTime();
+      return agora < limite;
+    }
+
+    // Se já foi ativado pela primeira vez: funcionamento pleno até a expiração da chave!
+    if (this.state.status === 'ativo') {
+      if (!this.state.dataExpiracao) return true; // Vitalício ou sem expiração rígida
+      const agora = Date.now();
+      const expira = new Date(this.state.dataExpiracao).getTime();
+      return agora < expira;
+    }
+
+    return false;
+  }
+
+  /**
+   * Sincronização Acumulativa da Fila Outbox com a Central
+   */
+  async sincronizarOutboxAcumulada(dbInstance) {
+    if (!dbInstance || !this.state.ativado) return;
+
+    try {
+      // 1. Coleta itens pendentes na fila outbox local
+      const itensPendentes = await new Promise((resolve) => {
+        dbInstance.all(
+          `SELECT id, tabela, operacao, payload, timestamp FROM sync_outbox WHERE status = 'pendente' ORDER BY id ASC LIMIT 50`,
+          [],
+          (err, rows) => {
+            if (err) return resolve([]);
+            resolve(rows || []);
+          }
+        );
+      });
+
+      if (!itensPendentes || itensPendentes.length === 0) return;
+
+      // 2. Tenta enviar o lote acumulado para a central
+      const res = await fetch(`${this.centralServerUrl}/api/sync/receber-lote-outbox`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chave: this.state.chave,
+          tenantId: this.state.tenantId,
+          machineId: this.getHardwareFingerprint(),
+          lote: itensPendentes
+        }),
+        signal: AbortSignal.timeout(10000)
+      });
+
+      const data = await res.json();
+      if (data && data.ok) {
+        // 3. Se enviou com sucesso, marca como sincronizado no SQLite local
+        const ids = itensPendentes.map(i => i.id);
+        const placeholders = ids.map(() => '?').join(',');
+        dbInstance.run(
+          `UPDATE sync_outbox SET status = 'sincronizado', synced_at = CURRENT_TIMESTAMP WHERE id IN (${placeholders})`,
+          ids
+        );
+        console.log(`[SyncOutbox] ✅ Lote de ${ids.length} transações acumuladas sincronizado com a central!`);
+      }
+    } catch (netErr) {
+      // Sem internet: NÃO faz nada, os dados permanecem acumulados com segurança no SQLite local!
+      // console.log('[SyncOutbox] Sem conexão com a central. Dados mantidos na fila acumulativa local.');
+    }
+  }
+
   getQuarentenaBannerData() {
     if (this.state.status === 'destruido_7d') {
       return {
