@@ -103,7 +103,20 @@ function getMesaBruto(mesaName) {
 
 function getMesaPendente(mesaName) {
   return getMesaPendingOrders(mesaName)
+    .filter(p => {
+      const t = parseFloat(String(p.total).replace(',', '.')) || 0;
+      return t >= 0;
+    })
     .reduce((acc, p) => acc + (parseFloat(String(p.total).replace(',', '.')) || 0), 0);
+}
+
+function getMesaPagamentos(mesaName) {
+  return getMesaPendingOrders(mesaName)
+    .filter(p => {
+      const t = parseFloat(String(p.total).replace(',', '.')) || 0;
+      return t < 0;
+    })
+    .reduce((acc, p) => acc + Math.abs(parseFloat(String(p.total).replace(',', '.')) || 0), 0);
 }
 
 function getMesaTotalComTaxa(mesaName) {
@@ -112,11 +125,11 @@ function getMesaTotalComTaxa(mesaName) {
 }
 
 function getMesaPendenteComTaxa(mesaName) {
-  const pendente = getMesaPendente(mesaName);
-  const bruto = getMesaBruto(mesaName);
-  if (bruto <= 0) return 0;
+  const pendenteBruto = getMesaPendente(mesaName);
+  const jaPago = getMesaPagamentos(mesaName);
+  if (pendenteBruto <= 0) return 0;
   const mult = aplicarTaxaServico ? 1.10 : 1.0;
-  return pendente * mult;
+  return Math.max(0, pendenteBruto * mult - jaPago);
 }
 
 function getMesaCliente(mesaName) {

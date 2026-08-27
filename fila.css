@@ -183,10 +183,10 @@
 }
 
 :root {
-  --col-width-quantidade: 140px;
-  --col-width-produto: 400px;
-  --col-width-local: 240px;
-  --col-width-pronto: 120px
+  --col-width-quantidade: min(140px, 20vw);
+  --col-width-produto: min(400px, 50vw);
+  --col-width-local: min(240px, 30vw);
+  --col-width-pronto: min(120px, 15vw)
 }
 
 .col-quantidade,
@@ -508,7 +508,7 @@
   display: flex;
   overflow-y: auto;
   overflow-x: hidden;
-  max-height: 100vh;
+  max-height: 100dvh;
   box-sizing: border-box;
   padding: 6px 2px;
 }
