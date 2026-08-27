@@ -107,9 +107,24 @@ socket.on('tenant_atualizado', (data) => {
   if (data && data.token) {
     localStorage.setItem('chef_token', data.token);
   }
-  socket.disconnect();
-  socket.io.opts.query = { token: data.token, restaurante_id: String(data.restaurante_id) };
-  socket.connect();
+  try {
+    if (socket && socket.io && socket.io.opts) {
+      socket.disconnect();
+      socket.io.opts.query = { token: data.token, restaurante_id: String(data.restaurante_id) };
+      socket.connect();
+      // Após reconexão, reemitir requests para popular as abas
+      socket.once('connect', () => {
+        try {
+          socket.emit('get_mesas');
+          socket.emit('get_funcionarios');
+          socket.emit('get_clientes');
+          socket.emit('get_promocoes');
+          socket.emit('get_produtos');
+          socket.emit('get_restaurante_config');
+        } catch (e) { console.warn('[config] erro ao reemitir após tenant_atualizado:', e); }
+      });
+    }
+  } catch (e) { console.warn('[config] erro no tenant_atualizado:', e); }
 });
 
 function authHeaders() {
@@ -783,6 +798,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }).catch(err => {
     console.error('Erro ao carregar configs:', err);
     initGeraisTab();
+    initFilaEsperaTab();
+    initFuncionalidadesTab();
   });
 
   // Emits para popular as outras abas (mesas, funcionarios, etc)

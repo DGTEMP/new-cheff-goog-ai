@@ -608,6 +608,7 @@ function switchTab(targetId) {
     'sec-suporte': ['Equipe de Suporte', 'Funcionários que prestam suporte aos restaurantes'],
     'sec-terminal': ['Terminal', 'Execute comandos no servidor local'],
     'sec-instancias': ['Instâncias On-Premise', 'Gerencie instalações locais conectadas ao servidor'],
+    'sec-tarefas': ['Tarefas de Suporte', 'Acompanhe e atribua demandas para a equipe de suporte'],
     'sec-site-vendas': ['Site de Vendas', 'Edite conteúdo, planos, gateways e configurações da landing page'],
     'sec-afiliados': ['Afiliados & Parceiros', 'Gerenciamento completo da rede de revenda, cadastros e comissões'],
     'sec-seguranca-waf': ['Segurança & WAF', 'Firewall, proteção Anti-DDoS, Rate Limiter e bloqueio de IPs'],
@@ -741,6 +742,8 @@ function switchTab(targetId) {
    else if (targetId === 'sec-load-control') renderLoadControl();
    else if (targetId === 'sec-terminal') { resetInactivityTimer(); }
    else if (targetId === 'sec-instancias') carregarInstancias();
+   else if (targetId === 'sec-recuperar-acesso') carregarUsuariosRecovery();
+   else if (targetId === 'sec-tarefas') { if (typeof carregarTarefas === 'function') carregarTarefas(); }
    else if (targetId === 'sec-site-vendas') carregarSiteVendas();
    else if (targetId === 'sec-afiliados') carregarAfiliados();
    else if (targetId === 'sec-seguranca-waf') carregarConfigSeguranca();
@@ -2443,6 +2446,8 @@ function abrirModalSuporte(membro) {
   document.getElementById('suporte-status').value = membro ? (membro.status || 'disponivel') : 'disponivel';
   document.getElementById('modal-suporte').classList.add('active');
 }
+window.abrirModalNovoSuporte = function() { abrirModalSuporte(null); };
+window.abrirModalSuporte = abrirModalSuporte;
 
 function editarSuporte(id) {
   for (var i = 0; i < suporteData.length; i++) {
@@ -4607,6 +4612,69 @@ window.salvarMissaoSurpresa = function() {
 
 var siteVendasConfigs = {};
 
+var SITE_CONFIG_DEFAULTS = {
+  site_hero_titulo: 'O Sistema Mais Rápido para Restaurantes, Bares e Pizzarias',
+  site_hero_destaque: 'Que Nunca Fica Fora do Ar',
+  site_hero_subtitulo: 'Diga adeus a lentidões, pedidos perdidos e travamentos no caixa. PDV ultra-rápido Offline-First, Monitor da Cozinha (KDS), Comanda Mobile ilimitada e Trava Antifraude em uma plataforma moderna e intuitiva.',
+  site_hero_badge: 'Sistema Offline-First & Garçom Mobile Ilimitado',
+  site_banner_texto: '🔥 Vagas promocionais com 14 Dias Grátis & Atendimento VIP liberadas!',
+  site_banner_link_texto: 'Garantir Minha Vaga Grátis →',
+  site_cta_principal: 'Começar Teste de 14 Dias Grátis',
+  site_cta_secundario: 'Ver Sistema em Ação',
+  site_footer_texto: '© 2026 Chef Cozinha. Todos os direitos reservados. Sistema Inteligente para Gestão Gastronômica.',
+  site_stats: [
+    { valor: '+40%', label: 'Rapidez no Giro de Mesas' },
+    { valor: '0', label: 'Erros de Pagamento no Caixa' },
+    { valor: '100%', label: 'Atalhos F1-F12 Personalizáveis' },
+    { valor: 'Offline', label: 'Não Para se a Internet Cair' }
+  ],
+  site_faq: [
+    { pergunta: 'Preciso de internet para o sistema funcionar?', resposta: 'Não! O Chef Cozinha opera com tecnologia Offline-First com sincronização automática no momento em que a conexão for restabelecida.' },
+    { pergunta: 'Quantos garçons e dispositivos posso cadastrar?', resposta: 'Ilimitados! Não cobramos por ponto adicional ou quantidade de celulares conectados.' },
+    { pergunta: 'Como funciona o teste grátis?', resposta: 'Você tem 14 dias de acesso completo sem necessidade de cadastrar cartão de crédito.' },
+    { pergunta: 'O sistema imprime comprovante e comanda na cozinha?', resposta: 'Sim! Suporta impressoras térmicas (58mm e 80mm) USB, Rede e Bluetooth, além do monitor KDS digital na tela.' },
+    { pergunta: 'Consigo migrar meus dados de outro sistema?', resposta: 'Sim! Nossa equipe de suporte faz a importação completa do seu cardápio e clientes sem custo.' }
+  ],
+  site_planos: [
+    { id: 'starter', nome: 'Starter / Lanchonete', desc: 'Ideal para pequenos estabelecimentos e balcão.', preco: 89, features: ['1 Ponto de Caixa (PDV)', 'Módulo Balcão e Delivery', 'Atalhos Teclado F1-F12', 'Trava de Segurança no Caixa', 'Suporte Humanizado'], popular: false, cta: 'Assinar Plano Starter', ativo: true },
+    { id: 'profissional', nome: 'Profissional', desc: 'Para restaurantes, bares e pizzarias completas.', preco: 149, features: ['Tudo do plano Starter', 'Fila da Cozinha Dinâmica (KDS)', 'Garçom Mobile (Ilimitados)', 'Ponto Digital via QR Code', 'Relatórios Antifraude & Auditoria', 'Até 3 Caixas Simultâneos'], popular: true, cta: 'Começar 14 Dias Grátis', ativo: true },
+    { id: 'enterprise', nome: 'Enterprise / Redes', desc: 'Para grandes operações e redes de restaurantes.', preco: 299, features: ['Tudo do plano Profissional', 'Múltiplas Lojas / Unidades', 'Painel DRE & Curva ABC Avançada', 'Suporte Prioritário 24/7 VIP', 'Treinamento da Equipe incluso', 'Caixas e Usuários Ilimitados'], popular: false, cta: 'Falar com Consultor B2B', ativo: true }
+  ],
+  site_gateways: {
+    asaas_api_key: '',
+    asaas_tipo_cobranca: 'PIX',
+    asaas_sandbox: false,
+    asaas_ativo: false,
+    mp_access_token: '',
+    mp_public_key: '',
+    mp_ativo: false,
+    gateway_padrao: 'asaas'
+  },
+  site_seo_titulo: 'Chef Cozinha — O Sistema Mais Rápido e Completo para Restaurantes e Bares',
+  site_seo_descricao: 'Chef Cozinha: Sistema de gestão definitivo para restaurantes, bares, lanchonetes e pizzarias. PDV ultra-rápido Offline-First, KDS Cozinha, Garçom Mobile ilimitado, Trava Antifraude e Ponto Digital. Teste 14 dias grátis sem cartão!',
+  site_seo_keywords: 'sistema para restaurantes, sistema para bares, pdv restaurante, kds monitor de cozinha, comanda mobile garcom, ponto digital qr code, sistema de caixa restaurante, comanda eletronica, gestao de pizzaria',
+  site_seo_og_imagem: 'https://appchef.up.railway.app/icons/icon-512.png',
+  site_seo_og_titulo: 'Chef Cozinha — PDV, KDS e Comanda Mobile',
+  site_seo_og_descricao: 'PDV ultra-rápido Offline-First, KDS Cozinha, Garçom Mobile ilimitado, Trava Antifraude e Ponto Digital. Teste 14 dias grátis!',
+  site_seo_robots: 'index, follow',
+  site_seo_autor: 'Chef Cozinha',
+  site_seo_locale: 'pt_BR',
+  site_design_fonte: 'Outfit',
+  site_design_tema: 'flame',
+  site_design_logo_tempo: 0.8,
+  site_design_letras_tempo: 1.2,
+  site_design_anim_estilo: 'explosion',
+  site_consultor_whatsapp: '5511999999999',
+  site_consultor_mensagem: 'Olá! Gostaria de saber mais sobre o Chef Cozinha e iniciar o teste grátis.'
+};
+
+function getSiteCfg(k) {
+  if (siteVendasConfigs && siteVendasConfigs[k] !== undefined && siteVendasConfigs[k] !== null && siteVendasConfigs[k] !== '') {
+    return siteVendasConfigs[k];
+  }
+  return SITE_CONFIG_DEFAULTS[k] !== undefined ? SITE_CONFIG_DEFAULTS[k] : '';
+}
+
 function carregarSiteVendas() {
   apiGet('/api/super/config-global', function(err, data) {
     if (err || !data || !data.ok) return showToast('Erro ao carregar configurações do site.', 'danger');
@@ -4651,12 +4719,11 @@ function renderSiteVendasTab(tabId) {
 }
 
 function populateSiteAparencia() {
-  var c = siteVendasConfigs;
-  setVal('sv-design-fonte', c.site_design_fonte || 'Outfit');
-  setVal('sv-design-tema', c.site_design_tema || 'flame');
-  setVal('sv-design-logo-tempo', c.site_design_logo_tempo || 0.8);
-  setVal('sv-design-letras-tempo', c.site_design_letras_tempo || 1.2);
-  setVal('sv-design-anim-estilo', c.site_design_anim_estilo || 'explosion');
+  setVal('sv-design-fonte', getSiteCfg('site_design_fonte'));
+  setVal('sv-design-tema', getSiteCfg('site_design_tema'));
+  setVal('sv-design-logo-tempo', getSiteCfg('site_design_logo_tempo'));
+  setVal('sv-design-letras-tempo', getSiteCfg('site_design_letras_tempo'));
+  setVal('sv-design-anim-estilo', getSiteCfg('site_design_anim_estilo'));
 }
 
 function salvarSiteDesign() {
@@ -4678,19 +4745,19 @@ function salvarSiteDesign() {
 
 /* ── CONTEÚDO ──────────────────────────────────── */
 function populateSiteConteudo() {
-  var c = siteVendasConfigs;
-  setVal('sv-hero-titulo', c.site_hero_titulo || '');
-  setVal('sv-hero-destaque', c.site_hero_destaque || '');
-  setVal('sv-hero-subtitulo', c.site_hero_subtitulo || '');
-  setVal('sv-hero-badge', c.site_hero_badge || '');
-  setVal('sv-banner-texto', c.site_banner_texto || '');
-  setVal('sv-banner-link', c.site_banner_link_texto || '');
-  setVal('sv-cta-principal', c.site_cta_principal || '');
-  setVal('sv-cta-secundario', c.site_cta_secundario || '');
-  setVal('sv-footer-texto', c.site_footer_texto || '');
+  setVal('sv-hero-titulo', getSiteCfg('site_hero_titulo'));
+  setVal('sv-hero-destaque', getSiteCfg('site_hero_destaque'));
+  setVal('sv-hero-subtitulo', getSiteCfg('site_hero_subtitulo'));
+  setVal('sv-hero-badge', getSiteCfg('site_hero_badge'));
+  setVal('sv-banner-texto', getSiteCfg('site_banner_texto'));
+  setVal('sv-banner-link', getSiteCfg('site_banner_link_texto'));
+  setVal('sv-cta-principal', getSiteCfg('site_cta_principal'));
+  setVal('sv-cta-secundario', getSiteCfg('site_cta_secundario'));
+  setVal('sv-footer-texto', getSiteCfg('site_footer_texto'));
 
   // Stats
-  var stats = c.site_stats || [{valor:'+40%',label:'Rapidez no Giro de Mesas'},{valor:'0',label:'Erros de Pagamento no Caixa'},{valor:'100%',label:'Atalhos F1-F12 Personalizáveis'},{valor:'Offline',label:'Não Para se a Internet Cair'}];
+  var stats = getSiteCfg('site_stats');
+  if (!Array.isArray(stats) || stats.length === 0) stats = SITE_CONFIG_DEFAULTS.site_stats;
   for (var i = 0; i < 4; i++) {
     var s = stats[i] || {valor:'',label:''};
     setVal('sv-stat-valor-' + i, s.valor || '');
@@ -4698,7 +4765,8 @@ function populateSiteConteudo() {
   }
 
   // FAQ
-  var faq = c.site_faq || [];
+  var faq = getSiteCfg('site_faq');
+  if (!Array.isArray(faq) || faq.length === 0) faq = SITE_CONFIG_DEFAULTS.site_faq;
   renderFaqEditor(faq);
 }
 
@@ -4742,7 +4810,6 @@ function salvarSiteConteudo() {
   apiPost('/api/super/config-global', configs, function(err, data) {
     if (err || !data || !data.ok) return showToast('Erro ao salvar conteúdo.', 'danger');
     showToast('Conteúdo do site atualizado!', 'success');
-    // Atualiza cache local
     Object.keys(configs).forEach(function(k) {
       try { siteVendasConfigs[k] = JSON.parse(configs[k]); } catch(e) { siteVendasConfigs[k] = configs[k]; }
     });
@@ -4782,14 +4849,18 @@ var SV_BLOCOS_CAT = {
   banner:          { label: 'Banner Promocional (topo)',      icon: 'fa-bullhorn' },
   header:          { label: 'Menu / Navegação',               icon: 'fa-bars' },
   hero:            { label: 'Hero — Título, CTAs e Stats',    icon: 'fa-rocket' },
+  demonstracao:    { label: 'Showcase / Demonstração (Telas)', icon: 'fa-display' },
   'como-funciona': { label: 'Como Funciona (3 Passos)',       icon: 'fa-list-check' },
-  funcionalidades: { label: 'Funcionalidades + Calculadora',  icon: 'fa-wand-magic-sparkles' },
+  funcionalidades: { label: 'Funcionalidades & Recursos',     icon: 'fa-wand-magic-sparkles' },
+  comparativo:     { label: 'Comparativo de Recursos',        icon: 'fa-scale-balanced' },
+  calculadora:     { label: 'Calculadora ROI / Economia',     icon: 'fa-calculator' },
+  depoimentos:     { label: 'Depoimentos / Prova Social',     icon: 'fa-comments' },
   planos:          { label: 'Planos & Preços',                icon: 'fa-tags' },
   faq:             { label: 'FAQ — Dúvidas Frequentes',       icon: 'fa-circle-question' },
   'cta-final':     { label: 'CTA Final (Chamada p/ Ação)',    icon: 'fa-bullseye' },
   rodape:          { label: 'Rodapé / Footer',                icon: 'fa-copyright' }
 };
-var SV_BLOCOS_DEFAULT = ['banner', 'header', 'hero', 'como-funciona', 'funcionalidades', 'planos', 'faq', 'cta-final', 'rodape'];
+var SV_BLOCOS_DEFAULT = ['banner', 'header', 'hero', 'demonstracao', 'como-funciona', 'funcionalidades', 'comparativo', 'calculadora', 'depoimentos', 'planos', 'faq', 'cta-final', 'rodape'];
 
 var _blocosTemp = [];
 
@@ -4832,7 +4903,6 @@ function renderBlocosEditor(blocos) {
   if (!html) html = '<p style="color:#888;font-size:13px;padding:16px;text-align:center;">Nenhum bloco. Adicione um abaixo.</p>';
   container.innerHTML = html;
 
-  // Select de adicionar: só tipos ainda não presentes
   var sel = document.getElementById('sv-blocos-add-tipo');
   if (sel) {
     var presentes = {};
@@ -4848,7 +4918,6 @@ function renderBlocosEditor(blocos) {
 function bindBlocosDnd(container) {
   if (!container || container._dndBound) return;
   if (typeof Sortable === 'undefined') {
-    console.warn('[Blocos] SortableJS não disponível, usando fallback nativo');
     bindBlocosNativeDnd(container);
     return;
   }
@@ -4873,8 +4942,6 @@ function bindBlocosDnd(container) {
       showToast('Bloco movido! Clique em Salvar Layout para publicar.', 'info');
     }
   });
-
-  container._dndBound = true;
 }
 
 function bindBlocosNativeDnd(container) {
@@ -4944,7 +5011,6 @@ window.adicionarBlocoSel = function() {
 };
 
 function salvarSiteBlocos() {
-  // Captura a ordem atual do array _blocosTemp (mantido atualizado pelo SortableJS)
   var arr = (_blocosTemp.length ? _blocosTemp : getBlocosAtuais()).map(function(b) {
     return { tipo: b.tipo, ativo: b.ativo !== false };
   });
@@ -4958,16 +5024,15 @@ function salvarSiteBlocos() {
 
 /* ── SEO DO SITE DE VENDAS ─────────────────────────── */
 function populateSiteSEO() {
-  var c = siteVendasConfigs;
-  setVal('sv-seo-titulo', c.site_seo_titulo || '');
-  setVal('sv-seo-descricao', c.site_seo_descricao || '');
-  setVal('sv-seo-keywords', c.site_seo_keywords || '');
-  setVal('sv-seo-og-imagem', c.site_seo_og_imagem || '');
-  setVal('sv-seo-og-titulo', c.site_seo_og_titulo || '');
-  setVal('sv-seo-og-descricao', c.site_seo_og_descricao || '');
-  setVal('sv-seo-robots', c.site_seo_robots || 'index, follow');
-  setVal('sv-seo-autor', c.site_seo_autor || '');
-  setVal('sv-seo-locale', c.site_seo_locale || 'pt_BR');
+  setVal('sv-seo-titulo', getSiteCfg('site_seo_titulo'));
+  setVal('sv-seo-descricao', getSiteCfg('site_seo_descricao'));
+  setVal('sv-seo-keywords', getSiteCfg('site_seo_keywords'));
+  setVal('sv-seo-og-imagem', getSiteCfg('site_seo_og_imagem'));
+  setVal('sv-seo-og-titulo', getSiteCfg('site_seo_og_titulo'));
+  setVal('sv-seo-og-descricao', getSiteCfg('site_seo_og_descricao'));
+  setVal('sv-seo-robots', getSiteCfg('site_seo_robots') || 'index, follow');
+  setVal('sv-seo-autor', getSiteCfg('site_seo_autor'));
+  setVal('sv-seo-locale', getSiteCfg('site_seo_locale') || 'pt_BR');
   atualizarContadoresSEO();
 }
 
@@ -5011,11 +5076,10 @@ function salvarSiteSEO() {
 
 /* ── PLANOS ──────────────────────────────────── */
 function populateSitePlanos() {
-  var planos = siteVendasConfigs.site_planos || [
-    { id: 'starter', nome: 'Starter / Lanchonete', desc: 'Ideal para pequenos estabelecimentos e balcão.', preco: 89, features: ['1 Ponto de Caixa (PDV)', 'Módulo Balcão e Delivery', 'Atalhos Teclado F1-F12', 'Trava de Segurança no Caixa'], popular: false, cta: 'Assinar Plano Starter', ativo: true },
-    { id: 'profissional', nome: 'Profissional', desc: 'Para restaurantes, bares e pizzarias completas.', preco: 149, features: ['Tudo do plano Starter', 'Fila da Cozinha Dinâmica (KDS)', 'Garçom Mobile (Ilimitados)', 'Ponto Digital via QR Code', 'Relatórios Antifraude & Auditoria'], popular: true, cta: 'Começar 14 Dias Grátis', ativo: true },
-    { id: 'enterprise', nome: 'Enterprise / Redes', desc: 'Para grandes operações e redes de restaurantes.', preco: 299, features: ['Tudo do plano Profissional', 'Múltiplas Lojas / Unidades', 'Suporte Prioritário 24/7 VIP', 'Treinamento da Equipe incluso'], popular: false, cta: 'Falar com Consultor B2B', ativo: true }
-  ];
+  var planos = getSiteCfg('site_planos');
+  if (!Array.isArray(planos) || planos.length === 0) {
+    planos = SITE_CONFIG_DEFAULTS.site_planos;
+  }
   renderPlanosEditor(planos);
 }
 
@@ -5095,7 +5159,7 @@ function salvarSitePlanos() {
 
 /* ── GATEWAYS ──────────────────────────────────── */
 function populateSiteGateways() {
-  var gw = siteVendasConfigs.site_gateways || {};
+  var gw = getSiteCfg('site_gateways') || SITE_CONFIG_DEFAULTS.site_gateways;
   setVal('sv-gw-asaas-key', gw.asaas_api_key || '');
   setVal('sv-gw-asaas-tipo', gw.asaas_tipo_cobranca || 'PIX');
   var asaasSandbox = document.getElementById('sv-gw-asaas-sandbox');
@@ -5219,9 +5283,8 @@ function copiarTextoAnuncio() {
 
 /* ── CONSULTOR ──────────────────────────────────── */
 function populateSiteConsultor() {
-  var c = siteVendasConfigs;
-  setVal('sv-consultor-whatsapp', c.site_consultor_whatsapp || '');
-  setVal('sv-consultor-mensagem', c.site_consultor_mensagem || 'Olá! Gostaria de saber mais sobre o Chef Cozinha.');
+  setVal('sv-consultor-whatsapp', getSiteCfg('site_consultor_whatsapp'));
+  setVal('sv-consultor-mensagem', getSiteCfg('site_consultor_mensagem'));
 }
 
 function salvarSiteConsultor() {
