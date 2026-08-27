@@ -100,10 +100,14 @@ function apiPut(url, data, cb) {
   x.send(JSON.stringify(data));
 }
 
-function apiDelete(url, data, cb) {
+function apiDelete(url, dataOrCb, maybeCb) {
+  var data = (typeof dataOrCb === 'function') ? null : dataOrCb;
+  var cb = (typeof dataOrCb === 'function') ? dataOrCb : (maybeCb || function(){});
   var x = new XMLHttpRequest();
   x.open('DELETE', url, true);
-  x.setRequestHeader('Content-Type', 'application/json');
+  if (data) {
+    x.setRequestHeader('Content-Type', 'application/json');
+  }
   x.setRequestHeader('x-super-admin-token', localToken);
   x.onreadystatechange = function() {
     if (x.readyState === 4) {
@@ -112,21 +116,7 @@ function apiDelete(url, data, cb) {
     }
   };
   x.onerror = function() { cb(new Error('Erro de rede'), null); };
-  x.send(JSON.stringify(data));
-}
-
-function apiDelete(url, cb) {
-  var x = new XMLHttpRequest();
-  x.open('DELETE', url, true);
-  x.setRequestHeader('x-super-admin-token', localToken);
-  x.onreadystatechange = function() {
-    if (x.readyState === 4) {
-      try { cb(null, JSON.parse(x.responseText)); }
-      catch(e) { cb(e, null); }
-    }
-  };
-  x.onerror = function() { cb(new Error('Erro de rede'), null); };
-  x.send(null);
+  x.send(data ? JSON.stringify(data) : null);
 }
 
 function escapeHtml(s) {
@@ -2725,19 +2715,6 @@ function initAdminPanelUI() {
   var btnSalvarAtrib = document.getElementById('btn-salvar-atribuicoes');
   if (btnSalvarAtrib) btnSalvarAtrib.addEventListener('click', salvarAtribuicoes);
 }
-
-document.addEventListener('DOMContentLoaded', function() {
-  /* Login button */
-  var btnLogin = document.getElementById('btn-entrar-local');
-  if (btnLogin) btnLogin.addEventListener('click', loginLocal);
-
-  /* Global removal delegation */
-  document.addEventListener('click', function(e) {
-    if (e.target.closest('.remove-team-row')) {
-      var row = e.target.closest('.initial-team-row');
-      if (row) row.remove();
-    }
-  });
 
 document.addEventListener('DOMContentLoaded', function() {
   /* Login screen event listeners */

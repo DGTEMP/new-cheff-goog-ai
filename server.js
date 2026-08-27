@@ -3856,6 +3856,29 @@ function samplePicos() {
 // Painel Super Admin em processo isolado:
 // com SUPER_ADMIN_ISOLADO=1 as rotas NÃO são montadas aqui — rode
 // `SUPER_ADMIN_PORT=3457 node super-admin-server.js` em separado.
+/* ── Autenticação do Super Admin (JWT) ── */
+function superAdminAuth(req, res, next) {
+  const tokenHeader = (req.cookies && req.cookies.super_admin_token) || req.headers['x-super-admin-token'] || req.query.adminToken;
+  if (tokenHeader) {
+    try {
+      const decoded = jwt.verify(tokenHeader, JWT_SECRET);
+      if (decoded && decoded.role === 'super_admin_local') {
+        req.superAdmin = decoded;
+        return next();
+      }
+    } catch (e) { }
+  }
+  return res.status(401).json({ ok: false, erro: 'Acesso não autorizado ao Super Admin.' });
+}
+
+// ─── GUARDA GLOBAL DE SEGURANÇA SUPER-ADMIN (PROTEÇÃO 100% INVIOLÁVEL) ───────
+app.use('/api/super', (req, res, next) => {
+  if (req.path === '/login-local' || req.path === '/login-cloud') {
+    return next();
+  }
+  return superAdminAuth(req, res, next);
+});
+
 if (process.env.SUPER_ADMIN_ISOLADO !== '1') {
   require('./controllers/super-admin')(app, masterDb, sqlite3, {
     JWT_SECRET,
