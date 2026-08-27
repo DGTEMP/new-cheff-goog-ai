@@ -1396,151 +1396,83 @@ window.alterarTamanhoFonte = function(delta) {
   if (queueList) queueList.style.fontSize = (window.filaFontScale * 100) + '%';
 };
 
+
+window.alternarLayoutRapido = function() {
+  const current = localStorage.getItem('chef_kds_layout_mode') === 'lista' ? 'grid' : 'lista';
+  window.alterarModoDisposicao(current);
+};
+
 window.alterarModoDisposicao = function(modo) {
-  window.currentLayoutMode = modo;
-  localStorage.setItem('chef_kds_view_mode', modo);
-
+  localStorage.setItem('chef_kds_layout_mode', modo);
   const queueList = document.getElementById('queue-list');
-  const queueHeader = document.getElementById('queue-header-sortable');
-  
+  const iconLayout = document.getElementById('icon-layout-kds');
+  const btnToggle = document.getElementById('btn-toggle-kds-layout');
+
   if (queueList) {
-    queueList.classList.remove('modo-lista', 'modo-tv');
-    queueList.classList.add('modo-' + modo);
-  }
-
-  if (queueHeader) {
     if (modo === 'lista') {
-      queueHeader.classList.remove('modo-grid-ativo');
+      queueList.classList.add('modo-lista');
+      queueList.style.gridTemplateColumns = '1fr';
+      if (iconLayout) iconLayout.className = 'ph ph-squares-four';
+      if (btnToggle) btnToggle.title = 'Mudar para Grade KDS';
     } else {
-      queueHeader.classList.add('modo-grid-ativo');
+      queueList.classList.remove('modo-lista');
+      queueList.style.gridTemplateColumns = '';
+      if (iconLayout) iconLayout.className = 'ph ph-list-bullets';
+      if (btnToggle) btnToggle.title = 'Mudar para Linhas (Lista)';
     }
   }
 
-  document.querySelectorAll('.layout-btn').forEach(btn => {
-    btn.classList.remove('active');
-    if (btn.getAttribute('data-mode') === modo) {
-      btn.classList.add('active');
-    }
+  document.querySelectorAll('#modal-fila-settings .layout-btn').forEach(btn => {
+    if (btn.getAttribute('data-mode') === modo) btn.classList.add('active');
+    else btn.classList.remove('active');
   });
+};
+
+};
+
+window.fecharModalFilaSettings = function() {
+  const modal = document.getElementById('modal-fila-settings');
+  if (modal) {
+    modal.classList.remove('active');
+    modal.style.display = 'none';
+  }
+};
+
+window.alterarModoDisposicao = function(modo) {
+  localStorage.setItem('chef_kds_layout_mode', modo);
+  const queueList = document.getElementById('queue-list');
+  if (queueList) {
+    if (modo === 'lista') {
+      queueList.classList.add('modo-lista');
+      queueList.style.gridTemplateColumns = '1fr';
+    } else {
+      queueList.classList.remove('modo-lista');
+      queueList.style.gridTemplateColumns = '';
+    }
+  }
+  document.querySelectorAll('#modal-fila-settings .layout-btn').forEach(btn => {
+    if (btn.getAttribute('data-mode') === modo) btn.classList.add('active');
+    else btn.classList.remove('active');
+  });
+};
+
+window.alterarTamanhoFonte = function(delta) {
+  let size = parseInt(localStorage.getItem('chef_kds_font_size'), 10) || 14;
+  size = Math.max(11, Math.min(22, size + delta));
+  localStorage.setItem('chef_kds_font_size', String(size));
+  const queueList = document.getElementById('queue-list');
+  if (queueList) {
+    queueList.style.fontSize = size + 'px';
+  }
 };
 
 document.addEventListener('DOMContentLoaded', () => {
-  window.alterarModoDisposicao(window.currentLayoutMode);
-  const queueList = document.getElementById('queue-list');
-  if (queueList) queueList.style.fontSize = (window.filaFontScale * 100) + '%';
+  try {
+    const savedLayout = localStorage.getItem('chef_kds_layout_mode');
+    if (savedLayout) window.alterarModoDisposicao(savedLayout);
+    const savedFontSize = localStorage.getItem('chef_kds_font_size');
+    if (savedFontSize && document.getElementById('queue-list')) {
+      document.getElementById('queue-list').style.fontSize = savedFontSize + 'px';
+    }
+  } catch(e){}
 });
-
-
-// --- ALERTA DE ATRASO CRÍTICO (COZINHA) ---
-let delayAlarmConfig = {
-  time: parseInt(localStorage.getItem('delay-alarm-time') || 20),
-  repeat: parseInt(localStorage.getItem('delay-alarm-repeat') || 5),
-  sound: localStorage.getItem('delay-alarm-sound') || 'sonar'
-};
-const alarmCounts = {}; 
-
-setInterval(() => {
-  if (!queueData) return;
-  // Refresh config inside interval just in case it changes
-  delayAlarmConfig.time = parseInt(localStorage.getItem('delay-alarm-time') || 20);
-  delayAlarmConfig.repeat = parseInt(localStorage.getItem('delay-alarm-repeat') || 5);
-  delayAlarmConfig.sound = localStorage.getItem('delay-alarm-sound') || 'sonar';
-
-  let shouldPlay = false;
-  queueData.forEach(item => {
-    if (item.status === 'Finalizado' || item.status === 'Cancelado' || item.status === 'Pronto') return;
-    const timeCreated = parseUtc(item.createdAt);
-    const diffMins = Math.floor((Date.now() - timeCreated) / 60000);
-    
-    if (diffMins >= delayAlarmConfig.time) {
-      if (!alarmCounts[item.id]) alarmCounts[item.id] = 0;
-      if (alarmCounts[item.id] < delayAlarmConfig.repeat) {
-        alarmCounts[item.id]++;
-        shouldPlay = true;
-        // visual flash
-        const cardEl = document.querySelector(`.queue-item[data-id="${safeId(item.id)}"]`);
-        if (cardEl) {
-          cardEl.style.transition = 'box-shadow 0.3s ease, transform 0.3s ease, border-left-color 0.3s ease';
-          cardEl.style.boxShadow = '0 0 25px 8px rgba(239, 68, 68, 0.9)';
-          cardEl.style.transform = 'scale(1.02)';
-          cardEl.style.borderLeftColor = '#ef4444';
-          setTimeout(() => { 
-            cardEl.style.boxShadow = ''; 
-            cardEl.style.transform = ''; 
-            cardEl.style.borderLeftColor = ''; 
-          }, 1500);
-        }
-      }
-    }
-  });
-
-  if (shouldPlay) {
-    if (typeof window.playAudioTone === 'function') {
-      window.playAudioTone(delayAlarmConfig.sound);
-    }
-  }
-}, 30000); // Check every 30 seconds
-// --- PINCH TO ZOOM GESTURE FOR LAYOUT ---
-(function() {
-  const layouts = ['tv', 'lista'];
-  let initialPinchDistance = null;
-  let pinchDebounce = false;
-
-  function getDistance(touches) {
-    const dx = touches[0].clientX - touches[1].clientX;
-    const dy = touches[0].clientY - touches[1].clientY;
-    return Math.sqrt(dx * dx + dy * dy);
-  }
-
-  function getCurrentLayoutIndex() {
-    const currentLayout = localStorage.getItem('filaModoExibicao') || 'lista';
-    let idx = layouts.indexOf(currentLayout);
-    if (idx === -1) idx = 1; // default lista
-    return idx;
-  }
-
-  document.addEventListener('touchstart', (e) => {
-    if (e.touches.length === 2) {
-      initialPinchDistance = getDistance(e.touches);
-      pinchDebounce = false;
-    }
-  }, { passive: true });
-
-  document.addEventListener('touchmove', (e) => {
-    if (e.touches.length === 2 && initialPinchDistance !== null && !pinchDebounce) {
-      const currentDistance = getDistance(e.touches);
-      const diff = currentDistance - initialPinchDistance;
-
-      // Threshold to trigger layout change (e.g. 60 pixels)
-      if (Math.abs(diff) > 60) {
-        let idx = getCurrentLayoutIndex();
-        
-        if (diff > 0) {
-          // Pinched OUT (zoom in) => move to larger cards
-          idx = Math.min(layouts.length - 1, idx + 1);
-        } else {
-          // Pinched IN (zoom out) => move to smaller cards
-          idx = Math.max(0, idx - 1);
-        }
-
-        const newLayout = layouts[idx];
-        if (newLayout !== (localStorage.getItem('chef_kds_view_mode') || 'lista') && typeof window.alterarModoDisposicao === 'function') {
-          window.alterarModoDisposicao(newLayout);
-        }
-
-        // Reset distance to require another full pinch for the next level
-        initialPinchDistance = currentDistance;
-        
-        // Add a small debounce so it doesn't jump multiple levels too fast
-        pinchDebounce = true;
-        setTimeout(() => { pinchDebounce = false; }, 400);
-      }
-    }
-  }, { passive: true });
-
-  document.addEventListener('touchend', (e) => {
-    if (e.touches.length < 2) {
-      initialPinchDistance = null;
-    }
-  });
-})();

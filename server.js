@@ -148,7 +148,17 @@ const tenantContext = new AsyncLocalStorage();
 const fsSync = require('fs');
 const path = require('path');
 const fs = require('fs');
-const masterDb = new sqlite3.Database(path.join(__dirname, 'master.sqlite'));
+const masterDb = new sqlite3.Database(path.join(__dirname, 'master.sqlite'), (err) => {
+  if (err) console.error('[MasterDB] Erro ao abrir master.sqlite:', err.message);
+  else {
+    masterDb.run('PRAGMA journal_mode = WAL;');
+    masterDb.run('PRAGMA synchronous = NORMAL;');
+    masterDb.run('PRAGMA busy_timeout = 5000;');
+    masterDb.run('PRAGMA cache_size = -32000;');
+    masterDb.run('PRAGMA temp_store = MEMORY;');
+    masterDb.run('PRAGMA foreign_keys = ON;');
+  }
+});
 const multer = require('multer');
 const nfceService = require('./nfce-service');
 const ifoodApi = require('./ifood-integration');
@@ -158,6 +168,11 @@ const dbProxy = require('./db-proxy');
 const loadPlugins = require('./plugin-loader');
 const TunnelManager = require('./tunnel-manager');
 const tunnelManager = new TunnelManager();
+const CloudBackupManager = require('./cloud-backup-manager');
+const { setupRedisAdapter } = require('./redis-adapter-loader');
+const cloudBackupManager = new CloudBackupManager({ baseDir: __dirname });
+const LicenseGuard = require('./license-guard');
+const licenseGuard = new LicenseGuard({ baseDir: __dirname });
 tunnelManager.setDb(masterDb);
 
 // Carrega variáveis do arquivo .env (sem dependência externa)
@@ -1253,6 +1268,15 @@ const io = new Server(server, {
   // no fio; CPU de deflate em payloads pequenos é desprezível para este hardware.
   perMessageDeflate: { threshold: 1024 }
 });
+
+// Cada plugin modular registra seu próprio handler io.on('connection') (balanca,
+// dispositivos, fidelidade, formas-pagamento, logs, nfce, reserves, tarefas) além
+// dos handlers do server.js — todos legítimos e encapsulados. Ajusta o limite do
+// EventEmitter para evitar o MaxListenersExceededWarning (default 10).
+io.setMaxListeners(40);
+
+// Ativação Inteligente de Cluster Multi-Nó (Redis Adapter)
+setupRedisAdapter(io);
 
 // (Multi-tenant) Todo io.emit() executado dentro de um contexto de tenant é
 // roteado para a sala restaurante_<id>, isolando broadcasts entre negócios.
@@ -13018,3 +13042,48 @@ app.get('/api/super/tuneis/logs', superAdminAuth, (req, res) => {
   res.json({ ok: true, logs: tunnelManager.getLogs(name) });
 });
 
+
+
+// ══════════════════════════════════════════════════════════════════
+// 🛡️ RESILIÊNCIA CONTRA CRASHES & GRACEFUL SHUTDOWN DO SERVIDOR
+// ══════════════════════════════════════════════════════════════════
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[Process] Unhandled Rejection capturado com segurança:', reason && reason.stack ? reason.stack : reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('[Process] Uncaught Exception capturada com segurança:', err && err.stack ? err.stack : err);
+});
+
+let isShuttingDown = false;
+function gracefulShutdown(signal) {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+  console.log(`[Process] Sinal ${signal} recebido. Executando WAL checkpoint e fechamento seguro...`);
+
+  try {
+    if (typeof io !== 'undefined' && io.close) io.close();
+    if (typeof masterDb !== 'undefined' && masterDb.run) {
+      masterDb.run('PRAGMA wal_checkpoint(PASSIVE);', () => {
+        try { masterDb.close(); } catch(e){}
+      });
+    }
+    if (typeof tenantDbs !== 'undefined' && tenantDbs.forEach) {
+      tenantDbs.forEach((tdb) => {
+        try {
+          tdb.run('PRAGMA wal_checkpoint(PASSIVE);', () => {
+            try { tdb.close(); } catch(e){}
+          });
+        } catch(e){}
+      });
+    }
+  } catch(e){}
+
+  setTimeout(() => {
+    console.log('[Process] Servidor finalizado com sucesso.');
+    process.exit(0);
+  }, 1200);
+}
+
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));

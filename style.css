@@ -1998,7 +1998,7 @@ body {
   min-height: 0 !important;
   overflow: hidden !important;
   padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)) !important;
-  padding-top: 54px !important;
+  padding-top: 0 !important;
 }
 
 /* Strip exibida quando a seção de mesas está recolhida: lista as
@@ -4803,46 +4803,93 @@ body {
   color: #94a3b8;
 }
 
-/* Card de Alerta Individual */
+/* Card de Alerta Individual (Tema Claro / Escuro Adaptativo) */
 .ia-card {
-  border-radius: 10px;
+  border-radius: 12px;
   padding: calc(12px * var(--ia-scale, 1));
   position: relative;
   box-sizing: border-box;
-  background: #0f172a;
-  border: 1px solid #334155;
-  color: #f8fafc;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border-color, #e2e8f0);
+  color: var(--text-primary, #0f172a);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
   animation: iaCardIn 0.25s ease-out;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
-@keyframes iaCardIn {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
+[data-theme="dark"] .ia-card,
+body.dark-mode .ia-card {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4) !important;
 }
 
 .ia-card-title {
   font-weight: 800;
   font-size: calc(13px * var(--ia-scale, 1));
-  margin-bottom: calc(4px * var(--ia-scale, 1));
+  color: var(--text-primary, #0f172a);
   display: flex;
   align-items: center;
-  gap: calc(6px * var(--ia-scale, 1));
-  padding-right: 20px;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+[data-theme="dark"] .ia-card-title,
+body.dark-mode .ia-card-title {
+  color: #f8fafc !important;
+}
+
+.ia-card-title {
+  color: #0f172a !important;
+  font-weight: 800 !important;
 }
 
 .ia-card-desc {
-  font-size: calc(12px * var(--ia-scale, 1));
+  font-size: calc(12.5px * var(--ia-scale, 1));
   margin-bottom: calc(6px * var(--ia-scale, 1));
-  line-height: 1.4;
-  color: #e2e8f0;
+  line-height: 1.45;
+  color: #1e293b !important;
+  font-weight: 600;
 }
 
 .ia-card-info {
-  font-size: calc(11px * var(--ia-scale, 1));
+  font-size: calc(11.5px * var(--ia-scale, 1));
   margin-bottom: calc(6px * var(--ia-scale, 1));
-  color: #cbd5e1;
+  color: #475569 !important;
+  font-weight: 600;
+}
+
+[data-theme="dark"] .ia-card-title,
+body.dark-mode .ia-card-title {
+  color: #f8fafc !important;
+}
+
+[data-theme="dark"] .ia-card-desc,
+body.dark-mode .ia-card-desc {
+  color: #e2e8f0 !important;
+}
+
+[data-theme="dark"] .ia-card-info,
+body.dark-mode .ia-card-info {
+  color: #94a3b8 !important;
+}
+
+/* ── CONTRASTE NÍTIDO DOS CHIPS DE MESAS NO TEMA CLARO ── */
+.chip-view-btn,
+.mesas-grid-mode-switcher button {
+  color: #334155 !important;
+  font-weight: 700 !important;
+}
+
+.chip-view-btn.active,
+.chip-view-btn[style*="background: var(--primary"] {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .chip-view-btn,
+[data-theme="dark"] .mesas-grid-mode-switcher button {
+  color: #cbd5e1 !important;
 }
 
 .ia-card-actions {
@@ -5039,7 +5086,7 @@ body.force-mobile .workspace {
   flex-direction: column !important;
   flex: 1 1 100% !important;
   padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)) !important;
-  padding-top: 54px !important;
+  padding-top: 0 !important;
   overflow: hidden !important;
 }
 
@@ -6034,4 +6081,137 @@ body.dark-mode .select-fracao-comanda {
 
 #orders-grid.grid-compact .mesa-value {
   font-size: 12px !important;
+}
+
+
+/* ══════════════════════════════════════════════════════════════════
+   REFINAMENTO DO MODO FORÇAR MOBILE (TELA AMPLA / DESKTOP)
+   ══════════════════════════════════════════════════════════════════ */
+body.force-mobile .top-toolbar {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 4px 12px !important;
+  overflow-x: auto !important;
+  background: var(--bg-card, #ffffff) !important;
+  border-bottom: 1px solid var(--border-color, #e2e8f0) !important;
+}
+
+body.force-mobile .mesas-header {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  padding: 8px 12px !important;
+  background: var(--bg-card, #ffffff) !important;
+  border-bottom: 1px solid var(--border-color, #e2e8f0) !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+}
+
+body.force-mobile .mesas-scroll {
+  flex: 1 1 auto !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow-y: auto !important;
+  padding: 12px 14px 40px !important;
+  box-sizing: border-box !important;
+}
+
+body.force-mobile .mesa-category {
+  margin-bottom: 18px !important;
+  width: 100% !important;
+}
+
+body.force-mobile .mesa-category-title {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  font-size: 13px !important;
+  font-weight: 800 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+  color: var(--text-secondary, #64748b) !important;
+  margin-bottom: 8px !important;
+  padding: 0 4px !important;
+}
+
+body.force-mobile .mesas-grid-layout {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)) !important;
+  gap: 8px !important;
+  width: 100% !important;
+}
+
+body.force-mobile #orders-grid.grid-cols-1 .mesas-grid-layout {
+  grid-template-columns: 1fr !important;
+}
+
+body.force-mobile #orders-grid.grid-cols-2 .mesas-grid-layout {
+  grid-template-columns: repeat(2, 1fr) !important;
+}
+
+body.force-mobile #orders-grid.grid-compact .mesas-grid-layout {
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)) !important;
+  gap: 5px !important;
+}
+
+body.force-mobile .mesa-item {
+  border-radius: 12px !important;
+  padding: 10px 12px !important;
+  min-height: 80px !important;
+  box-sizing: border-box !important;
+  background: var(--bg-card, #ffffff) !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04) !important;
+  transition: all 0.15s ease !important;
+}
+
+body.force-mobile .mesa-item:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+}
+
+body.force-mobile .mesa-item.status-fechamento {
+  border: 1.5px solid #a855f7 !important;
+  background: rgba(168, 85, 247, 0.04) !important;
+}
+
+body.force-mobile .mesa-item.status-ocupada {
+  border: 1.5px solid #ef4444 !important;
+  background: rgba(239, 68, 68, 0.04) !important;
+}
+
+body.force-mobile .mesa-item.status-reservada {
+  border: 1.5px solid #f59e0b !important;
+  background: rgba(245, 158, 11, 0.04) !important;
+}
+
+body.force-mobile .mesa-item.status-disponivel,
+body.force-mobile .mesa-item.status-livre {
+  border: 1.5px solid #22c55e !important;
+  background: rgba(34, 197, 94, 0.04) !important;
+}
+
+
+/* ── DESATIVAÇÃO DO MENU DE CONTEXTO NATIVO E CALLOUT EM MOBILE ── */
+body, .workspace, .main-workspace, .mesas-container, .mesa-item, .products-container {
+  -webkit-touch-callout: none !important;
+  -webkit-user-select: none !important;
+  user-select: none !important;
+}
+
+.mesa-item {
+  touch-action: pan-y;
+  -webkit-user-drag: none;
+}
+
+
+/* ─── GRID DE MESAS: 3 COLUNAS ─── */
+#orders-grid.grid-cols-3 .mesas-grid-layout {
+  display: grid !important;
+  grid-template-columns: repeat(3, 1fr) !important;
+  gap: 8px !important;
+}
+
+body.force-mobile #orders-grid.grid-cols-3 .mesas-grid-layout {
+  grid-template-columns: repeat(3, 1fr) !important;
 }

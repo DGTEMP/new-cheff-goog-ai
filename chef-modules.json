@@ -18,7 +18,8 @@
     "tarefas": true,
     "temas": true,
     "pesagem-selfservice": true,
-    "tema-v2": true
+    "tema-v2": true,
+    "rh": true
   },
   "order": []
 }

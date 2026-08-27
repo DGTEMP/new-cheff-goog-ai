@@ -102,6 +102,10 @@
 
     <!-- DIREITA: BUSCA + ORDENAÇÃO + TEMA + AJUSTES -->
     <div class="kds-navbar-right">
+      <!-- Botão Rápido de Alternar Grade / Linhas -->
+      <button id="btn-toggle-kds-layout" class="kds-icon-btn" onclick="window.alternarLayoutRapido()" title="Alternar entre Grade KDS e Linhas">
+        <i class="ph ph-squares-four" id="icon-layout-kds"></i>
+      </button>
       <!-- Busca rápida -->
       <div class="kds-search-bar">
         <i class="ph ph-magnifying-glass"></i>
@@ -124,7 +128,7 @@
       </button>
 
       <!-- Configurações do KDS -->
-      <button class="kds-icon-btn" onclick="document.getElementById('modal-fila-settings').style.display='flex'" title="Configurações da Fila">
+      <button class="kds-icon-btn" onclick="window.abrirModalFilaSettings()" title="Configurações da Fila">
         <i class="ph ph-gear"></i>
       </button>
     </div>
@@ -156,19 +160,19 @@
       <span>Prontos</span>
       <span class="kds-tab-badge badge-pronto" id="kds-badge-pronto-mob">0</span>
     </button>
-    <button class="kds-nav-tab" onclick="document.getElementById('modal-fila-settings').style.display='flex'">
+    <button class="kds-nav-tab" onclick="window.abrirModalFilaSettings()">
       <i class="ph-bold ph-sliders"></i>
       <span>Ajustes</span>
     </button>
   </nav>
 
   <!-- MODAL CONFIGURAÇÕES DA FILA -->
-  <div id="modal-fila-settings" class="fila-settings-overlay" style="display:none;" onclick="if(event.target===this)this.style.display='none'">
+  <div id="modal-fila-settings" class="fila-settings-overlay" style="display:none;" onclick="if(event.target===this)window.fecharModalFilaSettings()">
     <div class="fila-settings-card" style="max-height: 90vh; overflow-y: auto;">
       <div class="fila-settings-header">
         <i class="ph ph-gear" style="font-size: 20px; color: #1a73e8;"></i>
         <span>Configurações da Fila</span>
-        <button onclick="document.getElementById('modal-fila-settings').style.display='none'" class="fila-settings-close">&times;</button>
+        <button type="button" onclick="window.fecharModalFilaSettings()" class="fila-settings-close" title="Fechar">&times;</button>
       </div>
       <div class="fila-settings-body">
         

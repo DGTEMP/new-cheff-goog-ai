@@ -1,4 +1,17 @@
 
+function formatarTempoFila(mins) {
+  if (!mins || mins <= 0) return 'agora';
+  if (mins < 60) return `${mins} min`;
+  if (mins < 1440) {
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    return m > 0 ? `${h}h ${m}m` : `${h}h`;
+  }
+  const d = Math.floor(mins / 1440);
+  return `+${d}d`;
+}
+
+
 function escHtml(t){return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 function escJs(t){try{return JSON.stringify(String(t==null?'':t)).replace(/</g,'\\x3C').replace(/>/g,'\\x3E').replace(/"/g,'&quot;').replace(/\u2028/g,'\\u2028').replace(/\u2029/g,'\\u2029');}catch(e){return '""';}}
 
@@ -714,14 +727,21 @@ function showActionPopup(actions, x, y) {
 // --- LONG PRESS + SWIPE + ARRASTE NO CARD DA MESA / ITEM ---
 // Toque rápido = selecionar | Segurar curto (soltar ~0,5s) = menu de contexto
 // Segurar 1s sem soltar = modo arraste (mesa→mesa ou item→mesa)
+// ── BLOQUEIO GLOBAL DO MENU DE CONTEXTO NATIVO DO NAVEGADOR ──
+document.addEventListener('contextmenu', (e) => {
+  // Impede 100% o menu nativo do Chrome/Edge/Safari/Android/iOS
+  e.preventDefault();
+}, { capture: true });
+
 (function initGestures() {
   let menuTimer = null;
-  let dragTimer = null;
   let touchStartX = 0;
   let touchStartY = 0;
   let touchStartTime = 0;
   let didMove = false;
-  let menuReady = false;
+  let menuAbertoPeloToque = false;
+  let cardAtivo = null;
+  let itemRowAtivo = null;
 
   /* ── Estado do arraste por toque ── */
   const drag = { ativo: false, tipo: null, nome: null, itemId: null, origem: null, ghost: null, alvo: null };
@@ -911,21 +931,29 @@ function showActionPopup(actions, x, y) {
     menuTimer = null; dragTimer = null;
   }
 
-  /* ══════════ LISTENERS GLOBAIS ══════════ */
+  /* ══════════ LISTENERS GLOBAIS COM TRANSIÇÃO MENU -> ARRASTE ══════════ */
+
+  function fecharPopupAcoesImediato() {
+    const popup = document.getElementById('mobile-action-popup');
+    if (popup) popup.classList.remove('show');
+  }
 
   document.addEventListener('touchstart', (e) => {
     if (e.touches.length !== 1) return;
-    if (e.target.closest('button, a, input, select, .btn-action, .btn-pronto, .btn-chamar, .btn-reverter, .mobile-float-btn')) return;
+    if (e.target.closest('button, a, input, select, .btn-action, .btn-pronto, .btn-chamar, .btn-reverter, .mobile-float-btn, .action-popup-btn')) return;
+    
     let card = getMesaItem(e.target);
     const itemRow = e.target.closest('.product-item-row');
     if (card && !ehMesaReal(card)) card = null;
     if (!card && !itemRow) return;
 
+    cardAtivo = card;
+    itemRowAtivo = itemRow;
     touchStartX = e.touches[0].clientX;
     touchStartY = e.touches[0].clientY;
     touchStartTime = Date.now();
     didMove = false;
-    menuReady = false;
+    menuAbertoPeloToque = false;
 
     /* Modo armado pelo menu ("Mover / Transferir"): arrasta no toque direto */
     if (window._chefArrastarArmado) {
@@ -937,44 +965,56 @@ function showActionPopup(actions, x, y) {
       return;
     }
 
+    // Long press rápido (360ms) para exibir menu de contexto do sistema
+    clearTimeout(menuTimer);
     menuTimer = setTimeout(() => {
-      if (didMove) return;
-      if (navigator.vibrate) navigator.vibrate(15);
-      menuReady = true; // soltando agora abre o menu; continuando segura entra em arraste
-    }, 450);
-
-    dragTimer = setTimeout(() => {
-      menuTimer = null;
-      menuReady = false;
-      const x = e.touches[0].clientX, y = e.touches[0].clientY;
-      if (card) iniciarArraste(card, 'table', getMesaName(card), null, x, y);
-      else if (itemRow) iniciarArraste(itemRow, 'item', null, parseInt(itemRow.getAttribute('data-item-id')), x, y);
-    }, 1000);
+      if (didMove || drag.ativo) return;
+      if (navigator.vibrate) try { navigator.vibrate(20); } catch(err){}
+      menuAbertoPeloToque = true;
+      mostrarMenuMesaOuItem(cardAtivo, itemRowAtivo, touchStartX, touchStartY);
+    }, 360);
   }, { passive: true });
 
   document.addEventListener('touchmove', (e) => {
     const x = e.touches[0].clientX, y = e.touches[0].clientY;
+    const dx = Math.abs(x - touchStartX);
+    const dy = Math.abs(y - touchStartY);
+
     if (drag.ativo) {
       if (e.cancelable) e.preventDefault();
-      if (drag.ghost) { drag.ghost.style.left = (x - 30) + 'px'; drag.ghost.style.top = (y - 30) + 'px'; }
+      if (drag.ghost) {
+        drag.ghost.style.left = (x - 30) + 'px';
+        drag.ghost.style.top = (y - 30) + 'px';
+      }
       marcarAlvo(null, x, y);
       return;
     }
-    if (!menuTimer && !dragTimer) return;
-    const dx = Math.abs(x - touchStartX);
-    const dy = Math.abs(y - touchStartY);
-    if (dx > 10 || dy > 10) {
+
+    // Se o dedo moveu mais que 8px enquanto mantinha pressionado
+    if (dx > 8 || dy > 8) {
       didMove = true;
-      menuReady = false;
-      limparTimers();
+      clearTimeout(menuTimer);
+
+      // Se o menu estava aberto ou estava segurando, faz o menu sumir e assume a função de arrastar!
+      if (cardAtivo || itemRowAtivo) {
+        fecharPopupAcoesImediato();
+        if (!drag.ativo && (Date.now() - touchStartTime > 250)) {
+          if (e.cancelable) e.preventDefault();
+          if (cardAtivo) iniciarArraste(cardAtivo, 'table', getMesaName(cardAtivo), null, x, y);
+          else if (itemRowAtivo) iniciarArraste(itemRowAtivo, 'item', null, parseInt(itemRowAtivo.getAttribute('data-item-id')), x, y);
+        }
+      }
     }
   }, { passive: false });
 
   document.addEventListener('touchend', (e) => {
+    clearTimeout(menuTimer);
     if (drag.ativo) {
       const t = e.changedTouches[0];
       finalizarArraste(t.clientX, t.clientY);
       didMove = false;
+      cardAtivo = null;
+      itemRowAtivo = null;
       return;
     }
 
@@ -8685,7 +8725,7 @@ if (typeof socket !== 'undefined' && socket.on) {
       <div class="ia-card-title"><span style="color:${bgColor};display:flex;align-items:center;">${icon}</span> Mesa ${escHtml(mesa)} - <span style="color:${bgColor}">${nivel.toUpperCase()}</span></div>
       <div class="ia-card-desc">${escHtml(mensagem)}</div>
       <div class="ia-card-actions">
-        ${(sugestoes || []).map(s => `<button class="ia-card-btn" onclick="window.socket.emit('ia_resposta_sugestao',{tipo:'${nivel === 'critico' ? 'espera_critica' : 'espera_alerta'}',mesa:${escJs(mesa)},pedidoId:${pedidoId},resposta:${escJs(s.toLowerCase().replace(/\s+/g, '_'))}});removerAlertaIA(this);" style="background:#1e293b;color:#f8fafc;border-color:${bgColor};"><i class="ph ph-check"></i> ${escHtml(s)}</button>`).join('')}
+        ${(sugestoes || []).map(s => `<button class="ia-card-btn" onclick="window.socket.emit('ia_resposta_sugestao',{tipo:'${nivel === 'critico' ? 'espera_critica' : 'espera_alerta'}',mesa:${escJs(mesa)},pedidoId:${pedidoId},resposta:${escJs(s.toLowerCase().replace(/\s+/g, '_'))}});removerAlertaIA(this);" style="border-color:${bgColor};"><i class="ph ph-check"></i> ${escHtml(s)}</button>`).join('')}
       </div>
       <button class="ia-card-close" onclick="removerAlertaIA(this)" title="Dispensar alerta"><i class="ph ph-x"></i></button>`;
     
@@ -8718,7 +8758,7 @@ if (typeof socket !== 'undefined' && socket.on) {
     const { pedidoId, mesa, produto, minutos, itensProntos, itensPendentes, temParcial, mensagem, setor } = data;
     const bgColor = '#ff6b35';
 
-    showToastIA(`Manobra: ${mensagem}`, bgColor);
+    const msgFormatadaToast = String(mensagem || '').replace(/há\s+(\d+)min/gi, (m, p) => 'há ' + formatarTempoFila(parseInt(p, 10))); showToastIA(`Manobra: ${msgFormatadaToast}`, bgColor);
 
     if ('Notification' in window && Notification.permission === 'granted') {
       if (!window._lastIaNotifTime || Date.now() - window._lastIaNotifTime > 5000) {
@@ -8737,13 +8777,14 @@ if (typeof socket !== 'undefined' && socket.on) {
     alerta.setAttribute('data-pedido-id', pedidoId);
     alerta.style.borderLeft = `4px solid ${bgColor}`;
     alerta.innerHTML = `
-      <div class="ia-card-title"><i class="ph ph-fire" style="color:${bgColor}"></i> MANOBRA - Mesa ${escHtml(mesa)}</div>
-      <div class="ia-card-desc">${escHtml(mensagem)}</div>
+       const nomeMesaLimpo = String(mesa || '').replace(/^Mesa\s+/i, ''); const msgFormatada = String(mensagem || '').replace(/há\s+(\d+)min/gi, (m, p) => 'há ' + formatarTempoFila(parseInt(p, 10))); 
+      <div class="ia-card-title"><i class="ph ph-fire" style="color:${bgColor}"></i> MANOBRA - Mesa ${escHtml(nomeMesaLimpo)}</div>
+      <div class="ia-card-desc">${escHtml(msgFormatada)}</div>
       ${temParcial ? `<div class="ia-card-info">Itens prontos: ${escHtml(itensProntos)} | Pendentes: ${escHtml(itensPendentes)}</div>` : ''}
       <div class="ia-card-info" style="color:${bgColor};font-weight:700;">Setor: ${escHtml(setor || 'Cozinha')}</div>
       <div class="ia-card-actions">
         <button class="ia-card-btn" onclick="window.socket.emit('ia_manobra_confirmar',{pedidoId:${pedidoId},mesa:${escJs(mesa)},produto:${escJs(produto)},minutos:${minutos},acao:'solicitar_entrada'});this.closest('.ia-card').innerHTML='<div style=\'padding:8px;color:#34d399;font-weight:600;font-size:calc(12px * var(--ia-scale, 1));display:flex;align-items:center;gap:4px;\'><i class=\'ph ph-check-circle\'></i> Entrada solicitada ao garçom!</div>';setTimeout(()=>removerAlertaIA(this),2000);" style="background:#ea580c;color:white;"><i class="ph ph-bowl-food"></i> Solicitar entrada ao garçom</button>
-        <button class="ia-card-btn" onclick="window.socket.emit('ia_manobra_confirmar',{pedidoId:${pedidoId},mesa:${escJs(mesa)},produto:${escJs(produto)},minutos:${minutos},acao:'informar_cliente'});this.closest('.ia-card').innerHTML='<div style=\'padding:8px;color:#60a5fa;font-weight:600;font-size:calc(12px * var(--ia-scale, 1));display:flex;align-items:center;gap:4px;\'><i class=\'ph ph-info\'></i> Cliente informado sobre o atraso.</div>';setTimeout(()=>removerAlertaIA(this),2000);" style="background:#1e293b;color:#60a5fa;border-color:#3b82f6;"><i class="ph ph-info"></i> Informar cliente</button>
+        <button class="ia-card-btn" onclick="window.socket.emit('ia_manobra_confirmar',{pedidoId:${pedidoId},mesa:${escJs(mesa)},produto:${escJs(produto)},minutos:${minutos},acao:'informar_cliente'});this.closest('.ia-card').innerHTML='<div style=\'padding:8px;color:#60a5fa;font-weight:600;font-size:calc(12px * var(--ia-scale, 1));display:flex;align-items:center;gap:4px;\'><i class=\'ph ph-info\'></i> Cliente informado sobre o atraso.</div>';setTimeout(()=>removerAlertaIA(this),2000);" style="color:#2563eb;border-color:#3b82f6;background:rgba(59,130,246,0.08);"><i class="ph ph-info"></i> Informar cliente</button>
       </div>
       <button class="ia-card-close" onclick="removerAlertaIA(this)" title="Dispensar manobra"><i class="ph ph-x"></i></button>`;
     
@@ -9803,13 +9844,14 @@ window.setMesaGridCols = function(cols) {
 
   const container = document.getElementById('orders-grid');
   if (container) {
-    container.classList.remove('grid-cols-1', 'grid-cols-2', 'grid-compact');
+    container.classList.remove('grid-cols-1', 'grid-cols-2', 'grid-cols-3', 'grid-compact');
     if (cols === 1 || cols === '1') container.classList.add('grid-cols-1');
+    else if (cols === 3 || cols === '3') container.classList.add('grid-cols-3');
     else if (cols === 'compact') container.classList.add('grid-compact');
     else container.classList.add('grid-cols-2');
   }
 
-  ['2', '1', 'compact'].forEach(c => {
+  ['3', '2', '1', 'compact'].forEach(c => {
     const b = document.getElementById('btn-grid-cols-' + c);
     if (b) {
       if (String(cols) === c) {
@@ -9832,4 +9874,39 @@ document.addEventListener('DOMContentLoaded', () => {
     const savedCols = localStorage.getItem('chef_mesa_grid_cols');
     if (savedCols) window.setMesaGridCols(savedCols);
   } catch(e){}
+});
+
+
+// ── BANNER / MODAL DE AVISO DE QUARENTENA 30 DIAS NO PDV ──
+async function verificarStatusQuarentenaPDV() {
+  try {
+    const res = await fetch('/api/licenca/status-quarentena');
+    const data = await res.json();
+    if (!data || !data.ok || !data.quarentena || !data.quarentena.ativo) return;
+
+    const q = data.quarentena;
+    let overlay = document.getElementById('modal-quarentena-alerta');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'modal-quarentena-alerta';
+      overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:999999;background:linear-gradient(90deg, #991b1b, #dc2626);color:#ffffff;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 4px 16px rgba(0,0,0,0.3);font-family:sans-serif;font-size:13px;';
+      document.body.prepend(overlay);
+    }
+
+    overlay.innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;font-weight:700;">
+        <i class="ph-bold ph-warning-circle" style="font-size:22px;animation:pulse 1s infinite;"></i>
+        <span>⚠️ ATENÇÃO: Licença pendente de regularização. Exclusão definitiva dos dados em: <span style="background:rgba(0,0,0,0.3);padding:3px 8px;border-radius:6px;font-weight:900;letter-spacing:0.5px;color:#fef08a;">${q.dias} dias, ${q.horas}h ${q.minutos}m</span></span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <button onclick="window.open('https://wa.me/5511987654321', '_blank')" style="background:#ffffff;color:#991b1b;border:none;padding:6px 14px;border-radius:8px;font-weight:800;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:4px;">
+          <i class="ph-bold ph-whatsapp-logo"></i> Regularizar Agora
+        </button>
+      </div>
+    `;
+  } catch(e){}
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(verificarStatusQuarentenaPDV, 2000);
 });
