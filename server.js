@@ -3719,6 +3719,31 @@ masterDb.run(`CREATE TABLE IF NOT EXISTS chaves_ativacao (
   } catch (eHash) {
     console.error('Erro ao gerar hash do usuário padrão:', eHash);
   }
+
+  masterDb.run(`CREATE TABLE IF NOT EXISTS afiliados (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nome TEXT NOT NULL,
+    email TEXT UNIQUE NOT NULL,
+    telefone TEXT,
+    codigo_ref TEXT UNIQUE NOT NULL,
+    comissao_percentual REAL DEFAULT 10,
+    chave_pix TEXT,
+    status TEXT DEFAULT 'ativo',
+    password_hash TEXT,
+    created_at DATETIME DEFAULT (datetime('now', 'localtime'))
+  )`);
+  masterDb.run(`CREATE TABLE IF NOT EXISTS afiliado_vendas (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    afiliado_id INTEGER NOT NULL,
+    restaurante_id INTEGER,
+    restaurante_nome TEXT,
+    plano TEXT,
+    valor_venda REAL DEFAULT 0,
+    comissao_valor REAL DEFAULT 0,
+    status TEXT DEFAULT 'pendente',
+    created_at DATETIME DEFAULT (datetime('now', 'localtime')),
+    FOREIGN KEY (afiliado_id) REFERENCES afiliados(id)
+  )`);
 });
 
 // Carregar rotas do Super Admin
@@ -10418,7 +10443,44 @@ app.post('/api/funcoes/solicitar', verificarToken, (req, res) => {
 
 // ══════ TOTEM → migrado para plugins/caixa/ ══════
 
-// --- POST /api/config → migrado para plugins/caixa/ ---
+const CONFIG_SECRET_KEYS = [
+  'mp_access_token', 'pagbank_token', 'stone_stonecode', 'sitef_ip',
+  'cert_senha', 'csc', 'token_api_fiscal', 'ponto_token', 'jwt_secret'
+];
+
+app.get('/api/config', (req, res) => {
+  db.all(`SELECT * FROM configuracoes`, (err, rows) => {
+    if (err) return res.status(500).send(err);
+    const cfgs = {};
+    if (rows) rows.forEach(r => {
+      if (CONFIG_SECRET_KEYS.includes(r.chave) && r.valor) {
+        cfgs[r.chave] = '***';
+      } else {
+        cfgs[r.chave] = r.valor;
+      }
+    });
+    res.json(cfgs);
+  });
+});
+
+app.post('/api/config', verificarToken, (req, res) => {
+  const configs = req.body;
+  if (!configs) return res.status(400).send('Dados inválidos');
+  db.serialize(() => {
+    db.run("BEGIN TRANSACTION;");
+    Object.keys(configs).forEach(chave => {
+      const valor = typeof configs[chave] === 'object' ? JSON.stringify(configs[chave]) : String(configs[chave]);
+      if (CONFIG_SECRET_KEYS.includes(chave) && valor === '***') return;
+      db.run(`INSERT INTO configuracoes (chave, valor) VALUES (?, ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor`, [chave, valor]);
+    });
+    db.run("COMMIT;");
+  });
+  setTimeout(() => {
+    io.emit('configuracoes_atualizadas');
+    broadcastProdutos();
+    res.json({ success: true });
+  }, 500);
+});
 
 // --- ENDPOINT TESTE DE CONEXÃO COM MAQUININHA → migrado para plugins/caixa/ ---
 
@@ -12432,7 +12494,7 @@ ${ANSI.dim}───────────────────────
 
 // Listar todos os afiliados (Super Admin)
 app.get('/api/super/afiliados', superAdminAuth, (req, res) => {
-  db.all(`
+  masterDb.all(`
     SELECT a.*, 
            COUNT(DISTINCT v.id) as total_vendas,
            COALESCE(SUM(v.valor_venda), 0) as total_faturado,
@@ -12458,7 +12520,7 @@ app.post('/api/super/afiliados', superAdminAuth, async (req, res) => {
     const passHash = senha ? await bcrypt.hash(senha, 10) : await bcrypt.hash('123456', 10);
     const comissao = parseFloat(comissao_percentual) || 10;
 
-    db.run(
+    masterDb.run(
       `INSERT INTO afiliados (nome, email, telefone, codigo_ref, comissao_percentual, chave_pix, password_hash, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'ativo')`,
       [nome.trim(), email.trim().toLowerCase(), telefone || '', codeClean, comissao, chave_pix || '', passHash],
       function (err) {
@@ -12492,7 +12554,7 @@ app.put('/api/super/afiliados/:id', superAdminAuth, async (req, res) => {
     }
 
     params.push(id);
-    db.run(`UPDATE afiliados SET ${updates.join(', ')} WHERE id = ?`, params, function (err) {
+    masterDb.run(`UPDATE afiliados SET ${updates.join(', ')} WHERE id = ?`, params, function (err) {
       if (err) return res.json({ ok: false, erro: err.message });
       res.json({ ok: true });
     });
@@ -12504,7 +12566,7 @@ app.put('/api/super/afiliados/:id', superAdminAuth, async (req, res) => {
 // Excluir afiliado
 app.delete('/api/super/afiliados/:id', superAdminAuth, (req, res) => {
   const { id } = req.params;
-  db.run(`DELETE FROM afiliados WHERE id = ?`, [id], (err) => {
+  masterDb.run(`DELETE FROM afiliados WHERE id = ?`, [id], (err) => {
     if (err) return res.json({ ok: false, erro: err.message });
     res.json({ ok: true });
   });
@@ -12513,10 +12575,10 @@ app.delete('/api/super/afiliados/:id', superAdminAuth, (req, res) => {
 // Detalhes / Métricas completas de um afiliado (Super Admin)
 app.get('/api/super/afiliados/:id/metricas', superAdminAuth, (req, res) => {
   const { id } = req.params;
-  db.get(`SELECT * FROM afiliados WHERE id = ?`, [id], (err, afil) => {
+  masterDb.get(`SELECT * FROM afiliados WHERE id = ?`, [id], (err, afil) => {
     if (err || !afil) return res.json({ ok: false, erro: 'Afiliado não encontrado.' });
 
-    db.all(`SELECT * FROM afiliado_vendas WHERE afiliado_id = ? ORDER BY id DESC`, [id], (errVendas, vendas) => {
+    masterDb.all(`SELECT * FROM afiliado_vendas WHERE afiliado_id = ? ORDER BY id DESC`, [id], (errVendas, vendas) => {
       res.json({
         ok: true,
         afiliado: afil,
@@ -12531,7 +12593,7 @@ app.post('/api/afiliado/login', async (req, res) => {
   const { email, senha } = req.body;
   if (!email || !senha) return res.json({ ok: false, erro: 'Preencha email e senha.' });
 
-  db.get(`SELECT * FROM afiliados WHERE LOWER(email) = LOWER(?)`, [email.trim()], async (err, afil) => {
+  masterDb.get(`SELECT * FROM afiliados WHERE LOWER(email) = LOWER(?)`, [email.trim()], async (err, afil) => {
     if (err || !afil) return res.json({ ok: false, erro: 'Afiliado não encontrado.' });
     if (afil.status !== 'ativo') return res.json({ ok: false, erro: 'Conta de afiliado inativa ou suspensa.' });
 
@@ -12554,10 +12616,10 @@ app.get('/api/afiliado/dashboard', (req, res) => {
       return res.json({ ok: false, erro: 'Sessão inválida ou expirada.' });
     }
 
-    db.get(`SELECT id, nome, email, telefone, codigo_ref, comissao_percentual, chave_pix FROM afiliados WHERE id = ?`, [decoded.id], (errA, afil) => {
+    masterDb.get(`SELECT id, nome, email, telefone, codigo_ref, comissao_percentual, chave_pix FROM afiliados WHERE id = ?`, [decoded.id], (errA, afil) => {
       if (errA || !afil) return res.json({ ok: false, erro: 'Afiliado não encontrado.' });
 
-      db.all(`SELECT * FROM afiliado_vendas WHERE afiliado_id = ? ORDER BY id DESC`, [decoded.id], (errV, vendas) => {
+      masterDb.all(`SELECT * FROM afiliado_vendas WHERE afiliado_id = ? ORDER BY id DESC`, [decoded.id], (errV, vendas) => {
         const listV = vendas || [];
         const totalFaturado = listV.reduce((acc, v) => acc + (v.valor_venda || 0), 0);
         const totalComissao = listV.reduce((acc, v) => acc + (v.comissao_valor || 0), 0);
@@ -12647,7 +12709,6 @@ app.get('/api/dono/dashboard', (req, res) => {
             dbInst.get(`
               SELECT status, saldo_final, fundo_troco, data_abertura 
               FROM turnos_caixa 
-              WHERE status = 'Aberto'
               ORDER BY id DESC 
               LIMIT 1
             `, [], (err5, caixaRow) => {

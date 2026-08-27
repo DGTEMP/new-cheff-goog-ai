@@ -549,8 +549,9 @@ function fetchJson(url, opts) {
 function fetchScript(params) {
   return new Promise((resolve, reject) => {
     if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.includes('__LICENSE_URL')) {
-      // URL não configurada — modo de desenvolvimento
-      resolve({ ok: true, status: 'ativo', restaurante: 'Dev Mode', plano: 'pro', maxDispositivos: 0 });
+      // URL não configurada — tenta usar dados do banco local
+      const nomeLocal = params.nome_restaurante || 'Chef Cozinha';
+      resolve({ ok: true, status: 'ativo', restaurante: nomeLocal, plano: params.plano || 'pro', maxDispositivos: 0 });
       return;
     }
 
