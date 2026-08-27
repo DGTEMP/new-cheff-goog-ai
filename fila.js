@@ -238,6 +238,14 @@ function renderizarSecoesFila() {
   const mudou = JSON.stringify(nova) !== JSON.stringify(filaSecoes);
   filaSecoes = nova;
   if (mudou) {
+    const chipsDynamic = document.getElementById('kds-sectors-chips-dynamic');
+    if (chipsDynamic) {
+      chipsDynamic.innerHTML = filaSecoes.map(nome =>
+        `<button class="kds-chip-item sector-modal-btn ${nome === currentSector ? 'active' : ''}" data-sector="${escHtml(nome)}" onclick="filtrarSetor(${escJs(nome)})">
+          <i class="ph ${iconeSecaoFila(nome)}"></i> <span>${escHtml(nome)}</span>
+        </button>`
+      ).join('');
+    }
     const sidebar = document.getElementById('sidebar-sectors-dinamicos');
     if (sidebar) {
       sidebar.innerHTML = filaSecoes.map(nome =>
@@ -809,11 +817,36 @@ function renderQueue() {
     return filaSortDelay ? (tb - ta) : (ta - tb);
   });
 
+  // Atualizar badges de contagem em tempo real
+  const countEspera = queueData.filter(i => (i.status === 'Pendente' || i.status === 'Em espera') && !['Finalizado', 'Cancelado', 'Entregue', 'Pago'].includes(i.status)).length;
+  const countPreparo = queueData.filter(i => (i.status === 'Em preparo' || i.status === 'Em Preparo') && !['Finalizado', 'Cancelado', 'Entregue', 'Pago'].includes(i.status)).length;
+  const countPronto = queueData.filter(i => (i.status === 'Pronto' || i.status === 'Prontos') && !['Finalizado', 'Cancelado', 'Entregue', 'Pago'].includes(i.status)).length;
+
+  const bEspera = document.getElementById('kds-badge-espera');
+  const bPreparo = document.getElementById('kds-badge-preparo');
+  const bPronto = document.getElementById('kds-badge-pronto');
+  if (bEspera) bEspera.innerText = countEspera;
+  if (bPreparo) bPreparo.innerText = countPreparo;
+  if (bPronto) bPronto.innerText = countPronto;
+
+  const bEsperaMob = document.getElementById('kds-badge-espera-mob');
+  const bPreparoMob = document.getElementById('kds-badge-preparo-mob');
+  const bProntoMob = document.getElementById('kds-badge-pronto-mob');
+  if (bEsperaMob) bEsperaMob.innerText = countEspera;
+  if (bPreparoMob) bPreparoMob.innerText = countPreparo;
+  if (bProntoMob) bProntoMob.innerText = countPronto;
+
   if (filtered.length === 0) {
     queueList.innerHTML = `
-      <div style="text-align: center; padding: 40px; color: #94a3b8;">
-        <i class="ph ph-check-circle" style="font-size: 44px; color: #cbd5e1; margin-bottom: 8px;"></i>
-        <div style="font-size: 15px; font-weight: 600; color: #64748b;">Nenhum pedido pendente nesta fila</div>
+      <div style="grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 20px; text-align: center; background: var(--bg-card, #ffffff); border-radius: 24px; border: 1.5px dashed var(--border-color, #cbd5e1); margin: 30px auto; max-width: 480px; box-shadow: 0 4px 16px rgba(0,0,0,0.02);">
+        <div style="width: 72px; height: 72px; border-radius: 50%; background: rgba(16, 185, 129, 0.12); color: #10b981; display: flex; align-items: center; justify-content: center; font-size: 38px; margin-bottom: 16px;">
+          <i class="ph-fill ph-check-circle"></i>
+        </div>
+        <h3 style="font-size: 19px; font-weight: 800; color: var(--text-primary, #0f172a); margin: 0 0 6px 0;">Tudo limpo na cozinha!</h3>
+        <p style="font-size: 14px; color: var(--text-secondary, #64748b); margin: 0 0 16px 0; line-height: 1.4;">Nenhum pedido com status <strong>${escHtml(currentFilter)}</strong> no setor <strong>${escHtml(currentSector)}</strong> no momento.</p>
+        <span style="font-size: 12px; background: var(--bg-secondary, #f1f5f9); color: var(--text-secondary, #64748b); padding: 6px 14px; border-radius: 20px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
+          <i class="ph-fill ph-circle" style="color:#10b981; font-size: 8px;"></i> Monitorando novos pedidos em tempo real...
+        </span>
       </div>`;
     return;
   }
@@ -827,7 +860,7 @@ function renderQueue() {
     const status = item.status;
     const id = safeId(item.id);
     const qty = safeQty(item.quantity);
-    let btnIcon, btnColor, nextStatus, btnTitle;
+    let btnIcon, btnColor, nextStatus, btnTitle, btnText;
     let prevStatus = null;
     let prevIcon = null;
     let prevTitle = null;
@@ -838,11 +871,13 @@ function renderQueue() {
       btnColor = '#eb5757';
       nextStatus = 'Em preparo';
       btnTitle = 'Iniciar preparo';
+      btnText = 'Iniciar Preparo';
     } else if (status === 'Em preparo') {
       btnIcon = 'ph-bowl-food';
-      btnColor = '#f38f18';
+      btnColor = '#10b981';
       nextStatus = 'Pronto';
       btnTitle = 'Marcar como Pronto';
+      btnText = 'Marcar Pronto';
       prevStatus = 'Em espera';
       prevIcon = 'ph-arrow-u-up-left';
       prevTitle = 'Voltar para Em espera';
@@ -850,34 +885,33 @@ function renderQueue() {
       isPronto = true;
       btnIcon = 'ph-bell-ringing';
       btnColor = '#8b5cf6';
+      btnText = item._chamado ? 'Chamar Novamente' : 'Chamar Garçom';
       prevStatus = 'Em preparo';
       prevIcon = 'ph-arrow-u-up-left';
       prevTitle = 'Voltar para Em preparo';
     }
 
     const revertBtn = prevStatus
-      ? `<button class="btn-reverter" onclick="window.alterarStatusPedido(${id}, '${prevStatus}')" title="${prevTitle}"><i class="ph ${prevIcon}"></i></button>`
+      ? `<button class="btn-reverter" onclick="window.alterarStatusPedido(${id}, '${prevStatus}')" title="${prevTitle}"><i class="ph ${prevIcon}"></i> <span>Voltar</span></button>`
       : '';
 
     const chamadoClass = (isPronto && item._chamado) ? ' chamado' : '';
     const especial = iaPedidosEspeciais.get(item.id);
     const isManobra = especial && especial.tipo === 'manobra';
-    // (Segurança) Cor validada para evitar injeção via style; mensagem escapada p/ HTML.
     const corSegura = especial && /^#[0-9a-fA-F]{3,8}$/.test(String(especial.cor || '')) ? especial.cor : '#ff6b35';
     const estiloEspecial = especial ? `border-left: 4px solid ${corSegura} !important; box-shadow: 0 0 12px ${corSegura}33;${isManobra ? 'animation: pulseManobra 1.5s infinite;' : ''}` : '';
 
     const badgeEspecial = especial
-      ? `<span style="background:${corSegura};color:white;padding:3px 10px;border-radius:4px;font-size:10px;font-weight:700;margin-left:8px;${isManobra ? 'animation: pulseBadge 1.5s infinite;' : ''}">${isManobra ? '🔥 ' : ''}${escHtml(especial.mensagem)}</span>`
+      ? `<span class="kds-badge-especial" style="background:${corSegura};color:white;${isManobra ? 'animation: pulseBadge 1.5s infinite;' : ''}">${isManobra ? '🔥 ' : ''}${escHtml(especial.mensagem)}</span>`
       : '';
 
     const mainBtn = isPronto
-      ? `<button class="btn-chamar${chamadoClass}" onclick="window.chamarGarcom(${id}, ${escJs(item.productName)}, ${qty}, ${escJs(item.localName)}, ${escJs(item.userName)})" title="Chamar garçom para entregar"><i class="ph ${btnIcon}"></i></button>`
-      : `<button class="btn-pronto" onclick="window.alterarStatusPedido(${id}, '${nextStatus}')" style="border-color: ${btnColor}; color: ${btnColor};" title="${btnTitle}"><i class="ph ${btnIcon}"></i></button>`;
+      ? `<button class="btn-chamar${chamadoClass}" onclick="window.chamarGarcom(${id}, ${escJs(item.productName)}, ${qty}, ${escJs(item.localName)}, ${escJs(item.userName)})" title="Chamar garçom para entregar" style="background: #8b5cf6; color: white;"><i class="ph ${btnIcon}"></i> <span>${btnText}</span></button>`
+      : `<button class="btn-pronto" onclick="window.alterarStatusPedido(${id}, '${nextStatus}')" style="background: ${btnColor}; color: white;" title="${btnTitle}"><i class="ph ${btnIcon}"></i> <span>${btnText}</span></button>`;
 
     const isMultipleClass = qty > 1 ? ' is-multiple' : '';
     const isNewClass = newOrderIds.has(id) ? ' new-order-entry-pulse' : '';
 
-    // (Segurança) Todos os campos do pedido são escapados antes de entrar no HTML.
     const statusEsc = escHtml(status);
     const nomeEsc = escHtml(item.productName || item.nome || 'Produto');
     const emojiEsc = escHtml(item.productEmoji || '🍽️');
@@ -905,33 +939,40 @@ function renderQueue() {
       }
     } catch(e) {}
 
+    const urgencyClass = diffMins >= 30 ? 'urgente' : (diffMins >= 15 ? 'atencao' : 'normal');
+
     return `
-      <div class="queue-item${isNewClass}" data-id="${id}" data-status="${statusEsc}" style="background-color: ${bgColor}; border-left-color: ${localColor}; ${estiloEspecial}">
-        <div class="item-quantidade">
-          <span class="qtd-number${isMultipleClass}">${qty}x</span>
-          <span class="qtd-time"><i class="ph ph-clock"></i> ${diffMins}m</span>
+      <div class="queue-item${isNewClass}" data-id="${id}" data-status="${statusEsc}" style="border-left: 5px solid ${localColor}; ${estiloEspecial}">
+        <!-- HEADER DO CARD: MESA + GARÇOM + TIMER -->
+        <div class="kds-card-mobile-header">
+          <div class="kds-card-mesa-badge">
+            <i class="ph-bold ph-table" style="color: ${localColor}; font-size: 18px;"></i>
+            <strong style="font-size: 15px; font-weight: 800; color: #0f172a;">${localEsc}</strong>
+            ${userEsc ? `<span class="kds-card-garcom">· ${userEsc}</span>` : ''}
+          </div>
+          <div class="kds-card-time-badge ${urgencyClass}">
+            <i class="ph ph-clock"></i>
+            <span>${diffMins} min</span>
+          </div>
         </div>
 
+        <!-- CORPO DO CARD: QUANTIDADE + PRODUTO + OBS -->
         <div class="item-produto">
-          <span style="font-size: 1.1em; margin-right: 4px;">${emojiEsc}</span>
-          <span>${nomeEsc}</span>
-          ${badgeEspecial}
-          ${obsEsc ? `<div class="item-observacao">${obsEsc}</div>` : ''}
+          <div class="item-produto-title-line">
+            <span style="background: #e2e8f0; color: #0f172a; padding: 2px 7px; border-radius: 8px; font-size: 14px; font-weight: 800;">${qty}x</span>
+            <span class="item-emoji">${emojiEsc}</span>
+            <span style="flex:1;">${nomeEsc}</span>
+            ${badgeEspecial}
+          </div>
+          ${obsEsc ? `<div class="item-observacao"><i class="ph-bold ph-warning-circle" style="font-size:16px;"></i> <strong>OBS:</strong> ${obsEsc}</div>` : ''}
           ${compsHtml}
         </div>
 
-        <div class="item-local">
-          <i class="ph ph-table local-icon" style="color: ${localColor};"></i>
-          <span class="local-name">${localEsc}</span>
-          <span class="local-user">${userEsc ? '· ' + userEsc : ''}</span>
-        </div>
-
+        <!-- RODAPÉ DO CARD: BOTÕES DE AÇÃO TOUCH -->
         <div class="item-pronto">
           ${revertBtn}
           ${mainBtn}
         </div>
-
-
       </div>
     `;
   }).join('');

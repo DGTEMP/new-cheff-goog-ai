@@ -3180,3 +3180,195 @@ if (typeof socket !== 'undefined' && socket) {
 
 
 
+
+
+// ══════════════════════════════════════════════════════════════════
+// QR CODE DA MESA (GARÇOM MOBILE)
+// ══════════════════════════════════════════════════════════════════
+window.exibirQrCodeMesaGarcom = function(nomeMesa) {
+  if (!nomeMesa) nomeMesa = currentTable || 'Mesa';
+  const modal = document.getElementById('modal-qr-mesa-garcom');
+  const titulo = document.getElementById('qr-mesa-titulo');
+  const container = document.getElementById('qr-mesa-container');
+  if (!modal || !container) return;
+
+  if (titulo) titulo.innerText = nomeMesa.startsWith('Mesa') ? nomeMesa : `Mesa ${nomeMesa}`;
+
+  const proto = window.location.protocol;
+  const host = window.location.host;
+  const restauranteId = localStorage.getItem('restaurante_id') || '1';
+  const urlCardapio = `${proto}//${host}/cardapio.html?mesa=${encodeURIComponent(nomeMesa)}&restaurante_id=${encodeURIComponent(restauranteId)}`;
+  window._qrMesaAtualUrl = urlCardapio;
+
+  container.innerHTML = '<div style="color:#64748b; font-size:13px; font-weight:600;"><i class="ph ph-spinner-gap" style="animation:spin 1s infinite;"></i> Gerando QR Code...</div>';
+  modal.style.display = 'flex';
+
+  setTimeout(() => {
+    try {
+      if (typeof window.qrcode === 'function') {
+        const qr = window.qrcode(0, 'M');
+        qr.addData(urlCardapio);
+        qr.make();
+        const dataUrl = qr.createDataURL(6, 0);
+        container.innerHTML = `<img src="${dataUrl}" alt="QR Code Mesa" style="width:220px; height:220px; border-radius:8px; display:block;">`;
+        return;
+      }
+    } catch(e) {
+      console.warn('[QR Garçom] Falha ao usar qrcode lib:', e);
+    }
+
+    // Fallback via API rápida / canvas
+    const imgApi = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(urlCardapio)}`;
+    container.innerHTML = `<img src="${imgApi}" alt="QR Code Mesa" style="width:220px; height:220px; border-radius:8px; display:block;" onerror="this.onerror=null; this.parentElement.innerHTML='<div style=\'padding:20px; color:#ef4444; font-weight:bold;\'>Erro ao gerar QR Code offline</div>';">`;
+  }, 50);
+};
+
+window.fecharQrCodeMesaGarcom = function() {
+  const modal = document.getElementById('modal-qr-mesa-garcom');
+  if (modal) modal.style.display = 'none';
+};
+
+window.copiarLinkCardapioMesa = function() {
+  if (!window._qrMesaAtualUrl) return;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(window._qrMesaAtualUrl).then(() => {
+      showToast('Link do cardápio copiado!', '#0284c7');
+    }).catch(() => {
+      prompt('Copie o link abaixo:', window._qrMesaAtualUrl);
+    });
+  } else {
+    prompt('Copie o link abaixo:', window._qrMesaAtualUrl);
+  }
+};
+
+window.abrirCardapioMesaDireto = function() {
+  if (window._qrMesaAtualUrl) {
+    window.open(window._qrMesaAtualUrl, '_blank');
+  }
+};
+
+// ══════════════════════════════════════════════════════════════════
+// ADICIONAR ITEM RÁPIDO NA CONTA DA MESA (GARÇOM MOBILE)
+// ══════════════════════════════════════════════════════════════════
+let _categoriaItemRapidoAtiva = 'Todos';
+
+window.abrirAdicionarItemRapidoGarcom = function() {
+  if (!currentTable) {
+    showToast('Nenhuma mesa selecionada', '#ef4444');
+    return;
+  }
+  const modal = document.getElementById('modal-add-item-rapido-garcom');
+  const sub = document.getElementById('add-rapido-mesa-sub');
+  const inputBusca = document.getElementById('input-busca-item-rapido');
+  if (!modal) return;
+
+  if (sub) sub.innerText = `Lançar item direto na ${currentTable.startsWith('Mesa') ? currentTable : 'Mesa ' + currentTable}`;
+  if (inputBusca) inputBusca.value = '';
+
+  _categoriaItemRapidoAtiva = 'Todos';
+  renderizarCategoriasItensRapidos();
+  renderizarListaItensRapidos();
+
+  modal.style.display = 'flex';
+  setTimeout(() => { if (inputBusca) inputBusca.focus(); }, 150);
+};
+
+window.fecharAdicionarItemRapidoGarcom = function() {
+  const modal = document.getElementById('modal-add-item-rapido-garcom');
+  if (modal) modal.style.display = 'none';
+};
+
+function renderizarCategoriasItensRapidos() {
+  const container = document.getElementById('chips-categorias-item-rapido');
+  if (!container) return;
+
+  const categorias = ['Todos', ...new Set(MENU.map(m => m.category).filter(Boolean))];
+  container.innerHTML = categorias.map(cat => `
+    <button onclick="window.selecionarCategoriaItemRapido('${escJs(cat)}')" class="chip-cat-rapido ${cat === _categoriaItemRapidoAtiva ? 'active' : ''}" style="padding:6px 14px; border-radius:20px; border:1px solid ${cat === _categoriaItemRapidoAtiva ? '#2563eb' : '#cbd5e1'}; background:${cat === _categoriaItemRapidoAtiva ? '#2563eb' : '#f1f5f9'}; color:${cat === _categoriaItemRapidoAtiva ? '#ffffff' : '#475569'}; font-size:12.5px; font-weight:700; white-space:nowrap; cursor:pointer; flex-shrink:0;">
+      ${escHtml(cat)}
+    </button>
+  `).join('');
+}
+
+window.selecionarCategoriaItemRapido = function(cat) {
+  _categoriaItemRapidoAtiva = cat;
+  renderizarCategoriasItensRapidos();
+  renderizarListaItensRapidos();
+};
+
+window.filtrarItensRapidosGarcom = function() {
+  renderizarListaItensRapidos();
+};
+
+function renderizarListaItensRapidos() {
+  const container = document.getElementById('lista-produtos-item-rapido');
+  const inputBusca = document.getElementById('input-busca-item-rapido');
+  if (!container) return;
+
+  const busca = inputBusca ? inputBusca.value.trim().toLowerCase() : '';
+  let filtrados = MENU.filter(p => {
+    if (_categoriaItemRapidoAtiva !== 'Todos' && p.category !== _categoriaItemRapidoAtiva) return false;
+    if (busca && !p.name.toLowerCase().includes(busca) && !(p.category || '').toLowerCase().includes(busca)) return false;
+    return true;
+  });
+
+  if (filtrados.length === 0) {
+    container.innerHTML = '<div style="text-align:center; padding:30px 10px; color:#94a3b8; font-weight:600; font-size:13.5px;"><i class="ph ph-magnifying-glass" style="font-size:32px; display:block; margin-bottom:6px;"></i>Nenhum produto encontrado.</div>';
+    return;
+  }
+
+  container.innerHTML = filtrados.map(p => `
+    <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 12px; background:#ffffff; border:1px solid #e2e8f0; border-radius:14px; box-shadow:0 2px 5px rgba(0,0,0,0.02);">
+      <div style="display:flex; align-items:center; gap:10px; flex:1; min-width:0;">
+        <span style="font-size:22px; flex-shrink:0;">${escHtml(p.emoji || '🍽️')}</span>
+        <div style="min-width:0; flex:1;">
+          <div style="font-weight:700; font-size:14px; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escHtml(p.name)}</div>
+          <div style="font-size:12.5px; font-weight:800; color:#16a34a;">R$ ${p.price.toFixed(2).replace('.', ',')}</div>
+        </div>
+      </div>
+      <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
+        <button onclick="window.lancarItemRapidoDireto(${p.id}, 1)" style="padding:8px 12px; border-radius:10px; background:#10b981; border:none; color:white; font-weight:800; font-size:13px; cursor:pointer; display:flex; align-items:center; gap:4px; box-shadow:0 2px 6px rgba(16,185,129,0.25);">
+          <i class="ph-bold ph-plus"></i> 1x
+        </button>
+        <button onclick="window.lancarItemRapidoDireto(${p.id}, 2)" style="padding:8px 10px; border-radius:10px; background:#f1f5f9; border:1px solid #cbd5e1; color:#334155; font-weight:800; font-size:12.5px; cursor:pointer;">
+          +2x
+        </button>
+      </div>
+    </div>
+  `).join('');
+}
+
+window.lancarItemRapidoDireto = function(prodId, qtd = 1) {
+  const prod = MENU.find(p => p.id === prodId);
+  if (!prod) return;
+  if (!currentTable) {
+    showToast('Nenhuma mesa ativa', '#ef4444');
+    return;
+  }
+
+  const emitItem = {
+    productName: prod.name,
+    productEmoji: prod.emoji || '🍽️',
+    sector: prod.sector || 'Cozinha 1',
+    quantity: qtd,
+    observations: 'Adicionado na conferência',
+    composicoes: [],
+    total: (prod.price * qtd).toFixed(2).replace('.', ','),
+    mesa_comanda: '',
+    localName: currentTable,
+    userName: loggedUser ? loggedUser.nome : 'Garçom',
+    status: 'Pendente',
+    time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+    createdAt: Date.now()
+  };
+
+  socket.emit('novo_pedido', emitItem);
+  if (typeof trackInsertion === 'function') trackInsertion();
+
+  showToast(`✓ ${qtd}x ${prod.name} adicionado à ${currentTable}!`, '#10b981');
+  
+  // Atualizar itens da mesa imediatamente
+  setTimeout(() => {
+    socket.emit('get_itens_mesa', currentTable);
+  }, 200);
+};

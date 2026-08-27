@@ -647,6 +647,12 @@
 
         <div style="background: white; padding: 16px; border-radius: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.04); border: 1px solid #e2e8f0; margin-top: 16px;">
           <div style="font-size: 14px; font-weight: 700; color: #64748b; margin-bottom: 12px;">Conferência dos Itens</div>
+          
+          <!-- Botão Adicionar Item Rápido -->
+          <button class="btn-add-item-rapido-bill" onclick="window.abrirAdicionarItemRapidoGarcom()" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 13px 16px; background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border: 1.5px dashed #3b82f6; color: #1d4ed8; border-radius: 16px; font-weight: 800; font-size: 14px; cursor: pointer; margin-bottom: 14px; transition: all 0.2s; box-shadow: 0 2px 8px rgba(59,130,246,0.08);">
+            <i class="ph-bold ph-plus-circle" style="font-size: 20px; color: #2563eb;"></i>
+            <span>+ Adicionar Item Não Marcado</span>
+          </button>
           <div id="bill-pessoas-items-list" style="display: flex; flex-direction: column; gap: 8px;">
             <!-- Rendered by JS -->
           </div>
@@ -663,6 +669,12 @@
           <div id="bill-comanda-selectors" style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; display: none;">
             <!-- Comanda selection buttons injected here -->
           </div>
+          
+          <!-- Botão Adicionar Item Rápido -->
+          <button class="btn-add-item-rapido-bill" onclick="window.abrirAdicionarItemRapidoGarcom()" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 13px 16px; background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border: 1.5px dashed #3b82f6; color: #1d4ed8; border-radius: 16px; font-weight: 800; font-size: 14px; cursor: pointer; margin-bottom: 14px; transition: all 0.2s; box-shadow: 0 2px 8px rgba(59,130,246,0.08);">
+            <i class="ph-bold ph-plus-circle" style="font-size: 20px; color: #2563eb;"></i>
+            <span>+ Adicionar Item Não Marcado</span>
+          </button>
           <div id="bill-items-list" style="display: flex; flex-direction: column; gap: 12px;">
             <!-- Items rendered here -->
           </div>
@@ -1040,6 +1052,81 @@
       </div>
     </div>
 
+    
+    <!-- MODAL QR CODE DA MESA (GARÇOM) -->
+    <div id="modal-qr-mesa-garcom" class="garcom-modal-overlay" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.65); backdrop-filter:blur(4px); z-index:99999; justify-content:center; align-items:center; padding:16px;" onclick="if(event.target===this) window.fecharQrCodeMesaGarcom()">
+      <div class="garcom-modal-card" style="max-width: 360px; width: 100%; text-align: center; padding: 24px 20px; border-radius: 24px; background: #ffffff; box-shadow: 0 20px 50px rgba(0,0,0,0.3); border: 1px solid #e2e8f0; margin: auto; animation: popIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <div style="width:38px; height:38px; border-radius:12px; background:#e0f2fe; color:#0284c7; display:flex; align-items:center; justify-content:center; font-size:20px;">
+              <i class="ph-bold ph-qr-code"></i>
+            </div>
+            <div style="text-align: left;">
+              <strong style="font-size:17px; color:#0f172a; display: block;" id="qr-mesa-titulo">Mesa</strong>
+              <span style="font-size: 11.5px; color: #64748b;">Cardápio Digital do Cliente</span>
+            </div>
+          </div>
+          <button onclick="window.fecharQrCodeMesaGarcom()" style="background:#f1f5f9; border:none; font-size:20px; color:#64748b; cursor:pointer; width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center;">&times;</button>
+        </div>
+
+        <div style="background: #f8fafc; border-radius: 20px; padding: 16px; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; border: 1.5px solid #e2e8f0; margin: 10px 0; width: 100%; box-sizing: border-box;">
+          <div id="qr-mesa-container" style="display: flex; align-items: center; justify-content: center; min-width: 220px; min-height: 220px; background: white; padding: 10px; border-radius: 14px; box-shadow: 0 4px 14px rgba(0,0,0,0.06);">
+            <!-- Canvas / Img gerado por JS -->
+          </div>
+        </div>
+
+        <p style="font-size: 13px; color: #475569; margin: 8px 0 16px 0; font-weight: 500; line-height: 1.4;">
+          Peça para o cliente apontar a câmera do celular para este QR Code para abrir o cardápio da mesa.
+        </p>
+
+        <div style="display: flex; gap: 8px;">
+          <button onclick="window.copiarLinkCardapioMesa()" style="flex: 1; padding: 12px; border-radius: 12px; background: #f1f5f9; border: 1px solid #cbd5e1; color: #334155; font-weight: 700; font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+            <i class="ph ph-copy"></i> Copiar Link
+          </button>
+          <button onclick="window.abrirCardapioMesaDireto()" style="flex: 1; padding: 12px; border-radius: 12px; background: #fc4b15; border: none; color: white; font-weight: 800; font-size: 13.5px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 4px 12px rgba(252,75,21,0.25);">
+            <i class="ph ph-arrow-square-out"></i> Abrir
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL ADICIONAR ITEM RÁPIDO NA CONTA DA MESA -->
+    <div id="modal-add-item-rapido-garcom" class="garcom-modal-overlay" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.65); backdrop-filter:blur(4px); z-index:99999; justify-content:flex-end; align-items:flex-end; padding:0;" onclick="if(event.target===this) window.fecharAdicionarItemRapidoGarcom()">
+      <div class="garcom-modal-sheet" style="width: 100%; max-height: 85vh; border-radius: 28px 28px 0 0; background: #ffffff; box-shadow: 0 -10px 40px rgba(0,0,0,0.3); display: flex; flex-direction: column; padding: 20px 18px; box-sizing: border-box; animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);">
+        
+        <!-- Header da Folha -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <div>
+            <h3 style="font-size: 18px; font-weight: 800; color: #0f172a; margin: 0;">Adicionar Item Rápido</h3>
+            <span style="font-size: 12px; color: #64748b;" id="add-rapido-mesa-sub">Lançar produto direto na conta</span>
+          </div>
+          <button onclick="window.fecharAdicionarItemRapidoGarcom()" style="background:#f1f5f9; border:none; font-size:20px; color:#64748b; cursor:pointer; width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center;">&times;</button>
+        </div>
+
+        <!-- Campo de Busca Instantânea -->
+        <div style="display: flex; align-items: center; gap: 8px; background: #f1f5f9; border: 1.5px solid #cbd5e1; border-radius: 14px; padding: 0 12px; height: 44px; margin-bottom: 12px;">
+          <i class="ph ph-magnifying-glass" style="font-size: 20px; color: #64748b;"></i>
+          <input type="text" id="input-busca-item-rapido" placeholder="Buscar produto (ex: Coca, Cerveja, Porção)..." oninput="window.filtrarItensRapidosGarcom()" style="flex: 1; border: none; background: transparent; outline: none; font-size: 14px; font-weight: 600; color: #0f172a;">
+        </div>
+
+        <!-- Chips de Categoria Rápida -->
+        <div id="chips-categorias-item-rapido" style="display: flex; gap: 6px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 10px; scrollbar-width: none;">
+          <!-- Injetado por JS -->
+        </div>
+
+        <!-- Lista de Produtos para Lançamento Rápido -->
+        <div id="lista-produtos-item-rapido" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; max-height: 48vh; padding-right: 2px;">
+          <!-- Injetado por JS -->
+        </div>
+
+        <div style="padding-top: 12px; border-top: 1px solid #e2e8f0; margin-top: 8px; padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 8px);">
+          <button onclick="window.fecharAdicionarItemRapidoGarcom()" style="width: 100%; padding: 13px; border-radius: 14px; background: #f1f5f9; border: 1px solid #cbd5e1; color: #475569; font-weight: 700; font-size: 14px; cursor: pointer;">
+            Concluir / Fechar
+          </button>
+        </div>
+      </div>
+    </div>
+
     <div id="toast">Pedido Enviado com Sucesso!</div>
   </div>
 
@@ -1048,7 +1135,9 @@
   <script src="tracking.js"></script>
   <script src="offline-queue.js"></script>
 <script src="/chef-tz.js"></script>
-<script src="garcom.js"></script>
+<script src="/vendor/qrcode/qrcode-generator.js"></script>
+  <script src="/vendor/qrcode/qr-helper.js"></script>
+  <script src="garcom.js"></script>
   <script>window.PUSH_ROLE = 'garcom';</script>
   <script src="push-client.js"></script>
 </body>

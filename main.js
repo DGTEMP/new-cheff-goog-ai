@@ -1742,6 +1742,7 @@ function renderOrders() {
         return;
       }
       showActionPopup([
+        { id: 'qr', icon: 'ph-qr-code', label: 'Exibir QR Code', cls: 'info', fn: () => { window.mostrarQrCodeMesa(nomeMesa); } },
         { id: 'lancar', icon: 'ph-plus-circle', label: 'Lançar Itens', cls: 'primary', fn: () => { card.click(); setTimeout(() => { const b = document.getElementById('btn-adicionar-produtos'); if (b) b.click(); }, 150); } },
         { id: 'parcial', icon: 'ph-currency-dollar', label: 'Pagamento Parcial', cls: 'success', fn: () => { card.click(); setTimeout(() => { const b = document.getElementById('btn-movimento-pagamento-parcial'); if (b) b.click(); }, 150); } },
         { id: 'fechar', icon: 'ph-check-circle', label: 'Fechar Conta', cls: '', fn: () => { card.click(); setTimeout(() => { const b = document.getElementById('btn-movimento-concluir'); if (b) b.click(); }, 150); } },
@@ -9726,3 +9727,43 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 
+
+
+window.mostrarQrCodeMesa = function(nomeMesa) {
+  if (!nomeMesa) {
+    const el = document.getElementById('info-mesa-nome');
+    nomeMesa = el ? el.innerText : '1';
+  }
+  let modal = document.getElementById('modal-qrcode-mesa-pdv');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'modal-qrcode-mesa-pdv';
+    modal.style.cssText = 'display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.65); backdrop-filter:blur(4px); z-index:999999; justify-content:center; align-items:center;';
+    modal.onclick = (e) => { if (e.target === modal) modal.style.display = 'none'; };
+    document.body.appendChild(modal);
+  }
+
+  const proto = window.location.protocol;
+  const host = window.location.host;
+  const restauranteId = localStorage.getItem('restaurante_id') || '1';
+  const urlCardapio = `${proto}//${host}/cardapio.html?mesa=${encodeURIComponent(nomeMesa)}&restaurante_id=${encodeURIComponent(restauranteId)}`;
+
+  modal.innerHTML = `
+    <div style="background:white; border-radius:24px; padding:24px 20px; max-width:360px; width:100%; text-align:center; box-shadow:0 20px 50px rgba(0,0,0,0.3); border:1px solid #e2e8f0; position:relative; margin:16px;">
+      <button onclick="document.getElementById('modal-qrcode-mesa-pdv').style.display='none'" style="position:absolute; top:14px; right:14px; background:#f1f5f9; border:none; width:32px; height:32px; border-radius:50%; font-size:18px; color:#64748b; cursor:pointer;">&times;</button>
+      <div style="display:flex; align-items:center; gap:8px; justify-content:center; margin-bottom:12px;">
+        <i class="ph-bold ph-qr-code" style="color:#0284c7; font-size:24px;"></i>
+        <h3 style="margin:0; font-size:18px; color:#0f172a;">${nomeMesa.startsWith('Mesa') ? nomeMesa : 'Mesa ' + nomeMesa}</h3>
+      </div>
+      <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:18px; padding:16px; margin:12px 0; display:flex; justify-content:center; align-items:center; min-height:220px;">
+        <img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(urlCardapio)}" alt="QR Code" style="width:220px; height:220px; border-radius:8px; display:block;">
+      </div>
+      <p style="font-size:12.5px; color:#64748b; margin:6px 0 16px 0;">Aponte a câmera do celular para acessar o cardápio digital desta mesa.</p>
+      <div style="display:flex; gap:8px;">
+        <button onclick="navigator.clipboard.writeText('${urlCardapio}').then(() => alert('Link copiado!'));" style="flex:1; padding:11px; border-radius:12px; background:#f1f5f9; border:1px solid #cbd5e1; font-weight:700; font-size:13px; cursor:pointer;">Copiar Link</button>
+        <button onclick="window.open('${urlCardapio}', '_blank');" style="flex:1; padding:11px; border-radius:12px; background:#fc4b15; border:none; color:white; font-weight:800; font-size:13px; cursor:pointer;">Abrir Cardápio</button>
+      </div>
+    </div>
+  `;
+  modal.style.display = 'flex';
+};
