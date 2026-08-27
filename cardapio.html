@@ -2516,7 +2516,7 @@
 
     function calcProgress(createdAt) {
       if (!createdAt) return { progress: 0, remaining: '...' };
-      const created = new Date(createdAt + (createdAt.includes('T') ? '' : 'T00:00:00')).getTime();
+      const created = new Date(createdAt + (createdAt.includes('T') ? '' : 'Z')).getTime();
       if (isNaN(created)) return { progress: 0, remaining: '...' };
       const now = Date.now();
       const sector = 'Cozinha 1';

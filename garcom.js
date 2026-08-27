@@ -1,6 +1,8 @@
 window.activeComandas = [];
 window.pendingShowBill = false;
 window.newComandasMap = new Map();
+// Parse timestamps stored as UTC in DB
+function parseUtc(s) { if (!s) return Date.now(); const t = s.includes('T') ? s : s + 'Z'; const d = new Date(t); return isNaN(d.getTime()) ? Date.now() : d.getTime(); }
 const HOST = window.location.hostname;
 const socket = io({ query: { token: localStorage.getItem('chef_token'), restaurante_id: localStorage.getItem('restaurante_id') || '1' } });
 window.socket = socket;
@@ -1958,7 +1960,7 @@ socket.on('esteira_atualizada', (pedidos) => {
         else if (diffSec < 3600) tempoPronto = `${Math.floor(diffSec / 60)}min`;
         else tempoPronto = `${Math.floor(diffSec / 3600)}h${Math.floor((diffSec % 3600) / 60)}m`;
       } else if (p.createdAt) {
-        const diffSec = Math.floor((Date.now() - new Date(p.createdAt).getTime()) / 1000);
+        const diffSec = Math.floor((Date.now() - parseUtc(p.createdAt)) / 1000);
         if (diffSec < 60) tempoPronto = `${diffSec}s`;
         else if (diffSec < 3600) tempoPronto = `${Math.floor(diffSec / 60)}min`;
         else tempoPronto = `${Math.floor(diffSec / 3600)}h${Math.floor((diffSec % 3600) / 60)}m`;
@@ -2009,7 +2011,7 @@ socket.on('esteira_atualizada', (pedidos) => {
         ${tempoPronto ? `<div style="color: ${isCalled ? '#fbbf24' : (isChamada ? '#c2410c' : '#15803d')}; font-size: 12px; font-weight: 700; margin-top: 4px; display: flex; align-items: center; gap: 4px;"><i class="ph ph-clock"></i> Pronto há ${tempoPronto}</div>` : ''}
         ${(() => {
           if (p.prontoEm && p.createdAt) {
-            const prepSec = Math.floor((new Date(p.prontoEm).getTime() - new Date(p.createdAt).getTime()) / 1000);
+            const prepSec = Math.floor((parseUtc(p.prontoEm) - parseUtc(p.createdAt)) / 1000);
             if (prepSec > 0) {
               let tempoPrep = '';
               if (prepSec < 60) tempoPrep = `${prepSec}s`;
@@ -2172,12 +2174,41 @@ window.closeQRScanner = () => {
 socket.on('cupom_sucesso', (data) => {
   showToast(data.mensagem || 'Cupom aplicado!', '#3ab55b');
   playDing();
-  showView('tables', 'Comanda Mobile'); // Retorna para a lista de mesas/atualiza
+  const inp = document.getElementById('cupom-manual-input');
+  if (inp) inp.value = '';
+  showView('tables', 'Comanda Mobile');
 });
 
 socket.on('cupom_invalido', (data) => {
-  alert('Erro ao resgatar: ' + data.error);
+  showToast(data.error || 'Cupom inválido', '#e74c3c');
+  const inp = document.getElementById('cupom-manual-input');
+  if (inp) { inp.value = ''; inp.focus(); }
 });
+
+// ── Cupom manual: valida ao digitar último caractere ──
+(function() {
+  let _mesaName = null;
+  const origStartQR = window.startQRScanner;
+  window.startQRScanner = function(mesaName) {
+    _mesaName = mesaName;
+    if (origStartQR) origStartQR(mesaName);
+  };
+  document.addEventListener('DOMContentLoaded', () => {
+    const inp = document.getElementById('cupom-manual-input');
+    if (!inp) return;
+    inp.addEventListener('input', () => {
+      const val = inp.value.trim().toUpperCase();
+      if (val.length >= 4) {
+        socket.emit('validar_cupom', {
+          mesaName: _mesaName,
+          codigo: val,
+          userName: loggedUser ? loggedUser.nome : 'Garcom'
+        });
+        showToast('Validando cupom...', '#f2c94c');
+      }
+    });
+  });
+})();
 
 socket.on('pedido_pronto', (pedido) => {
   if (loggedUser) {
@@ -2576,7 +2607,7 @@ socket.on('historico_cliente', (data) => {
   }
   var html = '<div style="padding:8px 0;"><div style="font-size:11px;font-weight:800;color:#64748b;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;"><i class="ph ph-clock-counter-clockwise"></i> Últimos pedidos:</div>';
   data.historico.forEach(function(p) {
-    var tempo = p.createdAt ? new Date(p.createdAt).toLocaleDateString('pt-BR') : '';
+    var tempo = p.createdAt ? new Date(parseUtc(p.createdAt)).toLocaleDateString('pt-BR') : '';
     html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #f1f5f9;font-size:12px;">' +
       '<div><span style="font-weight:700;">' + (p.productEmoji || '') + ' ' + p.productName + '</span> <span style="color:#94a3b8;">x' + p.quantity + '</span></div>' +
       '<div style="display:flex;align-items:center;gap:8px;color:#94a3b8;"><span>' + tempo + '</span><span style="color:#16a34a;font-weight:700;">R$ ' + parseFloat(p.total || 0).toFixed(2).replace('.', ',') + '</span></div>' +
@@ -2920,7 +2951,7 @@ window.renderFilaPreparoGarcom = function(pedidos) {
   container.innerHTML = filtrados.map(p => {
     let diffMin = 0;
     if (p.createdAt) {
-      const diffMs = Date.now() - new Date(p.createdAt).getTime();
+      const diffMs = Date.now() - parseUtc(p.createdAt);
       diffMin = Math.max(0, Math.floor(diffMs / 60000));
     }
 

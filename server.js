@@ -1740,13 +1740,13 @@ app.post('/api/super/criar-restaurante', superAdminAuth, async (req, res) => {
     if (!nome) return res.json({ ok: false, erro: 'Nome do restaurante é obrigatório.' });
     const activeVal = ativo !== undefined ? (ativo ? 1 : 0) : 1;
     const licencaVal = licenca || 'trial';
-    masterDb.run(`INSERT INTO restaurantes (nome, licenca, ativo, data_cadastro) VALUES (?, ?, ?, datetime('now', 'localtime'))`,
+    masterDb.run(`INSERT INTO restaurantes (nome, licenca, ativo, data_cadastro) VALUES (?, ?, ?, datetime('now'))`,
       [nome, licencaVal, activeVal], function(err) {
         if (err) return res.json({ ok: false, erro: err.message });
         const restauranteId = this.lastID;
         if (email && senha) {
           bcrypt.hash(senha, 10).then(hash => {
-            masterDb.run(`INSERT INTO usuarios (restaurante_id, username, password_hash, role, ativo, data_cadastro) VALUES (?, ?, ?, 'admin', 1, datetime('now', 'localtime'))`,
+            masterDb.run(`INSERT INTO usuarios (restaurante_id, username, password_hash, role, ativo, data_cadastro) VALUES (?, ?, ?, 'admin', 1, datetime('now'))`,
               [restauranteId, email.trim().toLowerCase(), hash], function(errUser) {
                 if (errUser) return res.json({ ok: true, restauranteId, alerta: 'Restaurante criado, mas falhou ao registrar usuário administrador.' });
                 celebrarNovoRestaurante(nome, restauranteId, email || null);
@@ -1889,7 +1889,7 @@ app.get('/api/super/metricas/garcons', superAdminAuth, (req, res) => {
       let somaMin = 0, countMin = 0;
       fPedidos.forEach(p => {
         if (p.entregueEm && p.createdAt) {
-          const criado = new Date(p.createdAt).getTime();
+          const criado = p.createdAt ? new Date(p.createdAt + (p.createdAt.includes('T') ? '' : 'Z')).getTime() : 0;
           const entregue = new Date(p.entregueEm).getTime();
           if (!isNaN(criado) && !isNaN(entregue) && entregue > criado) { somaMin += (entregue - criado) / 60000; countMin++; }
         }
@@ -3413,7 +3413,7 @@ masterDb.serialize(async () => {
     max_dispositivos INTEGER DEFAULT 0,
     slug TEXT UNIQUE,
     custom_domain TEXT UNIQUE,
-    data_cadastro DATETIME DEFAULT (datetime('now', 'localtime'))
+    data_cadastro DATETIME DEFAULT (datetime('now'))
   )`);
   masterDb.run(`CREATE TABLE IF NOT EXISTS metricas_sockets (
     dia TEXT NOT NULL,
@@ -3436,7 +3436,7 @@ masterDb.serialize(async () => {
     password_hash TEXT,
     role TEXT DEFAULT 'admin',
     ativo BOOLEAN DEFAULT 1,
-    data_cadastro DATETIME DEFAULT (datetime('now', 'localtime'))
+    data_cadastro DATETIME DEFAULT (datetime('now'))
   )`);
   masterDb.run(`CREATE TABLE IF NOT EXISTS licencas (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -3448,7 +3448,7 @@ masterDb.serialize(async () => {
     max_dispositivos INTEGER DEFAULT 0,
     obs TEXT,
     status TEXT DEFAULT 'disponivel',
-    criada_em DATETIME DEFAULT (datetime('now', 'localtime')),
+    criada_em DATETIME DEFAULT (datetime('now')),
     usada_em DATETIME,
     usada_por TEXT,
     install_id TEXT
@@ -3580,7 +3580,7 @@ masterDb.serialize(async () => {
   masterDb.run(`CREATE TABLE IF NOT EXISTS tenant_features (
     restaurante_id INTEGER PRIMARY KEY,
     overrides_json TEXT,
-    updated_at DATETIME DEFAULT (datetime('now', 'localtime'))
+    updated_at DATETIME DEFAULT (datetime('now'))
   )`);
 
   // Colunas de domínio para tenants (subdomínio + domínio próprio)
@@ -3604,7 +3604,7 @@ masterDb.run(`CREATE TABLE IF NOT EXISTS chaves_ativacao (
   status TEXT DEFAULT 'ativa',
   restaurante_id INTEGER,
   observacao TEXT,
-  criada_em DATETIME DEFAULT (datetime('now', 'localtime')),
+  criada_em DATETIME DEFAULT (datetime('now')),
   usada_em TEXT
 )`);
   // Inteligência: endereço completo + último dispositivo usado no acesso
@@ -3730,7 +3730,7 @@ masterDb.run(`CREATE TABLE IF NOT EXISTS chaves_ativacao (
     chave_pix TEXT,
     status TEXT DEFAULT 'ativo',
     password_hash TEXT,
-    created_at DATETIME DEFAULT (datetime('now', 'localtime'))
+    created_at DATETIME DEFAULT (datetime('now'))
   )`);
   masterDb.run(`CREATE TABLE IF NOT EXISTS afiliado_vendas (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -3741,7 +3741,7 @@ masterDb.run(`CREATE TABLE IF NOT EXISTS chaves_ativacao (
     valor_venda REAL DEFAULT 0,
     comissao_valor REAL DEFAULT 0,
     status TEXT DEFAULT 'pendente',
-    created_at DATETIME DEFAULT (datetime('now', 'localtime')),
+    created_at DATETIME DEFAULT (datetime('now')),
     FOREIGN KEY (afiliado_id) REFERENCES afiliados(id)
   )`);
 });
@@ -3923,7 +3923,7 @@ function seedTenantDb(db, restauranteNome, done) {
       chave_pix TEXT,
       status TEXT DEFAULT 'ativo',
       password_hash TEXT,
-      created_at DATETIME DEFAULT (datetime('now', 'localtime'))
+      created_at DATETIME DEFAULT (datetime('now'))
     )
   `);
 
@@ -3937,7 +3937,7 @@ function seedTenantDb(db, restauranteNome, done) {
       valor_venda REAL DEFAULT 0,
       comissao_valor REAL DEFAULT 0,
       status TEXT DEFAULT 'pendente',
-      created_at DATETIME DEFAULT (datetime('now', 'localtime')),
+      created_at DATETIME DEFAULT (datetime('now')),
       FOREIGN KEY (afiliado_id) REFERENCES afiliados(id)
     )
   `);
@@ -4213,7 +4213,7 @@ db.serialize(() => {
       sector TEXT,
       paymentMethod TEXT,
       turno_id INTEGER,
-      createdAt DATETIME DEFAULT (datetime('now', 'localtime'))
+      createdAt DATETIME DEFAULT (datetime('now'))
     )
   `);
 
@@ -4227,7 +4227,7 @@ db.serialize(() => {
       pago_pix INTEGER DEFAULT 0,
       chave_pix TEXT,
       status TEXT DEFAULT 'Pendente',
-      createdAt DATETIME DEFAULT (datetime('now', 'localtime'))
+      createdAt DATETIME DEFAULT (datetime('now'))
     )
   `);
   db.run(`ALTER TABLE qr_pedidos_pendentes ADD COLUMN cliente_id INTEGER`, (err) => { });
@@ -4242,7 +4242,7 @@ db.serialize(() => {
       cliente_id INTEGER,
       cliente_nome TEXT,
       cliente_telefone TEXT,
-      updated_at DATETIME DEFAULT (datetime('now', 'localtime'))
+      updated_at DATETIME DEFAULT (datetime('now'))
     )
   `);
 
@@ -4272,7 +4272,7 @@ db.serialize(() => {
     pricing_model TEXT DEFAULT 'soma',
     preco_fixo REAL DEFAULT 0,
     ativo INTEGER DEFAULT 1,
-    criado_em DATETIME DEFAULT (datetime('now', 'localtime'))
+    criado_em DATETIME DEFAULT (datetime('now'))
   )`, (err) => { });
   db.run(`CREATE TABLE IF NOT EXISTS montavel_categorias (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -4303,7 +4303,7 @@ db.serialize(() => {
       p256dh TEXT,
       role TEXT DEFAULT 'garcom',
       nome TEXT,
-      created_at DATETIME DEFAULT (datetime('now', 'localtime'))
+      created_at DATETIME DEFAULT (datetime('now'))
     )
   `);
 
@@ -4317,8 +4317,8 @@ db.serialize(() => {
       ultimo_ip TEXT DEFAULT '',
       ultimo_usuario TEXT DEFAULT '',
       ultimo_cargo TEXT DEFAULT '',
-      criado_em DATETIME DEFAULT (datetime('now', 'localtime')),
-      ultimo_visto DATETIME DEFAULT (datetime('now', 'localtime'))
+      criado_em DATETIME DEFAULT (datetime('now')),
+      ultimo_visto DATETIME DEFAULT (datetime('now'))
     )
   `);
   // Modo de operação remota do terminal: normal | totem | totem_invertido
@@ -4340,7 +4340,7 @@ db.serialize(() => {
       origem TEXT DEFAULT 'cliente',
       motivo_pendente TEXT DEFAULT '',
       checked_in_at DATETIME,
-      criada_em DATETIME DEFAULT (datetime('now', 'localtime'))
+      criada_em DATETIME DEFAULT (datetime('now'))
     )
   `);
   db.run(`CREATE INDEX IF NOT EXISTS idx_reservas_data ON reservas_futuras (data_reserva)`);
@@ -4392,7 +4392,7 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       cliente_id INTEGER,
       pontos INTEGER DEFAULT 0,
-      data DATETIME DEFAULT (datetime('now', 'localtime'))
+      data DATETIME DEFAULT (datetime('now'))
     )
   `);
   db.run(`
@@ -4436,7 +4436,7 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
       origem TEXT DEFAULT 'interno',
       sincronizado INTEGER DEFAULT 0,
       google_review_id TEXT,
-      criado_em DATETIME DEFAULT (datetime('now', 'localtime'))
+      criado_em DATETIME DEFAULT (datetime('now'))
     )
   `);
 
@@ -4446,7 +4446,7 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
       cliente_id INTEGER,
       cliente_nome TEXT,
       cliente_telefone TEXT,
-      data_visita DATETIME DEFAULT (datetime('now', 'localtime')),
+      data_visita DATETIME DEFAULT (datetime('now')),
       mesa TEXT,
       pontos_ganhos INTEGER DEFAULT 0,
       contabilizado INTEGER DEFAULT 0
@@ -4469,7 +4469,7 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       status TEXT DEFAULT 'Aberto',
       fundo_troco REAL,
-      data_abertura DATETIME DEFAULT (datetime('now', 'localtime')),
+      data_abertura DATETIME DEFAULT (datetime('now')),
       data_fechamento DATETIME
     )
   `);
@@ -4482,7 +4482,7 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
       valor REAL,
       forma_pagamento TEXT,
       descricao TEXT,
-      data DATETIME DEFAULT (datetime('now', 'localtime'))
+      data DATETIME DEFAULT (datetime('now'))
     )
   `);
   db.run(`
@@ -4493,7 +4493,7 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
       titulo TEXT,
       mensagem TEXT,
       entregue INTEGER DEFAULT 0,
-      criado_em DATETIME DEFAULT (datetime('now', 'localtime'))
+      criado_em DATETIME DEFAULT (datetime('now'))
     )
   `);
   db.run(`
@@ -4507,7 +4507,7 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
       status TEXT DEFAULT 'Esperando',
       mesa_ofertada TEXT,
       mesa_acomodado TEXT,
-      criado_em DATETIME DEFAULT (datetime('now', 'localtime')),
+      criado_em DATETIME DEFAULT (datetime('now')),
       atualizado_em DATETIME
     )
   `);
@@ -4530,7 +4530,7 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
       xml_content TEXT,
       danfe_html TEXT,
       erros TEXT,
-      created_at DATETIME DEFAULT (datetime('now', 'localtime'))
+      created_at DATETIME DEFAULT (datetime('now'))
     )
   `);
 
@@ -4604,7 +4604,7 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
       metodo TEXT,
       colaborador TEXT,
       observacao TEXT,
-      created_at DATETIME DEFAULT (datetime('now', 'localtime'))
+      created_at DATETIME DEFAULT (datetime('now'))
     )
   `);
 
@@ -4715,7 +4715,7 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
       justificativa TEXT,
       status TEXT DEFAULT 'pendente',
       admin_obs TEXT,
-      created_at DATETIME DEFAULT (datetime('now', 'localtime'))
+      created_at DATETIME DEFAULT (datetime('now'))
     )
   `);
 
@@ -4725,7 +4725,7 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
       funcionario_id INTEGER,
       data TEXT,
       disponivel BOOLEAN DEFAULT 1,
-      created_at DATETIME DEFAULT (datetime('now', 'localtime')),
+      created_at DATETIME DEFAULT (datetime('now')),
       UNIQUE(funcionario_id, data)
     )
   `);
@@ -4735,11 +4735,11 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       funcionario_id INTEGER,
       funcionario_nome TEXT,
-      data_hora DATETIME DEFAULT (datetime('now', 'localtime'))
+      data_hora DATETIME DEFAULT (datetime('now'))
     )
   `);
 
-  db.run("CREATE TABLE IF NOT EXISTS cupons (codigo TEXT PRIMARY KEY, itens_json TEXT, usado INTEGER DEFAULT 0, data_criacao DATETIME DEFAULT (datetime('now', 'localtime')))");
+  db.run("CREATE TABLE IF NOT EXISTS cupons (codigo TEXT PRIMARY KEY, itens_json TEXT, usado INTEGER DEFAULT 0, data_criacao DATETIME DEFAULT (datetime('now')))");
   db.run("ALTER TABLE cupons ADD COLUMN validade TEXT", () => { });
   db.run("ALTER TABLE cupons ADD COLUMN dias_horarios_json TEXT", () => { });
   db.run("ALTER TABLE cupons ADD COLUMN valor_tipo TEXT", () => { });
@@ -4754,7 +4754,7 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
     garcom TEXT,
     cliente_nome TEXT,
     itens_resgatados TEXT,
-    data_uso DATETIME DEFAULT (datetime('now', 'localtime')),
+    data_uso DATETIME DEFAULT (datetime('now')),
     FOREIGN KEY (cupom_codigo) REFERENCES cupons(codigo)
   )`, () => { });
 
@@ -4778,7 +4778,7 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       status TEXT DEFAULT 'Aberto',
       fundo_troco REAL,
-      data_abertura DATETIME DEFAULT (datetime('now', 'localtime')),
+      data_abertura DATETIME DEFAULT (datetime('now')),
       data_fechamento DATETIME
     )
   `);
@@ -4791,7 +4791,7 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
       valor REAL,
       forma_pagamento TEXT,
       descricao TEXT,
-      data DATETIME DEFAULT (datetime('now', 'localtime'))
+      data DATETIME DEFAULT (datetime('now'))
     )
   `);
   db.run(`
@@ -4802,7 +4802,7 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
       titulo TEXT,
       mensagem TEXT,
       entregue INTEGER DEFAULT 0,
-      criado_em DATETIME DEFAULT (datetime('now', 'localtime'))
+      criado_em DATETIME DEFAULT (datetime('now'))
     )
   `);
   db.run(`
@@ -4816,7 +4816,7 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
       status TEXT DEFAULT 'Esperando',
       mesa_ofertada TEXT,
       mesa_acomodado TEXT,
-      criado_em DATETIME DEFAULT (datetime('now', 'localtime')),
+      criado_em DATETIME DEFAULT (datetime('now')),
       atualizado_em DATETIME
     )
   `);
@@ -4839,7 +4839,7 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
       xml_content TEXT,
       danfe_html TEXT,
       erros TEXT,
-      created_at DATETIME DEFAULT (datetime('now', 'localtime'))
+      created_at DATETIME DEFAULT (datetime('now'))
     )
   `);
 
@@ -4913,7 +4913,7 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
       metodo TEXT,
       colaborador TEXT,
       observacao TEXT,
-      created_at DATETIME DEFAULT (datetime('now', 'localtime'))
+      created_at DATETIME DEFAULT (datetime('now'))
     )
   `);
 
@@ -5000,11 +5000,11 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       funcionario_id INTEGER,
       funcionario_nome TEXT,
-      data_hora DATETIME DEFAULT (datetime('now', 'localtime'))
+      data_hora DATETIME DEFAULT (datetime('now'))
     )
   `);
 
-  db.run("CREATE TABLE IF NOT EXISTS cupons (codigo TEXT PRIMARY KEY, itens_json TEXT, usado INTEGER DEFAULT 0, data_criacao DATETIME DEFAULT (datetime('now', 'localtime')))");
+  db.run("CREATE TABLE IF NOT EXISTS cupons (codigo TEXT PRIMARY KEY, itens_json TEXT, usado INTEGER DEFAULT 0, data_criacao DATETIME DEFAULT (datetime('now')))");
   db.run("ALTER TABLE cupons ADD COLUMN validade TEXT", () => { });
   db.run("ALTER TABLE cupons ADD COLUMN dias_horarios_json TEXT", () => { });
   db.run("ALTER TABLE cupons ADD COLUMN valor_tipo TEXT", () => { });
@@ -5019,7 +5019,7 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
     garcom TEXT,
     cliente_nome TEXT,
     itens_resgatados TEXT,
-    data_uso DATETIME DEFAULT (datetime('now', 'localtime')),
+    data_uso DATETIME DEFAULT (datetime('now')),
     FOREIGN KEY (cupom_codigo) REFERENCES cupons(codigo)
   )`, () => { });
 
@@ -5047,7 +5047,7 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
       status TEXT DEFAULT 'Recebido',
       entregador TEXT,
       obs TEXT,
-      criado_em DATETIME DEFAULT (datetime('now', 'localtime')),
+      criado_em DATETIME DEFAULT (datetime('now')),
       atualizado_em DATETIME
     )
   `);
@@ -5079,7 +5079,7 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
   db.run(`
     CREATE TABLE IF NOT EXISTS api_logs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      data_hora DATETIME DEFAULT (datetime('now', 'localtime')),
+      data_hora DATETIME DEFAULT (datetime('now')),
       operador TEXT,
       ip TEXT,
       metodo TEXT,
@@ -5110,7 +5110,7 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
   db.run(`
     CREATE TABLE IF NOT EXISTS auditoria (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      data_hora DATETIME DEFAULT (datetime('now', 'localtime')),
+      data_hora DATETIME DEFAULT (datetime('now')),
       operador TEXT,
       acao TEXT,
       detalhes TEXT,
@@ -5286,7 +5286,7 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
       premio_vencedor TEXT DEFAULT 'Quem paga a conta!',
       premio_perdedor TEXT DEFAULT 'Perdeu, perdeu!',
       ativo INTEGER DEFAULT 1,
-      created_at DATETIME DEFAULT (datetime('now', 'localtime'))
+      created_at DATETIME DEFAULT (datetime('now'))
     )
   `);
 
@@ -5309,7 +5309,7 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
       vencedor TEXT,
       resultado_json TEXT,
       premio_descricao TEXT,
-      created_at DATETIME DEFAULT (datetime('now', 'localtime')),
+      created_at DATETIME DEFAULT (datetime('now')),
       finished_at DATETIME
     )
   `);
@@ -5326,7 +5326,7 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
       perdedor TEXT,
       rodadas_jogadas INTEGER DEFAULT 1,
       premio_descricao TEXT,
-      created_at DATETIME DEFAULT (datetime('now', 'localtime'))
+      created_at DATETIME DEFAULT (datetime('now'))
     )
   `);
 
@@ -6171,13 +6171,13 @@ io.on('connection', (socket) => {
       if (conn.serial) {
         db.run(
           `INSERT INTO dispositivos (serial, modelo, ultimo_ip, ultimo_usuario, ultimo_cargo, ultimo_visto)
-           VALUES (?, ?, ?, ?, ?, datetime('now', 'localtime'))
+           VALUES (?, ?, ?, ?, ?, datetime('now'))
            ON CONFLICT(serial) DO UPDATE SET
              modelo = excluded.modelo,
              ultimo_ip = excluded.ultimo_ip,
              ultimo_usuario = excluded.ultimo_usuario,
              ultimo_cargo = excluded.ultimo_cargo,
-             ultimo_visto = datetime('now', 'localtime')`,
+             ultimo_visto = datetime('now')`,
           [conn.serial, conn.model || '', conn.ip || '', conn.user || '', conn.cargo || ''],
           (eReg) => { if (eReg) console.error('[Dispositivos] falha ao registrar:', eReg.message); }
         );
@@ -6205,8 +6205,8 @@ io.on('connection', (socket) => {
     const tipo = String(d.tipo || '').trim().slice(0, 30);
 
     db.run(
-      `INSERT INTO dispositivos (serial, apelido, tipo, ultimo_visto) VALUES (?, ?, ?, datetime('now', 'localtime'))
-       ON CONFLICT(serial) DO UPDATE SET apelido = excluded.apelido, tipo = excluded.tipo, ultimo_visto = datetime('now', 'localtime')`,
+      `INSERT INTO dispositivos (serial, apelido, tipo, ultimo_visto) VALUES (?, ?, ?, datetime('now'))
+       ON CONFLICT(serial) DO UPDATE SET apelido = excluded.apelido, tipo = excluded.tipo, ultimo_visto = datetime('now')`,
       [serial, apelido, tipo],
       (err) => {
         if (err) return socket.emit('erro_servidor', 'Falha ao salvar apelido do dispositivo.');
@@ -6379,8 +6379,8 @@ io.on('connection', (socket) => {
     if (!s) return responder(false, 'Serial não informado.');
     const m = _MODOS_VALIDOS.includes(modo) ? modo : 'normal';
     db.run(
-      `INSERT INTO dispositivos (serial, modo, ultimo_visto) VALUES (?, ?, datetime('now', 'localtime'))
-       ON CONFLICT(serial) DO UPDATE SET modo = excluded.modo, ultimo_visto = datetime('now', 'localtime')`,
+      `INSERT INTO dispositivos (serial, modo, ultimo_visto) VALUES (?, ?, datetime('now'))
+       ON CONFLICT(serial) DO UPDATE SET modo = excluded.modo, ultimo_visto = datetime('now')`,
       [s, m],
       (err) => {
         if (err) return responder(false, 'Falha ao salvar o modo do dispositivo.');
@@ -6629,7 +6629,7 @@ io.on('connection', (socket) => {
           // Inserir itens
           itens.forEach((item) => {
             db.run(
-              `INSERT INTO pedidos (productName, productEmoji, quantity, total, status, localName, userName, time, sector, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))`,
+              `INSERT INTO pedidos (productName, productEmoji, quantity, total, status, localName, userName, time, sector, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
               [item.nome + ' (Resgate)', item.emoji || '🎁', item.quantity || 1, '0,00', 'Em espera', mesaName, userName || 'Garçom', timeStr, item.sector || 'Bar']
             );
             hasInserted = true;
@@ -6638,13 +6638,13 @@ io.on('connection', (socket) => {
           // Inserir lógica financeira
           if (cupom.valor_tipo === 'desconto_fixo' && cupom.valor > 0) {
             db.run(
-              `INSERT INTO pedidos (productName, productEmoji, quantity, total, status, localName, userName, time, sector, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))`,
+              `INSERT INTO pedidos (productName, productEmoji, quantity, total, status, localName, userName, time, sector, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
               ['Desconto Promocional', '🏏·️', 1, '-' + cupom.valor.toFixed(2).replace('.', ','), 'Pronto', mesaName, userName || 'Garçom', timeStr, 'Caixa']
             );
             hasInserted = true;
           } else if (cupom.valor_tipo === 'preco_fixo' && cupom.valor > 0) {
             db.run(
-              `INSERT INTO pedidos (productName, productEmoji, quantity, total, status, localName, userName, time, sector, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))`,
+              `INSERT INTO pedidos (productName, productEmoji, quantity, total, status, localName, userName, time, sector, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
               ['Cobrança de Combo/Cupom', '💲', 1, cupom.valor.toFixed(2).replace('.', ','), 'Pronto', mesaName, userName || 'Garçom', timeStr, 'Caixa']
             );
             hasInserted = true;
@@ -6789,7 +6789,7 @@ io.on('connection', (socket) => {
         function savePedidoAndBonus() {
           db.run(
             `INSERT INTO pedidos (productName, productEmoji, quantity, time, localName, userName, total, status, sector, cliente_id, promocao_id, entregador_id, mesa_comanda, observations, composicoes, createdAt)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))`,
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
             [pedido.productName, pedido.productEmoji, pedido.quantity, pedido.time, pedido.localName, pedido.userName, pedido.total, status, pedido.sector || 'Cozinha 1', pedido.cliente_id || null, pedido.promocao_id || null, pedido.entregador_id || null, pedido.mesa_comanda || null, pedido.observations || '', JSON.stringify(pedido.composicoes || [])],
             function (err) {
               if (err) {
@@ -6823,7 +6823,7 @@ io.on('connection', (socket) => {
                   const bonusEmoji = bonusProd ? bonusProd.emoji : '🎁';
                   db.run(
                     `INSERT INTO pedidos (productName, productEmoji, quantity, time, localName, userName, total, status, sector, mesa_comanda, createdAt)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))`,
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
                     [comboBonus + ' (Brinde)', bonusEmoji, pedido.quantity, pedido.time, pedido.localName, pedido.userName, "0.00", status, bonusSector, pedido.mesa_comanda || null],
                     function (err2) {
                       if (!err2) {
@@ -6888,7 +6888,7 @@ io.on('connection', (socket) => {
     const idNum = parseInt(id, 10);
     if (isNaN(idNum)) return;
     id = idNum;
-    const prontoUpdate = (status === 'Pronto') ? ", prontoEm = datetime('now', 'localtime')" : '';
+    const prontoUpdate = (status === 'Pronto') ? ", prontoEm = datetime('now')" : '';
     db.run(`UPDATE pedidos SET status = ?${prontoUpdate} WHERE id = ?`, [status, id], function (err) {
       if (err) return console.error(err);
 
@@ -7035,7 +7035,7 @@ io.on('connection', (socket) => {
       const turnoId = turno ? turno.id : null;
       const tipoDb = tipo === 'Sangria' ? 'saida' : 'Entrada';
       db.run(
-        `INSERT INTO movimentacoes (turno_id, tipo, valor, forma_pagamento, descricao, data) VALUES (?, ?, ?, ?, ?, datetime('now', 'localtime'))`,
+        `INSERT INTO movimentacoes (turno_id, tipo, valor, forma_pagamento, descricao, data) VALUES (?, ?, ?, ?, ?, datetime('now'))`,
         [turnoId, tipoDb, valor, forma_pagamento, `${tipo} (${operador}): ${descricao}`],
         function (err) {
           if (err) return;
@@ -7277,7 +7277,7 @@ io.on('connection', (socket) => {
 
             db.run(
               `INSERT INTO pedidos (productName, productEmoji, quantity, time, localName, userName, total, status, sector, turno_id, mesa_comanda, cliente_id, observations, composicoes, createdAt) 
-               VALUES (?, ?, ?, ?, ?, 'QR Code', ?, ?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))`,
+               VALUES (?, ?, ?, ?, ?, 'QR Code', ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
               [item.productName, item.productEmoji || '🍽️', item.quantity, timeStr, mesaName, String(item.total).replace('.', ','), status, item.sector || 'Cozinha 1', turno.id, comandaNome || null, pendingOrder.cliente_id || null, item.observations || '', JSON.stringify(item.composicoes || [])],
               function (errInsert) {
                 if (errInsert) {
@@ -7312,7 +7312,7 @@ io.on('connection', (socket) => {
             const negativeTotal = (-Math.abs(pendingOrder.valor_total)).toFixed(2).replace('.', ',');
             db.run(
               `INSERT INTO pedidos (productName, productEmoji, quantity, total, status, localName, userName, time, sector, turno_id, mesa_comanda, cliente_id, createdAt) 
-               VALUES (?, '💸', 1, ?, 'Entregue', ?, 'QR Code', ?, 'Caixa', ?, ?, ?, datetime('now', 'localtime'))`,
+               VALUES (?, '💸', 1, ?, 'Entregue', ?, 'QR Code', ?, 'Caixa', ?, ?, ?, datetime('now'))`,
               [`Pgto QR Code (Pix) - Cliente ${pendingOrder.cliente_nome}`, negativeTotal, mesaName, timeStr, turno.id, comandaNome || null, pendingOrder.cliente_id || null],
               function (errInsertPay) {
                 if (errInsertPay) {
@@ -7339,7 +7339,7 @@ io.on('connection', (socket) => {
 
             db.run(
               `INSERT INTO movimentacoes (turno_id, tipo, valor, forma_pagamento, descricao, data) 
-               VALUES (?, 'Entrada', ?, 'Pix', ?, datetime('now', 'localtime'))`,
+               VALUES (?, 'Entrada', ?, 'Pix', ?, datetime('now'))`,
               [turno.id, pendingOrder.valor_total, `Pedido QR Code - ${mesaName} (${pendingOrder.cliente_nome})`]
             );
           }
@@ -8336,7 +8336,7 @@ io.on('connection', (socket) => {
                 };
 
                 db.run(
-                  `INSERT INTO pedidos (localName, userName, productName, productEmoji, quantity, total, status, time, sector, turno_id, cliente_id, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))`,
+                  `INSERT INTO pedidos (localName, userName, productName, productEmoji, quantity, total, status, time, sector, turno_id, cliente_id, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
                   [pedido.localName, pedido.userName, pedido.productName, pedido.productEmoji, pedido.quantity, pedido.total, pedido.status, pedido.time, pedido.sector, pedido.turno_id, pedido.cliente_id],
                   function (err4) {
                     if (!err4) {
@@ -10223,12 +10223,12 @@ io.on('connection', (socket) => {
     }
     db.get("SELECT * FROM vales WHERE id = ?", [id], (err, vale) => {
       if (vale && vale.status === 'Pendente') {
-        db.run("UPDATE vales SET status = 'Aprovado', data_aprovacao = datetime('now', 'localtime') WHERE id = ?", [id], (errU) => {
+        db.run("UPDATE vales SET status = 'Aprovado', data_aprovacao = datetime('now') WHERE id = ?", [id], (errU) => {
           if (!errU) {
             db.get("SELECT id FROM turnos_caixa WHERE status = 'Aberto' ORDER BY id DESC LIMIT 1", (errC, turno) => {
               if (turno) {
                 db.run(
-                  "INSERT INTO movimentacoes (turno_id, tipo, valor, descricao, data, forma_pagamento) VALUES (?, 'saida', ?, ?, datetime('now', 'localtime'), 'Dinheiro')",
+                  "INSERT INTO movimentacoes (turno_id, tipo, valor, descricao, data, forma_pagamento) VALUES (?, 'saida', ?, ?, datetime('now'), 'Dinheiro')",
                   [turno.id, vale.valor, "Adiantamento/Vale - Func. ID " + vale.funcionario_id]
                 );
               }
@@ -10587,14 +10587,14 @@ function registerAdminRhEvents(socket) {
     const { valeId, lancarCaixa, operador } = data;
     db.get("SELECT * FROM vales WHERE id = ?", [valeId], (err, vale) => {
       if (vale && vale.status === 'Pendente') {
-        db.run("UPDATE vales SET status = 'Aprovado', data_aprovacao = datetime('now', 'localtime') WHERE id = ?", [valeId], (errU) => {
+        db.run("UPDATE vales SET status = 'Aprovado', data_aprovacao = datetime('now') WHERE id = ?", [valeId], (errU) => {
           if (!errU) {
             if (lancarCaixa) {
               // Gerar saída no caixa
               db.get("SELECT id FROM turnos_caixa WHERE status = 'Aberto' ORDER BY id DESC LIMIT 1", (errC, turno) => {
                 if (turno) {
                   db.run(
-                    "INSERT INTO movimentacoes (turno_id, tipo, valor, descricao, data, forma_pagamento) VALUES (?, 'saida', ?, ?, datetime('now', 'localtime'), 'Dinheiro')",
+                    "INSERT INTO movimentacoes (turno_id, tipo, valor, descricao, data, forma_pagamento) VALUES (?, 'saida', ?, ?, datetime('now'), 'Dinheiro')",
                     [turno.id, vale.valor, "Adiantamento/Vale - Func. ID " + vale.funcionario_id]
                   );
                 }
@@ -11152,7 +11152,7 @@ function runIAVerificacao() {
 
     // ── 2. IA FILA COZINHA: Detectar espera longa ──
     rows.forEach(p => {
-      const criado = p.createdAt ? new Date(p.createdAt).getTime() : 0;
+      const criado = p.createdAt ? new Date(p.createdAt + (p.createdAt.includes('T') ? '' : 'Z')).getTime() : 0;
       if (!criado) return;
       const minsEspera = (agora - criado) / 60000;
       if (minsEspera > 720) return; // Ignorar pedidos com mais de 12 horas
@@ -11263,7 +11263,7 @@ function runIAVerificacao() {
 
     // ── 3.5. IA ATENÇÃO: Chamada de atenção quando pedido extrapola tempo ──
     rows.forEach(p => {
-      const criado = p.createdAt ? new Date(p.createdAt).getTime() : 0;
+      const criado = p.createdAt ? new Date(p.createdAt + (p.createdAt.includes('T') ? '' : 'Z')).getTime() : 0;
       if (!criado) return;
       const minsEspera = (agora - criado) / 60000;
       const chaveAtencao = `atencao_${p.id}`;
@@ -12377,7 +12377,7 @@ function registrarFalhaCritica(tipo, detalhe, restauranteId) {
         if (eDup || dup) return;
         masterDb.run(
           `INSERT INTO tarefas_suporte (suporte_id, tipo, descricao, restaurante_id, pontos, status, criada_em)
-           VALUES (NULL, 'falha_automatica', ?, ?, 25, 'pendente', datetime('now', 'localtime'))`,
+           VALUES (NULL, 'falha_automatica', ?, ?, 25, 'pendente', datetime('now'))`,
           [`[FALHA AUTOMATICA • ${tipo}] ${String(detalhe).slice(0, 1400)}`, restauranteId || null], () => { }
         );
       }

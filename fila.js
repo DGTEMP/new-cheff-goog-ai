@@ -1,4 +1,6 @@
 const HOST = window.location.hostname;
+// Parse timestamps stored as UTC in DB (SQLite datetime('now') = UTC)
+function parseUtc(s) { if (!s) return Date.now(); const t = s.includes('T') ? s : s + 'Z'; const d = new Date(t); return isNaN(d.getTime()) ? Date.now() : d.getTime(); }
 // (Segurança) Escapa valor para string JS dentro de onclick.
 function escJs(v) {
   const s = (v === null || v === undefined) ? '' : String(v);
@@ -816,7 +818,7 @@ function renderQueue() {
   }
 
   queueList.innerHTML = filtered.map(item => {
-    const timeCreated = item.createdAt ? new Date(item.createdAt).getTime() : Date.now();
+    const timeCreated = parseUtc(item.createdAt);
     const diffMins = Math.floor((Date.now() - timeCreated) / 60000);
     const bgColor = getBgColor(diffMins);
     const localColor = getComandaColor(item.localName);
@@ -1381,7 +1383,7 @@ setInterval(() => {
   let shouldPlay = false;
   queueData.forEach(item => {
     if (item.status === 'Finalizado' || item.status === 'Cancelado' || item.status === 'Pronto') return;
-    const timeCreated = item.createdAt ? new Date(item.createdAt).getTime() : Date.now();
+    const timeCreated = parseUtc(item.createdAt);
     const diffMins = Math.floor((Date.now() - timeCreated) / 60000);
     
     if (diffMins >= delayAlarmConfig.time) {

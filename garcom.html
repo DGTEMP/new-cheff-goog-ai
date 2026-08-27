@@ -503,12 +503,13 @@
       </div>
       
       <!-- Modal Leitor de QR Premium -->
-      <div id="qr-modal" style="display: none; position: fixed; inset: 0; background: #000; z-index: 999; flex-direction: column;">
-        <div style="position: absolute; top: 0; left: 0; width: 100%; padding: 24px; display: flex; justify-content: space-between; align-items: center; z-index: 10;">
-          <h3 style="margin: 0; font-size: 20px; color: white; font-weight: 600; text-shadow: 0 2px 4px rgba(0,0,0,0.5);">Ler Cupom</h3>
+      <div id="qr-modal" style="display: none; position: fixed; inset: 0; background: #000; z-index: 999; flex-direction: column; padding-top: env(safe-area-inset-top, 0px);">
+        <div style="width: 100%; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; z-index: 10;">
+          <button onclick="closeQRScanner()" style="background: rgba(255,255,255,0.2); border: none; color: white; width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(10px); font-size: 22px; cursor: pointer;"><i class="ph ph-arrow-left"></i></button>
+          <h3 style="margin: 0; font-size: 18px; color: white; font-weight: 600;">Ler Cupom</h3>
           <button onclick="closeQRScanner()" style="background: rgba(255,255,255,0.2); border: none; color: white; width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(10px); font-size: 24px; cursor: pointer;"><i class="ph ph-x"></i></button>
         </div>
-        <div style="flex: 1; position: relative; display: flex; justify-content: center; align-items: center; overflow: hidden;">
+        <div id="qr-camera-area" style="flex: 1; position: relative; display: flex; justify-content: center; align-items: center; overflow: hidden;">
            <div id="qr-reader" style="width: 100%; height: 100%; position: absolute; inset: 0; z-index: 1;"></div>
            <div style="position: absolute; inset: 0; z-index: 5; pointer-events: none; display: flex; justify-content: center; align-items: center;">
               <div style="width: 250px; height: 250px; box-shadow: 0 0 0 2000px rgba(0,0,0,0.65); border-radius: 24px;"></div>
@@ -520,9 +521,14 @@
              <div style="position: absolute; bottom: -2px; right: -2px; width: 40px; height: 40px; border-bottom: 4px solid #3ab55b; border-right: 4px solid #3ab55b; border-bottom-right-radius: 24px;"></div>
              <div class="qr-scan-line"></div>
            </div>
-           <div style="position: absolute; bottom: 40px; z-index: 10; width: 100%; text-align: center; pointer-events: none;">
-              <p style="color: white; font-size: 16px; font-weight: 500; background: rgba(0,0,0,0.5); display: inline-block; padding: 10px 20px; border-radius: 30px; backdrop-filter: blur(5px);">Aponte para o QR Code</p>
-           </div>
+        </div>
+        <div style="padding: 16px; padding-bottom: env(safe-area-inset-bottom, 16px); display: flex; flex-direction: column; align-items: center; gap: 10px; z-index: 10;">
+          <div style="width: 100%; display: flex; gap: 8px;">
+            <input type="text" id="cupom-manual-input" placeholder="Digite o código do cupom"
+              style="flex: 1; padding: 12px 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.1); color: white; font-size: 15px; outline: none; letter-spacing: 1px; text-transform: uppercase;"
+              autocomplete="off" autocapitalize="characters" spellcheck="false">
+          </div>
+          <p style="color: rgba(255,255,255,0.6); font-size: 13px; margin: 0; text-align: center;">Aponte para o QR Code ou digite o código manualmente</p>
         </div>
       </div>
     </div>
