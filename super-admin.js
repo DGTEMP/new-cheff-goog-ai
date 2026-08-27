@@ -740,7 +740,7 @@ function switchTab(targetId) {
    else if (targetId === 'sec-capacidade') renderCapacidade();
    else if (targetId === 'sec-mapa') renderMapa();
    else if (targetId === 'sec-load-control') renderLoadControl();
-   else if (targetId === 'sec-terminal') { resetInactivityTimer(); }
+   else if (targetId === 'sec-terminal') { resetInactivityTimer(); popularAlvosTerminal(); }
    else if (targetId === 'sec-instancias') carregarInstancias();
    else if (targetId === 'sec-recuperar-acesso') carregarUsuariosRecovery();
    else if (targetId === 'sec-tarefas') { if (typeof carregarTarefas === 'function') carregarTarefas(); }
@@ -2330,49 +2330,85 @@ var _cmdHistoryIndex = -1;
 function popularAlvosTerminal() {
   var select = document.getElementById('exec-target');
   if (!select) return;
+  if (!restaurantesData || restaurantesData.length === 0) {
+    apiGet('/api/super/restaurantes', function(err, data) {
+      if (!err && data && data.ok && Array.isArray(data.restaurantes)) {
+        restaurantesData = data.restaurantes;
+        renderAlvosSelect(select);
+      }
+    });
+  } else {
+    renderAlvosSelect(select);
+  }
+}
+
+function renderAlvosSelect(select) {
+  var val = select.value;
   select.innerHTML = '<option value="">Todas as instalações (local)</option>';
-  for (var i = 0; i < restaurantesData.length; i++) {
+  for (var i = 0; i < (restaurantesData || []).length; i++) {
     var r = restaurantesData[i];
     var opt = document.createElement('option');
     opt.value = r.id;
-    opt.textContent = '#' + r.id + ' — ' + r.restaurante;
+    opt.textContent = '#' + r.id + ' — ' + (r.restaurante || r.nome || 'Restaurante');
     select.appendChild(opt);
   }
+  if (val) select.value = val;
 }
 
 function executarComando() {
   var input = document.getElementById('exec-input');
   var output = document.getElementById('exec-output');
-  var comando = (input.value || '').trim();
-  if (!comando) { showToast('Digite um comando!', 'warning'); return; }
-  
-  // Confirmar
-  if (!confirm('Tem certeza que deseja executar:\n\n' + comando + '\n\nEsta operação será registrada nos logs de auditoria.')) return;
-  
-  var target = document.getElementById('exec-target').value;
-  
-  output.textContent = '$ ' + comando + '\n\nExecutando...';
-  
+  var btnExec = document.getElementById('btn-exec');
+  var comando = (input ? input.value : '').trim();
+  if (!comando) { showToast('Digite um comando para executar.', 'warning'); return; }
+
+  var target = document.getElementById('exec-target') ? document.getElementById('exec-target').value : '';
+
+  if (output) {
+    output.textContent = '$ ' + comando + '\n\n⏳ Executando comando no servidor local...';
+  }
+
+  if (btnExec) {
+    btnExec.disabled = true;
+    btnExec.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Executando...';
+  }
+
   // Adicionar ao histórico
-  _cmdHistory.push(comando);
+  if (_cmdHistory[_cmdHistory.length - 1] !== comando) {
+    _cmdHistory.push(comando);
+  }
   _cmdHistoryIndex = _cmdHistory.length;
-  
+
   apiPost('/api/super/exec', { command: comando, restaurante_id: target ? parseInt(target) : null }, function(err, data) {
+    if (btnExec) {
+      btnExec.disabled = false;
+      btnExec.innerHTML = '<i class="fa-solid fa-play"></i> Executar';
+    }
+    if (!output) return;
+
     if (err) {
-      output.textContent = '$ ' + comando + '\n\nErro de rede: ' + err.message;
+      output.textContent = '$ ' + comando + '\n\n❌ Erro de conexão ou rede: ' + (err.message || 'Falha ao contatar o servidor.');
       return;
     }
+
+    if (!data || !data.ok) {
+      var msgErro = (data && (data.erro || data.error || data.stderr)) || 'Erro ao executar o comando.';
+      output.textContent = '$ ' + comando + '\n\n❌ Falha na execução:\n' + msgErro + (data && data.exitCode !== undefined ? '\n\nExit code: ' + data.exitCode : '');
+      return;
+    }
+
     var texto = '$ ' + comando + '\n\n';
-    if (data.stdout) texto += data.stdout + '\n';
-    if (data.stderr) texto += '\x1b[91m' + data.stderr + '\x1b[0m\n';
-    texto += '\nExit code: ' + data.exitCode + (data.ok ? '' : ' (erro)');
+    if (data.stdout) texto += data.stdout;
+    if (data.stderr) texto += (data.stdout ? '\n' : '') + '[STDERR]\n' + data.stderr;
+    if (!data.stdout && !data.stderr) texto += '[Comando executado com sucesso sem saída de texto]';
+    texto += '\n\n✓ Exit code: ' + (data.exitCode !== undefined ? data.exitCode : 0);
     output.textContent = texto;
     output.scrollTop = output.scrollHeight;
   });
 }
 
 function limparOutput() {
-  document.getElementById('exec-output').textContent = 'Output limpo.';
+  document.getElementById('exec-output').textContent = 'Output limpo. Digite um comando e clique em Executar.';
 }
 
 /* ═══ EQUIPE DE SUPORTE ═══ */

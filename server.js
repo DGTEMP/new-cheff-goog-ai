@@ -2527,30 +2527,45 @@ const CMD_BLOCKLIST = [
   /\binit\s+[06]\b/
 ];
 
-const CMD_DENY_CHARS = /[;&|`$(){}!<>]/; // shell injection
+const CMD_BLOCKLIST_TERMINAL = [
+  /\brm\s+-rf\s+\//,
+  /\bmkfs\b/i,
+  /\bdd\s+.*of=\/dev\//i,
+  /\b:(){ :\|:& };:/,
+  /\bformat\s+[a-z]:/i,
+  /\bdrop\s+database\b/i
+];
+
+const CMD_ALLOW_TERMINAL = /^(ls|dir|cat|type|head|tail|wc|df|du|free|uptime|ps|top|tasklist|systeminfo|wmic|netstat|ss|ip|ifconfig|ipconfig|ping|host|dig|nslookup|date|time|ver|hostname|pwd|whoami|id|env|printenv|node|npm|npx|pm2|sqlite3|git|docker|echo|curl|cls|clear|findstr|find|tree|where|which)/i;
 
 app.post('/api/super/exec', superAdminAuth, (req, res) => {
   const { command } = req.body;
   if (!command || typeof command !== 'string') return res.json({ ok: false, erro: 'Comando obrigatório.' });
-  if (command.length > 300) return res.json({ ok: false, erro: 'Comando muito longo (máx 300 chars).' });
-  if (CMD_DENY_CHARS.test(command)) return res.json({ ok: false, erro: 'Caracteres proibidos no comando (; & | ` $ etc). Use comandos simples.' });
-  if (CMD_BLOCKLIST.some(rx => rx.test(command))) return res.json({ ok: false, erro: 'Comando bloqueado por segurança.' });
-
-  const allowedCmds = /^(ls|cat|head|tail|wc|df|du|free|uptime|ps|top|netstat|ss|ip|ifconfig|ping|host|dig|nslookup|date|pwd|whoami|id|env|printenv|node|npm|npx|pm2|sqlite3|git|docker|cat\s)/;
-  if (!allowedCmds.test(command.trim())) {
-    return res.json({ ok: false, erro: 'Comando não está na lista de permitidos. Permitidos: ls, cat, df, free, uptime, ps, node, npm, pm2, sqlite3, git, docker...' });
+  const cmdTrim = command.trim();
+  if (cmdTrim.length > 600) return res.json({ ok: false, erro: 'Comando muito longo (máx 600 caracteres).' });
+  if (CMD_BLOCKLIST_TERMINAL.some(rx => rx.test(cmdTrim))) return res.json({ ok: false, erro: 'Comando bloqueado por segurança.' });
+  if (!CMD_ALLOW_TERMINAL.test(cmdTrim)) {
+    return res.json({ ok: false, erro: 'Comando não permitido por política de segurança. Permitidos: node, npm, dir, ls, tasklist, systeminfo, wmic, git, ping, netstat, etc.' });
   }
 
-  console.log(`[SuperAdmin Exec] ${req.superAdmin?.role || 'admin'}: ${command.substring(0, 200)}`);
-  // Registra auditoria
+  console.log(`[SuperAdmin Exec] ${req.superAdmin?.role || 'admin'}: ${cmdTrim.substring(0, 200)}`);
   if (typeof registrarAuditoria === 'function') {
-    registrarAuditoria('exec_comando', `Comando: ${command.substring(0, 500)}`);
+    registrarAuditoria('exec_comando', `Comando: ${cmdTrim.substring(0, 500)}`);
   }
 
-  exec(command, { cwd: __dirname, timeout: 30000, maxBuffer: 1024 * 1024 }, (error, stdout, stderr) => {
-    const out = (stdout || '').substring(0, 10000);
-    const err = (stderr || '').substring(0, 5000);
-    res.json({ ok: !error, stdout: out, stderr: err, exitCode: error ? (error.code || 1) : 0, command: command.substring(0, 300) });
+  const isWin = process.platform === 'win32';
+  const shellOpt = isWin ? 'cmd.exe' : '/bin/bash';
+
+  exec(cmdTrim, { cwd: __dirname, timeout: 30000, maxBuffer: 2 * 1024 * 1024, shell: shellOpt }, (error, stdout, stderr) => {
+    const out = (stdout || '').substring(0, 20000);
+    const err = (stderr || (error ? error.message : '')).substring(0, 10000);
+    res.json({
+      ok: !error,
+      stdout: out,
+      stderr: err,
+      exitCode: error ? (error.code || 1) : 0,
+      command: cmdTrim.substring(0, 300)
+    });
   });
 });
 
