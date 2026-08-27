@@ -821,7 +821,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Aba control
   const STORAGE_KEY = 'config_active_tab';
 
-  function activateTab(tabId, skipSave) {
+    function activateTab(tabId, skipSave) {
     if (!tabId) return;
     let btn = document.querySelector('.admin-tab-btn[data-tab="' + tabId + '"]');
     let content = document.getElementById('admin-tab-' + tabId);
@@ -856,58 +856,70 @@ document.addEventListener('DOMContentLoaded', () => {
     content.scrollTop = 0;
 
     // Auto-scroll sidebar button into view (mobile horizontal scroll)
-    btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    try { btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' }); } catch(e) {}
 
     // Persist state
     if (!skipSave) {
       try { localStorage.setItem(STORAGE_KEY, tabId); } catch (e) {}
-      /* pushState em vez de replaceState: o gesto de VOLTAR do iPhone/Android
-         navega entre as seções em vez de sair do app. */
       if (window.location.hash !== '#' + tabId) {
         history.pushState({ tab: tabId }, '', '#' + tabId);
       }
     }
 
     // Lazy-load specific tab data on demand
-    if (tabId === 'perfil' && socket && typeof socket.emit === 'function') socket.emit('get_restaurante_config');
-    if (tabId === 'dispositivos' && typeof window.carregarGerenciadorDispositivos === 'function') window.carregarGerenciadorDispositivos();
-    if (tabId === 'salao') {
-      const t = document.getElementById('admin-tab-salao');
-      if (t) t.dataset.carregada = 'true';
-      window.renderSalaoUI();
-    }
-    if (tabId === 'reservas' && typeof window.carregarReservasAdmin === 'function') window.carregarReservasAdmin();
-    if (tabId === 'metricas' && typeof window.carregarMetricasGarcons === 'function') window.carregarMetricasGarcons();
-    if (tabId === 'formas-pagamento' && typeof window.carregarFormasPagamento === 'function') window.carregarFormasPagamento();
-    if (tabId === 'pins' && socket && typeof socket.emit === 'function') socket.emit('listar_pins_temporarios');
-    if (tabId === 'promocoes') {
-      if (socket && typeof socket.emit === 'function') socket.emit('get_cupons_list');
-      if (typeof initDiasGrid === 'function' && !_diasGridInit) { _diasGridInit = true; initDiasGrid(); }
-    }
-    if (tabId === 'fidelidade') {
-      setTimeout(() => { if (window.gerarQrCheckin) window.gerarQrCheckin(true); }, 300);
-    }
-    if (tabId === 'rh') {
-      if (typeof emitGetRhData === 'function') emitGetRhData();
-      if (socket && typeof socket.emit === 'function') socket.emit('get_relatorio_caixa');
-    }
-    if (tabId === 'gerenciar-notas' && typeof window.carregarTodasNotasNfce === 'function') {
-      window.carregarTodasNotasNfce(1);
-    }
-    if (tabId === 'jogos' && typeof initAdminJogos === 'function') initAdminJogos();
-    if (tabId === 'montaveis' && typeof initAdminMontaveis === 'function') initAdminMontaveis();
-    if (tabId === 'inteligencia' && socket && typeof socket.emit === 'function') socket.emit('ia_get_config');
-    if (tabId === 'reservas') {
-      window.reservasCarregarPendentes && window.reservasCarregarPendentes();
-      window.reservasCarregarMes && window.reservasCarregarMes();
-      /* Popular select de mesas para reserva manual */
-      const mesaSelect = document.getElementById('reserva-manual-mesa');
-      if (mesaSelect && socket && typeof socket.emit === 'function') {
-        socket.emit('get_mesas');
-        socket.once('mesas_atualizadas', (mesas) => {
-          mesaSelect.innerHTML = '<option value="">Selecionar mesa...</option>' + (mesas || []).map(m => '<option value="' + escHtml(m.nome || m.mesaName) + '">' + escHtml(m.nome || m.mesaName) + '</option>').join('');
-        });
+    try {
+      if (tabId === 'perfil' && socket && typeof socket.emit === 'function') socket.emit('get_restaurante_config');
+      if (tabId === 'produtos' && socket && typeof socket.emit === 'function') socket.emit('get_produtos');
+      if (tabId === 'mesas' && socket && typeof socket.emit === 'function') socket.emit('get_mesas');
+      if (tabId === 'funcionarios' && socket && typeof socket.emit === 'function') socket.emit('get_funcionarios');
+      if (tabId === 'clientes' && socket && typeof socket.emit === 'function') socket.emit('get_clientes');
+      if (tabId === 'dispositivos' && typeof window.carregarGerenciadorDispositivos === 'function') window.carregarGerenciadorDispositivos();
+      if (tabId === 'salao') {
+        const t = document.getElementById('admin-tab-salao');
+        if (t) t.dataset.carregada = 'true';
+        if (typeof window.renderSalaoUI === 'function') window.renderSalaoUI();
       }
+      if (tabId === 'reservas') {
+        if (typeof window.carregarReservasAdmin === 'function') window.carregarReservasAdmin();
+        if (typeof window.reservasCarregarPendentes === 'function') window.reservasCarregarPendentes();
+        if (typeof window.reservasCarregarMes === 'function') window.reservasCarregarMes();
+        const mesaSelect = document.getElementById('reserva-manual-mesa');
+        if (mesaSelect && socket && typeof socket.emit === 'function') {
+          socket.emit('get_mesas');
+          socket.once('mesas_atualizadas', (mesas) => {
+            mesaSelect.innerHTML = '<option value="">Selecionar mesa...</option>' + (mesas || []).map(m => '<option value="' + (typeof escHtml === 'function' ? escHtml(m.nome || m.mesaName) : (m.nome || m.mesaName)) + '">' + (typeof escHtml === 'function' ? escHtml(m.nome || m.mesaName) : (m.nome || m.mesaName)) + '</option>').join('');
+          });
+        }
+      }
+      if (tabId === 'metricas' && typeof window.carregarMetricasGarcons === 'function') window.carregarMetricasGarcons();
+      if (tabId === 'formas-pagamento' && typeof window.carregarFormasPagamento === 'function') window.carregarFormasPagamento();
+      if (tabId === 'pins' && socket && typeof socket.emit === 'function') socket.emit('listar_pins_temporarios');
+      if (tabId === 'promocoes') {
+        if (socket && typeof socket.emit === 'function') socket.emit('get_cupons_list');
+        if (typeof initDiasGrid === 'function' && typeof _diasGridInit !== 'undefined' && !_diasGridInit) { _diasGridInit = true; initDiasGrid(); }
+      }
+      if (tabId === 'fidelidade') {
+        setTimeout(() => { if (typeof window.gerarQrCheckin === 'function') window.gerarQrCheckin(true); }, 300);
+      }
+      if (tabId === 'rh') {
+        if (typeof emitGetRhData === 'function') emitGetRhData();
+        if (socket && typeof socket.emit === 'function') socket.emit('get_relatorio_caixa');
+      }
+      if (tabId === 'gerenciar-notas' && typeof window.carregarTodasNotasNfce === 'function') {
+        window.carregarTodasNotasNfce(1);
+      }
+      if (tabId === 'nfce' && typeof window.carregarConfigNfce === 'function') {
+        window.carregarConfigNfce();
+      }
+      if (tabId === 'jogos' && typeof initAdminJogos === 'function') initAdminJogos();
+      if (tabId === 'montaveis' && typeof initAdminMontaveis === 'function') initAdminMontaveis();
+      if (tabId === 'inteligencia' && socket && typeof socket.emit === 'function') socket.emit('ia_get_config');
+      if (tabId === 'auditoria' && typeof window.carregarLogsAuditoria === 'function') window.carregarLogsAuditoria();
+      if (tabId === 'backup' && typeof window.carregarHistoricoBackups === 'function') window.carregarHistoricoBackups();
+      if (tabId === 'funcoes' && typeof carregarFuncoesSistema === 'function') carregarFuncoesSistema();
+      if (tabId === 'appscript' && socket && typeof socket.emit === 'function') socket.emit('get_license_config');
+    } catch (errLazy) {
+      console.warn('[config tab lazy-load error]', tabId, errLazy);
     }
 
     // Update title
@@ -1559,11 +1571,13 @@ function initGeraisTab() {
   const btnSalvarOrdem = document.getElementById('btn-salvar-ordem');
 
   // Setup Checkbox
-  chkAtivo.checked = configs.destaques_ativos;
-  chkAtivo.onchange = () => {
-    configs.destaques_ativos = chkAtivo.checked;
-    salvarConfiguracoes();
-  };
+  if (chkAtivo) {
+    chkAtivo.checked = configs.destaques_ativos;
+    chkAtivo.onchange = () => {
+      configs.destaques_ativos = chkAtivo.checked;
+      salvarConfiguracoes();
+    };
+  }
 
   const chkTouch = document.getElementById('chk-modo-touch');
   if (chkTouch) {
@@ -2583,37 +2597,40 @@ window.zerarTodosDados = function() {
   socket.emit('zerar_todos_dados', { senha: senha });
 };
 
+// ── Deslogar Restaurante do Sistema ──
+const btnDeslogarRest = document.getElementById('btn-deslogar-restaurante');
+if (btnDeslogarRest) {
+  btnDeslogarRest.addEventListener('click', () => {
+    if (!confirm('Tem certeza que deseja deslogar este restaurante do sistema?\n\nVoce precisara fazer login novamente para acessar.')) return;
+    const senha = prompt('Digite a senha de administrador para confirmar o deslogamento:');
+    if (!senha) return;
+    const restauranteId = localStorage.getItem('restaurante_id');
+    const token = localStorage.getItem('chef_token');
+    fetch('/api/auth/deslogar-restaurante', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ restaurante_id: restauranteId, senha })
+    }).then(r => r.json()).then(data => {
+      if (data.success) {
+        localStorage.removeItem('chef_token');
+        localStorage.removeItem('restaurante_id');
+        localStorage.removeItem('chef_credentials');
+        alert('Restaurante deslogado com sucesso!');
+        window.location.href = '/login.html';
+      } else {
+        alert(data.error || 'Erro ao deslogar restaurante.');
+      }
+    }).catch(() => {
+      alert('Erro de conexao com o servidor.');
+    });
+  });
+}
+
 socket.on('zerar_concluido', (data) => {
   if (data && data.ok) {
     alert('Todos os dados foram apagados com sucesso! O sistema sera recarregado.');
     window.location.reload();
   }
-});
-
-// ── Deslogar Restaurante do Sistema ──
-document.getElementById('btn-deslogar-restaurante').addEventListener('click', () => {
-  if (!confirm('Tem certeza que deseja deslogar este restaurante do sistema?\n\nVoce precisara fazer login novamente para acessar.')) return;
-  const senha = prompt('Digite a senha de administrador para confirmar o deslogamento:');
-  if (!senha) return;
-  const restauranteId = localStorage.getItem('restaurante_id');
-  const token = localStorage.getItem('chef_token');
-  fetch('/api/auth/deslogar-restaurante', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-    body: JSON.stringify({ restaurante_id: restauranteId, senha })
-  }).then(r => r.json()).then(data => {
-    if (data.success) {
-      localStorage.removeItem('chef_token');
-      localStorage.removeItem('restaurante_id');
-      localStorage.removeItem('chef_credentials');
-      alert('Restaurante deslogado com sucesso!');
-      window.location.href = '/login.html';
-    } else {
-      alert(data.error || 'Erro ao deslogar restaurante.');
-    }
-  }).catch(() => {
-    alert('Erro de conexao com o servidor.');
-  });
 });
 
 socket.on('ia_config_atual', (config) => {
@@ -5306,7 +5323,8 @@ document.addEventListener('DOMContentLoaded', () => {
       definirSemanaQuaDom();
     };
 
-    document.getElementById('btn-folha-definir-semana').onclick = definirSemanaQuaDom;
+    const _btnDefSemana = document.getElementById('btn-folha-definir-semana');
+if (_btnDefSemana) _btnDefSemana.onclick = definirSemanaQuaDom;
 
     const buildExtratoUrl = (funcId) => {
       const periodo = getFolhaPeriodo();
@@ -5357,7 +5375,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('folha-valor-bruto').oninput = calcFolha;
 
-    document.getElementById('btn-confirmar-pagamento').onclick = async () => {
+    const _btnConfPag = document.getElementById('btn-confirmar-pagamento');
+if (_btnConfPag) _btnConfPag.onclick = async () => {
       if(!currentFolhaData) return;
 
       const bruto = parseFloat(document.getElementById('folha-valor-bruto').value || 0);
@@ -5926,7 +5945,8 @@ document.querySelectorAll('.atipico-filter-btn').forEach(btn => {
 });
 
 // Admin criar atipico
-document.getElementById('btn-admin-add-atipico').onclick = () => {
+const _btnAddAtipico = document.getElementById('btn-admin-add-atipico');
+if (_btnAddAtipico) _btnAddAtipico.onclick = () => {
   const id = document.getElementById('admin-atipico-id').value;
   const funcionario_id = parseInt(document.getElementById('admin-atipico-func').value);
   const data = document.getElementById('admin-atipico-data').value;
@@ -7403,7 +7423,8 @@ socket.on('restaurante_config', (cfg) => {
   }
 });
 
-document.getElementById('btn-salvar-rest-perfil').onclick = () => {
+const _btnSalvarPerfil = document.getElementById('btn-salvar-rest-perfil');
+if (_btnSalvarPerfil) _btnSalvarPerfil.onclick = () => {
   const dias = [];
   document.querySelectorAll('.rest-dia:checked').forEach(cb => dias.push(parseInt(cb.value)));
   const config = {
