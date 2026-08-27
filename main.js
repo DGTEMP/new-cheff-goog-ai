@@ -9767,3 +9767,69 @@ window.mostrarQrCodeMesa = function(nomeMesa) {
   `;
   modal.style.display = 'flex';
 };
+
+
+// ─── CONTROLADOR DE EXIBIÇÃO E GRADE DE MESAS ───
+window.setMesaViewFilter = function(filter) {
+  window.viewFilter = filter;
+  try { localStorage.setItem('chef_mesa_view_filter', filter); } catch(e){}
+
+  document.querySelectorAll('.chip-view-btn').forEach(b => {
+    b.style.background = 'transparent';
+    b.style.color = 'var(--text-main)';
+  });
+  const activeBtn = document.getElementById('chip-view-' + filter.toLowerCase());
+  if (activeBtn) {
+    activeBtn.style.background = 'var(--primary, #fc4b15)';
+    activeBtn.style.color = '#fff';
+  }
+
+  const btnMesas = document.getElementById('toolbar-mesas');
+  const btnComandas = document.getElementById('toolbar-comandas');
+  if (filter === 'Comandas') {
+    if (btnMesas) btnMesas.classList.remove('active');
+    if (btnComandas) btnComandas.classList.add('active');
+  } else {
+    if (btnMesas) btnMesas.classList.add('active');
+    if (btnComandas) btnComandas.classList.remove('active');
+  }
+
+  if (typeof renderOrders === 'function') renderOrders();
+};
+
+window.setMesaGridCols = function(cols) {
+  window.mesaGridCols = cols;
+  try { localStorage.setItem('chef_mesa_grid_cols', String(cols)); } catch(e){}
+
+  const container = document.getElementById('orders-grid');
+  if (container) {
+    container.classList.remove('grid-cols-1', 'grid-cols-2', 'grid-compact');
+    if (cols === 1 || cols === '1') container.classList.add('grid-cols-1');
+    else if (cols === 'compact') container.classList.add('grid-compact');
+    else container.classList.add('grid-cols-2');
+  }
+
+  ['2', '1', 'compact'].forEach(c => {
+    const b = document.getElementById('btn-grid-cols-' + c);
+    if (b) {
+      if (String(cols) === c) {
+        b.style.background = 'var(--bg-card)';
+        b.style.color = 'var(--text-main)';
+        b.style.fontWeight = '800';
+      } else {
+        b.style.background = 'transparent';
+        b.style.color = 'var(--text-muted)';
+        b.style.fontWeight = '700';
+      }
+    }
+  });
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+  try {
+    const savedFilter = localStorage.getItem('chef_mesa_view_filter');
+    if (savedFilter) window.setMesaViewFilter(savedFilter);
+    const savedCols = localStorage.getItem('chef_mesa_grid_cols');
+    if (savedCols) window.setMesaGridCols(savedCols);
+  } catch(e){}
+});

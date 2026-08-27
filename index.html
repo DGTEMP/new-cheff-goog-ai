@@ -674,16 +674,47 @@
         <div class="mesas-container" id="mesas-section-container"
           style="flex: 0 0 45%; min-height: 38px; overflow: hidden; display: flex; flex-direction: column;">
           <div class="mesas-header"
-            style="display: flex; justify-content: space-between; align-items: center; user-select: none;">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <i class="ph ph-squares-four" style="color: #fc4b15;"></i>
-              <span>Mesas</span>
+            style="display: flex; justify-content: space-between; align-items: center; user-select: none; flex-wrap: wrap; gap: 8px; padding: 6px 10px;">
+            <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+              <div style="display: flex; align-items: center; gap: 6px; font-weight: 800; font-size: 14px;">
+                <i class="ph ph-squares-four" style="color: #fc4b15;"></i>
+                <span>Mesas</span>
+              </div>
+
+              <!-- CHIPS DE SELEÇÃO RÁPIDA DE EXIBIÇÃO -->
+              <div class="mesas-view-chips" style="display: inline-flex; align-items: center; gap: 3px; background: rgba(0,0,0,0.06); padding: 2px 4px; border-radius: 8px; margin-left: 4px;">
+                <button type="button" onclick="window.setMesaViewFilter('Mesas')" id="chip-view-mesas" class="chip-view-btn" style="padding: 4px 9px; border-radius: 6px; border: none; font-size: 11.5px; font-weight: 700; cursor: pointer; background: #fc4b15; color: #fff;">
+                  🪑 Mesas
+                </button>
+                <button type="button" onclick="window.setMesaViewFilter('Comandas')" id="chip-view-comandas" class="chip-view-btn" style="padding: 4px 9px; border-radius: 6px; border: none; font-size: 11.5px; font-weight: 700; cursor: pointer; background: transparent; color: var(--text-main);">
+                  📋 Comandas
+                </button>
+                <button type="button" onclick="window.setMesaViewFilter('Todas')" id="chip-view-todas" class="chip-view-btn" style="padding: 4px 9px; border-radius: 6px; border: none; font-size: 11.5px; font-weight: 700; cursor: pointer; background: transparent; color: var(--text-main);">
+                  🎯 Todas
+                </button>
+              </div>
+
+              <!-- SELETOR DE MODO DE GRADE / COLUNAS -->
+              <div class="mesas-grid-mode-switcher" style="display: inline-flex; align-items: center; gap: 2px; background: rgba(0,0,0,0.06); padding: 2px 4px; border-radius: 8px;">
+                <button type="button" onclick="window.setMesaGridCols(2)" id="btn-grid-cols-2" title="Grade com 2 Colunas" style="padding: 4px 7px; border-radius: 6px; border: none; font-size: 11px; cursor: pointer; background: var(--bg-card); color: var(--text-main); font-weight: 800;">
+                  ⊞ 2 Col
+                </button>
+                <button type="button" onclick="window.setMesaGridCols(1)" id="btn-grid-cols-1" title="Lista Completa (1 Coluna)" style="padding: 4px 7px; border-radius: 6px; border: none; font-size: 11px; cursor: pointer; background: transparent; color: var(--text-muted); font-weight: 700;">
+                  ☰ 1 Col
+                </button>
+                <button type="button" onclick="window.setMesaGridCols('compact')" id="btn-grid-cols-compact" title="Modo Compacto" style="padding: 4px 7px; border-radius: 6px; border: none; font-size: 11px; cursor: pointer; background: transparent; color: var(--text-muted); font-weight: 700;">
+                  ❖ Compacto
+                </button>
+              </div>
             </div>
-            <button id="btn-toggle-mesas-section" title="Recolher / Expandir Seção de Mesas"
-              style="background: transparent; border: none; cursor: pointer; color: var(--text-secondary); font-size: 13px; padding: 2px 8px; border-radius: 4px; display: flex; align-items: center; gap: 4px; font-weight: 600;">
-              <i class="ph ph-caret-up" id="icon-toggle-mesas-section"></i>
-              <span id="label-toggle-mesas-section">Recolher</span>
-            </button>
+
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <button id="btn-toggle-mesas-section" title="Recolher / Expandir Seção de Mesas"
+                style="background: transparent; border: none; cursor: pointer; color: var(--text-secondary); font-size: 13px; padding: 2px 8px; border-radius: 4px; display: flex; align-items: center; gap: 4px; font-weight: 600;">
+                <i class="ph ph-caret-up" id="icon-toggle-mesas-section"></i>
+                <span id="label-toggle-mesas-section">Recolher</span>
+              </button>
+            </div>
           </div>
           <div id="mesas-collapsed-items" title="Comandas da mesa selecionada"></div>
           <div class="mesas-scroll" id="orders-grid">

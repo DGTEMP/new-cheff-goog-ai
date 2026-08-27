@@ -1,3 +1,16 @@
+
+function formatarTempoFila(mins) {
+  if (!mins || mins <= 0) return 'agora';
+  if (mins < 60) return `${mins} min`;
+  if (mins < 1440) {
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    return m > 0 ? `${h}h ${m}m` : `${h}h`;
+  }
+  const d = Math.floor(mins / 1440);
+  return `+${d}d`;
+}
+
 const HOST = window.location.hostname;
 // Parse timestamps stored as UTC in DB (SQLite datetime('now') = UTC)
 function parseUtc(s) { if (!s) return Date.now(); const t = s.includes('T') ? s : s + 'Z'; const d = new Date(t); return isNaN(d.getTime()) ? Date.now() : d.getTime(); }
@@ -587,7 +600,7 @@ socket.on('ia_pedido_atencao', (data) => {
 
   if ('Notification' in window && Notification.permission === 'granted') {
     if (!window._lastIaNotifTime || Date.now() - window._lastIaNotifTime > 60000) {
-      new Notification(`⏰ Atenção - Mesa ${mesa}`, { body: `${produto} - ${minutos}min de espera`, icon: '/favicon.ico', requireInteraction: true });
+      new Notification(`⏰ Atenção - Mesa ${mesa}`, { body: `${produto} - ${formatarTempoFila(minutos)} de espera`, icon: '/favicon.ico', requireInteraction: true });
       window._lastIaNotifTime = Date.now();
     }
   }
@@ -952,7 +965,7 @@ function renderQueue() {
           </div>
           <div class="kds-card-time-badge ${urgencyClass}">
             <i class="ph ph-clock"></i>
-            <span>${diffMins} min</span>
+            <span>${formatarTempoFila(diffMins)}</span>
           </div>
         </div>
 
@@ -1374,6 +1387,15 @@ document.addEventListener('DOMContentLoaded', () => {
 // --- CONTROLE DE MODO DE DISPOSIÇÃO DA TELA (LISTA / GRADE 2 COLS / GRADE 3 COLS / TV) ---
 window.currentLayoutMode = localStorage.getItem('chef_kds_view_mode') || 'lista';
 
+// Ajuste de tamanho da fonte da fila (botões A- / A+ do popup de configurações)
+window.filaFontScale = parseFloat(localStorage.getItem('chef_kds_font_scale')) || 1;
+window.alterarTamanhoFonte = function(delta) {
+  window.filaFontScale = Math.max(0.7, Math.min(1.6, window.filaFontScale + (delta || 0) * 0.1));
+  localStorage.setItem('chef_kds_font_scale', String(window.filaFontScale));
+  const queueList = document.getElementById('queue-list');
+  if (queueList) queueList.style.fontSize = (window.filaFontScale * 100) + '%';
+};
+
 window.alterarModoDisposicao = function(modo) {
   window.currentLayoutMode = modo;
   localStorage.setItem('chef_kds_view_mode', modo);
@@ -1404,6 +1426,8 @@ window.alterarModoDisposicao = function(modo) {
 
 document.addEventListener('DOMContentLoaded', () => {
   window.alterarModoDisposicao(window.currentLayoutMode);
+  const queueList = document.getElementById('queue-list');
+  if (queueList) queueList.style.fontSize = (window.filaFontScale * 100) + '%';
 });
 
 
@@ -1500,10 +1524,8 @@ setInterval(() => {
         }
 
         const newLayout = layouts[idx];
-        if (newLayout !== (localStorage.getItem('filaModoExibicao') || 'grid2')) {
-          if (typeof window.setQueueLayout === 'function') {
-            window.setQueueLayout(newLayout);
-          }
+        if (newLayout !== (localStorage.getItem('chef_kds_view_mode') || 'lista') && typeof window.alterarModoDisposicao === 'function') {
+          window.alterarModoDisposicao(newLayout);
         }
 
         // Reset distance to require another full pinch for the next level

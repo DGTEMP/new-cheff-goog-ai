@@ -8248,9 +8248,16 @@ window.renderMontavelCats = function() {
       '<button onclick="_montavelCatsTemp.splice(' + ci + ',1);window.renderMontavelCats()" style="background:rgba(239,68,68,0.12); color:#ef4444; border:1px solid rgba(239,68,68,0.3); padding:6px 12px; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;">Remover</button>' +
       '</div>' +
       '<div style="padding-left:6px; margin-bottom:8px;">' + optsHtml + '</div>' +
-      '<button onclick="_montavelCatsTemp[' + ci + '].opcoes.push({nome:'',preco:0,ativo:1,produto_id:null});window.renderMontavelCats()" style="background:transparent; border:1.5px dashed #8b5cf6; color:#8b5cf6; padding:8px 14px; border-radius:8px; font-size:12.5px; font-weight:700; cursor:pointer; margin-top:6px; display:inline-flex; align-items:center; gap:6px;">+ Adicionar Opção</button>' +
+      '<button onclick="window.adicionarOpcaoMontavel(' + ci + ')" style="background:transparent; border:1.5px dashed #8b5cf6; color:#8b5cf6; padding:8px 14px; border-radius:8px; font-size:12.5px; font-weight:700; cursor:pointer; margin-top:6px; display:inline-flex; align-items:center; gap:6px;">+ Adicionar Opção</button>' +
       '</div>';
   }).join('');
+};
+
+window.adicionarOpcaoMontavel = function(ci) {
+  if (_montavelCatsTemp && _montavelCatsTemp[ci]) {
+    _montavelCatsTemp[ci].opcoes.push({ nome: '', preco: 0, ativo: 1, produto_id: null });
+    window.renderMontavelCats();
+  }
 };
 
 window.adicionarCategoriaMontavel = function() {

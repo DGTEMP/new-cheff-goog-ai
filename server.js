@@ -7,11 +7,11 @@ let isMatrixAnimating = true;
 const pendingLogs = [];
 let tableGames = {};
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?
 // ğŸ‰ ANIMAÃ‡ÃƒO DE VITÃ“RIA â€” NOVO RESTAURANTE CADASTRADO
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?
 function celebrarNovoRestaurante(nome, id, dono) {
-  const frames = ['ğŸ‰', 'ğŸŠ', 'âœ¨', 'ğŸ†', 'ğŸŒŸ', 'ğŸ†', 'ğŸ‡'];
+  const frames = ['ğŸ‰', 'ğŸŠ', 'âœ¨', 'ğŸ?†', 'ğŸŒŸ', 'ğŸ†', 'ğŸ‡'];
   let f = 0;
   const spinner = setInterval(() => {
     process.stdout.write(`\r  ${frames[f % frames.length]}  Processando novo cliente... `);
@@ -25,14 +25,14 @@ function celebrarNovoRestaurante(nome, id, dono) {
     const ts = new Date().toLocaleTimeString('pt-BR');
     const banner = [
       '',
-      `${ANSI.yellow}${ANSI.bright}  â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—${ANSI.reset}`,
-      `${ANSI.yellow}${ANSI.bright}  â•‘   ğŸ†  NOVO RESTAURANTE CADASTRADO  ğŸ†            â•‘${ANSI.reset}`,
-      `${ANSI.yellow}${ANSI.bright}  â• â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•£${ANSI.reset}`,
-      `${ANSI.yellow}  â•‘${ANSI.reset}  ${ANSI.cyan}ğŸª Nome:${ANSI.reset}   ${ANSI.bright}${nome}${ANSI.reset}`,
+      `${ANSI.yellow}${ANSI.bright}  â•”â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•—${ANSI.reset}`,
+      `${ANSI.yellow}${ANSI.bright}  â•‘   ğŸ?†  NOVO RESTAURANTE CADASTRADO  ğŸ?†            â•‘${ANSI.reset}`,
+      `${ANSI.yellow}${ANSI.bright}  â• â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•£${ANSI.reset}`,
+      `${ANSI.yellow}  â•‘${ANSI.reset}  ${ANSI.cyan}ğŸ?ª Nome:${ANSI.reset}   ${ANSI.bright}${nome}${ANSI.reset}`,
       `${ANSI.yellow}  â•‘${ANSI.reset}  ${ANSI.green}ğŸ†” ID:${ANSI.reset}     #${id}`,
       dono ? `${ANSI.yellow}  â•‘${ANSI.reset}  ${ANSI.magenta}ğŸ‘¤ Dono:${ANSI.reset}   ${dono}` : null,
-      `${ANSI.yellow}  â•‘${ANSI.reset}  ${ANSI.dim}ğŸ• Hora:${ANSI.reset}   ${ts}`,
-      `${ANSI.yellow}${ANSI.bright}  â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•${ANSI.reset}`,
+      `${ANSI.yellow}  â•‘${ANSI.reset}  ${ANSI.dim}ğŸ•? Hora:${ANSI.reset}   ${ts}`,
+      `${ANSI.yellow}${ANSI.bright}  â•šâ•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?${ANSI.reset}`,
       `  ${ANSI.green}${ANSI.bright}ğŸŠ Bem-vindo ao ecossistema Chef Cozinha SaaS! ğŸŠ${ANSI.reset}`,
       '',
     ].filter(Boolean).join('\n');
@@ -78,10 +78,10 @@ const ANSI = {
 const serverStartTime = Date.now();
 function getEfficiencyStars() {
   const memRssMb = process.memoryUsage().rss / (1024 * 1024);
-  if (memRssMb < 150) return "â­â­â­â­â­ [100% EXCELENTE]";
-  if (memRssMb < 300) return "â­â­â­â­ [95% Ã“TIMO]";
-  if (memRssMb < 500) return "â­â­â­ [85% BOM]";
-  return "â­â­ [ATENÃ‡ÃƒO RESTRIÃ‡ÃƒO]";
+  if (memRssMb < 150) return "â­?â­?â­?â­?â­? [100% EXCELENTE]";
+  if (memRssMb < 300) return "â­?â­?â­?â­? [95% Ã“TIMO]";
+  if (memRssMb < 500) return "â­?â­?â­? [85% BOM]";
+  return "â­?â­? [ATENÃ‡ÃƒO RESTRIÃ‡ÃƒO]";
 }
 
 console.log = function (...args) {
@@ -96,7 +96,7 @@ console.log = function (...args) {
   if (/^\[Cli-Click\]/.test(line)) {
     const content = line.replace(/^\[Cli-Click\]/, '').trim();
     const parts = content.split(' | ');
-    formatted = `${ANSI.magenta}â•­â”€ ğŸ–±ï¸  ${ANSI.bright}AÃ‡ÃƒO DO USUÃRIO${ANSI.reset} ${ANSI.dim}â”€â”€â”€â”€â”€â”€ [${timeStr}] â”€â”€â•®${ANSI.reset}\n` +
+    formatted = `${ANSI.magenta}â•­â”€ ğŸ–±ï¸?  ${ANSI.bright}AÃ‡ÃƒO DO USUÃ?RIO${ANSI.reset} ${ANSI.dim}â”€â”€â”€â”€â”€â”€ [${timeStr}] â”€â”€â•®${ANSI.reset}\n` +
                 parts.map(p => `${ANSI.magenta}â”‚${ANSI.reset}   ${ANSI.cyan}â€¢${ANSI.reset} ${p}`).join('\n') + `\n` +
                 `${ANSI.magenta}â•°â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â•¯${ANSI.reset}`;
   }
@@ -133,7 +133,7 @@ console.error = function (...args) {
   const line = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(' ');
   logLines.push(`[ERR] ${new Date().toLocaleTimeString('pt-BR')} - ${line}`);
   if (logLines.length > 100) logLines.shift();
-  originalError.apply(console, [`\n${ANSI.red}${ANSI.bright}âŒ [${new Date().toLocaleTimeString('pt-BR')}] [ERRO] ${line}${ANSI.reset}\n`]);
+  originalError.apply(console, [`\n${ANSI.red}${ANSI.bright}â?Œ [${new Date().toLocaleTimeString('pt-BR')}] [ERRO] ${line}${ANSI.reset}\n`]);
 };
 
 const express = require('express');
@@ -411,23 +411,23 @@ app.use((req, res, next) => {
   // Mensagens engraÃ§adas por NÃ­vel de Ataque (ZoaÃ§Ãµes Inteligentes)
   const ZOACIONAL_NIVEIS = {
     blacklist: [
-      "ğŸš« NÃVEL MAXIMO: Calma lÃ¡, Hacker de Lanchonete! Seu IP tomou um BAN permanente. Vai tomar um cafÃ©!",
+      "ğŸš« NÃ?VEL MAXIMO: Calma lÃ¡, Hacker de Lanchonete! Seu IP tomou um BAN permanente. Vai tomar um cafÃ©!",
       "â›” ERRO 403: VocÃª foi bloqueado pelo Chef! Nem com tempero secreto seu IP entra aqui de novo.",
       "ğŸš« ACESSO NEGADO: Detectamos que vocÃª Ã© o hacker da NASA de fundo de quintal. IP na Blacklist!"
     ],
     sqli_xss: [
-      "ğŸ§™â€â™‚ï¸ NÃVEL 2: Tentando SQL Injection em 2026? Meu banco de dados deu risada e mandou um abraÃ§o!",
-      "ğŸ•µï¸â€â™‚ï¸ NÃVEL 2: Achou que ia mandar um <script>alert('hacked')</script> e virar o Mr. Robot? Tenta no Paint!",
-      "ğŸ¤¡ NÃVEL 2: 'DROP TABLE'? A Ãºnica coisa que vai cair aqui Ã© a sua autoestima. InjeÃ§Ã£o bloqueada!"
+      "ğŸ§™â€?â™‚ï¸? NÃ?VEL 2: Tentando SQL Injection em 2026? Meu banco de dados deu risada e mandou um abraÃ§o!",
+      "ğŸ•µï¸?â€?â™‚ï¸? NÃ?VEL 2: Achou que ia mandar um <script>alert('hacked')</script> e virar o Mr. Robot? Tenta no Paint!",
+      "ğŸ¤¡ NÃ?VEL 2: 'DROP TABLE'? A Ãºnica coisa que vai cair aqui Ã© a sua autoestima. InjeÃ§Ã£o bloqueada!"
     ],
     rate_limit: [
-      "ğŸï¸ NÃVEL 1: Ei, Ligeirinho! Mandou requisiÃ§Ã£o demais e fundiu o motor. Respira 1 minuto!",
-      "ğŸ¢ NÃVEL 1: Calma, afobado! 300 requisiÃ§Ãµes num minuto? Nem robÃ´ de entrega Ã© tÃ£o rÃ¡pido. Espera aÃ­ um pouco!",
-      "ğŸš¦ NÃVEL 1: Freia esse flood! O servidor Ã© forte, mas sua apressaÃ§Ã£o levou um Red Card temporÃ¡rio."
+      "ğŸ?ï¸? NÃ?VEL 1: Ei, Ligeirinho! Mandou requisiÃ§Ã£o demais e fundiu o motor. Respira 1 minuto!",
+      "ğŸ?¢ NÃ?VEL 1: Calma, afobado! 300 requisiÃ§Ãµes num minuto? Nem robÃ´ de entrega Ã© tÃ£o rÃ¡pido. Espera aÃ­ um pouco!",
+      "ğŸš¦ NÃ?VEL 1: Freia esse flood! O servidor Ã© forte, mas sua apressaÃ§Ã£o levou um Red Card temporÃ¡rio."
     ],
     path_traversal: [
-      "ğŸ“‚ NÃVEL 3: Tentando '..//..//etc/passwd'? O mÃ¡ximo que vocÃª vai achar aqui Ã© a receita de pÃ£o de alho da vovÃ³!",
-      "ğŸ›‘ NÃVEL 3: NavegaÃ§Ã£o de diretÃ³rios? Esse caminho nÃ£o leva ao tesouro, sÃ³ a um 403 bem bonito!"
+      "ğŸ“‚ NÃ?VEL 3: Tentando '..//..//etc/passwd'? O mÃ¡ximo que vocÃª vai achar aqui Ã© a receita de pÃ£o de alho da vovÃ³!",
+      "ğŸ›‘ NÃ?VEL 3: NavegaÃ§Ã£o de diretÃ³rios? Esse caminho nÃ£o leva ao tesouro, sÃ³ a um 403 bem bonito!"
     ]
   };
 
@@ -458,7 +458,7 @@ app.use((req, res, next) => {
   if (wafConfig.block_sqli_xss) {
     const urlCheck = (req.originalUrl || '').toLowerCase();
     if (urlCheck.includes('<script>') || urlCheck.includes('union select') || urlCheck.includes('drop table') || urlCheck.includes('or 1=1') || urlCheck.includes('eval(')) {
-      console.warn(`âš ï¸ [WAF Anti-XSS/SQLi] Tentativa de injeÃ§Ã£o bloqueada de ${ip}`);
+      console.warn(`âš ï¸? [WAF Anti-XSS/SQLi] Tentativa de injeÃ§Ã£o bloqueada de ${ip}`);
       const msg = pegarZoacao('sqli_xss');
       wafAttackLogs.unshift({ data: new Date().toISOString(), ip, metodo: req.method, endpoint: req.originalUrl, motivo: 'Tentativa de InjeÃ§Ã£o SQL/XSS' });
       if (wafAttackLogs.length > 100) wafAttackLogs.pop();
@@ -478,12 +478,12 @@ app.use((req, res, next) => {
   } else {
     record.count++;
     if (record.count > maxReqs) {
-      console.warn(`âš ï¸ [Anti-DDoS] IP bloqueado por limite de taxa (${record.count} reqs/min): ${ip}`);
+      console.warn(`âš ï¸? [Anti-DDoS] IP bloqueado por limite de taxa (${record.count} reqs/min): ${ip}`);
       const msg = pegarZoacao('rate_limit');
       wafAttackLogs.unshift({ data: new Date().toISOString(), ip, metodo: req.method, endpoint: req.originalUrl, motivo: `Limite Rate Limit excedido (${record.count}/${maxReqs})` });
       if (wafAttackLogs.length > 100) wafAttackLogs.pop();
       res.setHeader('X-Troll-Security', 'Too-Fast-Too-Furious');
-      return res.status(429).json({ success: false, error: 'Muitas RequisiÃ§Ãµes', zombaria: msg, tempo_espera: 'Aguarde 60 segundos â³' });
+      return res.status(429).json({ success: false, error: 'Muitas RequisiÃ§Ãµes', zombaria: msg, tempo_espera: 'Aguarde 60 segundos â?³' });
     }
   }
 
@@ -518,7 +518,7 @@ app.use('/api', (req, res, next) => {
   next();
 });
 
-// --- DOMÃNIO POR TENANT (subdomÃ­nio + domÃ­nio prÃ³prio) ---
+// --- DOMÃ?NIO POR TENANT (subdomÃ­nio + domÃ­nio prÃ³prio) ---
 let BASE_DOMAIN = (process.env.BASE_DOMAIN || 'chefcozinha.com.br').toLowerCase();
 const domainMap = new Map(); // custom_domain â†’ tenant_id
 const slugMap = new Map();   // slug â†’ tenant_id
@@ -647,8 +647,8 @@ app.use((req, res, next) => {
   try { decoded = decodeURIComponent(req.path || '/').toLowerCase(); } catch (e) { decoded = urlPath; }
 
   const TROLL_BLOCKED_RESP = '<div style="font-family:sans-serif;text-align:center;padding:50px;background:#111;color:#ff5722;min-height:100vh;">' +
-    '<h1>ğŸ•µï¸â€â™‚ï¸ Tentando espiar arquivos do Servidor?</h1>' +
-    '<p style="font-size:18px;color:#eee;">Acesso Negado! O mÃ¡ximo que vocÃª vai encontrar aqui Ã© o segredo do nosso molho especial. ğŸ•</p>' +
+    '<h1>ğŸ•µï¸?â€?â™‚ï¸? Tentando espiar arquivos do Servidor?</h1>' +
+    '<p style="font-size:18px;color:#eee;">Acesso Negado! O mÃ¡ximo que vocÃª vai encontrar aqui Ã© o segredo do nosso molho especial. ğŸ?•</p>' +
     '<small style="color:#777;">(Seu IP foi gravado nos logs de auditoria para fins de diversÃ£o da equipe)</small>' +
   '</div>';
 
@@ -758,7 +758,7 @@ app.use(express.static(path.join(__dirname, 'dist'), {
   }
 }));
 
-// â•â•â• PLUGIN LOADER removido daqui â€” ver abaixo, apÃ³s definiÃ§Ã£o de db e superAdminAuth â•â•â•
+// â•?â•?â•? PLUGIN LOADER removido daqui â€” ver abaixo, apÃ³s definiÃ§Ã£o de db e superAdminAuth â•?â•?â•?
 
 app.get('/super-admin', (req, res) => {
   const distPath = path.join(__dirname, 'dist', 'super-admin.html');
@@ -844,7 +844,7 @@ app.get('/api/public/tracking-config', (req, res) => {
 });
 
 // â”€â”€ SUPER ADMIN: Save Tracking Config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// â•â•â•â•â•â• MONITOR DE CADASTRO AO VIVO (super-admin vÃª o restaurante digitando) â•â•â•â•â•â•
+// â•?â•?â•?â•?â•?â•? MONITOR DE CADASTRO AO VIVO (super-admin vÃª o restaurante digitando) â•?â•?â•?â•?â•?â•?
 app.post('/api/monitor/cadastro-progresso', (req, res) => {
   try {
     const b = req.body || {};
@@ -958,7 +958,7 @@ app.post('/api/super/anuncios/gerar-copy', superAdminAuth, (req, res) => {
       link: '/site'
     },
     clientes: {
-      titulo: 'ğŸ• FaÃ§a seu Pedido Sem Filas e Ganhe Cupons Exclusivos!',
+      titulo: 'ğŸ?• FaÃ§a seu Pedido Sem Filas e Ganhe Cupons Exclusivos!',
       subtitulo: 'Acesse o CardÃ¡pio Digital no seu celular, peÃ§a Ã  mesa ou pelo Delivery com PIX automÃ¡tico.',
       texto: 'Quer a melhor experiÃªncia gastronÃ´mica nos melhores restaurantes da sua cidade? PeÃ§a pelo cardÃ¡pio digital Chef Cozinha e aproveite descontos no Programa de Fidelidade!',
       call_to_action: 'Ver Restaurantes Parceiros',
@@ -1315,7 +1315,7 @@ async function superAdminAuth(req, res, next) {
   return res.status(401).json({ ok: false, erro: 'Acesso nÃ£o autorizado. Autentique-se novamente.' });
 }
 
-// â”€â”€â”€ GUARDA GLOBAL DE SEGURANÃ‡A SUPER-ADMIN (PROTEÃ‡ÃƒO 100% INVIOLÃVEL) â”€â”€â”€â”€â”€â”€â”€
+// â”€â”€â”€ GUARDA GLOBAL DE SEGURANÃ‡A SUPER-ADMIN (PROTEÃ‡ÃƒO 100% INVIOLÃ?VEL) â”€â”€â”€â”€â”€â”€â”€
 app.use('/api/super', (req, res, next) => {
   // Rotas pÃºblicas do super admin: login
   if (req.path === '/login-local' || req.path === '/login-cloud') {
@@ -1616,7 +1616,7 @@ function coletarTelemetriaLocal() {
 setTimeout(() => { coletarTelemetriaLocal(); }, 3000);
 setInterval(() => { coletarTelemetriaLocal(); }, 5 * 60 * 1000);
 
-// â”€â”€ SUPER ADMIN: ROTAS DE USUÃRIOS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â”€â”€ SUPER ADMIN: ROTAS DE USUÃ?RIOS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/super/usuarios', superAdminAuth, (req, res) => {
   masterDb.all(`SELECT id, restaurante_id, username, role, ativo, data_cadastro FROM usuarios ORDER BY id`, [], (err, rows) => {
     if (err) return res.json({ ok: false, erro: err.message });
@@ -2353,7 +2353,7 @@ app.get('/api/super/tenant-temas', superAdminAuth, (req, res) => {
 
 /* â”€â”€ PIX COPIA E COLA DINÃ‚MICO â”€â”€ extraÃ­do para plugins/pix/ â”€â”€ */
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?
 // â”€â”€ TEMAS GLOBAIS MULTI-VERSÃƒO â”€â”€ extraÃ­do para plugins/temas/ â”€â”€
 masterDb.run(`CREATE TABLE IF NOT EXISTS temas_global (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -2507,7 +2507,7 @@ app.get('/api/super/clientes/:id', superAdminAuth, (req, res) => {
   });
 });
 
-// â”€â”€ SUPER ADMIN: FUNCIONÃRIOS POR RESTAURANTE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â”€â”€ SUPER ADMIN: FUNCIONÃ?RIOS POR RESTAURANTE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/super/restaurantes/:id/funcionarios', superAdminAuth, (req, res) => {
   const restauranteId = parseInt(req.params.id);
   const tenantDbPath = getTenantDbPath(restauranteId);
@@ -2588,9 +2588,9 @@ app.post('/api/super/exec', superAdminAuth, (req, res) => {
 
 // â”€â”€ SUPER ADMIN: EQUIPE DE SUPORTE CRUD â”€â”€ extraÃ­do para plugins/equipe/ â”€â”€
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?
 // PAINEL DE SUPORTE â€” AUTH, GESTÃƒO & GAMIFICAÃ‡ÃƒO
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?
 
 const suporteJwtSecret = process.env.SUPORTE_JWT_SECRET || 'chef-suporte-secret-key-2026';
 
@@ -2873,7 +2873,7 @@ app.get('/api/suporte/minhas-conquistas', suporteAuth, (req, res) => {
   });
 });
 
-// â•â•â• ÃREA DE VENDAS E ONBOARDING DO SUPORTE â•â•â•
+// â•?â•?â•? Ã?REA DE VENDAS E ONBOARDING DO SUPORTE â•?â•?â•?
 
 // GET /api/suporte/minhas-vendas â€” Vendas realizadas pelo suporte logado
 app.get('/api/suporte/minhas-vendas', suporteAuth, (req, res) => {
@@ -3124,41 +3124,7 @@ app.put('/api/super/suporte/:id/status-aprovacao', superAdminAuth, (req, res) =>
   });
 });
 
-// POST /api/super/equipe/tasks â€” Atribuir nova task para membro da equipe de suporte
-app.post('/api/super/equipe/tasks', superAdminAuth, (req, res) => {
-  const { suporte_id, restaurante_id, tipo, descricao, pontos } = req.body || {};
-  if (!suporte_id || !tipo || !descricao) return res.json({ ok: false, erro: 'Atendente, tipo e descriÃ§Ã£o sÃ£o obrigatÃ³rios.' });
-
-  const pts = parseInt(pontos) || 10;
-  masterDb.run(`INSERT INTO tarefas_suporte (suporte_id, tipo, descricao, restaurante_id, pontos, status, concluida_em) VALUES (?, ?, ?, ?, ?, 'concluida', datetime('now','localtime'))`,
-    [suporte_id, tipo, descricao, restaurante_id || null, pts], function(err) {
-      if (err) return res.json({ ok: false, erro: err.message });
-      // Creditar XP ao atendente
-      masterDb.run(`UPDATE equipe_suporte SET xp = COALESCE(xp,0) + ? WHERE id = ?`, [pts, suporte_id]);
-      registrarAuditLog(suporte_id, 'Super Admin', 'task_atribuida', `Task "${tipo}" atribuÃ­da (${pts} XP)`, req);
-      res.json({ ok: true, mensagem: 'Task atribuÃ­da com sucesso!' });
-    }
-  );
-});
-
-// POST /api/super/equipe/avisos â€” Transmitir avisos/alertas para o suporte
-app.post('/api/super/equipe/avisos', superAdminAuth, (req, res) => {
-  const { destino, suporte_ids, titulo, tipo, corpo } = req.body || {};
-  if (!titulo || !corpo) return res.json({ ok: false, erro: 'TÃ­tulo e corpo do aviso sÃ£o obrigatÃ³rios.' });
-
-  let destinatarios = '';
-  if (destino === 'selecionados' && Array.isArray(suporte_ids) && suporte_ids.length > 0) {
-    destinatarios = suporte_ids.join(',');
-  }
-
-  masterDb.run(`INSERT INTO mensagens (titulo, corpo, tipo, lida_por, criado_em) VALUES (?, ?, ?, ?, datetime('now','localtime'))`,
-    [titulo, corpo, tipo || 'aviso', destinatarios], function(err) {
-      if (err) return res.json({ ok: false, erro: err.message });
-      registrarAuditLog(null, 'Super Admin', 'transmissao_aviso', `Aviso "${titulo}" transmitido para: ${destino}`, req);
-      res.json({ ok: true, mensagem: 'Aviso transmitido com sucesso!' });
-    }
-  );
-});
+// POST /api/super/equipe/tasks + /api/super/equipe/avisos â†’ migrado para plugins/equipe/
 
 // GET /api/super/suporte/audit-logs â€” Visualizar logs de auditoria e seguranÃ§a dos suportes (anti-fraude)
 app.get('/api/super/suporte/audit-logs', superAdminAuth, (req, res) => {
@@ -3268,7 +3234,7 @@ app.post('/api/super/criar-restaurante-completo', superAdminAuth, async (req, re
   } catch (e) { res.json({ ok: false, erro: e.message }); }
 });
 
-// â”€â”€ SUPER ADMIN: DOMÃNIOS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â”€â”€ SUPER ADMIN: DOMÃ?NIOS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/super/dominios', superAdminAuth, (req, res) => {
   masterDb.all(`SELECT id, nome, slug, custom_domain FROM restaurantes ORDER BY id`, [], (err, rows) => {
     if (err) return res.json({ ok: false, erro: err.message });
@@ -3293,20 +3259,6 @@ let pedidosDebounceTimeout = null;
 // Mercado Pago payment tracking (per-connection state would be ideal, but currently global)
 let mpCurrentIntentId = null;
 let mpCurrentDeviceId = null;
-
-function broadcastFormasPagamento(targetSocket = null, tenantId = null) {
-  db.all(`SELECT * FROM formas_pagamento ORDER BY ordem ASC, id ASC`, [], (err, rows) => {
-    if (!err) {
-      if (targetSocket) {
-        targetSocket.emit('formas_pagamento_atualizadas', rows || []);
-      } else if (Number.isFinite(tenantId) && tenantId > 0) {
-        io.to(`restaurante_${tenantId}`).emit('formas_pagamento_atualizadas', rows || []);
-      } else {
-        io.emit('formas_pagamento_atualizadas', rows || []);
-      }
-    }
-  });
-}
 
 
 
@@ -3871,7 +3823,7 @@ function superAdminAuth(req, res, next) {
   return res.status(401).json({ ok: false, erro: 'Acesso nÃ£o autorizado ao Super Admin.' });
 }
 
-// â”€â”€â”€ GUARDA GLOBAL DE SEGURANÃ‡A SUPER-ADMIN (PROTEÃ‡ÃƒO 100% INVIOLÃVEL) â”€â”€â”€â”€â”€â”€â”€
+// â”€â”€â”€ GUARDA GLOBAL DE SEGURANÃ‡A SUPER-ADMIN (PROTEÃ‡ÃƒO 100% INVIOLÃ?VEL) â”€â”€â”€â”€â”€â”€â”€
 app.use('/api/super', (req, res, next) => {
   if (req.path === '/login-local' || req.path === '/login-cloud') {
     return next();
@@ -4160,11 +4112,11 @@ if (deploymentConfig.isOnPremise()) {
 }
 // ------------------------------
 
-// â•â•â• PLUGIN LOADER â€” carrega todos os plugins de plugins/ â•â•â•
-const pluginOptions = { JWT_SECRET, verificarToken, superAdminAuth, withTenant, resolveTenantId, nfceService, activeSockets, getTempoConectadoStr, licenseManager, verificarSenhaFuncionario, funcionarioPublico, masterDb, isValidId, exigirAdminSocket, resumirUserAgent, sendPush, upload: require('multer')(), getTenantDbPath, tenantDbs, isTenantFeatureEnabled, tenantContext };
+// â•?â•?â•? PLUGIN LOADER â€” carrega todos os plugins de plugins/ â•?â•?â•?
+const pluginOptions = { JWT_SECRET, verificarToken, superAdminAuth, withTenant, resolveTenantId, nfceService, activeSockets, getTempoConectadoStr, licenseManager, verificarSenhaFuncionario, funcionarioPublico, masterDb, isValidId, exigirAdminSocket, resumirUserAgent, sendPush, upload: require('multer')(), getTenantDbPath, tenantDbs, isTenantFeatureEnabled, tenantContext, getPontoToken: () => pontoToken, getLocalTimestamp, getLocalDateOnly, safeFloat };
 loadPlugins({ app, db, masterDb, io, options: pluginOptions });
 
-// â•â•â• NÃšCLEO DE CRIAÃ‡ÃƒO DE PEDIDO (compartilhado socket + REST offline-sync) â•â•â•
+// â•?â•?â•? NÃšCLEO DE CRIAÃ‡ÃƒO DE PEDIDO (compartilhado socket + REST offline-sync) â•?â•?â•?
 // O corpo vive em io.on('connection') como _novoPedidoCore e Ã© exposto no
 // primeiro connect. Aqui garantimos licenÃ§a, dedupe por uuid e contexto ALS.
 function processarNovoPedido(pedido, opts = {}) {
@@ -4172,7 +4124,7 @@ function processarNovoPedido(pedido, opts = {}) {
   if (!core) return false;
   const reply = opts.reply || function () { };
   if (licenseManager.isRestricted()) {
-    reply('pedido_erro', { msg: 'âš ï¸ Sistema em modo restrito. Ative a licenÃ§a para adicionar pedidos.' });
+    reply('pedido_erro', { msg: 'âš ï¸? Sistema em modo restrito. Ative a licenÃ§a para adicionar pedidos.' });
     return false;
   }
   if (!pedido || typeof pedido !== 'object') return false;
@@ -4320,7 +4272,7 @@ db.serialize(() => {
   db.run(`ALTER TABLE produtos ADD COLUMN foto_url TEXT`, (err) => { });
   db.run(`ALTER TABLE promocoes ADD COLUMN config TEXT`, (err) => { });
 
-  // --- ITENS MONTÃVEIS (Build Your Own) ---
+  // --- ITENS MONTÃ?VEIS (Build Your Own) ---
   db.run(`CREATE TABLE IF NOT EXISTS itens_montaveis (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     produto_id INTEGER,
@@ -5247,7 +5199,7 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
       }
     });
 
-    // Criar Ãndices no SQLite para Desempenho e EficiÃªncia Extrema
+    // Criar Ã?ndices no SQLite para Desempenho e EficiÃªncia Extrema
     db.run("CREATE INDEX IF NOT EXISTS idx_pedidos_status ON pedidos(status)");
     db.run("CREATE INDEX IF NOT EXISTS idx_pedidos_local ON pedidos(localName)");
     db.run("CREATE INDEX IF NOT EXISTS idx_pedidos_payment ON pedidos(paymentMethod)");
@@ -5291,7 +5243,7 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
   db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('qr_order_flow', 'caixa')`);
   db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('qr_pix_key', '')`);
   db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('qr_pix_name', '')`);
-  // â•â•â•â•â•â• MÃ“DULO TOTEM (autoatendimento kiosk â€” upsell SaaS) â•â•â•â•â•â•
+  // â•?â•?â•?â•?â•?â•? MÃ“DULO TOTEM (autoatendimento kiosk â€” upsell SaaS) â•?â•?â•?â•?â•?â•?
   db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('totem_enabled', 'false')`);
   db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('totem_mesa', 'Totem 1')`);
   db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('totem_idle_timeout', '45')`);
@@ -5329,7 +5281,7 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
   db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('jogos_pontos_vitoria', '10')`);
   db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('jogos_pontos_derrota', '2')`);
 
-  // â•â•â•â•â•â• TABELAS DE JOGOS/GAMIFICAÃ‡ÃƒO â•â•â•â•â•â•
+  // â•?â•?â•?â•?â•?â•? TABELAS DE JOGOS/GAMIFICAÃ‡ÃƒO â•?â•?â•?â•?â•?â•?
   db.run(`
     CREATE TABLE IF NOT EXISTS jogos (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -5387,8 +5339,8 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
 
   // Inserir um cupom de teste inicial
   const testItems = [
-    { nome: "Cerveja Lata", emoji: "ğŸº", quantity: 1, sector: "Bar" },
-    { nome: "PorÃ§Ã£o Extra - Arroz/PirÃ£o/Salada", emoji: "ğŸš", quantity: 1, sector: "Cozinha 1" }
+    { nome: "Cerveja Lata", emoji: "ğŸ?º", quantity: 1, sector: "Bar" },
+    { nome: "PorÃ§Ã£o Extra - Arroz/PirÃ£o/Salada", emoji: "ğŸ?š", quantity: 1, sector: "Cozinha 1" }
   ];
   db.run(`INSERT OR IGNORE INTO cupons (codigo, itens_json, usado) VALUES (?, ?, 0)`, ['CUPOM-TESTE-123', JSON.stringify(testItems)]);
 
@@ -5406,38 +5358,38 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
   db.get('SELECT count(*) as count FROM produtos', (err, row) => {
     if (row && row.count === 0) {
       const defaultProducts = [
-        ['Cervejas', 'Heineken 600ml', 21.00, 'ğŸº', false, 'Bar', 'Em espera'],
-        ['Cervejas', 'Stella 600ml', 21.00, 'ğŸº', false, 'Bar', 'Em espera'],
-        ['Cervejas', 'Spaten 600ml', 18.00, 'ğŸº', false, 'Bar', 'Em espera'],
-        ['Cervejas', 'Budweiser 600ml', 18.00, 'ğŸº', false, 'Bar', 'Em espera'],
-        ['Cervejas', 'Amstel 600ml', 18.00, 'ğŸº', false, 'Bar', 'Em espera'],
-        ['Cervejas', 'Eisenbahn 600ml', 18.00, 'ğŸº', false, 'Bar', 'Em espera'],
-        ['Cervejas', 'Original 600ml', 18.00, 'ğŸº', false, 'Bar', 'Em espera'],
-        ['Cervejas', 'Brahma 600ml', 15.00, 'ğŸº', false, 'Bar', 'Em espera'],
-        ['Cervejas', 'Cerveja Lata', 10.00, 'ğŸº', false, 'Bar', 'Em espera'],
-        ['Cervejas', 'Cerveja Artesanal', 25.00, 'ğŸº', false, 'Bar', 'Em espera'],
+        ['Cervejas', 'Heineken 600ml', 21.00, 'ğŸ?º', false, 'Bar', 'Em espera'],
+        ['Cervejas', 'Stella 600ml', 21.00, 'ğŸ?º', false, 'Bar', 'Em espera'],
+        ['Cervejas', 'Spaten 600ml', 18.00, 'ğŸ?º', false, 'Bar', 'Em espera'],
+        ['Cervejas', 'Budweiser 600ml', 18.00, 'ğŸ?º', false, 'Bar', 'Em espera'],
+        ['Cervejas', 'Amstel 600ml', 18.00, 'ğŸ?º', false, 'Bar', 'Em espera'],
+        ['Cervejas', 'Eisenbahn 600ml', 18.00, 'ğŸ?º', false, 'Bar', 'Em espera'],
+        ['Cervejas', 'Original 600ml', 18.00, 'ğŸ?º', false, 'Bar', 'Em espera'],
+        ['Cervejas', 'Brahma 600ml', 15.00, 'ğŸ?º', false, 'Bar', 'Em espera'],
+        ['Cervejas', 'Cerveja Lata', 10.00, 'ğŸ?º', false, 'Bar', 'Em espera'],
+        ['Cervejas', 'Cerveja Artesanal', 25.00, 'ğŸ?º', false, 'Bar', 'Em espera'],
         ['Bebidas', 'Refrigerante Lata', 8.00, 'ğŸ¥¤', false, 'Bar', 'Em espera'],
-        ['Bebidas', 'Ãgua sem gÃ¡s', 4.00, 'ğŸ’§', false, 'Bar', 'Em espera'],
-        ['Bebidas', 'Ãgua com gÃ¡s', 5.00, 'ğŸ’§', false, 'Bar', 'Em espera'],
+        ['Bebidas', 'Ã?gua sem gÃ¡s', 4.00, 'ğŸ’§', false, 'Bar', 'Em espera'],
+        ['Bebidas', 'Ã?gua com gÃ¡s', 5.00, 'ğŸ’§', false, 'Bar', 'Em espera'],
         ['Bebidas', 'TÃ´nica Lata', 8.80, 'ğŸ¥¤', false, 'Bar', 'Em espera'],
         ['Bebidas', 'H2O Garrafa', 8.80, 'ğŸ’§', false, 'Bar', 'Em espera'],
         ['Bebidas', 'Citrus Lata', 8.80, 'ğŸ¥¤', false, 'Bar', 'Em espera'],
         ['Bebidas', 'Suco copo/lata', 8.80, 'ğŸ§ƒ', false, 'Bar', 'Em espera'],
-        ['Bebidas', 'Suco Jarra Laranja', 18.00, 'ğŸŠ', false, 'Bar', 'Em espera'],
-        ['Bebidas', 'Suco Jarra LimÃ£o', 23.00, 'ğŸ‹', false, 'Bar', 'Em espera'],
+        ['Bebidas', 'Suco Jarra Laranja', 18.00, 'ğŸ?Š', false, 'Bar', 'Em espera'],
+        ['Bebidas', 'Suco Jarra LimÃ£o', 23.00, 'ğŸ?‹', false, 'Bar', 'Em espera'],
         ['Bebidas', 'EnergÃ©tico Baly', 18.00, 'âš¡', false, 'Bar', 'Em espera'],
         ['Bebidas', 'EnergÃ©tico Redbull', 18.00, 'âš¡', false, 'Bar', 'Em espera'],
         ['Bebidas', 'EnergÃ©tico Monster', 18.00, 'âš¡', false, 'Bar', 'Em espera'],
-        ['Bebidas', 'Heineken 0%', 15.00, 'ğŸº', false, 'Bar', 'Em espera'],
-        ['Bebidas', 'Brahma 0%', 10.00, 'ğŸº', false, 'Bar', 'Em espera'],
-        ['Caipirinhas', 'Caipirinha Smirnoff', 20.00, 'ğŸ¹', false, 'Bar', 'Em espera'],
-        ['Caipirinhas', 'Caipirinha Bacardi', 20.00, 'ğŸ¹', false, 'Bar', 'Em espera'],
-        ['Caipirinhas', 'Caipirinha CachaÃ§a Branca', 20.00, 'ğŸ¹', false, 'Bar', 'Em espera'],
-        ['Caipirinhas', 'Caipirinha CachaÃ§a Amarela', 20.00, 'ğŸ¹', false, 'Bar', 'Em espera'],
-        ['Caipirinhas', 'Caipirinha Vinho', 20.00, 'ğŸ·', false, 'Bar', 'Em espera'],
-        ['Caipirinhas', 'Caipirinha Skyy', 20.00, 'ğŸ¹', false, 'Bar', 'Em espera'],
-        ['Caipirinhas', 'Caipirinha Absolut', 26.00, 'ğŸ¹', false, 'Bar', 'Em espera'],
-        ['Caipirinhas', 'Caipirinha Havana', 28.00, 'ğŸ¹', false, 'Bar', 'Em espera'],
+        ['Bebidas', 'Heineken 0%', 15.00, 'ğŸ?º', false, 'Bar', 'Em espera'],
+        ['Bebidas', 'Brahma 0%', 10.00, 'ğŸ?º', false, 'Bar', 'Em espera'],
+        ['Caipirinhas', 'Caipirinha Smirnoff', 20.00, 'ğŸ?¹', false, 'Bar', 'Em espera'],
+        ['Caipirinhas', 'Caipirinha Bacardi', 20.00, 'ğŸ?¹', false, 'Bar', 'Em espera'],
+        ['Caipirinhas', 'Caipirinha CachaÃ§a Branca', 20.00, 'ğŸ?¹', false, 'Bar', 'Em espera'],
+        ['Caipirinhas', 'Caipirinha CachaÃ§a Amarela', 20.00, 'ğŸ?¹', false, 'Bar', 'Em espera'],
+        ['Caipirinhas', 'Caipirinha Vinho', 20.00, 'ğŸ?·', false, 'Bar', 'Em espera'],
+        ['Caipirinhas', 'Caipirinha Skyy', 20.00, 'ğŸ?¹', false, 'Bar', 'Em espera'],
+        ['Caipirinhas', 'Caipirinha Absolut', 26.00, 'ğŸ?¹', false, 'Bar', 'Em espera'],
+        ['Caipirinhas', 'Caipirinha Havana', 28.00, 'ğŸ?¹', false, 'Bar', 'Em espera'],
         ['Doses', 'Smirnoff', 12.00, 'ğŸ¥ƒ', false, 'Bar', 'Em espera'],
         ['Doses', 'Bacardi', 12.00, 'ğŸ¥ƒ', false, 'Bar', 'Em espera'],
         ['Doses', 'Steinhager', 11.00, 'ğŸ¥ƒ', false, 'Bar', 'Em espera'],
@@ -5446,54 +5398,54 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
         ['Doses', 'Passport', 13.00, 'ğŸ¥ƒ', false, 'Bar', 'Em espera'],
         ['Doses', 'Licor 43', 28.00, 'ğŸ¥ƒ', false, 'Bar', 'Em espera'],
         ['Doses', 'Conhaque', 28.00, 'ğŸ¥ƒ', false, 'Bar', 'Em espera'],
-        ['Doses', 'Gin', 13.00, 'ğŸ¸', false, 'Bar', 'Em espera'],
+        ['Doses', 'Gin', 13.00, 'ğŸ?¸', false, 'Bar', 'Em espera'],
         ['Doses', 'Campari', 15.00, 'ğŸ¥ƒ', false, 'Bar', 'Em espera'],
-        ['PorÃ§Ãµes (800g)', 'Combinado SÃ£o JosÃ© (800g)', 134.00, 'ğŸ¤', false, 'Cozinha 1', 'Em espera'],
-        ['PorÃ§Ãµes (800g)', 'Anchova Frita (6 postas) (800g)', 69.00, 'ğŸŸ', false, 'Cozinha 1', 'Em espera'],
-        ['PorÃ§Ãµes (800g)', 'Peixe Frito Misturinha (800g)', 59.00, 'ğŸŸ', false, 'Cozinha 1', 'Em espera'],
-        ['PorÃ§Ãµes (800g)', 'Isca de Peixe Ã  dorÃª (800g)', 74.00, 'ğŸŸ', false, 'Cozinha 1', 'Em espera'],
-        ['PorÃ§Ãµes (800g)', 'CamarÃ£o ao Bafo (800g)', 99.00, 'ğŸ¤', false, 'Cozinha 1', 'Em espera'],
-        ['PorÃ§Ãµes (800g)', 'CamarÃ£o Ã  milanesa (800g)', 169.00, 'ğŸ¤', false, 'Cozinha 1', 'Em espera'],
-        ['PorÃ§Ãµes (800g)', 'CamarÃ£o alho e Ã³leo (800g)', 119.90, 'ğŸ¤', false, 'Cozinha 1', 'Em espera'],
+        ['PorÃ§Ãµes (800g)', 'Combinado SÃ£o JosÃ© (800g)', 134.00, 'ğŸ?¤', false, 'Cozinha 1', 'Em espera'],
+        ['PorÃ§Ãµes (800g)', 'Anchova Frita (6 postas) (800g)', 69.00, 'ğŸ?Ÿ', false, 'Cozinha 1', 'Em espera'],
+        ['PorÃ§Ãµes (800g)', 'Peixe Frito Misturinha (800g)', 59.00, 'ğŸ?Ÿ', false, 'Cozinha 1', 'Em espera'],
+        ['PorÃ§Ãµes (800g)', 'Isca de Peixe Ã  dorÃª (800g)', 74.00, 'ğŸ?Ÿ', false, 'Cozinha 1', 'Em espera'],
+        ['PorÃ§Ãµes (800g)', 'CamarÃ£o ao Bafo (800g)', 99.00, 'ğŸ?¤', false, 'Cozinha 1', 'Em espera'],
+        ['PorÃ§Ãµes (800g)', 'CamarÃ£o Ã  milanesa (800g)', 169.00, 'ğŸ?¤', false, 'Cozinha 1', 'Em espera'],
+        ['PorÃ§Ãµes (800g)', 'CamarÃ£o alho e Ã³leo (800g)', 119.90, 'ğŸ?¤', false, 'Cozinha 1', 'Em espera'],
         ['PorÃ§Ãµes (800g)', 'Ostra ao Bafo (dÃºzia) (800g)', 34.00, 'ğŸ¦ª', false, 'Cozinha 1', 'Em espera'],
         ['PorÃ§Ãµes (800g)', 'Ostra Gratinada (dÃºzia) (800g)', 69.00, 'ğŸ¦ª', false, 'Cozinha 1', 'Em espera'],
         ['PorÃ§Ãµes (800g)', 'Bolinho de Siri (4 unidades) (800g)', 44.90, 'ğŸ¦€', false, 'Cozinha 1', 'Em espera'],
         ['PorÃ§Ãµes (800g)', 'Marisco ao Bafo (1 kg) (800g)', 45.00, 'ğŸ¦ª', false, 'Cozinha 1', 'Em espera'],
         ['PorÃ§Ãµes (800g)', 'Lula em anÃ©is a dorÃª (800g)', 89.90, 'ğŸ¦‘', false, 'Cozinha 1', 'Em espera'],
-        ['PorÃ§Ãµes (800g)', 'Frango Ã  Passarinho (1 kg) (800g)', 59.00, 'ğŸ—', false, 'Cozinha 1', 'Em espera'],
-        ['PorÃ§Ãµes (800g)', 'Fritas (800g)', 49.00, 'ğŸŸ', false, 'Cozinha 1', 'Em espera'],
+        ['PorÃ§Ãµes (800g)', 'Frango Ã  Passarinho (1 kg) (800g)', 59.00, 'ğŸ?—', false, 'Cozinha 1', 'Em espera'],
+        ['PorÃ§Ãµes (800g)', 'Fritas (800g)', 49.00, 'ğŸ?Ÿ', false, 'Cozinha 1', 'Em espera'],
         ['PorÃ§Ãµes (800g)', 'PorÃ§Ã£o 4 PastÃ©is - CamarÃ£o', 28.00, 'ğŸ¥Ÿ', false, 'Cozinha 1', 'Em espera'],
         ['PorÃ§Ãµes (800g)', 'PorÃ§Ã£o 4 PastÃ©is - BerbigÃ£o', 28.00, 'ğŸ¥Ÿ', false, 'Cozinha 1', 'Em espera'],
         ['PorÃ§Ãµes (800g)', 'PorÃ§Ã£o 4 PastÃ©is - Queijo', 28.00, 'ğŸ¥Ÿ', false, 'Cozinha 1', 'Em espera'],
-        ['PorÃ§Ãµes (500g)', '1/2 Peixe Frito Misturinha (500g)', 48.00, 'ğŸŸ', false, 'Cozinha 1', 'Em espera'],
-        ['PorÃ§Ãµes (500g)', '1/2 Isca de Peixe Ã  dorÃª (500g)', 64.00, 'ğŸŸ', false, 'Cozinha 1', 'Em espera'],
-        ['PorÃ§Ãµes (500g)', '1/2 CamarÃ£o Maluquinho (500g)', 84.90, 'ğŸ¤', false, 'Cozinha 1', 'Em espera'],
-        ['PorÃ§Ãµes (500g)', '1/2 CamarÃ£o ao Bafo (500g)', 99.00, 'ğŸ¤', false, 'Cozinha 1', 'Em espera'],
-        ['PorÃ§Ãµes (500g)', '1/2 CamarÃ£o Ã  milanesa (500g)', 135.00, 'ğŸ¤', false, 'Cozinha 1', 'Em espera'],
-        ['PorÃ§Ãµes (500g)', '1/2 CamarÃ£o alho e Ã³leo (500g)', 99.90, 'ğŸ¤', false, 'Cozinha 1', 'Em espera'],
+        ['PorÃ§Ãµes (500g)', '1/2 Peixe Frito Misturinha (500g)', 48.00, 'ğŸ?Ÿ', false, 'Cozinha 1', 'Em espera'],
+        ['PorÃ§Ãµes (500g)', '1/2 Isca de Peixe Ã  dorÃª (500g)', 64.00, 'ğŸ?Ÿ', false, 'Cozinha 1', 'Em espera'],
+        ['PorÃ§Ãµes (500g)', '1/2 CamarÃ£o Maluquinho (500g)', 84.90, 'ğŸ?¤', false, 'Cozinha 1', 'Em espera'],
+        ['PorÃ§Ãµes (500g)', '1/2 CamarÃ£o ao Bafo (500g)', 99.00, 'ğŸ?¤', false, 'Cozinha 1', 'Em espera'],
+        ['PorÃ§Ãµes (500g)', '1/2 CamarÃ£o Ã  milanesa (500g)', 135.00, 'ğŸ?¤', false, 'Cozinha 1', 'Em espera'],
+        ['PorÃ§Ãµes (500g)', '1/2 CamarÃ£o alho e Ã³leo (500g)', 99.90, 'ğŸ?¤', false, 'Cozinha 1', 'Em espera'],
         ['PorÃ§Ãµes (500g)', '1/2 Ostra ao Bafo (6 unidades)', 16.90, 'ğŸ¦ª', false, 'Cozinha 1', 'Em espera'],
         ['PorÃ§Ãµes (500g)', '1/2 Ostra Gratinada (6 unidades)', 54.00, 'ğŸ¦ª', false, 'Cozinha 1', 'Em espera'],
         ['PorÃ§Ãµes (500g)', 'Bolinho de Siri (1 unidade)', 12.00, 'ğŸ¦€', false, 'Cozinha 1', 'Em espera'],
         ['PorÃ§Ãµes (500g)', '1/2 Lula a dorÃª (500g)', 79.90, 'ğŸ¦‘', false, 'Cozinha 1', 'Em espera'],
-        ['PorÃ§Ãµes (500g)', 'FilÃ© de Frango Individual', 19.90, 'ğŸ—', false, 'Cozinha 1', 'Em espera'],
-        ['PorÃ§Ãµes (500g)', 'FilÃ© de Peixe Individual', 19.90, 'ğŸŸ', false, 'Cozinha 1', 'Em espera'],
-        ['PorÃ§Ãµes (500g)', '1/2 Fritas (500g)', 39.00, 'ğŸŸ', false, 'Cozinha 1', 'Em espera'],
+        ['PorÃ§Ãµes (500g)', 'FilÃ© de Frango Individual', 19.90, 'ğŸ?—', false, 'Cozinha 1', 'Em espera'],
+        ['PorÃ§Ãµes (500g)', 'FilÃ© de Peixe Individual', 19.90, 'ğŸ?Ÿ', false, 'Cozinha 1', 'Em espera'],
+        ['PorÃ§Ãµes (500g)', '1/2 Fritas (500g)', 39.00, 'ğŸ?Ÿ', false, 'Cozinha 1', 'Em espera'],
         ['PorÃ§Ãµes (500g)', 'Pastel 1 unidade - CamarÃ£o', 8.00, 'ğŸ¥Ÿ', false, 'Cozinha 1', 'Em espera'],
         ['PorÃ§Ãµes (500g)', 'Pastel 1 unidade - BerbigÃ£o', 8.00, 'ğŸ¥Ÿ', false, 'Cozinha 1', 'Em espera'],
         ['PorÃ§Ãµes (500g)', 'Pastel 1 unidade - Queijo', 8.00, 'ğŸ¥Ÿ', false, 'Cozinha 1', 'Em espera'],
-        ['A La Carte', 'PirÃ£o SÃ£o JosÃ© (700g) (2 pessoas)', 164.90, 'ğŸ²', false, 'Cozinha 1', 'Em espera'],
-        ['A La Carte', 'SalmÃ£o Ã  Moda da Casa (500g)', 209.00, 'ğŸŸ', false, 'Cozinha 1', 'Em espera'],
-        ['A La Carte', 'FilÃ© de Pescada Ã  Milanesa (800g)', 154.00, 'ğŸŸ', false, 'Cozinha 1', 'Em espera'],
-        ['A La Carte', '1/2 FilÃ© Pescada Ã  Milanesa (500g)', 134.00, 'ğŸŸ', false, 'Cozinha 1', 'Em espera'],
-        ['A La Carte', 'FilÃ© de Pescada Ã  Milanesa ao Molho de CamarÃ£o (800g)', 209.00, 'ğŸŸ', false, 'Cozinha 1', 'Em espera'],
-        ['A La Carte', '1/2 FilÃ© de Pescada ao Molho de CamarÃ£o (500g)', 178.00, 'ğŸŸ', false, 'Cozinha 1', 'Em espera'],
-        ['A La Carte', 'Peixe Grelhado Anchova (Chapa)', 118.00, 'ğŸŸ', false, 'Cozinha 1', 'Em espera'],
-        ['A La Carte', 'Peixe Frito em Postas (6 postas)', 115.00, 'ğŸŸ', false, 'Cozinha 1', 'Em espera'],
-        ['A La Carte', 'CamarÃ£o Ã  Milanesa (800g)', 209.00, 'ğŸ¤', false, 'Cozinha 1', 'Em espera'],
-        ['A La Carte', '1/2 CamarÃ£o Ã  Milanesa (500g)', 181.00, 'ğŸ¤', false, 'Cozinha 1', 'Em espera'],
-        ['A La Carte', 'FilÃ© de Frango Ã  Milanesa (800g)', 119.00, 'ğŸ—', false, 'Cozinha 1', 'Em espera'],
-        ['A La Carte', '1/2 FilÃ© de Frango Ã  Milanesa (500g)', 99.00, 'ğŸ—', false, 'Cozinha 1', 'Em espera'],
-        ['A La Carte', 'PorÃ§Ã£o Extra - Arroz/PirÃ£o/Salada', 20.00, 'ğŸš', false, 'Cozinha 1', 'Em espera']
+        ['A La Carte', 'PirÃ£o SÃ£o JosÃ© (700g) (2 pessoas)', 164.90, 'ğŸ?²', false, 'Cozinha 1', 'Em espera'],
+        ['A La Carte', 'SalmÃ£o Ã  Moda da Casa (500g)', 209.00, 'ğŸ?Ÿ', false, 'Cozinha 1', 'Em espera'],
+        ['A La Carte', 'FilÃ© de Pescada Ã  Milanesa (800g)', 154.00, 'ğŸ?Ÿ', false, 'Cozinha 1', 'Em espera'],
+        ['A La Carte', '1/2 FilÃ© Pescada Ã  Milanesa (500g)', 134.00, 'ğŸ?Ÿ', false, 'Cozinha 1', 'Em espera'],
+        ['A La Carte', 'FilÃ© de Pescada Ã  Milanesa ao Molho de CamarÃ£o (800g)', 209.00, 'ğŸ?Ÿ', false, 'Cozinha 1', 'Em espera'],
+        ['A La Carte', '1/2 FilÃ© de Pescada ao Molho de CamarÃ£o (500g)', 178.00, 'ğŸ?Ÿ', false, 'Cozinha 1', 'Em espera'],
+        ['A La Carte', 'Peixe Grelhado Anchova (Chapa)', 118.00, 'ğŸ?Ÿ', false, 'Cozinha 1', 'Em espera'],
+        ['A La Carte', 'Peixe Frito em Postas (6 postas)', 115.00, 'ğŸ?Ÿ', false, 'Cozinha 1', 'Em espera'],
+        ['A La Carte', 'CamarÃ£o Ã  Milanesa (800g)', 209.00, 'ğŸ?¤', false, 'Cozinha 1', 'Em espera'],
+        ['A La Carte', '1/2 CamarÃ£o Ã  Milanesa (500g)', 181.00, 'ğŸ?¤', false, 'Cozinha 1', 'Em espera'],
+        ['A La Carte', 'FilÃ© de Frango Ã  Milanesa (800g)', 119.00, 'ğŸ?—', false, 'Cozinha 1', 'Em espera'],
+        ['A La Carte', '1/2 FilÃ© de Frango Ã  Milanesa (500g)', 99.00, 'ğŸ?—', false, 'Cozinha 1', 'Em espera'],
+        ['A La Carte', 'PorÃ§Ã£o Extra - Arroz/PirÃ£o/Salada', 20.00, 'ğŸ?š', false, 'Cozinha 1', 'Em espera']
       ];
       const insertProd = `INSERT INTO produtos (categoria, nome, preco, emoji, hasAddons, setor, status_inicial) VALUES (?, ?, ?, ?, ?, ?, ?)`;
       defaultProducts.forEach(p => {
@@ -6101,11 +6053,11 @@ io.on('connection', (socket) => {
 
   let mpPollInterval = null;
 
-  // --- CAPTURA AUTOMÃTICA DE TODOS OS LOGS DE SOCKET.IO + AÃ‡Ã•ES DO USUÃRIO ---
+  // --- CAPTURA AUTOMÃ?TICA DE TODOS OS LOGS DE SOCKET.IO + AÃ‡Ã•ES DO USUÃ?RIO ---
   socket.onAny((event, ...args) => {
     // Filtra pings, heartbeats e requisiÃ§Ãµes iniciais de leitura para manter o terminal limpo
     if ([
-      'get_connected_devices', 'get_auditoria_logs', 'get_api_logs', 'ping', 'pong',
+      'get_auditoria_logs', 'get_api_logs', 'ping', 'pong',
       'get_produtos', 'get_funcionarios', 'get_promocoes', 'get_estado_caixa',
       'get_qr_pedidos_pendentes', 'get_mesas', 'registrar_sessao', 'registrar_sessao_detalhada'
     ].includes(event)) {
@@ -6135,9 +6087,9 @@ io.on('connection', (socket) => {
     // Log bonitÃ£o no terminal do servidor com detalhes completos da aÃ§Ã£o/botÃ£o
     if (event === 'registrar_clique_botao') {
       const btnInfo = args[0] || {};
-      console.log(`[Cli-Click] ğŸ‘¤ Usuario: ${operador} (${cargo}) | ğŸª Rest. ID: #${socketTenantId} | ğŸ“„ Tela: ${btnInfo.pagina || 'Sistema'} | ğŸ”˜ Botao/Acao: '${btnInfo.botao || event}'`);
+      console.log(`[Cli-Click] ğŸ‘¤ Usuario: ${operador} (${cargo}) | ğŸ?ª Rest. ID: #${socketTenantId} | ğŸ“„ Tela: ${btnInfo.pagina || 'Sistema'} | ğŸ”˜ Botao/Acao: '${btnInfo.botao || event}'`);
     } else {
-      console.log(`[Socket] ğŸ‘¤ Usuario: ${operador} (${cargo}) | ğŸª Rest. ID: #${socketTenantId} | âš¡ Evento: ${event} | ğŸ“¦ Dados: ${payload || '{}'}`);
+      console.log(`[Socket] ğŸ‘¤ Usuario: ${operador} (${cargo}) | ğŸ?ª Rest. ID: #${socketTenantId} | âš¡ Evento: ${event} | ğŸ“¦ Dados: ${payload || '{}'}`);
     }
 
     tenantContext.run(socketTenantId, () => {
@@ -6151,7 +6103,7 @@ io.on('connection', (socket) => {
     });
   });
 
-  // --- AUDITORIA DE ACESSO E NAVEGAÃ‡ÃƒO DE PÃGINAS ---
+  // --- AUDITORIA DE ACESSO E NAVEGAÃ‡ÃƒO DE PÃ?GINAS ---
   socket.on('registrar_acesso_pagina', (data) => {
     if (!data) return;
     const { pagina, titulo, autorizado, motivo } = data;
@@ -6159,7 +6111,7 @@ io.on('connection', (socket) => {
     const operador = (conn && conn.user && conn.user !== 'Visitante') ? conn.user : 'Operador do Sistema';
     const cargo = conn?.cargo || 'Operador';
 
-    console.log(`[Cli-Click] ğŸ“„ NAVEGACAO | ğŸ‘¤ ${operador} (${cargo}) | ğŸª Rest. ID: #${socketTenantId} | SeÃ§Ã£o: ${titulo || pagina}`);
+    console.log(`[Cli-Click] ğŸ“„ NAVEGACAO | ğŸ‘¤ ${operador} (${cargo}) | ğŸ?ª Rest. ID: #${socketTenantId} | SeÃ§Ã£o: ${titulo || pagina}`);
 
     const acao = (autorizado === false) ? 'TENTATIVA_ACESSO_NEGADO' : 'ACESSO_PAGINA';
     const detalhes = `Acessou/Navegou para a seÃ§Ã£o: ${titulo || pagina || 'Sistema'} (${pagina || ''})`;
@@ -6359,69 +6311,13 @@ io.on('connection', (socket) => {
     });
   });
 
-  // get_formas_pagamento â†’ migrado para plugins/formas-pagamento/
+  // get_formas_pagamento + add/update/delete/toggle â†’ migrado para plugins/formas-pagamento/
 
+  // IA config unificada: get_ia_config (fila.js) e ia_get_config (configuracoes.js)
+  // agora respondem com a MESMA payload (IA_CONFIG completo).
   socket.on('get_ia_config', () => {
-    socket.emit('ia_config_atualizada', {
-      minutosAtencao: IA_CONFIG.minutosAtencao,
-      segundosPulseNovoPedido: IA_CONFIG.segundosPulseNovoPedido,
-      minutosManobra: IA_CONFIG.minutosManobra,
-      minutosCriticoEspera: IA_CONFIG.minutosCriticoEspera,
-      minutosAlertaEspera: IA_CONFIG.minutosAlertaEspera,
-      minutosRefillCerveja: IA_CONFIG.minutosRefillCerveja
-    });
-  });
-
-  socket.on('add_forma_pagamento', (payload) => {
-    const { nome, tipo, icone, taxa, prazo_dias, ativo } = payload || {};
-    if (!nome) return;
-    db.run(
-      `INSERT INTO formas_pagamento (nome, tipo, taxa, prazo_dias, ativo, icone) VALUES (?, ?, ?, ?, ?, ?)`,
-      [nome, tipo || 'credito', parseFloat(taxa) || 0, parseInt(prazo_dias) || 0, ativo !== undefined ? (ativo ? 1 : 0) : 1, icone || 'ph-credit-card'],
-      function (err) {
-        if (err) return;
-        broadcastFormasPagamento();
-      }
-    );
-  });
-
-  socket.on('update_forma_pagamento', (payload) => {
-    const { id, nome, tipo, icone, taxa, prazo_dias, ativo } = payload || {};
-    if (!id || !nome) return;
-    db.run(
-      `UPDATE formas_pagamento SET nome = ?, tipo = ?, taxa = ?, prazo_dias = ?, ativo = ?, icone = ? WHERE id = ?`,
-      [nome, tipo || 'credito', parseFloat(taxa) || 0, parseInt(prazo_dias) || 0, ativo ? 1 : 0, icone || 'ph-credit-card', id],
-      function (err) {
-        if (err) return;
-        broadcastFormasPagamento();
-      }
-    );
-  });
-
-  socket.on('delete_forma_pagamento', (id) => {
-    if (!exigirAdminSocket(socket)) return;
-    if (!id) return;
-    db.get(`SELECT nome FROM formas_pagamento WHERE id = ?`, [id], (err, row) => {
-      if (err || !row) return;
-      db.get(`SELECT COUNT(*) as count FROM pedidos WHERE paymentMethod = ?`, [row.nome], (e, r) => {
-        if (!e && r && r.count > 0) {
-          return socket.emit('erro_caixa', `"${row.nome}" nÃ£o pode ser excluÃ­do pois jÃ¡ foi utilizado em ${r.count} pedido(s). Apenas desative-o.`);
-        }
-        db.run(`DELETE FROM formas_pagamento WHERE id = ?`, [id], function (err2) {
-          if (err2) return;
-          broadcastFormasPagamento();
-        });
-      });
-    });
-  });
-
-  socket.on('toggle_forma_pagamento', (payload) => {
-    const { id, ativo } = payload || {};
-    if (!id) return;
-    db.run(`UPDATE formas_pagamento SET ativo = ? WHERE id = ?`, [ativo ? 1 : 0, id], function (err) {
-      if (err) return;
-      broadcastFormasPagamento();
-    });
+    socket.emit('ia_config_atual', IA_CONFIG);
+    socket.emit('ia_config_atualizada', IA_CONFIG);
   });
 
   // get_connected_devices â†’ migrado para plugins/dispositivos/
@@ -6703,7 +6599,7 @@ io.on('connection', (socket) => {
           itens.forEach((item) => {
             db.run(
               `INSERT INTO pedidos (productName, productEmoji, quantity, total, status, localName, userName, time, sector, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
-              [item.nome + ' (Resgate)', item.emoji || 'ğŸÂ', item.quantity || 1, '0,00', 'Em espera', mesaName, userName || 'GarÃ§om', timeStr, item.sector || 'Bar']
+              [item.nome + ' (Resgate)', item.emoji || 'ğŸ?Â?', item.quantity || 1, '0,00', 'Em espera', mesaName, userName || 'GarÃ§om', timeStr, item.sector || 'Bar']
             );
             hasInserted = true;
           });
@@ -6712,7 +6608,7 @@ io.on('connection', (socket) => {
           if (cupom.valor_tipo === 'desconto_fixo' && cupom.valor > 0) {
             db.run(
               `INSERT INTO pedidos (productName, productEmoji, quantity, total, status, localName, userName, time, sector, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
-              ['Desconto Promocional', 'ğŸÂ·ï¸Â', 1, '-' + cupom.valor.toFixed(2).replace('.', ','), 'Pronto', mesaName, userName || 'GarÃ§om', timeStr, 'Caixa']
+              ['Desconto Promocional', 'ğŸ??Â·ï¸?Â?', 1, '-' + cupom.valor.toFixed(2).replace('.', ','), 'Pronto', mesaName, userName || 'GarÃ§om', timeStr, 'Caixa']
             );
             hasInserted = true;
           } else if (cupom.valor_tipo === 'preco_fixo' && cupom.valor > 0) {
@@ -6893,7 +6789,7 @@ io.on('connection', (socket) => {
               if (comboBonus) {
                 db.get(`SELECT emoji, categoria FROM produtos WHERE nome = ?`, [comboBonus], (err, bonusProd) => {
                   const bonusSector = (bonusProd && bonusProd.categoria === 'Bebidas') ? 'Bar' : 'Cozinha 1';
-                  const bonusEmoji = bonusProd ? bonusProd.emoji : 'ğŸÂ';
+                  const bonusEmoji = bonusProd ? bonusProd.emoji : 'ğŸ?Â?';
                   db.run(
                     `INSERT INTO pedidos (productName, productEmoji, quantity, time, localName, userName, total, status, sector, mesa_comanda, createdAt)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
@@ -6953,7 +6849,7 @@ io.on('connection', (socket) => {
   if (!global.__chefNovoPedidoCore) global.__chefNovoPedidoCore = _novoPedidoCore;
   socket.on('novo_pedido', (pedido) => processarNovoPedido(pedido, { tenantId: socketTenantId, reply: (ev, pl) => socket.emit(ev, pl) }));
 
-  // --- ANALYTICS DE ENGAJAMENTO / DWELL-TIME DO CARDÃPIO DIGITAL ---
+  // --- ANALYTICS DE ENGAJAMENTO / DWELL-TIME DO CARDÃ?PIO DIGITAL ---
   socket.on('cardapio_analytics_engajamento', (data) => {
     try {
       const tenantId = socketTenantId || (data && data.restaurante_id) || '1';
@@ -7040,7 +6936,7 @@ io.on('connection', (socket) => {
             prontoEm: row.prontoEm
           });
           // Persiste tambÃ©m como alerta: cliente que fechou a tela recebe ao reabrir
-          const iconesStatus = { 'Em preparo': 'ğŸ‘¨â€ğŸ³', 'Pronto': 'âœ…', 'Entregue': 'ğŸ½ï¸', 'Recusado': 'âš ï¸' };
+          const iconesStatus = { 'Em preparo': 'ğŸ‘¨â€?ğŸ?³', 'Pronto': 'âœ…', 'Entregue': 'ğŸ?½ï¸?', 'Recusado': 'âš ï¸?' };
           avisarClienteMesa(row.localName, {
             tipo: 'status',
             titulo: `Pedido ${row.status}`,
@@ -7263,7 +7159,7 @@ io.on('connection', (socket) => {
     const { mesa, cliente_nome, itens, valor_total, pago_pix, chave_pix, cliente_id, comanda_nome, is_fila, requires_validacao, mesa_origem } = data;
     const needsValidation = requires_validacao ? 1 : 0;
 
-    // â•â•â•â•â•â• GATE DO MÃ“DULO TOTEM (upsell SaaS) â•â•â•â•â•â•
+    // â•?â•?â•?â•?â•?â•? GATE DO MÃ“DULO TOTEM (upsell SaaS) â•?â•?â•?â•?â•?â•?
     // Pedidos vindos do totem (origem marcada ou pseudo-mesa "Totem ...") sÃ³ passam
     // se a feature 'totem' estiver contratada E o dono tiver o mÃ³dulo ligado.
     const _ehTotem = (data && data.origem === 'totem') || /^totem/i.test(String(mesa || ''));
@@ -7344,7 +7240,7 @@ io.on('connection', (socket) => {
 
       checkCaixa(turno => {
         if (!turno) {
-          socket.emit('aprovar_pedido_qr_resposta', { success: false, error: 'âš ï¸Â O caixa estÃ¡ fechado! Abra o caixa antes de aprovar pedidos.' });
+          socket.emit('aprovar_pedido_qr_resposta', { success: false, error: 'âš ï¸?Â? O caixa estÃ¡ fechado! Abra o caixa antes de aprovar pedidos.' });
           return;
         }
 
@@ -7381,7 +7277,7 @@ io.on('connection', (socket) => {
             db.run(
               `INSERT INTO pedidos (productName, productEmoji, quantity, time, localName, userName, total, status, sector, turno_id, mesa_comanda, cliente_id, observations, composicoes, createdAt) 
                VALUES (?, ?, ?, ?, ?, 'QR Code', ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
-              [item.productName, item.productEmoji || 'ğŸ½ï¸', item.quantity, timeStr, mesaName, String(item.total).replace('.', ','), status, item.sector || 'Cozinha 1', turno.id, comandaNome || null, pendingOrder.cliente_id || null, item.observations || '', JSON.stringify(item.composicoes || [])],
+              [item.productName, item.productEmoji || 'ğŸ?½ï¸?', item.quantity, timeStr, mesaName, String(item.total).replace('.', ','), status, item.sector || 'Cozinha 1', turno.id, comandaNome || null, pendingOrder.cliente_id || null, item.observations || '', JSON.stringify(item.composicoes || [])],
               function (errInsert) {
                 if (errInsert) {
                   hasError = true;
@@ -7393,7 +7289,7 @@ io.on('connection', (socket) => {
                   io.emit('pedido_adicionado', {
                     id: insertedId,
                     productName: item.productName,
-                    productEmoji: item.productEmoji || 'ğŸ½ï¸',
+                    productEmoji: item.productEmoji || 'ğŸ?½ï¸?',
                     quantity: item.quantity,
                     time: timeStr,
                     localName: mesaName,
@@ -7950,7 +7846,7 @@ io.on('connection', (socket) => {
         const qtd = parseInt(item.qtd) || 1;
         const precoUnit = parseFloat(item.preco) || 0;
         const itemTotal = (precoUnit * qtd).toFixed(2);
-        const emoji = item.emoji || 'ğŸ½ï¸';
+        const emoji = item.emoji || 'ğŸ?½ï¸?';
 
         db.run(insertStmt, [
           item.nome || 'Item',
@@ -7978,7 +7874,7 @@ io.on('connection', (socket) => {
                 broadcastHubPedidos();
                 broadcastPedidos();
                 socket.emit('hub_pedido_enviado_cozinha', { hubId: idNum, pedidoIds, comanda: comandaNome });
-                sendPush('garcom', 'ğŸ½ï¸ Novo Delivery!', `${canal} â€” ${clienteNome} â€” ${itens.length} item(ns)`, 'hub-' + idNum, '/fila-pedidos.html');
+                sendPush('garcom', 'ğŸ?½ï¸? Novo Delivery!', `${canal} â€” ${clienteNome} â€” ${itens.length} item(ns)`, 'hub-' + idNum, '/fila-pedidos.html');
               });
           }
         });
@@ -8428,7 +8324,7 @@ io.on('connection', (socket) => {
                   localName: mesaName,
                   userName: 'App GarÃ§om',
                   productName: produto + ' (PrÃªmio Fidelidade)',
-                  productEmoji: 'ğŸÂ',
+                  productEmoji: 'ğŸ?Â?',
                   quantity: 1,
                   total: '0,00',
                   status: 'Recebido',
@@ -8580,7 +8476,7 @@ io.on('connection', (socket) => {
                 };
               });
 
-              // â•â•â• ESTRATÃ‰GIA 1: FREQUENTEMENTE JUNTOS (Market Basket) â•â•â•
+              // â•?â•?â•? ESTRATÃ‰GIA 1: FREQUENTEMENTE JUNTOS (Market Basket) â•?â•?â•?
               // Agrupa vendas por timestamp (mesma mesa/pedido) para encontrar pares co-frequentes
               const pedidoGrupos = {};
               (sales || []).forEach(s => {
@@ -8632,7 +8528,7 @@ io.on('connection', (socket) => {
                 });
               });
 
-              // â•â•â• ESTRATÃ‰GIA 2: ESTRELA + DORMÃŠNCIA â•â•â•
+              // â•?â•?â•? ESTRATÃ‰GIA 2: ESTRELA + DORMÃŠNCIA â•?â•?â•?
               // Parear produto mais vendido com produto menos vendido (do mesmo tipo)
               const allProds = Object.values(prodMap).sort((a, b) => b.vendas30d.qty - a.vendas30d.qty);
               const bestSellers = allProds.filter(p => p.vendas30d.qty >= 3);
@@ -8658,12 +8554,12 @@ io.on('connection', (socket) => {
                   descontoPct: desconto,
                   economiaEstimada: +(soma - comboPrice).toFixed(2),
                   prioridade: best.vendas30d.qty * 3 + 5,
-                  icon: 'â­',
+                  icon: 'â­?',
                   evidencia: `${best.vendas30d.qty} vendas vs ${complemento.vendas30d.qty} venda(s)`
                 });
               });
 
-              // â•â•â• ESTRATÃ‰GIA 3: COMBO DO MOMENTO (Hora do dia) â•â•â•
+              // â•?â•?â•? ESTRATÃ‰GIA 3: COMBO DO MOMENTO (Hora do dia) â•?â•?â•?
               const hora = new Date().getHours();
               let periodo = 'noite';
               if (hora >= 6 && hora < 12) periodo = 'manha';
@@ -8713,13 +8609,13 @@ io.on('connection', (socket) => {
                     descontoPct: desconto,
                     economiaEstimada: +(soma - comboPrice).toFixed(2),
                     prioridade: 15,
-                    icon: periodo === 'manha' ? 'â˜€ï¸' : periodo === 'almoco' ? 'ğŸ½ï¸' : periodo === 'tarde' ? 'ğŸŒ…' : 'ğŸŒ™',
+                    icon: periodo === 'manha' ? 'â˜€ï¸?' : periodo === 'almoco' ? 'ğŸ?½ï¸?' : periodo === 'tarde' ? 'ğŸŒ…' : 'ğŸŒ™',
                     evidencia: `Sugerido para ${labelsPeriodo[periodo].toLowerCase()}`
                   });
                 }
               }
 
-              // â•â•â• ESTRATÃ‰GIA 4: CROSS-SELL INTELIGENTE â•â•â•
+              // â•?â•?â•? ESTRATÃ‰GIA 4: CROSS-SELL INTELIGENTE â•?â•?â•?
               // Se o cliente pediu comida, sugira bebida e vice-versa (baseado nos top sellers)
               const foods = allProds.filter(p => p.categoria_fiscal === 'Alimentacao' && p.vendas30d.qty > 0);
               const drinks = allProds.filter(p => (p.categoria_fiscal === 'Bebida_Alcoolica' || p.categoria_fiscal === 'Bebida_Nao_Alcoolica') && p.vendas30d.qty > 0);
@@ -8741,13 +8637,13 @@ io.on('connection', (socket) => {
                     descontoPct: desconto,
                     economiaEstimada: +(soma - comboPrice).toFixed(2),
                     prioridade: topFood.vendas30d.qty + topDrink.vendas30d.qty + 20,
-                    icon: 'ğŸ†',
+                    icon: 'ğŸ?†',
                     evidencia: `Top 1 em cada categoria`
                   });
                 }
               }
 
-              // â•â•â• ESTRATÃ‰GIA 5: ALTO MARGEM COM BAIXA VISIBILIDADE â•â•â•
+              // â•?â•?â•? ESTRATÃ‰GIA 5: ALTO MARGEM COM BAIXA VISIBILIDADE â•?â•?â•?
               // Produtos com preÃ§o alto mas poucas vendas â€” precisa de promo
               const altoMargemBaixa = allProds.filter(p =>
                 p.preco > 20 && p.vendas30d.qty <= 2 && p.vendas30d.qty >= 0
@@ -8860,7 +8756,7 @@ io.on('connection', (socket) => {
     });
   });
 
-  // â•â•â•â•â•â• JOGOS / GAMIFICAÃ‡ÃƒO â•â•â•â•â•â•
+  // â•?â•?â•?â•?â•?â•? JOGOS / GAMIFICAÃ‡ÃƒO â•?â•?â•?â•?â•?â•?
   const jogosEmAndamento = {};
 
   // Listar jogos disponÃ­veis
@@ -9344,7 +9240,7 @@ io.on('connection', (socket) => {
         const msgPayload = `0001${String(42).padStart(4, '0')}${terminal}${estab}${modalidade}${valorCentavos}`;
         const msgLen = String(msgPayload.length).padStart(4, '0');
         const fullMsg = `${msgLen}${msgPayload}`;
-        socket.emit('mp_status_pagamento', { status: 'processando', msg: 'âš™ï¸Â Enviando cobranÃ§a para servidor SiTef...' });
+        socket.emit('mp_status_pagamento', { status: 'processando', msg: 'âš™ï¸?Â? Enviando cobranÃ§a para servidor SiTef...' });
         const client = new net.Socket();
         let sitefBuf = '';
         client.setTimeout(90000);
@@ -9509,106 +9405,8 @@ io.on('connection', (socket) => {
 
   // â”€â”€ reservar_mesa / cancelar_reserva â†’ migrados para plugins/reserves/ â”€â”€
 
-  // --- RH / Controle de Ponto e Vales ---
-
-  socket.on('bater_ponto', ({ funcionario_id, acao, token }) => {
-    if (token !== pontoToken) { return socket.emit('bater_ponto_error', 'QR Code expirado ou invÃ¡lido! Escaneie novamente no Caixa.'); }
-    const hoje = getLocalDateOnly();
-    const agora = getLocalTimestamp();
-
-    if (acao === 'entrada') {
-      db.run(`INSERT INTO pontos (funcionario_id, entrada, data) VALUES (?, ?, ?)`, [funcionario_id, agora, hoje], function (err) {
-        if (!err) socket.emit('ponto_registrado', { id: this.lastID, acao });
-      });
-    } else if (acao === 'saida') {
-      db.get(`SELECT p.*, f.valor_hora, f.tipo_remuneracao, f.valor_dia, f.valor_semana, f.valor_mes FROM pontos p JOIN funcionarios f ON p.funcionario_id = f.id WHERE p.funcionario_id = ? AND p.saida IS NULL ORDER BY p.id DESC LIMIT 1`, [funcionario_id], (err, row) => {
-        if (err) {
-          return socket.emit('bater_ponto_error', 'Erro ao buscar ponto em aberto: ' + err.message);
-        }
-        if (row) {
-          const t1 = new Date(row.entrada).getTime();
-          const t2 = new Date(agora).getTime();
-          const horasTrabalhadas = (t2 - t1) / (1000 * 60 * 60);
-
-          let valorPagar = 0;
-          const tipoRem = row.tipo_remuneracao || 'hora';
-          if (tipoRem === 'hora') {
-            valorPagar = horasTrabalhadas * (row.valor_hora || 0);
-          } else if (tipoRem === 'dia') {
-            valorPagar = row.valor_dia || 0;
-          } else if (tipoRem === 'semana') {
-            valorPagar = (row.valor_semana || 0) / 6; // Standard proration (6 working days/week)
-          } else if (tipoRem === 'mes') {
-            valorPagar = (row.valor_mes || 0) / 26;   // Standard proration (26 working days/month)
-          }
-
-          db.run(`UPDATE pontos SET saida = ?, total_horas = ?, valor_pagar = ? WHERE id = ?`, [agora, horasTrabalhadas, valorPagar, row.id], (err2) => {
-            if (!err2) {
-              socket.emit('ponto_registrado', { id: row.id, acao, horasTrabalhadas, valorPagar });
-            } else {
-              socket.emit('bater_ponto_error', 'Erro ao registrar saÃ­da: ' + err2.message);
-            }
-          });
-        } else {
-          socket.emit('bater_ponto_error', 'Nenhuma entrada em aberto encontrada para registrar a saÃ­da.');
-        }
-      });
-    }
-  });
-
-  socket.on('get_metricas_funcionario', (funcionario_id) => {
-    db.all(`SELECT * FROM pontos WHERE funcionario_id = ? ORDER BY id DESC`, [funcionario_id], (err, pontos) => {
-      if (err) {
-        console.error('Error fetching pontos:', err);
-        socket.emit('metricas_funcionario_response', { pontos: [], vales: [], pagamentos: [] });
-        return;
-      }
-      db.all(`SELECT * FROM vales WHERE funcionario_id = ? ORDER BY id DESC`, [funcionario_id], (err2, vales) => {
-        if (err2) {
-          console.error('Error fetching vales:', err2);
-          socket.emit('metricas_funcionario_response', { pontos: pontos || [], vales: [], pagamentos: [] });
-          return;
-        }
-        db.all(`SELECT * FROM funcionarios_pagamentos WHERE funcionario_id = ? ORDER BY data_pagamento DESC`, [funcionario_id], (err3, pagamentos) => {
-          socket.emit('metricas_funcionario_response', { pontos: pontos || [], vales: vales || [], pagamentos: pagamentos || [] });
-        });
-      });
-    });
-  });
-
-  socket.on('solicitar_vale', ({ funcionario_id, valor, motivo }) => {
-    const agora = getLocalTimestamp();
-    const obs = motivo ? String(motivo).trim().substring(0, 30) : '';
-    db.run(`INSERT INTO vales (funcionario_id, data_pedido, valor, status, observacao) VALUES (?, ?, ?, 'Pendente', ?)`,
-      [funcionario_id, agora, valor, obs], function (err) {
-      if (!err) {
-        socket.emit('vale_solicitado_success');
-      } else {
-        console.error('Error requesting vale:', err);
-        socket.emit('bater_ponto_error', 'Erro ao solicitar vale: ' + err.message);
-      }
-    });
-  });
-
-  socket.on('definir_meu_pin', ({ funcionario_id, pin }) => {
-    if (!isValidId(funcionario_id) || !pin || pin.length < 4 || pin.length > 6 || !/^\d+$/.test(pin)) {
-      return socket.emit('definir_pin_error', 'PIN invÃ¡lido. Deve conter de 4 a 6 nÃºmeros.');
-    }
-    bcrypt.hash(pin, 10).then(hash => {
-      db.run(`UPDATE funcionarios SET pin_hash = ? WHERE id = ?`, [hash, funcionario_id], (err) => {
-        if (err) return socket.emit('definir_pin_error', 'Erro ao salvar PIN no servidor.');
-        socket.emit('definir_pin_success', 'PIN salvo com sucesso! VocÃª jÃ¡ pode usar seu PIN para entrar.');
-      });
-    }).catch(e => {
-      socket.emit('definir_pin_error', 'Erro ao processar PIN.');
-    });
-  });
-
-  socket.on('update_valor_hora', ({ funcionario_id, valor_hora }) => {
-    db.run(`UPDATE funcionarios SET valor_hora = ? WHERE id = ?`, [valor_hora, funcionario_id], (err) => {
-      if (!err) socket.emit('update_valor_hora_success');
-    });
-  });
+  // --- RH / Controle de Ponto e Vales â†’ migrados para plugins/rh/ ---
+  // bater_ponto, get_metricas_funcionario, solicitar_vale, definir_meu_pin, update_valor_hora
 
   socket.on('get_cupons_list', () => {
     db.all(`SELECT * FROM cupons ORDER BY data_criacao DESC`, (err, rows) => {
@@ -9636,94 +9434,20 @@ io.on('connection', (socket) => {
     });
   });
 
-  registerAdminRhEvents(socket);
-
-  // --- MÃ“DULO FISCAL NFC-E SOCKETS ---
-  socket.on('emitir_nfce', async (data, ack) => {
-    try {
-      db.all(`SELECT * FROM configuracoes`, async (errConfig, configRows) => {
-        const config = {};
-        if (configRows) configRows.forEach(r => config[r.chave] = r.valor);
-
-        const res = await nfceService.emitirNFCe({
-          db,
-          pedidoId: data.pedidoId,
-          localName: data.mesaName || data.localName || 'Mesa',
-          items: data.items || [],
-          totalValue: data.totalValue || data.total || 0,
-          cpfCnpj: data.cpfCnpj || '',
-          clienteNome: data.clienteNome || '',
-          paymentMethods: data.paymentMethods || (data.payments ? data.payments.map(p => p.metodo).join(', ') : 'Dinheiro'),
-          config
-        });
-
-        if (typeof ack === 'function') ack(res);
-        socket.emit('nfce_emitida_sucesso', res);
-
-        db.all(`SELECT id, pedido_id, localName, cliente_nome, cpf_cnpj, valor_total, chave_acesso, numero_nota, serie, ambiente, status, protocolo, created_at FROM nfce_notas ORDER BY id DESC`, (errNotas, rows) => {
-          io.emit('nfce_lista_atualizada', rows || []);
-        });
+  // â”€â”€ PLUGIN RH: consolidar handlers de ponto/vales/folha/gerÃªncia â”€â”€
+  try {
+    const rhPlugin = require('./plugins/rh');
+    if (rhPlugin.registerRhSockets) {
+      rhPlugin.registerRhSockets(socket, {
+        db, io, masterDb, activeSockets,
+        getPontoToken: () => pontoToken,
+        getLocalTimestamp, getLocalDateOnly, safeFloat, isValidId
       });
-    } catch (e) {
-      console.error('Erro na emissÃ£o de NFC-e:', e);
-      if (typeof ack === 'function') ack({ ok: false, erro: e.message });
-      socket.emit('erro_nfce', 'Erro na emissÃ£o de NFC-e: ' + e.message);
     }
-  });
+  } catch (e) { console.error('[rh] Falha ao registrar sockets:', e.message); }
 
-  socket.on('get_nfce_notas', (options = {}) => {
-    let limit = 50; // default for 'sessao'
-    if (options.period === 'semana') {
-      limit = 300;
-    }
-
-    db.all(`SELECT id, pedido_id, localName, cliente_nome, cpf_cnpj, valor_total, chave_acesso, numero_nota, serie, ambiente, status, protocolo, created_at FROM nfce_notas ORDER BY id DESC LIMIT ?`, [limit], (err, rows) => {
-      socket.emit('nfce_lista_atualizada', rows || []);
-    });
-  });
-
-  socket.on('cancelar_nfce', async ({ id, motivo }, ack) => {
-    const res = await nfceService.cancelarNFCe(db, id, motivo);
-    if (typeof ack === 'function') ack(res);
-    db.all(`SELECT id, pedido_id, localName, cliente_nome, cpf_cnpj, valor_total, chave_acesso, numero_nota, serie, ambiente, status, protocolo, created_at FROM nfce_notas ORDER BY id DESC`, (err, rows) => {
-      io.emit('nfce_lista_atualizada', rows || []);
-    });
-  });
-
-
-  socket.on('get_nfce_notas_paginated', (opts, callback) => {
-    let page = opts.page || 1;
-    let limit = opts.limit || 15;
-    let offset = (page - 1) * limit;
-    let search = opts.search ? '%' + opts.search + '%' : '';
-    let startDate = opts.startDate ? opts.startDate + ' 00:00:00' : '';
-    let endDate = opts.endDate ? opts.endDate + ' 23:59:59' : '';
-
-    let query = 'SELECT id, pedido_id, localName, cliente_nome, cpf_cnpj, valor_total, chave_acesso, numero_nota, serie, ambiente, status, protocolo, created_at FROM nfce_notas WHERE 1=1';
-    let countQuery = 'SELECT COUNT(*) as total FROM nfce_notas WHERE 1=1';
-    let params = [];
-
-    if (startDate) { query += ' AND created_at >= ?'; countQuery += ' AND created_at >= ?'; params.push(startDate); }
-    if (endDate) { query += ' AND created_at <= ?'; countQuery += ' AND created_at <= ?'; params.push(endDate); }
-    if (search) {
-      let searchClause = ' AND (cliente_nome LIKE ? OR cpf_cnpj LIKE ? OR numero_nota LIKE ?)';
-      query += searchClause;
-      countQuery += searchClause;
-      params.push(search, search, search);
-    }
-
-    db.get(countQuery, params, (err, countRow) => {
-      if (err) { if (typeof callback === 'function') callback({ error: err.message }); return; }
-
-      query += ' ORDER BY id DESC LIMIT ? OFFSET ?';
-      let pParams = [...params, limit, offset];
-
-      db.all(query, pParams, (err, rows) => {
-        if (err) { if (typeof callback === 'function') callback({ error: err.message }); return; }
-        if (typeof callback === 'function') callback({ data: rows || [], total: countRow.total, page, limit });
-      });
-    });
-  });
+  // --- MÃ“DULO FISCAL NFC-E SOCKETS â†’ migrado para plugins/nfce/ ---
+  // emitir_nfce, get_nfce_notas, cancelar_nfce, get_nfce_notas_paginated
 
   // get_api_logs + get_auditoria_logs â†’ migrado para plugins/logs/
 
@@ -10282,81 +10006,7 @@ io.on('connection', (socket) => {
     });
   });
 
-  // --- PAINEL FUNCIONARIO: GERENCIA/MANAGER ---
-  socket.on('manager_get_team_status', () => {
-    db.all(`SELECT id, nome, cargo FROM funcionarios WHERE status = 'Ativo'`, [], (err, funcs) => {
-      if (err || !funcs) return socket.emit('manager_team_status', []);
-      db.all(`SELECT funcionario_id FROM pontos WHERE saida IS NULL`, [], (errP, pontosAbertos) => {
-        const openPointsSet = new Set((pontosAbertos || []).map(p => p.funcionario_id));
-        const activeSocketFuncs = new Set(
-          Array.from(activeSockets.values())
-            .filter(conn => conn && conn.user)
-            .map(conn => conn.user)
-        );
-        const result = funcs.map(f => {
-          const isOnline = activeSocketFuncs.has(f.nome) || Array.from(io.sockets.sockets.values()).some(s => s.funcionarioId === f.id);
-          return {
-            id: f.id,
-            nome: f.nome,
-            cargo: f.cargo,
-            online: isOnline,
-            ponto_aberto: openPointsSet.has(f.id)
-          };
-        });
-        socket.emit('manager_team_status', result);
-      });
-    });
-  });
-
-  socket.on('manager_get_pending_vales', () => {
-    db.all(`SELECT v.*, f.nome as funcionario_nome FROM vales v JOIN funcionarios f ON v.funcionario_id = f.id WHERE v.status = 'Pendente' ORDER BY v.id DESC`, [], (err, vales) => {
-      socket.emit('manager_pending_vales', vales || []);
-    });
-  });
-
-  socket.on('manager_get_calendar_vales', () => {
-    db.all(`SELECT v.*, f.nome as funcionario_nome FROM vales v JOIN funcionarios f ON v.funcionario_id = f.id ORDER BY v.data_pedido DESC`, [], (err, vales) => {
-      socket.emit('manager_calendar_vales', vales || []);
-    });
-  });
-
-  socket.on('manager_aprovar_vale', ({ id }) => {
-    if (!['Gerente', 'Admin', 'Administrador', 'adm'].includes(socket.funcionarioCargo)) {
-      return socket.emit('erro_caixa', 'Apenas gerentes ou administradores podem aprovar vales.');
-    }
-    db.get("SELECT * FROM vales WHERE id = ?", [id], (err, vale) => {
-      if (vale && vale.status === 'Pendente') {
-        db.run("UPDATE vales SET status = 'Aprovado', data_aprovacao = datetime('now') WHERE id = ?", [id], (errU) => {
-          if (!errU) {
-            db.get("SELECT id FROM turnos_caixa WHERE status = 'Aberto' ORDER BY id DESC LIMIT 1", (errC, turno) => {
-              if (turno) {
-                db.run(
-                  "INSERT INTO movimentacoes (turno_id, tipo, valor, descricao, data, forma_pagamento) VALUES (?, 'saida', ?, ?, datetime('now'), 'Dinheiro')",
-                  [turno.id, vale.valor, "Adiantamento/Vale - Func. ID " + vale.funcionario_id]
-                );
-              }
-            });
-            socket.emit('manager_vale_atualizado');
-            io.emit('vale_solicitado_success');
-            io.emit('rh_update');
-          }
-        });
-      }
-    });
-  });
-
-  socket.on('manager_recusar_vale', ({ id }) => {
-    if (!['Gerente', 'Admin', 'Administrador', 'adm'].includes(socket.funcionarioCargo)) {
-      return socket.emit('erro_caixa', 'Apenas gerentes ou administradores podem recusar vales.');
-    }
-    db.run("UPDATE vales SET status = 'Recusado' WHERE id = ?", [id], (err) => {
-      if (!err) {
-        socket.emit('manager_vale_atualizado');
-        io.emit('vale_solicitado_success');
-        io.emit('rh_update');
-      }
-    });
-  });
+  // --- PAINEL FUNCIONARIO: GERENCIA/MANAGER ? migrado para plugins/rh/ ---
 
   socket.on('disconnect', () => {
     activeSockets.delete(socket.id);
@@ -10492,11 +10142,11 @@ app.get('/api/server-status', (req, res) => {
 // --- ALERTAS AO CLIENTE ---
 // â†’ migrado para plugins/cozinha/
 
-// --- ITENS MONTÃVEIS CRUD â†’ migrado para plugins/montaveis/ ---
+// --- ITENS MONTÃ?VEIS CRUD â†’ migrado para plugins/montaveis/ ---
 
-// â•â•â•â•â•â• FIDELIDADE/AVAILACOES â†’ migrado para plugins/fidelidade/ â•â•â•â•â•â•
+// â•?â•?â•?â•?â•?â•? FIDELIDADE/AVAILACOES â†’ migrado para plugins/fidelidade/ â•?â•?â•?â•?â•?â•?
 
-// â•â•â•â•â•â• FUNÃ‡Ã•ES POR TENANT: status + solicitaÃ§Ã£o de ativaÃ§Ã£o â•â•â•â•â•â•
+// â•?â•?â•?â•?â•?â•? FUNÃ‡Ã•ES POR TENANT: status + solicitaÃ§Ã£o de ativaÃ§Ã£o â•?â•?â•?â•?â•?â•?
 app.get('/api/funcoes', verificarToken, (req, res) => {
   const tid = req.restaurante_id || 1;
   masterDb.get(`SELECT licenca FROM restaurantes WHERE id = ?`, [tid], (errL, rowL) => {
@@ -10543,8 +10193,6 @@ app.post('/api/funcoes/solicitar', verificarToken, (req, res) => {
     res.json({ success: true, mensagem: 'SolicitaÃ§Ã£o enviada! O super admin serÃ¡ notificado.' });
   });
 });
-
-// â•â•â•â•â•â• TOTEM â†’ migrado para plugins/caixa/ â•â•â•â•â•â•
 
 const CONFIG_SECRET_KEYS = [
   'mp_access_token', 'pagbank_token', 'stone_stonecode', 'sitef_ip',
@@ -10638,530 +10286,8 @@ setInterval(() => {
 const HOST = '0.0.0.0';
 
 
-// --- ADMIN RH ENDPOINTS ---
-function registerAdminRhEvents(socket) {
-  socket.on('get_rh_data', () => {
-    const valesQuery = "SELECT v.*, f.nome as funcionario_nome FROM vales v JOIN funcionarios f ON v.funcionario_id = f.id ORDER BY v.data_pedido DESC";
-    const pontosQuery = "SELECT p.*, f.nome as funcionario_nome FROM pontos p JOIN funcionarios f ON p.funcionario_id = f.id ORDER BY p.entrada DESC";
-    const loginsQuery = "SELECT * FROM historico_logins ORDER BY data_hora DESC LIMIT 100";
-    const funcQuery = "SELECT id, nome, cargo FROM funcionarios WHERE status = 'Ativo'";
-    const pedidosQuery = "SELECT userName, total, status FROM pedidos";
-    const pagamentosQuery = "SELECT p.*, f.nome as funcionario_nome FROM funcionarios_pagamentos p JOIN funcionarios f ON p.funcionario_id = f.id ORDER BY p.data_pagamento DESC";
+// registerAdminRhEvents ? migrado para plugins/rh/ (registerRhSockets)
 
-    db.all(valesQuery, (errV, vales) => {
-      db.all(pontosQuery, (errP, pontos) => {
-        db.all(loginsQuery, (errL, logins) => {
-          db.all(funcQuery, (errF, funcs) => {
-            db.all(pedidosQuery, (errPed, allPedidos) => {
-              db.all(pagamentosQuery, (errPag, pagamentos) => {
-                // Calculate metrics for each active employee
-                const metrics = (funcs || []).map(f => {
-                  const employeePontos = (pontos || []).filter(p => p.funcionario_id === f.id);
-                  const totalHours = employeePontos.reduce((acc, p) => acc + (p.total_horas || 0), 0);
-
-                  const employeePedidos = (allPedidos || []).filter(p => p.userName === f.nome);
-                  const totalOrders = employeePedidos.length;
-                  const totalSales = employeePedidos
-                    .filter(p => p.status !== 'Cancelado')
-                    .reduce((acc, p) => acc + (parseFloat(String(p.total).replace(',', '.')) || 0), 0);
-
-                  return {
-                    id: f.id,
-                    nome: f.nome,
-                    cargo: f.cargo,
-                    horas_trabalhadas: totalHours,
-                    total_pedidos: totalOrders,
-                    total_vendas: totalSales,
-                    produtividade: totalHours > 0 ? (totalOrders / totalHours) : 0
-                  };
-                });
-
-                socket.emit('rh_data', {
-                  vales: vales || [],
-                  pontos: pontos || [],
-                  logins: logins || [],
-                  pagamentos: pagamentos || [],
-                  metrics: metrics
-                });
-              }); // closes pagamentos
-            }); // closes pedidos
-          }); // closes func
-        }); // closes logins
-      }); // closes pontos
-    }); // closes vales
-  }); // closes socket.on
-
-  socket.on('aprovar_vale', (data) => {
-    const { valeId, lancarCaixa, operador } = data;
-    db.get("SELECT * FROM vales WHERE id = ?", [valeId], (err, vale) => {
-      if (vale && vale.status === 'Pendente') {
-        db.run("UPDATE vales SET status = 'Aprovado', data_aprovacao = datetime('now') WHERE id = ?", [valeId], (errU) => {
-          if (!errU) {
-            if (lancarCaixa) {
-              // Gerar saÃ­da no caixa
-              db.get("SELECT id FROM turnos_caixa WHERE status = 'Aberto' ORDER BY id DESC LIMIT 1", (errC, turno) => {
-                if (turno) {
-                  db.run(
-                    "INSERT INTO movimentacoes (turno_id, tipo, valor, descricao, data, forma_pagamento) VALUES (?, 'saida', ?, ?, datetime('now'), 'Dinheiro')",
-                    [turno.id, vale.valor, "Adiantamento/Vale - Func. ID " + vale.funcionario_id]
-                  );
-                }
-              });
-            }
-            global.registrarAuditoria(data.operador || 'Admin', 'APROVAR_VALE', `Vale ${valeId} aprovado (R$ ${vale.valor.toFixed(2)})`, 'RH e Pagamentos', 'ALTO');
-            // Emit update to all
-            io.emit('rh_update');
-            io.emit('vale_solicitado_success'); // To trigger refresh on employee panel
-          }
-        });
-      }
-    });
-  });
-
-  socket.on('recusar_vale', (data) => {
-    const valeId = (typeof data === 'object') ? data.id : data;
-    const op = (typeof data === 'object') ? data.operador : 'Admin';
-    db.run("UPDATE vales SET status = 'Recusado' WHERE id = ?", [valeId], (err) => {
-      if (!err) {
-        global.registrarAuditoria(op || 'Admin', 'RECUSAR_VALE', `Vale ${valeId} recusado`, 'RH e Pagamentos', 'MEDIO');
-        io.emit('rh_update');
-        io.emit('vale_solicitado_success');
-      }
-    });
-  });
-
-  socket.on('pagar_ponto', (data) => {
-    const pontoId = (typeof data === 'object') ? data.id : data;
-    const op = (typeof data === 'object') ? data.operador : 'Admin';
-    db.run("UPDATE pontos SET pago = 1 WHERE id = ?", [pontoId], (err) => {
-      if (!err) {
-        global.registrarAuditoria(op || 'Admin', 'PAGAR_PONTO', `Ponto pago (ID: ${pontoId})`, 'RH e Pagamentos', 'MEDIO');
-        io.emit('rh_update');
-        io.emit('ponto_registrado', { acao: 'pagamento' }); // to trigger refresh if needed
-      }
-    });
-  });
-
-  // === REGISTRAR PAGAMENTO RÃPIDO COLABORADOR ===
-  socket.on('registrar_pagamento_colaborador', (data) => {
-    const { funcionario_id, funcionario_nome, valor_bruto, valor_liquido, observacao } = data;
-    if (!funcionario_id || !valor_bruto) return;
-
-    const dataPagamento = getLocalTimestamp();
-
-    db.run(
-      `INSERT INTO funcionarios_pagamentos (funcionario_id, data_pagamento, valor_bruto, total_vales_abatidos, total_consumo_abatido, valor_liquido, observacao) VALUES (?, ?, ?, 0, 0, ?, ?)`,
-      [funcionario_id, dataPagamento, valor_bruto, valor_liquido || valor_bruto, observacao || ''],
-      function (err) {
-        if (err) {
-          console.error('Erro ao registrar pagamento rÃ¡pido:', err);
-          return;
-        }
-        const pagId = this.lastID;
-
-        global.registrarAuditoria('Admin', 'PAGAMENTO_COLABORADOR', `Pagamento de R$ ${(valor_liquido || valor_bruto).toFixed(2)} para ${funcionario_nome} (ID: ${funcionario_id})`, 'RH e Pagamentos', 'ALTO');
-
-        io.emit('rh_update');
-
-        // Broadcast celebration to ALL connected clients
-        io.emit('pagamento_colaborador_celebracao', {
-          funcionario_id,
-          funcionario_nome,
-          valor: valor_liquido || valor_bruto,
-          data_pagamento: dataPagamento,
-          observacao: observacao || '',
-          pagamento_id: pagId
-        });
-      }
-    );
-  });
-
-  socket.on('get_report_filters', () => {
-    const filtersData = {
-      garcons: [],
-      clientes: [],
-      locais: []
-    };
-
-    db.all(`SELECT DISTINCT userName FROM pedidos WHERE userName IS NOT NULL AND userName != '' ORDER BY userName`, [], (err, rowsG) => {
-      if (!err && rowsG) filtersData.garcons = rowsG.map(r => r.userName);
-
-      db.all(`SELECT id, nome FROM clientes ORDER BY nome`, [], (err, rowsC) => {
-        if (!err && rowsC) filtersData.clientes = rowsC.map(r => ({ id: r.id, nome: r.nome }));
-
-        db.all(`SELECT DISTINCT localName FROM pedidos WHERE localName IS NOT NULL AND localName != '' ORDER BY localName`, [], (err, rowsL) => {
-          if (!err && rowsL) filtersData.locais = rowsL.map(r => r.localName);
-
-          socket.emit('report_filters_data', filtersData);
-        });
-      });
-    });
-  });
-
-  socket.on('get_advanced_relatorio', async ({ startDate, endDate, groupBy, clientFilter, waiterFilter, localFilter }) => {
-    try {
-      const startStr = startDate ? startDate + ' 00:00:00' : '1970-01-01 00:00:00';
-      const endStr = endDate ? endDate + ' 23:59:59' : '2099-12-31 23:59:59';
-
-      const clientVal = clientFilter ? clientFilter : null;
-      const waiterVal = waiterFilter ? `%${waiterFilter}%` : null;
-      const localVal = localFilter ? `%${localFilter}%` : null;
-
-      const pAll = (sql, params) => new Promise((resolve) => db.all(sql, params, (err, rows) => resolve(err ? [] : rows)));
-      const pGet = (sql, params) => new Promise((resolve) => db.get(sql, params, (err, row) => resolve(err ? null : row)));
-
-      const stdParams = [
-        startStr, endStr,
-        clientVal, clientVal, clientVal ? `%${clientVal}%` : null,
-        waiterVal, waiterVal,
-        localVal, localVal
-      ];
-
-      // 1. Sold Items
-      const soldItemsQuery = `
-        SELECT
-          p.productName,
-          SUM(p.quantity) AS qty,
-          SUM(CAST(p.total AS REAL)) AS valTotal
-        FROM pedidos p
-        LEFT JOIN clientes c ON p.cliente_id = c.id
-        WHERE p.createdAt >= ? AND p.createdAt <= ?
-          AND p.status != 'Cancelado'
-          AND p.productName NOT LIKE 'Pgto Parcial%'
-          AND CAST(p.total AS REAL) >= 0
-          AND (? IS NULL OR p.cliente_id = ? OR c.nome LIKE ?)
-          AND (? IS NULL OR p.userName LIKE ?)
-          AND (? IS NULL OR p.localName LIKE ?)
-        GROUP BY p.productName
-        ORDER BY valTotal DESC
-        LIMIT 150
-      `;
-
-      // 2. Orders Detail
-      const ordersQuery = `
-        SELECT
-          p.id,
-          p.productName,
-          p.quantity,
-          p.total,
-          p.status,
-          p.localName,
-          p.userName,
-          p.createdAt,
-          p.paymentMethod,
-          c.nome AS clientName
-        FROM pedidos p
-        LEFT JOIN clientes c ON p.cliente_id = c.id
-        WHERE p.createdAt >= ? AND p.createdAt <= ?
-          AND p.productName NOT LIKE 'Pgto Parcial%'
-          AND (? IS NULL OR p.cliente_id = ? OR c.nome LIKE ?)
-          AND (? IS NULL OR p.userName LIKE ?)
-          AND (? IS NULL OR p.localName LIKE ?)
-        ORDER BY p.id DESC
-      `;
-
-      // 3. Sales Period Trend (Chart)
-      let groupFormat = '%Y-%m-%d';
-      if (groupBy === 'hour') groupFormat = '%Y-%m-%d %H:00';
-      else if (groupBy === 'week') groupFormat = '%Y-W%W';
-      else if (groupBy === 'month') groupFormat = '%Y-%m';
-      else if (groupBy === 'year') groupFormat = '%Y';
-
-      const periodQuery = `
-        SELECT
-          strftime(?, p.createdAt) AS period,
-          SUM(p.quantity) AS qty_total,
-          SUM(CAST(p.total AS REAL)) AS val_total,
-          COUNT(DISTINCT (p.createdAt || '-' || p.localName)) AS orders_count
-        FROM pedidos p
-        LEFT JOIN clientes c ON p.cliente_id = c.id
-        WHERE p.createdAt >= ? AND p.createdAt <= ?
-          AND p.status IN ('Finalizado', 'Pago')
-          AND p.productName NOT LIKE 'Pgto Parcial%'
-          AND CAST(p.total AS REAL) >= 0
-          AND (? IS NULL OR p.cliente_id = ? OR c.nome LIKE ?)
-          AND (? IS NULL OR p.userName LIKE ?)
-          AND (? IS NULL OR p.localName LIKE ?)
-        GROUP BY period
-        ORDER BY period ASC
-      `;
-
-      // 4. Payment Methods Global (from transactions)
-      const pmGlobalQuery = `
-        SELECT forma_pagamento, SUM(valor) AS total
-        FROM movimentacoes
-        WHERE tipo = 'Entrada'
-          AND data >= ? AND data <= ?
-          AND (? IS NULL OR (descricao LIKE ? OR descricao LIKE ?))
-        GROUP BY forma_pagamento
-      `;
-      const pmGlobalParams = [
-        startStr, endStr,
-        localFilter ? 1 : null, localVal, localVal
-      ];
-
-      // 5. Payment Methods Filtered (from orders)
-      const pmFilteredQuery = `
-        SELECT
-          CASE
-            WHEN p.paymentMethod IS NULL OR p.paymentMethod = '' THEN 'NÃ£o Definido'
-            ELSE p.paymentMethod
-          END AS metodo,
-          SUM(CAST(p.total AS REAL)) AS total
-        FROM pedidos p
-        LEFT JOIN clientes c ON p.cliente_id = c.id
-        WHERE p.createdAt >= ? AND p.createdAt <= ?
-          AND p.status IN ('Finalizado', 'Pago')
-          AND p.productName NOT LIKE 'Pgto Parcial%'
-          AND CAST(p.total AS REAL) >= 0
-          AND (? IS NULL OR p.cliente_id = ? OR c.nome LIKE ?)
-          AND (? IS NULL OR p.userName LIKE ?)
-          AND (? IS NULL OR p.localName LIKE ?)
-        GROUP BY metodo
-      `;
-
-      // 6. KPIs
-      const kpiQuery = `
-        SELECT
-          SUM(CAST(p.total AS REAL)) AS totalSales,
-          SUM(p.quantity) AS totalItems,
-          COUNT(DISTINCT (p.createdAt || '-' || p.localName)) AS totalOrders
-        FROM pedidos p
-        LEFT JOIN clientes c ON p.cliente_id = c.id
-        WHERE p.createdAt >= ? AND p.createdAt <= ?
-          AND p.status IN ('Finalizado', 'Pago')
-          AND p.productName NOT LIKE 'Pgto Parcial%'
-          AND CAST(p.total AS REAL) >= 0
-          AND (? IS NULL OR p.cliente_id = ? OR c.nome LIKE ?)
-          AND (? IS NULL OR p.userName LIKE ?)
-          AND (? IS NULL OR p.localName LIKE ?)
-      `;
-
-      // 7. Category Sales
-      const categorySalesQuery = `
-        SELECT
-          COALESCE(pr.categoria, 'Outros') AS categoria,
-          SUM(p.quantity) AS qty,
-          SUM(CAST(p.total AS REAL)) AS valTotal
-        FROM pedidos p
-        LEFT JOIN produtos pr ON p.productName = pr.nome
-        LEFT JOIN clientes c ON p.cliente_id = c.id
-        WHERE p.createdAt >= ? AND p.createdAt <= ?
-          AND p.status IN ('Finalizado', 'Pago')
-          AND (? IS NULL OR p.cliente_id = ? OR c.nome LIKE ?)
-          AND (? IS NULL OR p.userName LIKE ?)
-          AND (? IS NULL OR p.localName LIKE ?)
-        GROUP BY categoria
-        ORDER BY valTotal DESC
-      `;
-
-      // 8. Sector Sales
-      const sectorSalesQuery = `
-        SELECT
-          COALESCE(p.sector, 'Outros') AS setor,
-          SUM(p.quantity) AS qty,
-          SUM(CAST(p.total AS REAL)) AS valTotal
-        FROM pedidos p
-        LEFT JOIN clientes c ON p.cliente_id = c.id
-        WHERE p.createdAt >= ? AND p.createdAt <= ?
-          AND p.status IN ('Finalizado', 'Pago')
-          AND (? IS NULL OR p.cliente_id = ? OR c.nome LIKE ?)
-          AND (? IS NULL OR p.userName LIKE ?)
-          AND (? IS NULL OR p.localName LIKE ?)
-        GROUP BY setor
-        ORDER BY valTotal DESC
-      `;
-
-      // 9. Cancellation Stats
-      const cancellationQuery = `
-        SELECT
-          COUNT(DISTINCT (p.createdAt || '-' || p.localName)) AS totalOrders,
-          SUM(p.quantity) AS totalItems,
-          SUM(CAST(p.total AS REAL)) AS totalLosses
-        FROM pedidos p
-        LEFT JOIN clientes c ON p.cliente_id = c.id
-        WHERE p.createdAt >= ? AND p.createdAt <= ?
-          AND p.status = 'Cancelado'
-          AND (? IS NULL OR p.cliente_id = ? OR c.nome LIKE ?)
-          AND (? IS NULL OR p.userName LIKE ?)
-          AND (? IS NULL OR p.localName LIKE ?)
-      `;
-
-      // 10. Waiter Ranking
-      const waiterRankingQuery = `
-        SELECT
-          p.userName AS garcom,
-          COUNT(DISTINCT (p.createdAt || '-' || p.localName)) AS totalOrders,
-          SUM(CAST(p.total AS REAL)) AS totalSales
-        FROM pedidos p
-        LEFT JOIN clientes c ON p.cliente_id = c.id
-        WHERE p.createdAt >= ? AND p.createdAt <= ?
-          AND p.status IN ('Finalizado', 'Pago')
-          AND (? IS NULL OR p.cliente_id = ? OR c.nome LIKE ?)
-          AND (? IS NULL OR p.userName LIKE ?)
-          AND (? IS NULL OR p.localName LIKE ?)
-        GROUP BY garcom
-        ORDER BY totalSales DESC
-      `;
-
-      // 11. Client Ranking
-      const clientRankingQuery = `
-        SELECT
-          COALESCE(c.nome, 'Cliente Avulso') AS cliente,
-          COUNT(DISTINCT (p.createdAt || '-' || p.localName)) AS totalOrders,
-          SUM(CAST(p.total AS REAL)) AS totalSales
-        FROM pedidos p
-        LEFT JOIN clientes c ON p.cliente_id = c.id
-        WHERE p.createdAt >= ? AND p.createdAt <= ?
-          AND p.status IN ('Finalizado', 'Pago')
-          AND (? IS NULL OR p.cliente_id = ? OR c.nome LIKE ?)
-          AND (? IS NULL OR p.userName LIKE ?)
-          AND (? IS NULL OR p.localName LIKE ?)
-        GROUP BY cliente
-        ORDER BY totalSales DESC
-        LIMIT 10
-      `;
-
-      // Execute all queries concurrently
-      const [
-        soldItems,
-        orders,
-        periodSales,
-        paymentMethodsGlobal,
-        paymentMethodsFiltered,
-        rowKpi,
-        categorySales,
-        sectorSales,
-        cancellationStats,
-        waiterRanking,
-        clientRanking
-      ] = await Promise.all([
-        pAll(soldItemsQuery, stdParams),
-        pAll(ordersQuery, stdParams),
-        pAll(periodQuery, [groupFormat, ...stdParams.slice(1)]),
-        pAll(pmGlobalQuery, pmGlobalParams),
-        pAll(pmFilteredQuery, stdParams),
-        pGet(kpiQuery, stdParams),
-        pAll(categorySalesQuery, stdParams),
-        pAll(sectorSalesQuery, stdParams),
-        pGet(cancellationQuery, stdParams),
-        pAll(waiterRankingQuery, stdParams),
-        pAll(clientRankingQuery, stdParams)
-      ]);
-
-      const response = {
-        kpi: {
-          totalSales: rowKpi ? (rowKpi.totalSales || 0) : 0,
-          totalItems: rowKpi ? (rowKpi.totalItems || 0) : 0,
-          totalOrders: rowKpi ? (rowKpi.totalOrders || 0) : 0,
-          ticketMedio: (rowKpi && rowKpi.totalOrders > 0) ? (rowKpi.totalSales / rowKpi.totalOrders) : 0
-        },
-        periodSales,
-        paymentMethodsGlobal,
-        paymentMethodsFiltered,
-        soldItems,
-        orders,
-        categorySales,
-        sectorSales,
-        cancellationStats: {
-          totalOrders: cancellationStats ? (cancellationStats.totalOrders || 0) : 0,
-          totalItems: cancellationStats ? (cancellationStats.totalItems || 0) : 0,
-          totalLosses: cancellationStats ? (cancellationStats.totalLosses || 0) : 0
-        },
-        waiterRanking,
-        clientRanking
-      };
-
-      socket.emit('advanced_relatorio_data', response);
-    } catch (e) {
-      console.error('Erro ao gerar relatÃ³rio avanÃ§ado:', e);
-      socket.emit('advanced_relatorio_error', 'Ocorreu um erro ao processar o relatÃ³rio.');
-    }
-  });
-
-  // Dias Atipicos - Admin list
-  socket.on('get_dias_atipicos', (filtro) => {
-    let query = `SELECT d.*, f.nome as funcionario_nome FROM dias_atipicos d JOIN funcionarios f ON f.id = d.funcionario_id`;
-    const params = [];
-    const where = [];
-    if (filtro && filtro.status) {
-      where.push('d.status = ?');
-      params.push(filtro.status);
-    }
-    if (filtro && filtro.funcionario_id) {
-      where.push('d.funcionario_id = ?');
-      params.push(filtro.funcionario_id);
-    }
-    if (where.length) query += ' WHERE ' + where.join(' AND ');
-    query += ' ORDER BY d.data DESC';
-    db.all(query, params, (err, rows) => {
-      socket.emit('dias_atipicos_list', rows || []);
-    });
-  });
-
-  // Admin criar/salvar dia atipico
-  socket.on('salvar_dia_atipico', ({ id, funcionario_id, data, valor, justificativa, status }) => {
-    if (!isValidId(funcionario_id) && !id) return;
-    const agora = getLocalTimestamp();
-    if (id) {
-      db.run(`UPDATE dias_atipicos SET data = ?, valor = ?, justificativa = ?, status = ? WHERE id = ?`,
-        [data, safeFloat(valor, 0, 99999), justificativa || '', status || 'pendente', id], () => {
-          socket.emit('dia_atipico_salvo');
-        });
-    } else {
-      db.run(`INSERT INTO dias_atipicos (funcionario_id, data, valor, justificativa, status, created_at) VALUES (?, ?, ?, ?, 'pendente', ?)`,
-        [funcionario_id, data, safeFloat(valor, 0, 99999), justificativa || '', agora], function (err) {
-          if (!err) socket.emit('dia_atipico_salvo');
-        });
-    }
-  });
-
-  // Admin aprovar/recusar dia atipico / extra
-  socket.on('aprovar_dia_atipico', ({ id, forma_pagamento }) => {
-    const atipicoId = typeof id === 'object' ? id.id : id;
-    const fp = typeof id === 'object' ? (id.forma_pagamento || forma_pagamento) : (forma_pagamento || 'proximo_pagamento');
-    if (!isValidId(atipicoId)) return;
-    db.run(`UPDATE dias_atipicos SET status = 'aprovado', forma_pagamento = ? WHERE id = ?`, [fp, atipicoId], () => {
-      socket.emit('dia_atipico_atualizado');
-    });
-  });
-  socket.on('recusar_dia_atipico', (id) => {
-    const atipicoId = typeof id === 'object' ? id.id : id;
-    if (!isValidId(atipicoId)) return;
-    db.run(`UPDATE dias_atipicos SET status = 'recusado' WHERE id = ?`, [atipicoId], () => {
-      socket.emit('dia_atipico_atualizado');
-    });
-  });
-
-  // Consumo do funcionario - Configuracao (admin)
-  socket.on('get_consumo_config', () => {
-    db.all(`SELECT c.*, p.nome as produto_nome, p.preco as produto_preco, p.emoji, p.categoria
-      FROM funcionario_consumo_config c
-      JOIN produtos p ON p.id = c.produto_id
-      ORDER BY p.categoria, p.nome`, (err, configs) => {
-      db.all(`SELECT id, nome, categoria, preco, emoji FROM produtos WHERE status = 'ativo' ORDER BY categoria, nome`, (err2, produtos) => {
-        socket.emit('consumo_config_data', { configs: configs || [], produtos: produtos || [] });
-      });
-    });
-  });
-
-  socket.on('save_consumo_config', ({ produto_id, preco_fixo, desconto_percentual, ativo }) => {
-    if (!isValidId(produto_id)) return;
-    db.get(`SELECT id FROM funcionario_consumo_config WHERE produto_id = ?`, [produto_id], (err, row) => {
-      if (row) {
-        db.run(`UPDATE funcionario_consumo_config SET preco_fixo = ?, desconto_percentual = ?, ativo = ? WHERE id = ?`,
-          [preco_fixo || null, desconto_percentual || null, ativo ? 1 : 0, row.id], () => {
-            socket.emit('consumo_config_saved');
-          });
-      } else {
-        db.run(`INSERT INTO funcionario_consumo_config (produto_id, preco_fixo, desconto_percentual, ativo) VALUES (?, ?, ?, ?)`,
-          [produto_id, preco_fixo || null, desconto_percentual || null, ativo ? 1 : 0], () => {
-            socket.emit('consumo_config_saved');
-          });
-      }
-    });
-  });
-}
 
 // â”€â”€ RH / PAGAMENTO DE FOLHA â†’ migrado para plugins/garcom/ â”€â”€â”€â”€â”€â”€
 
@@ -11169,9 +10295,9 @@ function registerAdminRhEvents(socket) {
 
 // â”€â”€ SUGESTÃ•ES DE PROMOÃ‡Ã•ES â†’ migrado para plugins/caixa/ â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-// â•â• IA ASSISTENTE - SUGESTÃ•ES INTELIGENTES POR PERFIL â•â•â•â•â•â•â•â•
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?
+// â•?â•? IA ASSISTENTE - SUGESTÃ•ES INTELIGENTES POR PERFIL â•?â•?â•?â•?â•?â•?â•?â•?
+// â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?
 const IA_CONFIG = {
   iaEnabled: true,              // toggle global de alertas IA
   intervaloVerificacao: 60000,     // 60 segundos
@@ -11267,7 +10393,7 @@ function runIAVerificacao() {
       const chaveAlerta = `pedido_${p.id}`;
 
       if (minsEspera >= IA_CONFIG.minutosCriticoEspera && p.status !== 'Pronto') {
-        // NÃ­vel CRÃTICO - emitir alerta ao caixa e marcar pedido como urgente
+        // NÃ­vel CRÃ?TICO - emitir alerta ao caixa e marcar pedido como urgente
         if (!iaState.alertasAtivos.has(chaveAlerta) ||
           (agora - iaState.alertasAtivos.get(chaveAlerta).timestamp) > 300000) {
 
@@ -11735,7 +10861,7 @@ app.post('/api/auth/registro', async (req, res) => {
                       [afil.id, restauranteId, restauranteNome, valorPlanoPadrao, comissaoVal],
                       function(errVenda) {
                         if (!errVenda) {
-                          console.log(`ğŸ¤ [Afiliados] Venda registrada para Afiliado #${afil.id} (${afil.codigo_ref}) no Restaurante #${restauranteId}`);
+                          console.log(`ğŸ¤? [Afiliados] Venda registrada para Afiliado #${afil.id} (${afil.codigo_ref}) no Restaurante #${restauranteId}`);
                         }
                       }
                     );
@@ -11774,9 +10900,9 @@ app.post('/api/auth/registro', async (req, res) => {
 });
 
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?
 // PAINEL DO DONO â€” SOCKET HANDLERS (Controle Remoto & RH)
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?
 io.on('connection', (socket) => {
   const _donoToken = socket.handshake.query.token;
   let _donoTenantId = parseInt(socket.handshake.query.restaurante_id, 10) || 1;
@@ -11949,7 +11075,7 @@ app.post('/api/auth/registro', async (req, res) => {
                     [afil.id, restauranteId, restauranteNome, valorPlanoPadrao, comissaoVal],
                     function(errVenda) {
                       if (!errVenda) {
-                        console.log(`ğŸ¤ [Afiliados] Venda registrada para Afiliado #${afil.id} (${afil.codigo_ref}) no Restaurante #${restauranteId}`);
+                        console.log(`ğŸ¤? [Afiliados] Venda registrada para Afiliado #${afil.id} (${afil.codigo_ref}) no Restaurante #${restauranteId}`);
                       }
                     }
                   );
@@ -12512,9 +11638,9 @@ function shutdown(signal) {
 process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?
 // â”€â”€ REDE DE SEGURANÃ‡A ANTI-CRASH (nenhuma movimentaÃ§Ã£o pode se perder) â”€â”€
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?
 // Qualquer exceÃ§Ã£o nÃ£o tratada NÃƒO derruba mais o processo: Ã© registrada em
 // logs/falhas.log, cria task automÃ¡tica na fila do suporte e avisa os painÃ©is.
 const LOGS_DIR_FALHAS = path.join(__dirname, 'logs');
@@ -12616,7 +11742,7 @@ ${ANSI.dim}â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     originalLog.apply(console, [banner]);
 
     // AnimaÃ§Ã£o de Chuva Digital Matrix Rain por 2.5s
-    const katakana = "ï½¦ï½±ï½³ï½´ï½µï½¶ï½·ï½¹ï½ºï½»ï½¼ï½½ï½¾ï½¿ï¾€ï¾‚ï¾ƒï¾…ï¾†ï¾‡ï¾ˆï¾Šï¾‹ï¾ï¾ï¾ï¾‘ï¾’ï¾“ï¾”ï¾•ï¾—ï¾˜ï¾œ1234567890";
+    const katakana = "ï½¦ï½±ï½³ï½´ï½µï½¶ï½·ï½¹ï½ºï½»ï½¼ï½½ï½¾ï½¿ï¾€ï¾‚ï¾ƒï¾…ï¾†ï¾‡ï¾ˆï¾Šï¾‹ï¾ï¾?ï¾?ï¾‘ï¾’ï¾“ï¾”ï¾•ï¾—ï¾˜ï¾œ1234567890";
     let animFrames = 0;
     const animInterval = setInterval(() => {
       animFrames++;
@@ -12650,9 +11776,9 @@ ${ANSI.dim}â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 });
 
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?
 // AFILIADOS & PARCEIROS (MÃ‰TRICAS E AMBIENTE PRÃ“PRIO)
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?
 
 // Listar todos os afiliados (Super Admin)
 app.get('/api/super/afiliados', superAdminAuth, (req, res) => {
@@ -12913,7 +12039,7 @@ app.post('/api/auth/notificar-impostor', (req, res) => {
 
   masterDb.get(`SELECT nome FROM restaurantes WHERE id = ?`, [restId], (errRest, restRow) => {
     const nomeRestaurante = restRow ? restRow.nome : `Restaurante #${restId}`;
-    const detalhes = `âš ï¸ TENTATIVA DE IMPOSTOR: UsuÃ¡rio '${email}' (Cargo: ${cargo}) tentou acessar o Painel do Dono sem permissÃ£o! IP: ${ip}`;
+    const detalhes = `âš ï¸? TENTATIVA DE IMPOSTOR: UsuÃ¡rio '${email}' (Cargo: ${cargo}) tentou acessar o Painel do Dono sem permissÃ£o! IP: ${ip}`;
 
     // 1. Registra no Log de Auditoria
     masterDb.run(
@@ -12935,7 +12061,7 @@ app.post('/api/auth/notificar-impostor', (req, res) => {
 
       // 3. Notifica o Gerente/Dono do Restaurante via Socket.IO
       io.to(`restaurante_${restId}`).emit('alerta_seguranca_gerente', {
-        titulo: 'âš ï¸ Alerta de SeguranÃ§a',
+        titulo: 'âš ï¸? Alerta de SeguranÃ§a',
         mensagem: `O colaborador '${email}' (${cargo}) tentou acessar o Painel do Dono sem autorizaÃ§Ã£o.`,
         ip,
         data: new Date().toLocaleTimeString('pt-BR')
@@ -12946,7 +12072,7 @@ app.post('/api/auth/notificar-impostor', (req, res) => {
   });
 });
 
-// â•â•â•â•â•â• MÃ“DULOS DO SISTEMA â€” Controle global + per-tenant â•â•â•â•â•â•
+// â•?â•?â•?â•?â•?â•? MÃ“DULOS DO SISTEMA â€” Controle global + per-tenant â•?â•?â•?â•?â•?â•?
 masterDb.serialize(() => {
   // Tabela global: define todos os mÃ³dulos disponÃ­veis no sistema
   masterDb.run(`CREATE TABLE IF NOT EXISTS modulo_sistemas (
@@ -12969,7 +12095,7 @@ masterDb.serialize(() => {
     PRIMARY KEY (restaurante_id, modulo_id)
   )`);
 
-  // â•â•â• TABELA: Tarefas de Suporte â•â•â•
+  // â•?â•?â•? TABELA: Tarefas de Suporte â•?â•?â•?
   masterDb.run(`CREATE TABLE IF NOT EXISTS tarefas_suporte (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     titulo TEXT NOT NULL,
@@ -12987,7 +12113,7 @@ masterDb.serialize(() => {
     concluido_em DATETIME
   )`);
 
-  // â•â•â• TABELA: Temas por Tenant â•â•â•
+  // â•?â•?â•? TABELA: Temas por Tenant â•?â•?â•?
   masterDb.run(`CREATE TABLE IF NOT EXISTS tenant_temas (
     restaurante_id INTEGER PRIMARY KEY,
     tema_json TEXT NOT NULL,
@@ -13314,7 +12440,7 @@ app.get('/api/suporte/tarefas-relatadas', relatoSuporteAuth, (req, res) => {
   );
 });
 
-// â•â•â• CHAVES DE ATIVAÃ‡ÃƒO â€” Upsell Offline-First (Super Admin) â•â•â•
+// â•?â•?â•? CHAVES DE ATIVAÃ‡ÃƒO â€” Upsell Offline-First (Super Admin) â•?â•?â•?
 // GET: lista todas as chaves emitidas
 app.get('/api/super/chaves', superAdminAuth, (req, res) => {
   masterDb.all(
@@ -13355,7 +12481,7 @@ app.post('/api/super/chaves/:id/revogar', superAdminAuth, (req, res) => {
   });
 });
 
-// â•â•â• SYNC OFFLINE â€” recebido por plugins/cozinha/ â•â•â•
+// â•?â•?â•? SYNC OFFLINE â€” recebido por plugins/cozinha/ â•?â•?â•?
 
 // POST /api/super/delegar-suporte â€” Super admin delega pendÃªncias/obrigaÃ§Ãµes ao time de suporte
 app.post('/api/super/delegar-suporte', superAdminAuth, (req, res) => {
@@ -13446,9 +12572,9 @@ app.post('/api/super/deploy-commit', superAdminAuth, (req, res) => {
   });
 });
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?
 // â”€â”€ GIT AVANÃ‡ADO: CONEXÃƒO, PULL, DEPLOY PARCIAL & AUTO-DEPLOY â”€â”€â”€â”€â”€â”€â”€â”€
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?
 
 const { exec: _gitExecCb } = require('child_process');
 function gitExec(cmd, timeoutMs) {
@@ -13670,9 +12796,9 @@ setInterval(async () => {
 }, 60000);
 
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?
 // â”€â”€ SUPER ADMIN: SUPABASE CONFIG â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?
 
 // GET â€” carrega configuraÃ§Ã£o do Supabase
 app.get('/api/super/supabase-config', superAdminAuth, (req, res) => {
@@ -13740,9 +12866,9 @@ app.post('/api/super/supabase-test', superAdminAuth, async (req, res) => {
   }
 });
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?
 // â”€â”€ SUPER ADMIN: MULTI-SERVER / BALANCEAMENTO DE CARGA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?
 
 // GET â€” lista servidores configurados
 app.get('/api/super/servers', superAdminAuth, (req, res) => {
@@ -13829,9 +12955,9 @@ app.post('/api/super/servers/test', superAdminAuth, async (req, res) => {
   }
 });
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?
 // TÃšNEIS & FALLBACK â€” endpoints para gerenciamento de tÃºneis
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?â•?
 
 // GET /api/super/tuneis/status â€” status de todos os tÃºneis
 app.get('/api/super/tuneis/status', superAdminAuth, async (req, res) => {

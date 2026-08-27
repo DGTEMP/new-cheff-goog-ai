@@ -14,74 +14,7 @@ module.exports = function({ app, db, io, options }) {
   // ══════════════════════════════════════════════════════════════
   // REST ENDPOINTS
   // ══════════════════════════════════════════════════════════════
-
-  // ── RH: EXTRATO DO FUNCIONÁRIO ──
-  app.get('/api/rh/extrato/:id', verificarToken, (req, res) => {
-    const funcId = req.params.id;
-    db.get("SELECT nome FROM funcionarios WHERE id = ?", [funcId], (errF, func) => {
-      if (errF || !func) return res.status(404).send("Funcionário não encontrado");
-      const funcName = func.nome;
-      db.all("SELECT id, valor, data_pedido, observacao FROM vales WHERE funcionario_id = ? AND status = 'Aprovado' AND pagamento_id IS NULL", [funcId], (errV, vales) => {
-        db.all("SELECT id, total, productName, quantity, createdAt FROM pedidos WHERE status = 'Finalizado' AND paymentMethod = 'Fiado' AND pagamento_id IS NULL AND funcionario_id = ?", [funcId], (errP, fiados) => {
-          const buscarFiados = (fiados && fiados.length > 0) ? Promise.resolve(fiados) : new Promise((resolve) => {
-            db.all("SELECT id, total, productName, quantity, createdAt FROM pedidos WHERE status = 'Finalizado' AND paymentMethod = 'Fiado' AND pagamento_id IS NULL AND userName = ?", [funcName], (e, rows) => {
-              resolve(rows || []);
-            });
-          });
-          buscarFiados.then(fiadosLista => {
-            db.all("SELECT id, data, valor, justificativa, forma_pagamento FROM dias_atipicos WHERE funcionario_id = ? AND status = 'aprovado' AND pagamento_id IS NULL", [funcId], (errD, atipicos) => {
-              let totalVales = 0;
-              (vales || []).forEach(v => totalVales += parseFloat(v.valor || 0));
-              let totalConsumo = 0;
-              (fiadosLista || []).forEach(f => {
-                let rawTotal = String(f.total || '0').replace('R$', '').replace(/\./g, '').replace(',', '.').trim();
-                let val = parseFloat(rawTotal || 0);
-                if (!isNaN(val) && val > 0 && val < 5000) totalConsumo += val;
-              });
-              let totalAtipicos = 0;
-              (atipicos || []).forEach(a => totalAtipicos += parseFloat(a.valor || 0));
-              res.json({
-                vales: vales || [], fiados: fiadosLista || [], atipicos: atipicos || [],
-                total_vales: totalVales, total_consumo: totalConsumo,
-                total_dias_extras: totalAtipicos, suggested_bruto: totalAtipicos
-              });
-            });
-          });
-        });
-      });
-    });
-  });
-
-  // ── RH: PAGAMENTOS ──
-  app.post('/api/rh/pagamentos', verificarToken, (req, res) => {
-    const { funcionario_id, valor_bruto, total_vales_abatidos, total_consumo_abatido, valor_liquido, observacao, vales_ids, pedidos_ids } = req.body;
-    const dataPagamento = new Date().toISOString();
-    db.run(`INSERT INTO funcionarios_pagamentos (funcionario_id, data_pagamento, valor_bruto, total_vales_abatidos, total_consumo_abatido, valor_liquido, observacao) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [funcionario_id, dataPagamento, valor_bruto, total_vales_abatidos, total_consumo_abatido, valor_liquido, observacao || ''],
-      function (err) {
-        if (err) return res.status(500).send("Erro ao registrar pagamento");
-        const pagId = this.lastID;
-        if (vales_ids && vales_ids.length > 0) {
-          db.run(`UPDATE vales SET pagamento_id = ? WHERE id IN (${vales_ids.map(() => '?').join(',')})`, [pagId, ...vales_ids]);
-        }
-        if (pedidos_ids && pedidos_ids.length > 0) {
-          db.run(`UPDATE pedidos SET pagamento_id = ? WHERE id IN (${pedidos_ids.map(() => '?').join(',')})`, [pagId, ...pedidos_ids]);
-        }
-        io.emit('rh_update');
-        db.get("SELECT nome FROM funcionarios WHERE id = ?", [funcionario_id], (errF, func) => {
-          const nome = func ? func.nome : 'Colaborador';
-          io.emit('pagamento_colaborador_celebracao', {
-            funcionario_id, funcionario_nome: nome,
-            valor: valor_liquido || valor_bruto,
-            data_pagamento: dataPagamento,
-            observacao: observacao || '',
-            pagamento_id: pagId
-          });
-        });
-        res.json({ success: true, pagamento_id: pagId });
-      }
-    );
-  });
+  // RH (extrato + pagamentos) → consolidado em plugins/rh/
 
   console.log('[plugin:garcom] REST endpoints registered.');
 };

@@ -1,3 +1,21 @@
+
+// ─── SDK / EXTENSÕES PARA CRIAÇÃO DE MÓDULOS DE SUPORTE ───────────────────
+window.ChefPdvMobileSDK = window.ChefPdvMobileSDK || {};
+window.ChefPdvMobileSDK.sectorIcons = {
+  'Todos': 'ph-stack',
+  'Cozinha 1': 'ph-cooking-pot',
+  'Cozinha 2': 'ph-cooking-pot',
+  'Bar': 'ph-wine'
+};
+
+window.adicionarCompMobile = function(catIndex, opcao) {
+  if (typeof catIndex === 'number' && opcao && window._mobileMontavelConfig && window._mobileMontavelConfig.categorias[catIndex]) {
+    window._mobileMontavelConfig.categorias[catIndex].opcoes.push(opcao);
+    if (typeof window.renderMontavelModal === 'function') window.renderMontavelModal();
+  }
+};
+window.ChefPdvMobileSDK.adicionarCompMobile = window.adicionarCompMobile;
+
 ﻿let socket;
 let mesasData = [];
 let produtosData = [];
@@ -377,8 +395,6 @@ function renderComanda() {
     'Em espera': 'Em preparo', 'Pendente': 'Em preparo',
   };
 
-  const sectorIcons = { 'Todos': 'ph-stack', 'Cozinha 1': 'ph-cooking-pot', 'Cozinha 2': 'ph-cooking-pot', 'Bar': 'ph-wine' };
-
   let itemsHtml = filtered.length === 0
     ? `<div style="text-align:center;padding:40px 16px;color:var(--text-muted);">
         <i class="ph ph-check-circle" style="font-size:40px;color:#22c55e;margin-bottom:12px;display:block;"></i>
@@ -744,8 +760,6 @@ function updateMobileMontavelPrice() {
   precoEl.textContent = 'Total: R$ ' + (total * selectedQtd).toFixed(2).replace('.', ',');
   precoEl.dataset.unitPrice = total;
 }
-
-window.adicionarCompMobile = () => {};
 
 window.fecharModalProduto = (e) => {
   if (e && e.target !== e.currentTarget) return;

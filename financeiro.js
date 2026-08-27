@@ -337,26 +337,35 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   }
 
-  // Enviar Google Sheets
+  // Enviar Google Sheets — exporta CSV local (sem integração de nuvem configurada)
   const btnSheets = document.getElementById('btn-fechamento-sheets');
   if (btnSheets) {
     btnSheets.onclick = () => {
       const stats = window.currentCaixaStats || {};
-      const payload = {
-        action: 'fechamento_turno',
-        turno_id: stats.turno_id,
-        faturado: (stats.total_dinheiro || 0) + (stats.total_pix || 0) + (stats.total_credito || 0) + (stats.total_debito || 0) + (stats.total_fiado || 0),
-        dinheiro: stats.total_dinheiro,
-        pix: stats.total_pix,
-        credito: stats.total_credito,
-        debito: stats.total_debito,
-        fiado: stats.total_fiado,
-        total_pedidos: stats.total_pedidos,
-        total_itens: stats.total_itens_vendidos,
-        data: new Date().toISOString()
-      };
-      
-      alert(`Dados do fechamento preparados para sincronização com o Google Sheets!\nTotal Faturado: R$ ${payload.faturado.toFixed(2)}`);
+      const dataLinha = new Date().toISOString();
+      const linhas = [
+        ['Campo', 'Valor'],
+        ['turno_id', stats.turno_id || ''],
+        ['Total Faturado', ((stats.total_dinheiro || 0) + (stats.total_pix || 0) + (stats.total_credito || 0) + (stats.total_debito || 0) + (stats.total_fiado || 0)).toFixed(2)],
+        ['Dinheiro', (stats.total_dinheiro || 0).toFixed(2)],
+        ['Pix', (stats.total_pix || 0).toFixed(2)],
+        ['Crédito', (stats.total_credito || 0).toFixed(2)],
+        ['Débito', (stats.total_debito || 0).toFixed(2)],
+        ['Fiado', (stats.total_fiado || 0).toFixed(2)],
+        ['Total Pedidos', stats.total_pedidos || 0],
+        ['Total Itens', stats.total_itens_vendidos || 0],
+        ['Data', dataLinha]
+      ];
+      const csv = linhas.map(l => l.map(c => `"${String(c).replace(/"/g, '""')}"`).join(';')).join('\n');
+      const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `fechamento_caixa_${(stats.turno_id || '')}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      URL.revokeObjectURL(url);
+      a.remove();
     };
   }
 
@@ -444,6 +453,12 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-atualizar-relatorio').addEventListener('click', loadReportData);
 
   // Render report details
+  
+  // ─── SDK / HOOKS PARA CRIAÇÃO DE MÓDULOS DE SUPORTE ─────────────────────
+  window.ChefFinanceiroSDK = window.ChefFinanceiroSDK || {};
+  window.ChefFinanceiroSDK.origEmit = socket.emit.bind(socket);
+  window.ChefFinanceiroSDK.origOn = socket.on.bind(socket);
+
   socket.on('advanced_relatorio_data', (report) => {
     window.lastReportData = report;
 
@@ -1047,8 +1062,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Receive advanced report for contador — piggyback on existing handler
   // The existing advanced_relatorio_data handler already stores data in window.lastReportData
   // We just need to also capture it for the contador section
-  const origEmit = socket.emit.bind(socket);
-  const origOn = socket.on.bind(socket);
+
   // Store contador report data whenever advanced report is loaded
   socket.on('advanced_relatorio_data', (report) => {
     cntReportData = report;

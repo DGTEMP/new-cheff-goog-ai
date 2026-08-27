@@ -3,7 +3,7 @@
  * Gerenciamento de formas de pagamento (CRUD + broadcast)
  */
 module.exports = function({ app, db, io, options, log }) {
-  const { withTenant, resolveTenantId } = options;
+  const { withTenant, resolveTenantId, exigirAdminSocket } = options;
 
   // ── Broadcast helper (reusável por server.js via options) ──
   function broadcastFormasPagamento(targetSocket, tenantId) {
@@ -99,10 +99,64 @@ module.exports = function({ app, db, io, options, log }) {
     });
   });
 
-  // ── Socket: reconnect envia formas atuais ──
+  // ── Socket: reconnect envia formas atuais + CRUD (migrado de server.js) ──
   io.on('connection', (socket) => {
+    const socketTid = () => socket.restaurante_id || socket.handshake.query.restaurante_id || 1;
+
     socket.on('get_formas_pagamento', () => {
       broadcastFormasPagamento(socket);
+    });
+
+    socket.on('add_forma_pagamento', (payload) => {
+      const { nome, tipo, icone, taxa, prazo_dias, ativo } = payload || {};
+      if (!nome) return;
+      db.run(
+        `INSERT INTO formas_pagamento (nome, tipo, taxa, prazo_dias, ativo, icone) VALUES (?, ?, ?, ?, ?, ?)`,
+        [nome, tipo || 'credito', parseFloat(taxa) || 0, parseInt(prazo_dias) || 0, ativo !== undefined ? (ativo ? 1 : 0) : 1, icone || 'ph-credit-card'],
+        function (err) {
+          if (err) return;
+          broadcastFormasPagamento(null, socketTid());
+        }
+      );
+    });
+
+    socket.on('update_forma_pagamento', (payload) => {
+      const { id, nome, tipo, icone, taxa, prazo_dias, ativo } = payload || {};
+      if (!id || !nome) return;
+      db.run(
+        `UPDATE formas_pagamento SET nome = ?, tipo = ?, taxa = ?, prazo_dias = ?, ativo = ?, icone = ? WHERE id = ?`,
+        [nome, tipo || 'credito', parseFloat(taxa) || 0, parseInt(prazo_dias) || 0, ativo ? 1 : 0, icone || 'ph-credit-card', id],
+        function (err) {
+          if (err) return;
+          broadcastFormasPagamento(null, socketTid());
+        }
+      );
+    });
+
+    socket.on('delete_forma_pagamento', (id) => {
+      if (!exigirAdminSocket(socket)) return;
+      if (!id) return;
+      db.get(`SELECT nome FROM formas_pagamento WHERE id = ?`, [id], (err, row) => {
+        if (err || !row) return;
+        db.get(`SELECT COUNT(*) as count FROM pedidos WHERE paymentMethod = ?`, [row.nome], (e, r) => {
+          if (!e && r && r.count > 0) {
+            return socket.emit('erro_caixa', `"${row.nome}" não pode ser excluído pois já foi utilizado em ${r.count} pedido(s). Apenas desative-o.`);
+          }
+          db.run(`DELETE FROM formas_pagamento WHERE id = ?`, [id], function (err2) {
+            if (err2) return;
+            broadcastFormasPagamento(null, socketTid());
+          });
+        });
+      });
+    });
+
+    socket.on('toggle_forma_pagamento', (payload) => {
+      const { id, ativo } = payload || {};
+      if (!id) return;
+      db.run(`UPDATE formas_pagamento SET ativo = ? WHERE id = ?`, [ativo ? 1 : 0, id], function (err) {
+        if (err) return;
+        broadcastFormasPagamento(null, socketTid());
+      });
     });
   });
 

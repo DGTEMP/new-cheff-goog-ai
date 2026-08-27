@@ -6011,3 +6011,27 @@ body.dark-mode .select-fracao-comanda {
   color: #f8fafc !important;
   border-color: #334155 !important;
 }
+
+
+/* ── CONTROLES DINÂMICOS DE EXIBIÇÃO DE MESAS ── */
+#orders-grid.grid-cols-1 .mesas-grid-layout {
+  grid-template-columns: 1fr !important;
+}
+
+#orders-grid.grid-cols-2 .mesas-grid-layout {
+  grid-template-columns: repeat(2, 1fr) !important;
+}
+
+#orders-grid.grid-compact .mesas-grid-layout {
+  grid-template-columns: repeat(auto-fill, minmax(115px, 1fr)) !important;
+  gap: 5px !important;
+}
+
+#orders-grid.grid-compact .mesa-item {
+  padding: 5px 8px !important;
+  font-size: 11.5px !important;
+}
+
+#orders-grid.grid-compact .mesa-value {
+  font-size: 12px !important;
+}
