@@ -914,6 +914,17 @@ document.addEventListener('DOMContentLoaded', () => {
   const STORAGE_KEY = 'config_active_tab';
 
     function activateTab(tabId, skipSave) {
+
+    if (tabId === 'montaveis') {
+      activateTab('produtos', skipSave);
+      setTimeout(() => {
+        if (typeof window.trocarSubTabProdutos === 'function') {
+          window.trocarSubTabProdutos('montaveis');
+        }
+      }, 50);
+      return;
+    }
+
     if (!tabId) return;
     let btn = document.querySelector('.admin-tab-btn[data-tab="' + tabId + '"]');
     let content = document.getElementById('admin-tab-' + tabId);
@@ -3375,29 +3386,38 @@ socket.on('funcionarios_atualizados', (funcs) => {
   const ativos = funcs.filter(f => f.status !== 'Pendente');
 
   listPendentes.innerHTML = pendentes.map(f => `
-    <tr style="border-bottom: 1px solid #eee;">
-      <td style="padding: 10px;">${f.nome}</td>
-      <td style="padding: 10px;">${f.usuario}</td>
-      <td style="padding: 10px; text-align: right;">
-        <select id="cargo-pendente-${f.id}" style="padding: 6px; border-radius: 6px; border: 1px solid #ccc; margin-right: 4px;">
-          <option value="Garçom">Garçom</option>
-          <option value="Caixa">Caixa</option>
-          <option value="Cozinha">Cozinha</option>
-          <option value="Bar">Bar</option>
-          <option value="Auxiliar">Auxiliar</option>
-        </select>
-        <select id="duracao-pendente-${f.id}" style="padding: 6px; border-radius: 6px; border: 1px solid #ccc; margin-right: 4px; font-size: 12px;">
-          <option value="lifetime">Vitalício</option>
-          <option value="session">Só nesta seção</option>
-          <option value="1day">1 dia</option>
-          <option value="1week">1 semana</option>
-          <option value="1month">1 mês</option>
-        </select>
-        <button onclick="window.aprovarFuncionario(${f.id})" style="color: white; background: #3ab55b; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; margin-right: 4px; font-weight: bold;"><i class="ph ph-check"></i> Aprovar</button>
-        <button onclick="window.recusarFuncionario(${f.id})" style="color: white; background: #eb5757; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: bold;"><i class="ph ph-x"></i> Recusar</button>
+    <tr style="border-bottom: 1px solid var(--cfg-border);">
+      <td style="padding: 12px 14px;">
+        <div style="font-weight: 800; color: var(--cfg-heading); font-size: 14.5px;">${escapeHtml(f.nome)}</div>
+        <div style="font-size: 12px; color: var(--cfg-text-muted);">@${escapeHtml(f.usuario)}</div>
+      </td>
+      <td style="padding: 12px 14px; text-align: right;">
+        <div style="display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end;">
+          <select id="cargo-pendente-${f.id}" style="padding: 6px 10px; border-radius: 8px; border: 1px solid var(--cfg-border); background: var(--cfg-card-bg); color: var(--cfg-text); font-size: 12.5px; font-weight: 700;">
+            <option value="Garçom">Garçom</option>
+            <option value="Caixa">Caixa</option>
+            <option value="Cozinha">Cozinha</option>
+            <option value="Bar">Bar</option>
+            <option value="Gerente">Gerente</option>
+            <option value="Auxiliar">Auxiliar</option>
+          </select>
+          <select id="duracao-pendente-${f.id}" style="padding: 6px 10px; border-radius: 8px; border: 1px solid var(--cfg-border); background: var(--cfg-card-bg); color: var(--cfg-text); font-size: 12px; font-weight: 600;">
+            <option value="lifetime">Vitalício</option>
+            <option value="session">Só nesta sessão</option>
+            <option value="1day">1 dia</option>
+            <option value="1week">1 semana</option>
+            <option value="1month">1 mês</option>
+          </select>
+          <button onclick="window.aprovarFuncionario(${f.id})" style="color: white; background: #10b981; border: none; padding: 7px 14px; border-radius: 8px; cursor: pointer; font-weight: 800; font-size: 12.5px; display: inline-flex; align-items: center; gap: 5px; box-shadow: 0 2px 6px rgba(16,185,129,0.3);">
+            <i class="ph-bold ph-check"></i> Aprovar
+          </button>
+          <button onclick="window.recusarFuncionario(${f.id})" style="color: white; background: #ef4444; border: none; padding: 7px 14px; border-radius: 8px; cursor: pointer; font-weight: 800; font-size: 12.5px; display: inline-flex; align-items: center; gap: 5px; box-shadow: 0 2px 6px rgba(239,68,68,0.3);">
+            <i class="ph-bold ph-x"></i> Recusar
+          </button>
+        </div>
       </td>
     </tr>
-  `).join('') || '<tr><td colspan="3" style="padding: 10px; text-align: center; color: gray;">Nenhum cadastro pendente</td></tr>';
+  `).join('') || '<tr><td colspan="2" style="padding: 18px; text-align: center; color: var(--cfg-text-muted); font-size: 13px;">Nenhum cadastro pendente no momento.</td></tr>';
 
   listAtivos.innerHTML = ativos.map(f => {
     let remBadge = '⏱️ Hora';
@@ -3416,55 +3436,55 @@ socket.on('funcionarios_atualizados', (funcs) => {
 
     let loginExpiry = '';
     if (!f.login_expires_at || f.login_expires_at === 'lifetime') {
-      loginExpiry = '<span style="background: #e8f5e9; color: #2e7d32; padding: 2px 8px; border-radius: 10px; font-size: 11px; margin-left: 6px;">♾️ Vitalício</span>';
+      loginExpiry = '<span style="background: rgba(16,185,129,0.15); color: #34d399; padding: 3px 8px; border-radius: 8px; font-size: 11px; font-weight: 800; margin-left: 6px; border: 1px solid rgba(16,185,129,0.3);">♾️ Vitalício</span>';
     } else if (f.login_expires_at === 'SESSION') {
-      loginExpiry = '<span style="background: #fff3e0; color: #e65100; padding: 2px 8px; border-radius: 10px; font-size: 11px; margin-left: 6px;">🔄 Sessão</span>';
+      loginExpiry = '<span style="background: rgba(245,158,11,0.15); color: #fbbf24; padding: 3px 8px; border-radius: 8px; font-size: 11px; font-weight: 800; margin-left: 6px; border: 1px solid rgba(245,158,11,0.3);">🔄 Sessão</span>';
     } else {
       const expDate = new Date(f.login_expires_at);
       const now = new Date();
       if (expDate < now) {
-        loginExpiry = '<span style="background: #ffebee; color: #c62828; padding: 2px 8px; border-radius: 10px; font-size: 11px; margin-left: 6px;">⏰ Expirado</span>';
+        loginExpiry = '<span style="background: rgba(239,68,68,0.15); color: #f87171; padding: 3px 8px; border-radius: 8px; font-size: 11px; font-weight: 800; margin-left: 6px; border: 1px solid rgba(239,68,68,0.3);">⏰ Expirado</span>';
       } else {
-        loginExpiry = `<span style="background: #e3f2fd; color: #1565c0; padding: 2px 8px; border-radius: 10px; font-size: 11px; margin-left: 6px;">📅 ${expDate.toLocaleDateString('pt-BR')}</span>`;
+        loginExpiry = `<span style="background: rgba(59,130,246,0.15); color: #60a5fa; padding: 3px 8px; border-radius: 8px; font-size: 11px; font-weight: 800; margin-left: 6px; border: 1px solid rgba(59,130,246,0.3);">📅 ${expDate.toLocaleDateString('pt-BR')}</span>`;
       }
     }
 
-    const pixText = f.chave_pix ? `<div style="font-size: 13px; font-weight: 600; color: #16a34a;"><i class="ph ph-qr-code"></i> PIX: ${f.chave_pix}</div>` : '<div style="font-size: 12px; color: #94a3b8;">PIX não informado</div>';
-    const telText = f.telefone ? `<div style="font-size: 12px; color: #64748b;"><i class="ph ph-whatsapp-logo"></i> ${f.telefone}</div>` : '';
+    const pixText = f.chave_pix ? `<div style="font-size: 13px; font-weight: 700; color: #10b981;"><i class="ph-bold ph-qr-code"></i> PIX: ${escapeHtml(f.chave_pix)}</div>` : '<div style="font-size: 12px; color: var(--cfg-text-muted);">PIX não informado</div>';
+    const telText = f.telefone ? `<div style="font-size: 12px; color: var(--cfg-text-muted); margin-top: 3px;"><i class="ph-bold ph-whatsapp-logo" style="color:#10b981;"></i> ${escapeHtml(f.telefone)}</div>` : '';
 
     return `
-      <tr style="border-bottom: 1px solid #e2e8f0;">
-        <td style="padding: 12px 10px;">
-          <div style="font-weight: 700; color: #1e293b; font-size: 15px;">${f.nome}</div>
-          <div style="font-size: 12px; color: #64748b;">@${f.usuario} ${f.cpf ? `• CPF: ${f.cpf}` : ''}</div>
+      <tr style="border-bottom: 1px solid var(--cfg-border);">
+        <td style="padding: 14px 14px;">
+          <div style="font-weight: 800; color: var(--cfg-heading); font-size: 14.5px;">${escapeHtml(f.nome)}</div>
+          <div style="font-size: 12px; color: var(--cfg-text-muted); margin-top: 2px;">@${escapeHtml(f.usuario)} ${f.cpf ? `• CPF: ${escapeHtml(f.cpf)}` : ''}</div>
         </td>
-        <td style="padding: 12px 10px;">
-          <span style="background: #e2e8f0; color: #334155; padding: 4px 10px; border-radius: 20px; font-size: 13px; font-weight: 600;">
-            ${f.cargo}
+        <td style="padding: 14px 14px;">
+          <span style="background: rgba(255,255,255,0.08); color: var(--cfg-heading); padding: 4px 10px; border-radius: 8px; font-size: 12.5px; font-weight: 800; border: 1px solid var(--cfg-border);">
+            ${escapeHtml(f.cargo)}
           </span>
           ${loginExpiry}
         </td>
-        <td style="padding: 12px 10px;">
-          <div style="font-weight: 700; color: #2563eb; font-size: 14px;">${remValor}</div>
-          <div style="font-size: 11px; color: #64748b; margin-top: 2px;">${remBadge}</div>
+        <td style="padding: 14px 14px;">
+          <div style="font-weight: 800; color: #38bdf8; font-size: 14px;">${remValor}</div>
+          <div style="font-size: 11.5px; color: var(--cfg-text-muted); margin-top: 2px;">${remBadge}</div>
         </td>
-        <td style="padding: 12px 10px;">
+        <td style="padding: 14px 14px;">
           ${pixText}
           ${telText}
         </td>
-        <td style="padding: 12px 10px; text-align: center;">
+        <td style="padding: 14px 14px; text-align: center;">
           <div style="display: flex; gap: 8px; justify-content: center;">
-            <button onclick="window.abrirModalEditarFuncionario(${f.id})" style="background: #fff5f0; border: 1px solid #ffcca8; color: #fc4b15; padding: 6px 12px; border-radius: 8px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 4px; font-size: 13px;">
-              <i class="ph ph-pencil-simple"></i> Editar RH
+            <button onclick="window.abrirModalEditarFuncionario(${f.id})" style="background: rgba(252,75,21,0.12); border: 1px solid rgba(252,75,21,0.3); color: #fc4b15; padding: 7px 14px; border-radius: 8px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 5px; font-size: 12.5px; transition: transform 0.1s;">
+              <i class="ph-bold ph-pencil-simple"></i> Editar RH
             </button>
-            <button onclick="window.deleteFuncionario(${f.id})" style="background: #fef2f2; border: 1px solid #fecaca; color: #dc2626; padding: 6px 10px; border-radius: 8px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 4px; font-size: 13px;">
-              <i class="ph ph-trash"></i>
+            <button onclick="window.deleteFuncionario(${f.id})" style="background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.3); color: #ef4444; padding: 7px 10px; border-radius: 8px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 4px; font-size: 12.5px; transition: transform 0.1s;">
+              <i class="ph-bold ph-trash"></i>
             </button>
           </div>
         </td>
       </tr>
     `;
-  }).join('') || '<tr><td colspan="5" style="padding: 20px; text-align: center; color: gray;">Nenhum colaborador cadastrado.</td></tr>';
+  }).join('') || '<tr><td colspan="5" style="padding: 24px; text-align: center; color: var(--cfg-text-muted); font-size: 13.5px;">Nenhum colaborador cadastrado.</td></tr>';
 
   // Populate RH Collaborator Dropdown
   const funcSelect = document.getElementById('admin-rh-func-select');

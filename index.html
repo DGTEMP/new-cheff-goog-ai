@@ -2,8 +2,6 @@
 <html lang="pt-BR">
 
 <head>
-
-
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -39,20 +37,20 @@
 
   <script src="/locales.js"></script>
   <script src="/broadcast.js"></script>
-<script src="/i18n.js"></script>
-<script src="/socket.io.min.js"></script>
-<script src="/confetti.js"></script>
+  <script src="/i18n.js"></script>
+  <script src="/socket.io.min.js"></script>
+  <script src="/confetti.js"></script>
   <script src="/fuzzy-search.js"></script>
   <script src="/auth.js"></script>
   <script src="offline-queue.js"></script>
   <script src="/plugin-client.js"></script>
   <script src="/chef-tz.js"></script>
   <script src="/pwa-telemetry.js"></script>
-  <script src="main.js?v=1787935895233"></script>
+  <script src="main.js?v=1787948800000"></script>
   <script src="/anti-tamper.js" defer></script>
-  <link rel="stylesheet" href="/apple-transitions.css">
-  <script src="/apple-transitions.js" defer></script>
-  <link rel="stylesheet" href="/caixa-pro-ux.css?v=1787935895233">
+  <link rel="stylesheet" href="/apple-transitions.css?v=1787948800000">
+  <script src="/apple-transitions.js?v=1787948800000" defer></script>
+  <link rel="stylesheet" href="/caixa-pro-ux.css?v=1787948800000">
   <script src="/caixa-pro-ux.js" defer></script>
   <script src="/pagamento-parcial-modal.js" defer></script>
   <script src="/chef-telemetry-clicks.js" defer></script>
@@ -788,6 +786,16 @@
                   ❖ Compacto
                 </button>
               </div>
+
+              <!-- SELETOR DE ORIENTAÇÃO (HORIZONTAL / VERTICAL) -->
+              <div class="mesas-orientation-switcher" style="display: inline-flex; align-items: center; gap: 2px; background: rgba(0,0,0,0.06); padding: 2px 4px; border-radius: 8px; margin-left: 2px;">
+                <button type="button" onclick="window.setMesasOrientation('horizontal')" id="btn-orient-horizontal" title="Disposição Horizontal" style="padding: 4px 7px; border-radius: 6px; border: none; font-size: 11px; cursor: pointer; background: var(--bg-card); color: var(--text-main); font-weight: 800; display: inline-flex; align-items: center; gap: 3px;">
+                  <i class="ph-bold ph-rows"></i> Horizontal
+                </button>
+                <button type="button" onclick="window.setMesasOrientation('vertical')" id="btn-orient-vertical" title="Disposição Vertical" style="padding: 4px 7px; border-radius: 6px; border: none; font-size: 11px; cursor: pointer; background: transparent; color: var(--text-muted); font-weight: 700; display: inline-flex; align-items: center; gap: 3px;">
+                  <i class="ph-bold ph-columns"></i> Vertical
+                </button>
+              </div>
             </div>
 
             <div style="display: flex; align-items: center; gap: 6px;">
@@ -1097,12 +1105,30 @@
         </div>
       </div>
 
-      <div id="pdv-delivery-fields" style="display: none !important;">
-        <input type="text" id="pdv-cliente-endereco">
-        <input type="number" id="pdv-taxa-entrega" value="0.00">
-        <select id="pdv-entregador-select">
-          <option value="">Nenhum</option>
-        </select>
+      <div id="pdv-delivery-fields" style="display: none; gap: 12px; margin-top: 8px; margin-bottom: 8px; padding: 12px 14px; background: rgba(59, 130, 246, 0.06); border: 1px solid rgba(59, 130, 246, 0.25); border-radius: 10px; flex-wrap: wrap; align-items: flex-end; animation: fadeInView 0.2s ease-out;">
+        <div style="flex: 2; min-width: 220px;">
+          <label style="font-weight: 600; font-size: 12px; color: #1e40af; display: flex; align-items: center; gap: 4px;">
+            <i class="ph-bold ph-map-pin" style="color: #3b82f6;"></i> Endereço de Entrega
+          </label>
+          <input type="text" id="pdv-cliente-endereco" placeholder="Rua, Número, Bairro, Complemento..."
+            style="width: 100%; padding: 8px 10px; border: 1px solid #bfdbfe; border-radius: 6px; margin-top: 3px; font-size: 13.5px; background: var(--bg-card, #ffffff);">
+        </div>
+        <div style="flex: 1; min-width: 130px; max-width: 170px;">
+          <label style="font-weight: 600; font-size: 12px; color: #1e40af; display: flex; align-items: center; gap: 4px;">
+            <i class="ph-bold ph-currency-circle-dollar" style="color: #10b981;"></i> Taxa Entrega (R$)
+          </label>
+          <input type="number" step="0.50" min="0" id="pdv-taxa-entrega" value="0.00"
+            style="width: 100%; padding: 8px 10px; border: 1px solid #bfdbfe; border-radius: 6px; margin-top: 3px; font-size: 13.5px; font-weight: 700; background: var(--bg-card, #ffffff);">
+        </div>
+        <div style="flex: 1; min-width: 160px;">
+          <label style="font-weight: 600; font-size: 12px; color: #1e40af; display: flex; align-items: center; gap: 4px;">
+            <i class="ph-bold ph-moped" style="color: #f59e0b;"></i> Entregador / Motoboy
+          </label>
+          <select id="pdv-entregador-select"
+            style="width: 100%; padding: 8px 10px; border: 1px solid #bfdbfe; border-radius: 6px; margin-top: 3px; font-size: 13.5px; font-weight: 600; background: var(--bg-card, #ffffff);">
+            <option value="">Nenhum / Próprio</option>
+          </select>
+        </div>
       </div>
 
       <!-- Main Content (Horizontal Category Pills + Direct Visual Cart Menu Grid) -->
@@ -2985,6 +3011,7 @@
 
   <script src="/chef-resizable-sidebars.js?v=1787936330722"></script>
   <script src="/chef-colaborador-dock.js"></script>
+  <script src="/chef-layout-injetor.js"></script>
 </body>
 
 </html>

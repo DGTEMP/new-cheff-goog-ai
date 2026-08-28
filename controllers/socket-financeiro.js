@@ -1,5 +1,5 @@
 module.exports = function(socket, io, db, helpers) {
-  const { checkCaixa, activePaymentLocks, broadcastPedidos, broadcastMesaClientes, mesasFechando, licenseManager, verificarSenhaAdmin, verificarPinOuSenha, verificarSenhaFuncionario, getLocalTimestamp } = helpers;
+  const { checkCaixa, activePaymentLocks, broadcastPedidos, mesasFechando, licenseManager, verificarSenhaAdmin, verificarSenhaFuncionario, getLocalTimestamp } = helpers;
 
   function fidelidadeNivel(totalGasto, cfg) {
     const prata = parseFloat(cfg.fidelidade_nivel_prata) || 500;
@@ -62,9 +62,9 @@ module.exports = function(socket, io, db, helpers) {
     const senha = data && data.senha ? String(data.senha) : '';
     if (!senha) return false;
 
-    // PIN ou senha admin/master autoriza o fechamento.
+    // Admin master (usuários) também autoriza o fechamento.
     try {
-      if (await verificarPinOuSenha(senha)) return true;
+      if (await verificarSenhaAdmin(senha)) return true;
     } catch (e) {}
 
     // Caixa identificado no socket: exige a PRÓPRIA senha do caixa.
@@ -128,21 +128,18 @@ module.exports = function(socket, io, db, helpers) {
     });
   });
 
-  // Painel RH (configurações) pede o resumo do turno atual
-  socket.on('get_relatorio_caixa', () => {
-    checkCaixa(turno => {
-      socket.emit('relatorio_caixa', turno || null);
-    });
-  });
-
   socket.on('abrir_caixa', (data) => {
-    // (Segurança) Abrir o caixa não exige senha: apenas confirmação no PDV.
-    // Regras de senha por cargo se aplicam ao FECHAR o caixa.
     const payload = (data && typeof data === 'object') ? data : {};
     const fundo_troco = parseFloat(payload.fundo_troco) || 0;
+    const operador = payload.operador || 'Caixa';
     
+    console.log(`🔓 [CAIXA] Abertura de caixa solicitada: R$ ${fundo_troco.toFixed(2)} por ${operador}`);
+
     checkCaixa(turnoAtual => {
       if (turnoAtual) {
+        console.log(`✅ [CAIXA] Caixa já aberto (Turno ID: ${turnoAtual.id})`);
+        io.emit('estado_caixa', turnoAtual);
+        io.emit('caixa_aberto_sucesso');
         socket.emit('estado_caixa', turnoAtual);
         socket.emit('caixa_aberto_sucesso');
         return;
@@ -154,25 +151,25 @@ module.exports = function(socket, io, db, helpers) {
         function (err) {
           if (!err) {
             const newTurno = { id: this.lastID, status: 'Aberto', fundo_troco };
+            console.log(`🎉 [CAIXA ABERTO COM SUCESSO] Novo Turno ID: ${newTurno.id} | R$ ${fundo_troco.toFixed(2)} por ${operador}`);
             
-            // Limpa mesas e encerra pedidos pendentes sem turno
             db.run(`UPDATE mesas SET status = 'Disponível', observacao = ''`, () => {});
             db.run(`UPDATE pedidos SET status = 'Finalizado' WHERE status NOT IN ('Finalizado', 'Cancelado') AND (turno_id IS NULL OR turno_id < ?)`, [newTurno.id], () => {});
 
             if (typeof global.registrarAuditoria === 'function') {
               try {
-                global.registrarAuditoria(payload.operador || 'Caixa', 'ABERTURA_CAIXA', `Caixa aberto com fundo R$ ${fundo_troco.toFixed(2)}`, 'Início de Turno', 'BAIXO');
-              } catch (eAudit) {
-                console.error("Erro ao registrar auditoria de abertura:", eAudit);
-              }
+                global.registrarAuditoria(operador, 'ABERTURA_CAIXA', `Caixa aberto com fundo R$ ${fundo_troco.toFixed(2)}`, 'Início de Turno', 'BAIXO');
+              } catch (eAudit) {}
             }
             
             io.emit('estado_caixa', newTurno);
+            io.emit('caixa_aberto_sucesso');
+            socket.emit('estado_caixa', newTurno);
             socket.emit('caixa_aberto_sucesso');
             db.all(`SELECT * FROM mesas`, (e, r) => io.emit('mesas_atualizadas', r || []));
             if (typeof broadcastPedidos === 'function') broadcastPedidos();
           } else {
-            console.error("Erro ao abrir caixa:", err);
+            console.error("❌ [ERRO AO ABRIR CAIXA]:", err);
             socket.emit('erro_caixa', 'Erro no servidor ao abrir o caixa: ' + (err.message || 'Falha no banco de dados'));
           }
         }
@@ -206,13 +203,7 @@ module.exports = function(socket, io, db, helpers) {
             `UPDATE turnos_caixa SET status = 'Fechado', data_fechamento = datetime('now', 'localtime') WHERE status = 'Aberto'`,
             function (err) {
               if (!err) {
-                if (typeof global.registrarAuditoria === 'function') {
-                  try {
-                    global.registrarAuditoria(op, 'FECHAMENTO_CAIXA', 'Caixa fechado (Fechamento Normal)', 'Rotina de Encerramento', 'ALTO');
-                  } catch (eAudit) {
-                    console.error("Erro ao registrar auditoria de fechamento:", eAudit);
-                  }
-                }
+                global.registrarAuditoria(op, 'FECHAMENTO_CAIXA', 'Caixa fechado (Fechamento Normal)', 'Rotina de Encerramento', 'ALTO');
                 
                 if (autoClosePonto) {
                   db.all(
@@ -348,7 +339,7 @@ module.exports = function(socket, io, db, helpers) {
              const taxaCredito = (stats.total_credito * (taxaMap['credito'] || 2.5)) / 100;
              const taxasMaquininha = taxaPix + taxaDebito + taxaCredito;
 
-             const faturamentoBruto = stats.total_dinheiro + stats.total_pix + stats.total_credito + stats.total_debito + stats.total_fiado + stats.total_desconto;
+             const faturamentoBruto = stats.total_dinheiro + stats.total_pix + stats.total_credito + stats.total_debito + stats.total_fiado;
              const receitaLiquida = Math.max(0, faturamentoBruto - stats.total_desconto);
              const lucroLiquido = receitaLiquida - cmvTotal - taxasMaquininha - stats.total_sangria;
              const margemLucroPct = faturamentoBruto > 0 ? (lucroLiquido / faturamentoBruto) * 100 : 0;
@@ -374,15 +365,7 @@ module.exports = function(socket, io, db, helpers) {
     });
   });
 
-  function getTaxaServico(callback) {
-    db.get(`SELECT valor FROM configuracoes_global WHERE chave = 'taxa_servico'`, [], (err, row) => {
-      if (err || !row) return callback(10);
-      const taxa = parseFloat(row.valor);
-      callback(isNaN(taxa) ? 10 : taxa);
-    });
-  }
-
-  socket.on('pagamento_parcial_valor', ({ mesaName, valor, metodo, userName, comTaxa, comandaName, itemIds, desconto }) => {
+  socket.on('pagamento_parcial_valor', ({ mesaName, valor, metodo, userName, comTaxa, comandaName, itemIds }) => {
     checkCaixa(turno => {
       if (!turno) {
         socket.emit('erro_caixa', 'O caixa está fechado! Abra o caixa antes de receber pagamentos.');
@@ -400,71 +383,25 @@ module.exports = function(socket, io, db, helpers) {
       db.all(`SELECT * FROM pedidos WHERE (localName = ? OR mesa_grupo = ?) AND status != 'Finalizado'`, [mesaName, mesaName], (err, rows) => {
         if (err || !rows) rows = [];
 
-        // Espelha EXATAMENTE a fórmula do frontend (calcRestante):
-        // pendente = itens ainda não marcados 'Pago'; abatem apenas os
-        // pagamentos parciais gerais (negativas SEM 'Comanda' no nome —
-        // as de comanda já correspondem aos itens que foram marcados Pago).
-        let pendenteBruto = 0;
-        let consumoBrutoTotal = 0;
-        let jaPagoSemComanda = 0;
-        const idsAbertosMesa = new Set();
+        let consumoBruto = 0;
+        let jaPago = 0;
         rows.forEach(r => {
           const v = parseFloat(String(r.total).replace(',', '.')) || 0;
-          const nomePg = String(r.productName || '');
           if (v >= 0) {
-            consumoBrutoTotal += v;
-            if (r.status !== 'Pago') {
-              pendenteBruto += v;
-              idsAbertosMesa.add(r.id);
-            }
-          } else if (nomePg.indexOf('Pgto Parcial') !== -1 || nomePg.indexOf('Pagamento') !== -1) {
-            if (nomePg.indexOf('Comanda') === -1) jaPagoSemComanda += Math.abs(v);
+            consumoBruto += v;
+          } else if (r.productName && (String(r.productName).indexOf('Pgto Parcial') !== -1 || String(r.productName).indexOf('Pagamento') !== -1)) {
+            jaPago += Math.abs(v);
           }
         });
 
-        getTaxaServico(taxaPct => {
-          // Taxa decidida pelo caixa (mesas.taxa_manual em R$) tem prioridade.
-          // Proporcional ao pendente para somar exatamente o valor definido no fim.
-          db.get(`SELECT taxa_manual FROM mesas WHERE nome = ?`, [mesaName], (eTx, mTx) => {
-            const taxaManual = (!eTx && mTx && mTx.taxa_manual != null) ? Math.max(0, parseFloat(mTx.taxa_manual) || 0) : null;
-            const aplicarTaxa = comTaxa !== false;
-            let taxaValor;
-            if (!aplicarTaxa) taxaValor = 0;
-            else if (taxaManual != null) taxaValor = consumoBrutoTotal > 0 ? taxaManual * (pendenteBruto / consumoBrutoTotal) : 0;
-            else taxaValor = pendenteBruto * (taxaPct / 100);
-            const brutoComTaxa = pendenteBruto + taxaValor;
-            const descontoAplicado = Math.max(0, Math.min(parseFloat(desconto) || 0, brutoComTaxa));
-            const saldoRestante = Math.max(0, brutoComTaxa - descontoAplicado - jaPagoSemComanda);
+        const aplicarTaxa = comTaxa !== false;
+        const totalComTaxa = aplicarTaxa ? (consumoBruto * 1.10) : consumoBruto;
+        const saldoRestante = Math.max(0, totalComTaxa - jaPago);
 
         if (saldoRestante <= 0.01) {
           activePaymentLocks.delete(lockKey);
           socket.emit('erro_pagamento', 'A conta desta mesa já está totalmente paga!');
           return;
-        }
-
-        // Segurança: só aceita itens que pertencem a esta mesa e estão abertos
-        let validIds = null;
-        if (Array.isArray(itemIds) && itemIds.length > 0) {
-          validIds = itemIds.filter(id => idsAbertosMesa.has(id));
-        }
-
-        if (validIds && validIds.length > 0) {
-          // Segurança do caixa: o recebido não pode ser MENOR que a soma dos
-          // itens selecionados (evita quitar itens cobrando menos).
-          let esperadoBruto = 0;
-          validIds.forEach(id => {
-            const r = rows.find(x => x.id === id);
-            if (r) esperadoBruto += parseFloat(String(r.total).replace(',', '.')) || 0;
-          });
-          const esperado = consumoBrutoTotal > 0 && aplicarTaxa
-            ? esperadoBruto + (esperadoBruto / consumoBrutoTotal) * taxaValor
-            : esperadoBruto;
-          if (metodo !== 'Dinheiro' && valor < esperado - 0.06) {
-            activePaymentLocks.delete(lockKey);
-            socket.emit('erro_pagamento',
-              `Valor recebido (R$ ${Number(valor).toFixed(2).replace('.', ',')}) é menor que o total dos itens selecionados (R$ ${esperado.toFixed(2).replace('.', ',')}). Pagamento bloqueado.`);
-            return;
-          }
         }
 
         if (metodo !== 'Dinheiro' && valor > saldoRestante + 0.05) {
@@ -497,19 +434,10 @@ module.exports = function(socket, io, db, helpers) {
               `INSERT INTO movimentacoes (turno_id, tipo, valor, forma_pagamento, descricao, data) VALUES (?, 'Entrada', ?, ?, ?, datetime('now', 'localtime'))`,
               [turno.id, valorRegistrado, metodo, `Pgto Parcial: ${mesaName}`]
             );
-
-            // Registrar o desconto apenas no pagamento que quita a conta (evita duplicar)
-            const saldoAposPagamento = Math.max(0, saldoRestante - valorRegistrado);
-            if (descontoAplicado > 0 && saldoAposPagamento <= 0.01) {
-              db.run(
-                `INSERT INTO movimentacoes (turno_id, tipo, valor, forma_pagamento, descricao, data) VALUES (?, 'Desconto', ?, ?, ?, datetime('now', 'localtime'))`,
-                [turno.id, descontoAplicado, metodo, `Desconto: ${mesaName}`]
-              );
-            }
             
-            if (validIds && validIds.length > 0) {
-              const placeholders = validIds.map(() => '?').join(',');
-              db.run(`UPDATE pedidos SET status = 'Pago', turno_id = ? WHERE id IN (${placeholders})`, [turno.id, ...validIds], () => {
+            if (Array.isArray(itemIds) && itemIds.length > 0) {
+              const placeholders = itemIds.map(() => '?').join(',');
+              db.run(`UPDATE pedidos SET status = 'Pago', turno_id = ? WHERE id IN (${placeholders})`, [turno.id, ...itemIds], () => {
                 broadcastPedidos();
               });
             } else if (comandaName && String(comandaName).trim()) {
@@ -533,29 +461,6 @@ module.exports = function(socket, io, db, helpers) {
             setTimeout(() => io.emit('atualizacao_caixa'), 300);
           }
         );
-          }); // close db.get taxa_manual
-        }); // close getTaxaServico
-      });
-    });
-  });
-
-  // ── TAXA DE SERVIÇO MANUAL POR MESA (R$ exatos definidos pelo caixa) ──
-  socket.on('definir_taxa_mesa', ({ mesaName, valor }) => {
-    if (!mesaName) return;
-    const v = (valor === null || valor === undefined || valor === '') ? null : Math.max(0, parseFloat(valor) || 0);
-    db.run(`UPDATE mesas SET taxa_manual = ? WHERE nome = ?`, [v, mesaName], (err) => {
-      if (err) return socket.emit('erro_servidor', 'Falha ao ajustar a taxa da mesa.');
-      socket.emit('taxa_mesa_definida', { mesaName, valor: v });
-      db.all(`SELECT * FROM mesas`, (e, r) => io.emit('mesas_atualizadas', r || []));
-    });
-  });
-
-  socket.on('get_taxa_mesa', ({ mesaName }) => {
-    if (!mesaName) return socket.emit('taxa_mesa_valor', { mesaName, valor: null });
-    db.get(`SELECT taxa_manual FROM mesas WHERE nome = ?`, [mesaName], (err, row) => {
-      socket.emit('taxa_mesa_valor', {
-        mesaName,
-        valor: (!err && row && row.taxa_manual != null) ? parseFloat(row.taxa_manual) : null
       });
     });
   });
@@ -585,20 +490,12 @@ module.exports = function(socket, io, db, helpers) {
     if (!finalName.toLowerCase().includes('comanda')) {
       finalName = `Comanda - ${finalName}`;
     }
-    const cliNome = (nome || '').trim();
     db.get(`SELECT * FROM mesas WHERE nome = ?`, [finalName], (err, row) => {
       if (!row) {
         db.run(`INSERT INTO mesas (nome, status, observacao) VALUES (?, 'Disponível', ?)`, [finalName, telefone || ''], (err) => {
           if (!err) {
-            if (cliNome) {
-              db.run(
-                `INSERT INTO mesa_clientes (mesa, cliente_id, cliente_nome, cliente_telefone, updated_at)
-                 VALUES (?, NULL, ?, ?, datetime('now','localtime'))`,
-                [finalName, cliNome, telefone || '']);
-            }
             db.all(`SELECT * FROM mesas`, (err, rows) => {
               io.emit('mesas_atualizadas', rows || []);
-              if (cliNome) broadcastMesaClientes();
               socket.emit('comanda_criada_sucesso', { nomeMesa: finalName });
             });
           }
@@ -609,24 +506,15 @@ module.exports = function(socket, io, db, helpers) {
     });
   });
 
-  socket.on('finalizar_mesa', ({ mesaName, payments, totalValue, emitirNfce, cpfCnpj, clienteNome, customNfceConfig, desconto, cliente_id }) => {
-    const closingLockKey = `__closing__${mesaName}`;
-    if (activePaymentLocks.has(closingLockKey)) {
-      socket.emit('erro_caixa', 'Esta mesa está sendo fechada por outro operador. Aguarde.');
-      return;
-    }
-    activePaymentLocks.add(closingLockKey);
-
+  socket.on('finalizar_mesa', ({ mesaName, payments, totalValue, emitirNfce, cpfCnpj, clienteNome, customNfceConfig }) => {
     checkCaixa(turno => {
       if (!turno) {
-        activePaymentLocks.delete(closingLockKey);
         socket.emit('erro_caixa', 'O caixa está fechado! Abra o caixa antes de finalizar vendas.');
         return;
       }
       
       db.all(`SELECT * FROM pedidos WHERE (localName = ? OR mesa_grupo = ? OR mesa_comanda = ?) AND status != 'Finalizado'`, [mesaName, mesaName, mesaName], (errItems, itemsMesa) => {
         if (errItems) {
-          activePaymentLocks.delete(closingLockKey);
           socket.emit('erro_caixa', 'Erro ao acessar o banco de dados.');
           return;
         }
@@ -643,20 +531,11 @@ module.exports = function(socket, io, db, helpers) {
           }
         });
 
-        getTaxaServico(taxaPct => {
-          // Taxa manual (R$) definida pelo caixa tem prioridade sobre o % padrão
-          db.get(`SELECT taxa_manual FROM mesas WHERE nome = ?`, [mesaName], (eTx, mTx) => {
-            const taxaManual = (!eTx && mTx && mTx.taxa_manual != null) ? Math.max(0, parseFloat(mTx.taxa_manual) || 0) : null;
-            const taxaTotal = taxaManual != null ? taxaManual : consumoBrutoTotal * (taxaPct / 100);
-            // Desconto concedido no checkout abate da obrigação final (o frontend
-            // já cobrou os parciais com esse desconto embutido — sem isso o
-            // fechamento trava ou grava valores inconsistentes).
-            const descontoFinal = Math.max(0, Math.min(parseFloat(desconto) || 0, consumoBrutoTotal + taxaTotal));
-            const pendenteComTaxa = Math.max(0, consumoBrutoTotal + taxaTotal - pagoParcialTotal - descontoFinal);
+        const taxaMult = consumoBrutoTotal > 0 ? (totalValue / consumoBrutoTotal) : 1.0;
+        const pendenteComTaxa = Math.max(0, consumoBrutoTotal * taxaMult - pagoParcialTotal);
 
         const pago = (payments || []).reduce((acc, curr) => acc + (curr.valor || 0), 0);
         if (pago < pendenteComTaxa - 0.05 && pendenteComTaxa > 0) {
-          activePaymentLocks.delete(closingLockKey);
           socket.emit('erro_caixa', 'Pagamento incompleto! A mesa não pode ser fechada sem o pagamento total.');
           return;
         }
@@ -667,7 +546,6 @@ module.exports = function(socket, io, db, helpers) {
           ['Finalizado', primaryMethod, turno.id, mesaName, mesaName],
           function (err) {
             if (err) console.error(err);
-            activePaymentLocks.delete(closingLockKey);
             
             setTimeout(() => io.emit('atualizacao_caixa'), 300);
 
@@ -676,36 +554,17 @@ module.exports = function(socket, io, db, helpers) {
               mesasFechando.delete(mesaName);
               io.emit('sync_mesas_fechando', Array.from(mesasFechando));
               db.all(`SELECT * FROM mesas`, (e, r) => io.emit('mesas_atualizadas', r || []));
-              if (mesaName && mesaName.includes(' + ')) {
-                const nomes = mesaName.split(/\s*\+\s*/).map(s => s.trim()).filter(Boolean);
-                if (nomes.length > 0) {
-                  const ph = nomes.map(() => '?').join(',');
-                  db.run(`DELETE FROM mesa_clientes WHERE mesa IN (${ph})`, nomes, () => broadcastMesaClientes());
-                }
-              } else if (mesaName) {
-                db.run(`DELETE FROM mesa_clientes WHERE mesa = ?`, [mesaName], () => broadcastMesaClientes());
-              }
             };
             if (mesaName && mesaName.includes(' + ')) {
               const nomes = mesaName.split(/\s*\+\s*/).map(s => s.trim()).filter(Boolean);
               if (nomes.length > 0) {
                 const placeholders = nomes.map(() => '?').join(',');
-                db.run(`UPDATE mesas SET status = 'Disponível', observacao = '', taxa_manual = NULL WHERE nome IN (${placeholders})`, nomes, liberarMesas);
+                db.run(`UPDATE mesas SET status = 'Disponível', observacao = '' WHERE nome IN (${placeholders})`, nomes, liberarMesas);
               } else {
                 liberarMesas();
               }
             } else {
-              db.run(`UPDATE mesas SET status = 'Disponível', observacao = '', taxa_manual = NULL WHERE nome = ?`, [mesaName], liberarMesas);
-            }
-
-            // Cliente identificado no fechamento (busca por CPF) vira titular dos pontos
-            const clienteIdFechamento = parseInt(cliente_id, 10);
-            if (Number.isFinite(clienteIdFechamento) && clienteIdFechamento > 0) {
-              db.run(
-                `UPDATE pedidos SET cliente_id = ? WHERE (localName = ? OR mesa_grupo = ?) AND turno_id = ? AND (cliente_id IS NULL OR cliente_id != ?)`,
-                [clienteIdFechamento, mesaName, mesaName, turno.id, clienteIdFechamento],
-                () => { }
-              );
+              db.run(`UPDATE mesas SET status = 'Disponível', observacao = '' WHERE nome = ?`, [mesaName], liberarMesas);
             }
 
             // Lógica de Fidelidade (cashback em pontos + níveis)
@@ -725,7 +584,6 @@ module.exports = function(socket, io, db, helpers) {
                         if (bonus > 0) pontosGanhos += Math.floor(pontosGanhos * bonus / 100);
                         if (pontosGanhos > 0 || cliente.nivel !== nivel) {
                            db.run(`UPDATE clientes SET pontos = pontos + ?, total_gasto = ?, nivel = ? WHERE id = ?`, [pontosGanhos, totalGastoNovo, nivel, row.cliente_id], () => {
-                              db.run(`UPDATE cliente_visitas SET contabilizado = 1, pontos_ganhos = ? WHERE id = (SELECT id FROM cliente_visitas WHERE cliente_id = ? AND contabilizado = 0 LIMIT 1)`, [pontosGanhos, row.cliente_id], () => {});
                               db.all(`SELECT * FROM clientes`, (e, r) => io.emit('clientes_atualizados', r || []));
                            });
                         }
@@ -805,8 +663,6 @@ module.exports = function(socket, io, db, helpers) {
             }
           }
         );
-          }); // close db.get taxa_manual
-        }); // close getTaxaServico
       });
     });
   });
@@ -850,8 +706,8 @@ module.exports = function(socket, io, db, helpers) {
           db.get(`SELECT count(id) as pendentes FROM pedidos WHERE (localName = ? OR mesa_grupo = ?) AND status NOT IN ('Finalizado', 'Cancelado', 'Pago') AND productName NOT LIKE 'Pgto Parcial%'`, 
             [mesaName, mesaName], (err, row) => {
               if (row && row.pendentes === 0) {
-                 db.run(`UPDATE pedidos SET status = 'Finalizado' WHERE (localName = ? OR mesa_grupo = ?) AND status != 'Finalizado'`, [mesaName, mesaName], () => {
-                   db.run(`UPDATE mesas SET status = 'Disponível', observacao = '', taxa_manual = NULL WHERE nome = ?`, [mesaName], () => {
+                db.run(`UPDATE pedidos SET status = 'Finalizado' WHERE (localName = ? OR mesa_grupo = ?) AND status != 'Finalizado'`, [mesaName, mesaName], () => {
+                  db.run(`UPDATE mesas SET status = 'Disponível', observacao = '' WHERE nome = ?`, [mesaName], () => {
                     mesasFechando.delete(mesaName);
                     io.emit('sync_mesas_fechando', Array.from(mesasFechando));
                     db.all(`SELECT * FROM mesas`, (e, r) => io.emit('mesas_atualizadas', r || []));

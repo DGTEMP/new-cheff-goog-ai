@@ -417,12 +417,204 @@
         <div class="menu-item" data-target="sec-tarefas"><i class="fa-solid fa-list-check"></i> Atividades</div>
         <div class="menu-item" data-target="sec-ranking"><i class="fa-solid fa-trophy"></i> Ranking</div>
         <div class="menu-item" data-target="sec-theme-studio"><i class="fa-solid fa-wand-magic-sparkles" style="color:var(--accent);"></i> Theme Studio Pro</div>
-                <div class="menu-item" data-target="sec-estudio-modulos"><i class="fa-solid fa-puzzle-piece" style="color:#fc4b15;"></i> Estúdio de Módulos (Caixa v1.1)</div>
+                <div class="menu-item" data-target="sec-ui-component-studio"><i class="fa-solid fa-shapes" style="color:#10b981;"></i> Studio UI & Layout Preview</div>
+        <div class="menu-item" data-target="sec-estudio-modulos"><i class="fa-solid fa-puzzle-piece" style="color:#fc4b15;"></i> Estúdio de Módulos (Caixa v1.1)</div>
         <div class="menu-item" data-target="sec-temas-curadoria"><i class="fa-solid fa-palette" style="color:#a78bfa;"></i> Curadoria de Temas</div>
         <div class="menu-item" data-target="sec-site-vendas-modulos"><i class="fa-solid fa-bullhorn" style="color:#38bdf8;"></i> Módulos Site de Vendas</div>
       </div>
 
       <div class="content-area">
+        
+        <!-- ══════════════════════════════════════════════════════════════════
+             STUDIO UI & LIVE COMPONENT PREVIEW (SUPORTE & CRIAÇÃO)
+             ══════════════════════════════════════════════════════════════════ -->
+        <div class="content-section" id="sec-ui-component-studio">
+          <div class="card-header" style="margin-bottom: 1.2rem; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+            <div>
+              <h2 style="font-family:'Outfit',sans-serif; margin:0; display:flex; align-items:center; gap:10px; font-size:1.6rem;">
+                <i class="fa-solid fa-shapes" style="color:#10b981;"></i> Studio UI & Editor de Layout ao Vivo
+              </h2>
+              <p style="color:var(--text-muted); font-size:0.85rem; margin:4px 0 0 0;">
+                Inspecione, ajuste finamente e customize todos os botões, modais, abas, cards e popups do ecossistema Chef Cozinha em tempo real.
+              </p>
+            </div>
+            <div style="display:flex; gap:8px;">
+              <button class="btn btn-sm" onclick="exportarLayoutCSS()"><i class="fa-solid fa-copy"></i> Copiar CSS</button>
+              <button class="btn btn-sm btn-primary" onclick="salvarPresetLayout()"><i class="fa-solid fa-floppy-disk"></i> Salvar Preset</button>
+            </div>
+          </div>
+
+          <!-- CONTAINER PRINCIPAL: CONTROLES À ESQUERDA + LIVE CANVAS À DIREITA -->
+          <div style="display: grid; grid-template-columns: 360px 1fr; gap: 20px; min-height: 680px;">
+            
+            <!-- COLUNA DA ESQUERDA: EDITOR E CONTROLES DE DESIGN NO-CODE -->
+            <div style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius); padding:1.2rem; display:flex; flex-direction:column; gap:16px; max-height:78vh; overflow-y:auto;">
+              
+              
+              <!-- SELETOR DE ESCOPO (GLOBAL VS TENANT) -->
+              <div style="background:rgba(16,185,129,0.08); border:1.5px solid rgba(16,185,129,0.3); border-radius:10px; padding:10px 12px; margin-bottom:12px;">
+                <label style="display:block; font-size:0.8rem; font-weight:800; color:#10b981; text-transform:uppercase; margin-bottom:6px;">
+                  <i class="fa-solid fa-bullseye"></i> Alvo da Injeção de Layout
+                </label>
+                <select id="studio-target-scope" onchange="window.onTargetScopeChanged(this.value)" style="width:100%; padding:0.55rem 0.7rem; background:var(--bg-tertiary); border:1px solid var(--border-color); border-radius:6px; color:var(--text-primary); font-weight:700; font-size:0.85rem;">
+                  <option value="global">🌐 Aplicar Globalmente (Todos os Restaurantes)</option>
+                  <option value="tenant">🏢 Aplicar para um Tenant Específico...</option>
+                </select>
+                <div id="studio-tenant-selector-wrap" style="display:none; margin-top:8px;">
+                  <span style="font-size:0.75rem; color:var(--text-muted);">Selecione o Restaurante:</span>
+                  <select id="studio-restaurant-select" style="width:100%; padding:0.5rem 0.7rem; background:var(--bg-tertiary); border:1px solid var(--border-color); border-radius:6px; color:var(--text-primary); font-size:0.85rem;">
+                    <option value="1">Carregando restaurantes...</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- 1. SELETOR DE COMPONENTE -->
+              <div>
+                <label style="display:block; font-size:0.8rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; margin-bottom:6px;">
+                  1. Componente para Pré-Visualizar
+                </label>
+                <select id="studio-component-select" onchange="trocarComponentePreview(this.value)" style="width:100%; padding:0.6rem 0.8rem; background:var(--bg-tertiary); border:1.5px solid var(--border-color); border-radius:8px; color:var(--text-primary); font-weight:600; font-size:0.9rem;">
+                  <optgroup label="🔘 Botões & Ações">
+                    <option value="btn-primario">Botão Primário de Ação</option>
+                    <option value="btn-sucesso">Botão Sucesso (Finalizar / Salvar)</option>
+                    <option value="btn-kds">Botão Touch KDS Cozinha</option>
+                    <option value="btn-outline">Botão Secundário / Outline</option>
+                  </optgroup>
+                  <optgroup label="🪟 Modais, Popups & Sheets">
+                    <option value="modal-checkout">Modal de Pagamento / Fechamento</option>
+                    <option value="modal-mesa">Modal de Mesa / Comanda</option>
+                    <option value="modal-ponto">Modal de Registro de Ponto</option>
+                    <option value="modal-toast">Popup de Notificação Toast</option>
+                  </optgroup>
+                  <optgroup label="📑 Abas & Navegação">
+                    <option value="tab-segmented">Abas Segmentadas (macOS Style)</option>
+                    <option value="tab-pills">Abas Pills / Chips</option>
+                  </optgroup>
+                  <optgroup label="🃏 Cards & Bento Widgets">
+                    <option value="card-widget-v11">Widget Bento (Caixa v1.1)</option>
+                    <option value="card-mesa-salao">Card de Mesa (Mapa do Salão)</option>
+                    <option value="card-kds-pedido">Card de Pedido (KDS Cozinha)</option>
+                  </optgroup>
+                </select>
+              </div>
+
+              <!-- 2. CONTROLES DE TIPOGRAFIA -->
+              <div style="border-top:1px solid var(--border-color); padding-top:12px;">
+                <label style="display:block; font-size:0.8rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; margin-bottom:8px;">
+                  2. Tipografia & Texto
+                </label>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                  <div>
+                    <span style="font-size:0.75rem; color:var(--text-muted);">Tamanho (px)</span>
+                    <input type="number" id="ctrl-font-size" value="15" min="10" max="36" oninput="atualizarEstiloAoVivo()" style="width:100%; padding:6px 8px; background:var(--bg-tertiary); border:1px solid var(--border-color); border-radius:6px; color:var(--text-primary);">
+                  </div>
+                  <div>
+                    <span style="font-size:0.75rem; color:var(--text-muted);">Peso (Weight)</span>
+                    <select id="ctrl-font-weight" onchange="atualizarEstiloAoVivo()" style="width:100%; padding:6px 8px; background:var(--bg-tertiary); border:1px solid var(--border-color); border-radius:6px; color:var(--text-primary);">
+                      <option value="400">400 (Normal)</option>
+                      <option value="600">600 (Semi-bold)</option>
+                      <option value="700" selected>700 (Bold)</option>
+                      <option value="900">900 (Black)</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 3. CORES E SUPERFÍCIE -->
+              <div style="border-top:1px solid var(--border-color); padding-top:12px;">
+                <label style="display:block; font-size:0.8rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; margin-bottom:8px;">
+                  3. Cores & Superfície
+                </label>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:8px;">
+                  <div>
+                    <span style="font-size:0.75rem; color:var(--text-muted);">Cor de Fundo</span>
+                    <input type="color" id="ctrl-bg-color" value="#fc4b15" oninput="atualizarEstiloAoVivo()" style="width:100%; height:34px; padding:2px; background:var(--bg-tertiary); border:1px solid var(--border-color); border-radius:6px; cursor:pointer;">
+                  </div>
+                  <div>
+                    <span style="font-size:0.75rem; color:var(--text-muted);">Cor do Texto</span>
+                    <input type="color" id="ctrl-text-color" value="#ffffff" oninput="atualizarEstiloAoVivo()" style="width:100%; height:34px; padding:2px; background:var(--bg-tertiary); border:1px solid var(--border-color); border-radius:6px; cursor:pointer;">
+                  </div>
+                </div>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                  <div>
+                    <span style="font-size:0.75rem; color:var(--text-muted);">Borda (Cor)</span>
+                    <input type="color" id="ctrl-border-color" value="#e03e0a" oninput="atualizarEstiloAoVivo()" style="width:100%; height:34px; padding:2px; background:var(--bg-tertiary); border:1px solid var(--border-color); border-radius:6px; cursor:pointer;">
+                  </div>
+                  <div>
+                    <span style="font-size:0.75rem; color:var(--text-muted);">Largura Borda (px)</span>
+                    <input type="number" id="ctrl-border-width" value="0" min="0" max="10" oninput="atualizarEstiloAoVivo()" style="width:100%; padding:6px 8px; background:var(--bg-tertiary); border:1px solid var(--border-color); border-radius:6px; color:var(--text-primary);">
+                  </div>
+                </div>
+              </div>
+
+              <!-- 4. DIMENSÕES & ARREDONDAMENTO -->
+              <div style="border-top:1px solid var(--border-color); padding-top:12px;">
+                <label style="display:block; font-size:0.8rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; margin-bottom:8px;">
+                  4. Dimensões & Arredondamento
+                </label>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:8px;">
+                  <div>
+                    <span style="font-size:0.75rem; color:var(--text-muted);">Raio / Radius (px)</span>
+                    <input type="number" id="ctrl-border-radius" value="12" min="0" max="50" oninput="atualizarEstiloAoVivo()" style="width:100%; padding:6px 8px; background:var(--bg-tertiary); border:1px solid var(--border-color); border-radius:6px; color:var(--text-primary);">
+                  </div>
+                  <div>
+                    <span style="font-size:0.75rem; color:var(--text-muted);">Padding Vertical (px)</span>
+                    <input type="number" id="ctrl-padding-y" value="12" min="0" max="60" oninput="atualizarEstiloAoVivo()" style="width:100%; padding:6px 8px; background:var(--bg-tertiary); border:1px solid var(--border-color); border-radius:6px; color:var(--text-primary);">
+                  </div>
+                </div>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                  <div>
+                    <span style="font-size:0.75rem; color:var(--text-muted);">Padding Horizontal (px)</span>
+                    <input type="number" id="ctrl-padding-x" value="24" min="0" max="80" oninput="atualizarEstiloAoVivo()" style="width:100%; padding:6px 8px; background:var(--bg-tertiary); border:1px solid var(--border-color); border-radius:6px; color:var(--text-primary);">
+                  </div>
+                  <div>
+                    <span style="font-size:0.75rem; color:var(--text-muted);">Sombra (Box Shadow)</span>
+                    <select id="ctrl-box-shadow" onchange="atualizarEstiloAoVivo()" style="width:100%; padding:6px 8px; background:var(--bg-tertiary); border:1px solid var(--border-color); border-radius:6px; color:var(--text-primary);">
+                      <option value="none">Nenhuma</option>
+                      <option value="0 4px 14px rgba(0,0,0,0.12)" selected>Sutil (4px)</option>
+                      <option value="0 10px 25px rgba(252,75,21,0.35)">Glow Primário</option>
+                      <option value="0 20px 40px rgba(0,0,0,0.3)">Profunda (20px)</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <!-- BOTÃO DE RESET -->
+              <button class="btn btn-sm" onclick="resetarEstilosStudio()" style="margin-top:auto;"><i class="fa-solid fa-rotate-left"></i> Restaurar Padrões</button>
+            </div>
+
+            <!-- COLUNA DA DIREITA: LIVE PREVIEW SANDBOX -->
+            <div style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius); padding:1.2rem; display:flex; flex-direction:column; gap:14px;">
+              
+              <!-- BARRA DE CONTROLE DO CANVAS -->
+              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; border-bottom:1px solid var(--border-color); padding-bottom:10px;">
+                <div style="display:flex; gap:6px; align-items:center;">
+                  <span style="font-size:0.8rem; font-weight:700; color:var(--text-muted);">Visualização:</span>
+                  <button type="button" class="btn btn-sm" id="btn-device-desktop" onclick="setDevicePreview('desktop')"><i class="fa-solid fa-desktop"></i> Desktop</button>
+                  <button type="button" class="btn btn-sm" id="btn-device-tablet" onclick="setDevicePreview('tablet')"><i class="fa-solid fa-tablet-screen-button"></i> Tablet</button>
+                  <button type="button" class="btn btn-sm" id="btn-device-mobile" onclick="setDevicePreview('mobile')"><i class="fa-solid fa-mobile-screen"></i> Mobile</button>
+                </div>
+                <div style="display:flex; gap:6px; align-items:center;">
+                  <button type="button" class="btn btn-sm" onclick="toggleCanvasTheme()"><i class="fa-solid fa-circle-half-stroke"></i> Alternar Fundo Claro / Escuro</button>
+                </div>
+              </div>
+
+              <!-- ÁREA DO CANVAS INTERATIVO -->
+              <div id="studio-canvas-container" style="flex:1; background:#0e1320; border:1.5px dashed var(--border-color); border-radius:14px; display:flex; align-items:center; justify-content:center; padding:30px; overflow:auto; transition:all 0.2s;">
+                <div id="studio-live-target" style="transition:all 0.15s ease; max-width:100%;">
+                  <!-- Componente injetado dinamicamente via JS -->
+                </div>
+              </div>
+
+              <!-- PREVIEW DO CÓDIGO CSS GERADO -->
+              <div style="background:var(--bg-tertiary); border-radius:10px; padding:10px 14px; font-family:monospace; font-size:0.75rem; color:#38bdf8; overflow-x:auto; max-height:80px;" id="studio-css-output">
+                /* CSS gerado em tempo real */
+              </div>
+            </div>
+
+          </div>
+        </div>
+
         <!-- Dashboard -->
         
         <!-- ESTÚDIO DE CRIAÇÃO DE MÓDULOS (CAIXA V1.1) -->

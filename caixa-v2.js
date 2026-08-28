@@ -90,13 +90,71 @@
   function renderProdutos(lista) {
     const cont = document.getElementById('hig-produtos-container');
     if (!cont) return;
+    if (!lista || lista.length === 0) {
+      cont.innerHTML = `<div style="grid-column: 1/-1; padding: 24px; text-align: center; color: var(--hig-text-secondary); font-size: 13px; font-weight: 600;">Nenhum produto encontrado.</div>`;
+      return;
+    }
     cont.innerHTML = lista.map(p => `
       <div class="hig-product-card" onclick="window.adicionarItemPDV('${p.nome}', ${p.preco})">
         <div class="hig-product-name">${p.nome}</div>
-        <div class="hig-product-price">R$ ${p.preco.toFixed(2)}</div>
+        <div class="hig-product-price">R$ ${Number(p.preco).toFixed(2)}</div>
       </div>
     `).join('');
   }
+
+  // Filtragem Reativa de Produtos
+  window.filtrarProdutosUI = function(termo) {
+    if (!termo || !termo.trim()) {
+      renderProdutos(state.produtos);
+      return;
+    }
+    const q = termo.toLowerCase().trim();
+    const filtrados = state.produtos.filter(p => {
+      const nome = String(p.nome || '').toLowerCase();
+      const cat = String(p.categoria || '').toLowerCase();
+      const id = String(p.id || '');
+      return nome.includes(q) || cat.includes(q) || id === q;
+    });
+    renderProdutos(filtrados);
+  };
+
+  // Detalhes da Mesa no Caixa 2.0
+  window.mesaAtivaPDV = null;
+  window.abrirDetalhesMesa = function(numero) {
+    window.mesaAtivaPDV = numero;
+    const mesa = state.mesas.find(m => m.numero == numero);
+    const status = mesa ? mesa.status : 'livre';
+
+    if (typeof Swal !== 'undefined') {
+      Swal.fire({
+        title: `Mesa ${numero}`,
+        html: `
+          <div style="text-align: left; padding: 8px 0; font-size: 14px;">
+            <p><strong>Status:</strong> <span style="text-transform: capitalize; color: ${status === 'ocupada' ? '#ef4444' : '#10b981'}; font-weight: 700;">${status}</span></p>
+            <p style="margin-top: 8px; color: #64748b; font-size: 13px;">Deseja vincular os próximos lançamentos do PDV a esta mesa?</p>
+          </div>
+        `,
+        showCancelButton: true,
+        confirmButtonText: 'Lançar para esta Mesa',
+        cancelButtonText: 'Fechar',
+        confirmButtonColor: '#fc4b15'
+      }).then((result) => {
+        if (result.isConfirmed) {
+          const tag = document.querySelector('.hig-widget-pdv .hig-widget-tag');
+          if (tag) tag.textContent = `Mesa ${numero}`;
+          if (typeof Swal !== 'undefined') {
+            Swal.fire({ toast: true, position: 'top-end', icon: 'info', title: `Lançamentos direcionados para Mesa ${numero}`, showConfirmButton: false, timer: 2000 });
+          }
+        }
+      });
+    } else {
+      const confirmar = confirm(`Mesa ${numero} (${status}).\nDeseja vincular os próximos itens a esta mesa?`);
+      if (confirmar) {
+        const tag = document.querySelector('.hig-widget-pdv .hig-widget-tag');
+        if (tag) tag.textContent = `Mesa ${numero}`;
+      }
+    }
+  };
 
   function renderMesas(lista) {
     const cont = document.getElementById('hig-mesas-container');

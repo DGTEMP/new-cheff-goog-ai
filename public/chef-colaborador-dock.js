@@ -3,14 +3,18 @@
  */
 (function() {
   function renderDock() {
+    // Não renderizar botão flutuante no app Garçom ou telas mobile compactas para não cobrir a barra inferior
+    const isGarcomPage = window.location.pathname.includes('garcom') || window.location.pathname.includes('garcom-lite');
+    if (isGarcomPage || window.innerWidth <= 768) {
+      return;
+    }
+
     const credsRaw = localStorage.getItem('chef_credentials');
     let creds = {};
     try { creds = JSON.parse(credsRaw || '{}'); } catch(e) {}
     const nome = creds.nome || creds.usuario || localStorage.getItem('usuario_logado') || 'Colaborador';
     const cargo = creds.cargo || creds.role || localStorage.getItem('colaborador_cargo') || 'Operador';
-    const estacoes = creds.estacoes || [];
 
-    // Injetar botão flutuante ou no cabeçalho caso não exista
     if (document.getElementById('chef-colab-global-dock-btn')) return;
 
     const dockBtn = document.createElement('button');

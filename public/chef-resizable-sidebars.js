@@ -10,7 +10,48 @@
   const STORAGE_LEFT_MODE = 'chef_sidebar_left_mode'; // 'expanded' | 'mini' | 'hidden'
   const STORAGE_RIGHT_MODE = 'chef_sidebar_right_mode';
 
+  function injectSplitterStyles() {
+    if (document.getElementById('chef-splitter-styles')) return;
+    const st = document.createElement('style');
+    st.id = 'chef-splitter-styles';
+    st.textContent = `
+      .chef-sidebar-splitter {
+        width: 6px;
+        min-width: 6px;
+        cursor: col-resize;
+        z-index: 50;
+        background: rgba(0, 0, 0, 0.06);
+        transition: background 0.15s ease;
+        position: relative;
+        flex-shrink: 0;
+        user-select: none;
+      }
+      .chef-sidebar-splitter:hover, .chef-sidebar-splitter.dragging {
+        background: #fc4b15 !important;
+      }
+      [data-theme="dark"] .chef-sidebar-splitter {
+        background: rgba(255, 255, 255, 0.08);
+      }
+      .chef-resizing {
+        user-select: none !important;
+        cursor: col-resize !important;
+      }
+      .chef-resizing * {
+        user-select: none !important;
+      }
+      .sidebar-ctrl-btn:hover {
+        background: rgba(0, 0, 0, 0.08) !important;
+      }
+      [data-theme="dark"] .sidebar-ctrl-btn:hover {
+        background: rgba(255, 255, 255, 0.12) !important;
+      }
+    `;
+    document.head.appendChild(st);
+  }
+
   function initResizableSidebars() {
+    injectSplitterStyles();
+
     const leftPanel = document.querySelector('.left-actions, #left-panel');
     const rightPanel = document.querySelector('.right-info, #right-panel');
     const mainPanel = document.querySelector('.main-workspace, #main-panel');
@@ -65,64 +106,85 @@
     }
 
     // 3. Injetar Splitters de Arraste (Resize Handles)
-    let leftSplitter = document.getElementById('chef-left-splitter');
+    let leftSplitter = document.getElementById('chef-left-splitter') || document.getElementById('resizer-left');
     if (!leftSplitter) {
       leftSplitter = document.createElement('div');
       leftSplitter.id = 'chef-left-splitter';
-      leftSplitter.className = 'chef-sidebar-splitter left-splitter';
-      leftSplitter.title = 'Arraste para redimensionar a barra esquerda';
       workspace.insertBefore(leftSplitter, mainPanel);
     }
+    leftSplitter.className = 'chef-sidebar-splitter left-splitter';
+    leftSplitter.title = 'Arraste para redimensionar a barra esquerda';
 
-    let rightSplitter = document.getElementById('chef-right-splitter');
+    let rightSplitter = document.getElementById('chef-right-splitter') || document.getElementById('resizer-right');
     if (!rightSplitter) {
       rightSplitter = document.createElement('div');
       rightSplitter.id = 'chef-right-splitter';
-      rightSplitter.className = 'chef-sidebar-splitter right-splitter';
-      rightSplitter.title = 'Arraste para redimensionar a barra direita';
       workspace.insertBefore(rightSplitter, rightPanel);
     }
+    rightSplitter.className = 'chef-sidebar-splitter right-splitter';
+    rightSplitter.title = 'Arraste para redimensionar a barra direita';
 
     // 4. Lógica de Arraste do Splitter Esquerdo
     let isDraggingLeft = false;
-    leftSplitter.addEventListener('mousedown', (e) => {
+    const startDragLeft = (e) => {
       isDraggingLeft = true;
+      leftSplitter.classList.add('dragging');
       document.body.classList.add('chef-resizing');
-      e.preventDefault();
-    });
+      if (e.type === 'mousedown') e.preventDefault();
+    };
+    leftSplitter.addEventListener('mousedown', startDragLeft);
+    leftSplitter.addEventListener('touchstart', startDragLeft, { passive: true });
 
     // 5. Lógica de Arraste do Splitter Direito
     let isDraggingRight = false;
-    rightSplitter.addEventListener('mousedown', (e) => {
+    const startDragRight = (e) => {
       isDraggingRight = true;
+      rightSplitter.classList.add('dragging');
       document.body.classList.add('chef-resizing');
-      e.preventDefault();
-    });
+      if (e.type === 'mousedown') e.preventDefault();
+    };
+    rightSplitter.addEventListener('mousedown', startDragRight);
+    rightSplitter.addEventListener('touchstart', startDragRight, { passive: true });
 
-    document.addEventListener('mousemove', (e) => {
+    const handleMove = (clientX) => {
       if (isDraggingLeft) {
-        const newW = Math.max(140, Math.min(e.clientX, 450));
+        const newW = Math.max(140, Math.min(clientX, 550));
         leftPanel.style.width = newW + 'px';
         leftPanel.style.minWidth = newW + 'px';
         leftPanel.style.maxWidth = newW + 'px';
         localStorage.setItem(STORAGE_LEFT_WIDTH, String(newW));
       }
       if (isDraggingRight) {
-        const newW = Math.max(180, Math.min(window.innerWidth - e.clientX, 500));
+        const newW = Math.max(180, Math.min(window.innerWidth - clientX, 600));
         rightPanel.style.width = newW + 'px';
         rightPanel.style.minWidth = newW + 'px';
         rightPanel.style.maxWidth = newW + 'px';
         localStorage.setItem(STORAGE_RIGHT_WIDTH, String(newW));
       }
+    };
+
+    document.addEventListener('mousemove', (e) => {
+      if (isDraggingLeft || isDraggingRight) handleMove(e.clientX);
     });
 
-    document.addEventListener('mouseup', () => {
+    document.addEventListener('touchmove', (e) => {
+      if ((isDraggingLeft || isDraggingRight) && e.touches.length === 1) {
+        handleMove(e.touches[0].clientX);
+      }
+    }, { passive: true });
+
+    const stopDrag = () => {
       if (isDraggingLeft || isDraggingRight) {
         isDraggingLeft = false;
         isDraggingRight = false;
+        leftSplitter.classList.remove('dragging');
+        rightSplitter.classList.remove('dragging');
         document.body.classList.remove('chef-resizing');
       }
-    });
+    };
+
+    document.addEventListener('mouseup', stopDrag);
+    document.addEventListener('touchend', stopDrag);
 
     // Aplicar estados salvos
     window.setSidebarMode('left', savedLeftMode, false);
@@ -132,7 +194,7 @@
   // Função Global para Alternar Modos
   window.setSidebarMode = function(side, mode, persist = true) {
     const panel = (side === 'left') ? document.querySelector('.left-actions, #left-panel') : document.querySelector('.right-info, #right-panel');
-    const splitter = (side === 'left') ? document.getElementById('chef-left-splitter') : document.getElementById('chef-right-splitter');
+    const splitter = (side === 'left') ? (document.getElementById('chef-left-splitter') || document.getElementById('resizer-left')) : (document.getElementById('chef-right-splitter') || document.getElementById('resizer-right'));
     if (!panel) return;
 
     panel.classList.remove('sidebar-expanded', 'sidebar-mini', 'sidebar-hidden');

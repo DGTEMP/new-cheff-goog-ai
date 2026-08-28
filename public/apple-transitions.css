@@ -6,14 +6,14 @@
  */
 
 :root {
-  --apple-spring-curve: cubic-bezier(0.32, 0.72, 0, 1);
+  --apple-spring-curve: cubic-bezier(0.16, 1, 0.3, 1);
   --macos-fluid-curve: cubic-bezier(0.16, 1, 0.3, 1);
-  --macos-duration-fade: 200ms;
-  --macos-duration-sheet: 280ms;
-  --macos-duration-column: 320ms;
-  --apple-duration-push: 380ms;
-  --apple-duration-modal: 420ms;
-  --apple-duration-quick: 240ms;
+  --macos-duration-fade: 120ms;
+  --macos-duration-sheet: 160ms;
+  --macos-duration-column: 160ms;
+  --apple-duration-push: 140ms;
+  --apple-duration-modal: 180ms;
+  --apple-duration-quick: 100ms;
 }
 
 /* ══════════════════════════════════════════════════════════════

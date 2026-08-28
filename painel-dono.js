@@ -968,15 +968,15 @@ carregarFuncionariosControleRemoto();
 
 // ─── Funcionalidades (Feature Toggles) ────────────────────────
 const FEATURE_DEFS = [
-  { key: 'feature_venda_sem_estoque',      label: 'Vender sem Estoque',       desc: 'Vender com estoque zerado',  icon: 'ph-package',         color: '#ef4444' },
-  { key: 'feature_toggle_produto_rapido',  label: 'Toggle Produto Rápido',   desc: 'Ativar/desativar na lista',  icon: 'ph-toggle-right',    color: '#3b82f6' },
-  { key: 'feature_alterar_valores_pdv',    label: 'Alterar Valores PDV',     desc: 'Mudar preço no carrinho',    icon: 'ph-currency-dollar', color: '#f59e0b' },
-  { key: 'feature_clientes_ativos',        label: 'Clientes Ativos Hoje',    desc: 'Ranking de clientes',        icon: 'ph-users-three',     color: '#8b5cf6' },
-  { key: 'feature_produto_mais_vendido',   label: 'Mais Vendido',            desc: 'Produto campeão do dia',     icon: 'ph-trophy',          color: '#10b981' },
-  { key: 'feature_maior_lucro',            label: 'Maior Lucro',             desc: 'Produto mais lucrativo',     icon: 'ph-chart-line-up',   color: '#06b6d4' },
-  { key: 'feature_impressao_digital',      label: 'Impressão Digital',       desc: 'Pedidos na fila digital',    icon: 'ph-monitor',         color: '#22c55e' },
-  { key: 'feature_impressao_termica',      label: 'Impressão Térmica',       desc: 'Imprimir na termica',        icon: 'ph-printer',         color: '#ec4899' },
-  { key: 'feature_produtos_lote',          label: 'Produtos em Lote',        desc: 'Gestão em massa',            icon: 'ph-stack',           color: '#a855f7' }
+  { key: 'feature_venda_sem_estoque',      label: 'Vender sem Estoque',       desc: 'Vender com estoque zerado',  emoji: '📦', icon: 'ph-bold ph-package',         color: '#ef4444' },
+  { key: 'feature_toggle_produto_rapido',  label: 'Toggle Produto Rápido',   desc: 'Ativar/desativar na lista',  emoji: '⚡', icon: 'ph-bold ph-toggle-right',    color: '#3b82f6' },
+  { key: 'feature_alterar_valores_pdv',    label: 'Alterar Valores PDV',     desc: 'Mudar preço no carrinho',    emoji: '💲', icon: 'ph-bold ph-currency-dollar', color: '#f59e0b' },
+  { key: 'feature_clientes_ativos',        label: 'Clientes Ativos Hoje',    desc: 'Ranking de clientes',        emoji: '👥', icon: 'ph-bold ph-users-three',     color: '#8b5cf6' },
+  { key: 'feature_produto_mais_vendido',   label: 'Mais Vendido',            desc: 'Produto campeão do dia',     emoji: '🏆', icon: 'ph-bold ph-trophy',          color: '#10b981' },
+  { key: 'feature_maior_lucro',            label: 'Maior Lucro',             desc: 'Produto mais lucrativo',     emoji: '📈', icon: 'ph-bold ph-chart-line-up',   color: '#06b6d4' },
+  { key: 'feature_impressao_digital',      label: 'Impressão Digital',       desc: 'Pedidos na fila digital',    emoji: '🖥️', icon: 'ph-bold ph-monitor',         color: '#22c55e' },
+  { key: 'feature_impressao_termica',      label: 'Impressão Térmica',       desc: 'Imprimir na termica',        emoji: '🖨️', icon: 'ph-bold ph-printer',         color: '#ec4899' },
+  { key: 'feature_produtos_lote',          label: 'Produtos em Lote',        desc: 'Gestão em massa',            emoji: '📚', icon: 'ph-bold ph-stack',           color: '#a855f7' }
 ];
 
 async function carregarFuncionalidades() {
@@ -991,8 +991,8 @@ async function carregarFuncionalidades() {
       const val = cfgs[f.key] === 'true' || cfgs[f.key] === true;
       return `
         <div class="feature-card ${val ? 'active' : ''}" id="fc-${f.key}">
-          <div class="feature-icon" style="background:${f.color}15;">
-            <i class="ph ${f.icon}" style="color:${f.color};"></i>
+          <div class="feature-icon" style="background:${f.color}18; display:flex; align-items:center; justify-content:center; font-size:22px; width:44px; height:44px; border-radius:12px; flex-shrink:0;">
+            <span>${f.emoji || '✨'}</span>
           </div>
           <div class="feature-info">
             <div class="feature-name">${f.label}</div>
@@ -1510,3 +1510,657 @@ if (socket && typeof socket.on === 'function') {
 // Chamar carregamento de cupons na inicialização
 window.carregarCuponsDono();
 
+
+
+// ════════════════════════════════════════════════════════════════════
+// TEMA CLARO / ESCURO NO PAINEL DO DONO
+// ════════════════════════════════════════════════════════════════════
+window.toggleTemaDono = function() {
+  const current = localStorage.getItem('chef_theme') || 'dark';
+  const next = current === 'dark' ? 'light' : 'dark';
+  window.aplicarTemaDono(next);
+};
+
+window.aplicarTemaDono = function(theme) {
+  localStorage.setItem('chef_theme', theme);
+  document.body.setAttribute('data-theme', theme);
+  document.body.classList.remove('theme-light', 'theme-dark');
+  document.body.classList.add('theme-' + theme);
+
+  const icon = document.getElementById('theme-dono-icon');
+  if (icon) {
+    icon.className = theme === 'dark' ? 'ph-bold ph-sun' : 'ph-bold ph-moon';
+  }
+};
+
+// Inicializa o tema salvo
+(function initTemaDono() {
+  const salvo = localStorage.getItem('chef_theme') || 'dark';
+  window.aplicarTemaDono(salvo);
+})();
+
+
+// ════════════════════════════════════════════════════════════════════
+// REORDENAÇÃO DINÂMICA DE SEÇÕES DO PAINEL
+// ════════════════════════════════════════════════════════════════════
+const SECOES_PADRAO = [
+  { id: 'sec-kpis', titulo: '💰 Faturamento & Indicadores do Dia (KPIs)' },
+  { id: 'sec-caixa', titulo: '🔒 Status do Turno & Controle do Caixa' },
+  { id: 'sec-mesas', titulo: '🍽️ Salão de Mesas & Ocupação' },
+  { id: 'sec-ranking', titulo: '📈 Ranking de Produtos Mais Vendidos' },
+  { id: 'sec-graficos', titulo: '📊 Gráficos de Faturamento & Meios de Pagamento' },
+  { id: 'sec-delivery', titulo: '🛵 Delivery & Rastreio de Entregas' },
+  { id: 'sec-equipe', titulo: '👥 Equipe Operacional & Ponto' },
+  { id: 'sec-atalhos', titulo: '⚡ Ações Rápidas & Gestão' }
+];
+
+window.aplicarOrdemSeccoes = function() {
+  let ordem = [];
+  try {
+    ordem = JSON.parse(localStorage.getItem('chef_dono_sections_order') || '[]');
+  } catch(e){}
+  if (!Array.isArray(ordem) || ordem.length === 0) {
+    ordem = SECOES_PADRAO.map(s => s.id);
+  }
+
+  const main = document.querySelector('main');
+  if (!main) return;
+
+  ordem.forEach(id => {
+    const el = document.getElementById(id);
+    if (el && el.parentNode === main) {
+      main.appendChild(el);
+    }
+  });
+};
+
+window.abrirModalReordenarSeccoes = function() {
+  let modal = document.getElementById('modal-reordenar-seccoes');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'modal-reordenar-seccoes';
+    modal.style.cssText = 'position:fixed; inset:0; z-index:10000; background:rgba(15,23,42,0.7); backdrop-filter:blur(8px); display:flex; align-items:center; justify-content:center; padding:16px;';
+    document.body.appendChild(modal);
+  }
+
+  let ordem = [];
+  try {
+    ordem = JSON.parse(localStorage.getItem('chef_dono_sections_order') || '[]');
+  } catch(e){}
+  if (!Array.isArray(ordem) || ordem.length === 0) {
+    ordem = SECOES_PADRAO.map(s => s.id);
+  }
+
+  const itensHtml = ordem.map((id, index) => {
+    const info = SECOES_PADRAO.find(s => s.id === id) || { id, titulo: id };
+    return `
+      <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 16px; background:var(--card2); border:1px solid var(--border); border-radius:14px; margin-bottom:8px;">
+        <span style="font-weight:700; font-size:14px; color:var(--text);">${info.titulo}</span>
+        <div style="display:flex; gap:6px;">
+          <button type="button" onclick="window.moverSecaoDono(${index}, -1)" ${index === 0 ? 'disabled style="opacity:0.3;"' : ''} style="background:var(--card); border:1px solid var(--border); color:var(--text); width:34px; height:34px; border-radius:10px; cursor:pointer; font-size:16px; display:flex; align-items:center; justify-content:center;">↑</button>
+          <button type="button" onclick="window.moverSecaoDono(${index}, 1)" ${index === ordem.length - 1 ? 'disabled style="opacity:0.3;"' : ''} style="background:var(--card); border:1px solid var(--border); color:var(--text); width:34px; height:34px; border-radius:10px; cursor:pointer; font-size:16px; display:flex; align-items:center; justify-content:center;">↓</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  modal.innerHTML = `
+    <div style="background:var(--card); border-radius:24px; padding:24px; width:100%; max-width:500px; box-shadow:var(--shadow-md); border:1px solid var(--border); box-sizing:border-box;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+        <h3 style="font-size:18px; font-weight:800; color:var(--text); margin:0; display:flex; align-items:center; gap:8px;">
+          <i class="ph-bold ph-arrows-down-up" style="color:var(--primary);"></i> Organizar Seções do Painel
+        </h3>
+        <button onclick="document.getElementById('modal-reordenar-seccoes').style.display='none'" style="background:transparent; border:none; color:var(--text-sub); font-size:22px; cursor:pointer;">✕</button>
+      </div>
+      <p style="font-size:13px; color:var(--text-sub); margin-bottom:16px;">Use as setas para ajustar a ordem em que as seções aparecem no seu painel:</p>
+
+      <div style="max-height:50vh; overflow-y:auto; padding-right:4px;">
+        ${itensHtml}
+      </div>
+
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:18px;">
+        <button type="button" onclick="window.resetarOrdemSeccoes()" style="background:transparent; border:none; color:var(--red); font-size:13px; font-weight:700; cursor:pointer;">Resetar Padrão</button>
+        <button type="button" onclick="document.getElementById('modal-reordenar-seccoes').style.display='none'" style="background:var(--primary); color:white; border:none; padding:10px 20px; border-radius:12px; font-weight:800; font-size:14px; cursor:pointer;">Concluir</button>
+      </div>
+    </div>
+  `;
+  modal.style.display = 'flex';
+};
+
+window.moverSecaoDono = function(index, dir) {
+  let ordem = [];
+  try {
+    ordem = JSON.parse(localStorage.getItem('chef_dono_sections_order') || '[]');
+  } catch(e){}
+  if (!Array.isArray(ordem) || ordem.length === 0) {
+    ordem = SECOES_PADRAO.map(s => s.id);
+  }
+
+  const target = index + dir;
+  if (target < 0 || target >= ordem.length) return;
+
+  const temp = ordem[index];
+  ordem[index] = ordem[target];
+  ordem[target] = temp;
+
+  localStorage.setItem('chef_dono_sections_order', JSON.stringify(ordem));
+  window.aplicarOrdemSeccoes();
+  window.abrirModalReordenarSeccoes();
+};
+
+window.resetarOrdemSeccoes = function() {
+  localStorage.removeItem('chef_dono_sections_order');
+  window.aplicarOrdemSeccoes();
+  window.abrirModalReordenarSeccoes();
+};
+
+
+// ════════════════════════════════════════════════════════════════════
+// MOTOR DE LONG PRESS (MANTER PRESSIONADO) COM FEEDBACK TÁTIL
+// ════════════════════════════════════════════════════════════════════
+window.initLongPressDono = function() {
+  const elements = [
+    { selector: '#kpi-faturamento-card, .kpi-card.full', action: 'faturamento', label: 'Segure p/ Detalhes' },
+    { selector: '#sec-caixa, .cashier-box', action: 'caixa', label: 'Segure p/ Ações' },
+    { selector: '#kpi-mesas-card', action: 'mesas', label: 'Segure p/ Salão' },
+    { selector: '#kpi-equipe-card', action: 'equipe', label: 'Segure p/ Ponto' }
+  ];
+
+  elements.forEach(({ selector, action, label }) => {
+    document.querySelectorAll(selector).forEach(el => {
+      if (el._hasLongPress) return;
+      el._hasLongPress = true;
+      el.classList.add('has-long-press');
+      
+      let timer = null;
+      let startX = 0, startY = 0;
+
+      const startPress = (e) => {
+        if (e.touches && e.touches.length > 1) return;
+        startX = e.clientX || (e.touches && e.touches[0].clientX) || 0;
+        startY = e.clientY || (e.touches && e.touches[0].clientY) || 0;
+        el.classList.add('long-press-active');
+        
+        timer = setTimeout(() => {
+          el.classList.remove('long-press-active');
+          if (navigator.vibrate) try { navigator.vibrate(45); } catch(e){}
+          window.executarAcaoLongPress(action);
+        }, 450);
+      };
+
+      const cancelPress = (e) => {
+        if (e.type === 'touchmove') {
+          const x = (e.touches && e.touches[0].clientX) || 0;
+          const y = (e.touches && e.touches[0].clientY) || 0;
+          if (Math.abs(x - startX) > 10 || Math.abs(y - startY) > 10) {
+            clearTimeout(timer);
+            el.classList.remove('long-press-active');
+          }
+          return;
+        }
+        clearTimeout(timer);
+        el.classList.remove('long-press-active');
+      };
+
+      el.addEventListener('mousedown', startPress);
+      el.addEventListener('touchstart', startPress, { passive: true });
+      el.addEventListener('mouseup', cancelPress);
+      el.addEventListener('mouseleave', cancelPress);
+      el.addEventListener('touchend', cancelPress);
+      el.addEventListener('touchcancel', cancelPress);
+      el.addEventListener('touchmove', cancelPress, { passive: true });
+    });
+  });
+};
+
+window.executarAcaoLongPress = function(tipo) {
+  if (tipo === 'faturamento') {
+    window.abrirModalDetalhesFaturamento();
+  } else if (tipo === 'caixa') {
+    window.abrirModalAcoesCaixa();
+  } else if (tipo === 'mesas') {
+    window.location.href = '/garcom.html';
+  } else if (tipo === 'equipe') {
+    window.location.href = '/configuracoes.html#rh';
+  }
+};
+
+window.abrirModalDetalhesFaturamento = function() {
+  let modal = document.getElementById('modal-detalhe-faturamento');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'modal-detalhe-faturamento';
+    modal.style.cssText = 'position:fixed; inset:0; z-index:10000; background:rgba(15,23,42,0.7); backdrop-filter:blur(8px); display:flex; align-items:center; justify-content:center; padding:16px;';
+    document.body.appendChild(modal);
+  }
+
+  const faturamentoTxt = document.getElementById('kpi-faturamento')?.innerText || 'R$ 0,00';
+  const ticketTxt = document.getElementById('kpi-ticket')?.innerText || 'R$ 0,00';
+
+  modal.innerHTML = `
+    <div style="background:var(--card); border-radius:24px; padding:26px; width:100%; max-width:480px; box-shadow:var(--shadow-md); border:1px solid var(--border);">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
+        <h3 style="font-size:18px; font-weight:800; color:var(--text); margin:0; display:flex; align-items:center; gap:8px;">
+          <i class="ph-bold ph-chart-line-up" style="color:var(--primary);"></i> Detalhamento do Faturamento
+        </h3>
+        <button onclick="document.getElementById('modal-detalhe-faturamento').style.display='none'" style="background:transparent; border:none; color:var(--text-sub); font-size:22px; cursor:pointer;">✕</button>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:18px;">
+        <div style="padding:14px; background:var(--card2); border-radius:16px; border:1px solid var(--border);">
+          <span style="font-size:12px; color:var(--text-sub); display:block; margin-bottom:4px;">Total Vendas</span>
+          <strong style="font-size:20px; color:var(--text); font-weight:900;">${faturamentoTxt}</strong>
+        </div>
+        <div style="padding:14px; background:var(--card2); border-radius:16px; border:1px solid var(--border);">
+          <span style="font-size:12px; color:var(--text-sub); display:block; margin-bottom:4px;">Ticket Médio</span>
+          <strong style="font-size:20px; color:var(--text); font-weight:900;">${ticketTxt}</strong>
+        </div>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        <button onclick="window.location.href='/configuracoes.html#dre'" style="width:100%; padding:14px; background:var(--primary); color:white; border:none; border-radius:14px; font-weight:800; font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px;">
+          <i class="ph-bold ph-file-text"></i> Abrir DRE & Demonstrativo Completo
+        </button>
+        <button onclick="window.location.href='/index.html'" style="width:100%; padding:14px; background:var(--card2); color:var(--text); border:1px solid var(--border); border-radius:14px; font-weight:800; font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px;">
+          <i class="ph-bold ph-desktop"></i> Ir ao Terminal de Vendas (PDV)
+        </button>
+      </div>
+    </div>
+  `;
+  modal.style.display = 'flex';
+};
+
+window.abrirModalAcoesCaixa = function() {
+  let modal = document.getElementById('modal-acoes-caixa-rapidas');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'modal-acoes-caixa-rapidas';
+    modal.style.cssText = 'position:fixed; inset:0; z-index:10000; background:rgba(15,23,42,0.7); backdrop-filter:blur(8px); display:flex; align-items:center; justify-content:center; padding:16px;';
+    document.body.appendChild(modal);
+  }
+
+  const badgeTxt = document.getElementById('caixa-badge-txt')?.innerText || 'Caixa';
+
+  modal.innerHTML = `
+    <div style="background:var(--card); border-radius:24px; padding:26px; width:100%; max-width:480px; box-shadow:var(--shadow-md); border:1px solid var(--border);">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
+        <h3 style="font-size:18px; font-weight:800; color:var(--text); margin:0; display:flex; align-items:center; gap:8px;">
+          <i class="ph-bold ph-wallet" style="color:var(--primary);"></i> Gestão Rápida do Caixa
+        </h3>
+        <button onclick="document.getElementById('modal-acoes-caixa-rapidas').style.display='none'" style="background:transparent; border:none; color:var(--text-sub); font-size:22px; cursor:pointer;">✕</button>
+      </div>
+
+      <p style="font-size:13.5px; color:var(--text-sub); margin-bottom:18px;">Status atual: <strong style="color:var(--text);">${badgeTxt}</strong></p>
+
+      <div style="display:flex; flex-direction:column; gap:10px;">
+        <button onclick="window.location.href='/index.html'" style="padding:14px; background:var(--primary); color:white; border:none; border-radius:14px; font-weight:800; font-size:14.5px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px;">
+          <i class="ph-bold ph-desktop"></i> Abrir Terminal de Caixa (PDV)
+        </button>
+        <button onclick="window.location.href='/configuracoes.html#fechamentos'" style="padding:14px; background:var(--card2); border:1px solid var(--border); color:var(--text); border-radius:14px; font-weight:800; font-size:14.5px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px;">
+          <i class="ph-bold ph-receipt"></i> Histórico de Turnos & Fechamentos
+        </button>
+      </div>
+    </div>
+  `;
+  modal.style.display = 'flex';
+};
+
+// Disparar a ordenação e o long press após carregar a página
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(() => {
+    if (typeof window.aplicarOrdemSeccoes === 'function') window.aplicarOrdemSeccoes();
+    if (typeof window.initLongPressDono === 'function') window.initLongPressDono();
+  }, 100);
+});
+
+
+// ════════════════════════════════════════════════════════════════════
+// MOTOR DE RECOLHER / EXPANDIR SEÇÕES DO PAINEL COM PERSISTÊNCIA
+// ════════════════════════════════════════════════════════════════════
+window.toggleSecao = function(secaoId) {
+  const el = document.getElementById(secaoId) || document.querySelector(`[data-section-id="${secaoId}"]`);
+  if (!el) return;
+
+  el.classList.toggle('is-collapsed');
+  if (navigator.vibrate) try { navigator.vibrate(10); } catch(e){}
+
+  // Salvar estado no localStorage
+  let collapsed = [];
+  try {
+    collapsed = JSON.parse(localStorage.getItem('chef_dono_collapsed_sections') || '[]');
+  } catch(e){}
+
+  if (el.classList.contains('is-collapsed')) {
+    if (!collapsed.includes(secaoId)) collapsed.push(secaoId);
+  } else {
+    collapsed = collapsed.filter(id => id !== secaoId);
+  }
+
+  localStorage.setItem('chef_dono_collapsed_sections', JSON.stringify(collapsed));
+  window.atualizarBotaoToggleGlobal();
+};
+
+window.toggleTodasSecoes = function() {
+  const sections = document.querySelectorAll('.dono-section, main > div');
+  const allCollapsed = Array.from(sections).every(s => s.classList.contains('is-collapsed'));
+
+  let collapsedList = [];
+  sections.forEach((sec, idx) => {
+    const secId = sec.id || ('sec-' + idx);
+    if (allCollapsed) {
+      sec.classList.remove('is-collapsed');
+    } else {
+      sec.classList.add('is-collapsed');
+      collapsedList.push(secId);
+    }
+  });
+
+  localStorage.setItem('chef_dono_collapsed_sections', JSON.stringify(collapsedList));
+  window.atualizarBotaoToggleGlobal();
+  if (navigator.vibrate) try { navigator.vibrate(15); } catch(e){}
+};
+
+window.atualizarBotaoToggleGlobal = function() {
+  const sections = document.querySelectorAll('.dono-section, main > div');
+  if (!sections.length) return;
+  const allCollapsed = Array.from(sections).every(s => s.classList.contains('is-collapsed'));
+
+  const icon = document.getElementById('icon-toggle-all');
+  const txt = document.getElementById('txt-toggle-all');
+  if (icon && txt) {
+    if (allCollapsed) {
+      icon.className = 'ph-bold ph-caret-double-down';
+      txt.innerText = 'Expandir Tudo';
+    } else {
+      icon.className = 'ph-bold ph-caret-double-up';
+      txt.innerText = 'Recolher Tudo';
+    }
+  }
+};
+
+window.restaurarEstadoSecoes = function() {
+  let collapsed = [];
+  try {
+    collapsed = JSON.parse(localStorage.getItem('chef_dono_collapsed_sections') || '[]');
+  } catch(e){}
+
+  if (Array.isArray(collapsed)) {
+    collapsed.forEach(id => {
+      const el = document.getElementById(id) || document.querySelector(`[data-section-id="${id}"]`);
+      if (el) el.classList.add('is-collapsed');
+    });
+  }
+  window.atualizarBotaoToggleGlobal();
+};
+
+// Tornar os cabeçalhos de cada seção clicáveis dinamicamente
+window.inicializarSecoesRecolhiveis = function() {
+  document.querySelectorAll('main > div').forEach((sec, idx) => {
+    sec.classList.add('dono-section');
+    const secId = sec.id || ('sec-dono-' + idx);
+    if (!sec.id) sec.id = secId;
+
+    const titleEl = sec.querySelector('.sec-title');
+    if (titleEl && !sec.querySelector('.btn-sec-toggle')) {
+      const parentRow = titleEl.parentElement;
+      parentRow.classList.add('sec-header-row');
+      parentRow.setAttribute('onclick', `window.toggleSecao('${secId}')`);
+      parentRow.title = 'Clique para recolher ou expandir esta seção';
+
+      // Badge de resumo quando recolhido
+      const badge = document.createElement('span');
+      badge.className = 'sec-collapsed-badge';
+      badge.innerText = 'Oculto (Toque para Ver)';
+      parentRow.appendChild(badge);
+
+      // Botão seta
+      const toggleBtn = document.createElement('button');
+      toggleBtn.type = 'button';
+      toggleBtn.className = 'btn-sec-toggle';
+      toggleBtn.innerHTML = '<i class="ph-bold ph-caret-down"></i>';
+      parentRow.appendChild(toggleBtn);
+
+      // Envolver conteúdo restante em .sec-content
+      const contentNodes = Array.from(sec.children).filter(c => c !== parentRow);
+      const contentWrapper = document.createElement('div');
+      contentWrapper.className = 'sec-content';
+      contentNodes.forEach(node => contentWrapper.appendChild(node));
+      sec.appendChild(contentWrapper);
+    }
+  });
+
+  window.restaurarEstadoSecoes();
+};
+
+// Inicialização suave no carregamento
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(() => {
+    if (typeof window.inicializarSecoesRecolhiveis === 'function') window.inicializarSecoesRecolhiveis();
+  }, 50);
+});
+
+
+// ════════════════════════════════════════════════════════════════════
+// GESTÃO DE PRODUTOS PARA CUPONS E MARKETING
+// ════════════════════════════════════════════════════════════════════
+let _produtosDisponiveis = [];
+let _produtosSelecionadosCupom = [];
+
+window.carregarProdutosParaCupom = async function() {
+  try {
+    const res = await fetch('/api/produtos', { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('chef_token') } });
+    if (!res.ok) return;
+    _produtosDisponiveis = await res.json();
+    window.renderizarListaProdutosCupom();
+  } catch(e){}
+};
+
+window.toggleEscopoProdutosCupom = function(escopo) {
+  const container = document.getElementById('container-produtos-cupom');
+  const txt = document.getElementById('cupom-produtos-selecionados-txt');
+  if (escopo === 'especificos') {
+    if (container) container.style.display = 'block';
+    if (!_produtosDisponiveis.length) window.carregarProdutosParaCupom();
+    if (txt) txt.innerText = `${_produtosSelecionadosCupom.length} itens selecionados`;
+  } else {
+    if (container) container.style.display = 'none';
+    _produtosSelecionadosCupom = [];
+    if (txt) txt.innerText = 'Todos os Produtos';
+  }
+};
+
+window.renderizarListaProdutosCupom = function(filtro = '') {
+  const lista = document.getElementById('lista-produtos-cupom');
+  if (!lista) return;
+
+  const f = filtro.toLowerCase().trim();
+  const itens = _produtosDisponiveis.filter(p => !f || p.name.toLowerCase().includes(f));
+
+  if (!itens.length) {
+    lista.innerHTML = '<span style="font-size:12px; color:var(--text-sub); text-align:center; padding:8px;">Nenhum produto encontrado.</span>';
+    return;
+  }
+
+  lista.innerHTML = itens.map(p => {
+    const checked = _produtosSelecionadosCupom.some(x => x.id === p.id);
+    return `
+      <label style="display:flex; align-items:center; justify-content:space-between; padding:8px 10px; background:var(--card); border:1px solid var(--border); border-radius:8px; cursor:pointer;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <input type="checkbox" ${checked ? 'checked' : ''} onchange="window.toggleProdutoCupomItem(${p.id}, this.checked)">
+          <span style="font-size:13px; font-weight:700; color:var(--text);">${p.name}</span>
+        </div>
+        <span style="font-size:12px; color:var(--primary); font-weight:800;">R$ ${parseFloat(p.price || 0).toFixed(2).replace('.', ',')}</span>
+      </label>
+    `;
+  }).join('');
+};
+
+window.filtrarProdutosCupom = function(txt) {
+  window.renderizarListaProdutosCupom(txt);
+};
+
+window.toggleProdutoCupomItem = function(id, checked) {
+  const prod = _produtosDisponiveis.find(p => p.id === id);
+  if (!prod) return;
+
+  if (checked) {
+    if (!_produtosSelecionadosCupom.some(p => p.id === id)) {
+      _produtosSelecionadosCupom.push({ id: prod.id, name: prod.name, price: prod.price });
+    }
+  } else {
+    _produtosSelecionadosCupom = _produtosSelecionadosCupom.filter(p => p.id !== id);
+  }
+
+  const txt = document.getElementById('cupom-produtos-selecionados-txt');
+  if (txt) txt.innerText = `${_produtosSelecionadosCupom.length} itens selecionados`;
+};
+
+// ── Módulo de Marketing & Disparo Push / WhatsApp ──
+window.checarStatusMarketing = async function() {
+  try {
+    const res = await fetch('/api/marketing/status');
+    if (!res.ok) return;
+    const data = await res.json();
+    
+    const card = document.getElementById('marketing-showcase-card');
+    const panel = document.getElementById('marketing-active-panel');
+    const totalEl = document.getElementById('marketing-total-clientes');
+
+    if (totalEl) totalEl.innerText = `${data.total_clientes || 0} clientes cadastrados`;
+
+    if (data.ativo) {
+      if (card) card.style.display = 'none';
+      if (panel) panel.style.display = 'flex';
+    } else {
+      if (card) card.style.display = 'block';
+      if (panel) panel.style.display = 'none';
+    }
+  } catch(e){}
+};
+
+window.ativarTesteMarketing = async function() {
+  try {
+    await fetch('/api/marketing/ativar', { method: 'POST' });
+    showToast('✨ Módulo de Mensagens & Notificações Ativado!', 'ph-check-circle', 'success');
+    window.checarStatusMarketing();
+  } catch(e){
+    showToast('Erro ao ativar módulo.', 'ph-warning', 'error');
+  }
+};
+
+window.abrirModalContratarMarketing = function() {
+  let modal = document.getElementById('modal-contratar-marketing');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'modal-contratar-marketing';
+    modal.style.cssText = 'position:fixed; inset:0; z-index:10000; background:rgba(15,23,42,0.7); backdrop-filter:blur(8px); display:flex; align-items:center; justify-content:center; padding:16px;';
+    document.body.appendChild(modal);
+  }
+
+  modal.innerHTML = `
+    <div style="background:var(--card); border-radius:24px; padding:26px; width:100%; max-width:480px; box-shadow:var(--shadow-md); border:1px solid var(--border);">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+        <h3 style="font-size:18px; font-weight:800; color:var(--text); margin:0; display:flex; align-items:center; gap:8px;">
+          <i class="ph-bold ph-crown" style="color:var(--primary);"></i> Módulo Premium de Mensagens & Push
+        </h3>
+        <button onclick="document.getElementById('modal-contratar-marketing').style.display='none'" style="background:transparent; border:none; color:var(--text-sub); font-size:22px; cursor:pointer;">✕</button>
+      </div>
+
+      <p style="font-size:13.5px; color:var(--text-sub); margin-bottom:16px; line-height:1.5;">
+        Transforme seus clientes cadastrados em vendas recorrentes com avisos em tempo real e cupons instantâneos enviados diretamente no celular.
+      </p>
+
+      <div style="background:var(--card2); border:1px solid var(--border); border-radius:16px; padding:16px; margin-bottom:18px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <strong style="color:var(--text); font-size:15px;">Plano Ilimitado Push + WhatsApp</strong>
+          <span style="color:var(--green); font-weight:900; font-size:18px;">R$ 49,90/mês</span>
+        </div>
+        <ul style="font-size:12.5px; color:var(--text-sub); padding-left:18px; line-height:1.6; margin:0;">
+          <li>Disparos ilimitados de Notificações Web Push (PWA)</li>
+          <li>Geração e envio automático de Cupons QR com 1 clique</li>
+          <li>Segmentação de clientes VIP e inativos</li>
+        </ul>
+      </div>
+
+      <div style="display:flex; gap:10px;">
+        <button onclick="document.getElementById('modal-contratar-marketing').style.display='none'" class="btn-secondary" style="flex:1; padding:12px;">Fechar</button>
+        <button onclick="window.ativarTesteMarketing(); document.getElementById('modal-contratar-marketing').style.display='none';" class="btn-primary" style="flex:2; padding:12px; justify-content:center; font-weight:800;">
+          <i class="ph-bold ph-check"></i> Ativar Agora (Teste Grátis)
+        </button>
+      </div>
+    </div>
+  `;
+  modal.style.display = 'flex';
+};
+
+window.abrirModalDisparoMassa = function() {
+  let modal = document.getElementById('modal-disparo-massa');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'modal-disparo-massa';
+    modal.style.cssText = 'position:fixed; inset:0; z-index:10000; background:rgba(15,23,42,0.7); backdrop-filter:blur(8px); display:flex; align-items:center; justify-content:center; padding:16px;';
+    document.body.appendChild(modal);
+  }
+
+  modal.innerHTML = `
+    <div style="background:var(--card); border-radius:24px; padding:26px; width:100%; max-width:480px; box-shadow:var(--shadow-md); border:1px solid var(--border);">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+        <h3 style="font-size:18px; font-weight:800; color:var(--text); margin:0; display:flex; align-items:center; gap:8px;">
+          <i class="ph-bold ph-paper-plane-tilt" style="color:var(--primary);"></i> Disparo de Mensagem & Cupom
+        </h3>
+        <button onclick="document.getElementById('modal-disparo-massa').style.display='none'" style="background:transparent; border:none; color:var(--text-sub); font-size:22px; cursor:pointer;">✕</button>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:12px; margin-bottom:16px;">
+        <div>
+          <label style="font-size:12px; font-weight:700; color:var(--text-sub); display:block; margin-bottom:4px;">Mensagem Promocional</label>
+          <textarea id="marketing-msg-input" rows="3" class="form-input" placeholder="Ex: Olá! Hoje temos promoção especial no almoço com 15% de desconto para você!" style="width:100%; box-sizing:border-box;"></textarea>
+        </div>
+
+        <div>
+          <label style="font-size:12px; font-weight:700; color:var(--text-sub); display:block; margin-bottom:4px;">Anexar Cupom QR (Opcional)</label>
+          <input type="text" id="marketing-cupom-input" class="form-input" placeholder="Ex: PROMO15" style="width:100%; text-transform:uppercase; font-weight:800; box-sizing:border-box;">
+        </div>
+      </div>
+
+      <div style="display:flex; gap:10px;">
+        <button onclick="document.getElementById('modal-disparo-massa').style.display='none'" class="btn-secondary" style="flex:1; padding:12px;">Cancelar</button>
+        <button onclick="window.executarDisparoMassa()" class="btn-primary" style="flex:2; padding:12px; justify-content:center; font-weight:800;">
+          <i class="ph-bold ph-paper-plane-tilt"></i> Disparar para Todos
+        </button>
+      </div>
+    </div>
+  `;
+  modal.style.display = 'flex';
+};
+
+window.executarDisparoMassa = async function() {
+  const msg = document.getElementById('marketing-msg-input')?.value.trim();
+  const cupom = document.getElementById('marketing-cupom-input')?.value.trim();
+
+  if (!msg) {
+    showToast('Escreva a mensagem para enviar.', 'ph-warning', 'error');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/marketing/disparo-massa', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mensagem: msg, cupom_codigo: cupom })
+    });
+    const d = await res.json();
+    if (d.success) {
+      document.getElementById('modal-disparo-massa').style.display = 'none';
+      showToast(`📢 Notificação disparada para ${d.enviados || 0} clientes!`, 'ph-check-circle', 'success');
+    }
+  } catch(e){
+    showToast('Erro ao realizar disparo.', 'ph-warning', 'error');
+  }
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(() => {
+    if (typeof window.checarStatusMarketing === 'function') window.checarStatusMarketing();
+  }, 200);
+});

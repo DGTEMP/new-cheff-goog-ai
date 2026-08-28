@@ -17,6 +17,31 @@
   <link rel="stylesheet" href="/vendor/phosphor/src/bold/style.css">
   <link rel="stylesheet" href="/vendor/phosphor/src/fill/style.css">
   <style>
+
+  :root {
+    --bg-main: #f8fafc;
+    --bg-card: #ffffff;
+    --text-primary: #0f172a;
+    --text-secondary: #64748b;
+    --border-color: #e2e8f0;
+    --g-card-bg: #ffffff;
+    --g-border: #e2e8f0;
+    --g-text: #0f172a;
+    --g-text-muted: #64748b;
+  }
+
+  [data-theme="dark"], body.dark-mode {
+    --bg-main: #090d16;
+    --bg-card: #131b2e;
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --border-color: rgba(255, 255, 255, 0.1);
+    --g-card-bg: #131b2e;
+    --g-border: rgba(255, 255, 255, 0.1);
+    --g-text: #f8fafc;
+    --g-text-muted: #94a3b8;
+  }
+
     :root, [data-theme="light"] {
       --g-bg: #e2e8f0;
       --g-app-bg: #f8fafc;
@@ -78,8 +103,23 @@
     header button:hover { background: #f1f5f9; }
     header h1 { flex: 1; font-size: 18px; font-weight: 700; color: #0f172a; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: -0.3px; }
     
-    .view { display: none; flex: 1; overflow-y: auto; padding: 20px; padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px)); }
-    .view.active { display: flex; flex-direction: column; }
+    .view {
+      display: none !important;
+      flex: 1 1 auto !important;
+      overflow-y: auto !important;
+      padding: 20px !important;
+      padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px)) !important;
+      width: 100% !important;
+      box-sizing: border-box !important;
+      background: var(--bg-main, #f8fafc) !important;
+      color: var(--text-primary, #0f172a) !important;
+    }
+    
+    .view.active {
+      display: flex !important;
+      flex-direction: column !important;
+      width: 100% !important;
+    }
     
     /* Login View */
     #view-login { display: none; flex-direction: column; justify-content: center; align-items: center; padding: 36px 24px; background: linear-gradient(135deg, #fc4b15 0%, #d93803 100%); color: white; height: 100%; }
@@ -90,7 +130,104 @@
     #btn-login { width: 100%; max-width: 340px; padding: 16px; border-radius: 14px; border: none; background: #ffffff; color: #fc4b15; font-weight: 800; font-size: 17px; cursor: pointer; box-shadow: 0 8px 20px rgba(0,0,0,0.15); transition: all 0.2s; }
     #btn-login:hover { transform: translateY(-2px); box-shadow: 0 12px 24px rgba(0,0,0,0.2); }
     
-    /* Tables Grid */
+    
+    /* Tables Grid Otimizado para Mobile e Tablet */
+    #tables-grid {
+      display: grid !important;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)) !important;
+      gap: 12px !important;
+      width: 100% !important;
+      box-sizing: border-box !important;
+    }
+    
+    @media (min-width: 600px) {
+      #tables-grid {
+        grid-template-columns: repeat(auto-fill, minmax(125px, 1fr)) !important;
+        gap: 14px !important;
+      }
+    }
+
+    @media (min-width: 900px) {
+      #tables-grid {
+        grid-template-columns: repeat(auto-fill, minmax(135px, 1fr)) !important;
+        gap: 16px !important;
+      }
+    }
+
+    .table-card {
+      background: #f0fdf4;
+      border: 1.5px solid #bbf7d0;
+      border-radius: 18px;
+      padding: 16px 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      font-weight: 700;
+      color: #166534;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+      cursor: pointer;
+      position: relative;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      min-height: 105px;
+      aspect-ratio: 1.1 / 1;
+      box-sizing: border-box;
+    }
+    .table-card i.main-mesa-icon {
+      font-size: 32px;
+      color: #16a34a;
+      transition: transform 0.2s;
+    }
+    .table-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 18px rgba(0,0,0,0.08);
+      border-color: #4ade80;
+    }
+    .table-card.ocupada {
+      background: #fef2f2;
+      border-color: #fecaca;
+      color: #991b1b;
+    }
+    .table-card.ocupada i.main-mesa-icon {
+      color: #dc2626;
+    }
+    .table-card.reservada {
+      background: #eff6ff;
+      border-color: #bfdbfe;
+      color: #1e40af;
+    }
+    .table-card.reservada i.main-mesa-icon {
+      color: #2563eb;
+    }
+    .table-card .mesa-nome-label {
+      font-size: 14.5px;
+      font-weight: 800;
+      letter-spacing: -0.2px;
+      margin-top: 2px;
+    }
+    .table-card .mesa-status-tag {
+      font-size: 10.5px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+    .table-card.ocupada .mesa-status-tag {
+      background: rgba(220, 38, 38, 0.1);
+      color: #dc2626;
+    }
+    .table-card:not(.ocupada):not(.reservada) .mesa-status-tag {
+      background: rgba(22, 163, 74, 0.1);
+      color: #16a34a;
+    }
+    .table-card.reservada .mesa-status-tag {
+      background: rgba(37, 99, 235, 0.1);
+      color: #2563eb;
+    }
+
+    /* Tables Grid Old */
     #tables-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 16px; }
     .table-card { background: #f0fdf4; border: 1.5px solid #bbf7d0; border-radius: 20px; padding: 20px 14px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; font-weight: 700; color: #166534; box-shadow: 0 4px 12px rgba(0,0,0,0.03); cursor: pointer; position: relative; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); min-height: 120px; }
     .table-card i { font-size: 38px; color: #16a34a; transition: transform 0.2s; }
@@ -415,6 +552,49 @@
     body.dark-mode ::-webkit-scrollbar { width: 5px; height: 5px; }
     body.dark-mode ::-webkit-scrollbar-track { background: #1a1f2e; }
     body.dark-mode ::-webkit-scrollbar-thumb { background: #3d4663; border-radius: 4px; }
+  
+    /* ══════════════════════════════════════════════════════════════════
+       RESPONSIVIDADE INTELIGENTE: APP GARÇOM (MOBILE + TABLET + DESKTOP)
+       ══════════════════════════════════════════════════════════════════ */
+    
+    /* Prevenção de quebra de selects e botões de filtro */
+    #garcom-tables-control-bar select,
+    #select-garcom-mesa-sort {
+      max-width: 100% !important;
+      min-width: 160px !important;
+      cursor: pointer !important;
+      text-overflow: ellipsis !important;
+    }
+
+    /* Em telas muito estreitas (< 380px), empilha ordem e layout harmoniosamente */
+    @media (max-width: 420px) {
+      #garcom-tables-control-bar {
+        flex-direction: column !important;
+        align-items: stretch !important;
+      }
+      #garcom-tables-control-bar > div {
+        width: 100% !important;
+        max-width: 100% !important;
+      }
+    }
+
+    /* Modal de Fracionamento e Opções da Mesa Responsivos */
+    #modal-fracionar-item-mobile > div,
+    #modal-qr-mesa-cliente > div,
+    #view-table-options > div {
+      max-width: 94vw !important;
+      box-sizing: border-box !important;
+    }
+
+    /* Grade de Atalhos Rápidos Responsiva */
+    @media (min-width: 768px) {
+      .atalhos-grid,
+      #atalhos-grid-container {
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)) !important;
+        gap: 16px !important;
+      }
+    }
+
   </style>
   <script src="/vendor/html5-qrcode/html5-qrcode.min.js"></script>
   <script src="/vendor/morphdom/morphdom.min.js"></script>
@@ -425,13 +605,22 @@
 <link rel="icon" href="/icons/icon.ico">
   <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#fc4b15">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Chef Cozinha">
-<link rel="apple-touch-icon" href="/icons/icon-192.png">
+  </style>
+  <script src="/vendor/html5-qrcode/html5-qrcode.min.js"></script>
+  <script src="/vendor/morphdom/morphdom.min.js"></script>
+  <script src="/locales.js"></script>
+  <script src="/broadcast.js"></script>
+  <script src="/i18n.js"></script>
+  <link rel="icon" href="/icons/icon.ico">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#fc4b15">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Chef Cozinha">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
   <script src="/socket.io.min.js"></script>
   <script src="/fuzzy-search.js"></script>
-      <link rel="stylesheet" href="/apple-transitions.css">
+  <link rel="stylesheet" href="/apple-transitions.css">
   <script src="/apple-transitions.js" defer></script>
   <script src="/chef-telemetry-clicks.js" defer></script>
 </head>
@@ -440,7 +629,7 @@
     <header>
       <div style="display: flex; gap: 8px;">
         <button id="btn-back" style="display:none; color:#333; font-size:24px;" onclick="window.history.back()" title="Voltar"><i class="ph ph-arrow-left"></i></button>
-        <button id="btn-home" style="display:none; color:#333; font-size:24px;" title="Mesas / Caixa" onmousedown="startLongPress(event)" onmouseup="endLongPress(event)" onmouseleave="cancelLongPress(event)" ontouchstart="startLongPress(event)" ontouchend="endLongPress(event)" ontouchcancel="cancelLongPress(event)"><i class="ph ph-house"></i></button>
+        <button id="btn-home" style="display:none; color:#333; font-size:24px;" title="Mesas (Toque) / Caixa (Segure 2s)"><i class="ph ph-house"></i></button>
         <button id="btn-logout" style="display:none; color:#fc4b15; font-size:24px;" title="Sair do App Garçom"><i class="ph ph-sign-out"></i></button>
         <button id="btn-colaborador" style="display:none; color:#9b59b6; font-size:24px;" onclick="window.location.href='/painel-funcionario.html'" title="Área do Colaborador"><i class="ph ph-user"></i></button>
       </div>
@@ -475,29 +664,31 @@
     <!-- Tables -->
     <div id="view-tables" class="view">
       
-      <!-- BARRA DE CONTROLE: ORDENAÇÃO E DISTRIBUIÇÃO DAS MESAS -->
-      <div id="garcom-tables-control-bar" style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:12px; padding:4px 2px;">
-        <div style="display:flex; align-items:center; gap:6px; flex:1;">
-          <label style="font-size:11px; font-weight:700; color:var(--text-secondary, #64748b); text-transform:uppercase; letter-spacing:0.5px;"><i class="ph-bold ph-sort-ascending"></i> Ordem:</label>
-          <select id="select-garcom-mesa-sort" onchange="window.mudarOrdenacaoMesas(this.value)" style="flex:1; padding:7px 10px; border-radius:10px; border:1px solid rgba(0,0,0,0.12); background:var(--bg-card, #ffffff); color:var(--text-primary, #0f172a); font-size:12px; font-weight:700; outline:none;">
+      <!-- BARRA DE CONTROLE: ORDENAÇÃO E DISTRIBUIÇÃO DAS MESAS OTIMIZADA PARA TABLET -->
+      <div id="garcom-tables-control-bar" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:14px; padding:6px 4px; background:var(--g-card-bg, #ffffff); border:1px solid var(--g-border, #e2e8f0); border-radius:14px; box-shadow:0 2px 8px rgba(0,0,0,0.02);">
+        <div style="display:flex; align-items:center; gap:8px; flex:1; min-width:240px; max-width:380px;">
+          <label style="font-size:11px; font-weight:800; color:var(--text-secondary, #64748b); text-transform:uppercase; letter-spacing:0.5px; white-space:nowrap;">
+            <i class="ph-bold ph-sort-ascending"></i> Ordem:
+          </label>
+          <select id="select-garcom-mesa-sort" onchange="window.mudarOrdenacaoMesas(this.value)" style="flex:1; padding:8px 12px; border-radius:10px; border:1.5px solid rgba(0,0,0,0.1); background:var(--bg-main, #f8fafc); color:var(--text-primary, #0f172a); font-size:12.5px; font-weight:700; outline:none; cursor:pointer;">
+            <option value="status_ocupadas">👥 Status (Ocupadas Primeiro)</option>
+            <option value="status_livres">🟢 Status (Livres Primeiro)</option>
             <option value="num_asc">🔢 Número (Menor p/ Maior)</option>
             <option value="num_desc">🔢 Número (Maior p/ Menor)</option>
             <option value="nome_asc">🔤 Nome da Mesa (A-Z)</option>
-            <option value="status_ocupadas">👥 Status (Ocupadas Primeiro)</option>
-            <option value="status_livres">🟢 Status (Livres Primeiro)</option>
             <option value="valor_desc">💰 Maior Consumo (R$)</option>
           </select>
         </div>
 
-        <div style="display:inline-flex; gap:3px; background:rgba(0,0,0,0.06); padding:3px; border-radius:10px;">
-          <button type="button" onclick="window.mudarLayoutMesas('grid-2')" id="btn-layout-grid-2" class="btn-layout-mesa active" title="Grade 2 Colunas" style="padding:6px 9px; border-radius:7px; border:none; background:#fc4b15; color:#fff; font-size:13px; cursor:pointer;">
-            <i class="ph-bold ph-squares-four"></i>
+        <div style="display:inline-flex; align-items:center; gap:4px; background:rgba(0,0,0,0.05); padding:3px; border-radius:10px;">
+          <button type="button" onclick="window.mudarLayoutMesas('auto')" id="btn-layout-auto" class="btn-layout-mesa active" title="Modo Tablet/Auto (Otimizado)" style="padding:6px 12px; border-radius:7px; border:none; background:#fc4b15; color:#fff; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:5px;">
+            <i class="ph-bold ph-squares-four"></i> <span>Auto</span>
           </button>
-          <button type="button" onclick="window.mudarLayoutMesas('grid-3')" id="btn-layout-grid-3" class="btn-layout-mesa" title="Grade 3 Colunas" style="padding:6px 9px; border-radius:7px; border:none; background:transparent; color:var(--text-secondary, #64748b); font-size:13px; cursor:pointer;">
-            <i class="ph-bold ph-grid-nine"></i>
+          <button type="button" onclick="window.mudarLayoutMesas('compacto')" id="btn-layout-compacto" class="btn-layout-mesa" title="Modo Compacto (Mais Mesas)" style="padding:6px 12px; border-radius:7px; border:none; background:transparent; color:var(--text-secondary, #64748b); font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:5px;">
+            <i class="ph-bold ph-grid-nine"></i> <span>Compacto</span>
           </button>
-          <button type="button" onclick="window.mudarLayoutMesas('list')" id="btn-layout-list" class="btn-layout-mesa" title="Lista Corrida" style="padding:6px 9px; border-radius:7px; border:none; background:transparent; color:var(--text-secondary, #64748b); font-size:13px; cursor:pointer;">
-            <i class="ph-bold ph-list-dashes"></i>
+          <button type="button" onclick="window.mudarLayoutMesas('list')" id="btn-layout-list" class="btn-layout-mesa" title="Lista Corrida" style="padding:6px 12px; border-radius:7px; border:none; background:transparent; color:var(--text-secondary, #64748b); font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:5px;">
+            <i class="ph-bold ph-list-dashes"></i> <span>Lista</span>
           </button>
         </div>
       </div>
@@ -517,23 +708,50 @@
       </div>
     </div>
 
-    <!-- Table Options -->
-    <div id="view-table-options" class="view" style="justify-content: center; background: var(--bg-main, #fff);">
-      <div style="text-align: center; margin-bottom: 24px;">
-        <div id="table-options-emoji-btn" onclick="window.mostrarQrMesaCliente()" style="cursor:pointer; width: 88px; height: 88px; border-radius: 50%; background: linear-gradient(135deg, #fc4b15, #ff7a45); color: white; display: flex; flex-direction: column; justify-content: center; align-items: center; font-size: 32px; margin: 0 auto; box-shadow: 0 8px 24px rgba(252, 75, 21, 0.4); transition: transform 0.2s;" title="Toque para mostrar QR Code da mesa ao cliente">
-          <i class="ph-bold ph-qr-code"></i>
-          <span style="font-size:9.5px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; margin-top:2px;">Ver QR</span>
+    <!-- Table Options (Modal/View de Ações da Mesa) -->
+    <div id="view-table-options" class="view" style="justify-content: center; align-items: center; background: var(--bg-main, #f8fafc); min-height: 100%;">
+      <div style="width: 100%; max-width: 480px; background: var(--bg-card, #ffffff); border: 1.5px solid var(--border-color, #e2e8f0); border-radius: 24px; padding: 28px 22px; box-shadow: 0 16px 40px rgba(0,0,0,0.08); text-align: center; box-sizing: border-box;">
+        
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+          <button onclick="showView('tables', 'Comanda Mobile')" style="background: rgba(0,0,0,0.06); border: 1px solid var(--border-color, #e2e8f0); color: var(--text-primary, #0f172a); padding: 8px 14px; border-radius: 10px; font-weight: 700; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+            <i class="ph-bold ph-arrow-left"></i> Voltar
+          </button>
+          <span style="font-size: 12px; font-weight: 700; color: var(--text-secondary, #64748b); text-transform: uppercase; letter-spacing: 0.5px;">Opções da Mesa</span>
+          <div style="width: 70px;"></div>
         </div>
-        <h2 id="options-table-name" style="margin-top: 12px; font-size:22px; font-weight:800; color:var(--text-primary, #0f172a);">Mesa</h2>
+
+        <div style="margin-bottom: 24px;">
+          <div id="table-options-emoji-btn" onclick="window.mostrarQrMesaCliente()" style="cursor: pointer; width: 84px; height: 84px; border-radius: 50%; background: linear-gradient(135deg, #fc4b15, #ff7a45); color: white; display: flex; flex-direction: column; justify-content: center; align-items: center; font-size: 30px; margin: 0 auto; box-shadow: 0 8px 24px rgba(252, 75, 21, 0.4); transition: transform 0.2s;" title="Toque para mostrar QR Code da mesa ao cliente">
+            <i class="ph-bold ph-qr-code"></i>
+            <span style="font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px;">Ver QR</span>
+          </div>
+          <h2 id="options-table-name" style="margin: 12px 0 0 0; font-size: 24px; font-weight: 900; color: var(--text-primary, #0f172a);">Mesa</h2>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 12px; width: 100%;">
+          <button id="btn-opt-add" style="padding: 15px; border-radius: 14px; border: none; background: #fc4b15; color: white; font-weight: 800; font-size: 15.5px; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; box-shadow: 0 4px 14px rgba(252,75,21,0.35);">
+            <i class="ph-bold ph-plus" style="font-size: 22px;"></i> Adicionar Itens
+          </button>
+          
+          <button id="btn-opt-qr" style="padding: 15px; border-radius: 14px; border: none; background: #10b981; color: white; font-weight: 800; font-size: 15.5px; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; box-shadow: 0 4px 14px rgba(16,185,129,0.35);">
+            <i class="ph-bold ph-qr-code" style="font-size: 22px;"></i> Ler Cupom QR
+          </button>
+          
+          <button id="btn-opt-view" style="padding: 15px; border-radius: 14px; border: 1.5px solid var(--border-color, #e2e8f0); background: var(--bg-main, #f8fafc); color: var(--text-primary, #0f172a); font-weight: 800; font-size: 15px; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer;">
+            <i class="ph-bold ph-receipt" style="font-size: 22px; color:#fc4b15;"></i> Ver Conta Parcial
+          </button>
+          
+          <button id="btn-opt-bill" style="padding: 15px; border-radius: 14px; border: 1.5px solid var(--border-color, #e2e8f0); background: var(--bg-main, #f8fafc); color: var(--text-primary, #0f172a); font-weight: 800; font-size: 15px; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer;">
+            <i class="ph-bold ph-printer" style="font-size: 22px; color:#3b82f6;"></i> Pedir a Conta
+          </button>
+          
+          <button id="btn-opt-mostrar-cliente" onclick="window.mostrarQrMesaCliente()" style="padding: 15px; border-radius: 14px; border: 1.5px solid rgba(14,165,233,0.3); background: rgba(14,165,233,0.1); color: #0284c7; font-weight: 800; font-size: 15px; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer;">
+            <i class="ph-bold ph-device-mobile" style="font-size: 22px;"></i> Mostrar QR ao Cliente
+          </button>
+        </div>
+
       </div>
-      <div style="display: flex; flex-direction: column; gap: 12px; padding: 0 16px;">
-        <button id="btn-opt-add" style="padding: 16px; border-radius: 12px; border: none; background: #fc4b15; color: white; font-weight: bold; font-size: 16px; display:flex; align-items:center; justify-content:center; gap:8px;" aria-label="Adicionar itens ao pedido"><i class="ph ph-plus" style="font-size:24px;"></i> Adicionar Itens</button>
-        <button id="btn-opt-qr" style="padding: 16px; border-radius: 12px; border: none; background: #3ab55b; color: white; font-weight: bold; font-size: 16px; display:flex; align-items:center; justify-content:center; gap:8px;" aria-label="Ler cupom QR Code"><i class="ph ph-qr-code" style="font-size:24px;"></i> Ler Cupom QR</button>
-        <button id="btn-opt-view" style="padding: 16px; border-radius: 12px; border: 1px solid #ddd; background: white; font-weight: bold; font-size: 16px; display:flex; align-items:center; justify-content:center; gap:8px;" aria-label="Ver conta parcial da mesa"><i class="ph ph-list" style="font-size:24px;"></i> Ver Conta Parcial</button>
-        <button id="btn-opt-bill" style="padding: 16px; border-radius: 12px; border: 1px solid #ddd; background: white; font-weight: bold; font-size: 16px; color: #333; display:flex; align-items:center; justify-content:center; gap:8px;" aria-label="Pedir a conta"><i class="ph ph-receipt" style="font-size:24px;"></i> Pedir Conta</button>
-        <button id="btn-opt-mostrar-cliente" onclick="window.mostrarQrMesaCliente()" style="padding: 16px; border-radius: 12px; border: 1px solid #ddd; background: #e3fafc; color: #0b7285; font-weight: bold; font-size: 16px; display:flex; align-items:center; justify-content:center; gap:8px;" aria-label="Mostrar QR Code ao cliente"><i class="ph ph-device-mobile" style="font-size:24px;"></i> Mostrar ao Cliente</button>
-      </div>
-      
+
       <!-- Modal Leitor de QR Premium -->
       <div id="qr-modal" style="display: none; position: fixed; inset: 0; background: #000; z-index: 999; flex-direction: column; padding-top: env(safe-area-inset-top, 0px);">
         <div style="width: 100%; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; z-index: 10;">
@@ -734,6 +952,16 @@
       </div>
 
       <div class="atalhos-grid" id="atalhos-grid-container" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
+
+        <!-- Card Área do Colaborador & Estações -->
+        <div class="atalho-card" id="card-atalho-area-colaborador" onclick="window.abrirAreaColaboradorModal ? window.abrirAreaColaboradorModal() : window.location.href='/painel-funcionario.html'" style="background: var(--g-card-bg, #ffffff); border: 1.5px solid var(--g-border, #e2e8f0); border-radius: 20px; padding: 18px 14px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; text-align: center; cursor: pointer; position: relative; box-shadow: 0 4px 12px rgba(0,0,0,0.03); transition: all 0.2s;">
+          <div style="width: 52px; height: 52px; border-radius: 16px; background: rgba(168,85,247,0.12); color: #7e22ce; display: flex; align-items: center; justify-content: center; font-size: 28px;">
+            <i class="ph-bold ph-identification-badge"></i>
+          </div>
+          <strong style="font-size: 14px; color: var(--g-text, #0f172a);">Área do Colaborador</strong>
+          <span style="font-size: 11.5px; color: var(--g-text-muted, #64748b);" id="atalho-colab-nome-badge">Meu Turno & Ponto</span>
+        </div>
+
         <!-- Card Fila de Espera -->
         <div class="atalho-card" id="card-atalho-fila-espera" onclick="window.abrirFilaEsperaGarcom()" style="background: var(--g-card-bg, #ffffff); border: 1.5px solid var(--g-border, #e2e8f0); border-radius: 20px; padding: 18px 14px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; text-align: center; cursor: pointer; position: relative; box-shadow: 0 4px 12px rgba(0,0,0,0.03); transition: all 0.2s;">
           <div style="width: 52px; height: 52px; border-radius: 16px; background: rgba(59,130,246,0.12); color: #2563eb; display: flex; align-items: center; justify-content: center; font-size: 28px;">
@@ -1201,6 +1429,7 @@
     </div>
 
   <script src="/chef-colaborador-dock.js"></script>
+  <script src="/chef-layout-injetor.js"></script>
 </body>
 </html>
 

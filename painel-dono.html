@@ -8,8 +8,7 @@
   <link rel="stylesheet" href="/vendor/phosphor/src/bold/style.css">
   <link rel="stylesheet" href="/vendor/phosphor/src/fill/style.css">
   <script src="/socket.io/socket.io.js"></script>
-
-  <style>
+<style>
     :root {
       --bg: #0a0f1e;
       --card: #111827;
@@ -1063,7 +1062,264 @@
       }
     }
 
-</style>
+
+    /* Sistema Responsivo para Painel Dono */
+    @media (max-width: 768px) {
+      div[style*="grid-template-columns: 1fr 1fr"],
+      div[style*="grid-template-columns:1fr 1fr"],
+      div[style*="grid-template-columns: repeat(4, 1fr)"],
+      div[style*="grid-template-columns: repeat(3, 1fr)"] {
+        grid-template-columns: 1fr !important;
+      }
+      table {
+        min-width: 500px !important;
+      }
+    }
+  
+
+    /* ══════════════════════════════════════════════════════════════════
+       SISTEMA DE TEMAS DINÂMICOS (CLARO / ESCURO) & LONG PRESS
+       ══════════════════════════════════════════════════════════════════ */
+    :root, body[data-theme="light"], body.theme-light {
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --card2: #f1f5f9;
+      --border: #e2e8f0;
+      --text: #0f172a;
+      --text-sub: #64748b;
+      --primary: #fc4b15;
+      --primary-light: rgba(252,75,21,0.12);
+      --green: #10b981;
+      --green-light: rgba(16,185,129,0.12);
+      --red: #f43f5e;
+      --red-light: rgba(244,63,94,0.12);
+      --blue: #3b82f6;
+      --blue-light: rgba(59,130,246,0.12);
+      --purple: #8b5cf6;
+      --purple-light: rgba(139,92,246,0.12);
+      --yellow: #f59e0b;
+      --header-bg: #ffffff;
+      --shadow-sm: 0 2px 8px rgba(0,0,0,0.04);
+      --shadow-md: 0 8px 24px rgba(0,0,0,0.06);
+    }
+
+    [data-theme="dark"], body.theme-dark, body:not([data-theme="light"]):not(.theme-light) {
+      --bg: #090d16;
+      --card: #111827;
+      --card2: #1e293b;
+      --border: rgba(255,255,255,0.09);
+      --text: #f8fafc;
+      --text-sub: #94a3b8;
+      --primary: #fc4b15;
+      --primary-light: rgba(252,75,21,0.15);
+      --green: #10b981;
+      --green-light: rgba(16,185,129,0.15);
+      --red: #f43f5e;
+      --red-light: rgba(244,63,94,0.15);
+      --blue: #3b82f6;
+      --blue-light: rgba(59,130,246,0.15);
+      --purple: #8b5cf6;
+      --purple-light: rgba(139,92,246,0.15);
+      --yellow: #f59e0b;
+      --header-bg: linear-gradient(135deg, #111827 0%, #0a0f1e 100%);
+      --shadow-sm: 0 2px 8px rgba(0,0,0,0.25);
+      --shadow-md: 0 8px 24px rgba(0,0,0,0.4);
+    }
+
+    body {
+      background: var(--bg) !important;
+      color: var(--text) !important;
+      transition: background-color 0.2s, color 0.2s;
+    }
+
+    header {
+      background: var(--header-bg) !important;
+      border-bottom: 1px solid var(--border) !important;
+    }
+
+    .kpi-card, .card, .chart-card, .ranking-box, .features-grid > div, .modal-sheet {
+      background: var(--card) !important;
+      border-color: var(--border) !important;
+      box-shadow: var(--shadow-sm) !important;
+    }
+
+    /* ── Feedback Visual de Long Press (Manter Pressionado) ── */
+    .has-long-press {
+      cursor: pointer;
+      user-select: none;
+      -webkit-user-select: none;
+      transition: transform 0.2s, box-shadow 0.2s;
+      position: relative;
+    }
+
+    .has-long-press:active, .long-press-active {
+      transform: scale(0.97) !important;
+      box-shadow: 0 0 0 3px var(--primary-light), var(--shadow-md) !important;
+    }
+
+    .long-press-badge {
+      position: absolute;
+      top: 10px;
+      right: 12px;
+      font-size: 10.5px;
+      font-weight: 700;
+      color: var(--text-sub);
+      background: rgba(0,0,0,0.06);
+      padding: 2px 6px;
+      border-radius: 6px;
+      pointer-events: none;
+      opacity: 0.7;
+    }
+
+    /* ── Modos de Layout Visíveis e Impactantes ── */
+    body[data-layout-dono="compacto"] main {
+      display: flex !important;
+      flex-direction: column !important;
+      max-width: 760px !important;
+      margin: 0 auto !important;
+      gap: 14px !important;
+      padding: 16px !important;
+    }
+    body[data-layout-dono="compacto"] .kpi-grid {
+      grid-template-columns: repeat(2, 1fr) !important;
+      gap: 10px !important;
+    }
+    body[data-layout-dono="compacto"] .kpi-card {
+      padding: 14px !important;
+    }
+    body[data-layout-dono="compacto"] .kpi-card .val {
+      font-size: 26px !important;
+    }
+
+    body[data-layout-dono="confortavel"] main {
+      display: grid !important;
+      grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)) !important;
+      max-width: 1200px !important;
+      margin: 0 auto !important;
+      gap: 20px !important;
+      padding: 20px !important;
+    }
+
+    body[data-layout-dono="dashboard"] main {
+      display: grid !important;
+      grid-template-columns: repeat(12, 1fr) !important;
+      max-width: 1540px !important;
+      margin: 0 auto !important;
+      gap: 18px !important;
+      padding: 20px !important;
+    }
+    body[data-layout-dono="dashboard"] .dono-sec-full {
+      grid-column: span 12 !important;
+    }
+    body[data-layout-dono="dashboard"] .dono-sec-half {
+      grid-column: span 6 !important;
+    }
+    body[data-layout-dono="dashboard"] .dono-sec-third {
+      grid-column: span 4 !important;
+    }
+
+  
+    /* ══════════════════════════════════════════════════════════════════
+       PERFORMANCE 60/120 FPS & SEÇÕES RECOLHÍVEIS / EXPANSÍVEIS
+       ══════════════════════════════════════════════════════════════════ */
+    * {
+      box-sizing: border-box;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    body {
+      content-visibility: auto;
+      contain: paint;
+    }
+
+    .dono-section {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg, 24px);
+      padding: 20px;
+      box-shadow: var(--shadow-sm);
+      transition: box-shadow 0.2s ease, border-color 0.2s ease;
+      contain: layout style;
+    }
+
+    .sec-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      user-select: none;
+      -webkit-user-select: none;
+      padding: 4px 2px;
+      margin-bottom: 14px;
+    }
+
+    .sec-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--text);
+      margin: 0;
+    }
+
+    .sec-title i {
+      color: var(--primary);
+      font-size: 22px;
+    }
+
+    .btn-sec-toggle {
+      background: var(--card2);
+      border: 1px solid var(--border);
+      color: var(--text-sub);
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 16px;
+      transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.15s, color 0.15s;
+    }
+
+    .btn-sec-toggle:hover {
+      background: var(--primary-light);
+      color: var(--primary);
+      border-color: var(--primary);
+    }
+
+    .dono-section.is-collapsed .btn-sec-toggle {
+      transform: rotate(-90deg);
+    }
+
+    .dono-section.is-collapsed .sec-content {
+      display: none !important;
+    }
+
+    .dono-section.is-collapsed {
+      padding-bottom: 14px;
+    }
+
+    .sec-collapsed-badge {
+      display: none;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-sub);
+      background: var(--card2);
+      padding: 4px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+
+    .dono-section.is-collapsed .sec-collapsed-badge {
+      display: inline-block;
+      margin-left: auto;
+      margin-right: 12px;
+    }
+
+  </style>
   <script src="/chef-telemetry-clicks.js" defer></script>
 </head>
 <body>
@@ -1251,14 +1507,27 @@
         </button>
       </div>
 
-      <!-- Seletor de Layout do Painel -->
-      <div class="layout-switcher">
-        <span class="ls-label"><i class="ph ph-layout"></i> Layout:</span>
-        <div class="ls-options" role="group" aria-label="Escolher layout do painel">
-          <button type="button" class="ls-btn" data-ls-layout="compacto" onclick="definirLayoutDono('compacto')" title="Coluna única estreita, tudo empilhado"><i class="ph-bold ph-rows"></i> Compacto</button>
-          <button type="button" class="ls-btn" data-ls-layout="confortavel" onclick="definirLayoutDono('confortavel')" title="Duas colunas equilibradas em telas grandes (padrão)"><i class="ph-bold ph-columns"></i> Confortável</button>
-          <button type="button" class="ls-btn" data-ls-layout="dashboard" onclick="definirLayoutDono('dashboard')" title="Painel largo com mais conteúdo por linha"><i class="ph-bold ph-cards"></i> Dashboard</button>
+      <!-- Seletor de Layout do Painel & Reordenação -->
+      <div class="layout-switcher" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span class="ls-label"><i class="ph-bold ph-layout"></i> Layout:</span>
+          <div class="ls-options" role="group" aria-label="Escolher layout do painel">
+            <button type="button" class="ls-btn" data-ls-layout="compacto" onclick="definirLayoutDono('compacto')" title="Coluna única compacta e densa"><i class="ph-bold ph-rows"></i> Compacto</button>
+            <button type="button" class="ls-btn" data-ls-layout="confortavel" onclick="definirLayoutDono('confortavel')" title="Duas colunas equilibradas (Padrão)"><i class="ph-bold ph-columns"></i> Confortável</button>
+            <button type="button" class="ls-btn" data-ls-layout="dashboard" onclick="definirLayoutDono('dashboard')" title="Painel amplo com visão executiva"><i class="ph-bold ph-cards"></i> Dashboard</button>
+          </div>
         </div>
+
+        
+        <button type="button" id="btn-toggle-all-sections" onclick="window.toggleTodasSecoes()" style="background:var(--card); border:1.5px solid var(--border); color:var(--text); padding:8px 14px; border-radius:12px; font-size:13px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:6px; box-shadow:var(--shadow-sm); transition:all 0.15s;">
+          <i class="ph-bold ph-caret-double-up" id="icon-toggle-all" style="color:var(--primary); font-size:16px;"></i>
+          <span id="txt-toggle-all">Recolher Tudo</span>
+        </button>
+
+        <button type="button" onclick="window.abrirModalReordenarSeccoes()" style="background:var(--card); border:1.5px solid var(--border); color:var(--text); padding:8px 14px; border-radius:12px; font-size:13px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:6px; box-shadow:var(--shadow-sm); transition:all 0.15s;">
+          <i class="ph-bold ph-arrows-down-up" style="color:var(--primary); font-size:16px;"></i>
+          <span>Organizar Seções</span>
+        </button>
       </div>
 
       <div id="container-datas-custom" style="display:none; flex-direction:column; gap:12px; margin-top:12px; background:var(--card); padding:20px; border-radius:var(--radius-lg); border:1px solid var(--border);">
@@ -1485,6 +1754,50 @@
     </div>
 
     <!-- CUPONS QR & PROMOÇÕES -->
+    
+    <!-- MÓDULO VIP: MENSAGENS EM MASSA & NOTIFICAÇÕES PUSH PWA (CONTRATAÇÃO À PARTE) -->
+    <div id="sec-marketing-vip" class="dono-section">
+      <div class="sec-title" style="display:flex; justify-content:space-between; align-items:center;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <i class="ph-bold ph-megaphone" style="color:var(--primary);"></i>
+          <span>Mensagens & Notificações Push (PWA + WhatsApp)</span>
+        </div>
+        <span class="sec-collapsed-badge">Oculto</span>
+      </div>
+
+      <div class="sec-content" id="marketing-container-content" style="margin-top:14px;">
+        <!-- Card Promocional de Contratação -->
+        <div id="marketing-showcase-card" style="background:linear-gradient(135deg, rgba(252,75,21,0.08) 0%, rgba(59,130,246,0.08) 100%); border:1.5px dashed var(--primary); border-radius:18px; padding:22px; text-align:center;">
+          <div style="font-size:36px; margin-bottom:8px;">📲 📢</div>
+          <h3 style="font-size:18px; font-weight:800; color:var(--text); margin-bottom:6px;">Engaje seus Clientes com Disparo de Mensagens & Cupons</h3>
+          <p style="font-size:13.5px; color:var(--text-sub); max-width:600px; margin:0 auto 16px auto; line-height:1.5;">
+            Envie novidades, promoções relâmpago e cupons QR diretamente no celular dos clientes cadastrados e nos dispositivos com o App PWA instalado!
+          </p>
+          <div style="display:flex; justify-content:center; gap:10px; flex-wrap:wrap;">
+            <button type="button" class="btn-primary" onclick="window.abrirModalContratarMarketing()" style="padding:12px 24px; font-size:14px; font-weight:800;">
+              <i class="ph-bold ph-crown"></i> Contratar Módulo de Mensagens & Push
+            </button>
+            <button type="button" class="btn-secondary" onclick="window.ativarTesteMarketing()" style="padding:12px 18px; font-size:13px; font-weight:700;">
+              <i class="ph-bold ph-sparkle"></i> Ativar Demonstração Gratuita
+            </button>
+          </div>
+        </div>
+
+        <!-- Painel de Disparo Ativo (quando contratado) -->
+        <div id="marketing-active-panel" style="display:none; flex-direction:column; gap:14px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; background:var(--card2); padding:12px 16px; border-radius:14px; border:1px solid var(--border);">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span class="status-pill open"><span class="dot"></span> Ativo</span>
+              <span style="font-size:13px; color:var(--text-sub);">Público estimado: <strong id="marketing-total-clientes" style="color:var(--text);">-- clientes cadastrados</strong></span>
+            </div>
+            <button onclick="window.abrirModalDisparoMassa()" class="btn-primary" style="padding:8px 16px; font-size:13px; font-weight:800;">
+              <i class="ph-bold ph-paper-plane-tilt"></i> Novo Disparo em Massa
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="cupons-section-dono">
       <div class="sec-title" style="display:flex; justify-content:space-between; align-items:center;">
         <div style="display:flex; align-items:center; gap:8px;">
@@ -1926,7 +2239,33 @@
             <label class="form-label" for="cupom-validade">Validade (Opcional)</label>
             <input type="date" id="cupom-validade" class="form-input">
           </div>
+        
+        <!-- Seletor de Produtos Aplicáveis -->
+        <div class="form-group" style="margin-top:4px;">
+          <label class="form-label" style="display:flex; justify-content:space-between; align-items:center;">
+            <span>Aplicar Desconto em:</span>
+            <span style="font-size:11px; color:var(--primary); font-weight:700;" id="cupom-produtos-selecionados-txt">Todos os Produtos</span>
+          </label>
+          <div style="display:flex; gap:10px; margin-bottom:8px;">
+            <label style="display:flex; align-items:center; gap:6px; font-size:13px; color:var(--text); cursor:pointer;">
+              <input type="radio" name="cupom_escopo" value="todos" checked onchange="window.toggleEscopoProdutosCupom('todos')">
+              <span>Todo o Cardápio</span>
+            </label>
+            <label style="display:flex; align-items:center; gap:6px; font-size:13px; color:var(--text); cursor:pointer;">
+              <input type="radio" name="cupom_escopo" value="especificos" onchange="window.toggleEscopoProdutosCupom('especificos')">
+              <span>Produtos Específicos</span>
+            </label>
+          </div>
+
+          <div id="container-produtos-cupom" style="display:none; max-height:160px; overflow-y:auto; background:var(--card2); border:1px solid var(--border); border-radius:12px; padding:10px;">
+            <input type="text" id="filtro-produtos-cupom" placeholder="🔍 Filtrar produto..." oninput="window.filtrarProdutosCupom(this.value)" style="width:100%; padding:8px 12px; border-radius:8px; border:1px solid var(--border); background:var(--card); color:var(--text); font-size:12px; margin-bottom:8px; box-sizing:border-box;">
+            <div id="lista-produtos-cupom" style="display:flex; flex-direction:column; gap:6px;">
+              <span style="font-size:12px; color:var(--text-sub); text-align:center; padding:10px;">Carregando produtos...</span>
+            </div>
+          </div>
         </div>
+
+      </div>
       </div>
 
       <div style="display:flex; gap:10px;">
@@ -2050,7 +2389,7 @@
     </div>
   </div>
 
-  <script src="/socket.io.min.js"></script>
+  <!-- socket.io unificado no topo -->
   <script src="/vendor/qrcode/qrcode-generator.js"></script>
   <script src="/vendor/qrcode/qr-helper.js"></script>
   <script src="/chef-tz.js"></script>

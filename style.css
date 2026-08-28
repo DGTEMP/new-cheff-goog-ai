@@ -6221,3 +6221,220 @@ body, .workspace, .main-workspace, .mesas-container, .mesa-item, .products-conta
 body.force-mobile #orders-grid.grid-cols-3 .mesas-grid-layout {
   grid-template-columns: repeat(3, 1fr) !important;
 }
+
+
+/* ══════════════════════════════════════════════════════════════════
+   BARRA LATERAL ESQUERDA — CONTRASTE PERFEITO CLARO / ESCURO
+   ══════════════════════════════════════════════════════════════════ */
+:root, [data-theme="light"], body:not(.dark-mode) {
+  --bg-sidebar-left: #ffffff;
+  --border-sidebar-left: #e2e8f0;
+  --bg-action-group: #f8fafc;
+  --border-action-group: #e2e8f0;
+  --text-action-group: #0f172a;
+}
+
+[data-theme="light"] #left-panel,
+[data-theme="light"] .left-actions,
+body:not(.dark-mode) #left-panel,
+body:not(.dark-mode) .left-actions {
+  background-color: #ffffff !important;
+  border-right: 1.5px solid #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+[data-theme="light"] .sidebar-header-controls,
+body:not(.dark-mode) .sidebar-header-controls {
+  background: #f8fafc !important;
+  color: #0f172a !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+}
+
+[data-theme="light"] .left-actions .action-group,
+body:not(.dark-mode) .left-actions .action-group {
+  background: #f8fafc !important;
+  border: 1.5px solid #e2e8f0 !important;
+  border-radius: 12px !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.03) !important;
+}
+
+[data-theme="light"] .left-actions .group-title,
+body:not(.dark-mode) .left-actions .group-title {
+  background: #f1f5f9 !important;
+  color: #475569 !important;
+  font-weight: 800 !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+}
+
+[data-theme="light"] .left-actions .btn-action,
+body:not(.dark-mode) .left-actions .btn-action {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border: 1.5px solid #cbd5e1 !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   CARDS DE COMANDA & MESAS ESPAÇOSOS E NÃO SQUEEZED
+   ══════════════════════════════════════════════════════════════════ */
+.mesas-grid-layout {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)) !important;
+  gap: 10px !important;
+}
+
+#orders-grid.grid-cols-3 .mesas-grid-layout {
+  grid-template-columns: repeat(auto-fit, minmax(115px, 1fr)) !important;
+}
+
+#orders-grid.grid-cols-2 .mesas-grid-layout {
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)) !important;
+}
+
+#orders-grid.grid-cols-1 .mesas-grid-layout {
+  grid-template-columns: 1fr !important;
+}
+
+.mesa-item {
+  min-height: 90px !important;
+  padding: 10px 12px !important;
+  border-radius: 14px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-between !important;
+  box-sizing: border-box !important;
+  background: var(--bg-card) !important;
+  border: 1.5px solid var(--border-color) !important;
+  transition: transform 0.15s, border-color 0.15s !important;
+}
+
+.mesa-item:hover {
+  transform: translateY(-2px) !important;
+  border-color: #fc4b15 !important;
+}
+
+.comanda-inside-card.comanda-inside-card {
+  border: 1.5px solid #fc4b15 !important;
+  background: #fff8f5 !important;
+}
+
+[data-theme="dark"] .comanda-inside-card.comanda-inside-card {
+  background: #1e1b2e !important;
+  border-color: #fc4b15 !important;
+}
+
+.mesa-header-info {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  gap: 6px !important;
+  margin-bottom: 4px !important;
+}
+
+.mesa-id {
+  font-size: 14.5px !important;
+  font-weight: 800 !important;
+  color: var(--text-primary) !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+.mesa-client {
+  font-size: 12px !important;
+  color: var(--text-secondary) !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+.mesa-value {
+  font-size: 13.5px !important;
+  font-weight: 800 !important;
+  color: #10b981 !important;
+  margin-top: 4px !important;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   ESTILOS DE CATEGORIAS RECOLHÍVEIS E ORIENTAÇÃO (VERTICAL / HORIZONTAL)
+   ══════════════════════════════════════════════════════════════ */
+.mesa-category {
+  margin-bottom: 14px;
+  transition: all 0.2s ease;
+}
+
+.mesa-category-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 10px;
+  cursor: pointer;
+  user-select: none;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text-primary, #0f172a);
+  margin-bottom: 8px;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.mesa-category-title:hover {
+  background: rgba(0, 0, 0, 0.08);
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
+[data-theme="dark"] .mesa-category-title {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.08);
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .mesa-category-title:hover {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.mesa-category.collapsed .mesas-grid-layout {
+  display: none !important;
+}
+
+.mesa-category.collapsed .mesa-category-title {
+  margin-bottom: 0;
+  opacity: 0.85;
+}
+
+/* Orientação Vertical das Seções de Mesas */
+#orders-grid.orientation-vertical {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  gap: 16px !important;
+  padding: 8px !important;
+  height: 100% !important;
+  align-items: stretch !important;
+}
+
+#orders-grid.orientation-vertical .mesa-category {
+  min-width: 250px !important;
+  max-width: 320px !important;
+  flex: 0 0 270px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 14px;
+  padding: 10px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+
+#orders-grid.orientation-vertical .mesa-category .mesas-grid-layout {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  overflow-y: auto !important;
+  flex: 1 1 auto !important;
+  padding-right: 4px;
+}

@@ -1,0 +1,15 @@
+{
+  "nomeRestaurante": "Pirão",
+  "logoUrl": "",
+  "corPrimaria": "#fc4b15",
+  "corAcento": "#3b82f6",
+  "modoVidro": true,
+  "widgetsAtivos": {
+    "pdv": true,
+    "mesas": true,
+    "balanca": true,
+    "kds": true,
+    "metricas": true,
+    "configExpress": true
+  }
+}

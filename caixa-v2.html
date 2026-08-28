@@ -311,7 +311,9 @@
     }
 
     function filtrarProdutosUI(q) {
-      // Filtragem reativa do PDV
+      if (typeof window.filtrarProdutosUI === 'function') {
+        window.filtrarProdutosUI(q);
+      }
     }
   </script>
 

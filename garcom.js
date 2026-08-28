@@ -99,18 +99,19 @@ let billSelectedIdsForFinalize = []; // FULL items selected
 
 // --- Routing ---
 window.showView = (id, titleText, pushToHistory = true) => {
+  if (!id || id === 'home' || id === 'mesas') id = 'tables';
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-  const targetView = document.getElementById(`view-${id}`);
+  const targetView = document.getElementById(`view-${id}`) || document.getElementById('view-tables');
   if (targetView) targetView.classList.add('active');
-  document.getElementById('header-title').innerText = titleText;
+  if (document.getElementById('header-title')) document.getElementById('header-title').innerText = titleText || 'Chef Garçom';
   
   if (pushToHistory) {
     history.pushState({ view: id, title: titleText }, '', '');
   }
 
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-  if (id === 'tables') document.getElementById('nav-mesas').classList.add('active');
-  if (id === 'esteira') document.getElementById('nav-esteira').classList.add('active');
+  if (id === 'tables' && document.getElementById('nav-mesas')) document.getElementById('nav-mesas').classList.add('active');
+  if (id === 'esteira' && document.getElementById('nav-esteira')) document.getElementById('nav-esteira').classList.add('active');
   if (id === 'atalhos') {
     const navAtalhos = document.getElementById('nav-atalhos');
     if (navAtalhos) navAtalhos.classList.add('active');
@@ -2636,7 +2637,7 @@ window.endLongPress = (e) => {
     clearTimeout(window.longPressTimer);
     window.longPressTimer = null;
     if (typeof showView === 'function') {
-      showView('home', 'Chef Garçom');
+      showView('tables', 'Comanda Mobile');
       if (typeof renderTables === 'function') renderTables();
     }
   }

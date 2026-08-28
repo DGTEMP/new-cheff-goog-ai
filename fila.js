@@ -956,12 +956,12 @@ function renderQueue() {
 
     return `
       <div class="queue-item${isNewClass}" data-id="${id}" data-status="${statusEsc}" style="border-left: 5px solid ${localColor}; ${estiloEspecial}">
-        <!-- HEADER DO CARD: MESA + GARÇOM + TIMER -->
+        <!-- 1. MESA / COMANDA & TIMER -->
         <div class="kds-card-mobile-header">
           <div class="kds-card-mesa-badge">
             <i class="ph-bold ph-table" style="color: ${localColor}; font-size: 18px;"></i>
-            <strong style="font-size: 15px; font-weight: 800; color: #0f172a;">${localEsc}</strong>
-            ${userEsc ? `<span class="kds-card-garcom">· ${userEsc}</span>` : ''}
+            <strong style="font-size: 14.5px; font-weight: 800; color: inherit;">${localEsc}</strong>
+            ${userEsc ? `<span class="kds-card-garcom" style="opacity:0.75; font-size:12px;">· ${userEsc}</span>` : ''}
           </div>
           <div class="kds-card-time-badge ${urgencyClass}">
             <i class="ph ph-clock"></i>
@@ -969,19 +969,21 @@ function renderQueue() {
           </div>
         </div>
 
-        <!-- CORPO DO CARD: QUANTIDADE + PRODUTO + OBS -->
+        <!-- 2. QUANTIDADE GIGANTE -->
+        <div class="kds-qty-badge">${qty}x</div>
+
+        <!-- 3. CORPO DO PRATO: NOME + OBS + COMPOSIÇÃO -->
         <div class="item-produto">
           <div class="item-produto-title-line">
-            <span style="background: #e2e8f0; color: #0f172a; padding: 2px 7px; border-radius: 8px; font-size: 14px; font-weight: 800;">${qty}x</span>
-            <span class="item-emoji">${emojiEsc}</span>
-            <span style="flex:1;">${nomeEsc}</span>
+            <span class="item-emoji" style="font-size:20px;">${emojiEsc}</span>
+            <span class="kds-product-name">${nomeEsc}</span>
             ${badgeEspecial}
           </div>
-          ${obsEsc ? `<div class="item-observacao"><i class="ph-bold ph-warning-circle" style="font-size:16px;"></i> <strong>OBS:</strong> ${obsEsc}</div>` : ''}
+          ${obsEsc ? `<div class="item-observacao" style="background:rgba(239,68,68,0.1); color:#ef4444; padding:4px 8px; border-radius:6px; font-size:12px; font-weight:700;"><i class="ph-bold ph-warning-circle"></i> OBS: ${obsEsc}</div>` : ''}
           ${compsHtml}
         </div>
 
-        <!-- RODAPÉ DO CARD: BOTÕES DE AÇÃO TOUCH -->
+        <!-- 4. BOTÃO DE AÇÃO TOUCH -->
         <div class="item-pronto">
           ${revertBtn}
           ${mainBtn}
@@ -1435,6 +1437,21 @@ window.alterarModoDisposicao = function(modo) {
   });
 };
 
+window.abrirModalFilaSettings = function() {
+  const modal = document.getElementById('modal-fila-settings');
+  if (modal) {
+    modal.style.display = 'flex';
+    modal.classList.add('active');
+    try {
+      const modo = localStorage.getItem('chef_kds_layout_mode') || 'grid';
+      if (typeof window.alterarModoDisposicao === 'function') window.alterarModoDisposicao(modo);
+      const audioStatus = localStorage.getItem('chef_kds_sound') !== '0';
+      const audioToggle = document.getElementById('kds-toggle-sound');
+      if (audioToggle) audioToggle.checked = audioStatus;
+    } catch (e) {}
+  }
+};
+
 window.fecharModalFilaSettings = function() {
   const modal = document.getElementById('modal-fila-settings');
   if (modal) {
@@ -1443,41 +1460,13 @@ window.fecharModalFilaSettings = function() {
   }
 };
 
-window.alterarModoDisposicao = function(modo) {
-  localStorage.setItem('chef_kds_layout_mode', modo);
-  const queueList = document.getElementById('queue-list');
-  if (queueList) {
-    if (modo === 'lista') {
-      queueList.classList.add('modo-lista');
-      queueList.style.gridTemplateColumns = '1fr';
-    } else {
-      queueList.classList.remove('modo-lista');
-      queueList.style.gridTemplateColumns = '';
-    }
-  }
-  document.querySelectorAll('#modal-fila-settings .layout-btn').forEach(btn => {
-    if (btn.getAttribute('data-mode') === modo) btn.classList.add('active');
-    else btn.classList.remove('active');
-  });
-};
-
-window.alterarTamanhoFonte = function(delta) {
-  let size = parseInt(localStorage.getItem('chef_kds_font_size'), 10) || 14;
-  size = Math.max(11, Math.min(22, size + delta));
-  localStorage.setItem('chef_kds_font_size', String(size));
-  const queueList = document.getElementById('queue-list');
-  if (queueList) {
-    queueList.style.fontSize = size + 'px';
-  }
-};
-
 document.addEventListener('DOMContentLoaded', () => {
   try {
     const savedLayout = localStorage.getItem('chef_kds_layout_mode');
     if (savedLayout) window.alterarModoDisposicao(savedLayout);
-    const savedFontSize = localStorage.getItem('chef_kds_font_size');
-    if (savedFontSize && document.getElementById('queue-list')) {
-      document.getElementById('queue-list').style.fontSize = savedFontSize + 'px';
+    const savedFontScale = localStorage.getItem('chef_kds_font_scale');
+    if (savedFontScale && document.getElementById('queue-list')) {
+      document.getElementById('queue-list').style.fontSize = (parseFloat(savedFontScale) * 100) + '%';
     }
   } catch(e){}
 });

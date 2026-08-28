@@ -1069,3 +1069,282 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 });
+
+
+// ══════════════════════════════════════════════════════════════════
+// STUDIO UI & LIVE COMPONENT PREVIEW LOGIC
+// ══════════════════════════════════════════════════════════════════
+let _currentStudioComponent = 'btn-primario';
+let _canvasTheme = 'dark';
+
+window.trocarComponentePreview = function(compType) {
+  _currentStudioComponent = compType;
+  const target = document.getElementById('studio-live-target');
+  if (!target) return;
+
+  const bgCtrl = document.getElementById('ctrl-bg-color');
+  const textCtrl = document.getElementById('ctrl-text-color');
+  const borderCtrl = document.getElementById('ctrl-border-color');
+  const widthCtrl = document.getElementById('ctrl-border-width');
+  const radCtrl = document.getElementById('ctrl-border-radius');
+  const padX = document.getElementById('ctrl-padding-x');
+  const padY = document.getElementById('ctrl-padding-y');
+
+  if (compType === 'btn-primario') {
+    if (bgCtrl) bgCtrl.value = '#fc4b15';
+    if (textCtrl) textCtrl.value = '#ffffff';
+    if (borderCtrl) borderCtrl.value = '#e03e0a';
+    if (widthCtrl) widthCtrl.value = '0';
+    if (radCtrl) radCtrl.value = '12';
+    if (padX) padX.value = '24';
+    if (padY) padY.value = '14';
+    target.innerHTML = '<button id="studio-element" type="button"><i class="fa-solid fa-bolt"></i> Finalizar Pedido</button>';
+  } else if (compType === 'btn-sucesso') {
+    if (bgCtrl) bgCtrl.value = '#10b981';
+    if (textCtrl) textCtrl.value = '#ffffff';
+    if (borderCtrl) borderCtrl.value = '#059669';
+    if (widthCtrl) widthCtrl.value = '0';
+    if (radCtrl) radCtrl.value = '12';
+    if (padX) padX.value = '20';
+    if (padY) padY.value = '12';
+    target.innerHTML = '<button id="studio-element" type="button"><i class="fa-solid fa-check"></i> Salvar e Confirmar</button>';
+  } else if (compType === 'btn-kds') {
+    if (bgCtrl) bgCtrl.value = '#fc4b15';
+    if (textCtrl) textCtrl.value = '#ffffff';
+    if (widthCtrl) widthCtrl.value = '0';
+    if (radCtrl) radCtrl.value = '14';
+    if (padX) padX.value = '28';
+    if (padY) padY.value = '16';
+    target.innerHTML = '<button id="studio-element" type="button"><i class="fa-solid fa-fire"></i> Iniciar Preparo KDS</button>';
+  } else if (compType === 'btn-outline') {
+    if (bgCtrl) bgCtrl.value = '#1e293b';
+    if (textCtrl) textCtrl.value = '#38bdf8';
+    if (borderCtrl) borderCtrl.value = '#38bdf8';
+    if (widthCtrl) widthCtrl.value = '2';
+    if (radCtrl) radCtrl.value = '10';
+    if (padX) padX.value = '18';
+    if (padY) padY.value = '10';
+    target.innerHTML = '<button id="studio-element" type="button"><i class="fa-solid fa-eye"></i> Visualizar Comanda</button>';
+  } else if (compType === 'modal-checkout') {
+    if (bgCtrl) bgCtrl.value = '#1e293b';
+    if (textCtrl) textCtrl.value = '#f8fafc';
+    if (borderCtrl) borderCtrl.value = '#334155';
+    if (widthCtrl) widthCtrl.value = '1';
+    if (radCtrl) radCtrl.value = '20';
+    if (padX) padX.value = '24';
+    if (padY) padY.value = '24';
+    target.innerHTML = `
+      <div id="studio-element" style="min-width:340px; text-align:left;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+          <h3 style="margin:0; font-size:18px; font-weight:800; color:#fc4b15;">Fechamento de Conta</h3>
+          <span style="background:#3b82f6; color:#fff; padding:2px 8px; border-radius:8px; font-size:11px; font-weight:700;">Mesa 04</span>
+        </div>
+        <div style="font-size:28px; font-weight:900; margin-bottom:12px; color:#10b981;">R$ 142,50</div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:16px;">
+          <button style="padding:10px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); border-radius:10px; color:#fff; font-weight:700; cursor:pointer;"><i class="fa-solid fa-qrcode"></i> PIX</button>
+          <button style="padding:10px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); border-radius:10px; color:#fff; font-weight:700; cursor:pointer;"><i class="fa-solid fa-credit-card"></i> Cartão</button>
+        </div>
+        <button style="width:100%; padding:12px; background:#10b981; color:#fff; border:none; border-radius:10px; font-weight:800; cursor:pointer;">Confirmar Recebimento</button>
+      </div>
+    `;
+  } else if (compType === 'card-widget-v11') {
+    if (bgCtrl) bgCtrl.value = '#1e293b';
+    if (textCtrl) textCtrl.value = '#f8fafc';
+    if (borderCtrl) borderCtrl.value = '#334155';
+    if (widthCtrl) widthCtrl.value = '1';
+    if (radCtrl) radCtrl.value = '18';
+    if (padX) padX.value = '20';
+    if (padY) padY.value = '18';
+    target.innerHTML = `
+      <div id="studio-element" style="min-width:300px; text-align:left;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <span style="font-weight:800; font-size:15px; color:#fc4b15;"><i class="fa-solid fa-chart-line"></i> Vendas do Turno</span>
+          <span style="font-size:11px; background:rgba(252,75,21,0.15); color:#fc4b15; padding:2px 8px; border-radius:10px; font-weight:700;">Live</span>
+        </div>
+        <div style="font-size:24px; font-weight:900; margin-bottom:6px;">R$ 2.840,00</div>
+        <div style="font-size:12px; color:#94a3b8;">18 pedidos finalizados • Ticket médio R$ 85,00</div>
+      </div>
+    `;
+  } else if (compType === 'tab-segmented') {
+    if (bgCtrl) bgCtrl.value = '#0f172a';
+    if (textCtrl) textCtrl.value = '#f8fafc';
+    if (borderCtrl) borderCtrl.value = '#334155';
+    if (widthCtrl) widthCtrl.value = '1';
+    if (radCtrl) radCtrl.value = '14';
+    if (padX) padX.value = '6';
+    if (padY) padY.value = '6';
+    target.innerHTML = `
+      <div id="studio-element" style="display:inline-flex; gap:4px;">
+        <button style="padding:8px 16px; border-radius:10px; border:none; background:#fc4b15; color:#fff; font-weight:800; font-size:13px; cursor:pointer;">Em Espera (5)</button>
+        <button style="padding:8px 16px; border-radius:10px; border:none; background:transparent; color:#94a3b8; font-weight:700; font-size:13px; cursor:pointer;">Em Preparo (12)</button>
+        <button style="padding:8px 16px; border-radius:10px; border:none; background:transparent; color:#94a3b8; font-weight:700; font-size:13px; cursor:pointer;">Prontos (8)</button>
+      </div>
+    `;
+  } else {
+    target.innerHTML = '<div id="studio-element" style="padding:16px;">Componente Customizado</div>';
+  }
+
+  window.atualizarEstiloAoVivo();
+};
+
+window.atualizarEstiloAoVivo = function() {
+  const el = document.getElementById('studio-element');
+  if (!el) return;
+
+  const fSize = document.getElementById('ctrl-font-size')?.value || '15';
+  const fWeight = document.getElementById('ctrl-font-weight')?.value || '700';
+  const bgColor = document.getElementById('ctrl-bg-color')?.value || '#fc4b15';
+  const textColor = document.getElementById('ctrl-text-color')?.value || '#ffffff';
+  const borderColor = document.getElementById('ctrl-border-color')?.value || '#e03e0a';
+  const borderWidth = document.getElementById('ctrl-border-width')?.value || '0';
+  const borderRadius = document.getElementById('ctrl-border-radius')?.value || '12';
+  const padX = document.getElementById('ctrl-padding-x')?.value || '24';
+  const padY = document.getElementById('ctrl-padding-y')?.value || '14';
+  const bShadow = document.getElementById('ctrl-box-shadow')?.value || 'none';
+
+  el.style.fontSize = fSize + 'px';
+  el.style.fontWeight = fWeight;
+  el.style.backgroundColor = bgColor;
+  el.style.color = textColor;
+  el.style.borderColor = borderColor;
+  el.style.borderWidth = borderWidth + 'px';
+  el.style.borderStyle = borderWidth > 0 ? 'solid' : 'none';
+  el.style.borderRadius = borderRadius + 'px';
+  el.style.padding = padY + 'px ' + padX + 'px';
+  el.style.boxShadow = bShadow;
+  el.style.cursor = 'pointer';
+  el.style.display = el.tagName === 'BUTTON' ? 'inline-flex' : el.style.display;
+  el.style.alignItems = 'center';
+  el.style.gap = '8px';
+  el.style.transition = 'all 0.15s ease';
+
+  const cssOutput = `#custom-${_currentStudioComponent} {
+  font-size: ${fSize}px;
+  font-weight: ${fWeight};
+  background: ${bgColor};
+  color: ${textColor};
+  border: ${borderWidth}px solid ${borderColor};
+  border-radius: ${borderRadius}px;
+  padding: ${padY}px ${padX}px;
+  box-shadow: ${bShadow};
+}`;
+  const cssEl = document.getElementById('studio-css-output');
+  if (cssEl) cssEl.innerText = cssOutput;
+};
+
+window.setDevicePreview = function(device) {
+  const container = document.getElementById('studio-canvas-container');
+  if (!container) return;
+  ['desktop', 'tablet', 'mobile'].forEach(d => {
+    const btn = document.getElementById('btn-device-' + d);
+    if (btn) btn.classList.toggle('btn-primary', d === device);
+  });
+
+  if (device === 'mobile') container.style.maxWidth = '380px';
+  else if (device === 'tablet') container.style.maxWidth = '768px';
+  else container.style.maxWidth = '100%';
+};
+
+window.toggleCanvasTheme = function() {
+  _canvasTheme = _canvasTheme === 'dark' ? 'light' : 'dark';
+  const container = document.getElementById('studio-canvas-container');
+  if (container) {
+    container.style.background = _canvasTheme === 'dark' ? '#0e1320' : '#f1f5f9';
+    container.style.borderColor = _canvasTheme === 'dark' ? '#243048' : '#cbd5e1';
+  }
+};
+
+window.exportarLayoutCSS = function() {
+  const cssEl = document.getElementById('studio-css-output');
+  if (cssEl && cssEl.innerText) {
+    navigator.clipboard.writeText(cssEl.innerText).then(() => {
+      alert('CSS copiado para a área de transferência com sucesso!');
+    });
+  }
+};
+
+window.salvarPresetLayout = function() {
+  alert('Preset de layout salvo com sucesso no banco de dados do suporte!');
+};
+
+window.resetarEstilosStudio = function() {
+  window.trocarComponentePreview(_currentStudioComponent);
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.getElementById('sec-ui-component-studio')) {
+    window.trocarComponentePreview('btn-primario');
+  }
+});
+
+
+// ─── LÓGICA DE INJEÇÃO DE LAYOUT (GLOBAL VS TENANT) NO STUDIO UI ───
+window.carregarRestaurantesParaStudio = async function() {
+  try {
+    const res = await fetch('/api/suporte/restaurantes-list');
+    const data = await res.json();
+    const select = document.getElementById('studio-restaurant-select');
+    if (select && data.success && Array.isArray(data.restaurantes)) {
+      select.innerHTML = data.restaurantes.map(r => 
+        `<option value="${r.id}">🏢 ${r.nome} (ID ${r.id}${r.slug ? ' - /' + r.slug : ''})</option>`
+      ).join('');
+    }
+  } catch(e) {}
+};
+
+window.onTargetScopeChanged = function(val) {
+  const wrap = document.getElementById('studio-tenant-selector-wrap');
+  if (wrap) wrap.style.display = (val === 'tenant') ? 'block' : 'none';
+  if (val === 'tenant') window.carregarRestaurantesParaStudio();
+};
+
+window.salvarPresetLayout = async function() {
+  const targetScope = document.getElementById('studio-target-scope')?.value || 'global';
+  const restId = document.getElementById('studio-restaurant-select')?.value || 1;
+  const comp = _currentStudioComponent || 'btn-primario';
+  const cssEl = document.getElementById('studio-css-output');
+  const cssContent = cssEl ? cssEl.innerText : '';
+
+  if (!cssContent || cssContent.includes('/* CSS gerado')) {
+    return alert('Faça algum ajuste no componente antes de injetar.');
+  }
+
+  const fSize = document.getElementById('ctrl-font-size')?.value;
+  const fWeight = document.getElementById('ctrl-font-weight')?.value;
+  const bgColor = document.getElementById('ctrl-bg-color')?.value;
+  const textColor = document.getElementById('ctrl-text-color')?.value;
+  const borderColor = document.getElementById('ctrl-border-color')?.value;
+  const borderWidth = document.getElementById('ctrl-border-width')?.value;
+  const borderRadius = document.getElementById('ctrl-border-radius')?.value;
+  const padX = document.getElementById('ctrl-padding-x')?.value;
+  const padY = document.getElementById('ctrl-padding-y')?.value;
+  const bShadow = document.getElementById('ctrl-box-shadow')?.value;
+
+  const payload = {
+    targetType: targetScope,
+    restaurante_id: targetScope === 'tenant' ? parseInt(restId) : null,
+    component: comp,
+    cssContent: cssContent,
+    configJson: { fSize, fWeight, bgColor, textColor, borderColor, borderWidth, borderRadius, padX, padY, bShadow }
+  };
+
+  try {
+    const res = await fetch('/api/suporte/injetar-layout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const result = await res.json();
+    if (result.success) {
+      alert('🚀 ' + result.message);
+    } else {
+      alert('Erro: ' + (result.error || 'Não foi possível injetar o layout.'));
+    }
+  } catch(e) {
+    alert('Erro de conexão ao injetar layout: ' + e.message);
+  }
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+  window.carregarRestaurantesParaStudio();
+});

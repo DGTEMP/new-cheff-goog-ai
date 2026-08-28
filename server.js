@@ -1,338 +1,26 @@
+/**
+ * server-prod.js - Versao de producao do servidor Chef Cozinha
+ * Serve os arquivos estaticos da pasta /dist e abre o browser automaticamente.
+ * Nao usa Vite - roda diretamente com Node.js ou como executavel pkg.
+ */
 const logLines = [];
 const activeSockets = new Map();
 const originalLog = console.log;
 const originalError = console.error;
 
-let isMatrixAnimating = true;
-const pendingLogs = [];
-let tableGames = {};
-
-const ANSI = {
-  reset: "\x1b[0m",
-  bright: "\x1b[1m",
-  dim: "\x1b[2m",
-  green: "\x1b[32m",
-  yellow: "\x1b[33m",
-  cyan: "\x1b[36m",
-  magenta: "\x1b[35m",
-  red: "\x1b[31m",
-  blue: "\x1b[34m",
-  white: "\x1b[37m",
-  bgBlue: "\x1b[44m\x1b[37m",
-  bgCyan: "\x1b[46m\x1b[30m",
-  bgMagenta: "\x1b[45m\x1b[37m",
-  bgGreen: "\x1b[42m\x1b[30m"
-};
-
-// Medição de disponibilidade do servidor
-const serverStartTime = Date.now();
-function getEfficiencyStars() {
-  const memRssMb = process.memoryUsage().rss / (1024 * 1024);
-  if (memRssMb < 150) return "⭐⭐⭐⭐⭐ [100% EXCELENTE]";
-  if (memRssMb < 300) return "⭐⭐⭐⭐ [95% ÓTIMO]";
-  if (memRssMb < 500) return "⭐⭐⭐ [85% BOM]";
-  return "⭐⭐ [ATENÇÃO RESTRIÇÃO]";
-}
-
-// ────────────────────────────────────────────────────────────────────────────
-// 🎉 ANIMAÇÃO DE VITÓRIA — NOVO RESTAURANTE CADASTRADO
-// ────────────────────────────────────────────────────────────────────────────
-function celebrarNovoRestaurante(nome, id, dono) {
-  const frames = ['🎉', '🎊', '✨', '🎈', '🌟', '🎆', '🎇'];
-  let f = 0;
-  const spinner = setInterval(() => {
-    process.stdout.write(`\r  ${frames[f % frames.length]}  Processando novo cliente... `);
-    f++;
-  }, 120);
-
-  setTimeout(() => {
-    clearInterval(spinner);
-    process.stdout.write('\r\x1b[2K\r');
-
-    const ts = new Date().toLocaleTimeString('pt-BR');
-    const banner = [
-      '',
-      `${ANSI.yellow}${ANSI.bright}  ╔══════════════════════════════════════════════════════════════╗${ANSI.reset}`,
-      `${ANSI.yellow}${ANSI.bright}  ║   ✨  NOVO RESTAURANTE CADASTRADO  ✨            ║${ANSI.reset}`,
-      `${ANSI.yellow}${ANSI.bright}  ╠══════════════════════════════════════════════════════════════╣${ANSI.reset}`,
-      `${ANSI.yellow}  ║${ANSI.reset}  ${ANSI.cyan}🏷 Nome:${ANSI.reset}   ${ANSI.bright}${nome}${ANSI.reset}`,
-      `${ANSI.yellow}  ║${ANSI.reset}  ${ANSI.green}🆔 ID:${ANSI.reset}     #${id}`,
-      dono ? `${ANSI.yellow}  ║${ANSI.reset}  ${ANSI.magenta}👤 Dono:${ANSI.reset}   ${dono}` : null,
-      `${ANSI.yellow}  ║${ANSI.reset}  ${ANSI.dim}🕒 Hora:${ANSI.reset}   ${ts}`,
-      `${ANSI.yellow}${ANSI.bright}  ╚══════════════════════════════════════════════════════════════╝${ANSI.reset}`,
-      `  ${ANSI.green}${ANSI.bright}🎊 Bem-vindo ao ecossistema Chef Cozinha SaaS! 🎊${ANSI.reset}`,
-      '',
-    ].filter(Boolean).join('\n');
-
-    originalLog.apply(console, [banner]);
-
-    // Confete ASCII
-    const confete = '  ✦ ★ ✦ ★ ✦ ★ ✦ ★ ✦ ★ ✦ ★ ✦ ★ ✦ ★ ✦ ★ ✦ ★ ✦';
-    let c = 0;
-    const rain = setInterval(() => {
-      c++;
-      const colors = [ANSI.yellow, ANSI.cyan, ANSI.magenta, ANSI.green];
-      const col = colors[c % colors.length];
-      process.stdout.write(`\r${col}${confete}${ANSI.reset}`);
-      if (c >= 10) {
-        clearInterval(rain);
-        process.stdout.write('\r\x1b[2K\r');
-        originalLog.apply(console, [`${ANSI.dim}────────────────────────────────────────────────────────${ANSI.reset}`]);
-      }
-    }, 150);
-  }, 800);
-}
-
-console.log = function (...args) {
+console.log = function(...args) {
   const line = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(' ');
-  logLines.push(`[LOG] ${new Date().toLocaleTimeString('pt-BR')} - ${line}`);
+  logLines.push(`[LOG] ${new Date().toLocaleTimeString()} - ${line}`);
   if (logLines.length > 100) logLines.shift();
-
-  const timeStr = new Date().toLocaleTimeString('pt-BR');
-  let formatted = line;
-
-  // Estilo minimalista Arch/Hyprland para Ações de Usuário (Item por Linha)
-  if (/^\[Cli-Click\]/.test(line)) {
-    const content = line.replace(/^\[Cli-Click\]/, '').trim();
-    const parts = content.split(' | ');
-    formatted = `${ANSI.magenta}╭─ 🖱️  ${ANSI.bright}AÇÃO DO USUÁRIO${ANSI.reset} ${ANSI.dim}────── [${timeStr}] ──╮${ANSI.reset}\n` +
-                parts.map(p => `${ANSI.magenta}│${ANSI.reset}   ${ANSI.cyan}•${ANSI.reset} ${p}`).join('\n') + `\n` +
-                `${ANSI.magenta}╰──────────────────────────────────────╯${ANSI.reset}`;
-  }
-  // Estilo minimalista Arch/Hyprland para Eventos Socket (Item por Linha)
-  else if (/^\[Socket\]/.test(line)) {
-    const content = line.replace(/^\[Socket\]/, '').trim();
-    const parts = content.split(' | ');
-    formatted = `${ANSI.cyan}╭─ ⚡ ${ANSI.bright}EVENTO SOCKET${ANSI.reset} ${ANSI.dim}────── [${timeStr}] ──╮${ANSI.reset}\n` +
-                parts.map(p => `${ANSI.cyan}│${ANSI.reset}   ${ANSI.magenta}•${ANSI.reset} ${p}`).join('\n') + `\n` +
-                `${ANSI.cyan}╰──────────────────────────────────────╯${ANSI.reset}`;
-  }
-  else if (/^\[iFood/.test(line)) {
-  } else {
-    originalLog.apply(console, [formatted]);
-  }
+  originalLog.apply(console, args);
 };
 
-console.error = function (...args) {
+console.error = function(...args) {
   const line = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(' ');
-  logLines.push(`[ERR] ${new Date().toLocaleTimeString('pt-BR')} - ${line}`);
+  logLines.push(`[ERR] ${new Date().toLocaleTimeString()} - ${line}`);
   if (logLines.length > 100) logLines.shift();
-  originalError.apply(console, [`\n${ANSI.red}${ANSI.bright}❌ [${new Date().toLocaleTimeString('pt-BR')}] [ERRO] ${line}${ANSI.reset}\n`]);
+  originalError.apply(console, args);
 };
-
-const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
-const cors = require('cors');
-const os = require('os');
-const zlib = require('zlib');
-// ── PROTEÇÃO ANTI-CRASH GLOBAL ──────────────────────────────────────────────
-// Garante que uncaughtException/unhandledRejection NUNCA derrubem o servidor
-const { setupProcessGuard, asyncHandler, globalErrorMiddleware } = require('./middleware/safe-handler');
-setupProcessGuard({
-  onError: (tipo, err) => {
-    const msg = `[PROCESS GUARD] ${tipo}: ${err && (err.message || String(err))}`;
-    logLines.push(`[ERR] ${new Date().toLocaleTimeString('pt-BR')} - ${msg}`);
-    if (logLines.length > 100) logLines.shift();
-  }
-});
-// ────────────────────────────────────────────────────────────────────────────
-const sqlite3 = require('sqlite3').verbose();
-
-const { AsyncLocalStorage } = require('async_hooks');
-const tenantContext = new AsyncLocalStorage();
-const fsSync = require('fs');
-const path = require('path');
-const fs = require('fs');
-const masterDb = new sqlite3.Database(path.join(__dirname, 'master.sqlite'), (err) => {
-  if (err) console.error('[MasterDB] Erro ao abrir master.sqlite:', err.message);
-  else {
-    masterDb.run('PRAGMA journal_mode = WAL;');
-    masterDb.run('PRAGMA synchronous = NORMAL;');
-    masterDb.run('PRAGMA busy_timeout = 5000;');
-    masterDb.run('PRAGMA cache_size = -32000;');
-    masterDb.run('PRAGMA temp_store = MEMORY;');
-    masterDb.run('PRAGMA foreign_keys = ON;');
-    try { require('./synccheff-security').initSyncCheffDb(masterDb); } catch (e) { }
-  }
-});
-const multer = require('multer');
-const nfceService = require('./nfce-service');
-// ── NOTIFICAÇÕES PUSH (Web Push API) ──
-const webpush = require('web-push');
-async function sendPush(subscricoes, title, body, tag, url) {
-  if (!subscricoes || !subscricoes.length) return;
-  const payload = JSON.stringify({ title, body, tag: tag || 'comanda', url: url || '/garcom.html' });
-  await Promise.all(subscricoes.map(async (sub) => {
-    if (!sub.endpoint || !sub.auth || !sub.p256dh) return;
-    try {
-      await webpush.sendNotification({
-        endpoint: sub.endpoint,
-        keys: { auth: sub.auth, p256dh: sub.p256dh }
-      }, payload);
-    } catch (e) {
-      if (e && (e.statusCode === 404 || e.statusCode === 410)) {
-        db.run(`DELETE FROM push_subscriptions WHERE endpoint = ?`, [sub.endpoint], () => { });
-      } else {
-        console.error('Erro ao enviar push:', e.statusCode || e.message);
-      }
-    }
-  }));
-}
-const ifoodApi = require('./ifood-integration');
-const deploymentConfig = require('./deployment-config');
-const instanceIdentity = require('./instance-identity');
-const dbProxy = require('./db-proxy');
-const loadPlugins = require('./plugin-loader');
-const TunnelManager = require('./tunnel-manager');
-const tunnelManager = new TunnelManager();
-const CloudBackupManager = require('./cloud-backup-manager');
-const { setupRedisAdapter } = require('./redis-adapter-loader');
-const cloudBackupManager = new CloudBackupManager({ baseDir: __dirname });
-const LicenseGuard = require('./license-guard');
-const licenseGuard = new LicenseGuard({ baseDir: __dirname });
-const iaService = require('./ia-service');
-
-// Carrega variáveis do arquivo .env (sem dependência externa)
-try {
-  const envFile = path.join(__dirname, '.env');
-  if (fs.existsSync(envFile)) {
-    fs.readFileSync(envFile, 'utf8').split(/\r?\n/).forEach(line => {
-      const m = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/);
-      if (m && process.env[m[1]] === undefined) {
-        process.env[m[1]] = m[2].replace(/^["']|["']$/g, '');
-      }
-    });
-  }
-} catch (e) {
-  console.error('[Startup] Erro ao carregar .env:', e.message);
-}
-
-
-// SaaS Auth Setup
-const jwt = require('jsonwebtoken');
-const bcrypt = require('bcrypt');
-if (!process.env.JWT_SECRET) {
-  console.warn('[Startup] JWT_SECRET não definido no ambiente. Usando segredo gerado automaticamente.');
-}
-const JWT_SECRET = process.env.JWT_SECRET || 'chef-cozinha-sec-' + require('crypto').randomBytes(32).toString('hex');
-
-function verificarSenhaAdmin(senha) {
-  return new Promise((resolve) => {
-    if (!senha) return resolve(false);
-    masterDb.get(`SELECT valor FROM configuracoes_global WHERE chave = 'super_admin_senha_hash'`, [], async (errC, rowC) => {
-      if (!errC && rowC && rowC.valor) {
-        try {
-          if (await bcrypt.compare(String(senha), rowC.valor)) return resolve(true);
-        } catch (e) { }
-        return resolve(false);
-      }
-      masterDb.all(`SELECT password_hash FROM usuarios WHERE role = 'admin' AND ativo = 1`, [], async (err, users) => {
-        if (err || !users || users.length === 0) return resolve(false);
-        for (const user of users) {
-          try {
-            if (await bcrypt.compare(senha, user.password_hash)) return resolve(true);
-          } catch (e) { }
-        }
-        resolve(false);
-      });
-    });
-  });
-}
-
-function verificarPinTemporario(pin) {
-  return new Promise((resolve) => {
-    if (!pin || typeof pin !== 'string') return resolve({ ok: false });
-    const pinUpper = pin.trim().toUpperCase();
-    db.get(`SELECT * FROM pins_temporarios WHERE pin = ? AND ativo = 1`, [pinUpper], (err, row) => {
-      if (err || !row) return resolve({ ok: false });
-      if (row.tipo_expiracao !== 'sessao' && row.expira_em && row.expira_em !== 'SESSION') {
-        if (new Date(row.expira_em) < new Date()) return resolve({ ok: false });
-      }
-      if (row.usos_atual >= row.max_usos) return resolve({ ok: false });
-      db.run(`UPDATE pins_temporarios SET usos_atual = usos_atual + 1 WHERE id = ?`, [row.id], () => {});
-      resolve({ ok: true, pin: row });
-    });
-  });
-}
-
-async function verificarPinOuSenha(valor) {
-  if (!valor) return false;
-  if (await verificarSenhaAdmin(valor)) return true;
-  const pinResult = await verificarPinTemporario(valor);
-  return pinResult.ok;
-}
-
-// Compara nomes de mesas ignorando acentos, caixa e espaços extras ("Mesa 1" == "mesa 1")
-function normalizarNomeMesa(nome) {
-  return String(nome || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ');
-}
-
-function isBcryptHash(v) { return typeof v === 'string' && /^\$2[aby]\$/.test(v); }
-
-function funcionarioPublico(row) {
-  if (!row) return row;
-  const { senha, ...rest } = row;
-  return rest;
-}
-
-// (Multi-tenant) Localiza um funcionário pelo usuário/nome. Primeiro tenta no
-// tenant atual (o que o socket conectou); se não achar, varre os bancos dos
-// outros tenants. Isso cobre aparelhos/QR compartilhados onde o
-// localStorage.restaurante_id pode estar com o tenant de outro negócio.
-function localizarFuncionarioLogin(usuario, cb) {
-  const q = `SELECT * FROM funcionarios WHERE LOWER(TRIM(usuario)) = LOWER(TRIM(?)) OR LOWER(TRIM(nome)) = LOWER(TRIM(?))`;
-  db.get(q, [usuario, usuario], (err, row) => {
-    if (!err && row) {
-      if (!row.restaurante_id) row.restaurante_id = tenantContext.getStore() || 1;
-      return cb(row);
-    }
-    masterDb.all(`SELECT id FROM restaurantes WHERE ativo = 1`, [], (e, rests) => {
-      if (e || !rests || !rests.length) return cb(null);
-      let i = 0;
-      const atual = tenantContext.getStore() || 1;
-      const next = () => {
-        while (i < rests.length) {
-          const tid = parseInt(rests[i++].id, 10);
-          if (!Number.isFinite(tid) || tid <= 0 || tid === atual) continue;
-          const dbPath = path.join(__dirname, `database_${tid}.sqlite`);
-          if (!fsSync.existsSync(dbPath)) continue;
-          const tdb = new sqlite3.Database(dbPath);
-          tdb.get(q, [usuario, usuario], (e2, row2) => {
-            tdb.close();
-            if (!e2 && row2) {
-              if (!row2.restaurante_id) row2.restaurante_id = tid;
-              return cb(row2);
-            }
-            next();
-          });
-          return;
-        }
-        cb(null);
-      };
-      next();
-    });
-  });
-}
-
-function verificarSenhaFuncionario(row, senha) {
-  const s = String(senha || '').trim();
-  const dbSenha = String(row ? row.senha : '').trim();
-  if (isBcryptHash(row.senha)) {
-    return bcrypt.compare(s, row.senha);
-  }
-  if (s && s === dbSenha) {
-    bcrypt.hash(s, 10).then(h => {
-      db.run(`UPDATE funcionarios SET senha = ? WHERE id = ?`, [h, row.id]);
-    }).catch(() => { });
-    return Promise.resolve(true);
-  }
-  return Promise.resolve(false);
-}
-
-function trimStr(v, maxLen = 500) { return typeof v === 'string' ? v.trim().substring(0, maxLen) : ''; }
-function isValidId(v) { const n = Number(v); return Number.isInteger(n) && n > 0; }
-function safeFloat(v, min = -Infinity, max = Infinity) { const n = parseFloat(v); return isNaN(n) ? 0 : Math.max(min, Math.min(max, n)); }
 
 function getLocalTimestamp() {
   const d = new Date();
@@ -346,3321 +34,30 @@ function getLocalDateOnly() {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-
-// Carregar configuração da licença e URL do Apps Script antes de importar o license-manager
-const LICENSE_CONFIG_FILE = path.join(
-  os.homedir(), 'AppData', 'Roaming', 'ChefCozinha', 'license-config.json'
-);
-try {
-  if (fs.existsSync(LICENSE_CONFIG_FILE)) {
-    const cfg = JSON.parse(fs.readFileSync(LICENSE_CONFIG_FILE, 'utf8'));
-    if (cfg.scriptUrl) process.env.LICENSE_URL = cfg.scriptUrl;
-  }
-} catch (e) {
-  console.error('[Startup] Erro ao carregar URL da licença:', e.message);
-}
-
-const licenseManager = require('./license-manager');
-
-// Configure multer for file uploads
-const upload = multer({ dest: path.join(__dirname, 'uploads/') });
-
-const app = express();
-app.use(cors({
-  origin: process.env.CORS_ORIGIN || true,
-  credentials: true
-}));
-app.use(express.json());
-
-// ── SEGURANÇA WAF, ANTI-DDOS & RATE LIMITER DINÂMICO ──
-const rateLimitMap = new Map();
-const wafAttackLogs = [];
-
-let wafConfig = {
-  enabled: true,
-  max_reqs_per_minute: 300,
-  block_sqli_xss: true,
-  headers_enabled: true,
-  blacklist_ips: []
-};
-
-// Carregar configs salvas do WAF no banco de dados
-function loadWafConfig() {
-  masterDb.get("SELECT valor FROM configuracoes_global WHERE chave = 'waf_config'", [], (err, row) => {
-    if (!err && row && row.valor) {
-      try { wafConfig = Object.assign(wafConfig, JSON.parse(row.valor)); } catch (e) { }
-    }
-  });
-}
-setTimeout(loadWafConfig, 2000);
-
-app.use((req, res, next) => {
-  if (!wafConfig.enabled) return next();
-
-  const rawIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || req.ip || '127.0.0.1';
-  const ip = rawIp.replace('::ffff:', '');
-
-  // Mensagens engraçadas por Nível de Ataque (Zoações Inteligentes)
-  const ZOACIONAL_NIVEIS = {
-    blacklist: [
-      "🚫 N�?VEL MAXIMO: Calma lá, Hacker de Lanchonete! Seu IP tomou um BAN permanente. Vai tomar um café!",
-      "⛔ ERRO 403: Você foi bloqueado pelo Chef! Nem com tempero secreto seu IP entra aqui de novo.",
-      "🚫 ACESSO NEGADO: Detectamos que você é o hacker da NASA de fundo de quintal. IP na Blacklist!"
-    ],
-    sqli_xss: [
-      "🧙�?♂�? N�?VEL 2: Tentando SQL Injection em 2026? Meu banco de dados deu risada e mandou um abraço!",
-      "🕵�?�?♂�? N�?VEL 2: Achou que ia mandar um <script>alert('hacked')</script> e virar o Mr. Robot? Tenta no Paint!",
-      "🤡 N�?VEL 2: 'DROP TABLE'? A única coisa que vai cair aqui é a sua autoestima. Injeção bloqueada!"
-    ],
-    rate_limit: [
-      "�?��? N�?VEL 1: Ei, Ligeirinho! Mandou requisição demais e fundiu o motor. Respira 1 minuto!",
-      "�?� N�?VEL 1: Calma, afobado! 300 requisições num minuto? Nem robô de entrega é tão rápido. Espera aí um pouco!",
-      "🚦 N�?VEL 1: Freia esse flood! O servidor é forte, mas sua apressação levou um Red Card temporário."
-    ],
-    path_traversal: [
-      "📂 N�?VEL 3: Tentando '..//..//etc/passwd'? O máximo que você vai achar aqui é a receita de pão de alho da vovó!",
-      "🛑 N�?VEL 3: Navegação de diretórios? Esse caminho não leva ao tesouro, só a um 403 bem bonito!"
-    ]
-  };
-
-  function pegarZoacao(nivel) {
-    const arr = ZOACIONAL_NIVEIS[nivel] || ["Acesso negado pela segurança do Chef!"];
-    return arr[Math.floor(Math.random() * arr.length)];
-  }
-
-  // 1. Verificar Lista Negra (Blacklist de IPs)
-  if (Array.isArray(wafConfig.blacklist_ips) && wafConfig.blacklist_ips.includes(ip)) {
-    console.warn(`⛔ [WAF Anti-DDoS] Acesso negado para IP na Blacklist: ${ip}`);
-    const msg = pegarZoacao('blacklist');
-    wafAttackLogs.unshift({ data: new Date().toISOString(), ip, metodo: req.method, endpoint: req.originalUrl, motivo: 'IP em Lista Negra (Blacklist)' });
-    if (wafAttackLogs.length > 100) wafAttackLogs.pop();
-    res.setHeader('X-Troll-Security', 'Nice-Try-Hacker');
-    return res.status(403).json({ success: false, error: 'Acesso Negado (IP Banido)', zombaria: msg, dica: 'Tente novamente em outra encarnação ☕' });
-  }
-
-  // 2. Security Headers (Anti-Clickjacking, Anti-XSS, No-Sniff)
-  if (wafConfig.headers_enabled) {
-    res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
-    res.setHeader('X-XSS-Protection', '1; mode=block');
-    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-  }
-
-  // 3. Filtro Básico Anti-SQLi / Anti-XSS na URL e Body
-  if (wafConfig.block_sqli_xss) {
-    const urlCheck = (req.originalUrl || '').toLowerCase();
-    if (urlCheck.includes('<script>') || urlCheck.includes('union select') || urlCheck.includes('drop table') || urlCheck.includes('or 1=1') || urlCheck.includes('eval(')) {
-      console.warn(`⚠? [WAF Anti-XSS/SQLi] Tentativa de injeção bloqueada de ${ip}`);
-      const msg = pegarZoacao('sqli_xss');
-      wafAttackLogs.unshift({ data: new Date().toISOString(), ip, metodo: req.method, endpoint: req.originalUrl, motivo: 'Tentativa de Injeção SQL/XSS' });
-      if (wafAttackLogs.length > 100) wafAttackLogs.pop();
-      res.setHeader('X-Troll-Security', 'SQLi-XSS-Blocked-Lol');
-      return res.status(400).json({ success: false, error: 'Injeção Detectada', zombaria: msg, conselho: 'Troque o ataque por um curso de programação 🤓' });
-    }
-  }
-
-  // 4. Rate Limiter (Anti-DDoS por IP) - Whitelist Localhost
-  const isLocal = ip === '127.0.0.1' || ip === '::1' || ip === 'localhost' || (typeof ip === 'string' && ip.includes('127.0.0.1'));
-  const now = Date.now();
-  const windowMs = 60 * 1000;
-  const maxReqs = parseInt(wafConfig.max_reqs_per_minute) || 300;
-
-  let record = rateLimitMap.get(ip);
-  if (!record || now - record.startTime > windowMs) {
-    rateLimitMap.set(ip, { count: 1, startTime: now });
-  } else {
-    record.count++;
-    if (!isLocal && record.count > maxReqs) {
-      console.warn(`⚠�? [Anti-DDoS] IP bloqueado por limite de taxa (${record.count} reqs/min): ${ip}`);
-      const msg = pegarZoacao('rate_limit');
-      wafAttackLogs.unshift({ data: new Date().toISOString(), ip, metodo: req.method, endpoint: req.originalUrl, motivo: `Limite Rate Limit excedido (${record.count}/${maxReqs})` });
-      if (wafAttackLogs.length > 100) wafAttackLogs.pop();
-      res.setHeader('X-Troll-Security', 'Too-Fast-Too-Furious');
-      return res.status(429).json({ success: false, error: 'Muitas Requisições', zombaria: msg, tempo_espera: 'Aguarde 60 segundos �?�' });
-    }
-  }
-
-  next();
-});
-
-// Middleware global para registrar acessos à API (Quem, O Que, Pra Onde)
-app.use('/api', (req, res, next) => {
-  const start = Date.now();
-  const operador = req.headers['x-user'] || req.headers['x-operador'] || req.query.user || (req.body && req.body.operador) || 'Sistema / API';
-  const rawIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || req.ip || '127.0.0.1';
-  const ip = rawIp.replace('::ffff:', '');
-
-  res.on('finish', () => {
-    let payload = '';
-    if (req.method !== 'GET') {
-      try {
-        const bodyCopy = { ...req.body };
-        if (bodyCopy.senha) bodyCopy.senha = '***';
-        if (bodyCopy.cert_senha) bodyCopy.cert_senha = '***';
-        payload = JSON.stringify(bodyCopy).substring(0, 300);
-      } catch (e) { }
-    } else {
-      try { payload = JSON.stringify(req.query || {}).substring(0, 300); } catch (e) { }
-    }
-
-    db.run(
-      `INSERT INTO api_logs (operador, ip, metodo, endpoint, detalhes, status_code) VALUES (?, ?, ?, ?, ?, ?)`,
-      [operador, ip, req.method, req.originalUrl || req.url, payload, res.statusCode]
-    );
-  });
-  next();
-});
-
-// --- DOM�?NIO POR TENANT (subdomínio + domínio próprio) ---
-let BASE_DOMAIN = (process.env.BASE_DOMAIN || 'chefcozinha.com.br').toLowerCase();
-const domainMap = new Map(); // custom_domain → tenant_id
-const slugMap = new Map();   // slug → tenant_id
-let domainMapLoaded = false;
-
-function loadDomainMaps() {
-  return new Promise((resolve) => {
-    masterDb.all(`SELECT id, slug, custom_domain FROM restaurantes WHERE ativo = 1`, [], (err, rows) => {
-      if (err) return resolve();
-      domainMap.clear();
-      slugMap.clear();
-      (rows || []).forEach(r => {
-        if (r.custom_domain && r.custom_domain.trim()) {
-          domainMap.set(r.custom_domain.trim().toLowerCase(), r.id);
-        }
-        if (r.slug && r.slug.trim()) {
-          slugMap.set(r.slug.trim().toLowerCase(), r.id);
-        }
-      });
-      domainMapLoaded = true;
-      resolve();
-    });
-  });
-}
-
-function resolveTenantFromHost(req) {
-  const host = (req.get('host') || '').split(':')[0].toLowerCase();
-  if (!host) return null;
-
-  // 1) Match custom domain first
-  if (domainMap.has(host)) return domainMap.get(host);
-
-  // 2) Check if it's a subdomain of BASE_DOMAIN (e.g. pizzaria.chefcozinha.com.br)
-  const suffix = '.' + BASE_DOMAIN;
-  if (host.endsWith(suffix) && host.length > suffix.length) {
-    const subdomain = host.slice(0, host.length - suffix.length);
-    if (slugMap.has(subdomain)) return slugMap.get(subdomain);
-  }
-
-  return null;
-}
-
-// ── ROTA DE RESGATE: funciona mesmo se tudo mais quebrar ──────────────
-app.get('/rescue', (req, res) => {
-  res.sendFile(path.join(__dirname, 'rescue.html'));
-});
-
-// ── SEGURANÇA: PARSER DE COOKIES & CABEÇALHOS CSP ─────────────────────────
-app.use((req, res, next) => {
-  req.cookies = {};
-  const cookieHeader = req.headers.cookie;
-  if (cookieHeader) {
-    cookieHeader.split(';').forEach(cookie => {
-      const parts = cookie.split('=');
-      if (parts.length >= 2) {
-        const name = parts[0].trim();
-        const value = parts.slice(1).join('=').trim();
-        req.cookies[name] = decodeURIComponent(value);
-      }
-    });
-  }
-
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
-  res.setHeader('X-XSS-Protection', '1; mode=block');
-  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-
-  res.setHeader(
-    'Content-Security-Policy',
-    "default-src 'self'; " +
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://appchef.up.railway.app; " +
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; " +
-    "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; " +
-    "img-src 'self' data: blob: https:; " +
-    "connect-src 'self' wss: ws: https://appchef.up.railway.app;"
-  );
-  next();
-});
-
-// --- SAAS MULTI-TENANT SIMULATION ---
-app.use((req, res, next) => {
-  const domainTenant = resolveTenantFromHost(req);
-  req.restaurante_id = domainTenant || 1; // Domain-resolved or default tenant
-  req.tenant_slug = null;
-  if (domainTenant) {
-    const host = (req.get('host') || '').split(':')[0].toLowerCase();
-    const suffix = '.' + BASE_DOMAIN;
-    if (host.endsWith(suffix)) {
-      req.tenant_slug = host.slice(0, host.length - suffix.length);
-    }
-  }
-  next();
-});
-
-app.use((req, res, next) => {
-  const origSetHeader = res.setHeader.bind(res);
-  res.setHeader = (name, val) => {
-    if (name && name.toLowerCase() === 'content-type' && typeof val === 'string' && !val.includes('charset')) {
-      const textTypes = ['text/', 'application/javascript', 'application/json', 'application/xml'];
-      if (textTypes.some(t => val.startsWith(t))) val += '; charset=utf-8';
-    }
-    return origSetHeader(name, val);
-  };
-  next();
-});
-
-// (Segurança) Bloqueia a exposição via estática de bancos de dados, certificados,
-// chaves, scripts do servidor, configs e demais arquivos sensíveis do diretório raiz.
-const BLOCKED_STATIC_PREFIXES = [
-  'node_modules', 'database_', 'installer', 'package.json', 'package-lock',
-  'server.js', 'server-prod', 'server_test', 'server-prod-header', 'main_invalid',
-  'webpack.config', 'vite.config', 'uploads', 'webpush', 'certs', 'backup',
-  'estabelecimentos', 'hub-server', 'ubuntu-server', 'ChefCozinha-Nativo',
-  'iniciodoprojeto', 'super-admin.js', 'dist'
-];
-const BLOCKED_STATIC_EXTS = [
-  '.sqlite', '.sqlite-wal', '.sqlite-shm', '.db', '.db-wal', '.db-shm',
-  '.pfx', '.p12', '.pem', '.crt', '.key', '.cer', '.env', '.log', '.ini',
-  '.bat', '.cmd', '.ps1', '.sh'
-];
-app.use((req, res, next) => {
-  if (req.method !== 'GET' && req.method !== 'HEAD') return next();
-  const urlPath = (req.path || '/').toLowerCase();
-  if (urlPath.startsWith('/api') || urlPath.startsWith('/socket.io') || urlPath.startsWith('/super-admin')) return next();
-  let decoded = '';
-  try { decoded = decodeURIComponent(req.path || '/').toLowerCase(); } catch (e) { decoded = urlPath; }
-
-  const TROLL_BLOCKED_RESP = '<div style="font-family:sans-serif;text-align:center;padding:50px;background:#111;color:#ff5722;min-height:100vh;">' +
-    '<h1>🕵�?�?♂�? Tentando espiar arquivos do Servidor?</h1>' +
-    '<p style="font-size:18px;color:#eee;">Acesso Negado! O máximo que você vai encontrar aqui é o segredo do nosso molho especial. �?�</p>' +
-    '<small style="color:#777;">(Seu IP foi gravado nos logs de auditoria para fins de diversão da equipe)</small>' +
-  '</div>';
-
-  if (decoded.includes('..') || BLOCKED_STATIC_PREFIXES.some(b => decoded.includes(b)) || BLOCKED_STATIC_EXTS.some(b => decoded.endsWith(b))) {
-    res.setHeader('X-Troll-Security', 'File-Access-Denied-Lol');
-    return res.status(403).send(TROLL_BLOCKED_RESP);
-  }
-  next();
-});
-
-// Compressão brotli/gzip (GET de conteúdo textual, sem dep externa) ─────────
-app.use((req, res, next) => {
-  if (req.method !== 'GET') return next();
-  const urlPath = (req.path || '').toLowerCase();
-  if (urlPath.startsWith('/api') || urlPath.startsWith('/socket.io')) return next();
-  const accept = req.headers['accept-encoding'] || '';
-  const useBr = /(^|[,\s])br($|[,\s])/i.test(accept);
-  const useGz = /gzip/i.test(accept);
-  if (!useBr && !useGz) return next();
-
-  const origWrite = res.write;
-  const origEnd = res.end;
-  const chunks = [];
-
-  res.write = function (chunk, encoding, callback) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk, encoding || 'utf8'));
-    if (typeof callback === 'function') callback();
-    return true;
-  };
-  res.end = function (chunk, encoding, callback) {
-    if (chunk) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk, encoding || 'utf8'));
-    const body = Buffer.concat(chunks);
-    const ct = String(res.getHeader('content-type') || '');
-    if (body.length < 256 || !/text|javascript|json|xml|css/i.test(ct)) {
-      res.write = origWrite;
-      res.end = origEnd;
-      res.removeHeader('content-length');
-      return origEnd.call(res, body, encoding, callback);
-    }
-    res.removeHeader('content-length');
-    const compress = useBr ? zlib.brotliCompress : zlib.gzip;
-    compress(body, (err, out) => {
-      if (err || out.length >= body.length) {
-        res.write = origWrite;
-        res.end = origEnd;
-        return origEnd.call(res, body, encoding, callback);
-      }
-      res.setHeader('content-encoding', useBr ? 'br' : 'gzip');
-      res.setHeader('vary', 'Accept-Encoding');
-      res.setHeader('content-length', out.length);
-      origEnd.call(res, out);
-    });
-    return res;
-  };
-  next();
-});
-
-// Serve a raiz primeiro (HTML/JS das páginas), com o dist como fallback (vendor, assets, libs)
-// Estáticos com cache: ativos com hash (v=...) podem ser cacheados por mais tempo; os demais curtos.
-// Cache curto do mtime evita um statSync síncrono (que bloqueia o event loop) por requisição.
-const mtimeCache = new Map();
-function cachedMtime(filePath) {
-  const hit = mtimeCache.get(filePath);
-  if (hit && Date.now() - hit.t < 2000) return hit.mtime;
-  let m;
-  try { m = fsSync.statSync(filePath).mtime; } catch (e) { m = new Date(0); }
-  mtimeCache.set(filePath, { mtime: m, t: Date.now() });
-  if (mtimeCache.size > 400) {
-    const entries = mtimeCache.keys();
-    for (const k of entries) { mtimeCache.delete(k); if (mtimeCache.size <= 250) break; }
-  }
-  return m;
-}
-
-app.use(express.static(__dirname, {
-  etag: true,
-  setHeaders: (res, filePath) => {
-    res.setHeader('Last-Modified', cachedMtime(filePath).toUTCString());
-    const cachePath = filePath.replace(/\\/g, '/').toLowerCase();
-    if (/\.(png|jpg|jpeg|gif|svg|ico|woff2?|ttf|mp4|webp)$/.test(cachePath)) {
-      res.setHeader('Cache-Control', 'public, max-age=3600');
-    } else {
-      res.setHeader('Cache-Control', 'no-cache, must-revalidate');
-    }
-  }
-}));
-app.use(express.static(path.join(__dirname, 'public'), {
-  etag: true,
-  setHeaders: (res, filePath) => {
-    const cachePath = filePath.replace(/\\/g, '/').toLowerCase();
-    if (/\.(js|css|png|jpg|jpeg|gif|svg|ico|woff2?|ttf|mp4|webp)$/.test(cachePath)) {
-      res.setHeader('Cache-Control', 'public, max-age=3600');
-    } else {
-      res.setHeader('Cache-Control', 'no-cache');
-    }
-  }
-}));
-app.use(express.static(path.join(__dirname, 'dist'), {
-  etag: true,
-  setHeaders: (res, filePath) => {
-    const cachePath = filePath.replace(/\\/g, '/').toLowerCase();
-    if (/\.(js|css|png|jpg|jpeg|gif|svg|ico|woff2?|ttf|mp4|webp)$/.test(cachePath)) {
-      res.setHeader('Cache-Control', 'public, max-age=3600');
-    } else {
-      res.setHeader('Cache-Control', 'no-cache');
-    }
-  }
-}));
-
-// �?�?�? PLUGIN LOADER removido daqui — ver abaixo, após definição de db e superAdminAuth �?�?�?
-
-app.get('/super-admin', (req, res) => {
-  const distPath = path.join(__dirname, 'dist', 'super-admin.html');
-  if (fs.existsSync(distPath)) res.sendFile(distPath);
-  else res.sendFile(path.join(__dirname, 'super-admin.html'));
-});
-
-app.get('/super-admin.js', (req, res) => {
-  const distPath = path.join(__dirname, 'dist', 'super-admin.js');
-  if (fs.existsSync(distPath)) res.sendFile(distPath);
-  else res.sendFile(path.join(__dirname, 'super-admin.js'));
-});
-
-app.get(['/afiliados', '/portal-afiliados'], (req, res) => {
-  const distPath = path.join(__dirname, 'dist', 'portal-afiliados.html');
-  if (fs.existsSync(distPath)) res.sendFile(distPath);
-  else res.sendFile(path.join(__dirname, 'portal-afiliados.html'));
-});
-
-app.get(['/suporte', '/painel-suporte'], (req, res) => {
-  const distPath = path.join(__dirname, 'dist', 'suporte.html');
-  if (fs.existsSync(distPath)) res.sendFile(distPath);
-  else res.sendFile(path.join(__dirname, 'suporte.html'));
-});
-
-app.get('/ativacao', (req, res) => {
-  const distPath = path.join(__dirname, 'dist', 'ativacao.html');
-  if (fs.existsSync(distPath)) res.sendFile(distPath);
-  else res.sendFile(path.join(__dirname, 'ativacao.html'));
-});
-
-app.get('/favicon.ico', (req, res) => {
-  res.sendFile(path.join(__dirname, 'icons', 'icon.ico'));
-});
-
-app.get('/robots.txt', (req, res) => {
-  res.type('text/plain').send('User-agent: *\nDisallow: /api/\nDisallow: /super-admin\n');
-});
-
-app.get('{*path}.map', (req, res) => {
-  res.status(404).send('');
-});
-
-app.get(['/site', '/vendas'], (req, res) => {
-  const distPath = path.join(__dirname, 'dist', 'site-vendas.html');
-  if (fs.existsSync(distPath)) res.sendFile(distPath);
-  else res.sendFile(path.join(__dirname, 'site-vendas.html'));
-});
-
-app.get('/vendas', (req, res) => {
-  const distPath = path.join(__dirname, 'dist', 'site-vendas.html');
-  if (fs.existsSync(distPath)) {
-    res.sendFile(distPath);
-  } else {
-    res.sendFile(path.join(__dirname, 'site-vendas.html'));
-  }
-});
-
-// ── PUBLIC API: Site Config (sem autenticação) ───────────────────────────
-app.get('/api/public/site-config', (req, res) => {
-  masterDb.all("SELECT chave, valor FROM configuracoes_global WHERE chave LIKE 'site_%'", [], (err, rows) => {
-    if (err) return res.json({ ok: true, configs: {} });
-    const cfgs = {};
-    (rows || []).forEach(r => {
-      // Tenta parsear JSON automaticamente
-      try { cfgs[r.chave] = JSON.parse(r.valor); } catch(e) { cfgs[r.chave] = r.valor; }
-    });
-    res.json({ ok: true, configs: cfgs });
-  });
-});
-
-// ── PUBLIC API: Tracking Config (Pixel & GTAG) ───────────────────────────
-app.get('/api/public/tracking-config', (req, res) => {
-  masterDb.get("SELECT valor FROM configuracoes_global WHERE chave = 'tracking_config'", [], (err, row) => {
-    if (err || !row) return res.json({ ok: true, config: {} });
-    try {
-      const cfg = JSON.parse(row.valor);
-      res.json({ ok: true, config: cfg });
-    } catch(e) {
-      res.json({ ok: true, config: {} });
-    }
-  });
-});
-
-// ── SUPER ADMIN: Save Tracking Config ────────────────────────────────────
-// �?�?�?�?�?�? MONITOR DE CADASTRO AO VIVO (super-admin vê o restaurante digitando) �?�?�?�?�?�?
-app.post('/api/monitor/cadastro-progresso', (req, res) => {
-  try {
-    const b = req.body || {};
-    if (!b.sessao_id) return res.status(400).json({ ok: false });
-    const campos = typeof b.campos === 'object' && b.campos ? b.campos : {};
-    const payload = {
-      sessao_id: String(b.sessao_id).slice(0, 80),
-      etapa: String(b.etapa || '1').slice(0, 30),
-      campos,
-      dispositivo: String(b.dispositivo || '').slice(0, 200),
-      bateria: String(b.bateria || '').slice(0, 40),
-      rede: String(b.rede || '').slice(0, 120),
-      localizacao: (typeof b.localizacao === 'object' && b.localizacao) ? b.localizacao : null,
-      ip: (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim(),
-      atualizado_em: getLocalTimestamp()
-    };
-    masterDb.run(
-      `INSERT INTO cadastros_monitor (sessao_id, etapa, campos_json, dispositivo, bateria, rede, localizacao, ip, status, criado_em, atualizado_em)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'digitando', datetime('now','localtime'), ?)
-       ON CONFLICT(sessao_id) DO UPDATE SET
-         etapa = excluded.etapa, campos_json = excluded.campos_json, dispositivo = excluded.dispositivo,
-         bateria = excluded.bateria, rede = excluded.rede, localizacao = excluded.localizacao,
-         atualizado_em = excluded.atualizado_em`,
-      [payload.sessao_id, payload.etapa, JSON.stringify(campos), payload.dispositivo, payload.bateria,
-        payload.rede, JSON.stringify(payload.localizacao), payload.ip, payload.atualizado_em],
-      () => { }
-    );
-    io.to('super_admin').emit('super_cadastro_digitando', payload);
-    res.json({ ok: true });
-  } catch (e) {
-    res.status(500).json({ ok: false });
-  }
-});
-
-app.get('/api/super/cadastros-monitor', superAdminAuth, (req, res) => {
-  const horas = Math.max(1, parseInt(req.query.horas, 10) || 24);
-  masterDb.all(
-    `SELECT * FROM cadastros_monitor WHERE atualizado_em >= datetime('now', 'localtime', '-${horas} hours') ORDER BY atualizado_em DESC LIMIT 100`,
-    [],
-    (err, rows) => {
-      if (err) return res.status(500).json({ error: 'Erro ao consultar.' });
-      res.json({ cadastros: rows || [] });
-    }
-  );
-});
-
-app.post('/api/super/tracking-config', superAdminAuth, (req, res) => {  const config = req.body || {};
-  const jsonVal = JSON.stringify(config);
-  masterDb.run(
-    `INSERT INTO configuracoes_global (chave, valor) VALUES ('tracking_config', ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor`,
-    [jsonVal],
-    function(err) {
-      if (err) return res.json({ ok: false, erro: err.message });
-      res.json({ ok: true, mensagem: 'Configurações de GTAG e Pixel salvas com sucesso!' });
-    }
-  );
-});
-
-// ── SUPER ADMIN: Gerador de Audiência para Anúncios Meta/Google ─────────────
-app.get('/api/super/anuncios/audiencia-export', superAdminAuth, (req, res) => {
-  const { categoria } = req.query; // 'donos', 'funcionarios', 'clientes', 'todos'
-
-  if (categoria === 'donos') {
-    masterDb.all(`SELECT DISTINCT dono_nome AS nome, dono_email AS email, dono_telefone AS telefone, 'Dono / Restaurante' AS tipo FROM restaurantes WHERE ativo = 1`, [], (err, rows) => {
-      if (err) return res.json({ ok: false, erro: err.message });
-      res.json({ ok: true, categoria, total: rows.length, dados: rows });
-    });
-  } else if (categoria === 'funcionarios') {
-    masterDb.all(`SELECT DISTINCT nome, username AS email, telefone, cargo AS tipo FROM usuarios WHERE ativo = 1 AND role != 'admin'`, [], (err, rows) => {
-      if (err) return res.json({ ok: false, erro: err.message });
-      res.json({ ok: true, categoria, total: rows.length, dados: rows });
-    });
-  } else if (categoria === 'clientes') {
-    masterDb.all(`SELECT DISTINCT nome, email, telefone, 'Cliente Final' AS tipo FROM clientes WHERE ativo = 1`, [], (err, rows) => {
-      if (err) return res.json({ ok: false, erro: err.message });
-      res.json({ ok: true, categoria, total: rows.length, dados: rows });
-    });
-  } else {
-    // Todos unificados
-    const sql = `
-      SELECT dono_nome AS nome, dono_email AS email, dono_telefone AS telefone, 'Dono / Restaurante' AS tipo FROM restaurantes WHERE ativo = 1
-      UNION
-      SELECT nome, username AS email, telefone, cargo AS tipo FROM usuarios WHERE ativo = 1
-      UNION
-      SELECT nome, email, telefone, 'Cliente Final' AS tipo FROM clientes WHERE ativo = 1
-    `;
-    masterDb.all(sql, [], (err, rows) => {
-      if (err) return res.json({ ok: false, erro: err.message });
-      res.json({ ok: true, categoria: 'todos', total: rows.length, dados: rows });
-    });
-  }
-});
-
-// ── SUPER ADMIN: Gerador de Copy / Texto de Anúncios Direcionados ─────────
-app.post('/api/super/anuncios/gerar-copy', superAdminAuth, (req, res) => {
-  const { categoria, objetivo } = req.body || {};
-
-  const templates = {
-    donos: {
-      titulo: '🚀 Automatize seu Restaurante e Aumente seus Lucros com o Chef Cozinha!',
-      subtitulo: 'Sistema PDV completo, Cardápio Digital QR Code, Gestão de Garçons e Anti-Fraude.',
-      texto: 'Você é dono de bar, restaurante ou lanchonete? Pare de perder dinheiro com comandas no papel ou sistemas lentos. O Chef Cozinha oferece KDS de cozinha, controle financeiro em tempo real e WhatsApp integrado. Teste grátis por 14 dias sem cartão!',
-      call_to_action: 'Cadastre seu Restaurante Grátis',
-      link: '/site'
-    },
-    funcionarios: {
-      titulo: '⚡ Agilidade Extrema no Atendimento para Garçons e Atendentes!',
-      subtitulo: 'Comandas no celular, PIN rápido, métricas de gorjetas e menos erros na cozinha.',
-      texto: 'Trabalha como Garçom, Gerente ou Operador de Caixa? Conheça o Chef Cozinha App, o sistema com interface ultrarrápida projetada para facilitar a rotina do colaborador.',
-      call_to_action: 'Conheça os Recursos de Equipe',
-      link: '/site'
-    },
-    clientes: {
-      titulo: '�?� Faça seu Pedido Sem Filas e Ganhe Cupons Exclusivos!',
-      subtitulo: 'Acesse o Cardápio Digital no seu celular, peça à mesa ou pelo Delivery com PIX automático.',
-      texto: 'Quer a melhor experiência gastronômica nos melhores restaurantes da sua cidade? Peça pelo cardápio digital Chef Cozinha e aproveite descontos no Programa de Fidelidade!',
-      call_to_action: 'Ver Restaurantes Parceiros',
-      link: '/cardapio.html'
-    }
-  };
-
-  const tpl = templates[categoria] || templates.donos;
-  res.json({ ok: true, copy: tpl });
-});
-
-// ── PUBLIC API: Checkout (Asaas / MercadoPago) ───────────────────────────
-app.post('/api/public/checkout', async (req, res) => {
-  const { plano, nome, email, telefone, cpfCnpj, gateway } = req.body || {};
-  if (!plano || !nome || !email) return res.status(400).json({ ok: false, erro: 'Dados obrigatórios: plano, nome, email.' });
-
-  // Ler config do gateway
-  const gwConfig = await new Promise((resolve) => {
-    masterDb.get("SELECT valor FROM configuracoes_global WHERE chave = 'site_gateways'", [], (err, row) => {
-      if (err || !row) return resolve(null);
-      try { resolve(JSON.parse(row.valor)); } catch(e) { resolve(null); }
-    });
-  });
-
-  if (!gwConfig) return res.status(500).json({ ok: false, erro: 'Gateways de pagamento não configurados.' });
-
-  // Ler plano
-  const planosRaw = await new Promise((resolve) => {
-    masterDb.get("SELECT valor FROM configuracoes_global WHERE chave = 'site_planos'", [], (err, row) => {
-      if (err || !row) return resolve(null);
-      try { resolve(JSON.parse(row.valor)); } catch(e) { resolve(null); }
-    });
-  });
-
-  const planoData = (planosRaw || []).find(p => p.id === plano || p.nome === plano);
-  if (!planoData) return res.status(400).json({ ok: false, erro: 'Plano não encontrado.' });
-
-  const gwPreferido = gateway || gwConfig.gateway_padrao || 'asaas';
-
-  try {
-    if (gwPreferido === 'asaas' && gwConfig.asaas_ativo && gwConfig.asaas_api_key) {
-      // Asaas: criar cliente + cobrança
-      const baseUrl = gwConfig.asaas_sandbox ? 'https://sandbox.asaas.com/api/v3' : 'https://api.asaas.com/v3';
-      const headers = { 'Content-Type': 'application/json', 'access_token': gwConfig.asaas_api_key };
-
-      // Criar/buscar cliente
-      const custRes = await fetch(`${baseUrl}/customers`, {
-        method: 'POST', headers,
-        body: JSON.stringify({ name: nome, email, phone: telefone, cpfCnpj: cpfCnpj || undefined })
-      });
-      const custData = await custRes.json();
-      const customerId = custData.id || (custData.errors ? null : custData.id);
-
-      if (!customerId) return res.json({ ok: false, erro: 'Erro ao criar cliente no Asaas.', detalhes: custData });
-
-      // Criar cobrança
-      const chargeRes = await fetch(`${baseUrl}/payments`, {
-        method: 'POST', headers,
-        body: JSON.stringify({
-          customer: customerId,
-          billingType: (gwConfig.asaas_tipo_cobranca || 'PIX').toUpperCase(),
-          value: planoData.preco,
-          dueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          description: `Chef Cozinha - Plano ${planoData.nome}`,
-          externalReference: `chef_${Date.now()}`
-        })
-      });
-      const chargeData = await chargeRes.json();
-      return res.json({ ok: true, gateway: 'asaas', payment: chargeData });
-
-    } else if (gwPreferido === 'mercadopago' && gwConfig.mp_ativo && gwConfig.mp_access_token) {
-      // MercadoPago: criar preferência
-      const mpRes = await fetch('https://api.mercadopago.com/checkout/preferences', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gwConfig.mp_access_token}` },
-        body: JSON.stringify({
-          items: [{
-            title: `Chef Cozinha - Plano ${planoData.nome}`,
-            quantity: 1,
-            unit_price: planoData.preco,
-            currency_id: 'BRL'
-          }],
-          payer: { name: nome, email },
-          back_urls: {
-            success: `${req.protocol}://${req.get('host')}/registro.html?plano=${encodeURIComponent(planoData.id || planoData.nome)}&pago=1`,
-            failure: `${req.protocol}://${req.get('host')}/site`,
-            pending: `${req.protocol}://${req.get('host')}/site`
-          },
-          auto_return: 'approved'
-        })
-      });
-      const mpData = await mpRes.json();
-      return res.json({ ok: true, gateway: 'mercadopago', payment: mpData });
-
-    } else {
-      return res.json({ ok: false, erro: 'Nenhum gateway ativo configurado.' });
-    }
-  } catch (e) {
-    console.error('[Checkout] Erro:', e);
-    return res.status(500).json({ ok: false, erro: 'Erro ao processar pagamento.', detalhes: e.message });
-  }
-});
-
-app.get('/fidelidade', (req, res) => {
-  const distPath = path.join(__dirname, 'dist', 'area-cliente.html');
-  if (fs.existsSync(distPath)) {
-    res.sendFile(distPath);
-  } else {
-    res.sendFile(path.join(__dirname, 'area-cliente.html'));
-  }
-});
-
-app.get('/area-cliente', (req, res) => {
-  const distPath = path.join(__dirname, 'dist', 'area-cliente.html');
-  if (fs.existsSync(distPath)) {
-    res.sendFile(distPath);
-  } else {
-    res.sendFile(path.join(__dirname, 'area-cliente.html'));
-  }
-});
-
-// Redireciona /area-cliente.html → /area-cliente (preservando query string)
-app.get('/area-cliente.html', (req, res) => {
-  const qs = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
-  res.redirect(301, '/area-cliente' + qs);
-});
-
-// ── PUBLIC API: Checkout (Asaas / MercadoPago) ───────────────────────────
-app.post('/api/public/checkout', async (req, res) => {
-  const { plano, nome, email, telefone, cpfCnpj, gateway } = req.body || {};
-  if (!plano || !nome || !email) return res.status(400).json({ ok: false, erro: 'Dados obrigatórios: plano, nome, email.' });
-
-  // Ler config do gateway
-  const gwConfig = await new Promise((resolve) => {
-    masterDb.get("SELECT valor FROM configuracoes_global WHERE chave = 'site_gateways'", [], (err, row) => {
-      if (err || !row) return resolve(null);
-      try { resolve(JSON.parse(row.valor)); } catch(e) { resolve(null); }
-    });
-  });
-
-  if (!gwConfig) return res.status(500).json({ ok: false, erro: 'Gateways de pagamento não configurados.' });
-
-  // Ler plano
-  const planosRaw = await new Promise((resolve) => {
-    masterDb.get("SELECT valor FROM configuracoes_global WHERE chave = 'site_planos'", [], (err, row) => {
-      if (err || !row) return resolve(null);
-      try { resolve(JSON.parse(row.valor)); } catch(e) { resolve(null); }
-    });
-  });
-
-  const planoData = (planosRaw || []).find(p => p.id === plano || p.nome === plano);
-  if (!planoData) return res.status(400).json({ ok: false, erro: 'Plano não encontrado.' });
-
-  const gwPreferido = gateway || gwConfig.gateway_padrao || 'asaas';
-
-  try {
-    if (gwPreferido === 'asaas' && gwConfig.asaas_ativo && gwConfig.asaas_api_key) {
-      // Asaas: criar cliente + cobrança
-      const baseUrl = gwConfig.asaas_sandbox ? 'https://sandbox.asaas.com/api/v3' : 'https://api.asaas.com/v3';
-      const headers = { 'Content-Type': 'application/json', 'access_token': gwConfig.asaas_api_key };
-
-      // Criar/buscar cliente
-      const custRes = await fetch(`${baseUrl}/customers`, {
-        method: 'POST', headers,
-        body: JSON.stringify({ name: nome, email, phone: telefone, cpfCnpj: cpfCnpj || undefined })
-      });
-      const custData = await custRes.json();
-      const customerId = custData.id || (custData.errors ? null : custData.id);
-
-      if (!customerId) return res.json({ ok: false, erro: 'Erro ao criar cliente no Asaas.', detalhes: custData });
-
-      // Criar cobrança
-      const chargeRes = await fetch(`${baseUrl}/payments`, {
-        method: 'POST', headers,
-        body: JSON.stringify({
-          customer: customerId,
-          billingType: (gwConfig.asaas_tipo_cobranca || 'PIX').toUpperCase(),
-          value: planoData.preco,
-          dueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          description: `Chef Cozinha - Plano ${planoData.nome}`,
-          externalReference: `chef_${Date.now()}`
-        })
-      });
-      const chargeData = await chargeRes.json();
-      return res.json({ ok: true, gateway: 'asaas', payment: chargeData });
-
-    } else if (gwPreferido === 'mercadopago' && gwConfig.mp_ativo && gwConfig.mp_access_token) {
-      // MercadoPago: criar preferência
-      const mpRes = await fetch('https://api.mercadopago.com/checkout/preferences', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gwConfig.mp_access_token}` },
-        body: JSON.stringify({
-          items: [{
-            title: `Chef Cozinha - Plano ${planoData.nome}`,
-            quantity: 1,
-            unit_price: planoData.preco,
-            currency_id: 'BRL'
-          }],
-          payer: { name: nome, email },
-          back_urls: {
-            success: `${req.protocol}://${req.get('host')}/registro.html?plano=${encodeURIComponent(planoData.id || planoData.nome)}&pago=1`,
-            failure: `${req.protocol}://${req.get('host')}/site`,
-            pending: `${req.protocol}://${req.get('host')}/site`
-          },
-          auto_return: 'approved'
-        })
-      });
-      const mpData = await mpRes.json();
-      return res.json({ ok: true, gateway: 'mercadopago', payment: mpData });
-
-    } else {
-      return res.json({ ok: false, erro: 'Nenhum gateway ativo configurado.' });
-    }
-  } catch (e) {
-    console.error('[Checkout] Erro:', e);
-    return res.status(500).json({ ok: false, erro: 'Erro ao processar pagamento.', detalhes: e.message });
-  }
-});
-
-app.get('/fidelidade', (req, res) => {
-  const distPath = path.join(__dirname, 'dist', 'area-cliente.html');
-  if (fs.existsSync(distPath)) {
-    res.sendFile(distPath);
-  } else {
-    res.sendFile(path.join(__dirname, 'area-cliente.html'));
-  }
-});
-
-app.get('/area-cliente', (req, res) => {
-  const distPath = path.join(__dirname, 'dist', 'area-cliente.html');
-  if (fs.existsSync(distPath)) {
-    res.sendFile(distPath);
-  } else {
-    res.sendFile(path.join(__dirname, 'area-cliente.html'));
-  }
-});
-
-// Redireciona /area-cliente.html → /area-cliente (preservando query string)
-app.get('/area-cliente.html', (req, res) => {
-  const qs = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
-  res.redirect(301, '/area-cliente' + qs);
-});
-
-
-const https = require('https');
-const tls = require('tls');
-let server;
-let isHttps = false;
-let activeCertInfo = null;
-
-const CERTS_DIR = path.join(__dirname, 'certs');
-const CERTS_CFG = path.join(CERTS_DIR, 'ativo.txt');
-const CERT_PASSPHRASE = 'chefcozinha';
-
-function ensureCertsDir() {
-  try { if (!fs.existsSync(CERTS_DIR)) fs.mkdirSync(CERTS_DIR, { recursive: true }); } catch (e) { }
-}
-
-function getActiveCertConfig() {
-  try {
-    if (fs.existsSync(CERTS_CFG)) {
-      const raw = fs.readFileSync(CERTS_CFG, 'utf8').trim();
-      if (raw) {
-        const parts = raw.split('|');
-        const f = String(parts[0] || '').trim();
-        if (f && !f.includes('/') && !f.includes('\\') && !f.includes('..') && fs.existsSync(path.join(CERTS_DIR, f))) {
-          return { file: f, passphrase: (parts[1] || CERT_PASSPHRASE).trim() };
-        }
-      }
-    }
-  } catch (e) { }
-  if (fs.existsSync(path.join(__dirname, 'cert.pfx'))) {
-    return { file: 'cert.pfx', passphrase: CERT_PASSPHRASE, legacy: true };
-  }
-  return null;
-}
-
-function loadCertInfo(cfg) {
-  if (!cfg) return null;
-  const p = cfg.legacy ? path.join(__dirname, 'cert.pfx') : path.join(CERTS_DIR, cfg.file);
-  if (!fs.existsSync(p)) return null;
-  try {
-    return { pfx: fs.readFileSync(p), passphrase: cfg.passphrase };
-  } catch (e) { return null; }
-}
-
-function saveActiveCertConfig(file, passphrase) {
-  ensureCertsDir();
-  fs.writeFileSync(CERTS_CFG, `${file}|${passphrase || CERT_PASSPHRASE}`, 'utf8');
-}
-
-// Aplica um certificado. Se o servidor já estiver HTTPS, troca AO VIVO
-// (server.setSecureContext) sem derrubar conexões. Se estiver HTTP, salva a
-// configuração e exige reinício.
-function aplicarCert(cfg) {
-  const info = loadCertInfo(cfg);
-  if (!info) return { ok: false, erro: 'Arquivo de certificado não encontrado ou inválido.' };
-  try {
-    const contextOpts = { pfx: info.pfx, passphrase: info.passphrase };
-    tls.createSecureContext(contextOpts);
-    if (server && isHttps && typeof server.setSecureContext === 'function') {
-      server.setSecureContext(contextOpts);
-      activeCertInfo = { file: cfg.file, passphrase: cfg.passphrase, applied: true };
-      saveActiveCertConfig(cfg.file, cfg.passphrase);
-      return { ok: true, applied: true };
-    }
-    saveActiveCertConfig(cfg.file, cfg.passphrase);
-    activeCertInfo = { file: cfg.file, passphrase: cfg.passphrase, applied: false };
-    return { ok: true, applied: false, reiniciar: true };
-  } catch (e) {
-    return { ok: false, erro: 'Falha ao ler o certificado: ' + (e.message || e) };
-  }
-}
-
-// Pergunta no início do servidor qual certificado usar. Só pergunta se houver
-// terminal (stdin TTY). Caso contrário (serviço, systemd, pm2) usa o cert
-// ativo persistido em certs/ativo.txt, ou o primeiro da pasta certs/.
-function promptCertAtStartup() {
-  ensureCertsDir();
-  let candidates = [];
-  try { candidates = fs.readdirSync(CERTS_DIR).filter(f => /\.(pfx|p12)$/i.test(f)); } catch (e) { }
-  candidates.sort();
-  const legacyPfx = path.join(__dirname, 'cert.pfx');
-  if (fs.existsSync(legacyPfx) && !candidates.includes('cert.pfx')) candidates.unshift('cert.pfx');
-  if (candidates.length === 0) return null;
-
-  let active = getActiveCertConfig();
-  if (active && !candidates.includes(active.file)) active = null;
-  let chosenFile = active ? active.file : candidates[0];
-
-  if (process.stdin.isTTY === true) {
-    console.log('');
-    console.log('==========================================');
-    console.log(' Escolha o certificado SSL desta sessão:');
-    candidates.forEach((f, i) => {
-      const mark = active && active.file === f ? ' [ATIVO]' : '';
-      console.log('   ' + (i + 1) + ') ' + f + mark);
-    });
-    const def = active ? candidates.indexOf(active.file) + 1 : 1;
-    console.log(' (Enter para manter: ' + def + ')');
-    process.stdout.write('> ');
-    let input = '';
-    try {
-      const buf = Buffer.alloc(256);
-      let bytes;
-      while ((bytes = fs.readSync(0, buf, 0, buf.length, null)) > 0) {
-        const s = buf.toString('utf8', 0, bytes);
-        input += s;
-        if (s.indexOf('\n') !== -1 || s.indexOf('\r') !== -1) break;
-      }
-    } catch (e) { input = ''; }
-    input = input.trim();
-    let idx = parseInt(input, 10);
-    if (input === '' || isNaN(idx)) idx = def;
-    if (idx < 1 || idx > candidates.length) idx = def;
-    chosenFile = candidates[idx - 1];
-  }
-
-  let passphrase = CERT_PASSPHRASE;
-  if (active && active.file === chosenFile) passphrase = active.passphrase;
-  return { file: chosenFile, passphrase };
-}
-
-ensureCertsDir();
-const activeCertConfig = promptCertAtStartup();
-const activeCertLoaded = activeCertConfig ? loadCertInfo(activeCertConfig) : null;
-if (activeCertLoaded) {
-  try {
-    server = https.createServer({ pfx: activeCertLoaded.pfx, passphrase: activeCertLoaded.passphrase }, app);
-    isHttps = true;
-    activeCertInfo = { file: activeCertConfig.file, passphrase: activeCertConfig.passphrase, applied: true };
-    saveActiveCertConfig(activeCertConfig.file, activeCertConfig.passphrase);
-  } catch (e) {
-    console.error("Erro ao carregar SSL, caindo para HTTP", e);
-    server = http.createServer(app);
-  }
-} else {
-  server = http.createServer(app);
-}
-const io = new Server(server, {
-  cors: {
-    origin: function(origin, cb) {
-      /* Permite: sem origin (same-origin/mobile), localhost, domínios conhecidos */
-      if (!origin) return cb(null, true);
-      try {
-        const host = new URL(origin).hostname;
-        /* localhost / LAN IP */
-        if (/^(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)$/.test(host)) return cb(null, true);
-        /* BASE_DOMAIN e subdomínios */
-        if (host === BASE_DOMAIN || host.endsWith('.' + BASE_DOMAIN)) return cb(null, true);
-        /* Domínio de produção */
-        if (host === 'chefcozinha.com.br' || host.endsWith('.chefcozinha.com.br')) return cb(null, true);
-        /* Túneis: Cloudflare, ngrok, Localtunnel, localhost.run */
-        if (host.endsWith('.trycloudflare.com') || host.endsWith('.ngrok-free.app') || host.endsWith('.ngrok.app') || host.endsWith('.loca.lt') || host.endsWith('.lhr.life')) return cb(null, true);
-      } catch(e) {}
-      cb(null, false);
-    },
-    methods: ["GET", "POST"]
-  },
-  // Tenta WebSocket primeiro (1 round-trip) em vez de polling (vários round-trips);
-  // polling fica apenas como fallback para redes que bloqueiam upgrade.
-  transports: ['websocket', 'polling'],
-  // Heartbeat agressivo (economia de RAM no i5): derruba conexões mortas em ~25s
-  // em vez dos ~45s padrão. Totens/celulares esquecidos com aba aberta são liberados.
-  pingInterval: 15000,
-  pingTimeout: 10000,
-  // Compressão por mensagem: listas JSON grandes (mesas/produtos) encolhem ~70-90%
-  // no fio; CPU de deflate em payloads pequenos é desprezível para este hardware.
-  perMessageDeflate: { threshold: 1024 }
-});
-
-// Cada plugin modular registra seu próprio handler io.on('connection') (balanca,
-// dispositivos, fidelidade, formas-pagamento, logs, nfce, reserves, tarefas) além
-// dos handlers do server.js — todos legítimos e encapsulados. Ajusta o limite do
-// EventEmitter para evitar the MaxListenersExceededWarning (default 10).
-io.setMaxListeners(40);
-
-const _ioEmitGlobal = io.emit.bind(io);
-io.emit = function (event, ...args) {
-  const tid = tenantContext.getStore();
-  if (typeof tid === 'number' && tid > 0) {
-    return io.to(`restaurante_${tid}`).emit(event, ...args);
-  }
-  return _ioEmitGlobal(event, ...args);
-};
-
 const mesasFechando = new Set();
-
-// ── SUPER ADMIN: AUTENTICAÇÃO LOCAL & COOKIE SESSÃO ─────────────────────
-// Middleware: aceita JWT via Cookie HttpOnly, header 'x-super-admin-token', 'authorization' ou query adminToken
-async function superAdminAuth(req, res, next) {
-  let tokenHeader = (req.cookies && req.cookies.super_admin_token) ||
-                    req.headers['x-super-admin-token'] ||
-                    req.headers['authorization'] ||
-                    req.query.adminToken;
-  if (tokenHeader) {
-    if (typeof tokenHeader === 'string' && tokenHeader.startsWith('Bearer ')) {
-      tokenHeader = tokenHeader.slice(7).trim();
-    }
-    try {
-      const decoded = jwt.verify(tokenHeader, JWT_SECRET);
-      if (decoded && decoded.role === 'super_admin_local') {
-        req.superAdmin = decoded;
-        return next();
-      }
-    } catch (e) { }
-  }
-  return res.status(401).json({ ok: false, erro: 'Acesso não autorizado ao Super Admin.' });
-}
-
-// ─── GUARDA GLOBAL DE SEGURANÇA SUPER-ADMIN (PROTEÇÃO 100% INVIOLÁVEL) ───────
-app.use('/api/super', (req, res, next) => {
-  // Rotas públicas do super admin: login
-  if (req.path === '/login-local' || req.path === '/login-cloud' || req.path === '/geo-traffic/live' || req.path === '/geo-traffic/simulate') {
-    return next();
-  }
-  return superAdminAuth(req, res, next);
-});
-
-// Anti-brute-force: max 5 senhas erradas por IP a cada 15 min
-const loginAttempts = new Map();
-function loginBloqueado(ip) {
-  const rec = loginAttempts.get(ip);
-  if (!rec) return false;
-  if (Date.now() - rec.inicio > 15 * 60 * 1000) { loginAttempts.delete(ip); return false; }
-  return rec.falhas >= 5;
-}
-function registrarFalhaLogin(ip) {
-  const rec = loginAttempts.get(ip);
-  if (!rec || Date.now() - rec.inicio > 15 * 60 * 1000) {
-    loginAttempts.set(ip, { inicio: Date.now(), falhas: 1 });
-  } else {
-    rec.falhas++;
-  }
-}
-
-app.post('/api/super/login-local', async (req, res) => {
-  const rawIp = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1').replace('::ffff:', '');
-  if (loginBloqueado(rawIp)) {
-    try { geoTrafficEngine.registerHit('login', rawIp, { path: '/login-bloqueado' }, io); } catch(e){}
-    return res.status(429).json({ ok: false, erro: 'Muitas tentativas. Aguarde 15 minutos.' });
-  }
-  const senha = req.body && req.body.senha;
-  const ok = await verificarSenhaAdmin(senha);
-  if (!ok) {
-    registrarFalhaLogin(rawIp);
-    try { geoTrafficEngine.registerHit('login', rawIp, { path: '/super-admin-tentativa' }, io); } catch(e){}
-    return res.json({ ok: false, erro: 'Senha de administrador inválida.' });
-  }
-  loginAttempts.delete(rawIp);
-  try { geoTrafficEngine.registerHit('login_sucesso', rawIp, { path: '/super-admin-aprovado', role: 'super_admin' }, io); } catch(e){}
-  const token = jwt.sign({ role: 'super_admin_local', restaurante_id: 1 }, JWT_SECRET, { expiresIn: '12h' });
-  
-  res.cookie('super_admin_token', token, {
-    httpOnly: true,
-    sameSite: 'Lax',
-    secure: isHttps,
-    path: '/',
-    maxAge: 12 * 60 * 60 * 1000
-  });
-
-  res.json({ ok: true, token });
-});
-
-app.post('/api/super/logout', (req, res) => {
-  res.clearCookie('super_admin_token', { path: '/' });
-  res.json({ ok: true, mensagem: 'Sessão encerrada com sucesso.' });
-});
-
-app.get('/api/super/check-auth', superAdminAuth, (req, res) => {
-  res.json({ ok: true, authenticated: true, superAdmin: req.superAdmin });
-});
-
-app.get('/api/super/panel-template', superAdminAuth, (req, res) => {
-  const panelPath = path.join(__dirname, 'views', 'super-admin-panel.html');
-  if (fs.existsSync(panelPath)) {
-    return res.sendFile(panelPath);
-  }
-  return res.status(404).send('Template do painel não encontrado.');
-});
-
-// ── ROTAS DE GEO-TRAFFIC & HEATMAP EM TEMPO REAL ──────────────────────────
-// POST /api/public/geo-hit — registra acesso do visitante (site, login, etc.)
-app.post('/api/public/geo-hit', express.json(), (req, res) => {
-  try {
-    const rawIp = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1').replace('::ffff:', '');
-    const body = req.body || {};
-    const tipo = body.tipo || 'site';
-    const hit = geoTrafficEngine.registerHit(tipo, rawIp, body, io);
-    res.json({ ok: true, hitId: hit.id });
-  } catch (err) {
-    res.status(500).json({ ok: false, erro: err.message });
-  }
-});
-
-// GET /api/super/geo-traffic/live — entrega estado atual, contadores e pontos térmicos
-app.get('/api/super/geo-traffic/live', (req, res) => {
-  try {
-    const state = geoTrafficEngine.getLiveState();
-    res.json(state);
-  } catch (err) {
-    res.status(500).json({ ok: false, erro: err.message });
-  }
-});
-
-// POST /api/super/geo-traffic/simulate — gera rajada de tráfego de teste
-app.post('/api/super/geo-traffic/simulate', express.json(), (req, res) => {
-  try {
-    const count = parseInt(req.body && req.body.count, 10) || 5;
-    const generated = geoTrafficEngine.simulateLiveBurst(count, io);
-    res.json({ ok: true, generatedCount: generated.length, hits: generated });
-  } catch (err) {
-    res.status(500).json({ ok: false, erro: err.message });
-  }
-});
-// ── CANAL INTERNO: comunicação com o processo isolado do Super Admin ─────
-// Autenticado por token derivado do JWT_SECRET (nunca exposto ao navegador).
-const INTERNAL_TOKEN = process.env.SUPER_ADMIN_INTERNAL_TOKEN ||
-  require('crypto').createHash('sha256').update('internal::' + JWT_SECRET).digest('hex');
-
-function internalAuth(req, res, next) {
-  const t = req.headers['x-internal-token'];
-  if (t && t === INTERNAL_TOKEN) return next();
-  return res.status(403).json({ ok: false, erro: 'Token interno inválido.' });
-}
-
-app.post('/api/internal/emit', express.json({ limit: '256kb' }), internalAuth, (req, res) => {
-  const { action, room, evento, args } = req.body || {};
-  try {
-    if (action === 'emit_room' && room) {
-      io.to(room).emit(evento, ...(args || []));
-    } else if (action === 'emit_global') {
-      io.emit(evento, ...(args || []));
-    } else if (action === 'reload_features') {
-      Promise.resolve(loadAllTenantFeatures()).catch(() => {});
-    } else if (action === 'reload_domain_maps') {
-      Promise.resolve(loadDomainMaps()).catch(() => {});
-    } else {
-      return res.status(400).json({ ok: false, erro: 'Ação interna desconhecida.' });
-    }
-    res.json({ ok: true });
-  } catch (e) {
-    res.status(500).json({ ok: false, erro: e.message });
-  }
-});
-
-app.get('/api/internal/metrics', internalAuth, (req, res) => {
-  const sockets = {};
-  tenantSocketCounts.forEach((count, tid) => { sockets[tid] = count; });
-  res.json({ ok: true, sockets, uptime: Math.round(process.uptime()) });
-});
-
-// ── SUPER ADMIN: GERENCIAMENTO DE CERTIFICADOS (.pfx) ────────────────────
-// GET /api/super/certs — lista certificados na pasta certs/ e status atual
-app.get('/api/super/certs', superAdminAuth, (req, res) => {
-  ensureCertsDir();
-  let files = [];
-  try {
-    files = fs.readdirSync(CERTS_DIR).filter(f => /\.(pfx|p12)$/i.test(f));
-  } catch (e) { }
-  files.sort();
-  const certs = files.map(f => {
-    const c = { file: f };
-    try {
-      const st = fs.statSync(path.join(CERTS_DIR, f));
-      c.size = st.size;
-      c.mtime = st.mtime.toISOString();
-    } catch (e) { }
-    return c;
-  });
-  const ativo = activeCertInfo ? activeCertInfo.file : (isHttps ? 'cert.pfx (raiz)' : null);
-  res.json({ ok: true, certs, ativo, isHttps, reiniciarNecessario: activeCertInfo && activeCertInfo.applied === false });
-});
-
-// POST /api/super/certs/upload — envia um novo .pfx/.p12 para a pasta certs/
-app.post('/api/super/certs/upload', superAdminAuth, upload.single('cert'), (req, res) => {
-  if (!req.file) return res.json({ ok: false, erro: 'Nenhum arquivo enviado.' });
-  const original = String(req.file.originalname || 'cert.pfx').replace(/^.*[\\/]/, '');
-  if (!/\.(pfx|p12)$/i.test(original)) {
-    try { fs.unlinkSync(req.file.path); } catch (e) { }
-    return res.json({ ok: false, erro: 'Apenas arquivos .pfx ou .p12 são aceitos.' });
-  }
-  ensureCertsDir();
-  const dest = path.join(CERTS_DIR, original);
-  try {
-    fs.copyFileSync(req.file.path, dest);
-    fs.unlinkSync(req.file.path);
-  } catch (e) {
-    return res.json({ ok: false, erro: 'Falha ao salvar o arquivo: ' + (e.message || e) });
-  }
-  res.json({ ok: true, file: original });
-});
-
-// POST /api/super/certs/ativar — ativa um certificado (ao vivo se já HTTPS)
-app.post('/api/super/certs/ativar', superAdminAuth, (req, res) => {
-  const file = String((req.body && req.body.file) || '').replace(/^.*[\\/]/, '').trim();
-  if (!file || file.includes('..') || file.includes('/') || file.includes('\\')) {
-    return res.json({ ok: false, erro: 'Nome de arquivo inválido.' });
-  }
-  if (!/\.(pfx|p12)$/i.test(file)) return res.json({ ok: false, erro: 'Extensão inválida.' });
-  if (!fs.existsSync(path.join(CERTS_DIR, file))) return res.json({ ok: false, erro: 'Arquivo não encontrado na pasta certs.' });
-  const passphrase = (req.body && req.body.passphrase) ? String(req.body.passphrase) : CERT_PASSPHRASE;
-  res.json(aplicarCert({ file, passphrase }));
-});
-
-// DELETE /api/super/certs/:file — remove um certificado da pasta certs/
-app.delete('/api/super/certs/:file', superAdminAuth, (req, res) => {
-  const file = String(req.params.file || '').replace(/^.*[\\/]/, '').trim();
-  if (!file || file.includes('..') || file.includes('/') || file.includes('\\')) return res.json({ ok: false, erro: 'Nome inválido.' });
-  if (activeCertInfo && activeCertInfo.file === file) return res.json({ ok: false, erro: 'Não é possível remover o certificado em uso. Ative outro primeiro.' });
-  const p = path.join(CERTS_DIR, file);
-  if (!fs.existsSync(p)) return res.json({ ok: false, erro: 'Arquivo não encontrado.' });
-  try {
-    fs.unlinkSync(p);
-    res.json({ ok: true });
-  } catch (e) {
-    res.json({ ok: false, erro: 'Falha ao remover: ' + (e.message || e) });
-  }
-});
-
-// ── SUPER ADMIN: HELPER FUNCTIONS ─────────────────────────────────────
-const { exec } = require('child_process');
-
-function getTenantDbPath(tenantId) {
-  return path.join(__dirname, `database_${tenantId}.sqlite`);
-}
-
-function listarBancosTenant() {
-  try {
-    return fsSync.readdirSync(__dirname)
-      .filter(f => /^database_(\d+)\.sqlite$/.test(f))
-      .map(f => path.join(__dirname, f))
-      .filter(p => fsSync.existsSync(p));
-  } catch (e) { return []; }
-}
-
-function safeInt(v, min = 0, max = 2147483647) { const n = parseInt(v, 10); return isNaN(n) ? min : Math.max(min, Math.min(max, n)); }
-
-function getClientIp(req) { return (req.headers['x-forwarded-for'] || req.connection.remoteAddress || '').split(',')[0].trim(); }
-
-const _rateLimitMap = new Map();
-function checkRestRateLimit(ip, max = 10, windowMs = 600000) {
-  const now = Date.now();
-  const entry = _rateLimitMap.get(ip);
-  if (!entry || now - entry.start > windowMs) { _rateLimitMap.set(ip, { start: now, count: 1 }); return true; }
-  entry.count++;
-  return entry.count <= max;
-}
-
-function gerarChaveAtivacao() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  const part = (len) => { let s = ''; for (let i = 0; i < len; i++) s += chars.charAt(Math.floor(Math.random() * chars.length)); return s; };
-  return `CHEF-${part(4)}-${part(4)}-${part(4)}`;
-}
-
-function registrarTelemetria(t) {
-  const ip = trimStr(t.ip, 60);
-  const agora = new Date().toLocaleString();
-  masterDb.get(`SELECT id FROM telemetria WHERE install_id = ?`, [t.install_id || ''], (err, row) => {
-    if (err) return;
-    if (row) {
-      masterDb.run(`UPDATE telemetria SET restaurante_id = ?, nome_restaurante = ?, versao = ?, ip = ?, plataforma = ?, online = 1, ultima_atividade = ?, tempo_uso_min = ?, pedidos_total = ?, vendas_total = ?, vendas_hoje = ?, comandas_abertas = ?, funcionarios_ativos = ?, garcons_online = ?, produtos_total = ?, setores_json = ?, mesas_total = ?, dispositivos = ?, funcoes_json = ?, erros_json = ?, custo_total = ?, folha_mes = ?, despesas_mes = ?, lucro = ?, disco_mb = ?, updated_at = ? WHERE install_id = ?`,
-        [t.restaurante_id || null, trimStr(t.nome_restaurante, 120), trimStr(t.versao, 20), ip, trimStr(t.plataforma, 30), agora,
-          t.tempo_uso_min || 0, t.pedidos_total || 0, t.vendas_total || 0, t.vendas_hoje || 0,
-          t.comandas_abertas || 0, t.funcionarios_ativos || 0, t.garcons_online || 0, t.produtos_total || 0,
-          t.setores_json || null, t.mesas_total || 0, t.dispositivos || 0, t.funcoes_json || null,
-          t.erros_json || null, t.custo_total || 0, t.folha_mes || 0, t.despesas_mes || 0, t.lucro || 0,
-          t.disco_mb || 0, agora, t.install_id || ''], () => {});
-    } else {
-      masterDb.run(`INSERT INTO telemetria (restaurante_id, install_id, nome_restaurante, versao, ip, plataforma, online, ultima_atividade, tempo_uso_min, pedidos_total, vendas_total, vendas_hoje, comandas_abertas, funcionarios_ativos, garcons_online, produtos_total, setores_json, mesas_total, dispositivos, funcoes_json, erros_json, custo_total, folha_mes, despesas_mes, lucro, disco_mb, updated_at) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [t.restaurante_id || null, t.install_id || '', trimStr(t.nome_restaurante, 120), trimStr(t.versao, 20), ip, trimStr(t.plataforma, 30), agora,
-          t.tempo_uso_min || 0, t.pedidos_total || 0, t.vendas_total || 0, t.vendas_hoje || 0,
-          t.comandas_abertas || 0, t.funcionarios_ativos || 0, t.garcons_online || 0, t.produtos_total || 0,
-          t.setores_json || null, t.mesas_total || 0, t.dispositivos || 0, t.funcoes_json || null,
-          t.erros_json || null, t.custo_total || 0, t.folha_mes || 0, t.despesas_mes || 0, t.lucro || 0,
-          t.disco_mb || 0, agora], () => {});
-    }
-  });
-}
-
-const TELEMETRIA_VERSION = '1.0.0';
-
-function coletarTelemetriaLocal() {
-  try {
-    const dbFiles = listarBancosTenant();
-    dbFiles.forEach(dbPath => {
-      const idMatch = dbPath.match(/database_(\d+)\.sqlite$/);
-      const id = idMatch ? parseInt(idMatch[1]) : 0;
-      if (!id) return;
-      const tenantDb = new sqlite3.Database(dbPath, sqlite3.OPEN_READONLY, (err) => { if (err) return; });
-      const hojeStr = new Date().toISOString().slice(0, 10);
-      const mesStr = hojeStr.slice(0, 7);
-      const queries = [
-        { key: 'pedidos_total', sql: `SELECT COUNT(*) c FROM pedidos` },
-        { key: 'vendas_total', sql: `SELECT COALESCE(SUM(CAST(total AS REAL)),0) c FROM pedidos WHERE status IN ('Finalizado','Pago')` },
-        { key: 'vendas_hoje', sql: `SELECT COALESCE(SUM(CAST(total AS REAL)),0) c FROM pedidos WHERE status IN ('Finalizado','Pago') AND substr(createdAt,1,10) = ?`, params: [hojeStr] },
-        { key: 'funcionarios_ativos', sql: `SELECT COUNT(*) c FROM funcionarios WHERE status = 'Ativo'` },
-        { key: 'produtos_total', sql: `SELECT COUNT(*) c FROM produtos WHERE status = 'ativo'` },
-        { key: 'mesas_total', sql: `SELECT COUNT(*) c FROM mesas` },
-      ];
-      const acc = {};
-      let pending = queries.length;
-      const finalizar = () => {
-        pending--;
-        if (pending > 0) return;
-        tenantDb.all(`SELECT DISTINCT setor FROM produtos WHERE setor IS NOT NULL AND setor != ''`, [], (errSet, setores) => {
-          let discoMb = 0;
-          try { discoMb = fsSync.statSync(dbPath).size / (1024 * 1024); } catch (e) {}
-          masterDb.get(`SELECT nome FROM restaurantes WHERE id = ?`, [id], (eNome, rNome) => {
-            const vendas = parseFloat(acc.vendas_total || 0);
-            const custo = parseFloat(acc.custo_total || 0);
-            registrarTelemetria({
-              restaurante_id: id, install_id: `local-${id}`,
-              nome_restaurante: (rNome && rNome.nome) || `Estabelecimento ${id}`,
-              versao: TELEMETRIA_VERSION, plataforma: 'servidor-central', online: 1,
-              ultima_atividade: new Date().toLocaleString(),
-              pedidos_total: acc.pedidos_total || 0, vendas_total: vendas,
-              vendas_hoje: parseFloat(acc.vendas_hoje || 0),
-              funcionarios_ativos: acc.funcionarios_ativos || 0, produtos_total: acc.produtos_total || 0,
-              setores_json: JSON.stringify((setores || []).map(s => s.setor)), mesas_total: acc.mesas_total || 0,
-              lucro: Math.round((vendas - custo) * 100) / 100, disco_mb: Math.round(discoMb * 100) / 100
-            });
-            tenantDb.close();
-          });
-        });
-      };
-      queries.forEach(q => {
-        tenantDb.get(q.sql, q.params || [], (errRow, row) => { acc[q.key] = errRow ? 0 : (row ? row.c : 0); finalizar(); });
-      });
-    });
-  } catch (e) { console.error('[Telemetria] coleta local:', e.message); }
-}
-setTimeout(() => { coletarTelemetriaLocal(); }, 3000);
-setInterval(() => { coletarTelemetriaLocal(); }, 5 * 60 * 1000);
-
-// ── SUPER ADMIN: ROTAS DE USU�?RIOS ──────────────────────────────────
-app.get('/api/super/usuarios', superAdminAuth, (req, res) => {
-  masterDb.all(`SELECT id, restaurante_id, username, role, ativo, data_cadastro FROM usuarios ORDER BY id`, [], (err, rows) => {
-    if (err) return res.json({ ok: false, erro: err.message });
-    res.json({ ok: true, usuarios: rows || [] });
-  });
-});
-
-app.post('/api/super/reset-credenciais', superAdminAuth, async (req, res) => {
-  try {
-    const { userId, novoEmail, novaSenha } = req.body;
-    if (!userId) return res.json({ ok: false, erro: 'ID do usuário é obrigatório.' });
-    if (!novoEmail && !novaSenha) return res.json({ ok: false, erro: 'Informe pelo menos o novo email ou a nova senha.' });
-    const updates = []; const params = [];
-    if (novoEmail) {
-      const emailTrimmed = novoEmail.trim().toLowerCase();
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrimmed)) return res.json({ ok: false, erro: 'Formato de email inválido.' });
-      updates.push('username = ?'); params.push(emailTrimmed);
-    }
-    if (novaSenha) {
-      if (novaSenha.length < 4) return res.json({ ok: false, erro: 'A senha deve ter no mínimo 4 caracteres.' });
-      const hash = await bcrypt.hash(novaSenha, 10);
-      updates.push('password_hash = ?'); params.push(hash);
-    }
-    params.push(parseInt(userId));
-    masterDb.run(`UPDATE usuarios SET ${updates.join(', ')} WHERE id = ?`, params, function(err) {
-      if (err) return res.json({ ok: false, erro: err.message });
-      if (this.changes === 0) return res.json({ ok: false, erro: 'Usuário não encontrado.' });
-      res.json({ ok: true, mensagem: 'Credenciais atualizadas com sucesso!' });
-    });
-  } catch (e) { res.json({ ok: false, erro: e.message }); }
-});
-
-// PUT /api/super/usuario/:id/status — Alterar status do usuário (Ativo / Inativo)
-app.put('/api/super/usuario/:id/status', superAdminAuth, (req, res) => {
-  const userId = parseInt(req.params.id);
-  const { ativo } = req.body || {};
-  const activeVal = ativo ? 1 : 0;
-
-  masterDb.run(`UPDATE usuarios SET ativo = ? WHERE id = ?`, [activeVal, userId], function(err) {
-    if (err) return res.json({ ok: false, erro: err.message });
-    if (this.changes === 0) return res.json({ ok: false, erro: 'Usuário não encontrado.' });
-    res.json({ ok: true, mensagem: `Status do usuário #${userId} alterado com sucesso para ${activeVal ? 'Ativo' : 'Inativo'}!` });
-  });
-});
-
-app.post('/api/super/criar-usuario', superAdminAuth, async (req, res) => {
-  try {
-    const { email, senha, restauranteId } = req.body;
-    if (!email || !senha) return res.json({ ok: false, erro: 'Email e senha são obrigatórios.' });
-    const emailTrimmed = email.trim().toLowerCase();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrimmed)) return res.json({ ok: false, erro: 'Formato de email inválido.' });
-    if (senha.length < 4) return res.json({ ok: false, erro: 'A senha deve ter no mínimo 4 caracteres.' });
-    const hash = await bcrypt.hash(senha, 10);
-    const rid = parseInt(restauranteId) || 1;
-    const agora = new Date().toISOString().replace('T', ' ').substring(0, 19);
-    masterDb.run(`INSERT INTO usuarios (restaurante_id, username, password_hash, role, ativo, data_cadastro) VALUES (?, ?, ?, 'admin', 1, ?)`,
-      [rid, emailTrimmed, hash, agora], function(err) {
-        if (err) {
-          if (err.message.includes('UNIQUE')) return res.json({ ok: false, erro: 'Este email já está cadastrado.' });
-          return res.json({ ok: false, erro: err.message });
-        }
-        res.json({ ok: true, mensagem: 'Usuário criado com sucesso!', id: this.lastID });
-      });
-  } catch (e) { res.json({ ok: false, erro: e.message }); }
-});
-
-app.delete('/api/super/usuario/:id', superAdminAuth, (req, res) => {
-  const id = parseInt(req.params.id);
-  if (!id) return res.json({ ok: false, erro: 'ID inválido.' });
-  masterDb.run(`UPDATE usuarios SET ativo = 0 WHERE id = ?`, [id], function(err) {
-    if (err) return res.json({ ok: false, erro: err.message });
-    if (this.changes === 0) return res.json({ ok: false, erro: 'Usuário não encontrado.' });
-    res.json({ ok: true, mensagem: 'Usuário desativado com sucesso.' });
-  });
-});
-
-// ── SUPER ADMIN: RESTAURANTES ───────────────────────────────────────
-app.get('/api/super/restaurantes', superAdminAuth, (req, res) => {
-  masterDb.all(`SELECT * FROM restaurantes ORDER BY id DESC`, [], (err, rows) => {
-    if (err) return res.json({ ok: false, erro: err.message });
-    const lista = rows || [];
-    if (lista.length === 0) return res.json({ ok: true, clients: [] });
-    let pendentes = lista.length;
-    const mapped = lista.map(r => ({
-      id: String(r.id), restaurante: r.nome, status: r.ativo ? r.licenca : 'bloqueado',
-      plano: r.licenca === 'premium' ? 'Premium' : (r.licenca === 'trial' ? 'Trial' : r.licenca),
-      login_mode: r.login_mode || 'multi', chave: 'LOCAL_' + String(r.id).padStart(4, '0'),
-      validade: null, maxDisp: 0, ultimaVer: r.data_cadastro, versao: 'Local-1.0',
-      ip: '127.0.0.1', regiao: 'Local Server', total_funcionarios: 0, slug: r.slug || '', custom_domain: r.custom_domain || '',
-      // Inteligência
-      endereco: r.endereco || '', bairro: r.bairro || '', cidade: r.cidade || '',
-      dispositivo_ultimo: r.dispositivo_ultimo || '', dono_nome: r.dono_nome || '', telefone: r.telefone || ''
-    }));
-    function finalizar() { res.json({ ok: true, clients: mapped }); }
-    // Enriquece com telemetria: dispositivo/plataforma e vendas acumuladas
-    masterDb.all(
-      `SELECT t.restaurante_id, t.plataforma, t.vendas_total FROM telemetria t
-       WHERE t.restaurante_id IS NOT NULL AND t.id = (
-         SELECT MAX(t2.id) FROM telemetria t2 WHERE t2.restaurante_id = t.restaurante_id)`,
-      [], (errTel, tels) => {
-        const telMap = {};
-        (tels || []).forEach(t => { telMap[t.restaurante_id] = t; });
-        mapped.forEach(item => {
-          const tel = telMap[parseInt(item.id)];
-          if (tel) {
-            if (!item.dispositivo_ultimo && tel.plataforma) item.dispositivo_ultimo = tel.plataforma;
-            item.vendas_total = tel.vendas_total || 0;
-          } else {
-            item.vendas_total = 0;
-          }
-        });
-        mapped.forEach(item => {
-          const restId = parseInt(item.id);
-          const tenantDbPath = getTenantDbPath(restId);
-          if (!fsSync.existsSync(tenantDbPath)) { pendentes--; if (pendentes <= 0) finalizar(); return; }
-          const tDb = new sqlite3.Database(tenantDbPath, sqlite3.OPEN_READONLY, errOpen => {
-            if (errOpen) { pendentes--; if (pendentes <= 0) finalizar(); return; }
-            tDb.get("SELECT COUNT(*) as count FROM funcionarios", [], (errCount, row) => {
-              item.total_funcionarios = (!errCount && row) ? row.count : 0;
-              tDb.close(); pendentes--; if (pendentes <= 0) finalizar();
-            });
-          });
-        });
-      });
-  });
-});
-
-app.post('/api/super/criar-restaurante', superAdminAuth, async (req, res) => {
-  try {
-    const { nome, licenca, ativo, email, senha } = req.body;
-    if (!nome) return res.json({ ok: false, erro: 'Nome do restaurante é obrigatório.' });
-    const activeVal = ativo !== undefined ? (ativo ? 1 : 0) : 1;
-    const licencaVal = licenca || 'trial';
-    masterDb.run(`INSERT INTO restaurantes (nome, licenca, ativo, data_cadastro) VALUES (?, ?, ?, datetime('now'))`,
-      [nome, licencaVal, activeVal], function(err) {
-        if (err) return res.json({ ok: false, erro: err.message });
-        const restauranteId = this.lastID;
-        if (email && senha) {
-          bcrypt.hash(senha, 10).then(hash => {
-            masterDb.run(`INSERT INTO usuarios (restaurante_id, username, password_hash, role, ativo, data_cadastro) VALUES (?, ?, ?, 'admin', 1, datetime('now'))`,
-              [restauranteId, email.trim().toLowerCase(), hash], function(errUser) {
-                if (errUser) return res.json({ ok: true, restauranteId, alerta: 'Restaurante criado, mas falhou ao registrar usuário administrador.' });
-                celebrarNovoRestaurante(nome, restauranteId, email || null);
-                res.json({ ok: true, restauranteId, mensagem: 'Restaurante e administrador criados com sucesso!' });
-              });
-          }).catch(() => { res.json({ ok: true, restauranteId, alerta: 'Restaurante criado, mas falhou ao gerar senha.' }); });
-        } else {
-          celebrarNovoRestaurante(nome, restauranteId, null);
-          res.json({ ok: true, restauranteId, mensagem: 'Restaurante criado com sucesso!' });
-        }
-      });
-  } catch (e) { res.json({ ok: false, erro: e.message }); }
-});
-
-app.post('/api/super/atualizar-restaurante', superAdminAuth, async (req, res) => {
-  try {
-    const { id, fields } = req.body;
-    if (!id || !fields) return res.json({ ok: false, erro: 'ID e campos são obrigatórios.' });
-    const updates = []; const params = [];
-    if (fields.restaurante !== undefined) { updates.push('nome = ?'); params.push(fields.restaurante); }
-    if (fields.status !== undefined) { updates.push('licenca = ?'); params.push(fields.status); updates.push('ativo = ?'); params.push(fields.status === 'bloqueado' ? 0 : 1); }
-    if (fields.plano !== undefined) { updates.push('licenca = ?'); params.push(fields.plano); }
-    if (fields.ativo !== undefined) { updates.push('ativo = ?'); params.push(fields.ativo ? 1 : 0); }
-    if (fields.login_mode !== undefined) { updates.push('login_mode = ?'); params.push(fields.login_mode === 'single' ? 'single' : 'multi'); }
-    if (updates.length === 0) return res.json({ ok: false, erro: 'Nenhum campo informado.' });
-    params.push(parseInt(id));
-    masterDb.run(`UPDATE restaurantes SET ${updates.join(', ')} WHERE id = ?`, params, function(err) {
-      if (err) return res.json({ ok: false, erro: err.message });
-      res.json({ ok: true, mensagem: 'Restaurante atualizado com sucesso!' });
-    });
-  } catch (e) { res.json({ ok: false, erro: e.message }); }
-});
-
-app.delete('/api/super/restaurante/:id', superAdminAuth, (req, res) => {
-  const id = parseInt(req.params.id);
-  if (!id) return res.json({ ok: false, erro: 'ID inválido.' });
-  masterDb.run(`DELETE FROM restaurantes WHERE id = ?`, [id], function(err) {
-    if (err) return res.json({ ok: false, erro: err.message });
-    masterDb.run(`DELETE FROM usuarios WHERE restaurante_id = ?`, [id], () => {
-      res.json({ ok: true, mensagem: 'Restaurante e usuários excluídos com sucesso.' });
-    });
-  });
-});
-
-// ── SUPER ADMIN: DASHBOARD STATS ────────────────────────────────────
-app.get('/api/super/dashboard-stats', superAdminAuth, async (req, res) => {
-  try {
-    const counts = await new Promise((resolve) => {
-      masterDb.all(`SELECT licenca, ativo FROM restaurantes`, [], (err, rows) => {
-        const stats = { ativas: 0, trials: 0, expiradas: 0, bloqueadas: 0 };
-        if (err || !rows) return resolve(stats);
-        rows.forEach(r => {
-          if (!r.ativo) stats.bloqueadas++;
-          else if (r.licenca === 'trial') stats.trials++;
-          else if (r.licenca === 'premium' || r.licenca === 'ativo') stats.ativas++;
-          else if (r.licenca === 'expirado') stats.expiradas++;
-          else stats.ativas++;
-        });
-        resolve(stats);
-      });
-    });
-    const userCount = await new Promise((resolve) => {
-      masterDb.get(`SELECT COUNT(*) as count FROM usuarios WHERE ativo = 1`, [], (err, row) => { resolve(row ? row.count : 0); });
-    });
-    let totalSales = 0;
-    try {
-      const dbFiles = listarBancosTenant();
-      for (const dbPath of dbFiles) {
-        const sales = await new Promise((resolve) => {
-          const tenantDb = new sqlite3.Database(dbPath, sqlite3.OPEN_READONLY, (err) => { if (err) return resolve(0); });
-          tenantDb.get("SELECT name FROM sqlite_master WHERE type='table' AND name='pedidos'", [], (errTable, tableRow) => {
-            if (errTable || !tableRow) { tenantDb.close(); return resolve(0); }
-            tenantDb.get("SELECT SUM(CAST(total AS REAL)) as total_sales FROM pedidos WHERE status IN ('Finalizado', 'Pago')", [], (errQ, rowQ) => {
-              tenantDb.close(); resolve((errQ || !rowQ) ? 0 : (rowQ.total_sales || 0));
-            });
-          });
-        });
-        totalSales += sales;
-      }
-    } catch (e) { console.error('[Dashboard-Stats] Erro ao calcular vendas:', e); }
-    res.json({ ok: true, stats: { ativas: counts.ativas, trials: counts.trials, expiradas: counts.expiradas, bloqueadas: counts.bloqueadas, usuarios: userCount, totalSales: parseFloat(totalSales.toFixed(2)) } });
-  } catch (e) { res.json({ ok: false, erro: e.message }); }
-});
-
-// ── SUPER ADMIN: BI / FRANQUIAS ─────────────────────────────────────
-// (Rota completa em controllers/super-admin.js — inclui setores)
-
-// ── SUPER ADMIN: LICENÇAS ───────────────────────────────────────────
-app.get('/api/super/licencas', superAdminAuth, (req, res) => {
-  masterDb.all(`SELECT * FROM licencas ORDER BY id DESC`, [], (err, rows) => {
-    if (err) return res.json({ ok: false, erro: err.message });
-    res.json({ ok: true, licencas: rows || [] });
-  });
-});
-
-app.post('/api/super/licencas/gerar', superAdminAuth, (req, res) => {
-  const { restaurante_nome, dias, plano, max_dispositivos, obs } = req.body || {};
-  const nome = trimStr(restaurante_nome, 120) || 'Restaurante';
-  const qtdDias = safeInt(dias, 30, 3650) || 365;
-  const planoVal = ['premium', 'pro', 'plus'].includes(plano) ? plano : 'premium';
-  const maxDisp = safeInt(max_dispositivos, 0, 1000) || 0;
-  const validade = new Date(Date.now() + qtdDias * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-  let chave = gerarChaveAtivacao();
-  masterDb.get(`SELECT id FROM licencas WHERE chave = ?`, [chave], (errChave) => {
-    if (errChave) return res.json({ ok: false, erro: 'Conflito ao gerar chave. Tente novamente.' });
-    masterDb.run(`INSERT INTO licencas (chave, restaurante_nome, plano, dias, validade, max_dispositivos, obs) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [chave, nome, planoVal, qtdDias, validade, maxDisp, trimStr(obs, 300) || ''], function(err) {
-        if (err) return res.json({ ok: false, erro: err.message });
-        res.json({ ok: true, licenca: { id: this.lastID, chave, restaurante_nome: nome, plano: planoVal, dias: qtdDias, validade, max_dispositivos: maxDisp, obs: trimStr(obs, 300) || '', status: 'disponivel' } });
-      });
-  });
-});
-
-app.post('/api/super/licencas/:id/revogar', superAdminAuth, (req, res) => {
-  const id = parseInt(req.params.id);
-  if (!id) return res.json({ ok: false, erro: 'ID inválido.' });
-  masterDb.run(`UPDATE licencas SET status = 'revogada' WHERE id = ?`, [id], (err) => {
-    if (err) return res.json({ ok: false, erro: err.message });
-    res.json({ ok: true });
-  });
-});
-
-// ── SUPER ADMIN: TELEMETRIA ─────────────────────────────────────────
-app.get('/api/super/telemetria', superAdminAuth, (req, res) => {
-  masterDb.all(`SELECT t.*, r.nome as rest_nome FROM telemetria t LEFT JOIN restaurantes r ON r.id = t.restaurante_id ORDER BY t.ultima_atividade DESC`, [], (err, rows) => {
-    if (err) return res.json({ ok: false, erro: err.message });
-    res.json({ ok: true, telemetria: rows || [] });
-  });
-});
-
-// ── SUPER ADMIN: MÉTRICAS GARÇONS ───────────────────────────────────
-
-// ─── TABELA DE TELEMETRIA DE CLIQUES, PRODUTIVIDADE & HEATMAP ───
-masterDb.run(`
-  CREATE TABLE IF NOT EXISTS telemetria_clicks (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    restaurante_id TEXT,
-    restaurante_nome TEXT,
-    colaborador_nome TEXT,
-    colaborador_cargo TEXT,
-    tela TEXT,
-    funcao_nome TEXT,
-    elemento_id TEXT,
-    pos_x_pct REAL,
-    pos_y_pct REAL,
-    tempo_execucao_ms INTEGER,
-    dispositivo TEXT,
-    resolucao TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  )
-`, (err) => {
-  if (err) console.error('[Telemetria] Erro ao criar tabela telemetria_clicks:', err);
-  else {
-    masterDb.run(`CREATE INDEX IF NOT EXISTS idx_telemetria_rest ON telemetria_clicks (restaurante_id)`);
-    masterDb.run(`CREATE INDEX IF NOT EXISTS idx_telemetria_func ON telemetria_clicks (funcao_nome)`);
-    masterDb.run(`CREATE INDEX IF NOT EXISTS idx_telemetria_created ON telemetria_clicks (created_at)`);
-  }
-});
-
-// Endpoint público/interno de ingestão de cliques
-app.post('/api/telemetria/clicks', express.json(), (req, res) => {
-  const clicks = (req.body && req.body.clicks) || [];
-  if (!Array.isArray(clicks) || clicks.length === 0) {
-    return res.json({ ok: true, count: 0 });
-  }
-
-  const stmt = masterDb.prepare(`
-    INSERT INTO telemetria_clicks (
-      restaurante_id, restaurante_nome, colaborador_nome, colaborador_cargo,
-      tela, funcao_nome, elemento_id, pos_x_pct, pos_y_pct,
-      tempo_execucao_ms, dispositivo, resolucao
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-
-  clicks.forEach(c => {
-    stmt.run([
-      c.restaurante_id || '1',
-      c.restaurante_nome || 'Restaurante',
-      c.colaborador_nome || 'Anônimo',
-      c.colaborador_cargo || 'Colaborador',
-      c.tela || 'index.html',
-      c.funcao_nome || 'Ação',
-      c.elemento_id || '',
-      c.pos_x_pct || 50,
-      c.pos_y_pct || 50,
-      c.tempo_execucao_ms || 0,
-      c.dispositivo || 'Desktop',
-      c.resolucao || '1920x1080'
-    ], () => {});
-  });
-
-  stmt.finalize();
-  res.json({ ok: true, count: clicks.length });
-});
-
-// Endpoint Super-Admin: Métricas agregadas, Mapa de Calor e Produtividade
-app.get('/api/super/metricas/heatmap-clicks', (req, res) => {
-  const { restaurante_id, colaborador, periodo, tela } = req.query || {};
-
-  let whereClauses = ["created_at >= datetime('now', '-30 days')"];
-  let params = [];
-
-  if (periodo === 'hoje') {
-    whereClauses = ["created_at >= datetime('now', 'start of day', 'localtime')"];
-  } else if (periodo === '7dias') {
-    whereClauses = ["created_at >= datetime('now', '-7 days')"];
-  }
-
-  if (restaurante_id && restaurante_id !== 'todos') {
-    whereClauses.push("restaurante_id = ?");
-    params.push(restaurante_id);
-  }
-
-  if (colaborador && colaborador !== 'todos') {
-    whereClauses.push("colaborador_nome = ?");
-    params.push(colaborador);
-  }
-
-  if (tela && tela !== 'todas') {
-    whereClauses.push("tela LIKE ?");
-    params.push(`%${tela}%`);
-  }
-
-  const whereSql = whereClauses.length ? `WHERE ${whereClauses.join(' AND ')}` : '';
-
-  // 1. Totalizadores gerais
-  masterDb.get(`
-    SELECT 
-      COUNT(*) as total_cliques,
-      COUNT(DISTINCT restaurante_id) as total_restaurantes,
-      COUNT(DISTINCT colaborador_nome) as total_colaboradores,
-      AVG(tempo_execucao_ms) as media_tempo_ms
-    FROM telemetria_clicks ${whereSql}
-  `, params, (err, stats) => {
-    if (err) return res.status(500).json({ ok: false, error: err.message });
-
-    // 2. Ranking de funções mais usadas (Top 25)
-    masterDb.all(`
-      SELECT 
-        funcao_nome,
-        COUNT(*) as cliques,
-        COUNT(DISTINCT colaborador_nome) as colaboradores,
-        COUNT(DISTINCT restaurante_id) as restaurantes,
-        ROUND(AVG(tempo_execucao_ms) / 1000.0, 1) as media_segundos
-      FROM telemetria_clicks ${whereSql}
-      GROUP BY funcao_nome
-      ORDER BY cliques DESC
-      LIMIT 25
-    `, params, (err, topFuncoes) => {
-
-      // 3. Pontos de calor para o Heatmap (Agrupados por grade percentual X,Y)
-      masterDb.all(`
-        SELECT 
-          ROUND(pos_x_pct, 0) as x,
-          ROUND(pos_y_pct, 0) as y,
-          COUNT(*) as peso
-        FROM telemetria_clicks ${whereSql}
-        GROUP BY ROUND(pos_x_pct, 0), ROUND(pos_y_pct, 0)
-        ORDER BY peso DESC
-        LIMIT 100
-      `, params, (err, heatmapPoints) => {
-
-        // 4. Lista de restaurantes e colaboradores para filtros
-        masterDb.all(`SELECT DISTINCT restaurante_id, restaurante_nome FROM telemetria_clicks ORDER BY restaurante_nome`, [], (err, rests) => {
-          masterDb.all(`SELECT DISTINCT colaborador_nome, colaborador_cargo FROM telemetria_clicks ORDER BY colaborador_nome`, [], (err, colabs) => {
-            res.json({
-              ok: true,
-              stats: stats || {},
-              topFuncoes: topFuncoes || [],
-              heatmapPoints: heatmapPoints || [],
-              restaurantes: rests || [],
-              colaboradores: colabs || []
-            });
-          });
-        });
-      });
-    });
-  });
-});
-
-app.get('/api/super/metricas/garcons', superAdminAuth, (req, res) => {
-  const restauranteId = parseInt(req.query.restaurante_id) || null;
-  function calcularMetricas(funcionarios, pedidos, restId, restNome) {
-    return funcionarios.map(f => {
-      const fPedidos = pedidos.filter(p => p.userName === f.nome || p.userName === f.usuario);
-      const total = fPedidos.length;
-      const entregues = fPedidos.filter(p => p.status === 'Entregue' || p.status === 'Finalizado' || p.status === 'Pago').length;
-      const emAndamento = fPedidos.filter(p => p.status !== 'Entregue' && p.status !== 'Finalizado' && p.status !== 'Pago' && p.status !== 'Cancelado').length;
-      let somaMin = 0, countMin = 0;
-      fPedidos.forEach(p => {
-        if (p.entregueEm && p.createdAt) {
-          const criado = p.createdAt ? new Date(p.createdAt + (p.createdAt.includes('T') ? '' : 'Z')).getTime() : 0;
-          const entregue = new Date(p.entregueEm).getTime();
-          if (!isNaN(criado) && !isNaN(entregue) && entregue > criado) { somaMin += (entregue - criado) / 60000; countMin++; }
-        }
-      });
-      const tempoMedio = countMin > 0 ? Math.round(somaMin / countMin) : null;
-      let totalGasto = 0;
-      fPedidos.forEach(p => { const val = parseFloat(p.total); if (!isNaN(val)) totalGasto += val; });
-      const hoje = new Date(); const hojeStr = hoje.toISOString().slice(0, 10);
-      const pedidosHoje = fPedidos.filter(p => p.createdAt && p.createdAt.slice(0, 10) === hojeStr).length;
-      return { id: f.id, nome: f.nome, usuario: f.usuario, total, entregues, emAndamento, taxaEficiencia: total > 0 ? Math.round((entregues / total) * 100) : 0, tempoMedioEntrega: tempoMedio, totalGasto: Math.round(totalGasto * 100) / 100, pedidosHoje, ...(restId ? { restaurante_id: restId, restaurante_nome: restNome } : {}) };
-    });
-  }
-  if (restauranteId) {
-    const dbPath = getTenantDbPath(restauranteId);
-    if (!fsSync.existsSync(dbPath)) return res.json({ ok: true, metricas: [] });
-    const tDb = new sqlite3.Database(dbPath, sqlite3.OPEN_READONLY, (err) => {
-      if (err) return res.json({ ok: false, erro: 'Erro ao abrir banco' });
-      tDb.all(`SELECT * FROM funcionarios WHERE status = 'Ativo' ORDER BY nome`, [], (errFunc, funcionarios) => {
-        if (errFunc) { tDb.close(); return res.json({ ok: false, erro: 'Erro' }); }
-        tDb.all(`SELECT * FROM pedidos ORDER BY id`, [], (errPed, pedidos) => {
-          tDb.close();
-          if (errPed) return res.json({ ok: false, erro: 'Erro' });
-          const metricas = calcularMetricas(funcionarios || [], pedidos || []);
-          metricas.sort((a, b) => b.total - a.total);
-          res.json({ ok: true, metricas });
-        });
-      });
-    });
-  } else {
-    masterDb.all(`SELECT id, nome FROM restaurantes ORDER BY id`, [], (err, rows) => {
-      if (err) return res.json({ ok: false, erro: err.message });
-      const todos = rows || [];
-      if (todos.length === 0) return res.json({ ok: true, metricas: [] });
-      let pendentes = todos.length; let todasMetricas = [];
-      function finalizar() { todasMetricas.sort((a, b) => b.total - a.total); res.json({ ok: true, metricas: todasMetricas }); }
-      todos.forEach(r => {
-        const dbPath = getTenantDbPath(r.id);
-        if (!fsSync.existsSync(dbPath)) { pendentes--; if (pendentes <= 0) finalizar(); return; }
-        const tDb = new sqlite3.Database(dbPath, sqlite3.OPEN_READONLY, errOpen => {
-          if (errOpen) { pendentes--; if (pendentes <= 0) finalizar(); return; }
-          tDb.all(`SELECT * FROM funcionarios WHERE status = 'Ativo' ORDER BY nome`, [], (errFunc, funcionarios) => {
-            if (errFunc) { tDb.close(); pendentes--; if (pendentes <= 0) finalizar(); return; }
-            tDb.all(`SELECT * FROM pedidos ORDER BY id`, [], (errPed, pedidos) => {
-              tDb.close();
-              if (!errPed) todasMetricas = todasMetricas.concat(calcularMetricas(funcionarios || [], pedidos || [], r.id, r.nome));
-              pendentes--; if (pendentes <= 0) finalizar();
-            });
-          });
-        });
-      });
-    });
-  }
-});
-
-/* ── SUPER ADMIN: CAPACIDADE REALISTA + MAPA DE RESTAURANTES ──
-   Modelo baseado em PICOS REAIS de sockets (amostrados a cada 5 min na
-   tabela metricas_sockets), não em contagem fixa de restaurantes. */
-const CAP_RAM_TENANT_FIXA = 80; // MB estimados por tenant ativo (fallback)
-
-function _amostrarSockets() {
-  try {
-    const agora = new Date();
-    const dia = agora.getFullYear() + '-' + String(agora.getMonth() + 1).padStart(2, '0') + '-' + String(agora.getDate()).padStart(2, '0');
-    const hora = agora.getHours();
-    masterDb.all(`SELECT id FROM restaurantes`, [], (err, rows) => {
-      if (err || !rows) return;
-      let total = 0;
-      const detalhes = [];
-      rows.forEach(r => {
-        let n = 0;
-        try {
-          const sala = io.sockets.adapter.rooms.get('restaurante_' + r.id);
-          n = sala ? sala.size : 0;
-        } catch (e) { }
-        total += n;
-        if (n > 0) detalhes.push([dia, hora, r.id, n]);
-      });
-      const upsert = `INSERT INTO metricas_sockets (dia, hora, tenant_id, sockets) VALUES (?, ?, ?, ?)
-        ON CONFLICT(dia, hora, tenant_id) DO UPDATE SET sockets = MAX(sockets, excluded.sockets)`;
-      detalhes.forEach(d => masterDb.run(upsert, d));
-      masterDb.run(upsert, [dia, hora, -1, total]);
-    });
-  } catch (e) { console.error('[metricas] amostragem falhou:', e.message); }
-}
-
-app.get('/api/super/capacidade', superAdminAuth, (req, res) => {
-  const os = require('os');
-  const mem = process.memoryUsage();
-  const totalRamMB = Math.round(os.totalmem() / 1048576);
-  const usedRamMB = totalRamMB - Math.round(os.freemem() / 1048576);
-  const rssMB = Math.round(mem.rss / 1048576);
-  const socketsAtivos = typeof activeSockets !== 'undefined' ? activeSockets.size : 0;
-  const diaMinimo = new Date(Date.now() - 6 * 86400000).toISOString().slice(0, 10);
-
-  masterDb.all(`SELECT id, nome, licenca, ativo FROM restaurantes ORDER BY id`, [], (errR, rests) => {
-    if (errR) return res.json({ ok: false, erro: errR.message });
-    const todos = rests || [];
-
-    let pendentes = 3;
-    const picos7d = {};   // tenant_id -> pico sockets 7d
-    const horaPico = {};  // tenant_id -> hora do pico
-    let heatmapBruto = [];
-
-    const finalizar = () => {
-      // Heatmap completo 0..23h
-      const hmMap = {};
-      heatmapBruto.forEach(l => { hmMap[l.hora] = l.s; });
-      const heatmap = [];
-      for (let h = 0; h < 24; h++) heatmap.push({ hora: h, sockets: hmMap[h] || 0 });
-
-      // Modelo realista
-      const tenantsComPico = Object.values(picos7d).filter(v => v > 0).length;
-      const picoSoma7d = Object.values(picos7d).reduce((a, b) => a + b, 0);
-      const fatorSimultaneidade = 0.7;
-      let custoSocketAuto = false;
-      let custoSocketMB = CAP_RAM_TENANT_FIXA;
-      if (socketsAtivos >= 10 && rssMB > socketsAtivos) {
-        custoSocketMB = Math.max(20, Math.round(rssMB / socketsAtivos));
-        custoSocketAuto = true;
-      }
-      const ramUtilMB = Math.round(totalRamMB * 0.85);
-      const ramBaseMB = Math.max(120, custoSocketAuto ? rssMB - socketsAtivos * custoSocketMB : rssMB);
-      const capSockets = Math.max(1, Math.floor((ramUtilMB - ramBaseMB) / custoSocketMB));
-      const mediaPicoPorTenant = tenantsComPico > 0 ? Math.round(picoSoma7d / tenantsComPico) : null;
-      const baseadoEmPicos = tenantsComPico >= 3;
-      const picoSimultaneo = Math.round(picoSoma7d * fatorSimultaneidade);
-
-      const teoricoMaxTenants = Math.max(1, Math.floor(ramUtilMB / custoSocketMB));
-      let maxTenants = teoricoMaxTenants;
-      if (baseadoEmPicos && mediaPicoPorTenant > 0) {
-        maxTenants = Math.min(teoricoMaxTenants, Math.max(1, Math.floor(capSockets / mediaPicoPorTenant)));
-      }
-      const tenantsAtivosCount = todos.filter(r => r.ativo).length;
-
-      const tenants = todos.map(r => ({
-        id: r.id,
-        nome: r.nome,
-        licenca: r.licenca || 'premium',
-        ativo: !!r.ativo,
-        sockets: (() => { try { const s = io.sockets.adapter.rooms.get('restaurante_' + r.id); return s ? s.size : 0; } catch (e) { return 0; } })(),
-        hora: horaPico[r.id] != null ? horaPico[r.id] : null
-      }));
-
-      res.json({
-        ok: true,
-        server: { totalRamMB, usedRamMB, socketsAtivos, tenantsAtivos: tenantsAtivosCount, tenantsTotal: todos.length },
-        capacidade: {
-          maxTenants, restantes: Math.max(0, maxTenants - tenantsAtivosCount),
-          percentual: Math.min(100, Math.round(tenantsAtivosCount / maxTenants * 100)),
-          ramPorTenantMB: custoSocketMB,
-          teoricoMaxTenants,
-          modelo: {
-            baseadoEmPicos, capSockets,
-            percentualSockets: Math.min(999, Math.round(picoSimultaneo / capSockets * 100)),
-            picoSimultaneo: baseadoEmPicos ? picoSimultaneo : null,
-            custoSocketMB, custoSocketAuto, mediaPicoPorTenant,
-            picoSoma7d, tenantsComPico, fatorSimultaneidade, ramBaseMB, ramUtilMB
-          }
-        },
-        heatmap,
-        tenants
-      });
-    };
-
-    // 1) picos por tenant (7d)
-    masterDb.all(
-      `SELECT tenant_id, MAX(sockets) AS mp FROM metricas_sockets WHERE dia >= ? AND tenant_id != -1 GROUP BY tenant_id`,
-      [diaMinimo], (e1, rows1) => {
-        (rows1 || []).forEach(l => { picos7d[l.tenant_id] = l.mp; });
-        pendentes--; if (pendentes <= 0) finalizar();
-      });
-    // 2) horas dos picos
-    masterDb.all(
-      `SELECT m.tenant_id, m.hora FROM metricas_sockets m
-       JOIN (SELECT tenant_id, MAX(sockets) AS mp FROM metricas_sockets WHERE dia >= ? AND tenant_id != -1 GROUP BY tenant_id) x
-         ON x.tenant_id = m.tenant_id AND x.mp = m.sockets
-       WHERE m.dia >= ? GROUP BY m.tenant_id`,
-      [diaMinimo, diaMinimo], (e2, rows2) => {
-        (rows2 || []).forEach(l => { if (horaPico[l.tenant_id] == null) horaPico[l.tenant_id] = l.hora; });
-        pendentes--; if (pendentes <= 0) finalizar();
-      });
-    // 3) heatmap global (tenant_id = -1)
-    masterDb.all(
-      `SELECT hora, MAX(sockets) AS s FROM metricas_sockets WHERE dia >= ? AND tenant_id = -1 GROUP BY hora ORDER BY hora`,
-      [diaMinimo], (e3, rows3) => {
-        heatmapBruto = rows3 || [];
-        pendentes--; if (pendentes <= 0) finalizar();
-      });
-  });
-});
-
-// ── SUPER ADMIN: MAPA DE RESTAURANTES CONECTADOS ───────────────────
-app.get('/api/super/mapa', superAdminAuth, (req, res) => {
-  masterDb.all(
-    `SELECT id, nome, licenca, ativo, latitude, longitude, bairro, cidade FROM restaurantes ORDER BY nome`,
-    [], (errR, rows) => {
-      if (errR) return res.json({ ok: false, erro: errR.message });
-      const todos = rows || [];
-
-      const socketsPorTenant = {}; const garconsPorTenant = {};
-      try {
-        io.sockets.sockets.forEach(s => {
-          const tid = s.restaurante_id;
-          if (!tid) return;
-          socketsPorTenant[tid] = (socketsPorTenant[tid] || 0) + 1;
-          const cargo = String((activeSockets.get(s.id) || {}).cargo || '');
-          if (/gar|atend/i.test(cargo)) garconsPorTenant[tid] = (garconsPorTenant[tid] || 0) + 1;
-        });
-      } catch (e) { }
-
-      let pendentes = todos.length;
-      const pontos = [];
-      const finalizar = () => {
-        const comLocal = pontos.filter(p => p.temLocal);
-        const cidadeMap = {};
-        comLocal.forEach(p => { if (p.cidade) cidadeMap[p.cidade] = (cidadeMap[p.cidade] || 0) + 1; });
-        res.json({
-          ok: true,
-          pontos,
-          stats: {
-            online: pontos.filter(p => p.online).length,
-            total: pontos.length,
-            comLocal: comLocal.length,
-            cidades: Object.entries(cidadeMap).map(([nome, total]) => ({ nome, total })).sort((a, b) => b.total - a.total)
-          }
-        });
-      };
-      if (!todos.length) return finalizar();
-
-      todos.forEach(r => {
-        const lat = parseFloat(r.latitude), lng = parseFloat(r.longitude);
-        const base = {
-          id: r.id, nome: r.nome, licenca: r.licenca || 'premium',
-          online: (socketsPorTenant[r.id] || 0) > 0,
-          sockets: socketsPorTenant[r.id] || 0,
-          garcons_online: garconsPorTenant[r.id] || 0,
-          temLocal: Number.isFinite(lat) && Number.isFinite(lng),
-          latitude: lat, longitude: lng,
-          bairro: r.bairro || '', cidade: r.cidade || '',
-          ultima_atividade: null
-        };
-        const dbPath = getTenantDbPath(r.id);
-        if (!fsSync.existsSync(dbPath)) {
-          pontos.push({ ...base, comandas_abertas: 0, vendas_hoje: 0 });
-          pendentes--; if (pendentes <= 0) finalizar();
-          return;
-        }
-        const tDb = new sqlite3.Database(dbPath, sqlite3.OPEN_READONLY, eOpen => {
-          if (eOpen) {
-            pontos.push({ ...base, comandas_abertas: 0, vendas_hoje: 0 });
-            pendentes--; if (pendentes <= 0) finalizar();
-            return;
-          }
-          tDb.get(
-            `SELECT
-               SUM(CASE WHEN status NOT IN ('Finalizado','Pago','Fracionado','Cancelado') THEN 1 ELSE 0 END) AS abertas,
-               COALESCE(SUM(CASE WHEN status IN ('Finalizado','Pago') AND date(createdAt) = date('now','localtime') THEN CAST(total AS REAL) ELSE 0 END),0) AS vendas
-             FROM pedidos`,
-            [], (eP, rowP) => {
-              tDb.all(`SELECT MAX(ultimo_visto) AS uv FROM dispositivos`, [], (eD, rowsD) => {
-                tDb.close();
-                base.comandas_abertas = (!eP && rowP && rowP.abertas) || 0;
-                base.vendas_hoje = (!eP && rowP ? rowP.vendas : 0) || 0;
-                if (!eD && rowsD && rowsD[0]) base.ultima_atividade = rowsD[0].uv;
-                pontos.push(base);
-                pendentes--; if (pendentes <= 0) finalizar();
-              });
-            });
-        });
-      });
-    });
-});
-
-// ── SUPER ADMIN: LOGS ──────────────────────────────────────────────
-app.get('/api/super/logs-sistema', superAdminAuth, (req, res) => {
-  const tipo = req.query.tipo === 'auditoria' ? 'auditoria' : 'api_logs';
-  const search = req.query.search || '';
-  const limit = Math.min(200, parseInt(req.query.limit) || 50);
-  const offset = Math.max(0, parseInt(req.query.offset) || 0);
-  let query = `SELECT * FROM ${tipo}`; const params = [];
-  if (search) {
-    const cols = tipo === 'api_logs' ? ['operador', 'ip', 'endpoint', 'detalhes'] : ['operador', 'acao', 'detalhes', 'motivo'];
-    query += ` WHERE ${cols.map(c => c + ' LIKE ?').join(' OR ')}`;
-    cols.forEach(() => params.push(`%${search}%`));
-  }
-  query += ` ORDER BY id DESC LIMIT ? OFFSET ?`; params.push(limit, offset);
-  masterDb.all(query, params, (err, rows) => {
-    if (err) return res.json({ ok: false, erro: err.message });
-    let countQuery = `SELECT COUNT(*) as count FROM ${tipo}`;
-    const countParams = [];
-    if (search) {
-      const cols = tipo === 'api_logs' ? ['operador', 'ip', 'endpoint', 'detalhes'] : ['operador', 'acao', 'detalhes', 'motivo'];
-      countQuery += ` WHERE ${cols.map(c => c + ' LIKE ?').join(' OR ')}`;
-      cols.forEach(() => countParams.push(`%${search}%`));
-    }
-    masterDb.get(countQuery, countParams, (errCount, rowCount) => {
-      res.json({ ok: true, rows: rows || [], total: rowCount ? rowCount.count : 0 });
-    });
-  });
-});
-
-// ── SUPER ADMIN: SERVER STATUS ──────────────────────────────────────
-
-// ─── GERENCIADOR DO VITE DEV SERVER (SUPER-ADMIN) ───
-const childProcess = require('child_process');
-global._vitePort = global._vitePort || 5173;
-global._viteProcess = global._viteProcess || null;
-
-app.get('/api/super/vite/status', (req, res) => {
-  const isRunning = !!global._viteProcess && !global._viteProcess.killed;
-  res.json({
-    ok: true,
-    running: isRunning,
-    port: global._vitePort,
-    pid: isRunning ? global._viteProcess.pid : null,
-    url: `http://localhost:${global._vitePort}`
-  });
-});
-
-app.post('/api/super/vite/control', (req, res) => {
-  const { action, port } = req.body || {};
-  const targetPort = parseInt(port) || global._vitePort || 5173;
-  global._vitePort = targetPort;
-
-  function matarViteExistente(cb) {
-    if (global._viteProcess && global._viteProcess.pid) {
-      try {
-        if (process.platform === 'win32') {
-          exec(`taskkill /pid ${global._viteProcess.pid} /T /F`, () => {
-            global._viteProcess = null;
-            if (cb) cb();
-          });
-          return;
-        } else {
-          global._viteProcess.kill('SIGTERM');
-          global._viteProcess = null;
-        }
-      } catch (e) {
-        global._viteProcess = null;
-      }
-    }
-    if (cb) cb();
-  }
-
-  if (action === 'stop') {
-    matarViteExistente(() => {
-      res.json({ ok: true, running: false, message: 'Vite desligado com sucesso.' });
-    });
-    return;
-  }
-
-  if (action === 'start' || action === 'restart') {
-    matarViteExistente(() => {
-      try {
-        const cmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
-        global._viteProcess = spawn(cmd, ['vite', '--port', String(targetPort), '--host'], {
-          cwd: __dirname,
-          shell: true,
-          stdio: 'ignore'
-        });
-
-        global._viteProcess.on('error', (err) => {
-          console.error('[Vite Super-Admin] Erro ao iniciar Vite:', err);
-          global._viteProcess = null;
-        });
-
-        global._viteProcess.on('exit', () => {
-          global._viteProcess = null;
-        });
-
-        setTimeout(() => {
-          res.json({
-            ok: true,
-            running: true,
-            port: targetPort,
-            url: `http://localhost:${targetPort}`,
-            message: `Vite iniciado na porta ${targetPort} com sucesso!`
-          });
-        }, 1000);
-      } catch (err) {
-        res.status(500).json({ ok: false, error: err.message });
-      }
-    });
-    return;
-  }
-
-  res.status(400).json({ ok: false, error: 'Ação inválida.' });
-});
-
-app.get('/api/super/server-status', superAdminAuth, (req, res) => {
-  const uptime = process.uptime();
-  const mem = process.memoryUsage();
-  const dbFiles = listarBancosTenant();
-  let totalDbSize = 0;
-  dbFiles.forEach(f => { try { totalDbSize += fsSync.statSync(f).size; } catch(e) {} });
-  try { totalDbSize += fsSync.statSync(path.join(__dirname, 'master.sqlite')).size; } catch(e) {}
-  res.json({ ok: true, status: { uptime: Math.floor(uptime), memoria: { rss: mem.rss, heapUsed: mem.heapUsed, heapTotal: mem.heapTotal }, disco: { arquivos_banco: dbFiles.length + 1, tamanho_total: totalDbSize }, node: process.version, plataforma: process.platform, pid: process.pid, dataHora: new Date().toISOString() } });
-});
-
-// ── SUPER ADMIN: CONFIG (base_domain etc) ──────────────────────────
-app.get('/api/super/config', superAdminAuth, (req, res) => {
-  masterDb.all(`SELECT key, value FROM super_config`, [], (err, rows) => {
-    const config = {};
-    (rows || []).forEach(r => { config[r.key] = r.value; });
-    config.base_domain = config.base_domain || BASE_DOMAIN;
-    res.json({ ok: true, config });
-  });
-});
-
-app.post('/api/super/config', superAdminAuth, (req, res) => {
-  const { base_domain } = req.body || {};
-  if (base_domain !== undefined) {
-    const val = String(base_domain || '').toLowerCase().trim();
-    masterDb.run(`INSERT OR REPLACE INTO super_config (key, value) VALUES ('base_domain', ?)`, [val], () => {
-      if (val) BASE_DOMAIN = val;
-      res.json({ ok: true, base_domain: BASE_DOMAIN });
-    });
-  } else {
-    res.json({ ok: true });
-  }
-});
-
-// ── SUPER ADMIN: BACKUP ─────────────────────────────────────────────
-app.post('/api/super/backup', superAdminAuth, (req, res) => {
-  try {
-    const backupDir = path.join(__dirname, 'backups');
-    if (!fsSync.existsSync(backupDir)) fsSync.mkdirSync(backupDir, { recursive: true });
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const files = listarBancosTenant();
-    files.push(path.join(__dirname, 'master.sqlite'));
-    const copied = [];
-    files.forEach(src => {
-      const f = path.basename(src);
-      const dst = path.join(backupDir, f.replace(/\.sqlite$/, '_backup_' + timestamp + '.sqlite'));
-      try { fsSync.copyFileSync(src, dst); copied.push(path.relative(__dirname, src)); } catch(e) {}
-    });
-    res.json({ ok: true, mensagem: 'Backup criado com sucesso!', arquivos: copied, timestamp });
-  } catch (e) { res.json({ ok: false, erro: e.message }); }
-});
-
-
-// ── SUPER ADMIN: GESTÃO DE IA POR RESTAURANTE ─────────────────────────────
-app.get('/api/super/restaurantes/:id/ia', superAdminAuth, async (req, res) => {
-  const restId = parseInt(req.params.id, 10);
-  if (!restId) return res.status(400).json({ ok: false, erro: 'ID inválido' });
-  const tdb = getTenantDb(restId);
-  tdb.all("SELECT chave, valor FROM configuracoes WHERE chave IN ('ia_api_key', 'ia_model', 'ia_ativa', 'ia_tom_voz')", [], (err, rows) => {
-    if (err) return res.status(500).json({ ok: false, erro: err.message });
-    const cfgs = {};
-    (rows || []).forEach(r => { cfgs[r.chave] = r.valor; });
-    res.json({
-      ok: true,
-      ia_api_key: cfgs.ia_api_key || '',
-      ia_model: cfgs.ia_model || 'gemini-2.5-flash',
-      ia_ativa: cfgs.ia_ativa !== '0' && cfgs.ia_ativa !== 'false',
-      ia_tom_voz: cfgs.ia_tom_voz || ''
-    });
-  });
-});
-
-app.post('/api/super/restaurantes/:id/ia', superAdminAuth, async (req, res) => {
-  const restId = parseInt(req.params.id, 10);
-  if (!restId) return res.status(400).json({ ok: false, erro: 'ID inválido' });
-  const { ia_api_key, ia_model, ia_ativa, ia_tom_voz } = req.body || {};
-  const tdb = getTenantDb(restId);
-  tdb.serialize(() => {
-    if (ia_api_key !== undefined) {
-      tdb.run("INSERT INTO configuracoes (chave, valor) VALUES ('ia_api_key', ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor", [String(ia_api_key).trim()]);
-    }
-    if (ia_model !== undefined) {
-      tdb.run("INSERT INTO configuracoes (chave, valor) VALUES ('ia_model', ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor", [String(ia_model).trim()]);
-    }
-    if (ia_ativa !== undefined) {
-      tdb.run("INSERT INTO configuracoes (chave, valor) VALUES ('ia_ativa', ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor", [String(ia_ativa)]);
-    }
-    if (ia_tom_voz !== undefined) {
-      tdb.run("INSERT INTO configuracoes (chave, valor) VALUES ('ia_tom_voz', ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor", [String(ia_tom_voz).trim()]);
-    }
-    res.json({ ok: true, mensagem: 'Configurações de IA do restaurante atualizadas com sucesso!' });
-  });
-});
-
-app.post('/api/super/ia-test-key', superAdminAuth, async (req, res) => {
-  try {
-    const { apiKey, model } = req.body || {};
-    if (!apiKey) return res.json({ ok: false, erro: 'Nenhuma chave informada para teste.' });
-    const resultado = await iaService.testarApiKey(apiKey, model || iaService.DEFAULT_MODEL);
-    res.json(resultado);
-  } catch (err) {
-    res.json({ ok: false, erro: err.message });
-  }
-});
-
-// ── SUPER ADMIN: CONFIG GLOBAL ──────────────────────────────────────
-app.get('/api/super/config-global', superAdminAuth, (req, res) => {
-  masterDb.all("SELECT chave, valor FROM configuracoes_global", [], (err, rows) => {
-    if (err) return res.json({ ok: true, configs: {} });
-    const cfgs = {}; (rows || []).forEach(r => { cfgs[r.chave] = r.valor; });
-    res.json({ ok: true, configs: cfgs });
-  });
-});
-
-app.post('/api/super/config-global', superAdminAuth, (req, res) => {
-  const configs = req.body || {};
-  if (!Object.keys(configs).length) return res.json({ ok: false, erro: 'Nenhuma configuração informada.' });
-  masterDb.serialize(() => {
-    Object.keys(configs).forEach(chave => {
-      const valor = typeof configs[chave] === 'object' ? JSON.stringify(configs[chave]) : String(configs[chave]);
-      masterDb.run("INSERT INTO configuracoes_global (chave, valor) VALUES (?, ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor", [chave, valor]);
-    });
-  });
-  res.json({ ok: true, mensagem: 'Configurações salvas com sucesso!' });
-});
-
-// Tema Global: salva config e propaga em tempo real para todos os clientes conectados
-app.post('/api/super/theme-custom', superAdminAuth, (req, res) => {
-  const theme = req.body && req.body.theme;
-  const alvo = req.body && req.body.alvo; // 'global' | 'tenant' | 'tenant_ids:1,2,3'
-  if (!theme || typeof theme !== 'object' || !Object.keys(theme).length) {
-    return res.json({ ok: false, erro: 'Tema inválido.' });
-  }
-  const valor = JSON.stringify(theme);
-
-  if (!alvo || alvo === 'global') {
-    masterDb.run("INSERT INTO configuracoes_global (chave, valor) VALUES ('custom_theme', ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor", [valor], (err) => {
-      if (err) return res.json({ ok: false, erro: err.message });
-      try { io.emit('tema_global_atualizado', theme); } catch (e) { }
-      res.json({ ok: true, mensagem: 'Tema Global salvo e propagado em tempo real!' });
-    });
-  } else if (alvo === 'tenant') {
-    const tid = req.body.restaurante_id;
-    if (!tid) return res.json({ ok: false, erro: 'restaurante_id obrigatório.' });
-    masterDb.run(
-      `INSERT INTO tenant_temas (restaurante_id, tema_json) VALUES (?, ?)
-       ON CONFLICT(restaurante_id) DO UPDATE SET tema_json = excluded.tema_json, atualizado_em = datetime('now','localtime')`,
-      [tid, valor], (err) => {
-        if (err) return res.json({ ok: false, erro: err.message });
-        io.emit('tema_tenant_atualizado', { restaurante_id: tid, theme });
-        res.json({ ok: true, mensagem: 'Tema do restaurante #' + tid + ' salvo!' });
-      }
-    );
-  } else if (alvo === 'tenant_ids') {
-    const ids = (req.body.restaurante_ids || []).filter(Boolean);
-    if (!ids.length) return res.json({ ok: false, erro: 'Nenhum restaurante selecionado.' });
-    const stmt = masterDb.prepare(
-      `INSERT INTO tenant_temas (restaurante_id, tema_json) VALUES (?, ?)
-       ON CONFLICT(restaurante_id) DO UPDATE SET tema_json = excluded.tema_json, atualizado_em = datetime('now','localtime')`
-    );
-    ids.forEach(id => { stmt.run(id, valor); });
-    stmt.finalize();
-    res.json({ ok: true, mensagem: 'Tema aplicado em ' + ids.length + ' restaurante(s)!' });
-  }
-});
-
-// Tema Global público: leitura apenas de cores/fontes (sem dados sensíveis)
-app.get('/api/public/theme', (req, res) => {
-  const tid = req.query.restaurante_id;
-  /* Se restaurante_id fornecido, verificar override do tenant primeiro */
-  if (tid) {
-    masterDb.get("SELECT tema_json FROM tenant_temas WHERE restaurante_id = ?", [tid], (err, tRow) => {
-      if (!err && tRow && tRow.tema_json) {
-        try { return res.json({ ok: true, theme: JSON.parse(tRow.tema_json), source: 'tenant' }); } catch (e) {}
-      }
-      /* Fallback para tema global */
-      masterDb.get("SELECT valor FROM configuracoes_global WHERE chave = 'custom_theme'", [], (err2, row) => {
-        if (err2 || !row || !row.valor) return res.json({ ok: true, theme: null, source: 'default' });
-        try { return res.json({ ok: true, theme: JSON.parse(row.valor), source: 'global' }); }
-        catch (e) { return res.json({ ok: true, theme: null, source: 'default' }); }
-      });
-    });
-  } else {
-    masterDb.get("SELECT valor FROM configuracoes_global WHERE chave = 'custom_theme'", [], (err, row) => {
-      if (err || !row || !row.valor) return res.json({ ok: true, theme: null });
-      try { return res.json({ ok: true, theme: JSON.parse(row.valor) }); }
-      catch (e) { return res.json({ ok: true, theme: null }); }
-    });
-  }
-});
-
-// GET /api/super/tenant-temas — Listar todos os tenants com tema próprio
-app.get('/api/super/tenant-temas', superAdminAuth, (req, res) => {
-  masterDb.all(`SELECT restaurante_id, tema_json, atualizado_em FROM tenant_temas ORDER BY atualizado_em DESC`, [], (err, rows) => {
-    if (err) return res.json({ ok: false, erro: err.message });
-    res.json({ ok: true, temas: rows || [] });
-  });
-});
-
-// ── RESERVAS FUTURAS → migradas para plugins/reserves/ ──
-
-// ── CLIENTES: preferencia-mesa + buscar-doc → migrado para plugins/caixa/ ──
-
-/* ── PIX COPIA E COLA DINÂMICO ── extraído para plugins/pix/ ── */
-
-// �?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?
-// ── TEMAS GLOBAIS MULTI-VERSÃO ── extraído para plugins/temas/ ──
-masterDb.run(`CREATE TABLE IF NOT EXISTS temas_global (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  versao TEXT UNIQUE,
-  nome TEXT,
-  ativo INTEGER DEFAULT 0,
-  cfg_claro TEXT DEFAULT '{}',
-  cfg_escuro TEXT DEFAULT '{}',
-  criada_em DATETIME DEFAULT (datetime('now','localtime'))
-)`);
-
-// ── SUPER ADMIN: MENSAGENS / BROADCAST ──────────────────────────────
-app.get('/api/super/mensagens', superAdminAuth, (req, res) => {
-  masterDb.all("SELECT * FROM mensagens ORDER BY criado_em DESC LIMIT 200", [], (err, rows) => {
-    if (err) return res.json({ ok: false, erro: err.message });
-    res.json({ ok: true, mensagens: rows || [] });
-  });
-});
-
-app.post('/api/super/mensagens', superAdminAuth, (req, res) => {
-  const { titulo, corpo, tipo } = req.body;
-  if (!titulo || !corpo) return res.json({ ok: false, erro: 'Título e corpo são obrigatórios.' });
-  const tipoValido = ['aviso', 'atualizacao', 'manutencao', 'urgente'].includes(tipo) ? tipo : 'aviso';
-  masterDb.run("INSERT INTO mensagens (titulo, corpo, tipo) VALUES (?, ?, ?)", [titulo, corpo, tipoValido], function(err) {
-    if (err) return res.json({ ok: false, erro: err.message });
-    io.emit('mensagem_broadcast', { id: this.lastID, titulo, corpo, tipo: tipoValido, criado_em: new Date().toISOString() });
-    res.json({ ok: true, id: this.lastID, mensagem: 'Mensagem enviada!' });
-  });
-});
-
-app.delete('/api/super/mensagens/:id', superAdminAuth, (req, res) => {
-  masterDb.run("DELETE FROM mensagens WHERE id = ?", [req.params.id], function(err) {
-    if (err) return res.json({ ok: false, erro: err.message });
-    res.json({ ok: true, mensagem: 'Mensagem removida.' });
-  });
-});
-
-app.post('/api/super/mensagens/:id/reenviar', superAdminAuth, (req, res) => {
-  masterDb.get("SELECT * FROM mensagens WHERE id = ?", [req.params.id], (err, row) => {
-    if (err || !row) return res.json({ ok: false, erro: 'Mensagem não encontrada.' });
-    io.emit('mensagem_broadcast', { id: row.id, titulo: row.titulo, corpo: row.corpo, tipo: row.tipo, criado_em: row.criado_em });
-    res.json({ ok: true, mensagem: 'Mensagem reenviada!' });
-  });
-});
-
-// ── MENSAGENS PÚBLICAS ──────────────────────────────────────────────
-app.get('/api/mensagens', (req, res) => {
-  masterDb.all("SELECT id, titulo, corpo, tipo, criado_em FROM mensagens ORDER BY criado_em DESC LIMIT 50", [], (err, rows) => {
-    if (err) return res.json({ ok: true, mensagens: [] });
-    res.json({ ok: true, mensagens: rows || [] });
-  });
-});
-
-app.post('/api/mensagens/:id/lida', (req, res) => {
-  const { restaurante_id } = req.body;
-  if (!restaurante_id) return res.json({ ok: false, erro: 'restaurante_id obrigatório.' });
-  masterDb.get("SELECT lida_por FROM mensagens WHERE id = ?", [req.params.id], (err, row) => {
-    if (err || !row) return res.json({ ok: false, erro: 'Mensagem não encontrada.' });
-    const lidas = (row.lida_por || '').split(',').filter(Boolean);
-    if (!lidas.includes(String(restaurante_id))) { lidas.push(String(restaurante_id)); masterDb.run("UPDATE mensagens SET lida_por = ? WHERE id = ?", [lidas.join(','), req.params.id]); }
-    res.json({ ok: true });
-  });
-});
-
-// ── TELEMETRIA PÚBLICA ──────────────────────────────────────────────
-app.post('/api/telemetria', (req, res) => {
-  const body = req.body || {};
-  const install = body.install_id || body.installId || '';
-  if (!install) return res.status(400).json({ ok: false, error: 'install_id obrigatório.' });
-  registrarTelemetria(body);
-  res.json({ ok: true });
-});
-
-// ── LICENÇA PÚBLICA ────────────────────────────────────────────────
-app.post('/api/licenca/ativar', async (req, res) => {
-  const { chave, install_id, nome_restaurante } = req.body || {};
-  if (!chave) return res.status(400).json({ ok: false, error: 'Chave obrigatória.' });
-  masterDb.get(`SELECT * FROM licencas WHERE chave = ?`, [trimStr(chave, 30).toUpperCase()], (err, lic) => {
-    if (err || !lic) return res.status(400).json({ ok: false, error: 'Chave inválida.' });
-    if (lic.status === 'revogada') return res.status(403).json({ ok: false, error: 'Chave revogada.' });
-    const hoje = new Date().toISOString().split('T')[0];
-    if (lic.validade && lic.validade < hoje) { masterDb.run(`UPDATE licencas SET status = 'expirada' WHERE id = ?`, [lic.id], () => {}); return res.status(403).json({ ok: false, error: 'Chave expirada.' }); }
-    if (lic.status === 'usada' && lic.install_id && lic.install_id !== (install_id || '')) return res.status(403).json({ ok: false, error: 'Chave já utilizada em outra instalação.' });
-    const agora = new Date().toLocaleString();
-    masterDb.run(`UPDATE licencas SET status = 'usada', usada_em = ?, usada_por = ?, install_id = ? WHERE id = ?`,
-      [agora, trimStr(nome_restaurante, 120) || lic.restaurante_nome, install_id || '', lic.id], () => {
-        registrarTelemetria({ install_id: install_id || '', nome_restaurante: trimStr(nome_restaurante, 120) || lic.restaurante_nome, online: 1, ultima_atividade: agora });
-        res.json({ ok: true, status: 'ativo', plano: lic.plano, validade: lic.validade, maxDispositivos: lic.max_dispositivos });
-      });
-  });
-});
-
-app.get('/api/licenca/estado', (req, res) => {
-  const { chave, install_id } = req.query;
-  if (!chave) return res.json({ ok: false, error: 'Chave obrigatória.' });
-  masterDb.get(`SELECT * FROM licencas WHERE chave = ?`, [String(chave).toUpperCase()], (err, lic) => {
-    if (err || !lic) return res.json({ ok: false, error: 'Chave inválida.' });
-    if (lic.status === 'revogada') return res.json({ ok: false, status: 'bloqueado', error: 'Chave revogada.' });
-    if (lic.status === 'usada' && lic.install_id && install_id && lic.install_id !== install_id) return res.json({ ok: false, status: 'bloqueado', error: 'Chave em uso por outra instalação.' });
-    const hoje = new Date().toISOString().split('T')[0];
-    if (lic.validade && lic.validade < hoje) return res.json({ ok: false, status: 'expirado', error: 'Licença expirada.' });
-    res.json({ ok: true, status: 'ativo', plano: lic.plano, validade: lic.validade, maxDispositivos: lic.max_dispositivos });
-  });
-});
-
-// ── SUPER ADMIN: CLIENTES ───────────────────────────────────────────
-app.get('/api/super/clientes', superAdminAuth, (req, res) => {
-  masterDb.all(`SELECT id, nome FROM restaurantes ORDER BY id`, [], (err, restaurantes) => {
-    if (err) return res.json({ ok: false, erro: err.message });
-    const restList = restaurantes || [];
-    if (restList.length === 0) return res.json({ ok: true, clientes: [] });
-    let todosClientes = []; let pendentes = restList.length;
-    function finalizar() { todosClientes.sort((a, b) => a.restaurante_id - b.restaurante_id || a.nome.localeCompare(b.nome)); res.json({ ok: true, clientes: todosClientes }); }
-    restList.forEach(r => {
-      const tenantDbPath = getTenantDbPath(r.id);
-      if (!fsSync.existsSync(tenantDbPath)) { pendentes--; if (pendentes <= 0) finalizar(); return; }
-      const tDb = new sqlite3.Database(tenantDbPath, sqlite3.OPEN_READONLY, errOpen => {
-        if (errOpen) { pendentes--; if (pendentes <= 0) finalizar(); return; }
-        tDb.all(`SELECT * FROM clientes ORDER BY nome`, [], (errC, rows) => {
-          const clientes = (!errC && rows) || [];
-          if (clientes.length === 0) { tDb.close(); pendentes--; if (pendentes <= 0) finalizar(); return; }
-          let subPendentes = clientes.length;
-          clientes.forEach(c => {
-            tDb.get(`SELECT COUNT(*) as total_pedidos, COALESCE(SUM(CAST(REPLACE(COALESCE(total,'0'), ',', '.') AS REAL)), 0) as total_gasto FROM pedidos WHERE cliente_id = ? AND status IN ('Finalizado','Pago','Entregue')`, [c.id], (errP, stats) => {
-              todosClientes.push({ id: c.id, restaurante_id: r.id, restaurante_nome: r.nome, nome: c.nome, telefone: c.telefone, endereco: c.endereco, bairro: c.bairro || '', cidade: c.cidade || '', dispositivo: c.dispositivo || '', data_nascimento: c.data_nascimento, observacao: c.observacao || c.observacoes || '', pontos: c.pontos || 0, nivel: c.nivel || 'Bronze', ultimo_checkin: c.ultimo_checkin || '', total_pedidos: stats ? stats.total_pedidos || 0 : 0, total_gasto: stats ? stats.total_gasto || 0 : 0 });
-              subPendentes--;
-              if (subPendentes <= 0) { tDb.close(); pendentes--; if (pendentes <= 0) finalizar(); }
-            });
-          });
-        });
-      });
-    });
-  });
-});
-
-app.get('/api/super/clientes/:id', superAdminAuth, (req, res) => {
-  const clienteId = parseInt(req.params.id);
-  const restauranteId = parseInt(req.query.restaurante_id) || 1;
-  const tenantDbPath = getTenantDbPath(restauranteId);
-  if (!fsSync.existsSync(tenantDbPath)) return res.json({ ok: false, erro: 'Banco do restaurante não encontrado.' });
-  const tDb = new sqlite3.Database(tenantDbPath, sqlite3.OPEN_READONLY, (errOpen) => {
-    if (errOpen) return res.json({ ok: false, erro: 'Erro ao abrir banco.' });
-    tDb.get(`SELECT * FROM clientes WHERE id = ?`, [clienteId], (err, cliente) => {
-      if (err || !cliente) { tDb.close(); return res.json({ ok: false, erro: 'Cliente não encontrado.' }); }
-      tDb.all(`SELECT * FROM pedidos WHERE cliente_id = ? ORDER BY createdAt DESC LIMIT 100`, [clienteId], (errPed, pedidos) => {
-        tDb.close();
-        const totalGasto = (pedidos || []).reduce((sum, p) => sum + (parseFloat(String(p.total).replace(',', '.')) || 0), 0);
-        res.json({ ok: true, cliente: { id: cliente.id, nome: cliente.nome, telefone: cliente.telefone, endereco: cliente.endereco, data_nascimento: cliente.data_nascimento, observacao: cliente.observacao || cliente.observacoes || '', pontos: cliente.pontos || 0, total_gasto: totalGasto, total_pedidos: (pedidos || []).length, ultima_visita: pedidos && pedidos.length > 0 ? pedidos[0].createdAt : null, pedidos: (pedidos || []).map(p => ({ id: p.id, productName: p.productName, quantity: p.quantity, total: p.total, status: p.status, localName: p.localName, createdAt: p.createdAt })) } });
-      });
-    });
-  });
-});
-
-// ── SUPER ADMIN: FUNCION�?RIOS POR RESTAURANTE ───────────────────────
-app.get('/api/super/restaurantes/:id/funcionarios', superAdminAuth, (req, res) => {
-  const restauranteId = parseInt(req.params.id);
-  const tenantDbPath = getTenantDbPath(restauranteId);
-  if (!fsSync.existsSync(tenantDbPath)) return res.json({ ok: false, erro: 'Banco do restaurante não encontrado.', funcionarios: [] });
-  const tDb = new sqlite3.Database(tenantDbPath, sqlite3.OPEN_READONLY, (errOpen) => {
-    if (errOpen) return res.json({ ok: false, erro: 'Erro ao abrir banco.' });
-    tDb.all(`SELECT * FROM funcionarios ORDER BY nome`, [], (err, rows) => {
-      tDb.close();
-      if (err) return res.json({ ok: false, erro: err.message });
-      const seguros = (rows || []).map(f => ({ id: f.id, nome: f.nome, usuario: f.usuario, cargo: f.cargo, status: f.status || 'Ativo', valor_hora: f.valor_hora || 0, tipo_remuneracao: f.tipo_remuneracao || 'hora' }));
-      res.json({ ok: true, funcionarios: seguros, restaurante_id: restauranteId });
-    });
-  });
-});
-
-// ── SUPER ADMIN: EXEC (comandos com segurança) ──────────────────────
-const CMD_BLOCKLIST = [
-  /\brm\s+-rf\s+\/\b/,           // rm -rf /
-  /\bmkfs\b/,                     // formatação de disco
-  /\bdd\s+.*of=\/dev\//,          // dd direto em disco
-  /\b:(){ :\|:& };:/,             // fork bomb
-  /\bcurl\b.*\|\s*bash/,         // pipe remoto para bash
-  /\bwget\b.*\|\s*bash/,
-  /\bchmod\s+777\s+\//,          // chmod global
-  /\bshutdown\b/,
-  /\breboot\b/,
-  /\binit\s+[06]\b/
-];
-
-const CMD_BLOCKLIST_TERMINAL = [
-  /\brm\s+-rf\s+\//,
-  /\bmkfs\b/i,
-  /\bdd\s+.*of=\/dev\//i,
-  /\b:(){ :\|:& };:/,
-  /\bformat\s+[a-z]:/i,
-  /\bdrop\s+database\b/i
-];
-
-const { exec: execCmd } = require('child_process');
-
-const CMD_ALLOW_TERMINAL = /^(ls|dir|cat|type|head|tail|wc|df|du|free|uptime|ps|top|tasklist|systeminfo|wmic|netstat|ss|ip|ifconfig|ipconfig|ping|host|dig|nslookup|date|time|ver|hostname|pwd|whoami|id|env|printenv|node|npm|npx|pm2|sqlite3|git|docker|echo|curl|cls|clear|findstr|find|tree|where|which|powershell)/i;
-
-app.post('/api/super/exec', superAdminAuth, (req, res) => {
-  try {
-    const { command } = req.body;
-    if (!command || typeof command !== 'string') return res.json({ ok: false, erro: 'Comando obrigatório.' });
-    const cmdTrim = command.trim();
-    if (cmdTrim.length > 800) return res.json({ ok: false, erro: 'Comando muito longo (máx 800 caracteres).' });
-    if (CMD_BLOCKLIST_TERMINAL.some(rx => rx.test(cmdTrim))) return res.json({ ok: false, erro: 'Comando bloqueado por segurança.' });
-    if (!CMD_ALLOW_TERMINAL.test(cmdTrim)) {
-      return res.json({ ok: false, erro: 'Comando não permitido por política de segurança. Permitidos: node, npm, dir, ls, tasklist, systeminfo, wmic, git, ping, netstat, etc.' });
-    }
-
-    console.log(`[SuperAdmin Exec] ${req.superAdmin?.role || 'admin'}: ${cmdTrim.substring(0, 200)}`);
-    if (typeof registrarAuditoria === 'function') {
-      try { registrarAuditoria('exec_comando', `Comando: ${cmdTrim.substring(0, 500)}`); } catch(e) {}
-    }
-
-    const isWin = process.platform === 'win32';
-    const shellOpt = isWin ? 'cmd.exe' : '/bin/bash';
-
-    execCmd(cmdTrim, { cwd: __dirname, timeout: 30000, maxBuffer: 4 * 1024 * 1024, shell: shellOpt }, (error, stdout, stderr) => {
-      const out = (stdout || '').substring(0, 30000);
-      const err = (stderr || (error ? error.message : '')).substring(0, 15000);
-      res.json({
-        ok: !error,
-        stdout: out,
-        stderr: err,
-        exitCode: error ? (error.code || 1) : 0,
-        command: cmdTrim.substring(0, 300)
-      });
-    });
-  } catch (errExec) {
-    console.error('[SuperAdmin Exec Error]', errExec);
-    res.json({ ok: false, erro: 'Erro interno ao executar comando: ' + (errExec.message || errExec) });
-  }
-});
-
-// ── SUPER ADMIN: EQUIPE DE SUPORTE CRUD ── extraído para plugins/equipe/ ──
-
-// �?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?
-// PAINEL DE SUPORTE — AUTH, GESTÃO & GAMIFICAÇÃO
-// �?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?
-
-const suporteJwtSecret = process.env.SUPORTE_JWT_SECRET || 'chef-suporte-secret-key-2026';
-
-function suporteAuth(req, res, next) {
-  const token = req.headers['x-suporte-token'];
-  if (!token) return res.json({ ok: false, erro: 'Token de suporte não fornecido.' });
-  try {
-    const decoded = jwt.verify(token, suporteJwtSecret);
-    req.suporteId = decoded.id;
-    req.suporteData = decoded;
-    next();
-  } catch (e) { res.json({ ok: false, erro: 'Sessão de suporte inválida ou expirada.' }); }
-}
-
-function registrarAuditLog(suporteId, suporteNome, acao, detalhes, req) {
-  const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
-  masterDb.run(`INSERT INTO suporte_logs_audit (suporte_id, suporte_nome, acao, detalhes, ip) VALUES (?, ?, ?, ?, ?)`,
-    [suporteId || null, suporteNome || 'Anônimo', acao, detalhes, String(clientIp)]);
-}
-
-function gerarXP(suporteId, pontos, tipo, descricao, restauranteId) {
-  masterDb.run(`UPDATE equipe_suporte SET xp = COALESCE(xp,0) + ? WHERE id = ?`, [pontos, suporteId]);
-  masterDb.run(`INSERT INTO tarefas_suporte (suporte_id, tipo, descricao, restaurante_id, pontos, status, concluida_em) VALUES (?, ?, ?, ?, ?, 'concluida', datetime('now','localtime'))`,
-    [suporteId, tipo, descricao, restauranteId || null, pontos]);
-  
-  masterDb.get(`SELECT xp, nivel FROM equipe_suporte WHERE id = ?`, [suporteId], (err, row) => {
-    if (row) {
-      const novoNivel = Math.floor((row.xp || 0) / 100) + 1;
-      if (novoNivel > (row.nivel || 1)) {
-        masterDb.run(`UPDATE equipe_suporte SET nivel = ? WHERE id = ?`, [novoNivel, suporteId]);
-        masterDb.run(`INSERT OR IGNORE INTO conquistas_suporte (suporte_id, conquista, icone, descricao) VALUES (?, ?, ?, ?)`,
-          [suporteId, `level_${novoNivel}`, 'fa-star', `Atingiu o nível ${novoNivel}!`]);
-      }
-      if ((row.xp || 0) + pontos >= 100 && (row.xp || 0) < 100) {
-        masterDb.run(`INSERT OR IGNORE INTO conquistas_suporte (suporte_id, conquista, icone, descricao) VALUES (?, 'primeiros_100', 'fa-bolt', 'Acumulou 100 XP!')`, [suporteId]);
-      }
-      if ((row.xp || 0) + pontos >= 500 && (row.xp || 0) < 500) {
-        masterDb.run(`INSERT OR IGNORE INTO conquistas_suporte (suporte_id, conquista, icone, descricao) VALUES (?, 'primeiros_500', 'fa-fire', 'Acumulou 500 XP!')`, [suporteId]);
-      }
-    }
-  });
-}
-
-// POST /api/suporte/cadastro — Auto-cadastro para ser Suporte / Vendedor Afiliado
-app.post('/api/suporte/cadastro', async (req, res) => {
-  const { nome, email, telefone, senha, cargo, especialidade, cpf_cnpj, pix_chave, motivacao } = req.body || {};
-  if (!nome || !email || !senha) return res.json({ ok: false, erro: 'Nome, email e senha são obrigatórios.' });
-
-  try {
-    const hash = await bcrypt.hash(senha, 10);
-    masterDb.run(`INSERT INTO equipe_suporte (nome, email, telefone, password_hash, cargo, especialidade, status, status_aprovacao, cpf_cnpj, pix_chave, motivacao) VALUES (?, ?, ?, ?, ?, ?, 'offline', 'pendente', ?, ?, ?)`,
-      [nome.trim(), email.trim().toLowerCase(), telefone || '', hash, cargo || 'Vendedor & Suporte', especialidade || 'Vendas e Onboarding', cpf_cnpj || '', pix_chave || '', motivacao || ''],
-      function(err) {
-        if (err) {
-          if (err.message.includes('UNIQUE')) return res.json({ ok: false, erro: 'Este email já está cadastrado no sistema.' });
-          return res.json({ ok: false, erro: err.message });
-        }
-        const newId = this.lastID;
-        registrarAuditLog(newId, nome, 'solicitacao_cadastro', `Novo cadastro de parceiro/vendedor solicitado (${email})`, req);
-        res.json({ ok: true, mensagem: 'Cadastro realizado com sucesso! Aguarde a aprovação da nossa equipe de suporte / gestores para liberar seu acesso.' });
-      }
-    );
-  } catch (e) { res.json({ ok: false, erro: e.message }); }
-});
-
-// POST /api/suporte/login — Login do membro da equipe de suporte
-app.post('/api/suporte/login', (req, res) => {
-  const { email, senha } = req.body || {};
-  if (!email || !senha) return res.json({ ok: false, erro: 'Email e senha obrigatórios.' });
-  
-  masterDb.get(`SELECT * FROM equipe_suporte WHERE LOWER(email) = LOWER(?)`, [email.trim()], (err, row) => {
-    if (err) return res.json({ ok: false, erro: err.message });
-    if (!row) return res.json({ ok: false, erro: 'Email de suporte não encontrado.' });
-
-    if (row.status_aprovacao === 'pendente') {
-      return res.json({ ok: false, erro: 'Seu cadastro ainda está pendente de aprovação pela equipe de suporte / administradores.' });
-    }
-    if (row.status_aprovacao === 'recusado') {
-      return res.json({ ok: false, erro: 'Seu cadastro de parceiro foi recusado pela administração.' });
-    }
-    
-    bcrypt.compare(senha, row.password_hash, (errComp, match) => {
-      if (errComp) return res.json({ ok: false, erro: 'Erro ao verificar senha.' });
-      if (!match) {
-        registrarAuditLog(row.id, row.nome, 'tentativa_login_falhada', `Senha incorreta informada ao tentar logar com ${email}`, req);
-        return res.json({ ok: false, erro: 'Senha incorreta.' });
-      }
-      
-      const token = jwt.sign({ id: row.id, email: row.email, nome: row.nome }, suporteJwtSecret, { expiresIn: '12h' });
-      registrarAuditLog(row.id, row.nome, 'login_sucesso', `Login efetuado no Portal de Suporte/Vendas`, req);
-      res.json({
-        ok: true,
-        token,
-        usuario: {
-          id: row.id, nome: row.nome, email: row.email,
-          cargo: row.cargo, especialidade: row.especialidade,
-          status: row.status, xp: row.xp || 0, nivel: row.nivel || 1
-        }
-      });
-    });
-  });
-});
-
-// GET /api/suporte/me — Dados do perfil do suporte logado
-app.get('/api/suporte/me', suporteAuth, (req, res) => {
-  masterDb.get(`SELECT id, nome, email, telefone, cargo, especialidade, status, xp, nivel, data_cadastro FROM equipe_suporte WHERE id = ?`,
-    [req.suporteId], (err, row) => {
-      if (err || !row) return res.json({ ok: false, erro: 'Usuário não encontrado.' });
-      res.json({ ok: true, usuario: row });
-    }
-  );
-});
-
-// GET /api/suporte/restaurantes — Restaurantes atribuídos ao atendente de suporte
-app.get('/api/suporte/restaurantes', suporteAuth, (req, res) => {
-  masterDb.all(`SELECT r.*, sr.tipo_suporte, sr.data_atribuicao 
-    FROM suporte_restaurantes sr 
-    JOIN restaurantes r ON sr.restaurante_id = r.id 
-    WHERE sr.suporte_id = ? 
-    ORDER BY r.nome`, [req.suporteId], (err, rows) => {
-    if (err) return res.json({ ok: false, erro: err.message });
-    res.json({ ok: true, restaurantes: rows || [] });
-  });
-});
-
-// GET /api/suporte/restaurantes/:id/produtos — Produtos do restaurante
-app.get('/api/suporte/restaurantes/:id/produtos', suporteAuth, (req, res) => {
-  const restId = parseInt(req.params.id);
-  const tenantDbPath = getTenantDbPath(restId);
-  if (!fsSync.existsSync(tenantDbPath)) return res.json({ ok: true, produtos: [], categorias: [] });
-  
-  let produtos = [], categorias = [];
-  let loaded = 0;
-  
-  const tDb = new sqlite3.Database(tenantDbPath, sqlite3.OPEN_READONLY, errOpen => {
-    if (errOpen) return res.json({ ok: false, erro: 'Erro ao abrir banco do restaurante.' });
-    
-    tDb.all(`SELECT * FROM produtos ORDER BY nome`, [], (errP, rowsP) => {
-      if (!errP && rowsP) produtos = rowsP;
-      loaded++;
-      if (loaded >= 2) finalizar();
-    });
-    
-    tDb.all(`SELECT DISTINCT categoria FROM produtos WHERE categoria IS NOT NULL AND categoria != '' ORDER BY categoria`, [], (errC, rowsC) => {
-      if (!errC && rowsC) categorias = rowsC.map(r => ({ nome: r.categoria }));
-      loaded++;
-      if (loaded >= 2) finalizar();
-    });
-    
-    function finalizar() {
-      tDb.close();
-      res.json({ ok: true, produtos, categorias });
-    }
-  });
-});
-
-// POST /api/suporte/restaurantes/:id/produtos — Criar produto no restaurante
-app.post('/api/suporte/restaurantes/:id/produtos', suporteAuth, (req, res) => {
-  const restId = parseInt(req.params.id);
-  const { nome, categoria, preco, descricao, ingredientes, disponivel } = req.body || {};
-  if (!nome) return res.json({ ok: false, erro: 'Nome do produto é obrigatório.' });
-  
-  const tenantDbPath = getTenantDbPath(restId);
-  if (!fsSync.existsSync(tenantDbPath)) return res.json({ ok: false, erro: 'Banco do restaurante não encontrado.' });
-  
-  const tDb = new sqlite3.Database(tenantDbPath);
-  tDb.run(`INSERT INTO produtos (nome, categoria, preco, descricao, ingredientes, disponivel, createdAt) VALUES (?, ?, ?, ?, ?, ?, datetime('now','localtime'))`,
-    [nome, categoria || '', preco || 0, descricao || '', ingredientes || '', disponivel !== undefined ? (disponivel ? 1 : 0) : 1],
-    function(err) {
-      tDb.close();
-      if (err) return res.json({ ok: false, erro: err.message });
-      
-      gerarXP(req.suporteId, 5, 'criar_produto', `Criou o produto "${nome}" no restaurante #${restId}`, restId);
-      res.json({ ok: true, id: this.lastID, mensagem: 'Produto criado!' });
-    }
-  );
-});
-
-// PUT /api/suporte/restaurantes/:id/produtos/:prodId — Atualizar produto
-app.put('/api/suporte/restaurantes/:id/produtos/:prodId', suporteAuth, (req, res) => {
-  const restId = parseInt(req.params.id);
-  const prodId = parseInt(req.params.prodId);
-  const { nome, categoria, preco, descricao, ingredientes, disponivel } = req.body || {};
-  
-  const tenantDbPath = getTenantDbPath(restId);
-  if (!fsSync.existsSync(tenantDbPath)) return res.json({ ok: false, erro: 'Banco do restaurante não encontrado.' });
-  
-  const updates = [];
-  const params = [];
-  if (nome !== undefined) { updates.push('nome = ?'); params.push(nome); }
-  if (categoria !== undefined) { updates.push('categoria = ?'); params.push(categoria); }
-  if (preco !== undefined) { updates.push('preco = ?'); params.push(preco); }
-  if (descricao !== undefined) { updates.push('descricao = ?'); params.push(descricao); }
-  if (ingredientes !== undefined) { updates.push('ingredientes = ?'); params.push(ingredientes); }
-  if (disponivel !== undefined) { updates.push('disponivel = ?'); params.push(disponivel ? 1 : 0); }
-  if (updates.length === 0) return res.json({ ok: false, erro: 'Nenhum campo para atualizar.' });
-  params.push(prodId);
-  
-  const tDb = new sqlite3.Database(tenantDbPath);
-  tDb.run(`UPDATE produtos SET ${updates.join(', ')} WHERE id = ?`, params, function(err) {
-    tDb.close();
-    if (err) return res.json({ ok: false, erro: err.message });
-    
-    gerarXP(req.suporteId, 3, 'editar_produto', `Editou o produto #${prodId} no restaurante #${restId}`, restId);
-    res.json({ ok: true, mensagem: 'Produto atualizado!' });
-  });
-});
-
-// DELETE /api/suporte/restaurantes/:id/produtos/:prodId — Excluir produto
-app.delete('/api/suporte/restaurantes/:id/produtos/:prodId', suporteAuth, (req, res) => {
-  const restId = parseInt(req.params.id);
-  const prodId = parseInt(req.params.prodId);
-  
-  const tenantDbPath = getTenantDbPath(restId);
-  if (!fsSync.existsSync(tenantDbPath)) return res.json({ ok: false, erro: 'Banco do restaurante não encontrado.' });
-  
-  const tDb = new sqlite3.Database(tenantDbPath);
-  tDb.run(`DELETE FROM produtos WHERE id = ?`, [prodId], function(err) {
-    tDb.close();
-    if (err) return res.json({ ok: false, erro: err.message });
-    res.json({ ok: true, mensagem: 'Produto excluído!' });
-  });
-});
-
-// POST /api/suporte/restaurantes/:id/produtos/:prodId/duplicar — Duplicar produto
-app.post('/api/suporte/restaurantes/:id/produtos/:prodId/duplicar', suporteAuth, (req, res) => {
-  const restId = parseInt(req.params.id);
-  const prodId = parseInt(req.params.prodId);
-  
-  const tenantDbPath = getTenantDbPath(restId);
-  if (!fsSync.existsSync(tenantDbPath)) return res.json({ ok: false, erro: 'Banco não encontrado.' });
-  
-  const tDb = new sqlite3.Database(tenantDbPath, sqlite3.OPEN_READONLY, errOpen => {
-    if (errOpen) return res.json({ ok: false, erro: 'Erro ao abrir banco.' });
-    tDb.get(`SELECT * FROM produtos WHERE id = ?`, [prodId], (err, row) => {
-      tDb.close();
-      if (err || !row) return res.json({ ok: false, erro: 'Produto não encontrado.' });
-      
-      const tDb2 = new sqlite3.Database(tenantDbPath);
-      tDb2.run(`INSERT INTO produtos (nome, categoria, preco, descricao, ingredientes, disponivel, createdAt) VALUES (?, ?, ?, ?, ?, ?, datetime('now','localtime'))`,
-        [row.nome + ' (cópia)', row.categoria, row.preco, row.descricao, row.ingredientes, row.disponivel],
-        function(err2) {
-          tDb2.close();
-          if (err2) return res.json({ ok: false, erro: err2.message });
-          gerarXP(req.suporteId, 2, 'duplicar_produto', `Duplicou o produto #${prodId} no restaurante #${restId}`, restId);
-          res.json({ ok: true, id: this.lastID, mensagem: 'Produto duplicado!' });
-        }
-      );
-    });
-  });
-});
-
-// GET /api/suporte/minhas-tarefas — Histórico de atividades do atendente
-app.get('/api/suporte/minhas-tarefas', suporteAuth, (req, res) => {
-  masterDb.all(`SELECT t.*, r.nome as restaurante_nome FROM tarefas_suporte t LEFT JOIN restaurantes r ON t.restaurante_id = r.id WHERE t.suporte_id = ? ORDER BY t.criada_em DESC LIMIT 100`,
-    [req.suporteId], (err, rows) => {
-      if (err) return res.json({ ok: false, erro: err.message });
-      res.json({ ok: true, tarefas: rows || [] });
-    }
-  );
-});
-
-// GET /api/suporte/ranking — Ranking de produtividade da equipe
-app.get('/api/suporte/ranking', suporteAuth, (req, res) => {
-  masterDb.all(`SELECT id, nome, cargo, xp, nivel, status FROM equipe_suporte ORDER BY xp DESC LIMIT 50`, [], (err, rows) => {
-    if (err) return res.json({ ok: false, erro: err.message });
-    let minhaPos = 1;
-    for (let i = 0; i < (rows || []).length; i++) {
-      if (rows[i].id === req.suporteId) { minhaPos = i + 1; break; }
-    }
-    res.json({ ok: true, ranking: rows || [], minhaPosicao: minhaPos });
-  });
-});
-
-// GET /api/suporte/minhas-conquistas — Conquistas obtidas
-app.get('/api/suporte/minhas-conquistas', suporteAuth, (req, res) => {
-  masterDb.all(`SELECT * FROM conquistas_suporte WHERE suporte_id = ? ORDER BY data_obtida DESC`, [req.suporteId], (err, rows) => {
-    if (err) return res.json({ ok: false, erro: err.message });
-    res.json({ ok: true, conquistas: rows || [] });
-  });
-});
-
-// �?�?�? �?REA DE VENDAS E ONBOARDING DO SUPORTE �?�?�?
-
-// GET /api/suporte/minhas-vendas — Vendas realizadas pelo suporte logado
-app.get('/api/suporte/minhas-vendas', suporteAuth, (req, res) => {
-  masterDb.all(`SELECT * FROM suporte_vendas WHERE suporte_id = ? ORDER BY data_venda DESC`, [req.suporteId], (err, rows) => {
-    if (err) return res.json({ ok: false, erro: err.message });
-    res.json({ ok: true, vendas: rows || [] });
-  });
-});
-
-// POST /api/suporte/vendas — Registrar nova venda de licença pelo suporte
-app.post('/api/suporte/vendas', suporteAuth, async (req, res) => {
-  const { restaurante_nome, contato_nome, contato_telefone, plano, valor_venda, fator_decisao, objecao_nao_fecho, ajudas_usabilidade, status_venda } = req.body || {};
-  if (!restaurante_nome) return res.json({ ok: false, erro: 'Nome do restaurante é obrigatório.' });
-
-  const planoVal = plano || 'premium';
-  const valorVal = parseFloat(valor_venda) || (planoVal === 'premium' ? 299 : (planoVal === 'pro' ? 199 : 149));
-  const stVenda = status_venda || 'fechado';
-
-  // Buscar percentual de comissão padrão do vendedor
-  masterDb.get(`SELECT comissao_padrao FROM equipe_suporte WHERE id = ?`, [req.suporteId], (errM, rowM) => {
-    const comissaoPct = rowM && rowM.comissao_padrao ? parseFloat(rowM.comissao_padrao) : 10;
-    const comissaoValor = stVenda === 'fechado' ? (valorVal * comissaoPct / 100) : 0;
-
-    // Gerar chave de ativação única (ex: CHEF-VNDA-8821-9923)
-    const partes = Array.from({ length: 3 }, () => Math.random().toString(36).substring(2, 6).toUpperCase());
-    const chave = `CHEF-${partes.join('-')}`;
-
-    try {
-      // 1. Criar restaurante no sistema
-      masterDb.run(`INSERT INTO restaurantes (nome, licenca, ativo, chave_ativacao, data_cadastro) VALUES (?, ?, 1, ?, datetime('now','localtime'))`,
-        [restaurante_nome.trim(), 'ativo', chave], function(errR) {
-          if (errR) return res.json({ ok: false, erro: errR.message });
-          const restauranteId = this.lastID;
-
-          // 2. Registrar no catálogo de licenças
-          masterDb.run(`INSERT INTO licencas (chave, restaurante_nome, plano, dias, validade, obs, status, usada_em, usada_por) VALUES (?, ?, ?, 365, datetime('now','+365 days','localtime'), ?, 'usada', datetime('now','localtime'), ?)`,
-            [chave, restaurante_nome.trim(), planoVal, `Venda efetuada pelo Suporte #${req.suporteId}`, restaurante_nome.trim()]);
-
-          // 3. Atribuir IMEDIATAMENTE o restaurante ao suporte (para onboarding e apoio)
-          masterDb.run(`INSERT OR IGNORE INTO suporte_restaurantes (suporte_id, restaurante_id, tipo_suporte) VALUES (?, ?, 'comercial_onboarding')`,
-            [req.suporteId, restauranteId]);
-
-          // 4. Registrar a venda com comissão calculada
-          masterDb.run(`INSERT INTO suporte_vendas (suporte_id, chave_ativacao, restaurante_nome, restaurante_id, contato_nome, contato_telefone, plano, valor_venda, fator_decisao, objeção_nao_fecho, ajudas_usabilidade, status_venda, comissao_percentual, comissao_valor) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [req.suporteId, chave, restaurante_nome.trim(), restauranteId, contato_nome || '', contato_telefone || '', planoVal, valorVal, fator_decisao || '', objecao_nao_fecho || '', ajudas_usabilidade || '', stVenda, comissaoPct, comissaoValor],
-            function(errV) {
-              if (errV) return res.json({ ok: false, erro: errV.message });
-
-              // Creditar XP pela venda
-              gerarXP(req.suporteId, 50, 'venda_restaurante', `Vendeu o plano ${planoVal.toUpperCase()} para o restaurante "${restaurante_nome}"`, restauranteId);
-
-              res.json({
-                ok: true,
-                chave,
-                restauranteId,
-                comissaoValor,
-                mensagem: `Venda registrada! Chave ${chave} emitida. Comissão de R$ ${comissaoValor.toFixed(2)} atribuída.`
-              });
-            }
-          );
-        }
-      );
-    } catch (e) { res.json({ ok: false, erro: e.message }); }
-  });
-});
-
-// GET /api/super/suporte/metricas-vendas — Dashboard Estratégico de Vendas e Objeções para o Super Admin
-app.get('/api/super/suporte/metricas-vendas', superAdminAuth, (req, res) => {
-  const { inicio, fim, suporte_id } = req.query || {};
-
-  let query = `SELECT v.*, s.nome as suporte_nome, s.email as suporte_email 
-    FROM suporte_vendas v 
-    LEFT JOIN equipe_suporte s ON v.suporte_id = s.id 
-    WHERE 1=1`;
-  const params = [];
-
-  if (inicio) { query += ` AND v.data_venda >= ?`; params.push(inicio + ' 00:00:00'); }
-  if (fim) { query += ` AND v.data_venda <= ?`; params.push(fim + ' 23:59:59'); }
-  if (suporte_id) { query += ` AND v.suporte_id = ?`; params.push(parseInt(suporte_id)); }
-
-  query += ` ORDER BY v.data_venda DESC`;
-
-  masterDb.all(query, params, (err, rows) => {
-    if (err) return res.json({ ok: false, erro: err.message });
-    const vendas = rows || [];
-
-    // Calcular Métricas Estratégicas
-    let totalFaturamento = 0;
-    let totalFechados = 0;
-    let totalPerdidos = 0;
-    const fatoresDecisaoCount = {};
-    const objecoesCount = {};
-    const desempenhoeQuipe = {};
-
-    vendas.forEach(v => {
-      if (v.status_venda === 'fechado') {
-        totalFechados++;
-        totalFaturamento += parseFloat(v.valor_venda || 0);
-      } else {
-        totalPerdidos++;
-      }
-
-      // Fatores de Decisão
-      if (v.fator_decisao) {
-        fatoresDecisaoCount[v.fator_decisao] = (fatoresDecisaoCount[v.fator_decisao] || 0) + 1;
-      }
-      // Objeções
-      if (v.objeção_nao_fecho) {
-        objecoesCount[v.objeção_nao_fecho] = (objecoesCount[v.objeção_nao_fecho] || 0) + 1;
-      }
-      // Desempenho por Atendente
-      const sid = v.suporte_id || 0;
-      if (!desempenhoeQuipe[sid]) {
-        desempenhoeQuipe[sid] = { suporte_id: sid, nome: v.suporte_nome || 'Desconhecido', vendas: 0, faturamento: 0, perdidos: 0 };
-      }
-      if (v.status_venda === 'fechado') {
-        desempenhoeQuipe[sid].vendas++;
-        desempenhoeQuipe[sid].faturamento += parseFloat(v.valor_venda || 0);
-      } else {
-        desempenhoeQuipe[sid].perdidos++;
-      }
-    });
-
-    res.json({
-      ok: true,
-      resumo: {
-        totalContatos: vendas.length,
-        totalFechados,
-        totalPerdidos,
-        taxaConversao: vendas.length > 0 ? ((totalFechados / vendas.length) * 100).toFixed(1) + '%' : '0%',
-        totalFaturamento
-      },
-      fatoresDecisao: fatoresDecisaoCount,
-      objecoes: objecoesCount,
-      desempenhoEquipe: Object.values(desempenhoeQuipe),
-      vendas
-    });
-  });
-});
-
-// GET /api/suporte/financeiro — Extrato financeiro, comissões, saldo, metas e eficiência do vendedor logado
-app.get('/api/suporte/financeiro', suporteAuth, (req, res) => {
-  const suporteId = req.suporteId;
-  masterDb.get(`SELECT * FROM equipe_suporte WHERE id = ?`, [suporteId], (err, vendedor) => {
-    if (err || !vendedor) return res.json({ ok: false, erro: 'Vendedor não encontrado.' });
-
-    // Vendas e Comissões
-    masterDb.all(`SELECT * FROM suporte_vendas WHERE suporte_id = ? ORDER BY data_venda DESC`, [suporteId], (errV, vendas) => {
-      // Adiantamentos
-      masterDb.all(`SELECT * FROM suporte_adiantamentos WHERE suporte_id = ? ORDER BY data_solicitacao DESC`, [suporteId], (errA, adiantamentos) => {
-        const listaVendas = vendas || [];
-        const listaAdiantamentos = adiantamentos || [];
-
-        let totalVendasValor = 0;
-        let totalComissoes = 0;
-        let vendasFechadasCount = 0;
-        let vendasPerdidasCount = 0;
-
-        listaVendas.forEach(v => {
-          if (v.status_venda === 'fechado') {
-            vendasFechadasCount++;
-            totalVendasValor += parseFloat(v.valor_venda || 0);
-            totalComissoes += parseFloat(v.comissao_valor || 0);
-          } else {
-            vendasPerdidasCount++;
-          }
-        });
-
-        let totalAdiantamentos = 0;
-        listaAdiantamentos.forEach(a => {
-          if (a.status === 'aprovado' || a.status === 'pago') {
-            totalAdiantamentos += parseFloat(a.valor || 0);
-          }
-        });
-
-        const metaVendas = vendedor.meta_vendas_mes || 5;
-        const bonificacaoMeta = vendedor.bonificacao_meta || 200;
-        const atingiuMeta = vendasFechadasCount >= metaVendas;
-        const valorBonificacao = atingiuMeta ? bonificacaoMeta : 0;
-
-        const saldoLiquido = (totalComissoes + valorBonificacao) - totalAdiantamentos;
-
-        const totalContatos = listaVendas.length;
-        const eficienciaConversao = totalContatos > 0 ? ((vendasFechadasCount / totalContatos) * 100).toFixed(1) : 0;
-
-        res.json({
-          ok: true,
-          financeiro: {
-            totalVendasValor,
-            totalComissoes,
-            totalAdiantamentos,
-            valorBonificacao,
-            saldoLiquido,
-            metaVendas,
-            vendasFechadasCount,
-            vendasPerdidasCount,
-            atingiuMeta,
-            bonificacaoMeta,
-            eficienciaConversao: `${eficienciaConversao}%`,
-            progressoMetaPct: Math.min(100, Math.round(vendasFechadasCount / metaVendas * 100))
-          },
-          vendas: listaVendas,
-          adiantamentos: listaAdiantamentos
-        });
-      });
-    });
-  });
-});
-
-// POST /api/suporte/adiantamentos — Solicitar adiantamento de comissão
-app.post('/api/suporte/adiantamentos', suporteAuth, (req, res) => {
-  const { valor, descricao } = req.body || {};
-  const val = parseFloat(valor);
-  if (!val || val <= 0) return res.json({ ok: false, erro: 'Valor inválido.' });
-
-  masterDb.run(`INSERT INTO suporte_adiantamentos (suporte_id, valor, descricao, status) VALUES (?, ?, ?, 'aprovado')`,
-    [req.suporteId, val, descricao || 'Adiantamento de Comissão'], function(err) {
-      if (err) return res.json({ ok: false, erro: err.message });
-      res.json({ ok: true, mensagem: `Adiantamento de R$ ${val.toFixed(2)} registrado com sucesso!` });
-    }
-  );
-});
-
-// PUT /api/super/suporte/:id/metas-comissao — Super Admin ajustar metas e comissão de um vendedor
-app.put('/api/super/suporte/:id/metas-comissao', superAdminAuth, (req, res) => {
-  const suporteId = parseInt(req.params.id);
-  const { meta_vendas_mes, comissao_padrao, bonificacao_meta } = req.body || {};
-
-  masterDb.run(`UPDATE equipe_suporte SET meta_vendas_mes = ?, comissao_padrao = ?, bonificacao_meta = ? WHERE id = ?`,
-    [parseInt(meta_vendas_mes) || 5, parseFloat(comissao_padrao) || 10, parseFloat(bonificacao_meta) || 200, suporteId],
-    function(err) {
-      if (err) return res.json({ ok: false, erro: err.message });
-      res.json({ ok: true, mensagem: 'Metas e comissões do vendedor atualizadas!' });
-    }
-  );
-});
-
-// PUT /api/super/suporte/:id/status-aprovacao — Aprovar ou Recusar cadastro de parceiro/vendedor
-app.put('/api/super/suporte/:id/status-aprovacao', superAdminAuth, (req, res) => {
-  const suporteId = parseInt(req.params.id);
-  const { status_aprovacao } = req.body || {};
-  if (!['aprovado', 'recusado', 'pendente'].includes(status_aprovacao)) return res.json({ ok: false, erro: 'Status inválido.' });
-
-  masterDb.run(`UPDATE equipe_suporte SET status_aprovacao = ? WHERE id = ?`, [status_aprovacao, suporteId], function(err) {
-    if (err) return res.json({ ok: false, erro: err.message });
-    registrarAuditLog(suporteId, 'Super Admin', 'alteracao_status_aprovacao', `Status de aprovação alterado para ${status_aprovacao}`, req);
-    res.json({ ok: true, mensagem: `Cadastro do suporte #${suporteId} alterado para ${status_aprovacao}!` });
-  });
-});
-
-// POST /api/super/equipe/tasks + /api/super/equipe/avisos → migrado para plugins/equipe/
-
-// GET /api/super/suporte/audit-logs — Visualizar logs de auditoria e segurança dos suportes (anti-fraude)
-app.get('/api/super/suporte/audit-logs', superAdminAuth, (req, res) => {
-  masterDb.all(`SELECT * FROM suporte_logs_audit ORDER BY data_acao DESC LIMIT 150`, [], (err, rows) => {
-    if (err) return res.json({ ok: false, erro: err.message });
-    res.json({ ok: true, logs: rows || [] });
-  });
-});
-
-// GET /api/suporte/notificacoes — Central de Notificações em Tempo Real do Suporte
-app.get('/api/suporte/notificacoes', suporteAuth, (req, res) => {
-  masterDb.all(`SELECT * FROM mensagens ORDER BY criado_em DESC LIMIT 50`, [], (err, rows) => {
-    if (err) return res.json({ ok: false, erro: err.message });
-    const suporteIdStr = String(req.suporteId);
-    const filtradas = (rows || []).filter(m => {
-      if (!m.lida_por) return true; // Todos
-      const destinatarios = m.lida_por.split(',');
-      return destinatarios.includes(suporteIdStr);
-    });
-    res.json({ ok: true, notificacoes: filtradas });
-  });
-});
-
-// GET /api/suporte/missoes — Missões Ativas / Promoções Surpresa e Super Bonificações
-app.get('/api/suporte/missoes', suporteAuth, (req, res) => {
-  masterDb.all(`SELECT * FROM missoes_promocoes WHERE ativo = 1 ORDER BY criado_em DESC`, [], (err, rows) => {
-    if (err) return res.json({ ok: false, erro: err.message });
-    res.json({ ok: true, missoes: rows || [] });
-  });
-});
-
-// GET /api/super/missoes — Lista de Missões / Promoções Surpresa para o Super Admin
-app.get('/api/super/missoes', superAdminAuth, (req, res) => {
-  masterDb.all(`SELECT * FROM missoes_promocoes ORDER BY criado_em DESC`, [], (err, rows) => {
-    if (err) return res.json({ ok: false, erro: err.message });
-    res.json({ ok: true, missoes: rows || [] });
-  });
-});
-
-// POST /api/super/missoes — Super Admin Criar Nova Missão / Promoção Surpresa com Super Bonificação
-app.post('/api/super/missoes', superAdminAuth, (req, res) => {
-  const { titulo, descricao, meta_qtd, recompensa_valor, data_limite } = req.body || {};
-  if (!titulo || !recompensa_valor) return res.json({ ok: false, erro: 'Título e valor da bonificação são obrigatórios.' });
-
-  masterDb.run(`INSERT INTO missoes_promocoes (titulo, descricao, meta_qtd, recompensa_valor, data_limite, ativo) VALUES (?, ?, ?, ?, ?, 1)`,
-    [titulo.trim(), descricao || '', parseInt(meta_qtd) || 1, parseFloat(recompensa_valor) || 0, data_limite || null],
-    function(err) {
-      if (err) return res.json({ ok: false, erro: err.message });
-      const missaoId = this.lastID;
-
-      // Disparar notificação em tempo real via Socket.IO para todos os suportes/vendedores
-      if (io) {
-        io.emit('nova_missao_surpresa', {
-          id: missaoId,
-          titulo,
-          descricao,
-          meta_qtd,
-          recompensa_valor,
-          data_limite
-        });
-      }
-
-      registrarAuditLog(null, 'Super Admin', 'criacao_missao_surpresa', `Nova missão surpresa criada: "${titulo}" com bônus de R$ ${recompensa_valor}`, req);
-      res.json({ ok: true, mensagem: '🔥 Promoção Surpresa / Super Bonificação lançada em tempo real para toda a equipe!' });
-    }
-  );
-});
-
-// POST /api/suporte/atualizar-status — Alterar status do atendente
-app.post('/api/suporte/atualizar-status', suporteAuth, (req, res) => {
-  const { status } = req.body || {};
-  if (!['disponivel', 'ocupado', 'offline'].includes(status)) return res.json({ ok: false, erro: 'Status inválido.' });
-  masterDb.run(`UPDATE equipe_suporte SET status = ? WHERE id = ?`, [status, req.suporteId], function(err) {
-    if (err) return res.json({ ok: false, erro: err.message });
-    res.json({ ok: true, mensagem: 'Status atualizado!' });
-  });
-});
-
-// ── SUPER ADMIN: CRIAR RESTAURANTE COMPLETO ─────────────────────────
-app.post('/api/super/criar-restaurante-completo', superAdminAuth, async (req, res) => {
-  try {
-    const { nome, licenca, ativo, email, senha } = req.body;
-    if (!nome) return res.json({ ok: false, erro: 'Nome do restaurante é obrigatório.' });
-    const activeVal = ativo !== undefined ? (ativo ? 1 : 0) : 1;
-    const licencaVal = licenca || 'trial';
-    masterDb.run(`INSERT INTO restaurantes (nome, licenca, ativo, data_cadastro) VALUES (?, ?, ?, datetime('now','localtime'))`,
-      [nome, licencaVal, activeVal], async function(err) {
-        if (err) return res.json({ ok: false, erro: err.message });
-        const restauranteId = this.lastID;
-        let resultados = { restauranteId, alertas: [] };
-        if (email && senha) {
-          try {
-            const hash = await bcrypt.hash(senha, 10);
-            await new Promise((resolve) => {
-              masterDb.run(`INSERT INTO usuarios (restaurante_id, username, password_hash, role, ativo, data_cadastro) VALUES (?, ?, ?, 'admin', 1, datetime('now','localtime'))`,
-                [restauranteId, email.trim().toLowerCase(), hash], function(errU) { if (errU) resultados.alertas.push('Falha ao criar admin: ' + errU.message); resolve(); });
-            });
-          } catch (e) { resultados.alertas.push('Erro ao gerar hash'); }
-        }
-        const tenantDbPath = getTenantDbPath(restauranteId);
-        if (!fsSync.existsSync(tenantDbPath) && fsSync.existsSync(getTenantDbPath(1))) {
-          fsSync.copyFileSync(getTenantDbPath(1), tenantDbPath);
-        }
-        celebrarNovoRestaurante(nome, restauranteId, email || null);
-        res.json({ ok: true, ...resultados, mensagem: 'Restaurante criado com sucesso!' });
-      });
-  } catch (e) { res.json({ ok: false, erro: e.message }); }
-});
-
-// ── SUPER ADMIN: DOM�?NIOS ──────────────────────────────────────────
-app.get('/api/super/dominios', superAdminAuth, (req, res) => {
-  masterDb.all(`SELECT id, nome, slug, custom_domain FROM restaurantes ORDER BY id`, [], (err, rows) => {
-    if (err) return res.json({ ok: false, erro: err.message });
-    const tenants = (rows || []).map(r => ({ id: r.id, nome: r.nome, slug: r.slug || '', custom_domain: r.custom_domain || '' }));
-    res.json({ ok: true, tenants });
-  });
-});
-
-app.post('/api/super/dominios', superAdminAuth, (req, res) => {
-  const { restaurante_id, slug, custom_domain } = req.body;
-  if (!restaurante_id) return res.json({ ok: false, erro: 'Selecione um restaurante.' });
-  masterDb.run(`UPDATE restaurantes SET slug = ?, custom_domain = ? WHERE id = ?`,
-    [slug || null, custom_domain || null, restaurante_id], function(err) {
-      if (err) return res.json({ ok: false, erro: err.message });
-      if (typeof loadDomainMaps === 'function') loadDomainMaps();
-      res.json({ ok: true, mensagem: 'Domínios atualizados!' });
-    });
-});
-
 let pedidosDebounceTimeout = null;
-
-// Mercado Pago payment tracking (per-connection state would be ideal, but currently global)
 let mpCurrentIntentId = null;
 let mpCurrentDeviceId = null;
+function broadcastPedidos() {
+  if (pedidosDebounceTimeout) clearTimeout(pedidosDebounceTimeout);
+  pedidosDebounceTimeout = setTimeout(() => {
+    db.all(`SELECT * FROM pedidos WHERE status != 'Finalizado'`, (e, r) => {
+      if(!e) io.emit('pedidos_atualizados', r || []);
+    });
+  }, 300);
+}
 
-
+function broadcastFormasPagamento(targetSocket = null) {
+  db.all(`SELECT * FROM formas_pagamento ORDER BY ordem ASC, id ASC`, [], (err, rows) => {
+    if (!err) {
+      if (targetSocket) {
+        targetSocket.emit('formas_pagamento_atualizadas', rows || []);
+      } else {
+        io.emit('formas_pagamento_atualizadas', rows || []);
+      }
+    }
+  });
+}
 
 function parseUserAgent(ua) {
   if (!ua) return { os: 'Desconhecido', browser: 'Navegador Web', model: 'Dispositivo Web', isMobile: false, icon: 'ph-desktop', fullDeviceStr: 'Computador (Navegador)' };
@@ -3708,7 +105,440 @@ function getTempoConectadoStr(startTime) {
   return `${diffHours}h ${remMin}m`;
 }
 
-// Parser (best-effort) do HTML da página de consulta de NFC-e / NF-e da SEFAZ
+let lastProdutos = null;
+let lastConfig = null;
+
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
+const cors = require('cors');
+const os = require('os');
+const sqlite3 = require('sqlite3').verbose();
+const path = require('path');
+const fs = require('fs');
+const multer = require('multer');
+const nfceService = require('./nfce-service');
+
+// Carrega variáveis do arquivo .env (sem dependência externa)
+try {
+  const envFile = path.join(__dirname, '.env');
+  if (fs.existsSync(envFile)) {
+    fs.readFileSync(envFile, 'utf8').split(/\r?\n/).forEach(line => {
+      const m = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/);
+      if (m && process.env[m[1]] === undefined) {
+        process.env[m[1]] = m[2].replace(/^["']|["']$/g, '');
+      }
+    });
+  }
+} catch (e) {
+  console.error('[Startup] Erro ao carregar .env:', e.message);
+}
+
+// Carregar configuracao da licenca e URL do Apps Script antes de importar o license-manager
+
+// Diretório de dados da instalação, por plataforma:
+//   - Windows: %APPDATA%\ChefCozinha  (C:\Users\<user>\AppData\Roaming\ChefCozinha)
+//   - Linux:   $XDG_DATA_HOME/ChefCozinha ou ~/.local/share/ChefCozinha
+//   - Override: CHEF_DATA_DIR força qualquer caminho (testes/instalação custom)
+function getDataDir() {
+  if (process.env.CHEF_DATA_DIR) return process.env.CHEF_DATA_DIR;
+  if (process.platform === 'win32') {
+    return path.join(process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming'), 'ChefCozinha');
+  }
+  if (process.platform === 'linux' || process.platform === 'darwin') {
+    const xdg = process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share');
+    return path.join(xdg, 'ChefCozinha');
+  }
+  return path.join(os.homedir(), '.chefcozinha');
+}
+
+const LICENSE_CONFIG_FILE = path.join(getDataDir(), 'license-config.json');
+try {
+  if (fs.existsSync(LICENSE_CONFIG_FILE)) {
+    const cfg = JSON.parse(fs.readFileSync(LICENSE_CONFIG_FILE, 'utf8'));
+    if (cfg.scriptUrl) process.env.LICENSE_URL = cfg.scriptUrl;
+    if (cfg.hubUrl) process.env.CHEF_HUB_URL = cfg.hubUrl;
+  }
+} catch (e) {
+  console.error('[Startup] Erro ao carregar URL da licenca:', e.message);
+}
+
+const licenseManager = require('./license-manager');
+
+// ---------- PATHS ----------
+// pkg: __dirname é a pasta do .exe
+const BASE_DIR = process.pkg ? path.dirname(process.execPath) : __dirname;
+const DIST_DIR = path.join(BASE_DIR, 'dist');
+
+// Em producao (pkg), usar o diretório de dados por plataforma (AppData no
+// Windows, XDG no Linux). Fora do pkg: no Windows mantém a pasta do projeto
+// (fluxo de desenvolvimento); no Linux sempre usa o diretório XDG padrão.
+const isPkg = typeof process.pkg !== 'undefined';
+const APP_DATA_DIR = (isPkg || process.platform !== 'win32') ? getDataDir() : BASE_DIR;
+
+const DB_PATH  = path.join(APP_DATA_DIR, 'database.sqlite');
+const UPLOAD_DIR = path.join(APP_DATA_DIR, 'uploads');
+
+if (!fs.existsSync(APP_DATA_DIR)) fs.mkdirSync(APP_DATA_DIR, { recursive: true });
+if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+
+const upload = multer({ dest: UPLOAD_DIR });
+
+const app  = express();
+
+app.use(cors());
+app.use(express.json());
+
+// Middleware global para registrar acessos à API (Quem, O Que, Pra Onde)
+app.use('/api', (req, res, next) => {
+  const start = Date.now();
+  const operador = req.headers['x-user'] || req.headers['x-operador'] || req.query.user || (req.body && req.body.operador) || 'Sistema / API';
+  const rawIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || req.ip || '127.0.0.1';
+  const ip = rawIp.replace('::ffff:', '');
+
+  res.on('finish', () => {
+    let payload = '';
+    if (req.method !== 'GET') {
+      try {
+        const bodyCopy = { ...req.body };
+        if (bodyCopy.senha) bodyCopy.senha = '***';
+        if (bodyCopy.cert_senha) bodyCopy.cert_senha = '***';
+        payload = JSON.stringify(bodyCopy).substring(0, 300);
+      } catch(e){}
+    } else {
+      try { payload = JSON.stringify(req.query || {}).substring(0, 300); } catch(e){}
+    }
+
+    db.run(
+      `INSERT INTO api_logs (operador, ip, metodo, endpoint, detalhes, status_code) VALUES (?, ?, ?, ?, ?, ?)`,
+      [operador, ip, req.method, req.originalUrl || req.url, payload, res.statusCode]
+    );
+  });
+  next();
+});
+
+app.use((req, res, next) => {
+  const origSetHeader = res.setHeader.bind(res);
+  res.setHeader = (name, val) => {
+    if (name && name.toLowerCase() === 'content-type' && typeof val === 'string' && !val.includes('charset')) {
+      const textTypes = ['text/', 'application/javascript', 'application/json', 'application/xml'];
+      if (textTypes.some(t => val.startsWith(t))) val += '; charset=utf-8';
+    }
+    return origSetHeader(name, val);
+  };
+  next();
+});
+
+// (Segurança) Rejeita path traversal e bloqueia extensões sensíveis
+const PROD_BLOCKED_STATIC_EXTS = [
+  '.sqlite', '.sqlite-wal', '.sqlite-shm', '.db', '.db-wal', '.db-shm',
+  '.pfx', '.p12', '.pem', '.crt', '.key', '.cer', '.env', '.log', '.ini',
+  '.bat', '.cmd', '.ps1', '.sh', '.zip', '.rar', '.7z', '.gz', '.tgz', '.tar',
+  '.exe', '.msi', '.jar', '.apk', '.dll', '.so', '.dylib', '.deb', '.pkg',
+  '.dmg', '.iso', '.war', '.ear', '.jks', '.keystore'
+];
+app.use((req, res, next) => {
+  if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+  let raw = (req.url || '/').split('?')[0];
+  let decoded = '';
+  try { decoded = decodeURIComponent(raw); } catch (e) { decoded = raw; }
+  decoded = decoded.replace(/\\/g, '/');
+  if (decoded.split('/').includes('..')) return res.status(403).send('Acesso negado.');
+  const lower = decoded.toLowerCase();
+  if (PROD_BLOCKED_STATIC_EXTS.some(b => lower.endsWith(b))) return res.status(403).send('Acesso negado.');
+  next();
+});
+
+// Servir arquivos estáticos (dist, public e raiz do projeto para scripts avulsos como login.js)
+
+// ── Telemetria de Cliques ──
+app.post('/api/telemetria/clicks', express.json({ limit: '1mb' }), (req, res) => {
+  const clicks = (req.body && req.body.clicks) || [];
+  if (Array.isArray(clicks) && clicks.length > 0) {
+    clicks.forEach(c => {
+      console.log(`👆 [CLIQUE/AÇÃO] ${c.restaurante_nome || 'Restaurante'} | ${c.colaborador_nome || 'Colaborador'} (${c.colaborador_cargo || 'Op'}) -> "${c.funcao_nome || c.elemento_id}" em [${c.tela}] (${c.dispositivo || 'Web'})`);
+    });
+  }
+  res.json({ ok: true, count: clicks.length });
+});
+
+app.use(express.static(DIST_DIR));
+app.use(express.static(path.join(BASE_DIR, 'public')));
+app.use(express.static(BASE_DIR));
+
+const https = require('https');
+const tls = require('tls');
+let server;
+let serverHttp = null; // HTTP secundário (compatibilidade: clientes antigos / QR http)
+let isHttps = false;
+let activeCertInfo = null;
+
+// Gerenciamento de certificados (.pfx). A pasta de certificados fica no
+// diretório de dados da instalação (AppData no Windows, XDG no Linux), onde é
+// gravável. O cert.pfx "legado" na pasta do app (gerado pelo instalador) segue
+// como fallback quando não há nenhum ativo configurado.
+const CERTS_DIR = path.join(APP_DATA_DIR, 'certs');
+const CERTS_CFG = path.join(CERTS_DIR, 'ativo.txt');
+const CERT_PASSPHRASE = 'chefcozinha';
+
+function ensureCertsDir() {
+  try { if (!fs.existsSync(CERTS_DIR)) fs.mkdirSync(CERTS_DIR, { recursive: true }); } catch (e) { }
+}
+
+function getActiveCertConfig() {
+  try {
+    if (fs.existsSync(CERTS_CFG)) {
+      const raw = fs.readFileSync(CERTS_CFG, 'utf8').trim();
+      if (raw) {
+        const parts = raw.split('|');
+        const f = String(parts[0] || '').trim();
+        if (f && !f.includes('/') && !f.includes('\\') && !f.includes('..') && fs.existsSync(path.join(CERTS_DIR, f))) {
+          return { file: f, passphrase: (parts[1] || CERT_PASSPHRASE).trim() };
+        }
+      }
+    }
+  } catch (e) { }
+  const legacy = path.join(BASE_DIR, 'cert.pfx');
+  if (fs.existsSync(legacy)) {
+    return { file: 'cert.pfx', passphrase: CERT_PASSPHRASE, legacy: true };
+  }
+  return null;
+}
+
+function loadCertInfo(cfg) {
+  if (!cfg) return null;
+  const p = cfg.legacy ? path.join(BASE_DIR, 'cert.pfx') : path.join(CERTS_DIR, cfg.file);
+  if (!fs.existsSync(p)) return null;
+  try {
+    return { pfx: fs.readFileSync(p), passphrase: cfg.passphrase };
+  } catch (e) { return null; }
+}
+
+function saveActiveCertConfig(file, passphrase) {
+  ensureCertsDir();
+  fs.writeFileSync(CERTS_CFG, `${file}|${passphrase || CERT_PASSPHRASE}`, 'utf8');
+}
+
+// Aplica um certificado. Se o servidor já estiver HTTPS, troca AO VIVO
+// (server.setSecureContext) sem derrubar conexões. Se estiver HTTP, salva a
+// configuração e exige reinício.
+function aplicarCert(cfg) {
+  const info = loadCertInfo(cfg);
+  if (!info) return { ok: false, erro: 'Arquivo de certificado não encontrado ou inválido.' };
+  try {
+    const contextOpts = { pfx: info.pfx, passphrase: info.passphrase };
+    tls.createSecureContext(contextOpts);
+    if (server && isHttps && typeof server.setSecureContext === 'function') {
+      server.setSecureContext(contextOpts);
+      activeCertInfo = { file: cfg.file, passphrase: cfg.passphrase, applied: true };
+      saveActiveCertConfig(cfg.file, cfg.passphrase);
+      return { ok: true, applied: true };
+    }
+    saveActiveCertConfig(cfg.file, cfg.passphrase);
+    activeCertInfo = { file: cfg.file, passphrase: cfg.passphrase, applied: false };
+    return { ok: true, applied: false, reiniciar: true };
+  } catch (e) {
+    return { ok: false, erro: 'Falha ao ler o certificado: ' + (e.message || e) };
+  }
+}
+
+// Pergunta no início do servidor qual certificado usar. Só pergunta se houver
+// terminal (stdin TTY). Caso contrário (systemd, serviço) usa o cert ativo
+// persistido em certs/ativo.txt, ou o primeiro da pasta certs/.
+function promptCertAtStartup() {
+  ensureCertsDir();
+  let candidates = [];
+  try { candidates = fs.readdirSync(CERTS_DIR).filter(f => /\.(pfx|p12)$/i.test(f)); } catch (e) { }
+  candidates.sort();
+  const legacyPfx = path.join(BASE_DIR, 'cert.pfx');
+  if (fs.existsSync(legacyPfx) && !candidates.includes('cert.pfx')) candidates.unshift('cert.pfx');
+  if (candidates.length === 0) return null;
+
+  let active = getActiveCertConfig();
+  if (active && !candidates.includes(active.file)) active = null;
+  let chosenFile = active ? active.file : candidates[0];
+
+  if (process.stdin.isTTY === true) {
+    console.log('');
+    console.log('==========================================');
+    console.log(' Escolha o certificado SSL desta sessão:');
+    candidates.forEach((f, i) => {
+      const mark = active && active.file === f ? ' [ATIVO]' : '';
+      console.log('   ' + (i + 1) + ') ' + f + mark);
+    });
+    const def = active ? candidates.indexOf(active.file) + 1 : 1;
+    console.log(' (Enter para manter: ' + def + ')');
+    process.stdout.write('> ');
+    let input = '';
+    try {
+      const buf = Buffer.alloc(256);
+      let bytes;
+      while ((bytes = fs.readSync(0, buf, 0, buf.length, null)) > 0) {
+        const s = buf.toString('utf8', 0, bytes);
+        input += s;
+        if (s.indexOf('\n') !== -1 || s.indexOf('\r') !== -1) break;
+      }
+    } catch (e) { input = ''; }
+    input = input.trim();
+    let idx = parseInt(input, 10);
+    if (input === '' || isNaN(idx)) idx = def;
+    if (idx < 1 || idx > candidates.length) idx = def;
+    chosenFile = candidates[idx - 1];
+  }
+
+  let passphrase = CERT_PASSPHRASE;
+  if (active && active.file === chosenFile) passphrase = active.passphrase;
+  return { file: chosenFile, passphrase };
+}
+
+const activeCertConfig = promptCertAtStartup();
+const activeCertLoaded = activeCertConfig ? loadCertInfo(activeCertConfig) : null;
+if (activeCertLoaded) {
+  try {
+    server = https.createServer({ pfx: activeCertLoaded.pfx, passphrase: activeCertLoaded.passphrase }, app);
+    serverHttp = http.createServer(app);
+    isHttps = true;
+    activeCertInfo = { file: activeCertConfig.file, passphrase: activeCertConfig.passphrase, applied: true };
+    saveActiveCertConfig(activeCertConfig.file, activeCertConfig.passphrase);
+  } catch (e) {
+    console.error("Erro ao carregar SSL, caindo para HTTP", e);
+    server = http.createServer(app);
+  }
+} else {
+  server = http.createServer(app);
+}
+const io = new Server(server, { cors: { origin: '*', methods: ['GET', 'POST'] } });
+if (serverHttp) io.attach(serverHttp);
+
+// Protocolo efetivo da instalação (HTTPS quando há cert ativo).
+// O sync-prod.js corta a seção do server.js onde PROTOCOL é definido, então o
+// executável empacotado precisa deste símbolo aqui no header.
+const PROTOCOL = isHttps ? 'https' : 'http';
+
+// ---------- DATABASE ----------
+let db = new sqlite3.Database(DB_PATH, (err) => {
+  if (err) console.error('Erro ao abrir BD:', err);
+  else console.log('BD SQLite conectado:', DB_PATH);
+});
+
+// ── NOTIFICAÇÕES PUSH (Web Push API) ──
+const webpush = require('web-push');
+const VAPID_PUBLIC_KEY = 'BCaA01Z--nSI2tJaXLNEf_mlW959ex1fW7x-jAH1tYSEqVYemjVApDllzr1jpwQqB_nlyjX3GIRb9uEyP_IUuRI';
+const VAPID_PRIVATE_KEY = '3Jo6x74iIdc7-YUIFTpbxflkElTMTn-OpKTBvvyCVNQ';
+try {
+  webpush.setVapidDetails(
+    'mailto:notificacoes@chefcozinha.local',
+    VAPID_PUBLIC_KEY,
+    VAPID_PRIVATE_KEY
+  );
+} catch (e) {
+  console.error('Erro ao configurar web-push:', e);
+}
+
+// Envia push para todos os dispositivos cadastrados de um papel (garcom/cozinha)
+async function sendPush(role, title, body, tag, url) {
+  const subscricoes = await new Promise((resolve) => {
+    db.all(`SELECT endpoint, auth, p256dh FROM push_subscriptions WHERE role = ?`, [role], (err, rows) => {
+      if (err) return resolve([]);
+      resolve(rows || []);
+    });
+  });
+  if (!subscricoes.length) return;
+  const payload = JSON.stringify({ title, body, tag: tag || 'comanda', url: url || '/garcom.html' });
+  await Promise.all(subscricoes.map(async (sub) => {
+    if (!sub.endpoint || !sub.auth || !sub.p256dh) return;
+    try {
+      await webpush.sendNotification({
+        endpoint: sub.endpoint,
+        keys: { auth: sub.auth, p256dh: sub.p256dh }
+      }, payload);
+    } catch (e) {
+      if (e && (e.statusCode === 404 || e.statusCode === 410)) {
+        db.run(`DELETE FROM push_subscriptions WHERE endpoint = ?`, [sub.endpoint], () => { });
+      } else {
+        console.error('Erro ao enviar push:', e.statusCode || e.message);
+      }
+    }
+  }));
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// BLOCO REMOTO (compilado junto com o tail do server.js):
+// Suprimento dos símbolos que o refactor multi-tenant moveu para o head do
+// server.js (antes do db.serialize) e que o executável empacotado também
+// precisa — autenticação local, seed do instalador e fila de sincronização
+// offline → hub do super admin.
+// ══════════════════════════════════════════════════════════════════════════
+const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
+let bcrypt;
+try {
+  bcrypt = require('bcrypt');
+} catch (e) {
+  // pkg: o prebuild do bcrypt não fica no snapshot; carregar bcrypt.node que
+  // é copiado para junto do .exe (build-installer.ps1 + setup.iss).
+  const bcryptNativePath = path.join(BASE_DIR, 'bcrypt.node');
+  if (!fs.existsSync(bcryptNativePath)) throw e;
+  const bindings = require(bcryptNativePath);
+  bcrypt = {
+    genSaltSync(rounds, minor) {
+      if (!rounds) rounds = 10;
+      return bindings.gen_salt_sync(minor || 'b', rounds, crypto.randomBytes(16));
+    },
+    genSalt(rounds, minor, cb) {
+      if (typeof rounds === 'function') { cb = rounds; rounds = 10; minor = 'b'; }
+      else if (typeof minor === 'function') { cb = minor; minor = 'b'; }
+      if (!cb) return Promise.resolve(bcrypt.genSaltSync(rounds || 10));
+      process.nextTick(() => { try { cb(null, bcrypt.genSaltSync(rounds || 10)); } catch (err) { cb(err); } });
+    },
+    hashSync(data, salt) {
+      if (data == null || salt == null) throw new Error('data and salt arguments required');
+      if (typeof salt === 'number') salt = bcrypt.genSaltSync(salt);
+      return bindings.encrypt_sync(String(data), salt);
+    },
+    hash(data, salt, cb) {
+      if (typeof salt === 'function') { cb = salt; salt = 10; }
+      if (!cb) return Promise.resolve(bcrypt.hashSync(data, salt));
+      process.nextTick(() => { try { cb(null, bcrypt.hashSync(data, salt)); } catch (err) { cb(err); } });
+    },
+    compareSync(data, hash) {
+      if (data == null || hash == null) throw new Error('data and hash arguments required');
+      return !!bindings.compare_sync(String(data), hash);
+    },
+    compare(data, hash, cb) {
+      if (typeof hash === 'function') { cb = hash; hash = undefined; }
+      if (!cb) return Promise.resolve(bcrypt.compareSync(data, hash));
+      process.nextTick(() => { try { cb(null, bcrypt.compareSync(data, hash)); } catch (err) { cb(err); } });
+    },
+    getRounds(hash) { return bindings.get_rounds(hash); }
+  };
+}
+const tenantContext = new (require('async_hooks').AsyncLocalStorage)();
+const fsSync = fs;
+
+function isBcryptHash(v) { return typeof v === 'string' && /^\$2[aby]\$/.test(v); }
+
+function funcionarioPublico(row) {
+  if (!row) return row;
+  const { senha, ...rest } = row;
+  return rest;
+}
+
+function verificarSenhaFuncionario(row, senha) {
+  const s = String(senha || '').trim();
+  const dbSenha = String(row ? row.senha : '').trim();
+  if (isBcryptHash(row.senha)) {
+    return bcrypt.compare(s, row.senha);
+  }
+  if (s && s === dbSenha) {
+    bcrypt.hash(s, 10).then(h => {
+      db.run(`UPDATE funcionarios SET senha = ? WHERE id = ?`, [h, row.id]);
+    }).catch(() => { });
+    return Promise.resolve(true);
+  }
+  return Promise.resolve(false);
+}
+
 function parseNfceHtml(html) {
   const itens = [];
   if (!html || typeof html !== 'string') return itens;
@@ -3780,48 +610,95 @@ function parseNfceHtml(html) {
   return unicos;
 }
 
+const ifoodApi = require('./ifood-integration');
 
-// Configure SQLite Database
+function getTenantDb() { return db; }
 
-// --- MULTI-TENANT PROXY DB ---
-masterDb.serialize(async () => {
+// (Segurança) Chaves JWT: nunca fixas no código-fonte. Usam env vars quando
+// definidas; caso contrário, uma chave aleatória é gerada e persistida uma única
+// vez em %APPDATA%\ChefCozinha\.secret-<nome>.
+function loadOrCreateSecret(name) {
+  const dir = getDataDir();
+  const file = path.join(dir, `.secret-${name}`);
+  try {
+    if (fsSync.existsSync(file)) {
+      const val = fsSync.readFileSync(file, 'utf8').trim();
+      if (val) return val;
+    }
+    fsSync.mkdirSync(dir, { recursive: true });
+    const val = crypto.randomBytes(32).toString('hex');
+    fsSync.writeFileSync(file, val, { mode: 0o600, encoding: 'utf8' });
+    return val;
+  } catch (e) {
+    return crypto.randomBytes(32).toString('hex');
+  }
+}
+
+const JWT_SECRET = process.env.JWT_SECRET || loadOrCreateSecret('jwt');
+
+const restRateLimit = new Map();
+// (Segurança) IP real da conexão. O header 'x-forwarded-for' só é confiado a um
+// proxy (express trust proxy) — nunca direto do cliente, senão o rate limit é
+// contornável forjando o header. Sem proxy, usa o endereço do socket.
+function getClientIp(req) {
+  if (app.get('trust proxy')) {
+    const forwarded = req.headers['x-forwarded-for'];
+    if (forwarded) return String(forwarded).split(',')[0].trim().replace('::ffff:', '');
+  }
+  const raw = (req.socket && req.socket.remoteAddress) || req.ip || '127.0.0.1';
+  return String(raw).split(',')[0].trim().replace('::ffff:', '');
+}
+function checkRestRateLimit(ip, max = 10, windowMs = 600000) {
+  const now = Date.now();
+  const key = ip || 'unknown';
+  const recent = (restRateLimit.get(key) || []).filter(t => now - t < windowMs);
+  if (recent.length >= max) return false;
+  recent.push(now);
+  restRateLimit.set(key, recent);
+  // (Segurança) Evita crescimento sem limite do Map com IPs forjados/volumosos.
+  if (restRateLimit.size > 5000) {
+    for (const [k, arr] of restRateLimit) {
+      const alive = (arr || []).filter(t => now - t < windowMs);
+      if (!alive.length) restRateLimit.delete(k);
+    }
+  }
+  return true;
+}
+
+function trimStr(v, maxLen = 500) { return typeof v === 'string' ? v.trim().substring(0, maxLen) : ''; }
+function safeFloat(v, min = -Infinity, max = Infinity) { const n = parseFloat(v); return isNaN(n) ? 0 : Math.max(min, Math.min(max, n)); }
+function safeInt(v, min = 0, max = 2147483647) { const n = parseInt(v, 10); return isNaN(n) ? min : Math.max(min, Math.min(max, n)); }
+function isValidId(v) { const n = Number(v); return Number.isInteger(n) && n > 0; }
+
+// Banco local de autenticação/licença da instalação: usuários, licenças,
+// telemetria e fila de sincronização com o hub do super admin.
+const MASTER_DB_PATH = path.join(APP_DATA_DIR, 'master.sqlite');
+const masterDb = new sqlite3.Database(MASTER_DB_PATH);
+masterDb.serialize(() => {
+  masterDb.run(`CREATE TABLE IF NOT EXISTS configuracoes_global (chave TEXT PRIMARY KEY, valor TEXT)`);
   masterDb.run(`CREATE TABLE IF NOT EXISTS ifood_app_config (chave TEXT PRIMARY KEY, valor TEXT)`);
   masterDb.run(`CREATE TABLE IF NOT EXISTS restaurantes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     nome TEXT,
-    licenca TEXT DEFAULT 'ativo',
-    ativo BOOLEAN DEFAULT 1,
-    login_mode TEXT DEFAULT 'multi',
-    chave_ativacao TEXT,
-    validade_licenca TEXT,
-    max_dispositivos INTEGER DEFAULT 0,
-    slug TEXT UNIQUE,
-    custom_domain TEXT UNIQUE,
-    data_cadastro DATETIME DEFAULT (datetime('now'))
+    licenca TEXT,
+    ativo BOOLEAN DEFAULT true,
+    data_cadastro DATETIME DEFAULT (datetime('now', 'localtime'))
   )`);
-  masterDb.run(`CREATE TABLE IF NOT EXISTS metricas_sockets (
-    dia TEXT NOT NULL,
-    hora INTEGER NOT NULL,
-    tenant_id INTEGER NOT NULL,
-    sockets INTEGER DEFAULT 0,
-    PRIMARY KEY (dia, hora, tenant_id)
-  )`);
-  masterDb.run(`CREATE TABLE IF NOT EXISTS super_config (
-    key TEXT PRIMARY KEY,
-    value TEXT
-  )`);
-  masterDb.get(`SELECT value FROM super_config WHERE key = 'base_domain'`, [], (err, row) => {
-    if (!err && row && row.value) BASE_DOMAIN = row.value.toLowerCase();
-  });
+  masterDb.run(`ALTER TABLE restaurantes ADD COLUMN login_mode TEXT DEFAULT 'multi'`, err => { if (err) {} });
+  masterDb.run(`ALTER TABLE restaurantes ADD COLUMN chave_ativacao TEXT`, err => { if (err) {} });
+  masterDb.run(`ALTER TABLE restaurantes ADD COLUMN validade_licenca TEXT`, err => { if (err) {} });
+  masterDb.run(`ALTER TABLE restaurantes ADD COLUMN max_dispositivos INTEGER DEFAULT 0`, err => { if (err) {} });
   masterDb.run(`CREATE TABLE IF NOT EXISTS usuarios (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    restaurante_id INTEGER DEFAULT 1,
+    restaurante_id INTEGER,
     username TEXT UNIQUE,
     password_hash TEXT,
-    role TEXT DEFAULT 'admin',
-    ativo BOOLEAN DEFAULT 1,
-    data_cadastro DATETIME DEFAULT (datetime('now'))
+    role TEXT,
+    ativo BOOLEAN DEFAULT true,
+    data_cadastro DATETIME DEFAULT (datetime('now', 'localtime'))
   )`);
+  masterDb.run(`INSERT OR IGNORE INTO restaurantes (id, nome, licenca, ativo) VALUES (1, 'Estabelecimento', 'ativo', 1)`);
+  masterDb.run(`UPDATE restaurantes SET licenca = 'ativo', ativo = 1 WHERE id = 1`);
   masterDb.run(`CREATE TABLE IF NOT EXISTS licencas (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     chave TEXT UNIQUE,
@@ -3832,311 +709,530 @@ masterDb.serialize(async () => {
     max_dispositivos INTEGER DEFAULT 0,
     obs TEXT,
     status TEXT DEFAULT 'disponivel',
-    criada_em DATETIME DEFAULT (datetime('now')),
+    criada_em DATETIME DEFAULT (datetime('now', 'localtime')),
     usada_em DATETIME,
     usada_por TEXT,
     install_id TEXT
   )`);
-
-  masterDb.run(`CREATE TABLE IF NOT EXISTS mensagens (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    titulo TEXT, corpo TEXT, tipo TEXT DEFAULT 'aviso',
-    criado_em DATETIME DEFAULT (datetime('now','localtime')),
-    lida_por TEXT DEFAULT ''
-  )`);
-  masterDb.run(`CREATE TABLE IF NOT EXISTS equipe_suporte (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    nome TEXT, email TEXT UNIQUE, telefone TEXT,
-    password_hash TEXT, cargo TEXT, especialidade TEXT,
-    status TEXT DEFAULT 'disponivel', xp INTEGER DEFAULT 0, nivel INTEGER DEFAULT 1,
-    data_cadastro DATETIME DEFAULT (datetime('now','localtime'))
-  )`);
-  masterDb.run(`CREATE TABLE IF NOT EXISTS suporte_restaurantes (
-    suporte_id INTEGER, restaurante_id INTEGER, tipo_suporte TEXT DEFAULT 'remoto',
-    UNIQUE(suporte_id, restaurante_id)
-  )`);
-  masterDb.run(`CREATE TABLE IF NOT EXISTS tarefas_suporte (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    suporte_id INTEGER, tipo TEXT, descricao TEXT, restaurante_id INTEGER,
-    pontos INTEGER DEFAULT 0, status TEXT DEFAULT 'concluida',
-    criada_em DATETIME DEFAULT (datetime('now','localtime')),
-    concluida_em DATETIME
-  )`);
-  masterDb.run(`CREATE TABLE IF NOT EXISTS conquistas_suporte (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    suporte_id INTEGER, conquista TEXT, icone TEXT, descricao TEXT,
-    data_obtida DATETIME DEFAULT (datetime('now','localtime')),
-    UNIQUE(suporte_id, conquista)
-  )`);
-  masterDb.run(`CREATE TABLE IF NOT EXISTS suporte_vendas (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    suporte_id INTEGER,
-    chave_ativacao TEXT,
-    restaurante_nome TEXT,
-    restaurante_id INTEGER,
-    contato_nome TEXT,
-    contato_telefone TEXT,
-    plano TEXT DEFAULT 'premium',
-    valor_venda REAL DEFAULT 0,
-    fator_decisao TEXT,
-    objeção_nao_fecho TEXT,
-    ajudas_usabilidade TEXT,
-    status_venda TEXT DEFAULT 'fechado',
-    comissao_percentual REAL DEFAULT 10,
-    comissao_valor REAL DEFAULT 0,
-    data_venda DATETIME DEFAULT (datetime('now','localtime'))
-  )`);
-  masterDb.run(`ALTER TABLE suporte_vendas ADD COLUMN comissao_percentual REAL DEFAULT 10`, (err) => { });
-  masterDb.run(`ALTER TABLE suporte_vendas ADD COLUMN comissao_valor REAL DEFAULT 0`, (err) => { });
-
-  masterDb.run(`ALTER TABLE equipe_suporte ADD COLUMN meta_vendas_mes INTEGER DEFAULT 5`, (err) => { });
-  masterDb.run(`ALTER TABLE equipe_suporte ADD COLUMN comissao_padrao REAL DEFAULT 10`, (err) => { });
-  masterDb.run(`ALTER TABLE equipe_suporte ADD COLUMN bonificacao_meta REAL DEFAULT 200`, (err) => { });
-  masterDb.run(`ALTER TABLE equipe_suporte ADD COLUMN status_aprovacao TEXT DEFAULT 'aprovado'`, (err) => { });
-  masterDb.run(`ALTER TABLE equipe_suporte ADD COLUMN cpf_cnpj TEXT`, (err) => { });
-  masterDb.run(`ALTER TABLE equipe_suporte ADD COLUMN pix_chave TEXT`, (err) => { });
-  masterDb.run(`ALTER TABLE equipe_suporte ADD COLUMN motivacao TEXT`, (err) => { });
-
-  masterDb.run(`CREATE TABLE IF NOT EXISTS suporte_adiantamentos (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    suporte_id INTEGER,
-    valor REAL DEFAULT 0,
-    descricao TEXT,
-    status TEXT DEFAULT 'aprovado',
-    data_solicitacao DATETIME DEFAULT (datetime('now','localtime'))
-  )`);
-
-  masterDb.run(`CREATE TABLE IF NOT EXISTS suporte_logs_audit (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    suporte_id INTEGER,
-    suporte_nome TEXT,
-    acao TEXT,
-    detalhes TEXT,
-    ip TEXT,
-    data_acao DATETIME DEFAULT (datetime('now','localtime'))
-  )`);
-
-  masterDb.run(`CREATE TABLE IF NOT EXISTS missoes_promocoes (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    titulo TEXT,
-    descricao TEXT,
-    meta_qtd INTEGER DEFAULT 1,
-    recompensa_valor REAL DEFAULT 0,
-    data_limite DATETIME,
-    ativo INTEGER DEFAULT 1,
-    criado_em DATETIME DEFAULT (datetime('now','localtime'))
-  )`);
   masterDb.run(`CREATE TABLE IF NOT EXISTS telemetria (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    install_id TEXT UNIQUE, restaurante_id INTEGER,
-    nome_restaurante TEXT, versao TEXT, ip TEXT, plataforma TEXT,
-    admin_login TEXT, chave_ativacao TEXT, online INTEGER DEFAULT 0,
-    ultima_atividade TEXT, tempo_uso_min INTEGER DEFAULT 0,
-    pedidos_total INTEGER DEFAULT 0, vendas_total REAL DEFAULT 0,
-    vendas_hoje REAL DEFAULT 0, comandas_abertas INTEGER DEFAULT 0,
-    funcionarios_ativos INTEGER DEFAULT 0, garcons_online INTEGER DEFAULT 0,
-    produtos_total INTEGER DEFAULT 0, setores_json TEXT,
-    mesas_total INTEGER DEFAULT 0, dispositivos INTEGER DEFAULT 0,
-    funcoes_json TEXT, erros_json TEXT, custo_total REAL DEFAULT 0,
-    folha_mes REAL DEFAULT 0, despesas_mes REAL DEFAULT 0,
-    lucro REAL DEFAULT 0, disco_mb REAL DEFAULT 0,
-    updated_at TEXT
-  )`);
-  masterDb.run(`CREATE TABLE IF NOT EXISTS configuracoes_global (
-    chave TEXT PRIMARY KEY, valor TEXT
-  )`);
-  // ── Monitor de cadastros em andamento (super-admin acompanha ao vivo) ──
-  masterDb.run(`CREATE TABLE IF NOT EXISTS cadastros_monitor (
-    sessao_id TEXT PRIMARY KEY,
-    etapa TEXT,
-    campos_json TEXT,
-    dispositivo TEXT,
-    bateria TEXT,
-    rede TEXT,
-    localizacao TEXT,
-    ip TEXT,
-    status TEXT DEFAULT 'digitando',
-    criado_em DATETIME DEFAULT (datetime('now','localtime')),
-    atualizado_em DATETIME
-  )`);
-
-  // Overrides de features por tenant (features = liga/desliga por tenant ou plano)
-  masterDb.run(`CREATE TABLE IF NOT EXISTS tenant_features (
-    restaurante_id INTEGER PRIMARY KEY,
-    overrides_json TEXT,
-    updated_at DATETIME DEFAULT (datetime('now'))
-  )`);
-
-  // Colunas de domínio para tenants (subdomínio + domínio próprio)
-  masterDb.run(`ALTER TABLE restaurantes ADD COLUMN slug TEXT`, (e) => {});
-  masterDb.run(`ALTER TABLE restaurantes ADD COLUMN custom_domain TEXT`, (e) => {});
-  masterDb.run(`ALTER TABLE restaurantes ADD COLUMN telefone TEXT`, (e) => {});
-masterDb.run(`ALTER TABLE restaurantes ADD COLUMN dono_nome TEXT`, (e) => {});
-masterDb.run(`ALTER TABLE restaurantes ADD COLUMN dono_telefone TEXT`, (e) => {});
-masterDb.run(`ALTER TABLE restaurantes ADD COLUMN dono_email TEXT`, (e) => {});
-// Upsell Offline-First: qual nó da infra este restaurante roda + feature liberada por chave
-masterDb.run(`ALTER TABLE restaurantes ADD COLUMN servidor_node TEXT`, (e) => {});
-masterDb.run(`ALTER TABLE restaurantes ADD COLUMN offline_habilitado INTEGER DEFAULT 0`, (e) => {});
-
-// Chaves de ativação emitidas pelo Super Admin (upsell offline-first).
-// Cada chave identifica em QUAL SERVIDOR da infra o restaurante ficará.
-masterDb.run(`CREATE TABLE IF NOT EXISTS chaves_ativacao (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  chave TEXT UNIQUE,
-  servidor_node TEXT,
-  tipo TEXT DEFAULT 'offline_first',
-  status TEXT DEFAULT 'ativa',
-  restaurante_id INTEGER,
-  observacao TEXT,
-  criada_em DATETIME DEFAULT (datetime('now')),
-  usada_em TEXT
-)`);
-  // Inteligência: endereço completo + último dispositivo usado no acesso
-  masterDb.run(`ALTER TABLE restaurantes ADD COLUMN endereco TEXT`, (e) => {});
-  masterDb.run(`ALTER TABLE restaurantes ADD COLUMN bairro TEXT`, (e) => {});
-  masterDb.run(`ALTER TABLE restaurantes ADD COLUMN cidade TEXT`, (e) => {});
-  masterDb.run(`ALTER TABLE restaurantes ADD COLUMN dispositivo_ultimo TEXT`, (e) => {});
-  masterDb.run(`ALTER TABLE restaurantes ADD COLUMN latitude REAL`, (e) => {});
-  masterDb.run(`ALTER TABLE restaurantes ADD COLUMN longitude REAL`, (e) => {});
-  masterDb.run(`ALTER TABLE usuarios ADD COLUMN nome TEXT`, (e) => {});
-  masterDb.run(`ALTER TABLE usuarios ADD COLUMN telefone TEXT`, (e) => {});
-  try { masterDb.run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_restaurantes_slug ON restaurantes(slug) WHERE slug IS NOT NULL AND slug != ''`); } catch(e) {}
-  try { masterDb.run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_restaurantes_custom_domain ON restaurantes(custom_domain) WHERE custom_domain IS NOT NULL AND custom_domain != ''`); } catch(e) {}
-
-  // Métricas de pico (amostras de sockets ativos por tenant/hora)
-  masterDb.run(`CREATE TABLE IF NOT EXISTS metrica_picos (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
     restaurante_id INTEGER,
-    dia TEXT,
-    hora INTEGER,
-    sockets INTEGER DEFAULT 0,
-    UNIQUE(restaurante_id, dia, hora)
-  )`);
-
-  // ── TABELAS DE SYNC / ON-PREMISE ──
-  masterDb.run(`CREATE TABLE IF NOT EXISTS instance_registry (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    instance_id TEXT UNIQUE NOT NULL,
-    tenant_id INTEGER,
-    instance_name TEXT,
-    public_key TEXT,
-    registered_at DATETIME DEFAULT (datetime('now','localtime')),
-    last_heartbeat_at DATETIME,
-    last_sync_at DATETIME,
-    status TEXT DEFAULT 'offline',
-    ip_address TEXT,
-    software_version TEXT,
-    os_info TEXT,
     install_id TEXT,
-    mode TEXT DEFAULT 'on-premise',
-    FOREIGN KEY (tenant_id) REFERENCES restaurantes(id)
+    nome_restaurante TEXT,
+    versao TEXT,
+    ip TEXT,
+    plataforma TEXT,
+    online INTEGER DEFAULT 0,
+    ultima_atividade DATETIME,
+    tempo_uso_min INTEGER DEFAULT 0,
+    pedidos_total INTEGER DEFAULT 0,
+    vendas_total REAL DEFAULT 0,
+    vendas_hoje REAL DEFAULT 0,
+    comandas_abertas INTEGER DEFAULT 0,
+    funcionarios_ativos INTEGER DEFAULT 0,
+    garcons_online INTEGER DEFAULT 0,
+    produtos_total INTEGER DEFAULT 0,
+    setores_json TEXT,
+    mesas_total INTEGER DEFAULT 0,
+    dispositivos INTEGER DEFAULT 0,
+    funcoes_json TEXT,
+    erros_json TEXT,
+    custo_total REAL DEFAULT 0,
+    folha_mes REAL DEFAULT 0,
+    despesas_mes REAL DEFAULT 0,
+    lucro REAL DEFAULT 0,
+    disco_mb REAL DEFAULT 0,
+    created_at DATETIME DEFAULT (datetime('now', 'localtime')),
+    updated_at DATETIME
   )`);
-
-  masterDb.run(`CREATE TABLE IF NOT EXISTS sync_queue (
+  masterDb.run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_telemetria_install ON telemetria (install_id)`);
+  masterDb.run(`ALTER TABLE telemetria ADD COLUMN admin_login TEXT`, err => { if (err) {} });
+  masterDb.run(`ALTER TABLE telemetria ADD COLUMN chave_ativacao TEXT`, err => { if (err) {} });
+  masterDb.run(`CREATE TABLE IF NOT EXISTS sync_fila (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    instance_id TEXT NOT NULL,
-    message_type TEXT NOT NULL,
+    tipo TEXT NOT NULL,
+    install_id TEXT,
     payload TEXT NOT NULL,
-    priority INTEGER DEFAULT 5,
-    status TEXT DEFAULT 'pending',
-    created_at DATETIME DEFAULT (datetime('now','localtime')),
-    sent_at DATETIME,
-    acked_at DATETIME,
-    retry_count INTEGER DEFAULT 0,
-    max_retries INTEGER DEFAULT 5,
-    FOREIGN KEY (instance_id) REFERENCES instance_registry(instance_id)
-  )`);
-
-  masterDb.run(`CREATE TABLE IF NOT EXISTS remote_commands (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    instance_id TEXT NOT NULL,
-    command TEXT NOT NULL,
-    params TEXT,
-    issued_by TEXT,
-    issued_at DATETIME DEFAULT (datetime('now','localtime')),
-    acknowledged_at DATETIME,
-    result TEXT,
-    status TEXT DEFAULT 'pending',
-    FOREIGN KEY (instance_id) REFERENCES instance_registry(instance_id)
-  )`);
-
-  masterDb.run(`CREATE TABLE IF NOT EXISTS sync_conflicts (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    instance_id TEXT NOT NULL,
-    table_name TEXT NOT NULL,
-    record_id INTEGER,
-    local_data TEXT,
-    remote_data TEXT,
-    resolution TEXT,
-    resolved_at DATETIME DEFAULT (datetime('now','localtime'))
-  )`);
-
-  // Solicitações de ativação de funções vindas dos tenants
-  masterDb.run(`CREATE TABLE IF NOT EXISTS solicitacoes_features (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    restaurante_id INTEGER NOT NULL,
-    feature TEXT NOT NULL,
-    mensagem TEXT,
-    status TEXT DEFAULT 'pendente',
-    criado_em DATETIME DEFAULT (datetime('now','localtime')),
-    resolvido_em DATETIME
-  )`);
-  masterDb.run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_solic_rest_feat ON solicitacoes_features(restaurante_id, feature)`);
-
-  // Restaurante padrão (id 1)
-  masterDb.run(`INSERT OR IGNORE INTO restaurantes (id, nome, licenca, ativo) VALUES (1, 'Restaurante Pirão', 'ativo', 1)`);
-  masterDb.run(`UPDATE restaurantes SET nome = 'Restaurante Pirão', licenca = 'ativo', ativo = 1 WHERE id = 1`);
-
-  // Usuário padrão Admin: pirao@chef.com / 123456
-  try {
-    const defaultHash = await bcrypt.hash('123456', 10);
-    masterDb.run(
-      `INSERT OR IGNORE INTO usuarios (restaurante_id, username, password_hash, role, ativo) VALUES (1, 'pirao@chef.com', ?, 'admin', 1)`,
-      [defaultHash],
-      function (err) {
-        masterDb.run(
-          `UPDATE usuarios SET password_hash = ?, role = 'admin', ativo = 1, restaurante_id = 1 WHERE username = 'pirao@chef.com'`,
-          [defaultHash]
-        );
-      }
-    );
-  } catch (eHash) {
-    console.error('Erro ao gerar hash do usuário padrão:', eHash);
-  }
-
-  masterDb.run(`CREATE TABLE IF NOT EXISTS afiliados (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    nome TEXT NOT NULL,
-    email TEXT UNIQUE NOT NULL,
-    telefone TEXT,
-    codigo_ref TEXT UNIQUE NOT NULL,
-    comissao_percentual REAL DEFAULT 10,
-    chave_pix TEXT,
-    status TEXT DEFAULT 'ativo',
-    password_hash TEXT,
-    created_at DATETIME DEFAULT (datetime('now'))
-  )`);
-  masterDb.run(`CREATE TABLE IF NOT EXISTS afiliado_vendas (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    afiliado_id INTEGER NOT NULL,
-    restaurante_id INTEGER,
-    restaurante_nome TEXT,
-    plano TEXT,
-    valor_venda REAL DEFAULT 0,
-    comissao_valor REAL DEFAULT 0,
-    status TEXT DEFAULT 'pendente',
-    created_at DATETIME DEFAULT (datetime('now')),
-    FOREIGN KEY (afiliado_id) REFERENCES afiliados(id)
+    tentativas INTEGER DEFAULT 0,
+    proxima_tentativa DATETIME DEFAULT (datetime('now', 'localtime')),
+    criado_em DATETIME DEFAULT (datetime('now', 'localtime')),
+    sincronizado_em DATETIME
   )`);
 });
 
-// Carregar rotas do Super Admin
+// (Segurança) Verifica a senha do usuário admin local (tabela usuarios do
+// masterDb). Mantida aqui porque o sync-prod.js corta a seção do server.js
+// anterior ao db.serialize, onde a função original fica definida.
+function verificarSenhaAdmin(senha) {
+  return new Promise((resolve) => {
+    if (!senha) return resolve(false);
+    masterDb.get(`SELECT valor FROM configuracoes_global WHERE chave = 'super_admin_senha_hash'`, [], async (errC, rowC) => {
+      if (!errC && rowC && rowC.valor) {
+        try {
+          if (await bcrypt.compare(String(senha), rowC.valor)) return resolve(true);
+        } catch (e) { }
+        return resolve(false);
+      }
+      masterDb.all(`SELECT password_hash FROM usuarios WHERE role = 'admin' AND ativo = 1`, [], async (err, users) => {
+        if (err || !users || users.length === 0) return resolve(false);
+        for (const user of users) {
+          try {
+            if (await bcrypt.compare(senha, user.password_hash)) return resolve(true);
+          } catch(e) {}
+        }
+        resolve(false);
+      });
+    });
+  });
+}
+
+// ════════════ SUPER ADMIN LOCAL (login + gerenciamento de certificados) ════════════
+async function superAdminAuth(req, res, next) {
+  const tokenHeader = req.headers['x-super-admin-token'] || req.query.adminToken;
+  if (tokenHeader) {
+    try {
+      const decoded = jwt.verify(tokenHeader, JWT_SECRET);
+      if (decoded && decoded.role === 'super_admin_local') {
+        req.superAdmin = decoded;
+        return next();
+      }
+    } catch (e) { }
+  }
+  return res.json({ ok: false, erro: 'Acesso não autorizado. Autentique-se novamente.' });
+}
+
+// Anti-brute-force: max 5 senhas erradas por IP a cada 15 min
+const loginAttempts = new Map();
+function loginBloqueado(ip) {
+  const rec = loginAttempts.get(ip);
+  if (!rec) return false;
+  if (Date.now() - rec.inicio > 15 * 60 * 1000) { loginAttempts.delete(ip); return false; }
+  return rec.falhas >= 5;
+}
+function registrarFalhaLogin(ip) {
+  const rec = loginAttempts.get(ip);
+  if (!rec || Date.now() - rec.inicio > 15 * 60 * 1000) {
+    loginAttempts.set(ip, { inicio: Date.now(), falhas: 1 });
+  } else {
+    rec.falhas++;
+  }
+}
+
+app.post('/api/super/login-local', async (req, res) => {
+  const rawIp = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1').replace('::ffff:', '');
+  if (loginBloqueado(rawIp)) {
+    return res.status(429).json({ ok: false, erro: 'Muitas tentativas. Aguarde 15 minutos.' });
+  }
+  const senha = req.body && req.body.senha;
+  const ok = await verificarSenhaAdmin(senha);
+  if (!ok) {
+    registrarFalhaLogin(rawIp);
+    return res.json({ ok: false, erro: 'Senha de administrador inválida.' });
+  }
+  loginAttempts.delete(rawIp);
+  const token = jwt.sign({ role: 'super_admin_local', restaurante_id: 1 }, JWT_SECRET, { expiresIn: '12h' });
+  res.json({ ok: true, token });
+});
+
+// Tema Global: salva config e propaga em tempo real
+app.post('/api/super/theme-custom', superAdminAuth, (req, res) => {
+  const theme = req.body && req.body.theme;
+  if (!theme || typeof theme !== 'object' || !Object.keys(theme).length) {
+    return res.json({ ok: false, erro: 'Tema invalido.' });
+  }
+  const valor = JSON.stringify(theme);
+  masterDb.run("INSERT INTO configuracoes_global (chave, valor) VALUES ('custom_theme', ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor", [valor], (err) => {
+    if (err) return res.json({ ok: false, erro: err.message });
+    try { io.emit('tema_global_atualizado', theme); } catch (e) { }
+    res.json({ ok: true, mensagem: 'Tema Global salvo e propagado em tempo real!' });
+  });
+});
+
+// Tema Global publico: leitura apenas de cores/fontes (sem dados sensiveis)
+app.get('/api/public/theme', (req, res) => {
+  const tid = req.query.restaurante_id;
+  if (tid) {
+    masterDb.get("SELECT tema_json FROM tenant_temas WHERE restaurante_id = ?", [tid], (err, tRow) => {
+      if (!err && tRow && tRow.tema_json) {
+        try { return res.json({ ok: true, theme: JSON.parse(tRow.tema_json), source: 'tenant' }); } catch (e) {}
+      }
+      masterDb.get("SELECT valor FROM configuracoes_global WHERE chave = 'custom_theme'", [], (err2, row) => {
+        if (err2 || !row || !row.valor) return res.json({ ok: true, theme: null, source: 'default' });
+        try { return res.json({ ok: true, theme: JSON.parse(row.valor), source: 'global' }); }
+        catch (e) { return res.json({ ok: true, theme: null, source: 'default' }); }
+      });
+    });
+  } else {
+    masterDb.get("SELECT valor FROM configuracoes_global WHERE chave = 'custom_theme'", [], (err, row) => {
+      if (err || !row || !row.valor) return res.json({ ok: true, theme: null });
+      try { return res.json({ ok: true, theme: JSON.parse(row.valor) }); }
+      catch (e) { return res.json({ ok: true, theme: null }); }
+    });
+  }
+});
+
+app.get('/api/super/certs', superAdminAuth, (req, res) => {
+  ensureCertsDir();
+  let files = [];
+  try {
+    files = fs.readdirSync(CERTS_DIR).filter(f => /\.(pfx|p12)$/i.test(f));
+  } catch (e) { }
+  files.sort();
+  const certs = files.map(f => {
+    const c = { file: f };
+    try {
+      const st = fs.statSync(path.join(CERTS_DIR, f));
+      c.size = st.size;
+      c.mtime = st.mtime.toISOString();
+    } catch (e) { }
+    return c;
+  });
+  const ativo = activeCertInfo ? activeCertInfo.file : (isHttps ? 'cert.pfx (legado)' : null);
+  res.json({ ok: true, certs, ativo, isHttps, reiniciarNecessario: activeCertInfo && activeCertInfo.applied === false });
+});
+
+app.post('/api/super/certs/upload', superAdminAuth, upload.single('cert'), (req, res) => {
+  if (!req.file) return res.json({ ok: false, erro: 'Nenhum arquivo enviado.' });
+  const original = String(req.file.originalname || 'cert.pfx').replace(/^.*[\\/]/, '');
+  if (!/\.(pfx|p12)$/i.test(original)) {
+    try { fs.unlinkSync(req.file.path); } catch (e) { }
+    return res.json({ ok: false, erro: 'Apenas arquivos .pfx ou .p12 são aceitos.' });
+  }
+  ensureCertsDir();
+  const dest = path.join(CERTS_DIR, original);
+  try {
+    fs.copyFileSync(req.file.path, dest);
+    fs.unlinkSync(req.file.path);
+  } catch (e) {
+    return res.json({ ok: false, erro: 'Falha ao salvar o arquivo: ' + (e.message || e) });
+  }
+  res.json({ ok: true, file: original });
+});
+
+app.post('/api/super/certs/ativar', superAdminAuth, (req, res) => {
+  const file = String((req.body && req.body.file) || '').replace(/^.*[\\/]/, '').trim();
+  if (!file || file.includes('..') || file.includes('/') || file.includes('\\')) {
+    return res.json({ ok: false, erro: 'Nome de arquivo inválido.' });
+  }
+  if (!/\.(pfx|p12)$/i.test(file)) return res.json({ ok: false, erro: 'Extensão inválida.' });
+  if (!fs.existsSync(path.join(CERTS_DIR, file))) return res.json({ ok: false, erro: 'Arquivo não encontrado na pasta certs.' });
+  const passphrase = (req.body && req.body.passphrase) ? String(req.body.passphrase) : CERT_PASSPHRASE;
+  res.json(aplicarCert({ file, passphrase }));
+});
+
+app.delete('/api/super/certs/:file', superAdminAuth, (req, res) => {
+  const file = String(req.params.file || '').replace(/^.*[\\/]/, '').trim();
+  if (!file || file.includes('..') || file.includes('/') || file.includes('\\')) return res.json({ ok: false, erro: 'Nome inválido.' });
+  if (activeCertInfo && activeCertInfo.file === file) return res.json({ ok: false, erro: 'Não é possível remover o certificado em uso. Ative outro primeiro.' });
+  const p = path.join(CERTS_DIR, file);
+  if (!fs.existsSync(p)) return res.json({ ok: false, erro: 'Arquivo não encontrado.' });
+  try {
+    fs.unlinkSync(p);
+    res.json({ ok: true });
+  } catch (e) {
+    res.json({ ok: false, erro: 'Falha ao remover: ' + (e.message || e) });
+  }
+});
+
+const TELEMETRIA_VERSION = '1.0.0';
+
+function getTenantDbPath(tenantId) {
+  return path.join(APP_DATA_DIR, 'estabelecimentos', String(tenantId), 'database.sqlite');
+}
+
+// ════════════ TELEMETRIA ════════════
+function registrarTelemetria(t) {
+  const ip = trimStr(t.ip, 60);
+  const agora = new Date().toLocaleString();
+  masterDb.get(`SELECT id FROM telemetria WHERE install_id = ?`, [t.install_id || ''], (err, row) => {
+    if (err) return;
+    if (row) {
+      masterDb.run(`UPDATE telemetria SET
+        restaurante_id = ?, nome_restaurante = ?, versao = ?, ip = ?, plataforma = ?,
+        admin_login = COALESCE(NULLIF(?, ''), admin_login), chave_ativacao = COALESCE(NULLIF(?, ''), chave_ativacao), online = 1,
+        ultima_atividade = ?, tempo_uso_min = ?, pedidos_total = ?, vendas_total = ?, vendas_hoje = ?,
+        comandas_abertas = ?, funcionarios_ativos = ?, garcons_online = ?, produtos_total = ?, setores_json = ?,
+        mesas_total = ?, dispositivos = ?, funcoes_json = ?, erros_json = ?, custo_total = ?, folha_mes = ?,
+        despesas_mes = ?, lucro = ?, disco_mb = ?, updated_at = ?
+        WHERE install_id = ?`,
+        [t.restaurante_id || null, trimStr(t.nome_restaurante, 120), trimStr(t.versao, 20), ip, trimStr(t.plataforma, 30), trimStr(t.admin_login, 120) || '', trimStr(t.chave_ativacao || t.chave, 30) || '', agora,
+          t.tempo_uso_min || 0, t.pedidos_total || 0, t.vendas_total || 0, t.vendas_hoje || 0,
+          t.comandas_abertas || 0, t.funcionarios_ativos || 0, t.garcons_online || 0, t.produtos_total || 0,
+          t.setores_json || null, t.mesas_total || 0, t.dispositivos || 0, t.funcoes_json || null,
+          t.erros_json || null, t.custo_total || 0, t.folha_mes || 0, t.despesas_mes || 0, t.lucro || 0,
+          t.disco_mb || 0, agora, t.install_id || ''], (e) => { if (e) console.error('[Telemetria] update:', e.message); });
+    } else {
+      masterDb.run(`INSERT INTO telemetria (restaurante_id, install_id, nome_restaurante, versao, ip, plataforma, admin_login, chave_ativacao, online, ultima_atividade, tempo_uso_min, pedidos_total, vendas_total, vendas_hoje, comandas_abertas, funcionarios_ativos, garcons_online, produtos_total, setores_json, mesas_total, dispositivos, funcoes_json, erros_json, custo_total, folha_mes, despesas_mes, lucro, disco_mb, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [t.restaurante_id || null, t.install_id || '', trimStr(t.nome_restaurante, 120), trimStr(t.versao, 20), ip, trimStr(t.plataforma, 30), trimStr(t.admin_login, 120) || null, trimStr(t.chave_ativacao || t.chave, 30) || null, agora,
+          t.tempo_uso_min || 0, t.pedidos_total || 0, t.vendas_total || 0, t.vendas_hoje || 0,
+          t.comandas_abertas || 0, t.funcionarios_ativos || 0, t.garcons_online || 0, t.produtos_total || 0,
+          t.setores_json || null, t.mesas_total || 0, t.dispositivos || 0, t.funcoes_json || null,
+          t.erros_json || null, t.custo_total || 0, t.folha_mes || 0, t.despesas_mes || 0, t.lucro || 0,
+          t.disco_mb || 0, agora], (e) => { if (e) console.error('[Telemetria] insert:', e.message); });
+    }
+  });
+}
+
+// ════════════ SEED DO ADMIN + FILA DE SINCRONIZAÇÃO (instalações remotas) ════════════
+
+// Arquivo criado pelo instalador com os dados digitados pelo usuário:
+// %APPDATA%\ChefCozinha\admin-seed.json
+function getSeedPath() {
+  return path.join(getDataDir(), 'admin-seed.json');
+}
+
+// Adiciona um item à fila de sincronização offline → hub
+function enqueueSync(tipo, payload) {
+  try {
+    const state = licenseManager.getState ? licenseManager.getState() : {};
+    const installId = (state && state.installId) || (payload && payload.install_id) || '';
+    masterDb.run(`INSERT INTO sync_fila (tipo, install_id, payload) VALUES (?, ?, ?)`,
+      [tipo, installId, JSON.stringify(payload || {})],
+      (e) => { if (e) console.error('[Sync] enqueue:', e.message); });
+  } catch (e) { console.error('[Sync] enqueue:', e.message); }
+}
+
+// Aplica os dados de configuração gravados pelo instalador:
+// cria o admin local, define o nome do estabelecimento, ativa a chave de
+// licença (mesmo offline) e agenda a sincronização com o hub.
+function aplicarSeedAdmin() {
+  return new Promise((resolve) => {
+    const seedPath = getSeedPath();
+    let seed = null;
+    try {
+      if (!fsSync.existsSync(seedPath)) return resolve();
+      let raw = fsSync.readFileSync(seedPath, 'utf8');
+      if (raw.charCodeAt(0) === 0xFEFF) raw = raw.slice(1); // remove BOM (UTF-8)
+      seed = JSON.parse(raw);
+    } catch (e) {
+      console.error('[Seed] Erro ao ler admin-seed.json:', e.message);
+      return resolve();
+    }
+
+    const username = trimStr(seed.username || seed.email || '', 120).toLowerCase();
+    const senha = String(seed.senha || seed.password || '');
+    const nomeRest = trimStr(seed.nome_restaurante || seed.estabelecimento || '', 120);
+    const chave = trimStr(seed.chave || seed.chave_licenca || '', 30).toUpperCase();
+
+    if (!username || !senha) {
+      console.error('[Seed] admin-seed.json sem username/senha.');
+      return resolve();
+    }
+
+    bcrypt.hash(senha, 10).then((hash) => {
+      const upsertUser = () => new Promise((resU, rejU) => {
+        masterDb.run(
+          `INSERT INTO usuarios (restaurante_id, username, password_hash, role, ativo)
+           VALUES (1, ?, ?, 'admin', 1)
+           ON CONFLICT(username) DO UPDATE SET password_hash = excluded.password_hash, role = 'admin', ativo = 1`,
+          [username, hash], (e) => e ? rejU(e) : resU());
+      });
+
+      const setNome = () => new Promise((resN, rejN) => {
+        if (!nomeRest) return resN();
+        masterDb.run(`UPDATE restaurantes SET nome = ? WHERE id = 1`, [nomeRest], (e) => e ? rejN(e) : resN());
+      });
+
+      Promise.all([upsertUser(), setNome()]).then(async () => {
+        console.log(`[Seed] Admin local criado: ${username} (${nomeRest || 'Estabelecimento'})`);
+        const state = licenseManager.getState ? licenseManager.getState() : {};
+        const installId = (state && state.installId) || 'INST-UNKNOWN';
+
+        // Ativa a chave (se informada) — suporta modo offline
+        if (chave && licenseManager.validarChaveFormato(chave)) {
+          const ativ = await licenseManager.activateLicense(chave, { restaurante: nomeRest });
+          console.log(`[Seed] Ativação da chave: ${ativ.ok ? (ativ.offline ? 'offline (pendente)' : 'online') : ('falhou: ' + (ativ.error || ''))}`);
+          enqueueSync('ativacao', { chave, install_id: installId, nome_restaurante: nomeRest || 'Estabelecimento', admin_login: username });
+        }
+
+        // Registra o estabelecimento + admin para o super admin ver
+        enqueueSync('registro', {
+          install_id: installId,
+          nome_restaurante: nomeRest || 'Estabelecimento',
+          admin_login: username,
+          chave_ativacao: chave,
+          plataforma: process.platform,
+          versao: TELEMETRIA_VERSION,
+          online: 1,
+          ultima_atividade: new Date().toLocaleString()
+        });
+
+        try { fsSync.unlinkSync(seedPath); } catch (e) {}
+        resolve();
+      }).catch((err) => {
+        console.error('[Seed] Erro ao aplicar seed:', err.message);
+        resolve();
+      });
+    }).catch((e) => {
+      console.error('[Seed] Erro bcrypt:', e.message);
+      resolve();
+    });
+  });
+}
+
+// Envia os itens pendentes da fila para o hub central (com retry/backoff)
+async function processarFilaSync() {
+  if (!licenseManager.hubConfigurado || !licenseManager.hubConfigurado()) return;
+  try {
+    const rows = await new Promise((resolveP, rejectP) => {
+      masterDb.all(`SELECT * FROM sync_fila WHERE sincronizado_em IS NULL AND proxima_tentativa <= datetime('now','localtime') ORDER BY id LIMIT 20`, [], (err, r) => err ? rejectP(err) : resolveP(r || []));
+    });
+    for (const item of rows) {
+      let payload = {};
+      try { payload = JSON.parse(item.payload || '{}'); } catch (e) {}
+      const rota = item.tipo === 'ativacao' ? '/api/licenca/ativar' : '/api/telemetria';
+      const result = await licenseManager.enviarParaHub(rota, payload);
+      if (result && result.ok) {
+        masterDb.run(`UPDATE sync_fila SET sincronizado_em = datetime('now','localtime') WHERE id = ?`, [item.id], () => {});
+        console.log(`[Sync] ${item.tipo} sincronizado com o hub (item ${item.id})`);
+      } else {
+        const tent = (item.tentativas || 0) + 1;
+        const backoffMin = Math.min(60, 10 * tent); // 10min, 20min... máx 1h
+        masterDb.run(`UPDATE sync_fila SET tentativas = ?, proxima_tentativa = datetime('now','localtime','+${backoffMin} minutes') WHERE id = ?`,
+          [tent, item.id], () => {});
+        console.warn(`[Sync] ${item.tipo} falhou (tentativa ${tent}): ${(result && result.error) || 'erro desconhecido'}`);
+      }
+    }
+  } catch (e) {
+    console.error('[Sync] processar fila:', e.message);
+  }
+}
+
+// Coleta métricas da própria instalação para enviar ao hub
+function coletarTelemetriaInstalacao() {
+  return new Promise((resolve) => {
+    db.all(`SELECT COUNT(*) c FROM pedidos`, [], (e1, r1) => {
+      db.all(`SELECT COALESCE(SUM(CAST(total AS REAL)),0) c FROM pedidos WHERE status IN ('Finalizado','Pago')`, [], (e2, r2) => {
+        db.all(`SELECT COALESCE(SUM(custo),0) c FROM produtos`, [], (e3, r3) => {
+          db.all(`SELECT COUNT(*) c FROM funcionarios WHERE status = 'Ativo'`, [], (e4, r4) => {
+            db.all(`SELECT COUNT(*) c FROM produtos WHERE status = 'ativo'`, [], (e5, r5) => {
+              const nome = licenseManager.getRestaurantName ? licenseManager.getRestaurantName() : '';
+              const state = licenseManager.getState ? licenseManager.getState() : {};
+              const hojeStr = new Date().toISOString().slice(0, 10);
+              db.all(`SELECT COALESCE(SUM(CAST(total AS REAL)),0) c FROM pedidos WHERE status IN ('Finalizado','Pago') AND substr(createdAt,1,10) = ?`, [hojeStr], (e6, r6) => {
+                const conectados = io.sockets.adapter.rooms.get('geral') ? io.sockets.adapter.rooms.get('geral').size : 0;
+                const vendas = r2 && r2[0] ? parseFloat(r2[0].c || 0) : 0;
+                const custo = r3 && r3[0] ? parseFloat(r3[0].c || 0) : 0;
+                let discoMb = 0;
+                try { const dbPath = getTenantDbPath(1); if (fsSync.existsSync(dbPath)) discoMb = fsSync.statSync(dbPath).size / (1024 * 1024); } catch (e) {}
+                resolve({
+                  install_id: state.installId || 'INST-UNKNOWN',
+                  nome_restaurante: nome,
+                  chave: state.chave || '',
+                  versao: TELEMETRIA_VERSION,
+                  plataforma: process.platform,
+                  online: 1,
+                  ultima_atividade: new Date().toLocaleString(),
+                  tempo_uso_min: 0,
+                  pedidos_total: r1 && r1[0] ? r1[0].c : 0,
+                  vendas_total: vendas,
+                  vendas_hoje: r6 && r6[0] ? parseFloat(r6[0].c || 0) : 0,
+                  comandas_abertas: 0,
+                  funcionarios_ativos: r4 && r4[0] ? r4[0].c : 0,
+                  garcons_online: conectados,
+                  produtos_total: r5 && r5[0] ? r5[0].c : 0,
+                  mesas_total: 0,
+                  dispositivos: conectados,
+                  custo_total: custo,
+                  folha_mes: 0,
+                  despesas_mes: 0,
+                  lucro: Math.round((vendas - custo) * 100) / 100,
+                  disco_mb: Math.round(discoMb * 100) / 100
+                });
+              });
+            });
+          });
+        });
+      });
+    });
+  });
+}
+
+// Envia telemetria para o hub central (quando instalado remotamente).
+// Em vez de enviar direto, enfileira — a fila reenvia com backoff até conseguir.
+async function enviarTelemetriaRemota() {
+  if (!licenseManager.hubConfigurado || !licenseManager.hubConfigurado()) return;
+  try {
+    const t = await coletarTelemetriaInstalacao();
+    if (!t) return;
+    enqueueSync('telemetria', t);
+  } catch (e) {
+    console.error('[Telemetria] envio remoto:', e.message);
+  }
+}
+
+// Dispara o seed do instalador e a sincronização no startup e periodicamente
+setTimeout(() => { enviarTelemetriaRemota(); }, 3000);
+setInterval(() => { enviarTelemetriaRemota(); }, 5 * 60 * 1000);
+setTimeout(() => { aplicarSeedAdmin().then(() => processarFilaSync()); }, 2500);
+setInterval(() => processarFilaSync(), 60 * 1000);
+
+// ─── SUPER ADMIN: EXEC (terminal de comandos com seguranca) ───
+const { exec } = require('child_process');
+const CMD_BLOCKLIST = [
+  /\brm\s+-rf\s+\/\b/,           // rm -rf /
+  /\bmkfs\b/,                     // formatacao de disco (Linux)
+  /\bdd\s+.*of=\/dev\//,          // dd direto em disco
+  /\bcurl\b.*\|\s*bash/,         // pipe remoto para bash
+  /\bwget\b.*\|\s*bash/,
+  /\bchmod\s+777\s+\//,          // chmod global
+  /\bshutdown\b/i,                // desligar servidor
+  /\breboot\b/i,
+  /\binit\s+[06]\b/,
+  /\bformat\s+[a-z]:/i,           // format C:
+  /\bdiskpart\b/i,                // particionamento
+  /\bdel\s+(\/[sfq]+\s+)+[a-z]:\\\s*$/i,   // del /S /Q na raiz de disco
+  /\brd\s+\/s\s+\/q\s+[a-z]:\\\s*$/i,    // rd /S /Q na raiz de disco
+  /\bvssadmin\b.*delete/i,        // apagar shadow copies
+  /\bbcdedit\b/i,                 // boot config
+  /\bcipher\s+\/w/i               // wipe de disco
+];
+// Endpoint exclusivo do super admin: operadores do shell (&, |, >, aspas,
+// parenteses) sao necessarios para os comandos rapidos do terminal.
+const CMD_DENY_CHARS = /[\r\n\0]/;
+
+app.post('/api/super/exec', superAdminAuth, (req, res) => {
+  const { command } = req.body;
+  if (!command || typeof command !== 'string') return res.json({ ok: false, erro: 'Comando obrigatorio.' });
+  if (command.length > 300) return res.json({ ok: false, erro: 'Comando muito longo (max 300 chars).' });
+  if (CMD_DENY_CHARS.test(command)) return res.json({ ok: false, erro: 'Comando invalido.' });
+  if (CMD_BLOCKLIST.some(rx => rx.test(command))) return res.json({ ok: false, erro: 'Comando bloqueado por seguranca.' });
+
+  // Allowlist com comandos Windows e Linux usados na administracao do servidor
+  const allowedCmds = /^(ls|cat|head|tail|wc|df|du|free|uptime|ps|top|netstat|ss|ip|ifconfig|ping|host|dig|nslookup|date|pwd|whoami|id|env|printenv|node|npm|npx|pm2|sqlite3|git|docker|dir|type|echo|tasklist|taskkill|systeminfo|wmic|ipconfig|hostname|ver|where|findstr|find|sc|net|cd|chdir|vol|driverquery|getmac|openfiles|quser|query|reg|wevtutil|powercfg|schtasks)\b/;
+  if (!allowedCmds.test(command.trim())) {
+    return res.json({ ok: false, erro: 'Comando nao esta na lista de permitidos. Permitidos: dir, type, tasklist, systeminfo, netstat, ipconfig, node, npm, pm2, sqlite3, git, docker...' });
+  }
+
+  console.log(`[SuperAdmin Exec] ${req.superAdmin?.role || 'admin'}: ${command.substring(0, 200)}`);
+  exec(command, { cwd: __dirname, timeout: 30000, maxBuffer: 1024 * 1024, windowsHide: true }, (error, stdout, stderr) => {
+    const out = (stdout || '').substring(0, 10000);
+    const err = (stderr || '').substring(0, 5000);
+    res.json({ ok: !error, stdout: out, stderr: err, exitCode: error ? (error.code || 1) : 0, command: command.substring(0, 300) });
+  });
+});
+// ─── FEATURES POR TENANT + HELPERS DE BANCOS (portados do dev) ───
 const featurePlans = require('./feature-plans');
 const tenantFeatures = new Map();
 const tenantSocketCounts = new Map();
 const TENANT_FEATURES_REFRESH_MS = 30000;
 
-// Recarrega o snapshot de features de todos os tenants (síncrono depois disso)
+function getTenantDbPath(tenantId) {
+  return path.join(__dirname, `database_${tenantId}.sqlite`);
+}
+
+function listarBancosTenant() {
+  try {
+    return fsSync.readdirSync(__dirname)
+      .filter(f => /^database_(\d+)\.sqlite$/.test(f))
+      .map(f => path.join(__dirname, f))
+      .filter(p => fsSync.existsSync(p));
+  } catch (e) { return []; }
+}
+
+function safeInt(v, min = 0, max = 2147483647) { const n = parseInt(v, 10); return isNaN(n) ? min : Math.max(min, Math.min(max, n)); }
+
+// Recarrega o snapshot de features de todos os tenants (sincrono depois disso)
 function loadAllTenantFeatures() {
   return new Promise((resolve) => {
     masterDb.all(`SELECT id, licenca FROM restaurantes`, [], (err, rests) => {
@@ -4167,7 +1263,142 @@ function isTenantFeatureEnabled(tid, feature) {
   return !!f[feature];
 }
 
-// Contadores de sockets ativos por tenant (para métricas de pico)
+// ─── BLOCO PORTADO DA REGIÃO PRÉ-CORTE DO DEV (sync-prod descarta essa parte) ───
+function celebrarNovoRestaurante(nome, id, dono) {
+  const frames = ['🎉', '🎊', '✨', '🏆', '🌟', '🎆', '🎇'];
+  let f = 0;
+  const spinner = setInterval(() => {
+    process.stdout.write(`\r  ${frames[f % frames.length]}  Processando novo cliente... `);
+    f++;
+  }, 120);
+
+  setTimeout(() => {
+    clearInterval(spinner);
+    process.stdout.write('\r\x1b[2K\r');
+
+    const ts = new Date().toLocaleTimeString('pt-BR');
+    const banner = [
+      '',
+      `${ANSI.yellow}${ANSI.bright}  ╔══════════════════════════════════════════════════╗${ANSI.reset}`,
+      `${ANSI.yellow}${ANSI.bright}  ║   🏆  NOVO RESTAURANTE CADASTRADO  🏆            ║${ANSI.reset}`,
+      `${ANSI.yellow}${ANSI.bright}  ╠══════════════════════════════════════════════════╣${ANSI.reset}`,
+      `${ANSI.yellow}  ║${ANSI.reset}  ${ANSI.cyan}🏪 Nome:${ANSI.reset}   ${ANSI.bright}${nome}${ANSI.reset}`,
+      `${ANSI.yellow}  ║${ANSI.reset}  ${ANSI.green}🆔 ID:${ANSI.reset}     #${id}`,
+      dono ? `${ANSI.yellow}  ║${ANSI.reset}  ${ANSI.magenta}👤 Dono:${ANSI.reset}   ${dono}` : null,
+      `${ANSI.yellow}  ║${ANSI.reset}  ${ANSI.dim}🕐 Hora:${ANSI.reset}   ${ts}`,
+      `${ANSI.yellow}${ANSI.bright}  ╚══════════════════════════════════════════════════╝${ANSI.reset}`,
+      `  ${ANSI.green}${ANSI.bright}🎊 Bem-vindo ao ecossistema Chef Cozinha SaaS! 🎊${ANSI.reset}`,
+      '',
+    ].filter(Boolean).join('\n');
+
+    originalLog.apply(console, [banner]);
+
+    // Confete ASCII
+    const confete = '  ✦ ★ ✦ ★ ✦ ★ ✦ ★ ✦ ★ ✦ ★ ✦ ★ ✦ ★ ✦ ★ ✦ ★ ✦';
+    let c = 0;
+    const rain = setInterval(() => {
+      c++;
+      const colors = [ANSI.yellow, ANSI.cyan, ANSI.magenta, ANSI.green];
+      const col = colors[c % colors.length];
+      process.stdout.write(`\r${col}${confete}${ANSI.reset}`);
+      if (c >= 10) {
+        clearInterval(rain);
+        process.stdout.write('\r\x1b[2K\r');
+        originalLog.apply(console, [`${ANSI.dim}────────────────────────────────────────────────────────${ANSI.reset}`]);
+      }
+    }, 150);
+  }, 800);
+}
+
+
+const ANSI = {
+  reset: "\x1b[0m",
+  bright: "\x1b[1m",
+  dim: "\x1b[2m",
+  green: "\x1b[32m",
+  yellow: "\x1b[33m",
+  cyan: "\x1b[36m",
+  magenta: "\x1b[35m",
+  red: "\x1b[31m",
+  blue: "\x1b[34m",
+  white: "\x1b[37m",
+  bgBlue: "\x1b[44m\x1b[37m",
+  bgCyan: "\x1b[46m\x1b[30m",
+  bgMagenta: "\x1b[45m\x1b[37m",
+  bgGreen: "\x1b[42m\x1b[30m"
+};
+
+
+
+const serverStartTime = Date.now();
+function getEfficiencyStars() {
+  const memRssMb = process.memoryUsage().rss / (1024 * 1024);
+  if (memRssMb < 150) return "⭐⭐⭐⭐⭐ [100% EXCELENTE]";
+  if (memRssMb < 300) return "⭐⭐⭐⭐ [95% ÓTIMO]";
+  if (memRssMb < 500) return "⭐⭐⭐ [85% BOM]";
+  return "⭐⭐ [ATENÇÃO RESTRIÇÃO]";
+}
+
+function localizarFuncionarioLogin(usuario, cb) {
+  const q = `SELECT * FROM funcionarios WHERE LOWER(TRIM(usuario)) = LOWER(TRIM(?)) OR LOWER(TRIM(nome)) = LOWER(TRIM(?))`;
+  db.get(q, [usuario, usuario], (err, row) => {
+    if (!err && row) {
+      if (!row.restaurante_id) row.restaurante_id = tenantContext.getStore() || 1;
+      return cb(row);
+    }
+    masterDb.all(`SELECT id FROM restaurantes WHERE ativo = 1`, [], (e, rests) => {
+      if (e || !rests || !rests.length) return cb(null);
+      let i = 0;
+      const atual = tenantContext.getStore() || 1;
+      const next = () => {
+        while (i < rests.length) {
+          const tid = parseInt(rests[i++].id, 10);
+          if (!Number.isFinite(tid) || tid <= 0 || tid === atual) continue;
+          const dbPath = path.join(__dirname, `database_${tid}.sqlite`);
+          if (!fsSync.existsSync(dbPath)) continue;
+          const tdb = new sqlite3.Database(dbPath);
+          tdb.get(q, [usuario, usuario], (e2, row2) => {
+            tdb.close();
+            if (!e2 && row2) {
+              if (!row2.restaurante_id) row2.restaurante_id = tid;
+              return cb(row2);
+            }
+            next();
+          });
+          return;
+        }
+        cb(null);
+      };
+      next();
+    });
+  });
+}
+
+let BASE_DOMAIN = (process.env.BASE_DOMAIN || 'chefcozinha.com.br').toLowerCase();
+const domainMap = new Map(); // custom_domain → tenant_id
+const slugMap = new Map();   // slug → tenant_id
+let domainMapLoaded = false;
+
+function loadDomainMaps() {
+  return new Promise((resolve) => {
+    masterDb.all(`SELECT id, slug, custom_domain FROM restaurantes WHERE ativo = 1`, [], (err, rows) => {
+      if (err) return resolve();
+      domainMap.clear();
+      slugMap.clear();
+      (rows || []).forEach(r => {
+        if (r.custom_domain && r.custom_domain.trim()) {
+          domainMap.set(r.custom_domain.trim().toLowerCase(), r.id);
+        }
+        if (r.slug && r.slug.trim()) {
+          slugMap.set(r.slug.trim().toLowerCase(), r.id);
+        }
+      });
+      domainMapLoaded = true;
+      resolve();
+    });
+  });
+}
+
 function metricAddSocket(socket) {
   if (socket._metricCounted) return;
   socket._metricCounted = true;
@@ -4205,276 +1436,61 @@ function samplePicos() {
   });
 }
 
-// Painel Super Admin em processo isolado:
-// com SUPER_ADMIN_ISOLADO=1 as rotas NÃO são montadas aqui — rode
-// `SUPER_ADMIN_PORT=3457 node super-admin-server.js` em separado.
-/* ── Autenticação do Super Admin (JWT) ── */
-function superAdminAuth(req, res, next) {
-  const tokenHeader = (req.cookies && req.cookies.super_admin_token) || req.headers['x-super-admin-token'] || req.query.adminToken;
-  if (tokenHeader) {
-    try {
-      const decoded = jwt.verify(tokenHeader, JWT_SECRET);
-      if (decoded && decoded.role === 'super_admin_local') {
-        req.superAdmin = decoded;
-        return next();
-      }
-    } catch (e) { }
-  }
-  return res.status(401).json({ ok: false, erro: 'Acesso não autorizado ao Super Admin.' });
-}
-
-// ─── GUARDA GLOBAL DE SEGURANÇA SUPER-ADMIN (PROTEÇÃO 100% INVIOL�?VEL) ───────
-app.use('/api/super', (req, res, next) => {
-  if (req.path === '/login-local' || req.path === '/login-cloud') {
-    return next();
-  }
-  return superAdminAuth(req, res, next);
-});
-
-if (process.env.SUPER_ADMIN_ISOLADO !== '1') {
-  require('./controllers/super-admin')(app, masterDb, sqlite3, {
-    JWT_SECRET,
-    superAdminAuth,
-    io,
-    featurePlans,
-    loadAllTenantFeatures,
-    getTenantFeaturesSync,
-    isTenantFeatureEnabled,
-    metricSocketCount,
-    ifoodApi,
-    baseDomain: BASE_DOMAIN,
-    reloadDomainMaps: loadDomainMaps,
-    createFreshTenantDb,
-    ifoodDeps: {
-      io,
-      masterDb,
-      tenantContext,
-      getTenantDb,
-      dir: __dirname
-    }
-  });
-} else {
-  console.log('[super-admin] SUPER_ADMIN_ISOLADO=1 → painel super admin NÃO montado neste processo.');
-}
-
-const tenantDbs = new Map();
-const tenantDbLastAccess = new Map();
-const DB_IDLE_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutos de inatividade encerram a conexão do tenant
-
-// Limpeza automática de conexões inativas de bancos de tenants para economizar RAM
-setInterval(() => {
-  const now = Date.now();
-  for (const [tenantId, lastAccess] of tenantDbLastAccess.entries()) {
-    // Nunca encerra a conexão do tenant master (ID 1)
-    if (tenantId === 1) continue;
-    if (now - lastAccess > DB_IDLE_TIMEOUT_MS) {
-      const activeDb = tenantDbs.get(tenantId);
-      if (activeDb) {
-        try {
-          activeDb.close((err) => {
-            if (!err) {
-              console.log(`[Lazy DB Pool] Conexão SQLite do tenant #${tenantId} fechada por inatividade (${Math.round(DB_IDLE_TIMEOUT_MS / 60000)}m sem acessos). RAM liberada!`);
-            }
-          });
-        } catch (e) {}
-        tenantDbs.delete(tenantId);
-        tenantDbLastAccess.delete(tenantId);
-      }
-    }
-  }
-}, 60000);
-
-function getTenantDb() {
-  const tenantId = tenantContext.getStore() || 1;
-  tenantDbLastAccess.set(tenantId, Date.now());
-
-  if (!tenantDbs.has(tenantId)) {
-    const dbPath = path.join(__dirname, `database_${tenantId}.sqlite`);
-    const isNew = !fsSync.existsSync(dbPath);
-    const newDb = new sqlite3.Database(dbPath, (err) => {
-      if (err) console.error(`Erro ao abrir banco do tenant ${tenantId}:`, err);
-    });
-
-    // Configura o banco
-    newDb.run('PRAGMA journal_mode = WAL;');
-    newDb.run('PRAGMA synchronous = NORMAL;');
-    newDb.run('PRAGMA busy_timeout = 5000;');
-    newDb.run('PRAGMA cache_size = -20000;');
-    newDb.run('PRAGMA temp_store = MEMORY;');
-    tenantDbs.set(tenantId, newDb);
-
-    if (isNew && tenantId !== 1) {
-      const refPath = path.join(__dirname, 'database_1.sqlite');
-      if (fsSync.existsSync(refPath)) {
-        syncTenantSchema(newDb, refPath, () => {
-          seedTenantDb(newDb, null, () => {});
-        });
-      }
-    }
-  }
-  return tenantDbs.get(tenantId);
-}
-
-function ensureAllTenantTablesAndColumns(tenantDb, callback) {
-  tenantDb.serialize(() => {
-    tenantDb.run(`
-      CREATE TABLE IF NOT EXISTS configuracoes (
-        chave TEXT PRIMARY KEY,
-        valor TEXT
-      )
-    `);
-    tenantDb.run(`
-      CREATE TABLE IF NOT EXISTS mesas (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nome TEXT UNIQUE,
-        status TEXT DEFAULT 'Disponível',
-        observacao TEXT
-      )
-    `);
-    tenantDb.run(`
-      CREATE TABLE IF NOT EXISTS produtos (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        categoria TEXT,
-        nome TEXT,
-        preco REAL,
-        emoji TEXT,
-        hasAddons BOOLEAN DEFAULT false,
-        setor TEXT DEFAULT 'Cozinha 1',
-        status_inicial TEXT DEFAULT 'Em espera',
-        status TEXT DEFAULT 'ativo',
-        categoria_fiscal TEXT DEFAULT 'Alimentacao',
-        descricao TEXT DEFAULT '',
-        codigo_barras TEXT,
-        visibilidade TEXT DEFAULT 'todos',
-        foto_url TEXT,
-        estoque REAL DEFAULT 0,
-        validade TEXT,
-        preco_custo REAL DEFAULT 0,
-        unidade TEXT DEFAULT 'UN',
-        fornecedor TEXT,
-        sync_version INTEGER DEFAULT 0
-      )
-    `);
-    const prodCols = [
-      'hasAddons BOOLEAN DEFAULT false', 'setor TEXT DEFAULT "Cozinha 1"', 'status_inicial TEXT DEFAULT "Em espera"',
-      'status TEXT DEFAULT "ativo"', 'categoria_fiscal TEXT DEFAULT "Alimentacao"', 'descricao TEXT DEFAULT ""',
-      'codigo_barras TEXT', 'visibilidade TEXT DEFAULT "todos"', 'foto_url TEXT', 'estoque REAL DEFAULT 0',
-      'validade TEXT', 'preco_custo REAL DEFAULT 0', 'unidade TEXT DEFAULT "UN"', 'fornecedor TEXT', 'sync_version INTEGER DEFAULT 0'
-    ];
-    prodCols.forEach(col => { tenantDb.run(`ALTER TABLE produtos ADD COLUMN ${col}`, () => {}); });
-
-    tenantDb.run(`
-      CREATE TABLE IF NOT EXISTS pedidos (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        tableNumber TEXT,
-        productName TEXT,
-        quantity INTEGER,
-        unitPrice REAL,
-        total REAL,
-        status TEXT DEFAULT 'Em espera',
-        setor TEXT DEFAULT 'Cozinha 1',
-        garcom TEXT,
-        customerName TEXT,
-        createdAt DATETIME DEFAULT (datetime('now')),
-        observacoes TEXT,
-        adicionais TEXT,
-        tipo_entrega TEXT,
-        cupom_desconto TEXT,
-        valor_desconto REAL DEFAULT 0
-      )
-    `);
-
-    tenantDb.run(`
-      CREATE TABLE IF NOT EXISTS formas_pagamento (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nome TEXT,
-        tipo TEXT,
-        taxa REAL DEFAULT 0,
-        prazo_dias INTEGER DEFAULT 0,
-        ativo INTEGER DEFAULT 1,
-        icone TEXT,
-        ordem INTEGER DEFAULT 0
-      )
-    `);
-
-    tenantDb.run(`
-      CREATE TABLE IF NOT EXISTS promocoes (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        titulo TEXT,
-        tipo TEXT,
-        emoji TEXT,
-        descricao TEXT,
-        preco_original REAL DEFAULT 0,
-        preco_promocional REAL DEFAULT 0,
-        desconto_percentual REAL DEFAULT 0,
-        dias_ativos TEXT,
-        produtos_json TEXT,
-        ativo INTEGER DEFAULT 1,
-        criado_por_ia INTEGER DEFAULT 0,
-        created_at DATETIME DEFAULT (datetime('now'))
-      )
-    `);
-
-    tenantDb.run(`
-      CREATE TABLE IF NOT EXISTS afiliados (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nome TEXT NOT NULL,
-        email TEXT UNIQUE NOT NULL,
-        telefone TEXT,
-        codigo_ref TEXT UNIQUE NOT NULL,
-        comissao_percentual REAL DEFAULT 10,
-        chave_pix TEXT,
-        status TEXT DEFAULT 'ativo',
-        password_hash TEXT,
-        created_at DATETIME DEFAULT (datetime('now'))
-      )
-    `);
-
-    tenantDb.run(`
-      CREATE TABLE IF NOT EXISTS afiliado_vendas (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        afiliado_id INTEGER NOT NULL,
-        restaurante_id INTEGER,
-        restaurante_nome TEXT,
-        plano TEXT,
-        valor_venda REAL DEFAULT 0,
-        comissao_valor REAL DEFAULT 0,
-        status TEXT DEFAULT 'pendente',
-        created_at DATETIME DEFAULT (datetime('now')),
-        FOREIGN KEY (afiliado_id) REFERENCES afiliados(id)
-      )
-    `);
-  }, callback || (() => {}));
-}
-
-// Cria dados iniciais para um banco de tenant novo (mesas, config, formas_pagamento)
 function seedTenantDb(db, restauranteNome, done) {
   const onErr = (e) => { if (e) console.error('[Seed] Erro:', e.message); };
-  ensureAllTenantTablesAndColumns(db, () => {
-    db.serialize(() => {
-      for (let i = 1; i <= 6; i++) {
-        db.run(`INSERT OR IGNORE INTO mesas (nome, status, observacao) VALUES (?, 'Disponível', NULL)`, ['Mesa ' + i], onErr);
+  db.serialize(() => {
+  db.run(`
+    CREATE TABLE IF NOT EXISTS afiliados (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      nome TEXT NOT NULL,
+      email TEXT UNIQUE NOT NULL,
+      telefone TEXT,
+      codigo_ref TEXT UNIQUE NOT NULL,
+      comissao_percentual REAL DEFAULT 10,
+      chave_pix TEXT,
+      status TEXT DEFAULT 'ativo',
+      password_hash TEXT,
+      created_at DATETIME DEFAULT (datetime('now', 'localtime'))
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS afiliado_vendas (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      afiliado_id INTEGER NOT NULL,
+      restaurante_id INTEGER,
+      restaurante_nome TEXT,
+      plano TEXT,
+      valor_venda REAL DEFAULT 0,
+      comissao_valor REAL DEFAULT 0,
+      status TEXT DEFAULT 'pendente',
+      created_at DATETIME DEFAULT (datetime('now', 'localtime')),
+      FOREIGN KEY (afiliado_id) REFERENCES afiliados(id)
+    )
+  `);
+
+    for (let i = 1; i <= 6; i++) {
+      db.run(`INSERT OR IGNORE INTO mesas (nome, status, observacao) VALUES (?, 'Disponível', NULL)`, ['Mesa ' + i], onErr);
+    }
+    if (restauranteNome) {
+      db.run(`INSERT OR REPLACE INTO configuracoes (chave, valor) VALUES ('nome_restaurante', ?)`, [restauranteNome], onErr);
+    }
+    const defaultMethods = [
+      ['Dinheiro', 'dinheiro', 0.0, 0, 1, 'ph-currency-dollar', 1],
+      ['Cartão de Crédito', 'credito', 2.5, 30, 1, 'ph-credit-card', 2],
+      ['Cartão de Débito', 'debito', 1.2, 1, 1, 'ph-credit-card', 3],
+      ['PIX', 'pix', 0.0, 0, 1, 'ph-qr-code', 4]
+    ];
+    db.get('SELECT COUNT(*) as c FROM formas_pagamento', [], (e, r) => {
+      if (!e && r && r.c === 0) {
+        const q = 'INSERT INTO formas_pagamento (nome, tipo, taxa, prazo_dias, ativo, icone, ordem) VALUES (?, ?, ?, ?, ?, ?, ?)';
+        defaultMethods.forEach(m => db.run(q, m, onErr));
       }
-      if (restauranteNome) {
-        db.run(`INSERT OR REPLACE INTO configuracoes (chave, valor) VALUES ('nome_restaurante', ?)`, [restauranteNome], onErr);
-      }
-      const defaultMethods = [
-        ['Dinheiro', 'dinheiro', 0.0, 0, 1, 'ph-currency-dollar', 1],
-        ['Cartão de Crédito', 'credito', 2.5, 30, 1, 'ph-credit-card', 2],
-        ['Cartão de Débito', 'debito', 1.2, 1, 1, 'ph-credit-card', 3],
-        ['PIX', 'pix', 0.0, 0, 1, 'ph-qr-code', 4]
-      ];
-      db.get('SELECT COUNT(*) as c FROM formas_pagamento', [], (e, r) => {
-        if (!e && r && r.c === 0) {
-          const q = 'INSERT INTO formas_pagamento (nome, tipo, taxa, prazo_dias, ativo, icone, ordem) VALUES (?, ?, ?, ?, ?, ?, ?)';
-          defaultMethods.forEach(m => db.run(q, m, onErr));
-        }
-      });
-    }, done || (() => {}));
-  });
+    });
+  }, done || (() => {}));
 }
 
-// Cria um banco de tenant novo com schema completo + dados iniciais
+// Cria um banco de tenant novo com schema vazio + dados iniciais (sem copiar database_1.sqlite)
 function createFreshTenantDb(dbPath, restauranteNome) {
   return new Promise((resolve) => {
     const newDb = new sqlite3.Database(dbPath, (err) => {
@@ -4482,146 +1498,16 @@ function createFreshTenantDb(dbPath, restauranteNome) {
       newDb.run('PRAGMA journal_mode = WAL;');
       newDb.run('PRAGMA synchronous = NORMAL;');
       newDb.run('PRAGMA busy_timeout = 5000;');
-      ensureAllTenantTablesAndColumns(newDb, () => {
-        const refPath = path.join(__dirname, 'database_1.sqlite');
-        if (fsSync.existsSync(refPath)) {
-          syncTenantSchema(newDb, refPath, () => {
-            seedTenantDb(newDb, restauranteNome, () => resolve(newDb));
-          });
-        } else {
+      const refPath = path.join(__dirname, 'database_1.sqlite');
+      if (fsSync.existsSync(refPath)) {
+        syncTenantSchema(newDb, refPath, () => {
           seedTenantDb(newDb, restauranteNome, () => resolve(newDb));
-        }
-      });
+        });
+      } else {
+        seedTenantDb(newDb, restauranteNome, () => resolve(newDb));
+      }
     });
   });
-}
-
-
-// (Multi-tenant) O AsyncLocalStorage NÃO propaga automaticamente para callbacks
-// de addons nativos (node-sqlite3). Capturamos o tenant na chamada e o
-// reestabelecemos ao invocar o callback, garantindo que io.emit() e novas
-// consultas dentro do callback continuem no tenant correto.
-function wrapDbCb(args) {
-  const tid = tenantContext.getStore();
-  if (typeof tid !== 'number' || tid <= 0) return args;
-  const last = args.length - 1;
-  if (last < 0 || typeof args[last] !== 'function') return args;
-  const orig = args[last];
-  args[last] = function (...cbArgs) {
-    tenantContext.run(tid, () => orig.apply(this, cbArgs));
-  };
-  return args;
-}
-
-const db = {
-  run: function (...args) { return getTenantDb().run(...wrapDbCb(args)); },
-  all: function (...args) { return getTenantDb().all(...wrapDbCb(args)); },
-  get: function (...args) { return getTenantDb().get(...wrapDbCb(args)); },
-  serialize: function (cb) {
-    // Executa o serialize no contexto atual (statements capturam o tenant na chamada)
-    return getTenantDb().serialize(cb);
-  },
-  close: function (...args) { return getTenantDb().close(...args); }
-};
-
-// (On-Premise) Intercepta writes em tabelas sincronizáveis e enfileira no outbox
-if (deploymentConfig.isOnPremise()) {
-  const origDbRun = db.run.bind(db);
-  db.run = function (...args) {
-    const sql = typeof args[0] === 'string' ? args[0] : '';
-    const tableName = dbProxy.extractTableName(sql);
-
-    if (!tableName) {
-      return origDbRun(...args);
-    }
-
-    const callback = typeof args[args.length - 1] === 'function' ? args[args.length - 1] : null;
-
-    const wrappedCallback = function (err) {
-      if (err) {
-        if (callback) return callback.call(this, err);
-        return;
-      }
-
-      try {
-        const operation = sql.trim().toUpperCase().startsWith('INSERT') ? 'INSERT'
-          : sql.trim().toUpperCase().startsWith('UPDATE') ? 'UPDATE'
-          : sql.trim().toUpperCase().startsWith('DELETE') ? 'DELETE'
-          : 'UNKNOWN';
-
-        const tid = tenantContext.getStore() || 1;
-        const payload = {
-          table: tableName,
-          operation,
-          row_id: (typeof this.lastID === 'number' && this.lastID > 0) ? this.lastID : null,
-          sql_template: sql.replace(/\s+/g, ' ').substring(0, 500),
-          timestamp: new Date().toISOString()
-        };
-
-        // Usa tenantDbs.get(tid) diretamente — getTenantDb() não funciona aqui
-        // porque AsyncLocalStorage não propaga para callbacks nativos do sqlite3
-        const realDb = tenantDbs.get(tid);
-        if (realDb) {
-          realDb.run(
-            `INSERT INTO sync_outbox (message_type, payload, direction, status) VALUES (?, ?, 'up', 'pending')`,
-            [tableName, JSON.stringify(payload)],
-            (syncErr) => {
-              if (syncErr) console.error('[Sync Outbox] Erro ao enfileirar:', syncErr.message);
-            }
-          );
-        }
-      } catch (syncErr) {
-        console.error('[Sync Outbox] Erro ao enfileirar sync:', syncErr.message);
-      }
-
-      if (callback) return callback.call(this);
-    };
-
-    const newArgs = [...args];
-    if (callback) {
-      newArgs[newArgs.length - 1] = wrappedCallback;
-    } else {
-      newArgs.push(wrappedCallback);
-    }
-
-    return origDbRun(...newArgs);
-  };
-  console.log('[Sync] DB Proxy ativo — writes em tabelas sincronizáveis serão enfileirados.');
-}
-// ------------------------------
-
-// �?�?�? PLUGIN LOADER — carrega todos os plugins de plugins/ �?�?�?
-const pluginOptions = { JWT_SECRET, verificarToken, superAdminAuth, withTenant, resolveTenantId, nfceService, activeSockets, getTempoConectadoStr, licenseManager, verificarSenhaFuncionario, funcionarioPublico, masterDb, isValidId, exigirAdminSocket, resumirUserAgent, sendPush, upload: require('multer')(), getTenantDbPath, tenantDbs, isTenantFeatureEnabled, tenantContext, getPontoToken: () => pontoToken, getLocalTimestamp, getLocalDateOnly, safeFloat };
-loadPlugins({ app, db, masterDb, io, options: pluginOptions });
-
-// �?�?�? NÚCLEO DE CRIAÇÃO DE PEDIDO (compartilhado socket + REST offline-sync) �?�?�?
-// O corpo vive em io.on('connection') como _novoPedidoCore e é exposto no
-// primeiro connect. Aqui garantimos licença, dedupe por uuid e contexto ALS.
-function processarNovoPedido(pedido, opts = {}) {
-  const core = global.__chefNovoPedidoCore;
-  if (!core) return false;
-  const reply = opts.reply || function () { };
-  if (licenseManager.isRestricted()) {
-    reply('pedido_erro', { msg: '⚠�? Sistema em modo restrito. Ative a licença para adicionar pedidos.' });
-    return false;
-  }
-  if (!pedido || typeof pedido !== 'object') return false;
-
-  const tid = opts.tenantId || tenantContext.getStore() || 1;
-  tenantContext.run(tid, () => {
-    if (pedido.uuid_offline) {
-      const uuid = String(pedido.uuid_offline).slice(0, 64);
-      pedido.uuid_offline = uuid;
-      // Idempotência: se este uuid já foi gravado, responde duplicado sem inserir
-      db.get(`SELECT id FROM pedidos WHERE uuid_offline = ? LIMIT 1`, [uuid], (eDup, dup) => {
-        if (!eDup && dup) return reply('pedido_duplicado', { uuid_offline: uuid });
-        core(pedido, { ...opts, reply });
-      });
-      return;
-    }
-    core(pedido, { ...opts, reply });
-  });
-  return true;
 }
 
 function resolveTenantId(req) {
@@ -4647,33 +1533,39 @@ function withTenant(req, cb) {
   else cb();
 }
 
-global.registrarAuditoria = (operador, acao, detalhes, motivo, risco, socketId = null) => {
-  let opFinal = (operador || '').trim();
-  if (!opFinal || opFinal === 'Desconhecido' || opFinal === 'Caixa / Desconhecido' || opFinal.toLowerCase().includes('desconhecido') || opFinal === 'undefined') {
-    if (socketId && typeof activeSockets !== 'undefined' && activeSockets.has(socketId)) {
-      const conn = activeSockets.get(socketId);
-      if (conn && conn.user && conn.user !== 'Visitante') {
-        opFinal = conn.user;
-      }
-    }
-  }
-  if (!opFinal || opFinal.toLowerCase().includes('desconhecido') || opFinal === 'undefined') {
-    opFinal = 'Operador do Caixa';
-  }
-  try {
-    db.run(
-      `INSERT INTO auditoria (operador, acao, detalhes, motivo, risco) VALUES (?, ?, ?, ?, ?)`,
-      [opFinal, acao, detalhes || '-', motivo || 'Sem justificativa', risco || 'BAIXO'],
-      (err) => {
-        if (err) console.error("Erro ao registrar auditoria:", err);
-      }
-    );
-  } catch (e) {
-    console.error("Erro ao executar registrarAuditoria:", e);
-  }
-};
 
+let isMatrixAnimating = false;
+let pendingLogs = [];
+let tableGames = {};
 
+const deploymentConfig = require('./deployment-config');
+const instanceIdentity = require('./instance-identity');
+
+async function verificarPinOuSenha(valor) {
+  if (!valor) return false;
+  if (await verificarSenhaAdmin(valor)) return true;
+  const pinResult = await verificarPinTemporario(valor);
+  return pinResult.ok;
+}
+
+function verificarPinTemporario(pin) {
+  return new Promise((resolve) => {
+    if (!pin || typeof pin !== 'string') return resolve({ ok: false });
+    const pinUpper = pin.trim().toUpperCase();
+    db.get(`SELECT * FROM pins_temporarios WHERE pin = ? AND ativo = 1`, [pinUpper], (err, row) => {
+      if (err || !row) return resolve({ ok: false });
+      if (row.tipo_expiracao !== 'sessao' && row.expira_em && row.expira_em !== 'SESSION') {
+        if (new Date(row.expira_em) < new Date()) return resolve({ ok: false });
+      }
+      if (row.usos_atual >= row.max_usos) return resolve({ ok: false });
+      db.run(`UPDATE pins_temporarios SET usos_atual = usos_atual + 1 WHERE id = ?`, [row.id], () => {});
+      resolve({ ok: true, pin: row });
+    });
+  });
+}
+
+// Copiar todo o conteúdo do server.js original a partir da linha dos db.serialize
+// (A lógica de tabelas e sockets é idêntica ao server.js de desenvolvimento)
 
 db.serialize(() => {
   db.run('PRAGMA journal_mode = WAL;');
@@ -4698,7 +1590,7 @@ db.serialize(() => {
       sector TEXT,
       paymentMethod TEXT,
       turno_id INTEGER,
-      createdAt DATETIME DEFAULT (datetime('now'))
+      createdAt DATETIME DEFAULT (datetime('now', 'localtime'))
     )
   `);
 
@@ -4712,7 +1604,7 @@ db.serialize(() => {
       pago_pix INTEGER DEFAULT 0,
       chave_pix TEXT,
       status TEXT DEFAULT 'Pendente',
-      createdAt DATETIME DEFAULT (datetime('now'))
+      createdAt DATETIME DEFAULT (datetime('now', 'localtime'))
     )
   `);
   db.run(`ALTER TABLE qr_pedidos_pendentes ADD COLUMN cliente_id INTEGER`, (err) => { });
@@ -4727,7 +1619,7 @@ db.serialize(() => {
       cliente_id INTEGER,
       cliente_nome TEXT,
       cliente_telefone TEXT,
-      updated_at DATETIME DEFAULT (datetime('now'))
+      updated_at DATETIME DEFAULT (datetime('now', 'localtime'))
     )
   `);
 
@@ -4743,21 +1635,16 @@ db.serialize(() => {
   db.run(`ALTER TABLE pedidos ADD COLUMN observations TEXT`, (err) => { });
   db.run(`ALTER TABLE pedidos ADD COLUMN options TEXT`, (err) => { });
   db.run(`ALTER TABLE pedidos ADD COLUMN composicoes TEXT`, (err) => { });
-  // Idempotência do sync offline: uuid gerado no dispositivo evita pedido duplicado
-  db.run(`ALTER TABLE pedidos ADD COLUMN uuid_offline TEXT`, (err) => { });
-  db.run(`CREATE INDEX IF NOT EXISTS idx_pedidos_uuid_offline ON pedidos(uuid_offline)`, (err) => { });
-  // Foto do produto por link externo (cardápio digital do cliente); garçom/PDV seguem com emoji
-  db.run(`ALTER TABLE produtos ADD COLUMN foto_url TEXT`, (err) => { });
   db.run(`ALTER TABLE promocoes ADD COLUMN config TEXT`, (err) => { });
 
-  // --- ITENS MONT�?VEIS (Build Your Own) ---
+  // --- ITENS MONTÁVEIS (Build Your Own) ---
   db.run(`CREATE TABLE IF NOT EXISTS itens_montaveis (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     produto_id INTEGER,
     pricing_model TEXT DEFAULT 'soma',
     preco_fixo REAL DEFAULT 0,
     ativo INTEGER DEFAULT 1,
-    criado_em DATETIME DEFAULT (datetime('now'))
+    criado_em DATETIME DEFAULT (datetime('now', 'localtime'))
   )`, (err) => { });
   db.run(`CREATE TABLE IF NOT EXISTS montavel_categorias (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -4776,8 +1663,6 @@ db.serialize(() => {
     ativo INTEGER DEFAULT 1,
     ordem INTEGER DEFAULT 0
   )`, (err) => { });
-  // Opção pode ser vinculada a um produto cadastrado (ex.: ingrediente invisível)
-  db.run(`ALTER TABLE montavel_opcoes ADD COLUMN produto_id INTEGER`, (err) => { });
 
   // Inscrições de notificações push (Web Push) por dispositivo
   db.run(`
@@ -4788,48 +1673,9 @@ db.serialize(() => {
       p256dh TEXT,
       role TEXT DEFAULT 'garcom',
       nome TEXT,
-      created_at DATETIME DEFAULT (datetime('now'))
+      created_at DATETIME DEFAULT (datetime('now', 'localtime'))
     )
   `);
-
-  // Registro persistente de dispositivos/terminais (identificação por serial)
-  db.run(`
-    CREATE TABLE IF NOT EXISTS dispositivos (
-      serial TEXT PRIMARY KEY,
-      apelido TEXT DEFAULT '',
-      tipo TEXT DEFAULT '',
-      modelo TEXT DEFAULT '',
-      ultimo_ip TEXT DEFAULT '',
-      ultimo_usuario TEXT DEFAULT '',
-      ultimo_cargo TEXT DEFAULT '',
-      criado_em DATETIME DEFAULT (datetime('now')),
-      ultimo_visto DATETIME DEFAULT (datetime('now'))
-    )
-  `);
-  // Modo de operação remota do terminal: normal | totem | totem_invertido
-  db.run(`ALTER TABLE dispositivos ADD COLUMN modo TEXT DEFAULT 'normal'`, (err) => { });
-
-  // Reservas futuras de mesas (cliente agenda; dono define prazo máximo)
-  db.run(`
-    CREATE TABLE IF NOT EXISTS reservas_futuras (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      mesa_nome TEXT,
-      cliente_nome TEXT,
-      cliente_telefone TEXT,
-      cliente_id INTEGER,
-      data_reserva TEXT,
-      horario TEXT DEFAULT '19:00',
-      pessoas INTEGER DEFAULT 2,
-      observacao TEXT DEFAULT '',
-      status TEXT DEFAULT 'confirmada',
-      origem TEXT DEFAULT 'cliente',
-      motivo_pendente TEXT DEFAULT '',
-      checked_in_at DATETIME,
-      criada_em DATETIME DEFAULT (datetime('now'))
-    )
-  `);
-  db.run(`CREATE INDEX IF NOT EXISTS idx_reservas_data ON reservas_futuras (data_reserva)`);
-  db.run(`ALTER TABLE reservas_futuras ADD COLUMN cliente_id INTEGER`, () => {});
 
   db.run(`
     CREATE TABLE IF NOT EXISTS funcionario_consumo_config (
@@ -4862,14 +1708,6 @@ db.serialize(() => {
   db.run(`ALTER TABLE clientes ADD COLUMN total_gasto REAL DEFAULT 0`, (err) => { });
   db.run(`ALTER TABLE clientes ADD COLUMN nivel TEXT DEFAULT 'Bronze'`, (err) => { });
   db.run(`ALTER TABLE clientes ADD COLUMN ultimo_checkin TEXT`, (err) => { });
-  // Inteligência: endereço detalhado + dispositivo usado pelo cliente
-db.run(`ALTER TABLE clientes ADD COLUMN bairro TEXT`, (err) => { });
-db.run(`ALTER TABLE clientes ADD COLUMN cidade TEXT`, (e) => { });
-db.run(`ALTER TABLE clientes ADD COLUMN dispositivo TEXT`, (e) => { });
-db.run(`ALTER TABLE clientes ADD COLUMN cpf TEXT`, (e) => { });
-db.run(`CREATE INDEX IF NOT EXISTS idx_clientes_cpf ON clientes(cpf)`, () => { });
-// Taxa de serviço decidida manualmente pelo caixa (R$). NULL = usa o % padrão.
-db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
   db.run(`ALTER TABLE fila_espera ADD COLUMN mesa_ofertada TEXT`, (err) => { });
 
   db.run(`
@@ -4877,7 +1715,7 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       cliente_id INTEGER,
       pontos INTEGER DEFAULT 0,
-      data DATETIME DEFAULT (datetime('now'))
+      data DATETIME DEFAULT (datetime('now', 'localtime'))
     )
   `);
   db.run(`
@@ -4890,48 +1728,13 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
     )
   `);
 
-  // ── FIDELIDADE: Parceiros (rede onde o cliente usa pontos) ──
-  db.run(`
-    CREATE TABLE IF NOT EXISTS parceiros_fidelidade (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      nome TEXT,
-      categoria TEXT,
-      telefone TEXT,
-      endereco TEXT,
-      bairro TEXT,
-      cidade TEXT,
-      latitude REAL,
-      longitude REAL,
-      pontos_minimos INTEGER DEFAULT 0,
-      descricao TEXT,
-      logo_url TEXT,
-      ativo INTEGER DEFAULT 1
-    )
-  `);
-
-  // ── AVALIAÇÕES: nota interna dos clientes (sync Google opcional) ──
-  db.run(`
-    CREATE TABLE IF NOT EXISTS avaliacoes (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      cliente_nome TEXT,
-      cliente_id INTEGER,
-      mesa TEXT,
-      nota INTEGER DEFAULT 5,
-      comentario TEXT,
-      origem TEXT DEFAULT 'interno',
-      sincronizado INTEGER DEFAULT 0,
-      google_review_id TEXT,
-      criado_em DATETIME DEFAULT (datetime('now'))
-    )
-  `);
-
   db.run(`
     CREATE TABLE IF NOT EXISTS cliente_visitas (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       cliente_id INTEGER,
       cliente_nome TEXT,
       cliente_telefone TEXT,
-      data_visita DATETIME DEFAULT (datetime('now')),
+      data_visita DATETIME DEFAULT (datetime('now', 'localtime')),
       mesa TEXT,
       pontos_ganhos INTEGER DEFAULT 0,
       contabilizado INTEGER DEFAULT 0
@@ -4954,7 +1757,7 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       status TEXT DEFAULT 'Aberto',
       fundo_troco REAL,
-      data_abertura DATETIME DEFAULT (datetime('now')),
+      data_abertura DATETIME DEFAULT (datetime('now', 'localtime')),
       data_fechamento DATETIME
     )
   `);
@@ -4967,18 +1770,7 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
       valor REAL,
       forma_pagamento TEXT,
       descricao TEXT,
-      data DATETIME DEFAULT (datetime('now'))
-    )
-  `);
-  db.run(`
-    CREATE TABLE IF NOT EXISTS alertas_cliente (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      mesa TEXT,
-      tipo TEXT DEFAULT 'info',
-      titulo TEXT,
-      mensagem TEXT,
-      entregue INTEGER DEFAULT 0,
-      criado_em DATETIME DEFAULT (datetime('now'))
+      data DATETIME DEFAULT (datetime('now', 'localtime'))
     )
   `);
   db.run(`
@@ -4992,7 +1784,7 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
       status TEXT DEFAULT 'Esperando',
       mesa_ofertada TEXT,
       mesa_acomodado TEXT,
-      criado_em DATETIME DEFAULT (datetime('now')),
+      criado_em DATETIME DEFAULT (datetime('now', 'localtime')),
       atualizado_em DATETIME
     )
   `);
@@ -5015,7 +1807,7 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
       xml_content TEXT,
       danfe_html TEXT,
       erros TEXT,
-      created_at DATETIME DEFAULT (datetime('now'))
+      created_at DATETIME DEFAULT (datetime('now', 'localtime'))
     )
   `);
 
@@ -5089,7 +1881,7 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
       metodo TEXT,
       colaborador TEXT,
       observacao TEXT,
-      created_at DATETIME DEFAULT (datetime('now'))
+      created_at DATETIME DEFAULT (datetime('now', 'localtime'))
     )
   `);
 
@@ -5132,11 +1924,6 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
   db.run(`ALTER TABLE funcionarios ADD COLUMN login_expires_at TEXT`, (err) => { });
   db.run(`ALTER TABLE funcionarios ADD COLUMN data_cadastro TEXT`, (err) => { });
   db.run(`ALTER TABLE funcionarios ADD COLUMN restaurante_id INTEGER`, (err) => { });
-
-  db.run("ALTER TABLE funcionarios ADD COLUMN permissoes_estacoes TEXT DEFAULT '["garcom"]'", (err) => { });
-  db.run("ALTER TABLE funcionarios ADD COLUMN permissoes_turno_estacoes TEXT", (err) => { });
-  db.run("ALTER TABLE funcionarios ADD COLUMN permissoes_turno_expira TEXT", (err) => { });
-
 
   db.run(`
     CREATE TABLE IF NOT EXISTS pontos (
@@ -5205,7 +1992,7 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
       justificativa TEXT,
       status TEXT DEFAULT 'pendente',
       admin_obs TEXT,
-      created_at DATETIME DEFAULT (datetime('now'))
+      created_at DATETIME DEFAULT (datetime('now', 'localtime'))
     )
   `);
 
@@ -5215,7 +2002,7 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
       funcionario_id INTEGER,
       data TEXT,
       disponivel BOOLEAN DEFAULT 1,
-      created_at DATETIME DEFAULT (datetime('now')),
+      created_at DATETIME DEFAULT (datetime('now', 'localtime')),
       UNIQUE(funcionario_id, data)
     )
   `);
@@ -5225,11 +2012,11 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       funcionario_id INTEGER,
       funcionario_nome TEXT,
-      data_hora DATETIME DEFAULT (datetime('now'))
+      data_hora DATETIME DEFAULT (datetime('now', 'localtime'))
     )
   `);
 
-  db.run("CREATE TABLE IF NOT EXISTS cupons (codigo TEXT PRIMARY KEY, itens_json TEXT, usado INTEGER DEFAULT 0, data_criacao DATETIME DEFAULT (datetime('now')))");
+  db.run("CREATE TABLE IF NOT EXISTS cupons (codigo TEXT PRIMARY KEY, itens_json TEXT, usado INTEGER DEFAULT 0, data_criacao DATETIME DEFAULT (datetime('now', 'localtime')))");
   db.run("ALTER TABLE cupons ADD COLUMN validade TEXT", () => { });
   db.run("ALTER TABLE cupons ADD COLUMN dias_horarios_json TEXT", () => { });
   db.run("ALTER TABLE cupons ADD COLUMN valor_tipo TEXT", () => { });
@@ -5244,7 +2031,7 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
     garcom TEXT,
     cliente_nome TEXT,
     itens_resgatados TEXT,
-    data_uso DATETIME DEFAULT (datetime('now')),
+    data_uso DATETIME DEFAULT (datetime('now', 'localtime')),
     FOREIGN KEY (cupom_codigo) REFERENCES cupons(codigo)
   )`, () => { });
 
@@ -5268,7 +2055,7 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       status TEXT DEFAULT 'Aberto',
       fundo_troco REAL,
-      data_abertura DATETIME DEFAULT (datetime('now')),
+      data_abertura DATETIME DEFAULT (datetime('now', 'localtime')),
       data_fechamento DATETIME
     )
   `);
@@ -5281,18 +2068,7 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
       valor REAL,
       forma_pagamento TEXT,
       descricao TEXT,
-      data DATETIME DEFAULT (datetime('now'))
-    )
-  `);
-  db.run(`
-    CREATE TABLE IF NOT EXISTS alertas_cliente (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      mesa TEXT,
-      tipo TEXT DEFAULT 'info',
-      titulo TEXT,
-      mensagem TEXT,
-      entregue INTEGER DEFAULT 0,
-      criado_em DATETIME DEFAULT (datetime('now'))
+      data DATETIME DEFAULT (datetime('now', 'localtime'))
     )
   `);
   db.run(`
@@ -5306,7 +2082,7 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
       status TEXT DEFAULT 'Esperando',
       mesa_ofertada TEXT,
       mesa_acomodado TEXT,
-      criado_em DATETIME DEFAULT (datetime('now')),
+      criado_em DATETIME DEFAULT (datetime('now', 'localtime')),
       atualizado_em DATETIME
     )
   `);
@@ -5329,7 +2105,7 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
       xml_content TEXT,
       danfe_html TEXT,
       erros TEXT,
-      created_at DATETIME DEFAULT (datetime('now'))
+      created_at DATETIME DEFAULT (datetime('now', 'localtime'))
     )
   `);
 
@@ -5403,7 +2179,7 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
       metodo TEXT,
       colaborador TEXT,
       observacao TEXT,
-      created_at DATETIME DEFAULT (datetime('now'))
+      created_at DATETIME DEFAULT (datetime('now', 'localtime'))
     )
   `);
 
@@ -5490,11 +2266,11 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       funcionario_id INTEGER,
       funcionario_nome TEXT,
-      data_hora DATETIME DEFAULT (datetime('now'))
+      data_hora DATETIME DEFAULT (datetime('now', 'localtime'))
     )
   `);
 
-  db.run("CREATE TABLE IF NOT EXISTS cupons (codigo TEXT PRIMARY KEY, itens_json TEXT, usado INTEGER DEFAULT 0, data_criacao DATETIME DEFAULT (datetime('now')))");
+  db.run("CREATE TABLE IF NOT EXISTS cupons (codigo TEXT PRIMARY KEY, itens_json TEXT, usado INTEGER DEFAULT 0, data_criacao DATETIME DEFAULT (datetime('now', 'localtime')))");
   db.run("ALTER TABLE cupons ADD COLUMN validade TEXT", () => { });
   db.run("ALTER TABLE cupons ADD COLUMN dias_horarios_json TEXT", () => { });
   db.run("ALTER TABLE cupons ADD COLUMN valor_tipo TEXT", () => { });
@@ -5509,7 +2285,7 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
     garcom TEXT,
     cliente_nome TEXT,
     itens_resgatados TEXT,
-    data_uso DATETIME DEFAULT (datetime('now')),
+    data_uso DATETIME DEFAULT (datetime('now', 'localtime')),
     FOREIGN KEY (cupom_codigo) REFERENCES cupons(codigo)
   )`, () => { });
 
@@ -5537,7 +2313,7 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
       status TEXT DEFAULT 'Recebido',
       entregador TEXT,
       obs TEXT,
-      criado_em DATETIME DEFAULT (datetime('now')),
+      criado_em DATETIME DEFAULT (datetime('now', 'localtime')),
       atualizado_em DATETIME
     )
   `);
@@ -5569,7 +2345,7 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
   db.run(`
     CREATE TABLE IF NOT EXISTS api_logs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      data_hora DATETIME DEFAULT (datetime('now')),
+      data_hora DATETIME DEFAULT (datetime('now', 'localtime')),
       operador TEXT,
       ip TEXT,
       metodo TEXT,
@@ -5600,7 +2376,7 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
   db.run(`
     CREATE TABLE IF NOT EXISTS auditoria (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      data_hora DATETIME DEFAULT (datetime('now')),
+      data_hora DATETIME DEFAULT (datetime('now', 'localtime')),
       operador TEXT,
       acao TEXT,
       detalhes TEXT,
@@ -5682,7 +2458,7 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
       }
     });
 
-    // Criar �?ndices no SQLite para Desempenho e Eficiência Extrema
+    // Criar Índices no SQLite para Desempenho e Eficiência Extrema
     db.run("CREATE INDEX IF NOT EXISTS idx_pedidos_status ON pedidos(status)");
     db.run("CREATE INDEX IF NOT EXISTS idx_pedidos_local ON pedidos(localName)");
     db.run("CREATE INDEX IF NOT EXISTS idx_pedidos_payment ON pedidos(paymentMethod)");
@@ -5726,40 +2502,6 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
   db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('qr_order_flow', 'caixa')`);
   db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('qr_pix_key', '')`);
   db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('qr_pix_name', '')`);
-  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('versao_interface_caixa', 'v1')`);
-
-  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('qr_horario_ativo', 'false')`);
-  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('qr_horario_inicio', '11:00')`);
-  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('qr_horario_fim', '23:30')`);
-  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('qr_modo_aceitacao', 'restaurante_apenas')`);
-  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('qr_checkin_obrigatorio', 'false')`);
-  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('qr_tempo_checkin_inicial_min', '90')`);
-  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('qr_tempo_renovacao_min', '15')`);
-  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('qr_auto_aceite_modo', 'manual')`);
-  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('qr_auto_aceite_horas', '4')`);
-  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('qr_auto_dias_json', '[0,5,6]')`);
-
-  // �?�?�?�?�?�? MÓDULO TOTEM (autoatendimento kiosk — upsell SaaS) �?�?�?�?�?�?
-  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('totem_enabled', 'false')`);
-  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('totem_mesa', 'Totem 1')`);
-  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('totem_idle_timeout', '45')`);
-  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('totem_home_titulo', 'Bem-vindo!')`);
-  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('totem_home_subtitulo', 'Toque em qualquer lugar para montar seu pedido')`);
-  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('totem_home_cor', '#fc4b15')`);
-  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('totem_home_fundo_tipo', 'gradiente')`);
-  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('totem_home_fundo_valor', '#0f172a,#293548')`);
-  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('totem_home_logo', '')`);
-  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('totem_home_layout', 'classico')`);
-  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('totem_sec_destaques', 'true')`);
-  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('totem_sec_categorias', 'true')`);
-  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('totem_card_emoji', '')`);
-  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('totem_card_titulo', '')`);
-  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('totem_card_texto', '')`);
-  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('totem_card_imagem', '')`);
-  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('totem_card_categoria', '')`);
-  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('totem_screensaver_enabled', 'true')`);
-  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('totem_screensaver_segundos', '20')`);
-  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('totem_slides_json', '[]')`);
   db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('hub_delivery_config', '{"enabled":false,"canais":[{"nome":"iFood","ativo":true},{"nome":"Rappi","ativo":true},{"nome":"Uber Eats","ativo":true},{"nome":"Mucho","ativo":true},{"nome":"Próprio","ativo":true}],"taxa":"0.00","tempo":45}')`);
 
   // Feature toggles do restaurante
@@ -5777,7 +2519,7 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
   db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('jogos_pontos_vitoria', '10')`);
   db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('jogos_pontos_derrota', '2')`);
 
-  // �?�?�?�?�?�? TABELAS DE JOGOS/GAMIFICAÇÃO �?�?�?�?�?�?
+  // ══════ TABELAS DE JOGOS/GAMIFICAÇÃO ══════
   db.run(`
     CREATE TABLE IF NOT EXISTS jogos (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -5789,7 +2531,7 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
       premio_vencedor TEXT DEFAULT 'Quem paga a conta!',
       premio_perdedor TEXT DEFAULT 'Perdeu, perdeu!',
       ativo INTEGER DEFAULT 1,
-      created_at DATETIME DEFAULT (datetime('now'))
+      created_at DATETIME DEFAULT (datetime('now', 'localtime'))
     )
   `);
 
@@ -5812,7 +2554,7 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
       vencedor TEXT,
       resultado_json TEXT,
       premio_descricao TEXT,
-      created_at DATETIME DEFAULT (datetime('now')),
+      created_at DATETIME DEFAULT (datetime('now', 'localtime')),
       finished_at DATETIME
     )
   `);
@@ -5829,14 +2571,14 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
       perdedor TEXT,
       rodadas_jogadas INTEGER DEFAULT 1,
       premio_descricao TEXT,
-      created_at DATETIME DEFAULT (datetime('now'))
+      created_at DATETIME DEFAULT (datetime('now', 'localtime'))
     )
   `);
 
   // Inserir um cupom de teste inicial
   const testItems = [
-    { nome: "Cerveja Lata", emoji: "�?�", quantity: 1, sector: "Bar" },
-    { nome: "Porção Extra - Arroz/Pirão/Salada", emoji: "�?�", quantity: 1, sector: "Cozinha 1" }
+    { nome: "Cerveja Lata", emoji: "🍺", quantity: 1, sector: "Bar" },
+    { nome: "Porção Extra - Arroz/Pirão/Salada", emoji: "🍚", quantity: 1, sector: "Cozinha 1" }
   ];
   db.run(`INSERT OR IGNORE INTO cupons (codigo, itens_json, usado) VALUES (?, ?, 0)`, ['CUPOM-TESTE-123', JSON.stringify(testItems)]);
 
@@ -5854,38 +2596,38 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
   db.get('SELECT count(*) as count FROM produtos', (err, row) => {
     if (row && row.count === 0) {
       const defaultProducts = [
-        ['Cervejas', 'Heineken 600ml', 21.00, '�?�', false, 'Bar', 'Em espera'],
-        ['Cervejas', 'Stella 600ml', 21.00, '�?�', false, 'Bar', 'Em espera'],
-        ['Cervejas', 'Spaten 600ml', 18.00, '�?�', false, 'Bar', 'Em espera'],
-        ['Cervejas', 'Budweiser 600ml', 18.00, '�?�', false, 'Bar', 'Em espera'],
-        ['Cervejas', 'Amstel 600ml', 18.00, '�?�', false, 'Bar', 'Em espera'],
-        ['Cervejas', 'Eisenbahn 600ml', 18.00, '�?�', false, 'Bar', 'Em espera'],
-        ['Cervejas', 'Original 600ml', 18.00, '�?�', false, 'Bar', 'Em espera'],
-        ['Cervejas', 'Brahma 600ml', 15.00, '�?�', false, 'Bar', 'Em espera'],
-        ['Cervejas', 'Cerveja Lata', 10.00, '�?�', false, 'Bar', 'Em espera'],
-        ['Cervejas', 'Cerveja Artesanal', 25.00, '�?�', false, 'Bar', 'Em espera'],
+        ['Cervejas', 'Heineken 600ml', 21.00, '🍺', false, 'Bar', 'Em espera'],
+        ['Cervejas', 'Stella 600ml', 21.00, '🍺', false, 'Bar', 'Em espera'],
+        ['Cervejas', 'Spaten 600ml', 18.00, '🍺', false, 'Bar', 'Em espera'],
+        ['Cervejas', 'Budweiser 600ml', 18.00, '🍺', false, 'Bar', 'Em espera'],
+        ['Cervejas', 'Amstel 600ml', 18.00, '🍺', false, 'Bar', 'Em espera'],
+        ['Cervejas', 'Eisenbahn 600ml', 18.00, '🍺', false, 'Bar', 'Em espera'],
+        ['Cervejas', 'Original 600ml', 18.00, '🍺', false, 'Bar', 'Em espera'],
+        ['Cervejas', 'Brahma 600ml', 15.00, '🍺', false, 'Bar', 'Em espera'],
+        ['Cervejas', 'Cerveja Lata', 10.00, '🍺', false, 'Bar', 'Em espera'],
+        ['Cervejas', 'Cerveja Artesanal', 25.00, '🍺', false, 'Bar', 'Em espera'],
         ['Bebidas', 'Refrigerante Lata', 8.00, '🥤', false, 'Bar', 'Em espera'],
-        ['Bebidas', '�?gua sem gás', 4.00, '💧', false, 'Bar', 'Em espera'],
-        ['Bebidas', '�?gua com gás', 5.00, '💧', false, 'Bar', 'Em espera'],
+        ['Bebidas', 'Água sem gás', 4.00, '💧', false, 'Bar', 'Em espera'],
+        ['Bebidas', 'Água com gás', 5.00, '💧', false, 'Bar', 'Em espera'],
         ['Bebidas', 'Tônica Lata', 8.80, '🥤', false, 'Bar', 'Em espera'],
         ['Bebidas', 'H2O Garrafa', 8.80, '💧', false, 'Bar', 'Em espera'],
         ['Bebidas', 'Citrus Lata', 8.80, '🥤', false, 'Bar', 'Em espera'],
         ['Bebidas', 'Suco copo/lata', 8.80, '🧃', false, 'Bar', 'Em espera'],
-        ['Bebidas', 'Suco Jarra Laranja', 18.00, '�?�', false, 'Bar', 'Em espera'],
-        ['Bebidas', 'Suco Jarra Limão', 23.00, '�?�', false, 'Bar', 'Em espera'],
+        ['Bebidas', 'Suco Jarra Laranja', 18.00, '🍊', false, 'Bar', 'Em espera'],
+        ['Bebidas', 'Suco Jarra Limão', 23.00, '🍋', false, 'Bar', 'Em espera'],
         ['Bebidas', 'Energético Baly', 18.00, '⚡', false, 'Bar', 'Em espera'],
         ['Bebidas', 'Energético Redbull', 18.00, '⚡', false, 'Bar', 'Em espera'],
         ['Bebidas', 'Energético Monster', 18.00, '⚡', false, 'Bar', 'Em espera'],
-        ['Bebidas', 'Heineken 0%', 15.00, '�?�', false, 'Bar', 'Em espera'],
-        ['Bebidas', 'Brahma 0%', 10.00, '�?�', false, 'Bar', 'Em espera'],
-        ['Caipirinhas', 'Caipirinha Smirnoff', 20.00, '�?�', false, 'Bar', 'Em espera'],
-        ['Caipirinhas', 'Caipirinha Bacardi', 20.00, '�?�', false, 'Bar', 'Em espera'],
-        ['Caipirinhas', 'Caipirinha Cachaça Branca', 20.00, '�?�', false, 'Bar', 'Em espera'],
-        ['Caipirinhas', 'Caipirinha Cachaça Amarela', 20.00, '�?�', false, 'Bar', 'Em espera'],
-        ['Caipirinhas', 'Caipirinha Vinho', 20.00, '�?�', false, 'Bar', 'Em espera'],
-        ['Caipirinhas', 'Caipirinha Skyy', 20.00, '�?�', false, 'Bar', 'Em espera'],
-        ['Caipirinhas', 'Caipirinha Absolut', 26.00, '�?�', false, 'Bar', 'Em espera'],
-        ['Caipirinhas', 'Caipirinha Havana', 28.00, '�?�', false, 'Bar', 'Em espera'],
+        ['Bebidas', 'Heineken 0%', 15.00, '🍺', false, 'Bar', 'Em espera'],
+        ['Bebidas', 'Brahma 0%', 10.00, '🍺', false, 'Bar', 'Em espera'],
+        ['Caipirinhas', 'Caipirinha Smirnoff', 20.00, '🍹', false, 'Bar', 'Em espera'],
+        ['Caipirinhas', 'Caipirinha Bacardi', 20.00, '🍹', false, 'Bar', 'Em espera'],
+        ['Caipirinhas', 'Caipirinha Cachaça Branca', 20.00, '🍹', false, 'Bar', 'Em espera'],
+        ['Caipirinhas', 'Caipirinha Cachaça Amarela', 20.00, '🍹', false, 'Bar', 'Em espera'],
+        ['Caipirinhas', 'Caipirinha Vinho', 20.00, '🍷', false, 'Bar', 'Em espera'],
+        ['Caipirinhas', 'Caipirinha Skyy', 20.00, '🍹', false, 'Bar', 'Em espera'],
+        ['Caipirinhas', 'Caipirinha Absolut', 26.00, '🍹', false, 'Bar', 'Em espera'],
+        ['Caipirinhas', 'Caipirinha Havana', 28.00, '🍹', false, 'Bar', 'Em espera'],
         ['Doses', 'Smirnoff', 12.00, '🥃', false, 'Bar', 'Em espera'],
         ['Doses', 'Bacardi', 12.00, '🥃', false, 'Bar', 'Em espera'],
         ['Doses', 'Steinhager', 11.00, '🥃', false, 'Bar', 'Em espera'],
@@ -5894,54 +2636,54 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
         ['Doses', 'Passport', 13.00, '🥃', false, 'Bar', 'Em espera'],
         ['Doses', 'Licor 43', 28.00, '🥃', false, 'Bar', 'Em espera'],
         ['Doses', 'Conhaque', 28.00, '🥃', false, 'Bar', 'Em espera'],
-        ['Doses', 'Gin', 13.00, '�?�', false, 'Bar', 'Em espera'],
+        ['Doses', 'Gin', 13.00, '🍸', false, 'Bar', 'Em espera'],
         ['Doses', 'Campari', 15.00, '🥃', false, 'Bar', 'Em espera'],
-        ['Porções (800g)', 'Combinado São José (800g)', 134.00, '�?�', false, 'Cozinha 1', 'Em espera'],
-        ['Porções (800g)', 'Anchova Frita (6 postas) (800g)', 69.00, '�?�', false, 'Cozinha 1', 'Em espera'],
-        ['Porções (800g)', 'Peixe Frito Misturinha (800g)', 59.00, '�?�', false, 'Cozinha 1', 'Em espera'],
-        ['Porções (800g)', 'Isca de Peixe à dorê (800g)', 74.00, '�?�', false, 'Cozinha 1', 'Em espera'],
-        ['Porções (800g)', 'Camarão ao Bafo (800g)', 99.00, '�?�', false, 'Cozinha 1', 'Em espera'],
-        ['Porções (800g)', 'Camarão à milanesa (800g)', 169.00, '�?�', false, 'Cozinha 1', 'Em espera'],
-        ['Porções (800g)', 'Camarão alho e óleo (800g)', 119.90, '�?�', false, 'Cozinha 1', 'Em espera'],
+        ['Porções (800g)', 'Combinado São José (800g)', 134.00, '🍤', false, 'Cozinha 1', 'Em espera'],
+        ['Porções (800g)', 'Anchova Frita (6 postas) (800g)', 69.00, '🐟', false, 'Cozinha 1', 'Em espera'],
+        ['Porções (800g)', 'Peixe Frito Misturinha (800g)', 59.00, '🐟', false, 'Cozinha 1', 'Em espera'],
+        ['Porções (800g)', 'Isca de Peixe à dorê (800g)', 74.00, '🐟', false, 'Cozinha 1', 'Em espera'],
+        ['Porções (800g)', 'Camarão ao Bafo (800g)', 99.00, '🍤', false, 'Cozinha 1', 'Em espera'],
+        ['Porções (800g)', 'Camarão à milanesa (800g)', 169.00, '🍤', false, 'Cozinha 1', 'Em espera'],
+        ['Porções (800g)', 'Camarão alho e óleo (800g)', 119.90, '🍤', false, 'Cozinha 1', 'Em espera'],
         ['Porções (800g)', 'Ostra ao Bafo (dúzia) (800g)', 34.00, '🦪', false, 'Cozinha 1', 'Em espera'],
         ['Porções (800g)', 'Ostra Gratinada (dúzia) (800g)', 69.00, '🦪', false, 'Cozinha 1', 'Em espera'],
         ['Porções (800g)', 'Bolinho de Siri (4 unidades) (800g)', 44.90, '🦀', false, 'Cozinha 1', 'Em espera'],
         ['Porções (800g)', 'Marisco ao Bafo (1 kg) (800g)', 45.00, '🦪', false, 'Cozinha 1', 'Em espera'],
         ['Porções (800g)', 'Lula em anéis a dorê (800g)', 89.90, '🦑', false, 'Cozinha 1', 'Em espera'],
-        ['Porções (800g)', 'Frango à Passarinho (1 kg) (800g)', 59.00, '�?�', false, 'Cozinha 1', 'Em espera'],
-        ['Porções (800g)', 'Fritas (800g)', 49.00, '�?�', false, 'Cozinha 1', 'Em espera'],
+        ['Porções (800g)', 'Frango à Passarinho (1 kg) (800g)', 59.00, '🍗', false, 'Cozinha 1', 'Em espera'],
+        ['Porções (800g)', 'Fritas (800g)', 49.00, '🍟', false, 'Cozinha 1', 'Em espera'],
         ['Porções (800g)', 'Porção 4 Pastéis - Camarão', 28.00, '🥟', false, 'Cozinha 1', 'Em espera'],
         ['Porções (800g)', 'Porção 4 Pastéis - Berbigão', 28.00, '🥟', false, 'Cozinha 1', 'Em espera'],
         ['Porções (800g)', 'Porção 4 Pastéis - Queijo', 28.00, '🥟', false, 'Cozinha 1', 'Em espera'],
-        ['Porções (500g)', '1/2 Peixe Frito Misturinha (500g)', 48.00, '�?�', false, 'Cozinha 1', 'Em espera'],
-        ['Porções (500g)', '1/2 Isca de Peixe à dorê (500g)', 64.00, '�?�', false, 'Cozinha 1', 'Em espera'],
-        ['Porções (500g)', '1/2 Camarão Maluquinho (500g)', 84.90, '�?�', false, 'Cozinha 1', 'Em espera'],
-        ['Porções (500g)', '1/2 Camarão ao Bafo (500g)', 99.00, '�?�', false, 'Cozinha 1', 'Em espera'],
-        ['Porções (500g)', '1/2 Camarão à milanesa (500g)', 135.00, '�?�', false, 'Cozinha 1', 'Em espera'],
-        ['Porções (500g)', '1/2 Camarão alho e óleo (500g)', 99.90, '�?�', false, 'Cozinha 1', 'Em espera'],
+        ['Porções (500g)', '1/2 Peixe Frito Misturinha (500g)', 48.00, '🐟', false, 'Cozinha 1', 'Em espera'],
+        ['Porções (500g)', '1/2 Isca de Peixe à dorê (500g)', 64.00, '🐟', false, 'Cozinha 1', 'Em espera'],
+        ['Porções (500g)', '1/2 Camarão Maluquinho (500g)', 84.90, '🍤', false, 'Cozinha 1', 'Em espera'],
+        ['Porções (500g)', '1/2 Camarão ao Bafo (500g)', 99.00, '🍤', false, 'Cozinha 1', 'Em espera'],
+        ['Porções (500g)', '1/2 Camarão à milanesa (500g)', 135.00, '🍤', false, 'Cozinha 1', 'Em espera'],
+        ['Porções (500g)', '1/2 Camarão alho e óleo (500g)', 99.90, '🍤', false, 'Cozinha 1', 'Em espera'],
         ['Porções (500g)', '1/2 Ostra ao Bafo (6 unidades)', 16.90, '🦪', false, 'Cozinha 1', 'Em espera'],
         ['Porções (500g)', '1/2 Ostra Gratinada (6 unidades)', 54.00, '🦪', false, 'Cozinha 1', 'Em espera'],
         ['Porções (500g)', 'Bolinho de Siri (1 unidade)', 12.00, '🦀', false, 'Cozinha 1', 'Em espera'],
         ['Porções (500g)', '1/2 Lula a dorê (500g)', 79.90, '🦑', false, 'Cozinha 1', 'Em espera'],
-        ['Porções (500g)', 'Filé de Frango Individual', 19.90, '�?�', false, 'Cozinha 1', 'Em espera'],
-        ['Porções (500g)', 'Filé de Peixe Individual', 19.90, '�?�', false, 'Cozinha 1', 'Em espera'],
-        ['Porções (500g)', '1/2 Fritas (500g)', 39.00, '�?�', false, 'Cozinha 1', 'Em espera'],
+        ['Porções (500g)', 'Filé de Frango Individual', 19.90, '🍗', false, 'Cozinha 1', 'Em espera'],
+        ['Porções (500g)', 'Filé de Peixe Individual', 19.90, '🐟', false, 'Cozinha 1', 'Em espera'],
+        ['Porções (500g)', '1/2 Fritas (500g)', 39.00, '🍟', false, 'Cozinha 1', 'Em espera'],
         ['Porções (500g)', 'Pastel 1 unidade - Camarão', 8.00, '🥟', false, 'Cozinha 1', 'Em espera'],
         ['Porções (500g)', 'Pastel 1 unidade - Berbigão', 8.00, '🥟', false, 'Cozinha 1', 'Em espera'],
         ['Porções (500g)', 'Pastel 1 unidade - Queijo', 8.00, '🥟', false, 'Cozinha 1', 'Em espera'],
-        ['A La Carte', 'Pirão São José (700g) (2 pessoas)', 164.90, '�?�', false, 'Cozinha 1', 'Em espera'],
-        ['A La Carte', 'Salmão à Moda da Casa (500g)', 209.00, '�?�', false, 'Cozinha 1', 'Em espera'],
-        ['A La Carte', 'Filé de Pescada à Milanesa (800g)', 154.00, '�?�', false, 'Cozinha 1', 'Em espera'],
-        ['A La Carte', '1/2 Filé Pescada à Milanesa (500g)', 134.00, '�?�', false, 'Cozinha 1', 'Em espera'],
-        ['A La Carte', 'Filé de Pescada à Milanesa ao Molho de Camarão (800g)', 209.00, '�?�', false, 'Cozinha 1', 'Em espera'],
-        ['A La Carte', '1/2 Filé de Pescada ao Molho de Camarão (500g)', 178.00, '�?�', false, 'Cozinha 1', 'Em espera'],
-        ['A La Carte', 'Peixe Grelhado Anchova (Chapa)', 118.00, '�?�', false, 'Cozinha 1', 'Em espera'],
-        ['A La Carte', 'Peixe Frito em Postas (6 postas)', 115.00, '�?�', false, 'Cozinha 1', 'Em espera'],
-        ['A La Carte', 'Camarão à Milanesa (800g)', 209.00, '�?�', false, 'Cozinha 1', 'Em espera'],
-        ['A La Carte', '1/2 Camarão à Milanesa (500g)', 181.00, '�?�', false, 'Cozinha 1', 'Em espera'],
-        ['A La Carte', 'Filé de Frango à Milanesa (800g)', 119.00, '�?�', false, 'Cozinha 1', 'Em espera'],
-        ['A La Carte', '1/2 Filé de Frango à Milanesa (500g)', 99.00, '�?�', false, 'Cozinha 1', 'Em espera'],
-        ['A La Carte', 'Porção Extra - Arroz/Pirão/Salada', 20.00, '�?�', false, 'Cozinha 1', 'Em espera']
+        ['A La Carte', 'Pirão São José (700g) (2 pessoas)', 164.90, '🍲', false, 'Cozinha 1', 'Em espera'],
+        ['A La Carte', 'Salmão à Moda da Casa (500g)', 209.00, '🐟', false, 'Cozinha 1', 'Em espera'],
+        ['A La Carte', 'Filé de Pescada à Milanesa (800g)', 154.00, '🐟', false, 'Cozinha 1', 'Em espera'],
+        ['A La Carte', '1/2 Filé Pescada à Milanesa (500g)', 134.00, '🐟', false, 'Cozinha 1', 'Em espera'],
+        ['A La Carte', 'Filé de Pescada à Milanesa ao Molho de Camarão (800g)', 209.00, '🐟', false, 'Cozinha 1', 'Em espera'],
+        ['A La Carte', '1/2 Filé de Pescada ao Molho de Camarão (500g)', 178.00, '🐟', false, 'Cozinha 1', 'Em espera'],
+        ['A La Carte', 'Peixe Grelhado Anchova (Chapa)', 118.00, '🐟', false, 'Cozinha 1', 'Em espera'],
+        ['A La Carte', 'Peixe Frito em Postas (6 postas)', 115.00, '🐟', false, 'Cozinha 1', 'Em espera'],
+        ['A La Carte', 'Camarão à Milanesa (800g)', 209.00, '🍤', false, 'Cozinha 1', 'Em espera'],
+        ['A La Carte', '1/2 Camarão à Milanesa (500g)', 181.00, '🍤', false, 'Cozinha 1', 'Em espera'],
+        ['A La Carte', 'Filé de Frango à Milanesa (800g)', 119.00, '🍗', false, 'Cozinha 1', 'Em espera'],
+        ['A La Carte', '1/2 Filé de Frango à Milanesa (500g)', 99.00, '🍗', false, 'Cozinha 1', 'Em espera'],
+        ['A La Carte', 'Porção Extra - Arroz/Pirão/Salada', 20.00, '🍚', false, 'Cozinha 1', 'Em espera']
       ];
       const insertProd = `INSERT INTO produtos (categoria, nome, preco, emoji, hasAddons, setor, status_inicial) VALUES (?, ?, ?, ?, ?, ?, ?)`;
       defaultProducts.forEach(p => {
@@ -5999,17 +2741,6 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
   db.run(`ALTER TABLE promocoes ADD COLUMN sync_version INTEGER DEFAULT 0`, (err) => { });
   db.run(`ALTER TABLE cupons ADD COLUMN sync_version INTEGER DEFAULT 0`, (err) => { });
   db.run(`ALTER TABLE formas_pagamento ADD COLUMN sync_version INTEGER DEFAULT 0`, (err) => { });
-
-  // ── Designer de salão + junções de mesa (posicionamento, capacidade, grupos) ──
-  db.run(`ALTER TABLE mesas ADD COLUMN pos_x REAL`, (err) => { });
-  db.run(`ALTER TABLE mesas ADD COLUMN pos_y REAL`, (err) => { });
-  db.run(`ALTER TABLE mesas ADD COLUMN lugares INTEGER DEFAULT 4`, (err) => { });
-  db.run(`ALTER TABLE mesas ADD COLUMN sala TEXT DEFAULT 'Salão principal'`, (err) => { });
-  db.run(`ALTER TABLE mesas ADD COLUMN grupo_juncao TEXT`, (err) => { });
-  // Validação da reserva pelo próprio cliente via QR (últimos 8 dígitos do telefone)
-  db.run(`ALTER TABLE reservas_futuras ADD COLUMN validada_qr INTEGER DEFAULT 0`, (err) => { });
-  // Histórico de visitas por mesa (JSON {"Mesa 3": 7}) para sugerir a mesa preferida
-  db.run(`ALTER TABLE clientes ADD COLUMN visitas_mesa TEXT`, (err) => { });
 
   // Criar índices após garantir que as tabelas existem
   db.run('CREATE INDEX IF NOT EXISTS idx_pedidos_status ON pedidos(status);');
@@ -6160,10 +2891,6 @@ function broadcastPedidos() {
       db.all(`SELECT * FROM pedidos WHERE status NOT IN ('Finalizado','Cancelado') ORDER BY createdAt ASC`, [], (err, rows) => {
         if (!err) {
           const rowsAll = rows || [];
-          // CAIXA RECEBE TUDO (inclui itens 'Pago'/'Fracionado'): precisão total —
-          // itens quitados aparecem riscados na mesa e os totais batem com o backend.
-          io.emit('pedidos_caixa_atualizados', rowsAll);
-          io.emit('initial_data_caixa', rowsAll);
           const rowsAbertos = rowsAll.filter(r => r.status !== 'Pago' && r.status !== 'Fracionado');
           io.emit('pedidos_atualizados', rowsAbertos);
           io.emit('initial_data', rowsAbertos);
@@ -6185,78 +2912,13 @@ function broadcastMesaClientes() {
   });
 }
 
-/* ── ALERTAS AO CLIENTE (QR Code): persistência + entrega em tempo real ──
-   O alerta é gravado na tabela alertas_cliente e enviado para a sala da mesa.
-   Se o cliente estiver offline/fechou a tela, ele recebe tudo ao reabrir o cardápio. */
-function avisarClienteMesa(mesaName, { tipo = 'info', titulo = '', mensagem = '' } = {}, cb) {
-  if (!mesaName || !mensagem) return cb && cb(false);
-  db.run(
-    `INSERT INTO alertas_cliente (mesa, tipo, titulo, mensagem) VALUES (?, ?, ?, ?)`,
-    [String(mesaName), String(tipo), String(titulo || ''), String(mensagem)],
-    function (err) {
-      if (err) return console.error('[AlertaCliente] Erro ao salvar:', err);
-      io.to(`mesa_${mesaName}`).emit('alerta_cliente', {
-        id: this.lastID,
-        mesa: mesaName,
-        tipo,
-        titulo,
-        mensagem,
-        criado_em: new Date().toISOString()
-      });
-      cb && cb(true, this.lastID);
-    }
-  );
-}
-
-// ── EXPORTE GLOBAL: funções de broadcast para plugins acessarem ──
-// Plugins usam: global.__chefBroadcast.produtos(socket), global.__chefBroadcast.pedidos(), etc.
-if (!global.__chefBroadcast) {
-  global.__chefBroadcast = {};
-}
-global.__chefBroadcast.produtos = broadcastProdutos;
-global.__chefBroadcast.pedidos = broadcastPedidos;
-global.__chefBroadcast.mesaClientes = broadcastMesaClientes;
-global.__chefBroadcast.avisarCliente = avisarClienteMesa;
-
-/* Resume o User-Agent em algo legível (para inteligência de dispositivos) */
-function resumirUserAgent(ua) {
-  try {
-    ua = String(ua || '');
-    if (!ua) return '';
-    let tipo = 'PC';
-    if (/iphone/i.test(ua)) tipo = 'iPhone';
-    else if (/ipad/i.test(ua)) tipo = 'iPad';
-    else if (/android/i.test(ua)) tipo = /mobile/i.test(ua) ? 'Android' : 'Tablet Android';
-    let nav = '';
-    if (/edg\//i.test(ua)) nav = 'Edge';
-    else if (/chrome|crios/i.test(ua) && !/edg/i.test(ua)) nav = 'Chrome';
-    else if (/firefox|fxios/i.test(ua)) nav = 'Firefox';
-    else if (/safari/i.test(ua)) nav = 'Safari';
-    return [tipo, nav].filter(Boolean).join(' · ');
-  } catch (e) { return ''; }
-}
-
 /* ── Socket auth helpers ───────────────────────────────────────────── */
-const ADMIN_CARGOS = ['Admin', 'Administrador', 'adm', 'Gerente', 'Dono', 'Proprietário', 'Proprietario'];
-
-/** Comparação de cargo admin tolerante a acento/caixa ('dono', 'DONO', 'proprietário'...) */
-function _isAdminCargo(cargo) {
-  const c = String(cargo || '').trim().toLowerCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  return ADMIN_CARGOS.some(a => String(a).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') === c);
-}
-
-/** Admin por cargo do colaborador OU role do login principal (dono: role 'admin', sem campo cargo) */
-function _socketIsAdmin(socket) {
-  if (!socket.auth) return false;
-  if (_isAdminCargo(socket.auth.cargo)) return true;
-  return ['admin', 'dono', 'proprietario'].includes(String(socket.auth.role || '').trim().toLowerCase());
-}
+const ADMIN_CARGOS = ['Admin', 'Administrador', 'adm', 'Gerente'];
 
 /** Retorna true se o socket tem token JWT com cargo de admin */
 function exigirAdminSocket(socket) {
   const cargo = socket.auth?.cargo || '';
-  if (!_socketIsAdmin(socket)) {
+  if (!ADMIN_CARGOS.includes(cargo)) {
     socket.emit('erro_servidor', 'Apenas administradores podem executar esta ação.');
     return false;
   }
@@ -6549,11 +3211,11 @@ io.on('connection', (socket) => {
 
   let mpPollInterval = null;
 
-  // --- CAPTURA AUTOM�?TICA DE TODOS OS LOGS DE SOCKET.IO + AÇÕES DO USU�?RIO ---
+  // --- CAPTURA AUTOMÁTICA DE TODOS OS LOGS DE SOCKET.IO + AÇÕES DO USUÁRIO ---
   socket.onAny((event, ...args) => {
     // Filtra pings, heartbeats e requisições iniciais de leitura para manter o terminal limpo
     if ([
-      'get_auditoria_logs', 'get_api_logs', 'ping', 'pong',
+      'get_connected_devices', 'get_auditoria_logs', 'get_api_logs', 'ping', 'pong',
       'get_produtos', 'get_funcionarios', 'get_promocoes', 'get_estado_caixa',
       'get_qr_pedidos_pendentes', 'get_mesas', 'registrar_sessao', 'registrar_sessao_detalhada'
     ].includes(event)) {
@@ -6583,9 +3245,9 @@ io.on('connection', (socket) => {
     // Log bonitão no terminal do servidor com detalhes completos da ação/botão
     if (event === 'registrar_clique_botao') {
       const btnInfo = args[0] || {};
-      console.log(`[Cli-Click] 👤 Usuario: ${operador} (${cargo}) | �?� Rest. ID: #${socketTenantId} | 📄 Tela: ${btnInfo.pagina || 'Sistema'} | 🔘 Botao/Acao: '${btnInfo.botao || event}'`);
+      console.log(`[Cli-Click] 👤 Usuario: ${operador} (${cargo}) | 🏪 Rest. ID: #${socketTenantId} | 📄 Tela: ${btnInfo.pagina || 'Sistema'} | 🔘 Botao/Acao: '${btnInfo.botao || event}'`);
     } else {
-      console.log(`[Socket] 👤 Usuario: ${operador} (${cargo}) | �?� Rest. ID: #${socketTenantId} | ⚡ Evento: ${event} | 📦 Dados: ${payload || '{}'}`);
+      console.log(`[Socket] 👤 Usuario: ${operador} (${cargo}) | 🏪 Rest. ID: #${socketTenantId} | ⚡ Evento: ${event} | 📦 Dados: ${payload || '{}'}`);
     }
 
     tenantContext.run(socketTenantId, () => {
@@ -6599,7 +3261,7 @@ io.on('connection', (socket) => {
     });
   });
 
-  // --- AUDITORIA DE ACESSO E NAVEGAÇÃO DE P�?GINAS ---
+  // --- AUDITORIA DE ACESSO E NAVEGAÇÃO DE PÁGINAS ---
   socket.on('registrar_acesso_pagina', (data) => {
     if (!data) return;
     const { pagina, titulo, autorizado, motivo } = data;
@@ -6607,7 +3269,7 @@ io.on('connection', (socket) => {
     const operador = (conn && conn.user && conn.user !== 'Visitante') ? conn.user : 'Operador do Sistema';
     const cargo = conn?.cargo || 'Operador';
 
-    console.log(`[Cli-Click] 📄 NAVEGACAO | 👤 ${operador} (${cargo}) | �?� Rest. ID: #${socketTenantId} | Seção: ${titulo || pagina}`);
+    console.log(`[Cli-Click] 📄 NAVEGACAO | 👤 ${operador} (${cargo}) | 🏪 Rest. ID: #${socketTenantId} | Seção: ${titulo || pagina}`);
 
     const acao = (autorizado === false) ? 'TENTATIVA_ACESSO_NEGADO' : 'ACESSO_PAGINA';
     const detalhes = `Acessou/Navegou para a seção: ${titulo || pagina || 'Sistema'} (${pagina || ''})`;
@@ -6655,135 +3317,18 @@ io.on('connection', (socket) => {
       if (data.browser) conn.browser = data.browser;
       if (data.icon) conn.icon = data.icon;
       if (data.resolution) conn.resolution = data.resolution;
-      if (data.serial) conn.serial = String(data.serial).slice(0, 40);
-      else if (socket.handshake.auth && socket.handshake.auth.serial) conn.serial = String(socket.handshake.auth.serial).slice(0, 40);
 
       conn.device = `${conn.model} (${conn.os} • ${conn.browser})`;
-
-      /* ── Deduplicar: remover entradas antigas com mesmo serial ── */
-      if (conn.serial) {
-        for (const [oldId, oldDev] of activeSockets.entries()) {
-          if (oldId !== socket.id && oldDev.serial === conn.serial) {
-            try { io.sockets.sockets.get(oldId)?.disconnect(true); } catch (e) {}
-            activeSockets.delete(oldId);
-          }
-        }
-      }
-
-      // Registro persistente: guarda/aplica apelido e tipo por serial
-      if (conn.serial) {
-        db.run(
-          `INSERT INTO dispositivos (serial, modelo, ultimo_ip, ultimo_usuario, ultimo_cargo, ultimo_visto)
-           VALUES (?, ?, ?, ?, ?, datetime('now'))
-           ON CONFLICT(serial) DO UPDATE SET
-             modelo = excluded.modelo,
-             ultimo_ip = excluded.ultimo_ip,
-             ultimo_usuario = excluded.ultimo_usuario,
-             ultimo_cargo = excluded.ultimo_cargo,
-             ultimo_visto = datetime('now')`,
-          [conn.serial, conn.model || '', conn.ip || '', conn.user || '', conn.cargo || ''],
-          (eReg) => { if (eReg) console.error('[Dispositivos] falha ao registrar:', eReg.message); }
-        );
-        db.get(`SELECT apelido, tipo FROM dispositivos WHERE serial = ?`, [conn.serial], (eAp, rowAp) => {
-          if (!eAp && rowAp) {
-            conn.apelido = rowAp.apelido || '';
-            conn.tipo = rowAp.tipo || '';
-          }
-          io.emit('connected_devices_updated');
-        });
-      }
-
       io.emit('connected_devices_updated');
 
     }
   });
 
-  // ── Dispositivos: salvar apelido/tipo (dono identifica as máquinas pelo nome) ──
-  socket.on('salvar_apelido_dispositivo', (data) => {
-    if (!exigirAdminSocket(socket)) return;
-    const d = data || {};
-    const serial = String(d.serial || '').slice(0, 40);
-    if (!serial) return socket.emit('erro_servidor', 'Serial do dispositivo não informado.');
-    const apelido = String(d.apelido || '').trim().slice(0, 60);
-    const tipo = String(d.tipo || '').trim().slice(0, 30);
-
-    db.run(
-      `INSERT INTO dispositivos (serial, apelido, tipo, ultimo_visto) VALUES (?, ?, ?, datetime('now'))
-       ON CONFLICT(serial) DO UPDATE SET apelido = excluded.apelido, tipo = excluded.tipo, ultimo_visto = datetime('now')`,
-      [serial, apelido, tipo],
-      (err) => {
-        if (err) return socket.emit('erro_servidor', 'Falha ao salvar apelido do dispositivo.');
-        // Aplica em tempo real nos sockets conectados com esse serial
-        activeSockets.forEach((c) => {
-          if (c.serial === serial) {
-            c.apelido = apelido;
-            c.tipo = tipo;
-          }
-        });
-        io.emit('connected_devices_updated');
-        global.registrarAuditoria((conn && conn.user) || 'Admin', 'APELIDO_DISPOSITIVO',
-          `Dispositivo ${serial} → apelido "${apelido}"${tipo ? ` (tipo: ${tipo})` : ''}`,
-          'Gestão de terminais', 'BAIXO', socket.id);
-        socket.emit('dispositivo_salvo_ok', { serial, apelido, tipo });
-      }
-    );
-  });
-
-  // Remove um dispositivo do registro salvo (ex.: máquina vendida/desativada)
-  socket.on('remover_dispositivo_salvo', (data) => {
-    if (!exigirAdminSocket(socket)) return;
-    const serial = String((data || {}).serial || '').slice(0, 40);
-    if (!serial) return;
-    db.run(`DELETE FROM dispositivos WHERE serial = ?`, [serial], (err) => {
-      if (err) return socket.emit('erro_servidor', 'Falha ao remover dispositivo.');
-      activeSockets.forEach((c) => {
-        if (c.serial === serial) { c.apelido = ''; c.tipo = ''; }
-      });
-      io.emit('connected_devices_updated');
-    });
-  });
-
-  function liberarMesaSeVazia(mesaName) {
-    if (!mesaName) return;
-    db.get(`SELECT COUNT(*) as cnt FROM pedidos WHERE localName = ? AND status NOT IN ('Finalizado','Pago','Cancelado')`, [mesaName], (err, row) => {
-      if (!err && row && row.cnt === 0) {
-        db.run(`UPDATE mesas SET status = 'Disponível' WHERE nome = ? AND status != 'Disponível'`, [mesaName], () => {
-          db.all(`SELECT * FROM mesas`, (e, rows) => io.emit('mesas_atualizadas', rows || []));
-        });
-      }
-    });
-  }
-
-  const chamarTimestamps = {};
-  let pdvCalls = [];
-  const mesasFechando = new Set();
-  const avisarClienteMesa = function() {};
-
-  // ── PLUGIN GARÇOM: registrar handlers de salão/mesa/garçom ──
-  try {
-    const garcomPlugin = require('./plugins/garcom');
-    if (garcomPlugin.registerGarcomSockets) {
-      garcomPlugin.registerGarcomSockets(socket, {
-        db, io, socketTenantId, broadcastPedidos, broadcastMesaClientes,
-        sendPush, exigirAdminSocket, exigirAuthSocket,
-        chamarTimestamps, pdvCalls, liberarMesaSeVazia, avisarClienteMesa,
-        mesasFechando
-      });
-    }
-  } catch (e) { console.error('[garcom] Falha ao registrar sockets:', e.message); }
 
   socket.on('get_pedidos', () => {
     if (!socket.auth) return;
-    /* Responde DIRETO a quem pediu com o feed completo do caixa.
-       Antes só existia o broadcast pós-mutação: ao carregar/recarregar/reconectar,
-       a tela ficava sem valores e sem itens até o próximo pedido do dia. */
-    db.all("SELECT * FROM pedidos WHERE status NOT IN ('Finalizado','Cancelado') ORDER BY createdAt ASC", [], (err, rows) => {
-      if (err) return;
-      const rowsAll = rows || [];
-      socket.emit('pedidos_caixa_atualizados', rowsAll);
-      socket.emit('initial_data_caixa', rowsAll);
-      const rowsAbertos = rowsAll.filter(r => r.status !== 'Pago' && r.status !== 'Fracionado');
-      socket.emit('pedidos_atualizados', rowsAbertos);
+    db.all("SELECT * FROM pedidos WHERE status NOT IN ('Finalizado','Pago','Cancelado') ORDER BY createdAt ASC", [], (err, rows) => {
+      socket.emit('pedidos_atualizados', rows || []);
     });
   });
 
@@ -6807,56 +3352,79 @@ io.on('connection', (socket) => {
     });
   });
 
-  // get_formas_pagamento + add/update/delete/toggle → migrado para plugins/formas-pagamento/
-
-  // IA config unificada: get_ia_config (fila.js) e ia_get_config (configuracoes.js)
-  // agora respondem com a MESMA payload (IA_CONFIG completo).
-  socket.on('get_ia_config', () => {
-    socket.emit('ia_config_atual', IA_CONFIG);
-    socket.emit('ia_config_atualizada', IA_CONFIG);
+  socket.on('get_formas_pagamento', () => {
+    broadcastFormasPagamento(socket);
   });
 
-  // get_connected_devices → migrado para plugins/dispositivos/
+  socket.on('get_ia_config', () => {
+    socket.emit('ia_config_atualizada', {
+      minutosAtencao: IA_CONFIG.minutosAtencao,
+      segundosPulseNovoPedido: IA_CONFIG.segundosPulseNovoPedido,
+      minutosManobra: IA_CONFIG.minutosManobra,
+      minutosCriticoEspera: IA_CONFIG.minutosCriticoEspera,
+      minutosAlertaEspera: IA_CONFIG.minutosAlertaEspera,
+      minutosRefillCerveja: IA_CONFIG.minutosRefillCerveja
+    });
+  });
 
-  /* ── Modo Totem remoto: o dono transforma um Caixa/PDV em quiosque de auto-atendimento
-     (com opção de tela invertida 180° para ficar de frente para o cliente) ── */
-  const _MODOS_VALIDOS = ['normal', 'totem', 'totem_invertido'];
-  socket.on('definir_modo_dispositivo', ({ serial, modo } = {}, ack) => {
-    const responder = (ok, mensagem) => {
-      if (typeof ack === 'function') ack({ ok, mensagem });
-      else if (!ok) socket.emit('erro_servidor', mensagem);
-    };
-    if (!_socketIsAdmin(socket)) return responder(false, 'Apenas administradores podem alterar o modo do terminal.');
-    const s = String(serial || '').slice(0, 40);
-    if (!s) return responder(false, 'Serial não informado.');
-    const m = _MODOS_VALIDOS.includes(modo) ? modo : 'normal';
+  socket.on('add_forma_pagamento', (payload) => {
+    const { nome, tipo, icone, taxa, prazo_dias, ativo } = payload || {};
+    if (!nome) return;
     db.run(
-      `INSERT INTO dispositivos (serial, modo, ultimo_visto) VALUES (?, ?, datetime('now'))
-       ON CONFLICT(serial) DO UPDATE SET modo = excluded.modo, ultimo_visto = datetime('now')`,
-      [s, m],
-      (err) => {
-        if (err) return responder(false, 'Falha ao salvar o modo do dispositivo.');
-        let notificados = 0;
-        activeSockets.forEach((c, idSock) => {
-          if (c.serial === s) { io.to(idSock).emit('modo_dispositivo', { modo: m }); notificados++; }
-        });
-        global.registrarAuditoria((activeSockets.get(socket.id)?.user) || socket.auth?.nome || 'Admin', 'MODO_DISPOSITIVO',
-          `Terminal ${s} → modo "${m}" (${notificados} sessão(ões) notificada(s))`,
-          'Gestão de terminais', 'BAIXO', socket.id);
-        io.emit('connected_devices_updated');
-        responder(true, m === 'normal' ? 'Terminal voltou ao modo normal.' : `Totem ativado${m === 'totem_invertido' ? ' (tela invertida)' : ''}.`);
+      `INSERT INTO formas_pagamento (nome, tipo, taxa, prazo_dias, ativo, icone) VALUES (?, ?, ?, ?, ?, ?)`,
+      [nome, tipo || 'credito', parseFloat(taxa) || 0, parseInt(prazo_dias) || 0, ativo !== undefined ? (ativo ? 1 : 0) : 1, icone || 'ph-credit-card'],
+      function (err) {
+        if (err) return;
+        broadcastFormasPagamento();
       }
     );
   });
 
-  // Terminal pergunta seu modo atual ao conectar/reconectar (reinicia como totem se configurado)
-  socket.on('get_modo_dispositivo', (data) => {
-    const connDev = activeSockets.get(socket.id);
-    const s = String((data && data.serial) || (connDev && connDev.serial) || '').slice(0, 40);
-    if (!s) return;
-    db.get(`SELECT modo FROM dispositivos WHERE serial = ?`, [s], (err, row) => {
-      socket.emit('modo_dispositivo', { modo: (!err && row && row.modo) || 'normal' });
+  socket.on('update_forma_pagamento', (payload) => {
+    const { id, nome, tipo, icone, taxa, prazo_dias, ativo } = payload || {};
+    if (!id || !nome) return;
+    db.run(
+      `UPDATE formas_pagamento SET nome = ?, tipo = ?, taxa = ?, prazo_dias = ?, ativo = ?, icone = ? WHERE id = ?`,
+      [nome, tipo || 'credito', parseFloat(taxa) || 0, parseInt(prazo_dias) || 0, ativo ? 1 : 0, icone || 'ph-credit-card', id],
+      function (err) {
+        if (err) return;
+        broadcastFormasPagamento();
+      }
+    );
+  });
+
+  socket.on('delete_forma_pagamento', (id) => {
+    if (!exigirAdminSocket(socket)) return;
+    if (!id) return;
+    db.get(`SELECT nome FROM formas_pagamento WHERE id = ?`, [id], (err, row) => {
+      if (err || !row) return;
+      db.get(`SELECT COUNT(*) as count FROM pedidos WHERE paymentMethod = ?`, [row.nome], (e, r) => {
+        if (!e && r && r.count > 0) {
+          return socket.emit('erro_caixa', `"${row.nome}" não pode ser excluído pois já foi utilizado em ${r.count} pedido(s). Apenas desative-o.`);
+        }
+        db.run(`DELETE FROM formas_pagamento WHERE id = ?`, [id], function (err2) {
+          if (err2) return;
+          broadcastFormasPagamento();
+        });
+      });
     });
+  });
+
+  socket.on('toggle_forma_pagamento', (payload) => {
+    const { id, ativo } = payload || {};
+    if (!id) return;
+    db.run(`UPDATE formas_pagamento SET ativo = ? WHERE id = ?`, [ativo ? 1 : 0, id], function (err) {
+      if (err) return;
+      broadcastFormasPagamento();
+    });
+  });
+
+  socket.on('get_connected_devices', () => {
+    const deviceList = Array.from(activeSockets.values()).map(d => ({
+      ...d,
+      tempoConectadoStr: getTempoConectadoStr(d.connectedAt)
+    }));
+    socket.emit('connected_devices', deviceList);
   });
 
   socket.on('registrar_sessao', ({ nome, cargo }) => {
@@ -6922,28 +3490,15 @@ io.on('connection', (socket) => {
   socket.emit('restaurant_name', licenseManager.getRestaurantName());
   socket.emit('license_status', licenseManager.getState());
 
-  // Enviar fuso horário configurado do restaurante
-  db.get(`SELECT valor FROM configuracoes WHERE chave = 'timezone_offset'`, (err, row) => {
-    const offset = row ? parseInt(row.valor, 10) : -180;
-    socket.emit('timezone_offset', isNaN(offset) ? -180 : offset);
-  });
-
-  socket.on('get_timezone_offset', () => {
-    db.get(`SELECT valor FROM configuracoes WHERE chave = 'timezone_offset'`, (err, row) => {
-      const offset = row ? parseInt(row.valor, 10) : -180;
-      socket.emit('timezone_offset', isNaN(offset) ? -180 : offset);
-    });
-  });
-
   // ── Configuração do Apps Script ──────────────────────────
-  const LICENSE_CONFIG_PATH_GLOBAL = require('path').join(
+  const LICENSE_CONFIG_FILE = require('path').join(
     require('os').homedir(), 'AppData', 'Roaming', 'ChefCozinha', 'license-config.json'
   );
 
   socket.on('get_license_config', () => {
     try {
-      if (fs.existsSync(LICENSE_CONFIG_PATH_GLOBAL)) {
-        const cfg = JSON.parse(fs.readFileSync(LICENSE_CONFIG_PATH_GLOBAL, 'utf8'));
+      if (fs.existsSync(LICENSE_CONFIG_FILE)) {
+        const cfg = JSON.parse(fs.readFileSync(LICENSE_CONFIG_FILE, 'utf8'));
         socket.emit('license_config_loaded', cfg);
       } else {
         socket.emit('license_config_loaded', {});
@@ -7005,119 +3560,77 @@ io.on('connection', (socket) => {
     socket.emit('license_status', { ...state, installId: state.installId });
   });
 
-
-  // ── TRANSFERIR MESA ──
   socket.on('transferir_mesa', ({ mesaAtual, novaMesa, operador }) => {
-    if (!mesaAtual || !novaMesa || mesaAtual === novaMesa) return;
-    db.run(`UPDATE pedidos SET localName = ? WHERE localName = ? AND status NOT IN ('Finalizado','Cancelado')`, [novaMesa, mesaAtual], (err) => {
+    db.run(`UPDATE pedidos SET localName = ? WHERE localName = ? AND status != 'Finalizado'`, [novaMesa, mesaAtual], (err) => {
       if (!err) {
-        db.run(`UPDATE mesas SET status = 'Disponível' WHERE nome = ?`, [mesaAtual], () => {});
-        db.run(`UPDATE mesas SET status = 'Ocupada' WHERE nome = ?`, [novaMesa], () => {});
-        global.registrarAuditoria(socket.auth?.nome || operador || 'Sistema', 'TRANSFERENCIA_MESA', `Mesa ${mesaAtual} transferida para ${novaMesa}`, 'Operação de Salão', 'MEDIO');
-        _broadcastPedidos();
-        db.all(`SELECT * FROM mesas`, (e, rows) => io.emit('mesas_atualizadas', rows || []));
+        global.registrarAuditoria(operador || 'Sistema', 'TRANSFERENCIA_MESA', `Mesa ${mesaAtual} transferida para ${novaMesa}`, 'Operação de Salão', 'MEDIO');
+        broadcastPedidos();
       }
     });
   });
 
-  // ── TRANSFERIR MESAS ITENS ──
+  socket.on('juntar_mesas', ({ mesaA, mesaB, operador }) => {
+    const grupo = `${mesaA} + ${mesaB}`;
+    db.run(`UPDATE pedidos SET mesa_grupo = ? WHERE localName IN (?, ?) AND status != 'Finalizado'`, [grupo, mesaA, mesaB], (err) => {
+      if (!err) {
+        global.registrarAuditoria(operador || 'Sistema', 'JUNCAO_MESAS', `Mesa ${mesaA} e ${mesaB} unidas no grupo ${grupo}`, 'Operação de Salão', 'MEDIO');
+        broadcastPedidos();
+      }
+    });
+  });
+
+  // Mover itens de uma mesa para outra (mesa origem fica livre)
   socket.on('transferir_mesas_itens', ({ mesaA, mesaB, operador }) => {
-    if (!mesaA || !mesaB || mesaA === mesaB) return;
-    db.run(`UPDATE pedidos SET localName = ?, mesa_grupo = NULL WHERE localName = ? AND status NOT IN ('Finalizado','Cancelado')`, [mesaB, mesaA], (err) => {
+    db.run(`UPDATE pedidos SET localName = ?, mesa_grupo = NULL WHERE localName = ? AND status != 'Finalizado'`, [mesaB, mesaA], (err) => {
       if (!err) {
-        db.run(`UPDATE mesas SET status = 'Disponível' WHERE nome = ?`, [mesaA], () => {});
-        db.run(`UPDATE mesas SET status = 'Ocupada' WHERE nome = ?`, [mesaB], () => {});
-        global.registrarAuditoria(socket.auth?.nome || operador || 'Sistema', 'TRANSFERENCIA_MESAS_ITENS', `Itens de ${mesaA} movidos para ${mesaB}. Mesa ${mesaA} liberada.`, 'Operação de Salão', 'MEDIO');
-        _broadcastPedidos();
-        db.all(`SELECT * FROM mesas`, (e, rows) => io.emit('mesas_atualizadas', rows || []));
-      }
-    });
-  });
-
-  // ── TRANSFERIR ITEM INDIVIDUAL ──
-  socket.on('transferir_item', ({ itemId, novaMesa, operador }) => {
-    if (!itemId || !novaMesa) return;
-    db.run(`UPDATE pedidos SET localName = ? WHERE id = ?`, [novaMesa, itemId], (err) => {
-      if (!err) {
-        db.run(`UPDATE mesas SET status = 'Ocupada' WHERE nome = ?`, [novaMesa], () => {});
-        global.registrarAuditoria(socket.auth?.nome || operador || 'Sistema', 'TRANSFERENCIA_ITEM', `Item #${itemId} transferido para ${novaMesa}`, 'Operação de Salão', 'MEDIO');
-        _broadcastPedidos();
-        db.all(`SELECT * FROM mesas`, (e, rows) => io.emit('mesas_atualizadas', rows || []));
-      }
-    });
-  });
-
-  // ── JUNTAR MESAS ──
-  socket.on('juntar_mesas', ({ mesaA, mesaB, operador }, ack) => {
-    const responder = (ok, mensagem) => {
-      if (typeof ack === 'function') ack({ ok, mensagem });
-      else if (!ok) socket.emit('erro_servidor', mensagem);
-    };
-    if (!mesaA || !mesaB || mesaA === mesaB) return responder(false, 'Mesas inválidas para junção.');
-    db.all(`SELECT * FROM mesas WHERE nome IN (?, ?)`, [mesaA, mesaB], (eSel, alvos) => {
-      if (eSel || !alvos || alvos.length < 2) return responder(false, 'Mesa não encontrada.');
-      const tokenBase = alvos.map(m => m.grupo_juncao).filter(Boolean)[0] || `J${Date.now()}`;
-      const nomesAlvo = alvos.map(m => m.nome);
-      db.all(`SELECT * FROM mesas WHERE grupo_juncao = ? OR nome IN (?, ?)`, [tokenBase, mesaA, mesaB], (eGrp, grupo) => {
-        const integrantes = [...new Set([...(grupo || []).map(m => m.nome), ...nomesAlvo])];
-        db.run(`UPDATE mesas SET grupo_juncao = ? WHERE grupo_juncao = ? OR nome IN (${integrantes.map(() => '?').join(', ')})`,
-          [tokenBase, tokenBase, ...integrantes], (eUp) => {
-            if (eUp) return responder(false, 'Falha ao juntar as mesas.');
-            const rotulo = integrantes.slice().sort((a, b) => a.localeCompare(b, 'pt-BR', { numeric: true })).join(' + ');
-            db.run(`UPDATE pedidos SET mesa_grupo = ? WHERE localName IN (${integrantes.map(() => '?').join(', ')}) AND status NOT IN ('Finalizado','Cancelado')`,
-              [rotulo, ...integrantes], () => {
-                global.registrarAuditoria(operador || 'Sistema', 'JUNCAO_MESAS', `${integrantes.join(' + ')} → grupo "${rotulo}"`, 'Operação de Salão', 'BAIXO');
-                db.all(`SELECT * FROM mesas`, (e, rows) => io.emit('mesas_atualizadas', rows || []));
-                _broadcastPedidos();
-                responder(true, `Mesas unidas: ${rotulo}`);
-              });
+        db.run(`UPDATE mesas SET status = 'Disponível' WHERE nome = ?`, [mesaA], () => {
+          db.all(`SELECT * FROM mesas`, (e, rows) => {
+            io.emit('mesas_atualizadas', rows || []);
           });
-      });
-    });
-  });
-
-  // ── DESFAZER JUNÇÃO ──
-  socket.on('desfazer_juncao', ({ mesaNome, operador }, ack) => {
-    const responder = (ok, mensagem) => {
-      if (typeof ack === 'function') ack({ ok, mensagem });
-      else if (!ok) socket.emit('erro_servidor', mensagem);
-    };
-    if (!mesaNome) return responder(false, 'Mesa inválida.');
-    db.get(`SELECT grupo_juncao FROM mesas WHERE nome = ?`, [mesaNome], (eSel, row) => {
-      if (eSel || !row) return responder(false, 'Mesa não encontrada.');
-      if (!row.grupo_juncao) return responder(true, 'Esta mesa não está em junção.');
-      db.all(`SELECT nome FROM mesas WHERE grupo_juncao = ?`, [row.grupo_juncao], (eG, grupo) => {
-        const nomes = (grupo || []).map(g => g.nome);
-        db.run(`UPDATE mesas SET grupo_juncao = NULL WHERE grupo_juncao = ?`, [row.grupo_juncao], () => {
-          if (nomes.length) {
-            db.run(`UPDATE pedidos SET mesa_grupo = NULL WHERE localName IN (${nomes.map(() => '?').join(', ')}) AND status NOT IN ('Finalizado','Cancelado')`,
-              nomes, () => { });
-          }
-          global.registrarAuditoria(operador || 'Sistema', 'DESFAZER_JUNCAO', `Grupo ${nomes.join(' + ')} desfeito`, 'Operação de Salão', 'BAIXO');
-          db.all(`SELECT * FROM mesas`, (e, rows) => io.emit('mesas_atualizadas', rows || []));
-          _broadcastPedidos();
-          responder(true, 'Junção desfeita.');
         });
+        global.registrarAuditoria(operador || 'Sistema', 'TRANSFERENCIA_MESAS_ITENS', `Itens de ${mesaA} movidos para ${mesaB}. Mesa ${mesaA} liberada.`, 'Operação de Salão', 'MEDIO');
+        broadcastPedidos();
+      }
+    });
+  });
+
+  function liberarMesaSeVazia(mesaName) {
+    if (!mesaName) return;
+    db.get(`SELECT COUNT(*) as cnt FROM pedidos WHERE localName = ? AND status NOT IN ('Finalizado','Pago','Cancelado')`, [mesaName], (err, row) => {
+      if (!err && row && row.cnt === 0) {
+        db.run(`UPDATE mesas SET status = 'Disponível' WHERE nome = ? AND status != 'Disponível'`, [mesaName], () => {
+          db.all(`SELECT * FROM mesas`, (e, rows) => {
+            io.emit('mesas_atualizadas', rows || []);
+          });
+        });
+      }
+    });
+  }
+
+  socket.on('transferir_item', ({ itemId, novaMesa, operador }) => {
+    db.get(`SELECT localName FROM pedidos WHERE id = ?`, [itemId], (errGet, rowGet) => {
+      const mesaAntiga = rowGet ? rowGet.localName : null;
+      db.run(`UPDATE pedidos SET localName = ?, mesa_grupo = NULL WHERE id = ?`, [novaMesa, itemId], (err) => {
+        if (!err) {
+          global.registrarAuditoria(operador || 'Sistema', 'TRANSFERENCIA_ITEM', `Item ${itemId} transferido para ${novaMesa}`, 'Operação de Salão', 'MEDIO');
+          broadcastPedidos();
+          liberarMesaSeVazia(mesaAntiga);
+        }
       });
     });
   });
 
-
-  // ── juntar_mesas → migrado para plugins/garcom/ ──
-
-  // ── desfazer_juncao → migrado para plugins/garcom/ ──
-
-  // ── sugerir_juncao → migrado para plugins/reserves/ ──
-
-  // ── salvar_layout_salao → migrado para plugins/garcom/ ──
-
-  // ── transferir_mesas_itens → migrado para plugins/garcom/ ──
-
-  // ── liberarMesaSeVazia → mantido (helper compartilhado) ──
-
-  // ── transferir_item → migrado para plugins/garcom/ ──
-
-  // ── atribuir_comanda_item → migrado para plugins/garcom/ ──
+  socket.on('atribuir_comanda_item', ({ itemId, comandaName, operador }) => {
+    const comandaVal = (comandaName && String(comandaName).trim()) ? String(comandaName).trim() : null;
+    db.run(`UPDATE pedidos SET mesa_comanda = ? WHERE id = ?`, [comandaVal, itemId], (err) => {
+      if (!err) {
+        global.registrarAuditoria(operador || 'Sistema', 'ATRIBUICAO_COMANDA', `Item ${itemId} associado à comanda: ${comandaVal}`, 'Operação de Salão', 'BAIXO');
+        broadcastPedidos();
+      } else {
+        console.error('Erro ao atribuir comanda ao item:', err);
+      }
+    });
+  });
 
   // Fetch all active orders and send to the new client (always, regardless of IA config)
   // Dados iniciais SEMPRE sao enviados — sem isso o caixa desktop nao mostra pedidos.
@@ -7190,8 +3703,8 @@ io.on('connection', (socket) => {
           // Inserir itens
           itens.forEach((item) => {
             db.run(
-              `INSERT INTO pedidos (productName, productEmoji, quantity, total, status, localName, userName, time, sector, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
-              [item.nome + ' (Resgate)', item.emoji || '�?�?', item.quantity || 1, '0,00', 'Em espera', mesaName, userName || 'Garçom', timeStr, item.sector || 'Bar']
+              `INSERT INTO pedidos (productName, productEmoji, quantity, total, status, localName, userName, time, sector, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))`,
+              [item.nome + ' (Resgate)', item.emoji || '🎁', item.quantity || 1, '0,00', 'Em espera', mesaName, userName || 'Garçom', timeStr, item.sector || 'Bar']
             );
             hasInserted = true;
           });
@@ -7199,13 +3712,13 @@ io.on('connection', (socket) => {
           // Inserir lógica financeira
           if (cupom.valor_tipo === 'desconto_fixo' && cupom.valor > 0) {
             db.run(
-              `INSERT INTO pedidos (productName, productEmoji, quantity, total, status, localName, userName, time, sector, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
-              ['Desconto Promocional', '�??·�?�?', 1, '-' + cupom.valor.toFixed(2).replace('.', ','), 'Pronto', mesaName, userName || 'Garçom', timeStr, 'Caixa']
+              `INSERT INTO pedidos (productName, productEmoji, quantity, total, status, localName, userName, time, sector, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))`,
+              ['Desconto Promocional', '🏏·️', 1, '-' + cupom.valor.toFixed(2).replace('.', ','), 'Pronto', mesaName, userName || 'Garçom', timeStr, 'Caixa']
             );
             hasInserted = true;
           } else if (cupom.valor_tipo === 'preco_fixo' && cupom.valor > 0) {
             db.run(
-              `INSERT INTO pedidos (productName, productEmoji, quantity, total, status, localName, userName, time, sector, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+              `INSERT INTO pedidos (productName, productEmoji, quantity, total, status, localName, userName, time, sector, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))`,
               ['Cobrança de Combo/Cupom', '💲', 1, cupom.valor.toFixed(2).replace('.', ','), 'Pronto', mesaName, userName || 'Garçom', timeStr, 'Caixa']
             );
             hasInserted = true;
@@ -7226,10 +3739,24 @@ io.on('connection', (socket) => {
 
 
   // Garçom envia um novo pedido
-  // ── buscar_cliente_telefone → migrado para plugins/garcom/ ──
+  socket.on('buscar_cliente_telefone', (telefone) => {
+    if (!telefone) return;
+    const cleanPhone = telefone.replace(/\D/g, '');
+    db.get(`SELECT nome FROM clientes WHERE telefone = ? OR telefone LIKE ? OR id IN (SELECT id FROM clientes WHERE REPLACE(REPLACE(REPLACE(REPLACE(telefone, ' ', ''), '-', ''), '(', ''), ')', '') = ?) LIMIT 1`, [telefone, `%${cleanPhone}`, cleanPhone], (err, row) => {
+      if (row) {
+        socket.emit('cliente_telefone_encontrado', { telefone, nome: row.nome });
+      } else {
+        socket.emit('cliente_telefone_encontrado', { telefone, nome: null });
+      }
+    });
+  });
 
-  const _novoPedidoCore = (pedido, opts = {}) => {
-    const reply = opts.reply || ((ev, pl) => socket.emit(ev, pl));
+  socket.on('novo_pedido', (pedido) => {
+    // ── VERIFICAÇÃO DE LICENÇA ──
+    if (licenseManager.isRestricted()) {
+      socket.emit('pedido_erro', { msg: '⚠️ Sistema em modo restrito. Ative a licença para adicionar pedidos.' });
+      return;
+    }
     if (!pedido || typeof pedido !== 'object') return;
     // (Segurança) Remove marcadores HTML de campos exibidos na fila/cardápio para
     // impedir XSS armazenado via pedido malicioso.
@@ -7350,24 +3877,12 @@ io.on('connection', (socket) => {
         function savePedidoAndBonus() {
           db.run(
             `INSERT INTO pedidos (productName, productEmoji, quantity, time, localName, userName, total, status, sector, cliente_id, promocao_id, entregador_id, mesa_comanda, observations, composicoes, createdAt)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))`,
             [pedido.productName, pedido.productEmoji, pedido.quantity, pedido.time, pedido.localName, pedido.userName, pedido.total, status, pedido.sector || 'Cozinha 1', pedido.cliente_id || null, pedido.promocao_id || null, pedido.entregador_id || null, pedido.mesa_comanda || null, pedido.observations || '', JSON.stringify(pedido.composicoes || [])],
             function (err) {
               if (err) {
                 console.error('Erro ao inserir pedido:', err);
-                // NADA se perde em silêncio: avisa o operador, os admins e cria task no suporte
-                registrarFalhaCritica(
-                  'pedido_nao_gravado',
-                  `Pedido NÃO gravado: ${pedido.quantity || 1}x ${pedido.productName || '?'} | local: ${pedido.localName || '?'} | cliente: ${pedido.userName || '?'} | total R$${pedido.total} | erro: ${err.message}`,
-                  (opts.tenantId || socketTenantId)
-                );
-                reply('pedido_erro', {
-                  msg: 'ATENÇÃO: este pedido NÃO foi registrado no sistema! Informe o cliente, anote manualmente se preciso e tente enviar de novo. O suporte técnico já foi acionado automaticamente.',
-                  pedido: { productName: pedido.productName, localName: pedido.localName, quantity: pedido.quantity },
-                  quando: new Date().toLocaleString('pt-BR')
-                });
-                socket.emit('erro_servidor', 'Falha ao gravar o pedido — NÃO foi registrado. Tente novamente.');
-                if (typeof opts.onDone === 'function') { try { opts.onDone(err || new Error('insert')); } catch (e) {} }
+                socket.emit('erro_servidor', 'Falha ao gravar o pedido. Tente novamente.');
                 return;
               }
               const mainId = this.lastID;
@@ -7375,16 +3890,15 @@ io.on('connection', (socket) => {
               const newOrder = { ...pedido, id: mainId, status: status, sector: finalSector, createdAt: new Date().toISOString() };
               io.emit('pedido_adicionado', newOrder);
               sendPush('cozinha', '🆕 Novo Pedido!', `${newOrder.quantity || 1}x ${newOrder.productName || 'Item'} — ${newOrder.localName || ''}`.trim(), 'pedido-' + mainId, '/fila-pedidos.html');
-              if (typeof opts.onDone === 'function') { try { opts.onDone(null, mainId); } catch (e) {} }
               updateMesaStatus();
 
               if (comboBonus) {
                 db.get(`SELECT emoji, categoria FROM produtos WHERE nome = ?`, [comboBonus], (err, bonusProd) => {
                   const bonusSector = (bonusProd && bonusProd.categoria === 'Bebidas') ? 'Bar' : 'Cozinha 1';
-                  const bonusEmoji = bonusProd ? bonusProd.emoji : '�?�?';
+                  const bonusEmoji = bonusProd ? bonusProd.emoji : '🎁';
                   db.run(
                     `INSERT INTO pedidos (productName, productEmoji, quantity, time, localName, userName, total, status, sector, mesa_comanda, createdAt)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))`,
                     [comboBonus + ' (Brinde)', bonusEmoji, pedido.quantity, pedido.time, pedido.localName, pedido.userName, "0.00", status, bonusSector, pedido.mesa_comanda || null],
                     function (err2) {
                       if (!err2) {
@@ -7405,9 +3919,8 @@ io.on('connection', (socket) => {
         function updateMesaStatus() {
           if (!pedido.localName.includes('Delivery') && !pedido.localName.includes('Balcão')) {
             db.run(`UPDATE mesas SET status = 'Ocupada' WHERE nome = ?`, [pedido.localName], () => {
-              /* Delta: envia só a mesa que mudou em vez da lista inteira (CPU/banda) */
-              db.get(`SELECT * FROM mesas WHERE nome = ?`, [pedido.localName], (errM, mesaRow) => {
-                if (!errM && mesaRow) io.emit('mesa_delta', mesaRow);
+              db.all(`SELECT * FROM mesas`, (err, rows) => {
+                io.emit('mesas_atualizadas', rows || []);
               });
             });
           }
@@ -7436,41 +3949,6 @@ io.on('connection', (socket) => {
     } else {
       proceedWithOrder(null);
     }
-  };
-  // Expõe o núcleo para o endpoint REST /api/pedidos/offline-sync (apenas 1ª conexão)
-  if (!global.__chefNovoPedidoCore) global.__chefNovoPedidoCore = _novoPedidoCore;
-  socket.on('novo_pedido', (pedido) => processarNovoPedido(pedido, { tenantId: socketTenantId, reply: (ev, pl) => socket.emit(ev, pl) }));
-
-  // --- ANALYTICS DE ENGAJAMENTO / DWELL-TIME DO CARD�?PIO DIGITAL ---
-  socket.on('cardapio_analytics_engajamento', (data) => {
-    try {
-      const tenantId = socketTenantId || (data && data.restaurante_id) || '1';
-      if (!global._cardapioAnalytics) global._cardapioAnalytics = new Map();
-      if (!global._cardapioAnalytics.has(tenantId)) global._cardapioAnalytics.set(tenantId, new Map());
-      
-      const tMap = global._cardapioAnalytics.get(tenantId);
-      const prodKey = String(data.produtoId || data.produtoNome || 'item');
-      
-      const current = tMap.get(prodKey) || { 
-        id: data.produtoId, 
-        nome: data.produtoNome, 
-        tempoTotal: 0, 
-        visualizacoes: 0, 
-        revisitas: 0, 
-        pedidos: 0, 
-        ultimaInteracao: Date.now() 
-      };
-      
-      current.tempoTotal += Number(data.tempoSegundos || 0);
-      current.visualizacoes += 1;
-      if (data.revisitas) current.revisitas += Number(data.revisitas);
-      if (data.adicionouCarrinho) current.pedidos += 1;
-      current.ultimaInteracao = Date.now();
-      
-      tMap.set(prodKey, current);
-    } catch (e) {
-      console.warn('[Analytics Cardápio]', e);
-    }
   });
 
   // Atualiza Status (Cozinha/Bar)
@@ -7481,7 +3959,7 @@ io.on('connection', (socket) => {
     const idNum = parseInt(id, 10);
     if (isNaN(idNum)) return;
     id = idNum;
-    const prontoUpdate = (status === 'Pronto') ? ", prontoEm = datetime('now')" : '';
+    const prontoUpdate = (status === 'Pronto') ? ", prontoEm = datetime('now', 'localtime')" : '';
     db.run(`UPDATE pedidos SET status = ?${prontoUpdate} WHERE id = ?`, [status, id], function (err) {
       if (err) return console.error(err);
 
@@ -7527,13 +4005,6 @@ io.on('connection', (socket) => {
             createdAt: row.createdAt,
             prontoEm: row.prontoEm
           });
-          // Persiste também como alerta: cliente que fechou a tela recebe ao reabrir
-          const iconesStatus = { 'Em preparo': '👨�?�?�', 'Pronto': '✅', 'Entregue': '�?��?', 'Recusado': '⚠�?' };
-          avisarClienteMesa(row.localName, {
-            tipo: 'status',
-            titulo: `Pedido ${row.status}`,
-            mensagem: `${iconesStatus[row.status] || '🔔'} ${row.quantity || 1}x ${row.productName || 'Item'} — ${row.status}`
-          });
         }
 
         if (status === 'Pronto') {
@@ -7559,6 +4030,8 @@ io.on('connection', (socket) => {
       });
     });
   });
+
+  const chamarTimestamps = {};
 
   socket.on('get_esteira', (userName) => {
     db.all(`SELECT * FROM pedidos WHERE (userName = ? OR garcom_call IS NOT NULL) AND status = 'Pronto'`, [userName], (err, rows) => {
@@ -7586,32 +4059,84 @@ io.on('connection', (socket) => {
     });
   });
 
-  // ── chamar_garcom → migrado para plugins/garcom/ ──
-
-  // ── garcom_buscando → migrado para plugins/garcom/ ──
-
-  // ── cliente_na_mesa → migrado para plugins/garcom/ ──
-
-  // Painel super-admin entra na sala exclusiva de monitoramento em tempo real
-  socket.on('entrar_super_admin', () => {
-    socket.join('super_admin');
+  socket.on('chamar_garcom', (data) => {
+    const d = data || {};
+    const id = d.id || null;
+    const productName = d.productName || d.mensagem || 'Garçom chamado';
+    const quantity = d.quantity || 1;
+    const localName = d.localName || d.nome || 'PDV Mobile';
+    const userName = d.userName || 'PDV Mobile';
+    const clienteNome = d.clienteNome || '';
+    const now = Date.now();
+    // (Segurança) Limite por socket (ex.: cliente do QR chamando garçom) para
+    // evitar spam de notificações.
+    if (socket._lastChamarTime && (now - socket._lastChamarTime) < 3000) return;
+    socket._lastChamarTime = now;
+    const lastCall = chamarTimestamps[id];
+    const isReChamado = lastCall && (now - lastCall) < 10000;
+    chamarTimestamps[id] = now;
+    if (!id) {
+      const entry = { id: 'pdv_' + now, localName, productName, quantity, userName, clienteNome, tipo: 'pdv', criadoEm: now, status: 'Pronto', targetGarcom: d.targetGarcom || null };
+      if (!isReChamado) pdvCalls.push(entry);
+      io.emit('notificacao_garcom', Object.assign({}, entry, { reChamado: isReChamado }));
+      if (!isReChamado) sendPush('garcom', '🔔 Garçom Chamado!', `${quantity}x ${productName} — ${localName}${clienteNome ? ' (' + clienteNome + ')' : ''}`, 'chamar-pdv-' + now, '/garcom.html');
+      broadcastPedidos();
+    } else {
+      io.emit('notificacao_garcom', { id, productName, quantity, localName, userName, clienteNome, tipo: 'chamada', reChamado: isReChamado, targetGarcom: d.targetGarcom || null });
+      if (!isReChamado) {
+        sendPush('garcom', '🔔 Garçom Chamado!', `${quantity}x ${productName} — ${localName}${clienteNome ? ' (' + clienteNome + ')' : ''}`, 'chamar-' + id, '/garcom.html');
+        db.run(`UPDATE pedidos SET garcom_call = datetime('now', 'localtime') WHERE id = ?`, [id]);
+        broadcastPedidos();
+      }
+    }
   });
 
-  // ── caixa_avisar_cliente → migrado para plugins/garcom/ ──
+  socket.on('garcom_buscando', ({ pedidoId, garcomNome, localName, productName }) => {
+    if (typeof pedidoId === 'number' || !isNaN(pedidoId)) {
+      db.run(`UPDATE pedidos SET garcom_call = NULL WHERE id = ?`, [pedidoId], function () {
+        io.emit('garcom_buscando', { pedidoId, garcomNome, localName, productName });
+      });
+    } else {
+      io.emit('garcom_buscando', { pedidoId, garcomNome, localName, productName });
+    }
+  });
 
-  // ── alerta_marcar_entregues → migrado para plugins/garcom/ ──
+  socket.on('cliente_na_mesa', (localName) => {
+    if (localName) {
+      socket.join(`mesa_${localName}`);
+    }
+  });
 
-  // ── verificar_mesa_conflict → migrado para plugins/garcom/ ──
+  socket.on('verificar_mesa_conflict', ({ mesa, clienteId }, cb) => {
+    if (!mesa) return cb && cb({ conflict: false });
+    db.get(`SELECT cliente_nome, cliente_id FROM mesa_clientes WHERE mesa = ?`, [mesa], (err, row) => {
+      if (err || !row) return cb && cb({ conflict: false });
+      if (row.cliente_id && clienteId && row.cliente_id === clienteId) return cb && cb({ conflict: false });
+      if (row.cliente_nome) return cb && cb({ conflict: true, ocupadoPor: row.cliente_nome });
+      cb && cb({ conflict: false });
+    });
+  });
 
-  // ── cliente_entrou_mesa → migrado para plugins/garcom/ ──
+  // Cliente identificado pelo QR: associa cliente à mesa, abre a mesa no PDV
+  socket.on('cliente_entrou_mesa', ({ mesa, cliente }) => {
+    if (!mesa || !cliente || !cliente.nome) return;
+    db.run(
+      `INSERT INTO mesa_clientes (mesa, cliente_id, cliente_nome, cliente_telefone, updated_at) VALUES (?, ?, ?, ?, datetime('now', 'localtime'))
+       ON CONFLICT(mesa) DO UPDATE SET cliente_id = excluded.cliente_id, cliente_nome = excluded.cliente_nome, cliente_telefone = excluded.cliente_telefone, updated_at = datetime('now', 'localtime')`,
+      [mesa, cliente.id || null, cliente.nome, cliente.telefone || ''],
+      (err) => {
+        if (err) return console.error('[Mesa Cliente] Erro ao associar cliente à mesa:', err);
+        broadcastMesaClientes();
+        db.run(`UPDATE mesas SET status = 'Ocupada' WHERE nome = ? AND status IN ('Disponível','Disponivel')`, [mesa], () => {
+          db.all(`SELECT * FROM mesas`, (e, rows) => io.emit('mesas_atualizadas', rows || []));
+        });
+      }
+    );
+  });
 
-  // ── garcom_aceitou_chamado → migrado para plugins/garcom/ ──
-
-  socket.on('validar_pin_admin', async (data, ack) => {
-    const val = (typeof data === 'object' && data !== null) ? (data.pin || data.senha) : data;
-    const ok = await verificarPinOuSenha(val);
-    if (typeof ack === 'function') ack({ ok: !!ok, mensagem: ok ? 'Autorizado!' : 'PIN incorreto.' });
-    else socket.emit('resposta_validar_pin_admin', { ok: !!ok });
+  socket.on('garcom_aceitou_chamado', ({ localName, garcomNome }) => {
+    io.to(`mesa_${localName}`).emit('garcom_chegando', { garcomNome, localName });
+    io.emit('notificacao_garcom', { productName: `${garcomNome} aceitou`, localName, userName: 'Sistema', tipo: 'aceite' });
   });
 
   socket.on('movimentacao_caixa', (data) => {
@@ -7626,7 +4151,7 @@ io.on('connection', (socket) => {
       const turnoId = turno ? turno.id : null;
       const tipoDb = tipo === 'Sangria' ? 'saida' : 'Entrada';
       db.run(
-        `INSERT INTO movimentacoes (turno_id, tipo, valor, forma_pagamento, descricao, data) VALUES (?, ?, ?, ?, ?, datetime('now'))`,
+        `INSERT INTO movimentacoes (turno_id, tipo, valor, forma_pagamento, descricao, data) VALUES (?, ?, ?, ?, ?, datetime('now', 'localtime'))`,
         [turnoId, tipoDb, valor, forma_pagamento, `${tipo} (${operador}): ${descricao}`],
         function (err) {
           if (err) return;
@@ -7751,15 +4276,6 @@ io.on('connection', (socket) => {
     const { mesa, cliente_nome, itens, valor_total, pago_pix, chave_pix, cliente_id, comanda_nome, is_fila, requires_validacao, mesa_origem } = data;
     const needsValidation = requires_validacao ? 1 : 0;
 
-    // �?�?�?�?�?�? GATE DO MÓDULO TOTEM (upsell SaaS) �?�?�?�?�?�?
-    // Pedidos vindos do totem (origem marcada ou pseudo-mesa "Totem ...") só passam
-    // se a feature 'totem' estiver contratada E o dono tiver o módulo ligado.
-    const _ehTotem = (data && data.origem === 'totem') || /^totem/i.test(String(mesa || ''));
-    if (_ehTotem && !isTenantFeatureEnabled(tenantContext.getStore() || 1, 'totem')) {
-      console.log(`[Totem] Pedido bloqueado: módulo não contratado (tenant ${tenantContext.getStore() || 1}).`);
-      return socket.emit('criar_pedido_qr_resposta', { success: false, error: 'Módulo Totem de Autoatendimento não habilitado para este estabelecimento.' });
-    }
-
     function insertPedido() {
       const itensStr = JSON.stringify(itens);
       const isPaid = pago_pix ? 1 : 0;
@@ -7832,7 +4348,7 @@ io.on('connection', (socket) => {
 
       checkCaixa(turno => {
         if (!turno) {
-          socket.emit('aprovar_pedido_qr_resposta', { success: false, error: '⚠�?�? O caixa está fechado! Abra o caixa antes de aprovar pedidos.' });
+          socket.emit('aprovar_pedido_qr_resposta', { success: false, error: '⚠️ O caixa está fechado! Abra o caixa antes de aprovar pedidos.' });
           return;
         }
 
@@ -7868,8 +4384,8 @@ io.on('connection', (socket) => {
 
             db.run(
               `INSERT INTO pedidos (productName, productEmoji, quantity, time, localName, userName, total, status, sector, turno_id, mesa_comanda, cliente_id, observations, composicoes, createdAt) 
-               VALUES (?, ?, ?, ?, ?, 'QR Code', ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
-              [item.productName, item.productEmoji || '�?��?', item.quantity, timeStr, mesaName, String(item.total).replace('.', ','), status, item.sector || 'Cozinha 1', turno.id, comandaNome || null, pendingOrder.cliente_id || null, item.observations || '', JSON.stringify(item.composicoes || [])],
+               VALUES (?, ?, ?, ?, ?, 'QR Code', ?, ?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))`,
+              [item.productName, item.productEmoji || '🍽️', item.quantity, timeStr, mesaName, String(item.total).replace('.', ','), status, item.sector || 'Cozinha 1', turno.id, comandaNome || null, pendingOrder.cliente_id || null, item.observations || '', JSON.stringify(item.composicoes || [])],
               function (errInsert) {
                 if (errInsert) {
                   hasError = true;
@@ -7881,7 +4397,7 @@ io.on('connection', (socket) => {
                   io.emit('pedido_adicionado', {
                     id: insertedId,
                     productName: item.productName,
-                    productEmoji: item.productEmoji || '�?��?',
+                    productEmoji: item.productEmoji || '🍽️',
                     quantity: item.quantity,
                     time: timeStr,
                     localName: mesaName,
@@ -7903,7 +4419,7 @@ io.on('connection', (socket) => {
             const negativeTotal = (-Math.abs(pendingOrder.valor_total)).toFixed(2).replace('.', ',');
             db.run(
               `INSERT INTO pedidos (productName, productEmoji, quantity, total, status, localName, userName, time, sector, turno_id, mesa_comanda, cliente_id, createdAt) 
-               VALUES (?, '💸', 1, ?, 'Entregue', ?, 'QR Code', ?, 'Caixa', ?, ?, ?, datetime('now'))`,
+               VALUES (?, '💸', 1, ?, 'Entregue', ?, 'QR Code', ?, 'Caixa', ?, ?, ?, datetime('now', 'localtime'))`,
               [`Pgto QR Code (Pix) - Cliente ${pendingOrder.cliente_nome}`, negativeTotal, mesaName, timeStr, turno.id, comandaNome || null, pendingOrder.cliente_id || null],
               function (errInsertPay) {
                 if (errInsertPay) {
@@ -7930,7 +4446,7 @@ io.on('connection', (socket) => {
 
             db.run(
               `INSERT INTO movimentacoes (turno_id, tipo, valor, forma_pagamento, descricao, data) 
-               VALUES (?, 'Entrada', ?, 'Pix', ?, datetime('now'))`,
+               VALUES (?, 'Entrada', ?, 'Pix', ?, datetime('now', 'localtime'))`,
               [turno.id, pendingOrder.valor_total, `Pedido QR Code - ${mesaName} (${pendingOrder.cliente_nome})`]
             );
           }
@@ -8065,156 +4581,18 @@ io.on('connection', (socket) => {
   socket.on('get_produtos', () => broadcastProdutos(socket));
   socket.on('get_funcionarios', () => db.all(`SELECT * FROM funcionarios`, (err, rows) => socket.emit('funcionarios_atualizados', rows || [])));
 
-  // Cria mesa com proteção anti-duplicidade (normaliza acentos/caixa ao comparar)
-  socket.on('add_mesa', (nome) => {
-    const nomeLimpo = String(nome || '').trim().slice(0, 60);
-    if (!nomeLimpo) return;
-    db.all(`SELECT nome FROM mesas`, (eAll, rows) => {
-      if (!eAll && (rows || []).some(m => normalizarNomeMesa(m.nome) === normalizarNomeMesa(nomeLimpo))) {
-        // Já existe mesa com esse nome — não duplica, apenas repropaga a lista
-        return db.all(`SELECT * FROM mesas`, (e2, r2) => io.emit('mesas_atualizadas', r2 || []));
-      }
-      db.run(`INSERT INTO mesas (nome) VALUES (?)`, [nomeLimpo], () => {
-        db.all(`SELECT * FROM mesas`, (e, r) => io.emit('mesas_atualizadas', r || []));
-      });
-    });
-  });
-
-  // Setup inicial: substitui as mesas de exemplo pela configuração exata escolhida pelo dono
-  socket.on('setup_redefinir_mesas', (nomes) => {
+  socket.on('add_mesa', (nome) => db.run(`INSERT INTO mesas (nome) VALUES (?)`, [nome], () => {
+    db.all(`SELECT * FROM mesas`, (e, r) => io.emit('mesas_atualizadas', r || []));
+  }));
+  socket.on('delete_mesa', (id) => {
     if (!exigirAdminSocket(socket)) return;
-    const lista = Array.isArray(nomes) ? nomes.map(n => String(n || '').trim().slice(0, 60)).filter(Boolean).slice(0, 200) : [];
-    if (!lista.length) return;
-    // Segurança: só zera se nada está em uso (restaurante recém-criado)
-    db.get(`SELECT COUNT(*) as n FROM mesas WHERE status NOT IN ('Disponível','Disponivel')`, [], (eOc, oc) => {
-      const ocupadas = (!eOc && oc) ? oc.n : 0;
-      db.get(`SELECT COUNT(*) as n FROM pedidos WHERE status NOT IN ('Finalizado','Cancelado','Pago')`, [], (ePe, pe) => {
-        const pedidosAbertos = (!ePe && pe) ? pe.n : 0;
-        if (ocupadas > 0 || pedidosAbertos > 0) {
-          return socket.emit('erro_servidor', 'Não foi possível redefinir: já existem mesas em uso ou pedidos abertos. As novas foram adicionadas sem duplicar.');
-        }
-        db.run(`DELETE FROM mesas`, () => {
-          let pendentes = lista.length;
-          lista.forEach(nome => {
-            db.run(`INSERT INTO mesas (nome, status) VALUES (?, 'Disponível')`, [nome], () => {
-              if (--pendentes === 0) db.all(`SELECT * FROM mesas`, (e2, r2) => io.emit('mesas_atualizadas', r2 || []));
-            });
-          });
-          global.registrarAuditoria(socket.auth?.nome || 'Admin', 'SETUP_MESAS', `Mesas redefinidas no setup inicial (${lista.length} mesas)`, 'Configuração', 'MEDIO');
-        });
-      });
+    db.run(`DELETE FROM mesas WHERE id = ?`, [id], () => {
+      db.all(`SELECT * FROM mesas`, (e, r) => io.emit('mesas_atualizadas', r || []));
     });
   });
 
-  // Setup inicial: remove os produtos de exemplo para começar só com os do dono
-  socket.on('setup_limpar_produtos_exemplo', () => {
-    if (!exigirAdminSocket(socket)) return;
-    db.get(`SELECT COUNT(*) as n FROM pedidos WHERE status NOT IN ('Finalizado','Cancelado','Pago')`, [], (ePe, pe) => {
-      const pedidosAbertos = (!ePe && pe) ? pe.n : 0;
-      if (pedidosAbertos > 0) return socket.emit('erro_servidor', 'Existem pedidos abertos — produtos de exemplo não foram removidos.');
-      db.run(`DELETE FROM produtos`, () => {
-        broadcastProdutos();
-        global.registrarAuditoria(socket.auth?.nome || 'Admin', 'SETUP_PRODUTOS', 'Produtos de exemplo removidos no setup inicial', 'Configuração', 'MEDIO');
-      });
-    });
-  });
-
-  // Painel de configurações salvou via REST: propaga para todas as telas
-  socket.on('admin_configs_updated', () => {
-    io.emit('configuracoes_atualizadas');
-  });
-
-  // Cria comanda CRM: cadastra/atualiza o cliente e abre uma mesa com o nome dele
-  socket.on('nova_comanda_crm', (data) => {
-    const nome = String((data && data.nome) || '').trim().slice(0, 80);
-    const telefone = String((data && data.telefone) || '').replace(/\D/g, '').slice(0, 15);
-    if (!nome) return socket.emit('erro_servidor', 'Nome da comanda é obrigatório.');
-
-    const criarMesa = (clienteId) => {
-      db.get(`SELECT id FROM mesas WHERE nome = ?`, [nome], (eDup, dup) => {
-        if (!eDup && dup) {
-          return socket.emit('comanda_criada_sucesso', { nomeMesa: nome, cliente_id: clienteId });
-        }
-        db.run(`INSERT INTO mesas (nome) VALUES (?)`, [nome], (eIns) => {
-          if (eIns) return socket.emit('erro_servidor', 'Falha ao criar a comanda.');
-          db.all(`SELECT * FROM mesas`, (eAll, rows) => io.emit('mesas_atualizadas', rows || []));
-          socket.emit('comanda_criada_sucesso', { nomeMesa: nome, cliente_id: clienteId });
-        });
-      });
-    };
-
-    if (telefone) {
-      db.get(`SELECT id FROM clientes WHERE telefone = ?`, [telefone], (eCli, cli) => {
-        if (!eCli && cli) return criarMesa(cli.id);
-        db.run(`INSERT INTO clientes (nome, telefone) VALUES (?, ?)`, [nome, telefone], function (eNew) {
-          criarMesa(eNew ? null : this.lastID);
-        });
-      });
-    } else {
-      db.run(`INSERT INTO clientes (nome) VALUES (?)`, [nome], function (eNew) {
-        criarMesa(eNew ? null : this.lastID);
-      });
-    }
-  });
-  socket.on('delete_mesa', (data, ack) => {
-    // Suporta payload legado (id) e novo { id, pin } com confirmação por PIN
-    const isObj = (typeof data === 'object' && data !== null);
-    const id = isObj ? data.id : data;
-    const pin = isObj ? (data.pin || '') : '';
-    const responder = (ok, mensagem) => {
-      if (typeof ack === 'function') ack({ ok, mensagem });
-      else if (!ok) socket.emit('erro_servidor', mensagem);
-    };
-    if (!id) return responder(false, 'Mesa inválida.');
-    const cargo = socket.auth?.cargo || '';
-    const isAdmin = _socketIsAdmin(socket);
-
-    const executarExclusao = () => {
-      db.get(`SELECT nome, status FROM mesas WHERE id = ?`, [id], (eSel, mesa) => {
-        if (eSel || !mesa) return responder(false, 'Mesa não encontrada ou já excluída.');
-        const statusNorm = String((mesa && mesa.status) || '').trim().toLowerCase();
-        if (!['disponível', 'disponivel', 'livre', ''].includes(statusNorm)) {
-          return responder(false, `Não é possível excluir "${mesa.nome}": possui consumo ativo ou reserva.`);
-        }
-        db.run(`DELETE FROM mesas WHERE id = ?`, [id], function (eDel) {
-          if (eDel) return responder(false, 'Falha ao excluir a mesa.');
-          global.registrarAuditoria(
-            socket.auth?.nome || 'Operador',
-            'EXCLUIR_MESA',
-            `Mesa/comanda "${mesa.nome}" (ID ${id}) excluída${!isAdmin ? ' — autorizada via PIN' : ''}`,
-            !isAdmin ? 'Exclusão por colaborador com PIN de administrador' : 'Gestão de mesas',
-            !isAdmin ? 'MEDIO' : 'BAIXO',
-            socket.id
-          );
-          db.all(`SELECT * FROM mesas`, (e, r) => io.emit('mesas_atualizadas', r || []));
-          responder(true, `Mesa "${mesa.nome}" excluída.`);
-        });
-      });
-    };
-
-    if (isAdmin) {
-      executarExclusao();
-    } else {
-      // Colaborador sem privilégio: exige PIN/senha de administrador validado no servidor
-      if (!pin) {
-        return responder(false, 'Informe o PIN de administrador para excluir mesas.');
-      }
-      verificarPinOuSenha(pin).then((ok) => {
-        if (!ok) return responder(false, 'PIN incorreto. Exclusão cancelada.');
-        executarExclusao();
-      }).catch(() => responder(false, 'Erro ao validar o PIN. Tente novamente.'));
-    }
-  });
-
-  // Foto do produto: apenas link externo http(s) (nada é salvo no SSD local)
-  const _limparFotoUrl = (v) => {
-    const s = String(v || '').trim().slice(0, 500);
-    if (!s) return null;
-    return /^https?:\/\//i.test(s) ? s : null;
-  };
-
-  socket.on('add_produto', (p) => db.run(`INSERT INTO produtos (categoria, nome, preco, emoji, hasAddons, setor, status_inicial, status, categoria_fiscal, descricao, codigo_barras, visibilidade, foto_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [p.categoria, p.nome, p.preco, p.emoji, p.hasAddons, p.setor || 'Cozinha 1', p.status_inicial || 'Em espera', p.status || 'ativo', p.categoria_fiscal || 'Alimentacao', p.descricao || '', p.codigo_barras || null, p.visibilidade || 'todos', _limparFotoUrl(p.foto_url)], (err) => {
+  socket.on('add_produto', (p) => db.run(`INSERT INTO produtos (categoria, nome, preco, emoji, hasAddons, setor, status_inicial, status, categoria_fiscal, descricao, codigo_barras, visibilidade) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [p.categoria, p.nome, p.preco, p.emoji, p.hasAddons, p.setor || 'Cozinha 1', p.status_inicial || 'Em espera', p.status || 'ativo', p.categoria_fiscal || 'Alimentacao', p.descricao || '', p.codigo_barras || null, p.visibilidade || 'todos'], (err) => {
       if (err) {
         console.error(err);
         socket.emit('erro_servidor', 'Falha ao adicionar o produto.');
@@ -8224,8 +4602,8 @@ io.on('connection', (socket) => {
     }));
 
   socket.on('edit_produto', (p) => {
-    db.run(`UPDATE produtos SET categoria=?, nome=?, preco=?, emoji=?, setor=?, status_inicial=?, status=?, categoria_fiscal=?, descricao=?, codigo_barras=?, visibilidade=?, foto_url=? WHERE id=?`,
-      [p.categoria, p.nome, p.preco, p.emoji, p.setor || 'Cozinha 1', p.status_inicial || 'Em espera', p.status || 'ativo', p.categoria_fiscal || 'Alimentacao', p.descricao || '', p.codigo_barras || null, p.visibilidade || 'todos', _limparFotoUrl(p.foto_url), p.id], () => {
+    db.run(`UPDATE produtos SET categoria=?, nome=?, preco=?, emoji=?, setor=?, status_inicial=?, status=?, categoria_fiscal=?, descricao=?, codigo_barras=?, visibilidade=? WHERE id=?`,
+      [p.categoria, p.nome, p.preco, p.emoji, p.setor || 'Cozinha 1', p.status_inicial || 'Em espera', p.status || 'ativo', p.categoria_fiscal || 'Alimentacao', p.descricao || '', p.codigo_barras || null, p.visibilidade || 'todos', p.id], () => {
         global.registrarAuditoria(p.operador || 'Admin', 'EDITAR_PRODUTO', `Produto editado: ${p.nome} (ID: ${p.id})`, 'Atualização de Cardápio', 'MEDIO');
         broadcastProdutos();
       });
@@ -8438,7 +4816,7 @@ io.on('connection', (socket) => {
         const qtd = parseInt(item.qtd) || 1;
         const precoUnit = parseFloat(item.preco) || 0;
         const itemTotal = (precoUnit * qtd).toFixed(2);
-        const emoji = item.emoji || '�?��?';
+        const emoji = item.emoji || '🍽️';
 
         db.run(insertStmt, [
           item.nome || 'Item',
@@ -8466,7 +4844,7 @@ io.on('connection', (socket) => {
                 broadcastHubPedidos();
                 broadcastPedidos();
                 socket.emit('hub_pedido_enviado_cozinha', { hubId: idNum, pedidoIds, comanda: comandaNome });
-                sendPush('garcom', '�?��? Novo Delivery!', `${canal} — ${clienteNome} — ${itens.length} item(ns)`, 'hub-' + idNum, '/fila-pedidos.html');
+                sendPush('garcom', '🍽️ Novo Delivery!', `${canal} — ${clienteNome} — ${itens.length} item(ns)`, 'hub-' + idNum, '/fila-pedidos.html');
               });
           }
         });
@@ -8809,7 +5187,26 @@ io.on('connection', (socket) => {
     });
   });
 
-  // ── atualizar_status_mesa → migrado para plugins/garcom/ ──
+  socket.on('atualizar_status_mesa', ({ nome, status, observacao }) => {
+    if (status === 'Disponível') {
+      mesasFechando.delete(nome);
+      io.emit('sync_mesas_fechando', Array.from(mesasFechando));
+    }
+    let query = `UPDATE mesas SET status = ?`;
+    let params = [status];
+    if (observacao !== undefined) {
+      query += `, observacao = ?`;
+      params.push(observacao);
+    }
+    query += ` WHERE nome = ?`;
+    params.push(nome);
+
+    db.run(query, params, () => {
+      db.all(`SELECT * FROM mesas`, (err, rows) => {
+        io.emit('mesas_atualizadas', rows || []);
+      });
+    });
+  });
 
   socket.on('alerta_pedir_conta', (mesaName) => {
     mesasFechando.add(mesaName);
@@ -8916,7 +5313,7 @@ io.on('connection', (socket) => {
                   localName: mesaName,
                   userName: 'App Garçom',
                   productName: produto + ' (Prêmio Fidelidade)',
-                  productEmoji: '�?�?',
+                  productEmoji: '🎁',
                   quantity: 1,
                   total: '0,00',
                   status: 'Recebido',
@@ -8927,7 +5324,7 @@ io.on('connection', (socket) => {
                 };
 
                 db.run(
-                  `INSERT INTO pedidos (localName, userName, productName, productEmoji, quantity, total, status, time, sector, turno_id, cliente_id, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+                  `INSERT INTO pedidos (localName, userName, productName, productEmoji, quantity, total, status, time, sector, turno_id, cliente_id, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))`,
                   [pedido.localName, pedido.userName, pedido.productName, pedido.productEmoji, pedido.quantity, pedido.total, pedido.status, pedido.time, pedido.sector, pedido.turno_id, pedido.cliente_id],
                   function (err4) {
                     if (!err4) {
@@ -8953,7 +5350,23 @@ io.on('connection', (socket) => {
   });
 
   // --- FIDELIDADE & PONTOS DO CLIENTE ---
-  // ── buscar_cliente_telefone (dup) → já migrado para plugins/garcom/ ──
+  socket.on('buscar_cliente_telefone', (query) => {
+    const q = (query || '').trim();
+    if (!q) {
+      socket.emit('resultado_cliente_telefone', null);
+      socket.emit('cliente_telefone_encontrado', { telefone: q, nome: null });
+      return;
+    }
+    db.get(
+      `SELECT * FROM clientes WHERE telefone LIKE ? OR nome LIKE ? LIMIT 1`,
+      [`%${q}%`, `%${q}%`],
+      (err, row) => {
+        socket.emit('resultado_cliente_telefone', row || null);
+        // Also emit the event garcom.js listens for
+        socket.emit('cliente_telefone_encontrado', { telefone: q, nome: row ? row.nome : null });
+      }
+    );
+  });
 
   socket.on('ajustar_pontos_cliente', ({ id, pontos }) => {
     const novosPontos = Math.max(0, parseInt(pontos, 10) || 0);
@@ -9068,7 +5481,7 @@ io.on('connection', (socket) => {
                 };
               });
 
-              // �?�?�? ESTRATÉGIA 1: FREQUENTEMENTE JUNTOS (Market Basket) �?�?�?
+              // ═══ ESTRATÉGIA 1: FREQUENTEMENTE JUNTOS (Market Basket) ═══
               // Agrupa vendas por timestamp (mesma mesa/pedido) para encontrar pares co-frequentes
               const pedidoGrupos = {};
               (sales || []).forEach(s => {
@@ -9120,7 +5533,7 @@ io.on('connection', (socket) => {
                 });
               });
 
-              // �?�?�? ESTRATÉGIA 2: ESTRELA + DORMÊNCIA �?�?�?
+              // ═══ ESTRATÉGIA 2: ESTRELA + DORMÊNCIA ═══
               // Parear produto mais vendido com produto menos vendido (do mesmo tipo)
               const allProds = Object.values(prodMap).sort((a, b) => b.vendas30d.qty - a.vendas30d.qty);
               const bestSellers = allProds.filter(p => p.vendas30d.qty >= 3);
@@ -9146,12 +5559,12 @@ io.on('connection', (socket) => {
                   descontoPct: desconto,
                   economiaEstimada: +(soma - comboPrice).toFixed(2),
                   prioridade: best.vendas30d.qty * 3 + 5,
-                  icon: '�?',
+                  icon: '⭐',
                   evidencia: `${best.vendas30d.qty} vendas vs ${complemento.vendas30d.qty} venda(s)`
                 });
               });
 
-              // �?�?�? ESTRATÉGIA 3: COMBO DO MOMENTO (Hora do dia) �?�?�?
+              // ═══ ESTRATÉGIA 3: COMBO DO MOMENTO (Hora do dia) ═══
               const hora = new Date().getHours();
               let periodo = 'noite';
               if (hora >= 6 && hora < 12) periodo = 'manha';
@@ -9201,13 +5614,13 @@ io.on('connection', (socket) => {
                     descontoPct: desconto,
                     economiaEstimada: +(soma - comboPrice).toFixed(2),
                     prioridade: 15,
-                    icon: periodo === 'manha' ? '☀�?' : periodo === 'almoco' ? '�?��?' : periodo === 'tarde' ? '🌅' : '🌙',
+                    icon: periodo === 'manha' ? '☀️' : periodo === 'almoco' ? '🍽️' : periodo === 'tarde' ? '🌅' : '🌙',
                     evidencia: `Sugerido para ${labelsPeriodo[periodo].toLowerCase()}`
                   });
                 }
               }
 
-              // �?�?�? ESTRATÉGIA 4: CROSS-SELL INTELIGENTE �?�?�?
+              // ═══ ESTRATÉGIA 4: CROSS-SELL INTELIGENTE ═══
               // Se o cliente pediu comida, sugira bebida e vice-versa (baseado nos top sellers)
               const foods = allProds.filter(p => p.categoria_fiscal === 'Alimentacao' && p.vendas30d.qty > 0);
               const drinks = allProds.filter(p => (p.categoria_fiscal === 'Bebida_Alcoolica' || p.categoria_fiscal === 'Bebida_Nao_Alcoolica') && p.vendas30d.qty > 0);
@@ -9229,13 +5642,13 @@ io.on('connection', (socket) => {
                     descontoPct: desconto,
                     economiaEstimada: +(soma - comboPrice).toFixed(2),
                     prioridade: topFood.vendas30d.qty + topDrink.vendas30d.qty + 20,
-                    icon: '�?�',
+                    icon: '🏆',
                     evidencia: `Top 1 em cada categoria`
                   });
                 }
               }
 
-              // �?�?�? ESTRATÉGIA 5: ALTO MARGEM COM BAIXA VISIBILIDADE �?�?�?
+              // ═══ ESTRATÉGIA 5: ALTO MARGEM COM BAIXA VISIBILIDADE ═══
               // Produtos com preço alto mas poucas vendas — precisa de promo
               const altoMargemBaixa = allProds.filter(p =>
                 p.preco > 20 && p.vendas30d.qty <= 2 && p.vendas30d.qty >= 0
@@ -9305,7 +5718,234 @@ io.on('connection', (socket) => {
     });
   });
 
-  // --- FIDELIDADE COMPLETA → migrado para plugins/fidelidade/ ---
+  // --- FIDELIDADE COMPLETA (config, níveis, check-in QR, ofertas) ---
+  const ORDEM_NIVEIS = { 'Bronze': 0, 'Prata': 1, 'Ouro': 2, 'Diamante': 3 };
+
+  function fidelidadeNivelServer(totalGasto, cfg) {
+    const prata = parseFloat(cfg.fidelidade_nivel_prata) || 500;
+    const ouro = parseFloat(cfg.fidelidade_nivel_ouro) || 1500;
+    const diamante = parseFloat(cfg.fidelidade_nivel_diamante) || 3500;
+    if (totalGasto >= diamante) return 'Diamante';
+    if (totalGasto >= ouro) return 'Ouro';
+    if (totalGasto >= prata) return 'Prata';
+    return 'Bronze';
+  }
+
+  socket.on('get_fidelidade_config', () => {
+    db.all(`SELECT chave, valor FROM configuracoes`, (err, rows) => {
+      const cfg = {};
+      if (rows) rows.forEach(r => cfg[r.chave] = r.valor);
+      socket.emit('fidelidade_config_atual', {
+        enabled: cfg.fidelidade_enabled !== 'false',
+        pontos_por_real: parseFloat(cfg.fidelidade_pontos_por_real) || 1,
+        checkin_pontos: parseInt(cfg.fidelidade_checkin_pontos) || 5,
+        checkin_diario: cfg.fidelidade_checkin_diario !== 'false',
+        niveis: [
+          { nome: 'Bronze', minimo: 0, bonus: 0 },
+          { nome: 'Prata', minimo: parseInt(cfg.fidelidade_nivel_prata) || 500, bonus: parseInt(cfg.fidelidade_bonus_prata) || 10 },
+          { nome: 'Ouro', minimo: parseInt(cfg.fidelidade_nivel_ouro) || 1500, bonus: parseInt(cfg.fidelidade_bonus_ouro) || 20 },
+          { nome: 'Diamante', minimo: parseInt(cfg.fidelidade_nivel_diamante) || 3500, bonus: parseInt(cfg.fidelidade_bonus_diamante) || 30 }
+        ]
+      });
+    });
+  });
+
+  socket.on('admin_atualizar_fidelidade_config', (cfg) => {
+    const campos = ['fidelidade_enabled', 'fidelidade_pontos_por_real', 'fidelidade_checkin_pontos', 'fidelidade_checkin_diario', 'fidelidade_nivel_prata', 'fidelidade_nivel_ouro', 'fidelidade_nivel_diamante', 'fidelidade_bonus_prata', 'fidelidade_bonus_ouro', 'fidelidade_bonus_diamante'];
+    let pendentes = campos.length;
+    const finalizar = () => { pendentes--; if (pendentes <= 0) socket.emit('fidelidade_config_salvo', { success: true }); };
+    campos.forEach(k => {
+      if (cfg && cfg[k] !== undefined) {
+        db.run(`INSERT INTO configuracoes (chave, valor) VALUES (?, ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor`, [k, String(cfg[k])], finalizar);
+      } else { finalizar(); }
+    });
+  });
+
+  socket.on('cliente_checkin', (data) => {
+    const { cliente_id, telefone } = data || {};
+    const whereClause = isValidId(cliente_id) ? 'id = ?' : 'telefone = ?';
+    const param = isValidId(cliente_id) ? cliente_id : String(telefone || '').replace(/\D/g, '');
+    db.get(`SELECT * FROM clientes WHERE ${whereClause}`, [param], (err, cliente) => {
+      if (!cliente) return socket.emit('checkin_response', { error: 'Cliente não encontrado. Cadastre-se no caixa.' });
+      db.all(`SELECT chave, valor FROM configuracoes`, (eCfg, cfgRows) => {
+        const cfg = {};
+        if (cfgRows) cfgRows.forEach(r => cfg[r.chave] = r.valor);
+        if (cfg.fidelidade_enabled === 'false') return socket.emit('checkin_response', { error: 'Programa de fidelidade desativado.' });
+        const pontos = Math.max(1, parseInt(cfg.fidelidade_checkin_pontos) || 5);
+        const diario = cfg.fidelidade_checkin_diario !== 'false';
+        const agora = new Date();
+        const hoje = agora.getFullYear() + '-' + String(agora.getMonth() + 1).padStart(2, '0') + '-' + String(agora.getDate()).padStart(2, '0');
+        if (diario && cliente.ultimo_checkin === hoje) {
+          return socket.emit('checkin_response', { success: false, error: 'Você já fez check-in hoje. Volte amanhã!' });
+        }
+        db.run(`UPDATE clientes SET pontos = pontos + ?, ultimo_checkin = ? WHERE id = ?`, [pontos, hoje, cliente.id], (err2) => {
+          if (err2) return socket.emit('checkin_response', { error: 'Erro ao registrar check-in.' });
+          db.run(`INSERT INTO checkins_fidelidade (cliente_id, pontos, data) VALUES (?, ?, datetime('now', 'localtime'))`, [cliente.id, pontos], () => {
+            socket.emit('checkin_response', { success: true, pontos, novoSaldo: (parseInt(cliente.pontos) || 0) + pontos });
+            db.all(`SELECT * FROM clientes`, (e, r) => io.emit('clientes_atualizados', r || []));
+          });
+        });
+      });
+    });
+  });
+
+  socket.on('get_cliente_checkins', (cliente_id) => {
+    if (!isValidId(cliente_id)) return socket.emit('cliente_checkins_lista', []);
+    db.all(`SELECT * FROM checkins_fidelidade WHERE cliente_id = ? ORDER BY id DESC LIMIT 30`, [cliente_id], (err, rows) => {
+      socket.emit('cliente_checkins_lista', rows || []);
+    });
+  });
+
+  socket.on('get_ofertas_fidelidade', (cliente_id) => {
+    db.get(`SELECT nivel, total_gasto FROM clientes WHERE id = ?`, [cliente_id], (err, cliente) => {
+      const nivel = (cliente && cliente.nivel) || 'Bronze';
+      const idx = ORDEM_NIVEIS[nivel] !== undefined ? ORDEM_NIVEIS[nivel] : 0;
+      db.all(`SELECT * FROM ofertas_fidelidade WHERE ativo = 1 ORDER BY id DESC`, [], (err, rows) => {
+        const permitidos = (rows || []).filter(o => (ORDEM_NIVEIS[o.nivel] !== undefined ? ORDEM_NIVEIS[o.nivel] : 0) <= idx);
+        socket.emit('ofertas_fidelidade_lista', permitidos);
+      });
+    });
+  });
+
+  socket.on('admin_get_ofertas_fidelidade', () => {
+    db.all(`SELECT * FROM ofertas_fidelidade ORDER BY id DESC`, (err, rows) => socket.emit('admin_ofertas_fidelidade_lista', rows || []));
+  });
+  socket.on('add_oferta_fidelidade', (o) => {
+    db.run(`INSERT INTO ofertas_fidelidade (titulo, descricao, nivel, ativo) VALUES (?, ?, ?, ?)`, [o.titulo, o.descricao, o.nivel || 'Bronze', o.ativo ? 1 : 0], () => {
+      db.all(`SELECT * FROM ofertas_fidelidade ORDER BY id DESC`, (err, rows) => io.emit('admin_ofertas_fidelidade_lista', rows || []));
+    });
+  });
+  socket.on('edit_oferta_fidelidade', (o) => {
+    db.run(`UPDATE ofertas_fidelidade SET titulo=?, descricao=?, nivel=?, ativo=? WHERE id=?`, [o.titulo, o.descricao, o.nivel || 'Bronze', o.ativo ? 1 : 0, o.id], () => {
+      db.all(`SELECT * FROM ofertas_fidelidade ORDER BY id DESC`, (err, rows) => io.emit('admin_ofertas_fidelidade_lista', rows || []));
+    });
+  });
+  socket.on('delete_oferta_fidelidade', (id) => {
+    if (!exigirAdminSocket(socket)) return;
+    if (!isValidId(id)) return;
+    db.run(`DELETE FROM ofertas_fidelidade WHERE id=?`, [id], () => {
+      db.all(`SELECT * FROM ofertas_fidelidade ORDER BY id DESC`, (err, rows) => io.emit('admin_ofertas_fidelidade_lista', rows || []));
+    });
+  });
+
+  // --- FIDELIDADE / ÁREA DO CLIENTE ---
+  socket.on('cliente_login', (telefone) => {
+    db.get(`SELECT * FROM clientes WHERE telefone = ?`, [telefone], (err, cliente) => {
+      if (err) return socket.emit('cliente_login_response', { error: 'Erro no servidor' });
+      if (cliente) {
+        socket.emit('cliente_login_response', { success: true, cliente });
+      } else {
+        socket.emit('cliente_login_response', { error: 'Cliente não encontrado. Solicite seu cadastro no caixa.' });
+      }
+    });
+  });
+
+  socket.on('get_beneficios', () => {
+    db.all(`SELECT * FROM beneficios WHERE ativo = 1 ORDER BY pontos ASC`, (err, rows) => {
+      socket.emit('beneficios_lista', rows || []);
+    });
+  });
+
+  socket.on('resgatar_beneficio', ({ cliente_id, beneficio_id }) => {
+    db.get(`SELECT pontos FROM clientes WHERE id = ?`, [cliente_id], (err, cliente) => {
+      if (!cliente) return socket.emit('resgate_response', { error: 'Cliente inválido' });
+      db.get(`SELECT pontos, nome FROM beneficios WHERE id = ? AND ativo = 1`, [beneficio_id], (err, beneficio) => {
+        if (!beneficio) return socket.emit('resgate_response', { error: 'Benefício inválido' });
+
+        if (cliente.pontos < beneficio.pontos) {
+          return socket.emit('resgate_response', { error: 'Pontos insuficientes' });
+        }
+
+        const codigo = Math.random().toString(36).substring(2, 8).toUpperCase();
+        const custo = beneficio.pontos;
+
+        // Atomic deduct with balance check at DB level
+        db.run(`UPDATE clientes SET pontos = pontos - ? WHERE id = ? AND pontos >= ?`, [custo, cliente_id, custo], (err) => {
+          if (!err) {
+            db.run(`INSERT INTO resgates (cliente_id, beneficio_id, codigo, data) VALUES (?, ?, ?, datetime('now', 'localtime'))`,
+              [cliente_id, beneficio_id, codigo], () => {
+                const novoSaldo = cliente.pontos - custo;
+                socket.emit('resgate_response', { success: true, codigo, novoSaldo });
+                db.all(`SELECT * FROM clientes`, (e, r) => io.emit('clientes_lista', r || []));
+              });
+          }
+        });
+      });
+    });
+  });
+
+  socket.on('get_resgates_cliente', (cliente_id) => {
+    db.all(`
+      SELECT r.*, b.nome as beneficio_nome 
+      FROM resgates r 
+      JOIN beneficios b ON r.beneficio_id = b.id 
+      WHERE r.cliente_id = ? 
+      ORDER BY r.id DESC`,
+      [cliente_id], (err, rows) => {
+        socket.emit('resgates_cliente_lista', rows || []);
+      });
+  });
+
+  socket.on('get_cliente_pedidos', (data) => {
+    const { cliente_id, telefone } = data || {};
+    if (!cliente_id && !telefone) return socket.emit('cliente_pedidos_response', []);
+    let query, params;
+    if (cliente_id) {
+      query = `SELECT p.id, p.localName as mesa, p.status, p.total, p.productName, p.quantity, p.time as hora, p.createdAt as data FROM pedidos p WHERE p.cliente_id = ? AND p.status NOT IN ('Cancelado', 'Chamada') ORDER BY p.id DESC LIMIT 20`;
+      params = [cliente_id];
+    } else {
+      query = `SELECT p.id, p.localName as mesa, p.status, p.total, p.productName, p.quantity, p.time as hora, p.createdAt as data FROM pedidos p WHERE p.userName = ? AND p.status NOT IN ('Cancelado', 'Chamada') ORDER BY p.id DESC LIMIT 20`;
+      params = [telefone];
+    }
+    db.all(query, params, (err, rows) => {
+      socket.emit('cliente_pedidos_response', rows || []);
+    });
+  });
+
+  socket.on('get_cliente_visitas', (data) => {
+    const { cliente_id, telefone } = data || {};
+    if (!cliente_id && !telefone) return socket.emit('cliente_visitas_response', []);
+    let query, params;
+    if (cliente_id) {
+      query = `SELECT v.mesa, v.data_visita as data, v.pontos_ganhos, v.contabilizado FROM cliente_visitas v WHERE v.cliente_id = ? ORDER BY v.id DESC LIMIT 30`;
+      params = [cliente_id];
+    } else {
+      query = `SELECT v.mesa, v.data_visita as data, v.pontos_ganhos, v.contabilizado FROM cliente_visitas v WHERE v.cliente_telefone = ? ORDER BY v.id DESC LIMIT 30`;
+      params = [telefone];
+    }
+    db.all(query, params, (err, rows) => {
+      socket.emit('cliente_visitas_response', rows || []);
+    });
+  });
+
+  socket.on('registrar_visita', (data) => {
+    const { cliente_id, cliente_nome, cliente_telefone, mesa } = data || {};
+    if (!cliente_id && !cliente_telefone) return;
+    db.run(`INSERT INTO cliente_visitas (cliente_id, cliente_nome, cliente_telefone, mesa) VALUES (?, ?, ?, ?)`,
+      [cliente_id || null, cliente_nome || '', cliente_telefone || '', mesa || ''], (err) => {
+        if (!err) socket.emit('visita_registrada', { success: true });
+      });
+  });
+
+  socket.on('admin_get_beneficios', () => {
+    db.all(`SELECT * FROM beneficios`, (err, rows) => socket.emit('admin_beneficios_lista', rows || []));
+  });
+  socket.on('add_beneficio', (b) => {
+    db.run(`INSERT INTO beneficios (nome, pontos, imagem_url, ativo) VALUES (?, ?, ?, ?)`, [b.nome, b.pontos, b.imagem_url, b.ativo ? 1 : 0], () => {
+      db.all(`SELECT * FROM beneficios`, (err, rows) => io.emit('admin_beneficios_lista', rows || []));
+    });
+  });
+  socket.on('edit_beneficio', (b) => {
+    db.run(`UPDATE beneficios SET nome=?, pontos=?, imagem_url=?, ativo=? WHERE id=?`, [b.nome, b.pontos, b.imagem_url, b.ativo ? 1 : 0, b.id], () => {
+      db.all(`SELECT * FROM beneficios`, (err, rows) => io.emit('admin_beneficios_lista', rows || []));
+    });
+  });
+  socket.on('delete_beneficio', (id) => {
+    if (!exigirAdminSocket(socket)) return;
+    db.run(`DELETE FROM beneficios WHERE id=?`, [id], () => {
+      db.all(`SELECT * FROM beneficios`, (err, rows) => io.emit('admin_beneficios_lista', rows || []));
+    });
+  });
 
   // --- DASHBOARD ESTATISTICAS ---
   socket.on('get_estatisticas_dashboard', () => {
@@ -9348,7 +5988,7 @@ io.on('connection', (socket) => {
     });
   });
 
-  // �?�?�?�?�?�? JOGOS / GAMIFICAÇÃO �?�?�?�?�?�?
+  // ══════ JOGOS / GAMIFICAÇÃO ══════
   const jogosEmAndamento = {};
 
   // Listar jogos disponíveis
@@ -9832,7 +6472,7 @@ io.on('connection', (socket) => {
         const msgPayload = `0001${String(42).padStart(4, '0')}${terminal}${estab}${modalidade}${valorCentavos}`;
         const msgLen = String(msgPayload.length).padStart(4, '0');
         const fullMsg = `${msgLen}${msgPayload}`;
-        socket.emit('mp_status_pagamento', { status: 'processando', msg: '⚙�?�? Enviando cobrança para servidor SiTef...' });
+        socket.emit('mp_status_pagamento', { status: 'processando', msg: '⚙️ Enviando cobrança para servidor SiTef...' });
         const client = new net.Socket();
         let sitefBuf = '';
         client.setTimeout(90000);
@@ -9995,10 +6635,156 @@ io.on('connection', (socket) => {
     });
   });
 
-  // ── reservar_mesa / cancelar_reserva → migrados para plugins/reserves/ ──
+  socket.on('reservar_mesa', ({ mesaName, observacao, cliente, telefone }) => {
+    db.run(`UPDATE mesas SET status = 'Reservada', observacao = ? WHERE nome = ?`, [observacao, mesaName], () => {
+      const finalizar = () => {
+        if (cliente) {
+          db.run(
+            `INSERT INTO mesa_clientes (mesa, cliente_id, cliente_nome, cliente_telefone, updated_at)
+             VALUES (?, NULL, ?, ?, datetime('now','localtime'))
+             ON CONFLICT(mesa) DO UPDATE SET
+               cliente_nome = excluded.cliente_nome,
+               cliente_telefone = COALESCE(NULLIF(excluded.cliente_telefone,''), cliente_telefone),
+               updated_at = datetime('now','localtime')`,
+            [mesaName, cliente, telefone || ''], () => {
+              broadcastMesaClientes();
+              db.all(`SELECT * FROM mesas`, (err, rows) => io.emit('mesas_atualizadas', rows || []));
+            });
+        } else {
+          db.all(`SELECT * FROM mesas`, (err, rows) => io.emit('mesas_atualizadas', rows || []));
+        }
+      };
+      if (cliente && telefone) {
+        db.get(`SELECT id FROM clientes WHERE telefone = ?`, [telefone], (err, row) => {
+          if (row) {
+            db.run(`UPDATE clientes SET nome = ? WHERE id = ?`, [cliente, row.id], () => finalizar());
+          } else {
+            db.run(`INSERT INTO clientes (nome, telefone, observacao, endereco, data_nascimento, pontos) VALUES (?, ?, '', '', '', 0)`,
+              [cliente, telefone], () => finalizar());
+          }
+        });
+      } else if (cliente) {
+        db.get(`SELECT id FROM clientes WHERE nome = ? ORDER BY id DESC LIMIT 1`, [cliente], (err, row) => {
+          if (!row) {
+            db.run(`INSERT INTO clientes (nome, telefone, observacao, endereco, data_nascimento, pontos) VALUES (?, '', '', '', '', 0)`,
+              [cliente], () => finalizar());
+          } else {
+            finalizar();
+          }
+        });
+      } else {
+        finalizar();
+      }
+    });
+  });
 
-  // --- RH / Controle de Ponto e Vales → migrados para plugins/rh/ ---
-  // bater_ponto, get_metricas_funcionario, solicitar_vale, definir_meu_pin, update_valor_hora
+  socket.on('cancelar_reserva', ({ mesaName }) => {
+    db.run(`UPDATE mesas SET status = 'Disponível', observacao = '' WHERE nome = ?`, [mesaName], () => {
+      db.run(`DELETE FROM mesa_clientes WHERE mesa = ?`, [mesaName], () => broadcastMesaClientes());
+      db.all(`SELECT * FROM mesas`, (err, rows) => io.emit('mesas_atualizadas', rows || []));
+    });
+  });
+
+  // --- RH / Controle de Ponto e Vales ---
+
+  socket.on('bater_ponto', ({ funcionario_id, acao, token }) => {
+    if (token !== pontoToken) { return socket.emit('bater_ponto_error', 'QR Code expirado ou inválido! Escaneie novamente no Caixa.'); }
+    const hoje = getLocalDateOnly();
+    const agora = getLocalTimestamp();
+
+    if (acao === 'entrada') {
+      db.run(`INSERT INTO pontos (funcionario_id, entrada, data) VALUES (?, ?, ?)`, [funcionario_id, agora, hoje], function (err) {
+        if (!err) socket.emit('ponto_registrado', { id: this.lastID, acao });
+      });
+    } else if (acao === 'saida') {
+      db.get(`SELECT p.*, f.valor_hora, f.tipo_remuneracao, f.valor_dia, f.valor_semana, f.valor_mes FROM pontos p JOIN funcionarios f ON p.funcionario_id = f.id WHERE p.funcionario_id = ? AND p.saida IS NULL ORDER BY p.id DESC LIMIT 1`, [funcionario_id], (err, row) => {
+        if (err) {
+          return socket.emit('bater_ponto_error', 'Erro ao buscar ponto em aberto: ' + err.message);
+        }
+        if (row) {
+          const t1 = new Date(row.entrada).getTime();
+          const t2 = new Date(agora).getTime();
+          const horasTrabalhadas = (t2 - t1) / (1000 * 60 * 60);
+
+          let valorPagar = 0;
+          const tipoRem = row.tipo_remuneracao || 'hora';
+          if (tipoRem === 'hora') {
+            valorPagar = horasTrabalhadas * (row.valor_hora || 0);
+          } else if (tipoRem === 'dia') {
+            valorPagar = row.valor_dia || 0;
+          } else if (tipoRem === 'semana') {
+            valorPagar = (row.valor_semana || 0) / 6; // Standard proration (6 working days/week)
+          } else if (tipoRem === 'mes') {
+            valorPagar = (row.valor_mes || 0) / 26;   // Standard proration (26 working days/month)
+          }
+
+          db.run(`UPDATE pontos SET saida = ?, total_horas = ?, valor_pagar = ? WHERE id = ?`, [agora, horasTrabalhadas, valorPagar, row.id], (err2) => {
+            if (!err2) {
+              socket.emit('ponto_registrado', { id: row.id, acao, horasTrabalhadas, valorPagar });
+            } else {
+              socket.emit('bater_ponto_error', 'Erro ao registrar saída: ' + err2.message);
+            }
+          });
+        } else {
+          socket.emit('bater_ponto_error', 'Nenhuma entrada em aberto encontrada para registrar a saída.');
+        }
+      });
+    }
+  });
+
+  socket.on('get_metricas_funcionario', (funcionario_id) => {
+    db.all(`SELECT * FROM pontos WHERE funcionario_id = ? ORDER BY id DESC`, [funcionario_id], (err, pontos) => {
+      if (err) {
+        console.error('Error fetching pontos:', err);
+        socket.emit('metricas_funcionario_response', { pontos: [], vales: [], pagamentos: [] });
+        return;
+      }
+      db.all(`SELECT * FROM vales WHERE funcionario_id = ? ORDER BY id DESC`, [funcionario_id], (err2, vales) => {
+        if (err2) {
+          console.error('Error fetching vales:', err2);
+          socket.emit('metricas_funcionario_response', { pontos: pontos || [], vales: [], pagamentos: [] });
+          return;
+        }
+        db.all(`SELECT * FROM funcionarios_pagamentos WHERE funcionario_id = ? ORDER BY data_pagamento DESC`, [funcionario_id], (err3, pagamentos) => {
+          socket.emit('metricas_funcionario_response', { pontos: pontos || [], vales: vales || [], pagamentos: pagamentos || [] });
+        });
+      });
+    });
+  });
+
+  socket.on('solicitar_vale', ({ funcionario_id, valor, motivo }) => {
+    const agora = getLocalTimestamp();
+    const obs = motivo ? String(motivo).trim().substring(0, 30) : '';
+    db.run(`INSERT INTO vales (funcionario_id, data_pedido, valor, status, observacao) VALUES (?, ?, ?, 'Pendente', ?)`,
+      [funcionario_id, agora, valor, obs], function (err) {
+      if (!err) {
+        socket.emit('vale_solicitado_success');
+      } else {
+        console.error('Error requesting vale:', err);
+        socket.emit('bater_ponto_error', 'Erro ao solicitar vale: ' + err.message);
+      }
+    });
+  });
+
+  socket.on('definir_meu_pin', ({ funcionario_id, pin }) => {
+    if (!isValidId(funcionario_id) || !pin || pin.length < 4 || pin.length > 6 || !/^\d+$/.test(pin)) {
+      return socket.emit('definir_pin_error', 'PIN inválido. Deve conter de 4 a 6 números.');
+    }
+    bcrypt.hash(pin, 10).then(hash => {
+      db.run(`UPDATE funcionarios SET pin_hash = ? WHERE id = ?`, [hash, funcionario_id], (err) => {
+        if (err) return socket.emit('definir_pin_error', 'Erro ao salvar PIN no servidor.');
+        socket.emit('definir_pin_success', 'PIN salvo com sucesso! Você já pode usar seu PIN para entrar.');
+      });
+    }).catch(e => {
+      socket.emit('definir_pin_error', 'Erro ao processar PIN.');
+    });
+  });
+
+  socket.on('update_valor_hora', ({ funcionario_id, valor_hora }) => {
+    db.run(`UPDATE funcionarios SET valor_hora = ? WHERE id = ?`, [valor_hora, funcionario_id], (err) => {
+      if (!err) socket.emit('update_valor_hora_success');
+    });
+  });
 
   socket.on('get_cupons_list', () => {
     db.all(`SELECT * FROM cupons ORDER BY data_criacao DESC`, (err, rows) => {
@@ -10026,22 +6812,106 @@ io.on('connection', (socket) => {
     });
   });
 
-  // ── PLUGIN RH: consolidar handlers de ponto/vales/folha/gerência ──
-  try {
-    const rhPlugin = require('./plugins/rh');
-    if (rhPlugin.registerRhSockets) {
-      rhPlugin.registerRhSockets(socket, {
-        db, io, masterDb, activeSockets,
-        getPontoToken: () => pontoToken,
-        getLocalTimestamp, getLocalDateOnly, safeFloat, isValidId
+  registerAdminRhEvents(socket);
+
+  // --- MÓDULO FISCAL NFC-E SOCKETS ---
+  socket.on('emitir_nfce', async (data, ack) => {
+    try {
+      db.all(`SELECT * FROM configuracoes`, async (errConfig, configRows) => {
+        const config = {};
+        if (configRows) configRows.forEach(r => config[r.chave] = r.valor);
+
+        const res = await nfceService.emitirNFCe({
+          db,
+          pedidoId: data.pedidoId,
+          localName: data.mesaName || data.localName || 'Mesa',
+          items: data.items || [],
+          totalValue: data.totalValue || data.total || 0,
+          cpfCnpj: data.cpfCnpj || '',
+          clienteNome: data.clienteNome || '',
+          paymentMethods: data.paymentMethods || (data.payments ? data.payments.map(p => p.metodo).join(', ') : 'Dinheiro'),
+          config
+        });
+
+        if (typeof ack === 'function') ack(res);
+        socket.emit('nfce_emitida_sucesso', res);
+
+        db.all(`SELECT id, pedido_id, localName, cliente_nome, cpf_cnpj, valor_total, chave_acesso, numero_nota, serie, ambiente, status, protocolo, created_at FROM nfce_notas ORDER BY id DESC`, (errNotas, rows) => {
+          io.emit('nfce_lista_atualizada', rows || []);
+        });
       });
+    } catch (e) {
+      console.error('Erro na emissão de NFC-e:', e);
+      if (typeof ack === 'function') ack({ ok: false, erro: e.message });
+      socket.emit('erro_nfce', 'Erro na emissão de NFC-e: ' + e.message);
     }
-  } catch (e) { console.error('[rh] Falha ao registrar sockets:', e.message); }
+  });
 
-  // --- MÓDULO FISCAL NFC-E SOCKETS → migrado para plugins/nfce/ ---
-  // emitir_nfce, get_nfce_notas, cancelar_nfce, get_nfce_notas_paginated
+  socket.on('get_nfce_notas', (options = {}) => {
+    let limit = 50; // default for 'sessao'
+    if (options.period === 'semana') {
+      limit = 300;
+    }
 
-  // get_api_logs + get_auditoria_logs → migrado para plugins/logs/
+    db.all(`SELECT id, pedido_id, localName, cliente_nome, cpf_cnpj, valor_total, chave_acesso, numero_nota, serie, ambiente, status, protocolo, created_at FROM nfce_notas ORDER BY id DESC LIMIT ?`, [limit], (err, rows) => {
+      socket.emit('nfce_lista_atualizada', rows || []);
+    });
+  });
+
+  socket.on('cancelar_nfce', async ({ id, motivo }, ack) => {
+    const res = await nfceService.cancelarNFCe(db, id, motivo);
+    if (typeof ack === 'function') ack(res);
+    db.all(`SELECT id, pedido_id, localName, cliente_nome, cpf_cnpj, valor_total, chave_acesso, numero_nota, serie, ambiente, status, protocolo, created_at FROM nfce_notas ORDER BY id DESC`, (err, rows) => {
+      io.emit('nfce_lista_atualizada', rows || []);
+    });
+  });
+
+
+  socket.on('get_nfce_notas_paginated', (opts, callback) => {
+    let page = opts.page || 1;
+    let limit = opts.limit || 15;
+    let offset = (page - 1) * limit;
+    let search = opts.search ? '%' + opts.search + '%' : '';
+    let startDate = opts.startDate ? opts.startDate + ' 00:00:00' : '';
+    let endDate = opts.endDate ? opts.endDate + ' 23:59:59' : '';
+
+    let query = 'SELECT id, pedido_id, localName, cliente_nome, cpf_cnpj, valor_total, chave_acesso, numero_nota, serie, ambiente, status, protocolo, created_at FROM nfce_notas WHERE 1=1';
+    let countQuery = 'SELECT COUNT(*) as total FROM nfce_notas WHERE 1=1';
+    let params = [];
+
+    if (startDate) { query += ' AND created_at >= ?'; countQuery += ' AND created_at >= ?'; params.push(startDate); }
+    if (endDate) { query += ' AND created_at <= ?'; countQuery += ' AND created_at <= ?'; params.push(endDate); }
+    if (search) {
+      let searchClause = ' AND (cliente_nome LIKE ? OR cpf_cnpj LIKE ? OR numero_nota LIKE ?)';
+      query += searchClause;
+      countQuery += searchClause;
+      params.push(search, search, search);
+    }
+
+    db.get(countQuery, params, (err, countRow) => {
+      if (err) { if (typeof callback === 'function') callback({ error: err.message }); return; }
+
+      query += ' ORDER BY id DESC LIMIT ? OFFSET ?';
+      let pParams = [...params, limit, offset];
+
+      db.all(query, pParams, (err, rows) => {
+        if (err) { if (typeof callback === 'function') callback({ error: err.message }); return; }
+        if (typeof callback === 'function') callback({ data: rows || [], total: countRow.total, page, limit });
+      });
+    });
+  });
+
+  socket.on('get_api_logs', () => {
+    db.all(`SELECT * FROM api_logs ORDER BY id DESC LIMIT 300`, (err, rows) => {
+      socket.emit('api_logs_recebidos', rows || []);
+    });
+  });
+
+  socket.on('get_auditoria_logs', () => {
+    db.all(`SELECT * FROM auditoria ORDER BY id DESC LIMIT 200`, (err, rows) => {
+      socket.emit('auditoria_logs_recebidos', rows || []);
+    });
+  });
 
   // --- Módulo de Estoque (Mobile) ---
   socket.on('buscar_produto_por_codigo', (codigo) => {
@@ -10598,7 +7468,81 @@ io.on('connection', (socket) => {
     });
   });
 
-  // --- PAINEL FUNCIONARIO: GERENCIA/MANAGER ? migrado para plugins/rh/ ---
+  // --- PAINEL FUNCIONARIO: GERENCIA/MANAGER ---
+  socket.on('manager_get_team_status', () => {
+    db.all(`SELECT id, nome, cargo FROM funcionarios WHERE status = 'Ativo'`, [], (err, funcs) => {
+      if (err || !funcs) return socket.emit('manager_team_status', []);
+      db.all(`SELECT funcionario_id FROM pontos WHERE saida IS NULL`, [], (errP, pontosAbertos) => {
+        const openPointsSet = new Set((pontosAbertos || []).map(p => p.funcionario_id));
+        const activeSocketFuncs = new Set(
+          Array.from(activeSockets.values())
+            .filter(conn => conn && conn.user)
+            .map(conn => conn.user)
+        );
+        const result = funcs.map(f => {
+          const isOnline = activeSocketFuncs.has(f.nome) || Array.from(io.sockets.sockets.values()).some(s => s.funcionarioId === f.id);
+          return {
+            id: f.id,
+            nome: f.nome,
+            cargo: f.cargo,
+            online: isOnline,
+            ponto_aberto: openPointsSet.has(f.id)
+          };
+        });
+        socket.emit('manager_team_status', result);
+      });
+    });
+  });
+
+  socket.on('manager_get_pending_vales', () => {
+    db.all(`SELECT v.*, f.nome as funcionario_nome FROM vales v JOIN funcionarios f ON v.funcionario_id = f.id WHERE v.status = 'Pendente' ORDER BY v.id DESC`, [], (err, vales) => {
+      socket.emit('manager_pending_vales', vales || []);
+    });
+  });
+
+  socket.on('manager_get_calendar_vales', () => {
+    db.all(`SELECT v.*, f.nome as funcionario_nome FROM vales v JOIN funcionarios f ON v.funcionario_id = f.id ORDER BY v.data_pedido DESC`, [], (err, vales) => {
+      socket.emit('manager_calendar_vales', vales || []);
+    });
+  });
+
+  socket.on('manager_aprovar_vale', ({ id }) => {
+    if (!['Gerente', 'Admin', 'Administrador', 'adm'].includes(socket.funcionarioCargo)) {
+      return socket.emit('erro_caixa', 'Apenas gerentes ou administradores podem aprovar vales.');
+    }
+    db.get("SELECT * FROM vales WHERE id = ?", [id], (err, vale) => {
+      if (vale && vale.status === 'Pendente') {
+        db.run("UPDATE vales SET status = 'Aprovado', data_aprovacao = datetime('now', 'localtime') WHERE id = ?", [id], (errU) => {
+          if (!errU) {
+            db.get("SELECT id FROM turnos_caixa WHERE status = 'Aberto' ORDER BY id DESC LIMIT 1", (errC, turno) => {
+              if (turno) {
+                db.run(
+                  "INSERT INTO movimentacoes (turno_id, tipo, valor, descricao, data, forma_pagamento) VALUES (?, 'saida', ?, ?, datetime('now', 'localtime'), 'Dinheiro')",
+                  [turno.id, vale.valor, "Adiantamento/Vale - Func. ID " + vale.funcionario_id]
+                );
+              }
+            });
+            socket.emit('manager_vale_atualizado');
+            io.emit('vale_solicitado_success');
+            io.emit('rh_update');
+          }
+        });
+      }
+    });
+  });
+
+  socket.on('manager_recusar_vale', ({ id }) => {
+    if (!['Gerente', 'Admin', 'Administrador', 'adm'].includes(socket.funcionarioCargo)) {
+      return socket.emit('erro_caixa', 'Apenas gerentes ou administradores podem recusar vales.');
+    }
+    db.run("UPDATE vales SET status = 'Recusado' WHERE id = ?", [id], (err) => {
+      if (!err) {
+        socket.emit('manager_vale_atualizado');
+        io.emit('vale_solicitado_success');
+        io.emit('rh_update');
+      }
+    });
+  });
 
   socket.on('disconnect', () => {
     activeSockets.delete(socket.id);
@@ -10675,11 +7619,289 @@ if (deploymentConfig.isOnPremise()) {
   console.log('[Sync] Servidor sync (cloud) inicializado.');
 }
 
-// --- RETRO API → migrado para plugins/retro/ ---
+// --- RETRO API PARA ANDROID 3.2 ---
+app.get('/api/retro/mesas', (req, res) => {
+  withTenant(req, () => {
+    db.all("SELECT * FROM mesas", (err, mesas) => {
+      if (err) return res.status(500).json({ error: 'Erro no banco' });
+      db.all("SELECT * FROM pedidos WHERE status != 'Finalizado' ORDER BY createdAt ASC", (err, pedidos) => {
+        if (err) return res.status(500).json({ error: 'Erro no banco' });
+        res.json({ mesas: mesas || [], pedidos: pedidos || [] });
+      });
+    });
+  });
+});
 
-// --- RETRO/LITE REST API → migrado para plugins/retro/ ---
+app.get('/api/retro/cardapio', (req, res) => {
+  withTenant(req, () => {
+    db.all("SELECT * FROM produtos WHERE LOWER(status) != 'inativo' OR status IS NULL", (err, produtos) => {
+      if (err) return res.status(500).json({ error: 'Erro no banco' });
+      res.json({ produtos: produtos || [] });
+    });
+  });
+});
 
-// --- REST API NFC-E → migrado para plugins/nfce/ ---
+app.post('/api/retro/pedido', (req, res) => {
+  if (licenseManager.isRestricted()) {
+    return res.status(403).json({ error: 'Sistema em modo restrito. Ative a licença.' });
+  }
+  const pedido = req.body;
+  if (!pedido || !pedido.mesa_comanda) return res.status(400).json({ error: 'Dados inválidos' });
+  const tid = resolveTenantId(req);
+  const roomId = (Number.isFinite(tid) && tid > 0) ? `restaurante_${tid}` : null;
+
+  let status = pedido.status_inicial || 'Em preparo';
+
+  withTenant(req, () => {
+    db.get(`SELECT status FROM mesas WHERE nome = ?`, [pedido.mesa_comanda], (err, rowMesa) => {
+      if (rowMesa && rowMesa.status !== 'Fechando') {
+        db.run(`UPDATE mesas SET status = 'Ocupada' WHERE nome = ? AND status = 'Disponível'`, [pedido.mesa_comanda]);
+      }
+    });
+
+    const query = `
+      INSERT INTO pedidos (
+        userName, localName, productName, quantity, options, observations, composicoes,
+        status, mesa_comanda, mesa_grupo, isCommand,
+        printer, sector, total,
+        cliente_id, is_delivery
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+    const params = [
+      pedido.userName || 'Garçom Retro',
+      pedido.localName || pedido.mesa_comanda,
+      pedido.productName,
+      pedido.quantity || 1,
+      pedido.options || '[]',
+      pedido.observations || '',
+      JSON.stringify(pedido.composicoes || []),
+      status,
+      pedido.mesa_comanda,
+      pedido.mesa_grupo || pedido.mesa_comanda,
+      pedido.isCommand || 0,
+      pedido.printer || '',
+      pedido.sector || '',
+      pedido.total || 0,
+      pedido.cliente_id || null,
+      pedido.is_delivery || 0
+    ];
+
+    db.run(query, params, function (err) {
+      if (err) {
+        console.error('Erro /api/retro/pedido:', err);
+        return res.status(500).json({ error: 'Erro ao inserir pedido' });
+      }
+      const novoId = this.lastID;
+      const novoItem = { id: novoId, ...pedido, status, createdAt: new Date().toISOString() };
+
+      if (roomId) io.to(roomId).emit('novo_pedido_sync', [novoItem]);
+      else io.emit('novo_pedido_sync', [novoItem]);
+
+      db.all("SELECT * FROM mesas", (e, m) => {
+        if (!e) {
+          if (roomId) io.to(roomId).emit('mesas_atualizadas', m || []);
+          else io.emit('mesas_atualizadas', m || []);
+        }
+      });
+
+      res.json({ success: true, id: novoId });
+    });
+  });
+});
+// ---------------------------------
+
+// --- RETRO/LITE REST API (restaurado do backup) ---
+
+// POST /api/retro/login — login do garçom (retorno com dados do funcionário)
+app.post('/api/retro/login', (req, res) => {
+  const { usuario, senha } = req.body;
+  const u = String(usuario || '').trim();
+  withTenant(req, () => {
+    db.get("SELECT * FROM funcionarios WHERE LOWER(TRIM(usuario)) = LOWER(TRIM(?)) OR LOWER(TRIM(nome)) = LOWER(TRIM(?))", [u, u], (err, row) => {
+      if (err) return res.status(500).json({ error: 'Erro ao consultar banco.' });
+      if (!row) return res.status(401).json({ error: 'Usuário ou senha inválidos.' });
+      verificarSenhaFuncionario(row, senha).then((ok) => {
+        if (!ok) return res.status(401).json({ error: 'Usuário ou senha inválidos.' });
+        if (row.status !== 'Ativo') return res.status(403).json({ error: 'Funcionário pendente ou inativo.' });
+        res.json({ ok: true, funcionario: funcionarioPublico(row) });
+      });
+    });
+  });
+});
+
+// PUT /api/retro/pedido/:id/status — atualizar status de um pedido
+app.put('/api/retro/pedido/:id/status', (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+  if (!status) return res.status(400).json({ error: 'Status obrigatório.' });
+  const validos = ['Recebido', 'Em preparo', 'Pronto', 'Entregue', 'Finalizado'];
+  if (!validos.includes(status)) return res.status(400).json({ error: 'Status inválido.' });
+  const tid = resolveTenantId(req);
+  const roomId = (Number.isFinite(tid) && tid > 0) ? `restaurante_${tid}` : null;
+
+  withTenant(req, () => {
+    db.run(`UPDATE pedidos SET status = ?, garcom_call = NULL WHERE id = ?`, [status, id], function (err) {
+      if (err) return res.status(500).json({ error: 'Erro ao atualizar pedido.' });
+      if (this.changes === 0) return res.status(404).json({ error: 'Pedido não encontrado.' });
+
+      if (roomId) io.to(roomId).emit('pedido_atualizado', { id: Number(id), status });
+      else io.emit('pedido_atualizado', { id: Number(id), status });
+
+      db.all("SELECT * FROM mesas", (e, m) => {
+        if (!e) {
+          if (roomId) io.to(roomId).emit('mesas_atualizadas', m || []);
+          else io.emit('mesas_atualizadas', m || []);
+        }
+      });
+
+      res.json({ success: true });
+    });
+  });
+});
+
+// POST /api/retro/cobranca — registrar pagamento e finalizar mesa
+app.post('/api/retro/cobranca', (req, res) => {
+  const { mesaNome, metodo, valor, gorjeta, garcom } = req.body;
+  if (!mesaNome || !metodo || valor === undefined) {
+    return res.status(400).json({ error: 'mesaNome, metodo e valor são obrigatórios.' });
+  }
+  const valorNumerico = parseFloat(String(valor).replace(',', '.'));
+  if (isNaN(valorNumerico) || valorNumerico <= 0) {
+    return res.status(400).json({ error: 'Valor inválido.' });
+  }
+
+  const tid = resolveTenantId(req);
+  const roomId = (Number.isFinite(tid) && tid > 0) ? `restaurante_${tid}` : null;
+
+  withTenant(req, () => {
+    db.get(`SELECT * FROM turnos_caixa WHERE status = 'Aberto' ORDER BY id DESC LIMIT 1`, [], (errTurno, turno) => {
+      if (errTurno || !turno) {
+        return res.status(400).json({ error: 'O caixa está fechado! Abra o caixa antes de receber pagamentos.' });
+      }
+
+      db.all(`SELECT * FROM pedidos WHERE (localName = ? OR mesa_grupo = ? OR mesa_comanda = ?) AND status != 'Finalizado'`, [mesaNome, mesaNome, mesaNome], (errItems, rows) => {
+        if (errItems) return res.status(500).json({ error: 'Erro ao buscar itens da mesa.' });
+        const items = rows || [];
+
+        let consumoBruto = 0;
+        let jaPago = 0;
+        items.forEach(r => {
+          const v = parseFloat(String(r.total).replace(',', '.')) || 0;
+          if (v >= 0) {
+            consumoBruto += v;
+          } else if (r.productName && (String(r.productName).indexOf('Pgto Parcial') !== -1 || String(r.productName).indexOf('Pagamento') !== -1)) {
+            jaPago += Math.abs(v);
+          }
+        });
+
+        db.get(`SELECT valor FROM configuracoes_global WHERE chave = 'taxa_servico'`, [], (errTaxa, taxaRow) => {
+          const taxaPct = (errTaxa || !taxaRow) ? 10 : (parseFloat(taxaRow.valor) || 10);
+          const totalComTaxa = Math.max(0, consumoBruto * (1 + taxaPct / 100) - jaPago);
+
+          if (valorNumerico < totalComTaxa - 0.05 && totalComTaxa > 0.01) {
+            return res.status(400).json({ error: `Valor insuficiente. Total a pagar: R$ ${totalComTaxa.toFixed(2)}` });
+          }
+
+          db.run(`UPDATE pedidos SET status = 'Finalizado', paymentMethod = ?, turno_id = ?, finalizadoEm = datetime('now') WHERE (localName = ? OR mesa_grupo = ? OR mesa_comanda = ?) AND status != 'Finalizado'`, [metodo, turno.id, mesaNome, mesaNome, mesaNome], function (err) {
+            if (err) return res.status(500).json({ error: 'Erro ao finalizar pedidos.' });
+
+            db.run(
+              `INSERT INTO movimentacoes (turno_id, tipo, valor, forma_pagamento, descricao, data) VALUES (?, 'Entrada', ?, ?, ?, datetime('now', 'localtime'))`,
+              [turno.id, valorNumerico, metodo, `Pgto Mesa: ${mesaNome}${garcom ? ' (Garçom: ' + garcom + ')' : ''}`]
+            );
+
+            const gorjetaNum = parseFloat(String(gorjeta || '0').replace(',', '.'));
+            if (gorjetaNum > 0) {
+              db.run(
+                `INSERT INTO movimentacoes (turno_id, tipo, valor, forma_pagamento, descricao, data) VALUES (?, 'Entrada', ?, ?, ?, datetime('now', 'localtime'))`,
+                [turno.id, gorjetaNum, metodo, `Gorjeta: ${mesaNome}`]
+              );
+            }
+
+            db.run(`UPDATE mesas SET status = 'Disponível' WHERE nome = ?`, [mesaNome], function (err2) {
+              if (err2) return res.status(500).json({ error: 'Erro ao atualizar mesa.' });
+
+              if (roomId) io.to(roomId).emit('mesas_atualizadas');
+              else io.emit('mesas_atualizadas');
+              if (roomId) io.to(roomId).emit('mesa_finalizada', { mesaName: mesaNome });
+              else io.emit('mesa_finalizada', { mesaName: mesaNome });
+
+              setTimeout(() => io.emit('atualizacao_caixa'), 300);
+
+              res.json({ success: true, message: 'Cobrança registrada com sucesso!' });
+            });
+          });
+        });
+      });
+    });
+  });
+});
+
+// GET /api/retro/taxa-servico — percentual da taxa de serviço
+app.get('/api/retro/taxa-servico', (req, res) => {
+  const lerTaxa = (cb) => {
+    masterDb.get("SELECT valor FROM configuracoes_global WHERE chave = 'taxa_servico'", [], (err, row) => {
+      if (err || !row) return cb(10);
+      const taxa = parseFloat(row.valor);
+      cb(isNaN(taxa) ? 10 : taxa);
+    });
+  };
+  lerTaxa((taxa) => {
+    res.json({ taxa_servico: taxa });
+  });
+});
+
+// --- REST API NFC-E ---
+app.get('/api/nfce/notas', (req, res) => {
+  withTenant(req, () => {
+    db.all(`SELECT id, pedido_id, localName, cliente_nome, cpf_cnpj, valor_total, chave_acesso, numero_nota, serie, ambiente, status, protocolo, created_at FROM nfce_notas ORDER BY id DESC`, (err, rows) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json(rows || []);
+    });
+  });
+});
+
+app.get('/api/nfce/danfe/:id', (req, res) => {
+  withTenant(req, () => {
+    db.get(`SELECT * FROM nfce_notas WHERE id = ?`, [req.params.id], (err, nota) => {
+      if (err || !nota) return res.status(404).send('Nota Fiscal não encontrada');
+      db.all(`SELECT * FROM configuracoes`, (errCfg, rows) => {
+        const config = {};
+        if (rows) rows.forEach(r => config[r.chave] = r.valor);
+        const danfeHtml = nota.danfe_html || nfceService.gerarDANFEHTML(nota, config);
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.send(danfeHtml);
+      });
+    });
+  });
+});
+
+app.get('/api/nfce/xml/:id', (req, res) => {
+  withTenant(req, () => {
+    db.get(`SELECT * FROM nfce_notas WHERE id = ?`, [req.params.id], (err, nota) => {
+      if (err || !nota) return res.status(404).send('Nota Fiscal não encontrada');
+      db.all(`SELECT * FROM configuracoes`, (errCfg, rows) => {
+        const config = {};
+        if (rows) rows.forEach(r => config[r.chave] = r.valor);
+        const xml = nota.xml_content || nfceService.gerarXMLNFCe(nota, config);
+        res.setHeader('Content-Type', 'application/xml');
+        res.setHeader('Content-Disposition', `attachment; filename=NFCe_${nota.chave_acesso}.xml`);
+        res.send(xml);
+      });
+    });
+  });
+});
+
+app.post('/api/nfce/emitir', async (req, res) => {
+  withTenant(req, () => {
+    db.all(`SELECT * FROM configuracoes`, async (errConfig, configRows) => {
+      const config = {};
+      if (configRows) configRows.forEach(r => config[r.chave] = r.valor);
+      const result = await nfceService.emitirNFCe({ db, ...req.body, config });
+      res.json(result);
+    });
+  });
+});
 
 // --- CONFIGS API ---
 app.get('/api/server-status', (req, res) => {
@@ -10715,677 +7937,686 @@ app.get('/api/server-status', (req, res) => {
 });
 
 
-// --- API FORMAS DE PAGAMENTO → migrado para plugins/formas-pagamento/ ---
-
-
-// --- API AUDITORIA & LOGS → migrado para plugins/logs/ ---
-
-// --- API DE GERENCIAMENTO DE DISPOSITIVOS → migrado para plugins/dispositivos/ ---
-
-
-// --- ROTA DE PEDIDOS DA FILA ---
-// --- MÉTRICAS GARÇONS ---
-// --- QR CODE ---
-// --- TEMPLATE PRODUTOS ---
-// --- IMPORTAÇÃO PRODUTOS ---
-// --- ATUALIZAR STATUS PEDIDO ---
-// --- CHAMAR GARÇOM (REST) ---
-// --- CONFIG RESTAURANTE GET/POST ---
-// --- ALERTAS AO CLIENTE ---
-// → migrado para plugins/cozinha/
-
-// --- ITENS MONT�?VEIS CRUD → migrado para plugins/montaveis/ ---
-
-// �?�?�?�?�?�? FIDELIDADE/AVAILACOES → migrado para plugins/fidelidade/ �?�?�?�?�?�?
-
-// �?�?�?�?�?�? FUNÇÕES POR TENANT: status + solicitação de ativação �?�?�?�?�?�?
-app.get('/api/funcoes', verificarToken, (req, res) => {
-  const tid = req.restaurante_id || 1;
-  masterDb.get(`SELECT licenca FROM restaurantes WHERE id = ?`, [tid], (errL, rowL) => {
-    const overrides = tenantFeatures.get(tid) || {};
-    const resolved = featurePlans.resolveFeatures(rowL ? rowL.licenca : 'ativo', overrides);
-    const defs = (featurePlans.FEATURES || []).map(f => ({
-      chave: f.chave,
-      nome: f.nome,
-      desc: f.desc,
-      enabled: !!resolved[f.chave],
-      override: Object.prototype.hasOwnProperty.call(overrides, f.chave)
-    }));
-    const chaves = defs.map(d => d.chave);
-    masterDb.all(`SELECT feature, MAX(status) as ultimo, COUNT(*) as total FROM solicitacoes_features
-      WHERE restaurante_id = ? AND feature IN (${chaves.map(() => '?').join(',')}) GROUP BY feature`,
-      [tid].concat(chaves), (errS, rowsS) => {
-      const solMap = {};
-      (rowsS || []).forEach(r => { solMap[r.feature] = { ultimo: r.ultimo, total: r.total }; });
-      res.json({ success: true, features: defs.map(d => Object.assign(d, { solicitacao: solMap[d.chave] || null })) });
+// --- API FORMAS DE PAGAMENTO & CARTÕES ---
+app.get('/api/formas-pagamento', (req, res) => {
+  withTenant(req, () => {
+    db.all(`SELECT * FROM formas_pagamento ORDER BY ordem ASC, id ASC`, [], (err, rows) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json(rows || []);
     });
   });
 });
 
-app.post('/api/funcoes/solicitar', verificarToken, (req, res) => {
-  const tid = req.restaurante_id || 1;
-  const feature = String((req.body && req.body.feature) || '').trim();
-  const mensagem = String((req.body && req.body.mensagem) || '').trim().slice(0, 500);
-  if (!feature) return res.status(400).json({ success: false, error: 'Função não informada.' });
-  const isNovaSolicitacao = feature === 'nova_solicitacao';
-  if (!isNovaSolicitacao && !featurePlans.FEATURES.some(f => f.chave === feature)) {
-    return res.status(400).json({ success: false, error: 'Função desconhecida.' });
-  }
-  const featureCol = isNovaSolicitacao ? 'nova_solicitacao' : feature;
-  masterDb.run(`INSERT INTO solicitacoes_features (restaurante_id, feature, mensagem, status)
-    VALUES (?, ?, ?, 'pendente')
-    ON CONFLICT(restaurante_id, feature) DO UPDATE SET
-      mensagem = excluded.mensagem,
-      status = 'pendente',
-      criado_em = datetime('now','localtime'),
-      resolvido_em = NULL`,
-    [tid, featureCol, mensagem], (err) => {
-    if (err) return res.status(500).json({ success: false, error: 'Erro ao registrar solicitação.' });
-    try { io.emit('solicitacoes_features_atualizadas', { restaurante_id: tid, feature: featureCol }); } catch (e) {}
-    res.json({ success: true, mensagem: 'Solicitação enviada! O super admin será notificado.' });
+app.post('/api/formas-pagamento', (req, res) => {
+  const { id, nome, tipo, taxa, prazo_dias, ativo, icone } = req.body || {};
+  if (!nome) return res.status(400).json({ error: 'Nome é obrigatório' });
+  const tid = resolveTenantId(req);
+
+  withTenant(req, () => {
+    if (id) {
+      db.run(
+        `UPDATE formas_pagamento SET nome = ?, tipo = ?, taxa = ?, prazo_dias = ?, ativo = ?, icone = ? WHERE id = ?`,
+        [nome, tipo || 'credito', parseFloat(taxa) || 0, parseInt(prazo_dias) || 0, ativo ? 1 : 0, icone || 'ph-credit-card', id],
+        function (err) {
+          if (err) return res.status(500).json({ error: err.message });
+          broadcastFormasPagamento(null, tid);
+          res.json({ success: true, id });
+        }
+      );
+    } else {
+      db.run(
+        `INSERT INTO formas_pagamento (nome, tipo, taxa, prazo_dias, ativo, icone) VALUES (?, ?, ?, ?, ?, ?)`,
+        [nome, tipo || 'credito', parseFloat(taxa) || 0, parseInt(prazo_dias) || 0, ativo !== undefined ? (ativo ? 1 : 0) : 1, icone || 'ph-credit-card'],
+        function (err) {
+          if (err) return res.status(500).json({ error: err.message });
+          const newId = this.lastID;
+          broadcastFormasPagamento(null, tid);
+          res.json({ success: true, id: newId });
+        }
+      );
+    }
   });
 });
 
+app.post('/api/formas-pagamento/:id/toggle', (req, res) => {
+  const { id } = req.params;
+  const { ativo } = req.body || {};
+  const tid = resolveTenantId(req);
+  withTenant(req, () => {
+    db.run(`UPDATE formas_pagamento SET ativo = ? WHERE id = ?`, [ativo ? 1 : 0, id], function (err) {
+      if (err) return res.status(500).json({ error: err.message });
+      broadcastFormasPagamento(null, tid);
+      res.json({ success: true });
+    });
+  });
+});
+
+app.delete('/api/formas-pagamento/:id', (req, res) => {
+  const { id } = req.params;
+  const tid = resolveTenantId(req);
+  withTenant(req, () => {
+    db.get(`SELECT nome FROM formas_pagamento WHERE id = ?`, [id], (err, row) => {
+      if (err || !row) return res.status(404).json({ error: 'Forma de pagamento não encontrada.' });
+      db.get(`SELECT COUNT(*) as count FROM pedidos WHERE paymentMethod = ?`, [row.nome], (e, r) => {
+        if (!e && r && r.count > 0) {
+          return res.status(400).json({ error: `"${row.nome}" não pode ser excluído pois já foi utilizado em ${r.count} pedido(s). Apenas desative-o.` });
+        }
+        db.run(`DELETE FROM formas_pagamento WHERE id = ?`, [id], function (err2) {
+          if (err2) return res.status(500).json({ error: err2.message });
+          broadcastFormasPagamento(null, tid);
+          res.json({ success: true });
+        });
+      });
+    });
+  });
+});
+
+
+// --- API AUDITORIA & LOGS ---
+app.get('/api/auditoria', verificarToken, (req, res) => {
+  db.all(`SELECT * FROM auditoria ORDER BY id DESC LIMIT 300`, [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows || []);
+  });
+});
+
+app.get('/api/logs-api', (req, res) => {
+  db.all(`SELECT * FROM api_logs ORDER BY id DESC LIMIT 300`, [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows || []);
+  });
+});
+
+
+// --- API DE GERENCIAMENTO DE DISPOSITIVOS ---
+app.get('/api/dispositivos', verificarToken, (req, res) => {
+  const deviceList = Array.from(activeSockets.values()).map(d => ({
+    ...d,
+    tempoConectadoStr: getTempoConectadoStr(d.connectedAt)
+  }));
+  res.json(deviceList);
+});
+
+app.post('/api/dispositivos/:id/renomear', verificarToken, (req, res) => {
+  const { id } = req.params;
+  const { novoNome } = req.body || {};
+  if (!novoNome) return res.status(400).json({ error: 'Nome é obrigatório' });
+
+  const conn = activeSockets.get(id);
+  if (conn) {
+    conn.model = novoNome.trim();
+    conn.device = `${conn.model} (${conn.os} • ${conn.browser})`;
+    const targetSocket = io.sockets.sockets.get(id);
+    if (targetSocket) {
+      targetSocket.emit('apelido_atualizado_remoto', { apelido: novoNome.trim() });
+    }
+    io.emit('connected_devices_updated');
+    res.json({ success: true });
+  } else {
+    res.status(404).json({ error: 'Dispositivo não encontrado ou desconectado' });
+  }
+});
+
+app.post('/api/dispositivos/:id/desconectar', verificarToken, (req, res) => {
+  const { id } = req.params;
+  const targetSocket = io.sockets.sockets.get(id);
+  if (targetSocket) {
+    targetSocket.emit('sessao_derrubada_remotamente');
+    targetSocket.disconnect(true);
+    activeSockets.delete(id);
+    io.emit('connected_devices_updated');
+    res.json({ success: true });
+  } else {
+    activeSockets.delete(id);
+    res.json({ success: true });
+  }
+});
+
+
+// --- ROTA DE PEDIDOS DA FILA ---
+app.get('/api/pedidos', verificarToken, (req, res) => {
+  db.all("SELECT * FROM pedidos WHERE status NOT IN ('Finalizado','Entregue','Pago','Cancelado') ORDER BY createdAt ASC", [], (err, rows) => {
+    res.json(rows || []);
+  });
+});
+
+// GET /api/metricas/garcons — métricas de eficiência dos garçons (admin do restaurante)
+app.get('/api/metricas/garcons', verificarToken, (req, res) => {
+  db.all(`SELECT * FROM funcionarios WHERE status = 'Ativo' ORDER BY nome`, [], (errFunc, funcionarios) => {
+    if (errFunc) return res.json({ ok: false, erro: 'Erro ao consultar funcionários.' });
+    db.all(`SELECT * FROM pedidos ORDER BY id`, [], (errPed, pedidos) => {
+      if (errPed) return res.json({ ok: false, erro: 'Erro ao consultar pedidos.' });
+      const metricas = (funcionarios || []).map(f => {
+        const fPedidos = (pedidos || []).filter(p => p.userName === f.nome || p.userName === f.usuario);
+        const total = fPedidos.length;
+        const entregues = fPedidos.filter(p => p.status === 'Entregue' || p.status === 'Finalizado' || p.status === 'Pago').length;
+        const emAndamento = fPedidos.filter(p => p.status !== 'Entregue' && p.status !== 'Finalizado' && p.status !== 'Pago' && p.status !== 'Cancelado').length;
+        let somaMin = 0, countMin = 0;
+        fPedidos.forEach(p => {
+          if (p.entregueEm && p.createdAt) {
+            const criado = new Date(p.createdAt).getTime();
+            const entregue = new Date(p.entregueEm).getTime();
+            if (!isNaN(criado) && !isNaN(entregue) && entregue > criado) {
+              somaMin += (entregue - criado) / 60000;
+              countMin++;
+            }
+          }
+        });
+        const tempoMedio = countMin > 0 ? Math.round(somaMin / countMin) : null;
+        let totalGasto = 0;
+        fPedidos.forEach(p => { const val = parseFloat(p.total); if (!isNaN(val)) totalGasto += val; });
+        const hoje = new Date();
+        const hojeStr = hoje.toISOString().slice(0, 10);
+        const pedidosHoje = fPedidos.filter(p => p.createdAt && p.createdAt.slice(0, 10) === hojeStr).length;
+        return {
+          id: f.id, nome: f.nome, usuario: f.usuario,
+          total, entregues, emAndamento,
+          taxaEficiencia: total > 0 ? Math.round((entregues / total) * 100) : 0,
+          tempoMedioEntrega: tempoMedio,
+          totalGasto: Math.round(totalGasto * 100) / 100,
+          pedidosHoje
+        };
+      });
+      metricas.sort((a, b) => b.total - a.total);
+      res.json({ ok: true, metricas });
+    });
+  });
+});
+
+// --- TEMPLATE + IMPORTAÇÃO DE PRODUTOS ---
+const XLSX = require('xlsx');
+
+app.get('/api/qr', (req, res) => {
+  const data = String(req.query.data || '').slice(0, 2048);
+  if (!data) return res.status(400).send('Missing data');
+  const size = Math.min(Math.max(parseInt(req.query.size, 10) || 140, 60), 1000);
+  try {
+    const qrLib = require('./public/vendor/qrcode/qrcode-generator.js');
+    const qr = qrLib(0, 'M');
+    qr.addData(data);
+    qr.make();
+    const cell = Math.max(2, Math.floor(size / qr.getModuleCount()));
+    const dataUrl = qr.createDataURL(cell, 4);
+    const img = Buffer.from(dataUrl.replace(/^data:image\/gif;base64,/, ''), 'base64');
+    res.setHeader('Content-Type', 'image/gif');
+    res.setHeader('Cache-Control', 'no-store');
+    res.send(img);
+  } catch (err) {
+    res.status(500).send('Erro ao gerar QR');
+  }
+});
+
+app.get('/api/template-produtos', (req, res) => {
+  const headers = ['Categoria', 'Nome', 'Preço', 'Emoji', 'Setor', 'Status Inicial', 'Categoria Fiscal', 'Código de Barras', 'Descrição', 'Preço Custo', 'Unidade', 'Fornecedor', 'Visibilidade'];
+  const exemplos = [
+    ['Lanches', 'X-Burger', '28.90', '🍔', 'Cozinha 1', 'Em preparo', 'Alimentacao', '', 'Hamburger artesanal', '12.50', 'UN', '', 'todos'],
+    ['Bebidas', 'Coca-Cola Lata', '8.00', '🥤', 'Bar', 'Em espera', 'Bebida_Nao_Alcoolica', '7891234567890', 'Refrigerante 350ml', '3.20', 'UN', 'Coca-Cola', 'todos'],
+    ['Sobremesas', 'Pudim', '12.00', '🍮', 'Cozinha 1', 'Em preparo', 'Alimentacao', '', 'Pudim de leite', '4.00', 'UN', '', 'todos'],
+  ];
+  const sheetData = [headers, ...exemplos];
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(sheetData);
+  ws['!cols'] = headers.map(() => ({ wch: 20 }));
+  XLSX.utils.book_append_sheet(wb, ws, 'Produtos');
+  const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+  res.setHeader('Content-Disposition', 'attachment; filename=template-produtos.xlsx');
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.send(Buffer.from(buf));
+});
+
+app.post('/api/importar-produtos', verificarToken, upload.single('file'), (req, res) => {
+  if (!req.file) return res.status(400).json({ ok: false, erro: 'Nenhum arquivo enviado.' });
+  try {
+    const wb = XLSX.readFile(req.file.path);
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+    if (!rows.length) return res.json({ ok: false, erro: 'Planilha vazia ou formato inválido.' });
+    const COL_MAP = {
+      'categoria': 'categoria', 'nome': 'nome', 'preço': 'preco', 'preco': 'preco',
+      'emoji': 'emoji', 'setor': 'setor', 'status inicial': 'status_inicial', 'status_inicial': 'status_inicial',
+      'categoria fiscal': 'categoria_fiscal', 'categoria_fiscal': 'categoria_fiscal',
+      'código de barras': 'codigo_barras', 'codigo_barras': 'codigo_barras', 'codigo_barras': 'codigo_barras',
+      'descrição': 'descricao', 'descricao': 'descricao',
+      'preço custo': 'preco_custo', 'preco_custo': 'preco_custo',
+      'unidade': 'unidade', 'fornecedor': 'fornecedor', 'visibilidade': 'visibilidade'
+    };
+    const mapped = rows.map(r => {
+      const out = {};
+      Object.keys(r).forEach(k => {
+        const key = COL_MAP[k.toLowerCase().trim()];
+        if (key) out[key] = r[k];
+      });
+      return out;
+    }).filter(r => r.nome && String(r.nome).trim());
+    if (!mapped.length) return res.json({ ok: false, erro: 'Nenhum produto com nome encontrado na planilha.' });
+    let inseridos = 0, erros = 0;
+    const insertNext = (i) => {
+      if (i >= mapped.length) {
+        require('fs').unlinkSync(req.file.path);
+        broadcastProdutos();
+        return res.json({ ok: true, inseridos, erros, total: mapped.length });
+      }
+      const p = mapped[i];
+      const nome = String(p.nome || '').trim();
+      const categoria = String(p.categoria || 'Sem Categoria').trim();
+      const preco = parseFloat(String(p.preco || '0').replace(',', '.')) || 0;
+      const emoji = String(p.emoji || '').trim();
+      const setor = String(p.setor || 'Cozinha 1').trim();
+      const status_inicial = String(p.status_inicial || 'Em espera').trim();
+      const categoria_fiscal = String(p.categoria_fiscal || 'Alimentacao').trim();
+      const codigo_barras = String(p.codigo_barras || '').trim() || null;
+      const descricao = String(p.descricao || '').trim();
+      const preco_custo = parseFloat(String(p.preco_custo || '0').replace(',', '.')) || 0;
+      const unidade = String(p.unidade || 'UN').trim();
+      const fornecedor = String(p.fornecedor || '').trim() || null;
+      const visibilidade = String(p.visibilidade || 'todos').trim();
+      db.run(`INSERT INTO produtos (categoria, nome, preco, emoji, hasAddons, setor, status_inicial, status, categoria_fiscal, descricao, codigo_barras, preco_custo, unidade, fornecedor, visibilidade) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [categoria, nome, preco, emoji, false, setor, status_inicial, 'ativo', categoria_fiscal, descricao, codigo_barras, preco_custo, unidade, fornecedor, visibilidade],
+        (err) => { if (err) { erros++; } else { inseridos++; } insertNext(i + 1); });
+    };
+    insertNext(0);
+  } catch (e) {
+    require('fs').unlinkSync(req.file.path);
+    return res.status(500).json({ ok: false, erro: 'Erro ao processar arquivo: ' + e.message });
+  }
+});
+
+// --- ROTA REST: ATUALIZAR STATUS DO PEDIDO (para fila-lite) ---
+app.post('/api/pedidos/:id/status', verificarToken, (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+  const validStatus = ['Em espera', 'Em preparo', 'Pronto'];
+  if (!status || validStatus.indexOf(status) === -1) {
+    return res.status(400).json({ error: 'Status inválido. Use: Em espera, Em preparo ou Pronto' });
+  }
+  const prontoUpdate = (status === 'Pronto') ? ", prontoEm = datetime('now', 'localtime')" : '';
+  db.run('UPDATE pedidos SET status = ?' + prontoUpdate + ' WHERE id = ?', [status, id], function (err) {
+    if (err) return res.status(500).json({ error: 'Erro ao atualizar status' });
+    if (this.changes === 0) return res.status(404).json({ error: 'Pedido não encontrado' });
+    db.get('SELECT * FROM pedidos WHERE id = ?', [id], (err2, row) => {
+      if (err2 || !row) return res.status(500).json({ error: 'Erro ao buscar pedido' });
+      io.emit('status_atualizado', row);
+      if (status === 'Pronto') {
+        io.emit('pedido_pronto', row);
+        sendPush('garcom', '✅ Pedido Pronto!', `${row.quantity || 1}x ${row.productName || 'Item'} — ${row.localName || ''}`.trim(), 'pronto-' + id, '/garcom.html');
+        if (iaState && iaState.alertasAtivos) {
+          iaState.alertasAtivos.delete('pedido_' + id);
+          iaState.alertasAtivos.delete('atencao_' + id);
+        }
+        if (iaState && iaState.manobrasAtivas) {
+          iaState.manobrasAtivas.delete('manobra_' + id);
+        }
+        io.emit('ia_pedido_resolvido', { pedidoId: id, status: 'Pronto' });
+        db.all("SELECT * FROM pedidos WHERE (userName = ? OR userName = 'Chamada') AND status = 'Pronto'", [row.userName], (err3, esteiraRows) => {
+          if (esteiraRows) io.emit('esteira_atualizada', esteiraRows);
+        });
+      }
+      broadcastPedidos();
+      res.json({ success: true, pedido: row });
+    });
+  });
+});
+
+// --- ROTA REST: CHAMAR GARÇOM (para fila-lite) ---
+const chamarTimestampsRest = {};
+app.post('/api/pedidos/chamar-garcom', verificarToken, (req, res) => {
+  const d = req.body || {};
+  const id = d.id || null;
+  const productName = d.productName || d.mensagem || 'Garçom chamado';
+  const quantity = d.quantity || 1;
+  const localName = d.localName || d.nome || 'PDV Mobile';
+  const userName = d.userName || 'PDV Mobile';
+  const now = Date.now();
+  const lastCall = chamarTimestampsRest[id];
+  const isReChamado = lastCall && (now - lastCall) < 10000;
+  chamarTimestampsRest[id] = now;
+  if (!id) {
+    const entry = { id: 'pdv_' + now, localName, productName, quantity, userName, tipo: 'pdv', criadoEm: now, status: 'Pronto', targetGarcom: d.targetGarcom || null };
+    if (!isReChamado) pdvCalls.push(entry);
+    io.emit('notificacao_garcom', Object.assign({}, entry, { reChamado: isReChamado }));
+    if (!isReChamado) sendPush('garcom', '🔔 Garçom Chamado!', `${quantity}x ${productName} — ${localName}`, 'chamar-pdv-' + now, '/garcom.html');
+    broadcastPedidos();
+    res.json({ success: true });
+  } else {
+    io.emit('notificacao_garcom', { id: id, productName: productName, quantity: quantity, localName: localName, userName: userName, tipo: 'chamada', reChamado: isReChamado, targetGarcom: d.targetGarcom || null });
+    if (!isReChamado) {
+      sendPush('garcom', '🔔 Garçom Chamado!', `${quantity}x ${productName} — ${localName}`, 'chamar-' + id, '/garcom.html');
+      db.run(`UPDATE pedidos SET garcom_call = datetime('now', 'localtime') WHERE id = ?`, [id]);
+      broadcastPedidos();
+    }
+    res.json({ success: true });
+  }
+});
+
+// (Segurança) Chaves de configuração sensíveis: NUNCA retornadas via GET /api/config.
 const CONFIG_SECRET_KEYS = [
-  'ia_api_key', 'ia_gemini_key',
   'mp_access_token', 'pagbank_token', 'stone_stonecode', 'sitef_ip',
   'cert_senha', 'csc', 'token_api_fiscal', 'ponto_token', 'jwt_secret'
 ];
 
 app.get('/api/config', (req, res) => {
-  db.all(`SELECT * FROM configuracoes`, (err, rows) => {
-    if (err) return res.status(500).send(err);
-    const cfgs = {};
-    if (rows) rows.forEach(r => {
-      if (CONFIG_SECRET_KEYS.includes(r.chave) && r.valor) {
-        cfgs[r.chave] = '***';
-      } else {
-        cfgs[r.chave] = r.valor;
-      }
+  withTenant(req, () => {
+    db.all(`SELECT * FROM configuracoes`, (err, rows) => {
+      if (err) return res.status(500).send(err);
+      const cfgs = {};
+      if (rows) rows.forEach(r => {
+        if (CONFIG_SECRET_KEYS.includes(r.chave) && r.valor) {
+          cfgs[r.chave] = '***';
+        } else {
+          cfgs[r.chave] = r.valor;
+        }
+      });
+      res.json(cfgs);
     });
-    res.json(cfgs);
   });
 });
 
 app.post('/api/config', verificarToken, (req, res) => {
   const configs = req.body;
   if (!configs) return res.status(400).send('Dados inválidos');
+
   db.serialize(() => {
     db.run("BEGIN TRANSACTION;");
     Object.keys(configs).forEach(chave => {
       const valor = typeof configs[chave] === 'object' ? JSON.stringify(configs[chave]) : String(configs[chave]);
+      // (Segurança) Placeholder "***" enviado pelo painel preserva o valor original do segredo.
       if (CONFIG_SECRET_KEYS.includes(chave) && valor === '***') return;
       db.run(`INSERT INTO configuracoes (chave, valor) VALUES (?, ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor`, [chave, valor]);
     });
     db.run("COMMIT;");
   });
+
+  // Emite para todo mundo que as configurações mudaram (para recarregar menus)
   setTimeout(() => {
     io.emit('configuracoes_atualizadas');
-    broadcastProdutos();
-    // Broadcast fuso horário se alterado
-    if (configs.timezone_offset !== undefined) {
-      const tz = parseInt(configs.timezone_offset, 10);
-      io.emit('timezone_offset', isNaN(tz) ? -180 : tz);
-    }
+    broadcastProdutos(); // Força envio atualizado com Destaques
     res.json({ success: true });
   }, 500);
 });
 
-// --- ENDPOINT TESTE DE CONEXÃO COM MAQUININHA → migrado para plugins/caixa/ ---
-
-// --- BACKUP & RESTORE API → migrado para plugins/caixa/ ---
-
-
-
-
-// ── INTELIGÊNCIA GEOGRÁFICA / DEEP RESEARCH PARA ONBOARDING ───────────────
-app.post('/api/ia/pesquisar-estabelecimento-geo', async (req, res) => {
-  try {
-    const { lat, lng } = req.body || {};
-    if (!lat || !lng) {
-      return res.status(400).json({ ok: false, erro: 'Latitude e longitude são obrigatórias.' });
-    }
-
-    const iaConfig = await getEffectiveIaConfig(db);
-    const apiKey = (iaConfig && iaConfig.enabled) ? iaConfig.apiKey : null;
-    const model = (iaConfig && iaConfig.enabled) ? iaConfig.model : null;
-
-    const resultado = await iaService.pesquisarEstabelecimentoGeo({
-      lat,
-      lng,
-      apiKey,
-      model
+// --- ITENS MONTÁVEIS CRUD ---
+app.get('/api/montaveis', verificarToken, (req, res) => {
+  withTenant(req, () => {
+    db.all(`SELECT m.*, p.nome AS produto_nome, p.emoji AS produto_emoji
+            FROM itens_montaveis m LEFT JOIN produtos p ON m.produto_id = p.id
+            WHERE m.ativo = 1 ORDER BY m.id DESC`, [], (err, rows) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json(rows || []);
     });
-
-    res.json(resultado);
-  } catch (err) {
-    console.error('[Pesquisar Estabelecimento Geo Error]', err);
-    res.status(500).json({ ok: false, erro: err.message });
-  }
+  });
 });
 
-
-
-// ── TABELA DE RASTREIO DE SESSÕES DEMO E MULTI-PERFIL ───────────────────
-masterDb.serialize(() => {
-  masterDb.run(`
-    CREATE TABLE IF NOT EXISTS sessoes_demo_rastreio (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      sessao_id TEXT,
-      ip TEXT,
-      lat REAL,
-      lng REAL,
-      user_agent TEXT,
-      fingerprint TEXT,
-      restaurante_nome TEXT,
-      criado_em DATETIME DEFAULT (datetime('now', 'localtime')),
-      expira_em DATETIME,
-      ativo INTEGER DEFAULT 1
-    )
-  `);
-});
-
-// ── VERIFICA SE JÁ EXISTE DEMO ATIVA NO MESMO LOCAL / IP (60 MINUTOS) ───
-app.post('/api/auth/verificar-demo-ativa', (req, res) => {
-  const { lat, lng, fingerprint } = req.body || {};
-  const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
-
-  masterDb.all(
-    `SELECT * FROM sessoes_demo_rastreio 
-     WHERE (ip = ? OR (lat IS NOT NULL AND abs(lat - ?) < 0.003 AND abs(lng - ?) < 0.003))
-       AND criado_em >= datetime('now', 'localtime', '-60 minutes')
-       AND ativo = 1
-     ORDER BY id DESC LIMIT 5`,
-    [ip, parseFloat(lat) || 0, parseFloat(lng) || 0],
-    (err, rows) => {
-      if (err) return res.status(500).json({ ok: false, erro: err.message });
-      
-      const sessoesRecentes = rows || [];
-      
-      // Alerta Super Admin se o mesmo IP gerou múltiplos perfis diferentes
-      if (sessoesRecentes.length >= 2) {
-        io.emit('alerta_impostor_super_admin', {
-          email: 'Detectado via IP/GPS',
-          cargo: 'Tentativa Multi-Perfil',
-          restaurante_id: 999,
-          restaurante_nome: 'Multi-Perfil no mesmo local (' + ip + ')',
-          ip,
-          mensagem: `🚨 ALERTA MULTI-PERFIL: Usuário no IP ${ip} tentou gerar múltiplos perfis/demos no mesmo local em menos de 60 minutos!`
+app.get('/api/montaveis/:id', verificarToken, (req, res) => {
+  const mid = parseInt(req.params.id);
+  if (!mid) return res.status(400).json({ error: 'ID inválido' });
+  withTenant(req, () => {
+    db.get(`SELECT m.*, p.nome AS produto_nome FROM itens_montaveis m LEFT JOIN produtos p ON m.produto_id = p.id WHERE m.id = ?`, [mid], (eM, mRow) => {
+      if (eM || !mRow) return res.status(404).json({ error: 'Item não encontrado' });
+      db.all(`SELECT * FROM montavel_categorias WHERE montavel_id = ? ORDER BY ordem, id`, [mid], (eC, cats) => {
+        const catList = cats || [];
+        if (catList.length === 0) return res.json({ ...mRow, categorias: [] });
+        const catIds = catList.map(c => c.id);
+        const ph = catIds.map(() => '?').join(',');
+        db.all(`SELECT * FROM montavel_opcoes WHERE categoria_id IN (${ph}) ORDER BY ordem, id`, catIds, (eO, opts) => {
+          const allOpts = opts || [];
+          catList.forEach(cat => {
+            cat.opcoes = allOpts.filter(o => o.categoria_id === cat.id);
+          });
+          res.json({ ...mRow, categorias: catList });
         });
-      }
+      });
+    });
+  });
+});
 
-      if (sessoesRecentes.length > 0) {
-        const maisRecente = sessoesRecentes[0];
-        return res.json({
-          ok: true,
-          existe_demo: true,
-          demo: {
-            id: maisRecente.id,
-            restaurante_nome: maisRecente.restaurante_nome || 'Demonstração em Andamento',
-            criado_em: maisRecente.criado_em,
-            ip: maisRecente.ip
-          }
+app.post('/api/montaveis', verificarToken, (req, res) => {
+  const { produto_id, pricing_model, preco_fixo, categorias } = req.body || {};
+  if (!produto_id) return res.status(400).json({ error: 'produto_id obrigatório' });
+  withTenant(req, () => {
+    db.run(`INSERT INTO itens_montaveis (produto_id, pricing_model, preco_fixo) VALUES (?, ?, ?)`,
+      [produto_id, pricing_model || 'soma', preco_fixo || 0], function (err) {
+        if (err) return res.status(500).json({ error: err.message });
+        const mid = this.lastID;
+        insertCategorias(mid, categorias || [], () => {
+          res.json({ success: true, id: mid });
         });
-      }
-
-      res.json({ ok: true, existe_demo: false });
-    }
-  );
+      });
+  });
 });
 
-// ── REPORTE DE VIOLAÇÃO DE SEGURANÇA / TENTATIVAS DE DEVTOOLS / SCRAPING ─
-app.post('/api/seguranca/reportar-violacao', (req, res) => {
-  const { tipo_violacao, url, restaurante_id, is_demo } = req.body || {};
-  const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
-  const ua = req.headers['user-agent'] || '';
-
-  console.warn(`🚨 [SEGURANÇA] Violação detectada: ${tipo_violacao} de ${ip} na URL ${url}`);
-
-  // Emite alerta em tempo real para o Super Admin
-  if (io) {
-    io.emit('alerta_impostor_super_admin', {
-      email: 'Alerta Anti-Tamper',
-      cargo: 'Intruso / Tentativa Dev',
-      restaurante_id: restaurante_id || 0,
-      restaurante_nome: is_demo ? 'Modo Demonstração (Intruso)' : 'Sistema Online',
-      ip,
-      mensagem: `🚨 TENTATIVA DE CÓPIA/INSPEÇÃO: Foi detectada uma ação suspeita (${tipo_violacao}) no IP ${ip} (Navegador: ${ua.slice(0, 50)}). Ação bloqueada pelo sistema anti-tamper.`
-    });
-  }
-
-  masterDb.run(
-    `INSERT INTO suporte_logs_audit (suporte_id, suporte_nome, acao, detalhes, ip) VALUES (?, ?, ?, ?, ?)`,
-    [0, 'Anti-Tamper Bot', tipo_violacao, `URL: ${url} | UA: ${ua}`, ip],
-    () => {}
-  );
-
-  res.json({ ok: true, bloqueado: true });
-});
-
-// ── AUTENTICAÇÃO E ENTRADA EM MODO DEMONSTRAÇÃO (TENANT DEMO ISOLADO 999) ─
-app.post('/api/auth/entrar-modo-demo', (req, res) => {
-  const demoTenantId = 999;
-  masterDb.serialize(() => {
-    // 1. Garante que o restaurante demo 999 exista no masterDb
-    masterDb.run(
-      `INSERT INTO restaurantes (id, restaurante, responsavel, email, telefone, status, plano, login_mode, criado_em)
-       VALUES (999, 'Restaurante Demonstração', 'Dono Demonstração', 'demo@chefcozinha.com', '(11) 99999-9999', 'ativo', 'pro', 'multi', datetime('now','localtime'))
-       ON CONFLICT(id) DO UPDATE SET status = 'ativo', plano = 'pro'`,
-      () => {
-        // 2. Garante que o tenant DB do demo esteja criado e semeado
-        try {
-          const tdb = getTenantDb(demoTenantId);
-          ensureAllTenantTablesAndColumns(tdb);
-          seedTenantDb(tdb);
-          tdb.run("INSERT INTO configuracoes (chave, valor) VALUES ('nome_restaurante', 'Restaurante Demonstração') ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor");
-          tdb.run("INSERT INTO configuracoes (chave, valor) VALUES ('onboarding_completo', 'true') ON CONFLICT(chave) DO UPDATE SET valor = 'true'");
-        } catch (e) {
-          console.warn('[Demo Tenant Seed Error]', e.message);
-        }
-
-        // 3. Emite token JWT de demonstração com restaurante_id = 999
-        // Sessão Demo com expiração estrita de 60 minutos
-        const expiraEmMs = Date.now() + 60 * 60 * 1000;
-        const ipReq = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
-        const { lat, lng, restaurante_nome } = req.body || {};
-
-        masterDb.run(
-          `INSERT INTO sessoes_demo_rastreio (sessao_id, ip, lat, lng, user_agent, restaurante_nome, expira_em, ativo)
-           VALUES (?, ?, ?, ?, ?, ?, datetime('now', '+60 minutes'), 1)`,
-          ['demo-' + Date.now(), ipReq, parseFloat(lat) || null, parseFloat(lng) || null, req.headers['user-agent'] || '', restaurante_nome || 'Demonstração', 1],
-          () => {}
-        );
-
-        const demoToken = jwt.sign(
-          {
-            id: 999,
-            nome: 'Dono Demonstração',
-            usuario: 'demo',
-            role: 'admin',
-            cargo: 'Dono (Demo)',
-            is_dono: true,
-            is_demo: true,
-            demo_expira_em: expiraEmMs,
-            restaurante_id: demoTenantId
-          },
-          JWT_SECRET,
-          { expiresIn: '60m' }
-        );
-
-        res.json({
-          ok: true,
-          token: demoToken,
-          expira_em_timestamp: expiraEmMs,
-          limite_minutos: 60,
-          user: {
-            nome: 'Dono Demonstração',
-            usuario: 'demo',
-            role: 'admin',
-            cargo: 'Dono (Demo)',
-            is_dono: true,
-            is_demo: true
-          },
-          restaurante_id: demoTenantId,
-          mensagem: 'Modo Demonstração de 60 minutos ativado com sucesso!'
+app.put('/api/montaveis/:id', verificarToken, (req, res) => {
+  const mid = parseInt(req.params.id);
+  if (!mid) return res.status(400).json({ error: 'ID inválido' });
+  const { produto_id, pricing_model, preco_fixo, categorias } = req.body || {};
+  withTenant(req, () => {
+    db.run(`UPDATE itens_montaveis SET produto_id = ?, pricing_model = ?, preco_fixo = ? WHERE id = ?`,
+      [produto_id, pricing_model || 'soma', preco_fixo || 0, mid], (err) => {
+        if (err) return res.status(500).json({ error: err.message });
+        db.run(`DELETE FROM montavel_opcoes WHERE categoria_id IN (SELECT id FROM montavel_categorias WHERE montavel_id = ?)`, [mid], () => {
+          db.run(`DELETE FROM montavel_categorias WHERE montavel_id = ?`, [mid], () => {
+            insertCategorias(mid, categorias || [], () => {
+              res.json({ success: true });
+            });
+          });
         });
-      }
-    );
+      });
   });
 });
 
-// ── SETUP INICIAL: CRIAÇÃO DA CONTA DO DONO / FUNCIONÁRIO MASTER ─────────
-app.post('/api/setup-dono', (req, res) => {
-  const { nome_restaurante, telefone_restaurante, endereco_restaurante, dono_nome, dono_usuario, dono_senha, dono_pin } = req.body || {};
-  
-  const restNome = String(nome_restaurante || '').trim();
-  const nomeDono = String(dono_nome || '').trim();
-  const usuarioDono = String(dono_usuario || '').trim().toLowerCase();
-  const senhaDono = String(dono_senha || '').trim();
-  const pin = String(dono_pin || '0000').replace(/\D/g, '') || '0000';
-
-  if (!restNome || restNome.length < 3) {
-    return res.status(400).json({ ok: false, erro: 'O nome do restaurante deve ter no mínimo 3 caracteres válidos.' });
-  }
-  if (!nomeDono || nomeDono.length < 3) {
-    return res.status(400).json({ ok: false, erro: 'O nome do Dono / Responsável deve ter no mínimo 3 caracteres.' });
-  }
-  if (!usuarioDono || usuarioDono.length < 3 || !/^[a-z0-9._-]+$/.test(usuarioDono)) {
-    return res.status(400).json({ ok: false, erro: 'O usuário do Dono deve ter no mínimo 3 caracteres (sem espaços ou caracteres especiais).' });
-  }
-  if (!senhaDono || senhaDono.length < 4) {
-    return res.status(400).json({ ok: false, erro: 'A senha do Dono deve ter no mínimo 4 caracteres.' });
-  }
-
-  const salt = bcrypt.genSaltSync(10);
-  const hash = bcrypt.hashSync(senhaDono, salt);
-
-  db.serialize(() => {
-    // 1. Cria ou atualiza o usuário na tabela usuarios
-    db.run(
-      `INSERT INTO usuarios (username, password_hash, role, ativo, pin) VALUES (?, ?, 'admin', 1, ?)
-       ON CONFLICT(username) DO UPDATE SET password_hash = excluded.password_hash, role = 'admin', ativo = 1, pin = excluded.pin`,
-      [usuarioDono, hash, pin]
-    );
-
-    // 2. Cria ou atualiza na tabela funcionarios como Dono / Gerente Master
-    db.run(
-      `INSERT INTO funcionarios (nome, usuario, cargo, role, pin, ativo, permissao_total, senha) VALUES (?, ?, 'Dono / Gerente Master', 'admin', ?, 1, 1, ?)
-       ON CONFLICT(usuario) DO UPDATE SET nome = excluded.nome, cargo = 'Dono / Gerente Master', role = 'admin', pin = excluded.pin, ativo = 1, permissao_total = 1, senha = excluded.senha`,
-      [nomeDono, usuarioDono, pin, hash]
-    );
-
-    // 3. Salva nas configurações do restaurante
-    const cfgs = {
-      dono_nome: nomeDono,
-      dono_usuario: usuarioDono,
-      pin_admin: pin,
-      senha_admin: dono_senha
-    };
-    if (nome_restaurante) cfgs.nome_restaurante = nome_restaurante;
-    if (telefone_restaurante) cfgs.telefone_restaurante = telefone_restaurante;
-    if (endereco_restaurante) cfgs.endereco_restaurante = endereco_restaurante;
-    if (req.body.restaurante_lat) cfgs.restaurante_lat = req.body.restaurante_lat;
-    if (req.body.restaurante_lng) cfgs.restaurante_lng = req.body.restaurante_lng;
-    if (req.body.restaurante_precisao) cfgs.restaurante_precisao = req.body.restaurante_precisao;
-
-    Object.keys(cfgs).forEach(k => {
-      db.run(`INSERT INTO configuracoes (chave, valor) VALUES (?, ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor`, [k, String(cfgs[k])]);
-    });
-
-    // 4. Gera o token JWT para o dono com permissão total e 365 dias de validade
-    const currentTenant = (typeof tenantContext !== 'undefined' && tenantContext.getStore()) || 1;
-    const token = jwt.sign(
-      {
-        id: 1,
-        nome: nomeDono,
-        usuario: usuarioDono,
-        role: 'admin',
-        cargo: 'Dono',
-        is_dono: true,
-        restaurante_id: currentTenant
-      },
-      JWT_SECRET,
-      { expiresIn: '365d' }
-    );
-
-    res.json({
-      ok: true,
-      mensagem: 'Conta de Dono e Funcionário Master criada com sucesso!',
-      token,
-      user: {
-        nome: nomeDono,
-        usuario: usuarioDono,
-        role: 'admin',
-        cargo: 'Dono',
-        is_dono: true
-      }
+app.delete('/api/montaveis/:id', verificarToken, (req, res) => {
+  const mid = parseInt(req.params.id);
+  if (!mid) return res.status(400).json({ error: 'ID inválido' });
+  withTenant(req, () => {
+    db.run(`DELETE FROM montavel_opcoes WHERE categoria_id IN (SELECT id FROM montavel_categorias WHERE montavel_id = ?)`, [mid], () => {
+      db.run(`DELETE FROM montavel_categorias WHERE montavel_id = ?`, [mid], () => {
+        db.run(`DELETE FROM itens_montaveis WHERE id = ?`, [mid], (err) => {
+          if (err) return res.status(500).json({ error: err.message });
+          res.json({ success: true });
+        });
+      });
     });
   });
 });
 
-
-async function getEffectiveIaConfig(tenantDb) {
-  // 1. Configuração global no masterDb
-  const gRows = await new Promise((resolve) => {
-    masterDb.all("SELECT chave, valor FROM configuracoes_global WHERE chave IN ('ia_global_key', 'ia_global_mode', 'ia_global_model')", [], (e, r) => resolve(r || []));
+function insertCategorias(montavelId, cats, done) {
+  if (!cats.length) return done();
+  let pending = cats.length;
+  cats.forEach((cat, ci) => {
+    db.run(`INSERT INTO montavel_categorias (montavel_id, nome, obrigatoria, min_escolhas, max_escolhas, ordem) VALUES (?, ?, ?, ?, ?, ?)`,
+      [montavelId, cat.nome || '', cat.obrigatoria ? 1 : 0, cat.min_escolhas || 0, cat.max_escolhas || 1, ci], function (err) {
+        if (err || !cat.opcoes || !cat.opcoes.length) { if (--pending === 0) done(); return; }
+        const catId = this.lastID;
+        let optPending = cat.opcoes.length;
+        cat.opcoes.forEach((opt, oi) => {
+          db.run(`INSERT INTO montavel_opcoes (categoria_id, nome, preco, ativo, ordem) VALUES (?, ?, ?, ?, ?)`,
+            [catId, opt.nome || '', opt.preco || 0, opt.ativo !== undefined ? (opt.ativo ? 1 : 0) : 1, oi], () => {
+              if (--optPending === 0 && --pending === 0) done();
+            });
+        });
+      });
   });
-  const gCfgs = {};
-  gRows.forEach(r => { gCfgs[r.chave] = r.valor; });
-  const globalKey = (gCfgs.ia_global_key || '').trim();
-  const globalMode = gCfgs.ia_global_mode || 'hibrido';
-  const globalModel = gCfgs.ia_global_model || (iaService ? iaService.DEFAULT_MODEL : 'gemini-2.5-flash');
-
-  if (globalMode === 'desativado') {
-    return { enabled: false, error: 'A Inteligência Artificial está temporariamente desativada pelo administrador da plataforma.' };
-  }
-
-  // 2. Configuração do tenant
-  const tRows = await new Promise((resolve) => {
-    tenantDb.all("SELECT chave, valor FROM configuracoes WHERE chave IN ('ia_api_key', 'ia_model', 'ia_tom_voz', 'ia_ativa', 'nome_restaurante')", [], (e, r) => resolve(r || []));
-  });
-  const tCfgs = {};
-  tRows.forEach(r => { tCfgs[r.chave] = r.valor; });
-  const tenantKey = (tCfgs.ia_api_key || '').trim();
-  const tenantModel = tCfgs.ia_model || globalModel;
-  const tenantTom = tCfgs.ia_tom_voz || '';
-  const tenantNome = tCfgs.nome_restaurante || 'Restaurante';
-
-  let finalKey = '';
-  let finalModel = tenantModel;
-  let source = 'propria';
-
-  if (globalMode === 'global') {
-    finalKey = globalKey;
-    finalModel = globalModel;
-    source = 'global';
-  } else if (globalMode === 'propria') {
-    finalKey = tenantKey;
-    source = 'propria';
-  } else {
-    // Híbrido: usa a chave própria se tiver; caso contrário usa a global
-    if (tenantKey) {
-      finalKey = tenantKey;
-      source = 'propria';
-    } else {
-      finalKey = globalKey;
-      finalModel = globalModel;
-      source = 'global_fallback';
-    }
-  }
-
-  if (!finalKey) {
-    return {
-      enabled: false,
-      error: 'Nenhuma chave de IA configurada. O administrador da plataforma pode configurar uma chave global no Super Admin ou você pode cadastrar a sua em Configurações > Inteligência de Vendas.'
-    };
-  }
-
-  return {
-    enabled: true,
-    apiKey: finalKey,
-    model: finalModel,
-    source,
-    tomVoz: tenantTom,
-    nomeRestaurante: tenantNome
-  };
 }
 
-// ── INTELIGÊNCIA ARTIFICIAL PARA RESTAURANTES (GOOGLE GEMINI) ─────────────────────
-
-app.get('/api/ia/config', verificarToken, async (req, res) => {
-  try {
-    const effective = await getEffectiveIaConfig(db);
-    db.all(`SELECT chave, valor FROM configuracoes WHERE chave IN ('ia_api_key', 'ia_model', 'ia_tom_voz', 'ia_ativa')`, [], (err, rows) => {
-      if (err) return res.status(500).json({ ok: false, erro: err.message });
-      const cfgs = {};
-      (rows || []).forEach(r => { cfgs[r.chave] = r.valor; });
-      const hasKey = Boolean(cfgs.ia_api_key && cfgs.ia_api_key.trim());
-      let maskedKey = '';
-      if (hasKey) {
-        const k = cfgs.ia_api_key.trim();
-        maskedKey = k.length > 8 ? k.slice(0, 4) + '••••••••' + k.slice(-4) : '••••••••';
-      }
-      res.json({
-        ok: true,
-        config: {
-          ia_ativa: cfgs.ia_ativa !== '0' && cfgs.ia_ativa !== 'false',
-          ia_model: cfgs.ia_model || (iaService ? iaService.DEFAULT_MODEL : 'gemini-2.5-flash'),
-          ia_tom_voz: cfgs.ia_tom_voz || '',
-          has_key: hasKey || (effective && effective.enabled && effective.source.includes('global')),
-          is_using_global_key: effective && effective.source.includes('global'),
-          masked_key: maskedKey || (effective && effective.source.includes('global') ? 'Chave Global da Plataforma (Ativa)' : '')
-        }
+// Buscar config de montável para um produto específico
+app.get('/api/montaveis/produto/:produtoId', verificarToken, (req, res) => {
+  const pid = parseInt(req.params.produtoId);
+  if (!pid) return res.status(400).json({ error: 'ID inválido' });
+  withTenant(req, () => {
+    db.get(`SELECT * FROM itens_montaveis WHERE produto_id = ? AND ativo = 1`, [pid], (eM, mRow) => {
+      if (eM || !mRow) return res.json(null);
+      const mid = mRow.id;
+      db.all(`SELECT * FROM montavel_categorias WHERE montavel_id = ? ORDER BY ordem, id`, [mid], (eC, cats) => {
+        const catList = cats || [];
+        if (catList.length === 0) return res.json({ ...mRow, categorias: [] });
+        const catIds = catList.map(c => c.id);
+        const ph = catIds.map(() => '?').join(',');
+        db.all(`SELECT * FROM montavel_opcoes WHERE categoria_id IN (${ph}) AND ativo = 1 ORDER BY ordem, id`, catIds, (eO, opts) => {
+          catList.forEach(cat => { cat.opcoes = (opts || []).filter(o => o.categoria_id === cat.id); });
+          res.json({ ...mRow, categorias: catList });
+        });
       });
     });
-  } catch(e) {
-    res.status(500).json({ ok: false, erro: e.message });
-  }
-});
-
-app.post('/api/ia/config', verificarToken, (req, res) => {
-  const { ia_api_key, ia_model, ia_tom_voz, ia_ativa } = req.body || {};
-  db.serialize(() => {
-    if (ia_api_key !== undefined && ia_api_key !== '***' && !ia_api_key.includes('••••')) {
-      db.run(`INSERT INTO configuracoes (chave, valor) VALUES ('ia_api_key', ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor`, [ia_api_key.trim()]);
-    }
-    if (ia_model !== undefined) {
-      db.run(`INSERT INTO configuracoes (chave, valor) VALUES ('ia_model', ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor`, [ia_model.trim()]);
-    }
-    if (ia_tom_voz !== undefined) {
-      db.run(`INSERT INTO configuracoes (chave, valor) VALUES ('ia_tom_voz', ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor`, [ia_tom_voz.trim()]);
-    }
-    if (ia_ativa !== undefined) {
-      db.run(`INSERT INTO configuracoes (chave, valor) VALUES ('ia_ativa', ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor`, [String(ia_ativa)]);
-    }
-    res.json({ ok: true, mensagem: 'Configurações de IA salvas com sucesso!' });
   });
 });
 
-app.post('/api/ia/test-key', verificarToken, async (req, res) => {
-  try {
-    let { apiKey, model } = req.body || {};
-    if (!apiKey || apiKey.includes('••••')) {
-      const row = await new Promise((resolve) => {
-        db.get(`SELECT valor FROM configuracoes WHERE chave = 'ia_api_key'`, [], (e, r) => resolve(r));
-      });
-      apiKey = row?.valor;
-    }
-    if (!apiKey) return res.json({ ok: false, erro: 'Nenhuma chave de API informada.' });
-    const resultado = await iaService.testarApiKey(apiKey, model || iaService.DEFAULT_MODEL);
-    res.json(resultado);
-  } catch (err) {
-    res.json({ ok: false, erro: err.message });
+// --- ENDPOINT TESTE DE CONEXÃO COM MAQUININHA ---
+app.post('/api/maquininha/testar', (req, res) => {
+  const { provedor } = req.body || {};
+  if (!provedor || provedor === 'none') {
+    return res.json({ ok: false, msg: 'Nenhum provedor selecionado.' });
   }
-});
-
-app.post('/api/ia/gerar-promocoes', verificarToken, async (req, res) => {
-  try {
-    const { objetivo } = req.body || {};
-    const iaConfig = await getEffectiveIaConfig(db);
-    if (!iaConfig.enabled) {
-      return res.status(400).json({ ok: false, erro: iaConfig.error });
-    }
-
-    const produtos = await new Promise((resolve) => {
-      db.all(`SELECT id, nome, categoria, preco, emoji, categoria_fiscal FROM produtos WHERE status = 'ativo'`, [], (e, r) => resolve(r || []));
-    });
-
-    if (produtos.length === 0) {
-      return res.status(400).json({ ok: false, erro: 'Cadastre pelo menos 1 produto no cardápio para a IA analisar.' });
-    }
-
-    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-    const vendas = await new Promise((resolve) => {
-      db.all(`SELECT productName, COUNT(*) as qtd, SUM(total) as faturamento FROM pedidos WHERE createdAt >= ? AND status IN ('Finalizado','Pago','Entregue') GROUP BY productName ORDER BY qtd DESC LIMIT 20`, [thirtyDaysAgo], (e, r) => resolve(r || []));
-    });
-
-    const resultado = await iaService.gerarPromocoesIA({
-      apiKey: iaConfig.apiKey,
-      model: iaConfig.model,
-      contextoRestaurante: `${iaConfig.nomeRestaurante} - ${iaConfig.tomVoz}`,
-      cardapio: produtos,
-      historicoVendas: vendas,
-      objetivo
-    });
-
-    res.json({ ok: true, resultado });
-  } catch (err) {
-    console.error('[IA Gerar Promocoes Error]', err);
-    res.status(500).json({ ok: false, erro: err.message });
-  }
-});
-
-app.post('/api/ia/gerar-copy', verificarToken, async (req, res) => {
-  try {
-    const { produtos, promocao, canal } = req.body || {};
-    const iaConfig = await getEffectiveIaConfig(db);
-    if (!iaConfig.enabled) {
-      return res.status(400).json({ ok: false, erro: iaConfig.error });
-    }
-
-    const resultado = await iaService.gerarCopyMarketing({
-      apiKey: iaConfig.apiKey,
-      model: iaConfig.model,
-      contextoRestaurante: `${iaConfig.nomeRestaurante} - ${iaConfig.tomVoz}`,
-      produtos,
-      promocao,
-      canal
-    });
-
-    res.json({ ok: true, resultado });
-  } catch (err) {
-    res.status(500).json({ ok: false, erro: err.message });
-  }
-});
-
-app.post('/api/ia/consultor', verificarToken, async (req, res) => {
-  try {
-    const { pergunta, historico } = req.body || {};
-    if (!pergunta || !pergunta.trim()) {
-      return res.status(400).json({ ok: false, erro: 'Pergunta obrigatória.' });
-    }
-
-    const iaConfig = await getEffectiveIaConfig(db);
-    if (!iaConfig.enabled) {
-      return res.status(400).json({ ok: false, erro: iaConfig.error });
-    }
-
-    const produtos = await new Promise((resolve) => {
-      db.all(`SELECT id, nome, categoria, preco FROM produtos WHERE status = 'ativo' LIMIT 40`, [], (e, r) => resolve(r || []));
-    });
-
-    const vendas = await new Promise((resolve) => {
-      db.all(`SELECT productName, COUNT(*) as qtd FROM pedidos WHERE status IN ('Finalizado','Pago','Entregue') GROUP BY productName ORDER BY qtd DESC LIMIT 10`, [], (e, r) => resolve(r || []));
-    });
-
-    const resposta = await iaService.consultarAssistenteVendas({
-      apiKey: iaConfig.apiKey,
-      model: iaConfig.model,
-      contextoRestaurante: `${iaConfig.nomeRestaurante} - ${iaConfig.tomVoz}`,
-      cardapio: produtos,
-      historicoVendas: vendas,
-      historicoMensagens: historico || [],
-      pergunta: pergunta.trim()
-    });
-
-    res.json({ ok: true, ...resposta });
-  } catch (err) {
-    res.status(500).json({ ok: false, erro: err.message });
-  }
-});
-
-app.post('/api/ia/aplicar-promocao', verificarToken, (req, res) => {
-  const { titulo, categoria, preco, emoji, descricao, produtos_envolvidos, desconto_percentual } = req.body || {};
-  if (!titulo || !preco) {
-    return res.status(400).json({ ok: false, erro: 'Título e preço são obrigatórios.' });
-  }
-
-  const cat = categoria || 'Promoções & Combos';
-  const valor = parseFloat(preco) || 0;
-  const emo = emoji || '🔥';
-  const desc = descricao || (produtos_envolvidos ? `Combo com: ${produtos_envolvidos.join(', ')}` : '');
-
-  db.serialize(() => {
-    db.run(
-      `INSERT INTO produtos (categoria, nome, preco, emoji, setor, status_inicial, status, categoria_fiscal, descricao, visibilidade) VALUES (?, ?, ?, ?, 'Cozinha 1', 'Em espera', 'ativo', 'Alimentacao', ?, 'todos')`,
-      [cat, titulo.trim(), valor, emo, desc],
-      function(err) {
-        if (err) {
-          console.error('[Aplicar Promocao Error]', err.message);
-          return res.status(500).json({ ok: false, erro: 'Erro ao cadastrar produto promocional: ' + err.message });
+  withTenant(req, () => {
+    db.all(`SELECT * FROM configuracoes`, async (err, rows) => {
+    if (err) return res.json({ ok: false, msg: 'Erro ao carregar configurações.' });
+    const config = {};
+    if (rows) rows.forEach(r => config[r.chave] = r.valor);
+    try {
+      if (provedor === 'mercadopago') {
+        const token = config.mp_access_token;
+        const deviceId = config.mp_device_id;
+        if (!token || !deviceId) return res.json({ ok: false, msg: 'Access Token ou Device ID não configurados.' });
+        const response = await fetch(`https://api.mercadopago.com/point/integration-api/devices/${deviceId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          return res.json({ ok: true, msg: `Mercado Pago OK — Device: ${data.id || deviceId} | Modo: ${data.operating_mode || 'online'}` });
+        } else {
+          const errData = await response.json().catch(() => ({}));
+          return res.json({ ok: false, msg: `Mercado Pago: ${errData.message || 'HTTP ' + response.status}` });
         }
-        const produtoId = this.lastID;
-
-        db.run(
-          `INSERT INTO promocoes (titulo, tipo, emoji, descricao, preco_promocional, desconto_percentual, produtos_json, ativo, criado_por_ia) VALUES (?, 'combo', ?, ?, ?, ?, ?, 1, 1)`,
-          [titulo.trim(), emo, desc, valor, parseFloat(desconto_percentual) || 0, JSON.stringify(produtos_envolvidos || [])],
-          () => {}
-        );
-
-        broadcastProdutos();
-        res.json({ ok: true, mensagem: `Promoção "${titulo}" adicionada ao cardápio com sucesso!`, produtoId });
       }
-    );
+      if (provedor === 'stone') {
+        const stonePorta = config.stone_porta || '8080';
+        const stoneCode = config.stone_stonecode;
+        if (!stoneCode) return res.json({ ok: false, msg: 'Stone Code não configurado.' });
+        const response = await fetch(`http://localhost:${stonePorta}/health`, { signal: AbortSignal.timeout(5000) });
+        if (response.ok) {
+          return res.json({ ok: true, msg: `Stone Client TEF respondeu na porta ${stonePorta}. Stone Code: ${stoneCode}` });
+        } else {
+          return res.json({ ok: false, msg: `Stone Client respondeu com HTTP ${response.status}` });
+        }
+      }
+      if (provedor === 'pagbank') {
+        const pgToken = config.pagbank_token;
+        const pgTerminal = config.pagbank_terminal;
+        if (!pgToken) return res.json({ ok: false, msg: 'Token PagBank não configurado.' });
+        const response = await fetch(`https://api.pagseguro.com/terminal/v1/terminals/${pgTerminal || ''}`, {
+          headers: { 'Authorization': `Bearer ${pgToken}` }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          return res.json({ ok: true, msg: `PagBank OK — Terminal: ${data.id || pgTerminal} | Status: ${data.status || 'online'}` });
+        } else {
+          const errData = await response.json().catch(() => ({}));
+          return res.json({ ok: false, msg: `PagBank: ${errData.message || errData.error || 'HTTP ' + response.status}` });
+        }
+      }
+      if (provedor === 'sitef') {
+        const sitefIp = config.sitef_ip;
+        const sitefPorta = parseInt(config.sitef_porta || '4096');
+        if (!sitefIp) return res.json({ ok: false, msg: 'IP do servidor SiTef não configurado.' });
+        const net = require('net');
+        await new Promise((resolve) => {
+          const socket = new net.Socket();
+          socket.setTimeout(5000);
+          socket.connect(sitefPorta, sitefIp, () => {
+            socket.destroy();
+            res.json({ ok: true, msg: `SiTef: conexão TCP OK com ${sitefIp}:${sitefPorta}` });
+            resolve();
+          });
+          socket.on('timeout', () => { socket.destroy(); res.json({ ok: false, msg: `SiTef: timeout ao conectar em ${sitefIp}:${sitefPorta}` }); resolve(); });
+          socket.on('error', (err) => { res.json({ ok: false, msg: `SiTef: ${err.message}` }); resolve(); });
+        });
+        return;
+      }
+      return res.json({ ok: false, msg: `Provedor desconhecido: ${provedor}` });
+    } catch (e) {
+      return res.json({ ok: false, msg: `Erro ao testar: ${e.message}` });
+    }
+    });
+  });
+});
+
+// --- BACKUP & RESTORE API ---
+app.get('/api/backup', verificarToken, (req, res) => {
+  res.download(dbPath, 'backup.sqlite', (err) => {
+    if (err) {
+      console.error("Erro no download do backup:", err);
+      if (!res.headersSent) {
+        res.status(500).send("Erro ao gerar backup: " + err.message);
+      }
+    }
+  });
+});
+
+app.post('/api/restore', verificarToken, upload.single('backup'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ success: false, error: 'Nenhum arquivo enviado.' });
+  }
+
+  const tempFilePath = req.file.path;
+  const testDb = new sqlite3.Database(tempFilePath, sqlite3.OPEN_READONLY, (testErr) => {
+    if (testErr) {
+      console.error("Arquivo de backup inválido (sqlite open):", testErr);
+      try { fs.unlinkSync(tempFilePath); } catch (e) { }
+      return res.json({ success: false, error: 'O arquivo enviado não é um banco de dados SQLite válido.' });
+    }
+
+    testDb.get("SELECT name FROM sqlite_master WHERE type='table' LIMIT 1", [], (queryErr, row) => {
+      testDb.close();
+
+      if (queryErr) {
+        console.error("Arquivo de backup inválido (sqlite query):", queryErr);
+        try { fs.unlinkSync(tempFilePath); } catch (e) { }
+        return res.json({ success: false, error: 'O arquivo de banco de dados enviado está corrompido ou é inválido.' });
+      }
+
+      // Proceder com a restauração
+      db.close((closeErr) => {
+        if (closeErr) {
+          console.error("Erro ao fechar o banco de dados para restore:", closeErr);
+          // Tentar reabrir o banco original
+          db = new sqlite3.Database(dbPath, (err) => {
+            if (err) console.error("Erro ao reabrir banco após falha de fechamento:", err);
+          });
+          try { fs.unlinkSync(tempFilePath); } catch (e) { }
+          return res.json({ success: false, error: 'Erro ao fechar banco de dados atual.' });
+        }
+
+        try {
+          fs.copyFileSync(tempFilePath, dbPath);
+          try { fs.unlinkSync(tempFilePath); } catch (e) { }
+
+          // Reabrir conexão com o banco restaurado
+          db = new sqlite3.Database(dbPath, (openErr) => {
+            if (openErr) {
+              console.error("Erro ao reabrir banco restaurado:", openErr);
+              return res.json({ success: false, error: 'Erro ao conectar ao banco restaurado.' });
+            }
+
+            console.log("Banco de dados restaurado com sucesso!");
+
+            // Emitir notificações para atualizar os clientes
+            io.emit('configuracoes_atualizadas');
+            db.all(`SELECT * FROM produtos`, (errProd, pRows) => {
+              if (!errProd) io.emit('produtos_atualizados', pRows || []);
+            });
+            db.all(`SELECT * FROM mesas`, (errMesa, mRows) => {
+              if (!errMesa) io.emit('mesas_atualizadas', mRows || []);
+            });
+
+            res.json({ success: true });
+          });
+        } catch (copyErr) {
+          console.error("Erro ao copiar arquivo restaurado:", copyErr);
+          // Tentar reabrir o banco original
+          db = new sqlite3.Database(dbPath);
+          try { fs.unlinkSync(tempFilePath); } catch (e) { }
+          res.json({ success: false, error: 'Erro de E/S ao substituir o banco de dados.' });
+        }
+      });
+    });
   });
 });
 
@@ -11433,18 +8664,775 @@ setInterval(() => {
 const HOST = '0.0.0.0';
 
 
-// registerAdminRhEvents ? migrado para plugins/rh/ (registerRhSockets)
+// --- ADMIN RH ENDPOINTS ---
+function registerAdminRhEvents(socket) {
+  socket.on('get_rh_data', () => {
+    const valesQuery = "SELECT v.*, f.nome as funcionario_nome FROM vales v JOIN funcionarios f ON v.funcionario_id = f.id ORDER BY v.data_pedido DESC";
+    const pontosQuery = "SELECT p.*, f.nome as funcionario_nome FROM pontos p JOIN funcionarios f ON p.funcionario_id = f.id ORDER BY p.entrada DESC";
+    const loginsQuery = "SELECT * FROM historico_logins ORDER BY data_hora DESC LIMIT 100";
+    const funcQuery = "SELECT id, nome, cargo FROM funcionarios WHERE status = 'Ativo'";
+    const pedidosQuery = "SELECT userName, total, status FROM pedidos";
+    const pagamentosQuery = "SELECT p.*, f.nome as funcionario_nome FROM funcionarios_pagamentos p JOIN funcionarios f ON p.funcionario_id = f.id ORDER BY p.data_pagamento DESC";
 
+    db.all(valesQuery, (errV, vales) => {
+      db.all(pontosQuery, (errP, pontos) => {
+        db.all(loginsQuery, (errL, logins) => {
+          db.all(funcQuery, (errF, funcs) => {
+            db.all(pedidosQuery, (errPed, allPedidos) => {
+              db.all(pagamentosQuery, (errPag, pagamentos) => {
+                // Calculate metrics for each active employee
+                const metrics = (funcs || []).map(f => {
+                  const employeePontos = (pontos || []).filter(p => p.funcionario_id === f.id);
+                  const totalHours = employeePontos.reduce((acc, p) => acc + (p.total_horas || 0), 0);
 
-// ── RH / PAGAMENTO DE FOLHA → migrado para plugins/garcom/ ──────
+                  const employeePedidos = (allPedidos || []).filter(p => p.userName === f.nome);
+                  const totalOrders = employeePedidos.length;
+                  const totalSales = employeePedidos
+                    .filter(p => p.status !== 'Cancelado')
+                    .reduce((acc, p) => acc + (parseFloat(String(p.total).replace(',', '.')) || 0), 0);
 
-// ── PERFIL DE MESA → migrado para plugins/caixa/ ────────────
+                  return {
+                    id: f.id,
+                    nome: f.nome,
+                    cargo: f.cargo,
+                    horas_trabalhadas: totalHours,
+                    total_pedidos: totalOrders,
+                    total_vendas: totalSales,
+                    produtividade: totalHours > 0 ? (totalOrders / totalHours) : 0
+                  };
+                });
 
-// ── SUGESTÕES DE PROMOÇÕES → migrado para plugins/caixa/ ────────────
+                socket.emit('rh_data', {
+                  vales: vales || [],
+                  pontos: pontos || [],
+                  logins: logins || [],
+                  pagamentos: pagamentos || [],
+                  metrics: metrics
+                });
+              }); // closes pagamentos
+            }); // closes pedidos
+          }); // closes func
+        }); // closes logins
+      }); // closes pontos
+    }); // closes vales
+  }); // closes socket.on
 
-// �?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?
-// �?�? IA ASSISTENTE - SUGESTÕES INTELIGENTES POR PERFIL �?�?�?�?�?�?�?�?
-// �?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?
+  socket.on('aprovar_vale', (data) => {
+    const { valeId, lancarCaixa, operador } = data;
+    db.get("SELECT * FROM vales WHERE id = ?", [valeId], (err, vale) => {
+      if (vale && vale.status === 'Pendente') {
+        db.run("UPDATE vales SET status = 'Aprovado', data_aprovacao = datetime('now', 'localtime') WHERE id = ?", [valeId], (errU) => {
+          if (!errU) {
+            if (lancarCaixa) {
+              // Gerar saída no caixa
+              db.get("SELECT id FROM turnos_caixa WHERE status = 'Aberto' ORDER BY id DESC LIMIT 1", (errC, turno) => {
+                if (turno) {
+                  db.run(
+                    "INSERT INTO movimentacoes (turno_id, tipo, valor, descricao, data, forma_pagamento) VALUES (?, 'saida', ?, ?, datetime('now', 'localtime'), 'Dinheiro')",
+                    [turno.id, vale.valor, "Adiantamento/Vale - Func. ID " + vale.funcionario_id]
+                  );
+                }
+              });
+            }
+            global.registrarAuditoria(data.operador || 'Admin', 'APROVAR_VALE', `Vale ${valeId} aprovado (R$ ${vale.valor.toFixed(2)})`, 'RH e Pagamentos', 'ALTO');
+            // Emit update to all
+            io.emit('rh_update');
+            io.emit('vale_solicitado_success'); // To trigger refresh on employee panel
+          }
+        });
+      }
+    });
+  });
+
+  socket.on('recusar_vale', (data) => {
+    const valeId = (typeof data === 'object') ? data.id : data;
+    const op = (typeof data === 'object') ? data.operador : 'Admin';
+    db.run("UPDATE vales SET status = 'Recusado' WHERE id = ?", [valeId], (err) => {
+      if (!err) {
+        global.registrarAuditoria(op || 'Admin', 'RECUSAR_VALE', `Vale ${valeId} recusado`, 'RH e Pagamentos', 'MEDIO');
+        io.emit('rh_update');
+        io.emit('vale_solicitado_success');
+      }
+    });
+  });
+
+  socket.on('pagar_ponto', (data) => {
+    const pontoId = (typeof data === 'object') ? data.id : data;
+    const op = (typeof data === 'object') ? data.operador : 'Admin';
+    db.run("UPDATE pontos SET pago = 1 WHERE id = ?", [pontoId], (err) => {
+      if (!err) {
+        global.registrarAuditoria(op || 'Admin', 'PAGAR_PONTO', `Ponto pago (ID: ${pontoId})`, 'RH e Pagamentos', 'MEDIO');
+        io.emit('rh_update');
+        io.emit('ponto_registrado', { acao: 'pagamento' }); // to trigger refresh if needed
+      }
+    });
+  });
+
+  // === REGISTRAR PAGAMENTO RÁPIDO COLABORADOR ===
+  socket.on('registrar_pagamento_colaborador', (data) => {
+    const { funcionario_id, funcionario_nome, valor_bruto, valor_liquido, observacao } = data;
+    if (!funcionario_id || !valor_bruto) return;
+
+    const dataPagamento = getLocalTimestamp();
+
+    db.run(
+      `INSERT INTO funcionarios_pagamentos (funcionario_id, data_pagamento, valor_bruto, total_vales_abatidos, total_consumo_abatido, valor_liquido, observacao) VALUES (?, ?, ?, 0, 0, ?, ?)`,
+      [funcionario_id, dataPagamento, valor_bruto, valor_liquido || valor_bruto, observacao || ''],
+      function (err) {
+        if (err) {
+          console.error('Erro ao registrar pagamento rápido:', err);
+          return;
+        }
+        const pagId = this.lastID;
+
+        global.registrarAuditoria('Admin', 'PAGAMENTO_COLABORADOR', `Pagamento de R$ ${(valor_liquido || valor_bruto).toFixed(2)} para ${funcionario_nome} (ID: ${funcionario_id})`, 'RH e Pagamentos', 'ALTO');
+
+        io.emit('rh_update');
+
+        // Broadcast celebration to ALL connected clients
+        io.emit('pagamento_colaborador_celebracao', {
+          funcionario_id,
+          funcionario_nome,
+          valor: valor_liquido || valor_bruto,
+          data_pagamento: dataPagamento,
+          observacao: observacao || '',
+          pagamento_id: pagId
+        });
+      }
+    );
+  });
+
+  socket.on('get_report_filters', () => {
+    const filtersData = {
+      garcons: [],
+      clientes: [],
+      locais: []
+    };
+
+    db.all(`SELECT DISTINCT userName FROM pedidos WHERE userName IS NOT NULL AND userName != '' ORDER BY userName`, [], (err, rowsG) => {
+      if (!err && rowsG) filtersData.garcons = rowsG.map(r => r.userName);
+
+      db.all(`SELECT id, nome FROM clientes ORDER BY nome`, [], (err, rowsC) => {
+        if (!err && rowsC) filtersData.clientes = rowsC.map(r => ({ id: r.id, nome: r.nome }));
+
+        db.all(`SELECT DISTINCT localName FROM pedidos WHERE localName IS NOT NULL AND localName != '' ORDER BY localName`, [], (err, rowsL) => {
+          if (!err && rowsL) filtersData.locais = rowsL.map(r => r.localName);
+
+          socket.emit('report_filters_data', filtersData);
+        });
+      });
+    });
+  });
+
+  socket.on('get_advanced_relatorio', async ({ startDate, endDate, groupBy, clientFilter, waiterFilter, localFilter }) => {
+    try {
+      const startStr = startDate ? startDate + ' 00:00:00' : '1970-01-01 00:00:00';
+      const endStr = endDate ? endDate + ' 23:59:59' : '2099-12-31 23:59:59';
+
+      const clientVal = clientFilter ? clientFilter : null;
+      const waiterVal = waiterFilter ? `%${waiterFilter}%` : null;
+      const localVal = localFilter ? `%${localFilter}%` : null;
+
+      const pAll = (sql, params) => new Promise((resolve) => db.all(sql, params, (err, rows) => resolve(err ? [] : rows)));
+      const pGet = (sql, params) => new Promise((resolve) => db.get(sql, params, (err, row) => resolve(err ? null : row)));
+
+      const stdParams = [
+        startStr, endStr,
+        clientVal, clientVal, clientVal ? `%${clientVal}%` : null,
+        waiterVal, waiterVal,
+        localVal, localVal
+      ];
+
+      // 1. Sold Items
+      const soldItemsQuery = `
+        SELECT
+          p.productName,
+          SUM(p.quantity) AS qty,
+          SUM(CAST(p.total AS REAL)) AS valTotal
+        FROM pedidos p
+        LEFT JOIN clientes c ON p.cliente_id = c.id
+        WHERE p.createdAt >= ? AND p.createdAt <= ?
+          AND p.status != 'Cancelado'
+          AND p.productName NOT LIKE 'Pgto Parcial%'
+          AND CAST(p.total AS REAL) >= 0
+          AND (? IS NULL OR p.cliente_id = ? OR c.nome LIKE ?)
+          AND (? IS NULL OR p.userName LIKE ?)
+          AND (? IS NULL OR p.localName LIKE ?)
+        GROUP BY p.productName
+        ORDER BY valTotal DESC
+        LIMIT 150
+      `;
+
+      // 2. Orders Detail
+      const ordersQuery = `
+        SELECT
+          p.id,
+          p.productName,
+          p.quantity,
+          p.total,
+          p.status,
+          p.localName,
+          p.userName,
+          p.createdAt,
+          p.paymentMethod,
+          c.nome AS clientName
+        FROM pedidos p
+        LEFT JOIN clientes c ON p.cliente_id = c.id
+        WHERE p.createdAt >= ? AND p.createdAt <= ?
+          AND p.productName NOT LIKE 'Pgto Parcial%'
+          AND (? IS NULL OR p.cliente_id = ? OR c.nome LIKE ?)
+          AND (? IS NULL OR p.userName LIKE ?)
+          AND (? IS NULL OR p.localName LIKE ?)
+        ORDER BY p.id DESC
+      `;
+
+      // 3. Sales Period Trend (Chart)
+      let groupFormat = '%Y-%m-%d';
+      if (groupBy === 'hour') groupFormat = '%Y-%m-%d %H:00';
+      else if (groupBy === 'week') groupFormat = '%Y-W%W';
+      else if (groupBy === 'month') groupFormat = '%Y-%m';
+      else if (groupBy === 'year') groupFormat = '%Y';
+
+      const periodQuery = `
+        SELECT
+          strftime(?, p.createdAt) AS period,
+          SUM(p.quantity) AS qty_total,
+          SUM(CAST(p.total AS REAL)) AS val_total,
+          COUNT(DISTINCT (p.createdAt || '-' || p.localName)) AS orders_count
+        FROM pedidos p
+        LEFT JOIN clientes c ON p.cliente_id = c.id
+        WHERE p.createdAt >= ? AND p.createdAt <= ?
+          AND p.status IN ('Finalizado', 'Pago')
+          AND p.productName NOT LIKE 'Pgto Parcial%'
+          AND CAST(p.total AS REAL) >= 0
+          AND (? IS NULL OR p.cliente_id = ? OR c.nome LIKE ?)
+          AND (? IS NULL OR p.userName LIKE ?)
+          AND (? IS NULL OR p.localName LIKE ?)
+        GROUP BY period
+        ORDER BY period ASC
+      `;
+
+      // 4. Payment Methods Global (from transactions)
+      const pmGlobalQuery = `
+        SELECT forma_pagamento, SUM(valor) AS total
+        FROM movimentacoes
+        WHERE tipo = 'Entrada'
+          AND data >= ? AND data <= ?
+          AND (? IS NULL OR (descricao LIKE ? OR descricao LIKE ?))
+        GROUP BY forma_pagamento
+      `;
+      const pmGlobalParams = [
+        startStr, endStr,
+        localFilter ? 1 : null, localVal, localVal
+      ];
+
+      // 5. Payment Methods Filtered (from orders)
+      const pmFilteredQuery = `
+        SELECT
+          CASE
+            WHEN p.paymentMethod IS NULL OR p.paymentMethod = '' THEN 'Não Definido'
+            ELSE p.paymentMethod
+          END AS metodo,
+          SUM(CAST(p.total AS REAL)) AS total
+        FROM pedidos p
+        LEFT JOIN clientes c ON p.cliente_id = c.id
+        WHERE p.createdAt >= ? AND p.createdAt <= ?
+          AND p.status IN ('Finalizado', 'Pago')
+          AND p.productName NOT LIKE 'Pgto Parcial%'
+          AND CAST(p.total AS REAL) >= 0
+          AND (? IS NULL OR p.cliente_id = ? OR c.nome LIKE ?)
+          AND (? IS NULL OR p.userName LIKE ?)
+          AND (? IS NULL OR p.localName LIKE ?)
+        GROUP BY metodo
+      `;
+
+      // 6. KPIs
+      const kpiQuery = `
+        SELECT
+          SUM(CAST(p.total AS REAL)) AS totalSales,
+          SUM(p.quantity) AS totalItems,
+          COUNT(DISTINCT (p.createdAt || '-' || p.localName)) AS totalOrders
+        FROM pedidos p
+        LEFT JOIN clientes c ON p.cliente_id = c.id
+        WHERE p.createdAt >= ? AND p.createdAt <= ?
+          AND p.status IN ('Finalizado', 'Pago')
+          AND p.productName NOT LIKE 'Pgto Parcial%'
+          AND CAST(p.total AS REAL) >= 0
+          AND (? IS NULL OR p.cliente_id = ? OR c.nome LIKE ?)
+          AND (? IS NULL OR p.userName LIKE ?)
+          AND (? IS NULL OR p.localName LIKE ?)
+      `;
+
+      // 7. Category Sales
+      const categorySalesQuery = `
+        SELECT
+          COALESCE(pr.categoria, 'Outros') AS categoria,
+          SUM(p.quantity) AS qty,
+          SUM(CAST(p.total AS REAL)) AS valTotal
+        FROM pedidos p
+        LEFT JOIN produtos pr ON p.productName = pr.nome
+        LEFT JOIN clientes c ON p.cliente_id = c.id
+        WHERE p.createdAt >= ? AND p.createdAt <= ?
+          AND p.status IN ('Finalizado', 'Pago')
+          AND (? IS NULL OR p.cliente_id = ? OR c.nome LIKE ?)
+          AND (? IS NULL OR p.userName LIKE ?)
+          AND (? IS NULL OR p.localName LIKE ?)
+        GROUP BY categoria
+        ORDER BY valTotal DESC
+      `;
+
+      // 8. Sector Sales
+      const sectorSalesQuery = `
+        SELECT
+          COALESCE(p.sector, 'Outros') AS setor,
+          SUM(p.quantity) AS qty,
+          SUM(CAST(p.total AS REAL)) AS valTotal
+        FROM pedidos p
+        LEFT JOIN clientes c ON p.cliente_id = c.id
+        WHERE p.createdAt >= ? AND p.createdAt <= ?
+          AND p.status IN ('Finalizado', 'Pago')
+          AND (? IS NULL OR p.cliente_id = ? OR c.nome LIKE ?)
+          AND (? IS NULL OR p.userName LIKE ?)
+          AND (? IS NULL OR p.localName LIKE ?)
+        GROUP BY setor
+        ORDER BY valTotal DESC
+      `;
+
+      // 9. Cancellation Stats
+      const cancellationQuery = `
+        SELECT
+          COUNT(DISTINCT (p.createdAt || '-' || p.localName)) AS totalOrders,
+          SUM(p.quantity) AS totalItems,
+          SUM(CAST(p.total AS REAL)) AS totalLosses
+        FROM pedidos p
+        LEFT JOIN clientes c ON p.cliente_id = c.id
+        WHERE p.createdAt >= ? AND p.createdAt <= ?
+          AND p.status = 'Cancelado'
+          AND (? IS NULL OR p.cliente_id = ? OR c.nome LIKE ?)
+          AND (? IS NULL OR p.userName LIKE ?)
+          AND (? IS NULL OR p.localName LIKE ?)
+      `;
+
+      // 10. Waiter Ranking
+      const waiterRankingQuery = `
+        SELECT
+          p.userName AS garcom,
+          COUNT(DISTINCT (p.createdAt || '-' || p.localName)) AS totalOrders,
+          SUM(CAST(p.total AS REAL)) AS totalSales
+        FROM pedidos p
+        LEFT JOIN clientes c ON p.cliente_id = c.id
+        WHERE p.createdAt >= ? AND p.createdAt <= ?
+          AND p.status IN ('Finalizado', 'Pago')
+          AND (? IS NULL OR p.cliente_id = ? OR c.nome LIKE ?)
+          AND (? IS NULL OR p.userName LIKE ?)
+          AND (? IS NULL OR p.localName LIKE ?)
+        GROUP BY garcom
+        ORDER BY totalSales DESC
+      `;
+
+      // 11. Client Ranking
+      const clientRankingQuery = `
+        SELECT
+          COALESCE(c.nome, 'Cliente Avulso') AS cliente,
+          COUNT(DISTINCT (p.createdAt || '-' || p.localName)) AS totalOrders,
+          SUM(CAST(p.total AS REAL)) AS totalSales
+        FROM pedidos p
+        LEFT JOIN clientes c ON p.cliente_id = c.id
+        WHERE p.createdAt >= ? AND p.createdAt <= ?
+          AND p.status IN ('Finalizado', 'Pago')
+          AND (? IS NULL OR p.cliente_id = ? OR c.nome LIKE ?)
+          AND (? IS NULL OR p.userName LIKE ?)
+          AND (? IS NULL OR p.localName LIKE ?)
+        GROUP BY cliente
+        ORDER BY totalSales DESC
+        LIMIT 10
+      `;
+
+      // Execute all queries concurrently
+      const [
+        soldItems,
+        orders,
+        periodSales,
+        paymentMethodsGlobal,
+        paymentMethodsFiltered,
+        rowKpi,
+        categorySales,
+        sectorSales,
+        cancellationStats,
+        waiterRanking,
+        clientRanking
+      ] = await Promise.all([
+        pAll(soldItemsQuery, stdParams),
+        pAll(ordersQuery, stdParams),
+        pAll(periodQuery, [groupFormat, ...stdParams.slice(1)]),
+        pAll(pmGlobalQuery, pmGlobalParams),
+        pAll(pmFilteredQuery, stdParams),
+        pGet(kpiQuery, stdParams),
+        pAll(categorySalesQuery, stdParams),
+        pAll(sectorSalesQuery, stdParams),
+        pGet(cancellationQuery, stdParams),
+        pAll(waiterRankingQuery, stdParams),
+        pAll(clientRankingQuery, stdParams)
+      ]);
+
+      const response = {
+        kpi: {
+          totalSales: rowKpi ? (rowKpi.totalSales || 0) : 0,
+          totalItems: rowKpi ? (rowKpi.totalItems || 0) : 0,
+          totalOrders: rowKpi ? (rowKpi.totalOrders || 0) : 0,
+          ticketMedio: (rowKpi && rowKpi.totalOrders > 0) ? (rowKpi.totalSales / rowKpi.totalOrders) : 0
+        },
+        periodSales,
+        paymentMethodsGlobal,
+        paymentMethodsFiltered,
+        soldItems,
+        orders,
+        categorySales,
+        sectorSales,
+        cancellationStats: {
+          totalOrders: cancellationStats ? (cancellationStats.totalOrders || 0) : 0,
+          totalItems: cancellationStats ? (cancellationStats.totalItems || 0) : 0,
+          totalLosses: cancellationStats ? (cancellationStats.totalLosses || 0) : 0
+        },
+        waiterRanking,
+        clientRanking
+      };
+
+      socket.emit('advanced_relatorio_data', response);
+    } catch (e) {
+      console.error('Erro ao gerar relatório avançado:', e);
+      socket.emit('advanced_relatorio_error', 'Ocorreu um erro ao processar o relatório.');
+    }
+  });
+
+  // Dias Atipicos - Admin list
+  socket.on('get_dias_atipicos', (filtro) => {
+    let query = `SELECT d.*, f.nome as funcionario_nome FROM dias_atipicos d JOIN funcionarios f ON f.id = d.funcionario_id`;
+    const params = [];
+    const where = [];
+    if (filtro && filtro.status) {
+      where.push('d.status = ?');
+      params.push(filtro.status);
+    }
+    if (filtro && filtro.funcionario_id) {
+      where.push('d.funcionario_id = ?');
+      params.push(filtro.funcionario_id);
+    }
+    if (where.length) query += ' WHERE ' + where.join(' AND ');
+    query += ' ORDER BY d.data DESC';
+    db.all(query, params, (err, rows) => {
+      socket.emit('dias_atipicos_list', rows || []);
+    });
+  });
+
+  // Admin criar/salvar dia atipico
+  socket.on('salvar_dia_atipico', ({ id, funcionario_id, data, valor, justificativa, status }) => {
+    if (!isValidId(funcionario_id) && !id) return;
+    const agora = getLocalTimestamp();
+    if (id) {
+      db.run(`UPDATE dias_atipicos SET data = ?, valor = ?, justificativa = ?, status = ? WHERE id = ?`,
+        [data, safeFloat(valor, 0, 99999), justificativa || '', status || 'pendente', id], () => {
+          socket.emit('dia_atipico_salvo');
+        });
+    } else {
+      db.run(`INSERT INTO dias_atipicos (funcionario_id, data, valor, justificativa, status, created_at) VALUES (?, ?, ?, ?, 'pendente', ?)`,
+        [funcionario_id, data, safeFloat(valor, 0, 99999), justificativa || '', agora], function (err) {
+          if (!err) socket.emit('dia_atipico_salvo');
+        });
+    }
+  });
+
+  // Admin aprovar/recusar dia atipico / extra
+  socket.on('aprovar_dia_atipico', ({ id, forma_pagamento }) => {
+    const atipicoId = typeof id === 'object' ? id.id : id;
+    const fp = typeof id === 'object' ? (id.forma_pagamento || forma_pagamento) : (forma_pagamento || 'proximo_pagamento');
+    if (!isValidId(atipicoId)) return;
+    db.run(`UPDATE dias_atipicos SET status = 'aprovado', forma_pagamento = ? WHERE id = ?`, [fp, atipicoId], () => {
+      socket.emit('dia_atipico_atualizado');
+    });
+  });
+  socket.on('recusar_dia_atipico', (id) => {
+    const atipicoId = typeof id === 'object' ? id.id : id;
+    if (!isValidId(atipicoId)) return;
+    db.run(`UPDATE dias_atipicos SET status = 'recusado' WHERE id = ?`, [atipicoId], () => {
+      socket.emit('dia_atipico_atualizado');
+    });
+  });
+
+  // Consumo do funcionario - Configuracao (admin)
+  socket.on('get_consumo_config', () => {
+    db.all(`SELECT c.*, p.nome as produto_nome, p.preco as produto_preco, p.emoji, p.categoria
+      FROM funcionario_consumo_config c
+      JOIN produtos p ON p.id = c.produto_id
+      ORDER BY p.categoria, p.nome`, (err, configs) => {
+      db.all(`SELECT id, nome, categoria, preco, emoji FROM produtos WHERE status = 'ativo' ORDER BY categoria, nome`, (err2, produtos) => {
+        socket.emit('consumo_config_data', { configs: configs || [], produtos: produtos || [] });
+      });
+    });
+  });
+
+  socket.on('save_consumo_config', ({ produto_id, preco_fixo, desconto_percentual, ativo }) => {
+    if (!isValidId(produto_id)) return;
+    db.get(`SELECT id FROM funcionario_consumo_config WHERE produto_id = ?`, [produto_id], (err, row) => {
+      if (row) {
+        db.run(`UPDATE funcionario_consumo_config SET preco_fixo = ?, desconto_percentual = ?, ativo = ? WHERE id = ?`,
+          [preco_fixo || null, desconto_percentual || null, ativo ? 1 : 0, row.id], () => {
+            socket.emit('consumo_config_saved');
+          });
+      } else {
+        db.run(`INSERT INTO funcionario_consumo_config (produto_id, preco_fixo, desconto_percentual, ativo) VALUES (?, ?, ?, ?)`,
+          [produto_id, preco_fixo || null, desconto_percentual || null, ativo ? 1 : 0], () => {
+            socket.emit('consumo_config_saved');
+          });
+      }
+    });
+  });
+}
+
+// =====================================
+// ROTAS DE RH / PAGAMENTO DE FOLHA
+// =====================================
+
+app.get('/api/rh/extrato/:id', verificarToken, (req, res) => {
+  const funcId = req.params.id;
+  db.get("SELECT nome FROM funcionarios WHERE id = ?", [funcId], (errF, func) => {
+    if (errF || !func) return res.status(404).send("Funcionário não encontrado");
+
+    const funcName = func.nome;
+    db.all("SELECT id, valor, data_pedido, observacao FROM vales WHERE funcionario_id = ? AND status = 'Aprovado' AND pagamento_id IS NULL", [funcId], (errV, vales) => {
+      // Para abatimento de consumo (Fiado)
+      // Procuramos pedidos finalizados onde o funcionario_id esteja preenchido explicitamente para o colaborador
+      db.all("SELECT id, total, productName, quantity, createdAt FROM pedidos WHERE status = 'Finalizado' AND paymentMethod = 'Fiado' AND pagamento_id IS NULL AND funcionario_id = ?", [funcId], (errP, fiados) => {
+        // Fallback: se não houver pedidos vinculados por funcionario_id, busca por userName
+        const buscarFiados = (fiados && fiados.length > 0) ? Promise.resolve(fiados) : new Promise((resolve) => {
+          db.all("SELECT id, total, productName, quantity, createdAt FROM pedidos WHERE status = 'Finalizado' AND paymentMethod = 'Fiado' AND pagamento_id IS NULL AND userName = ?", [funcName], (e, rows) => {
+            resolve(rows || []);
+          });
+        });
+
+        buscarFiados.then(fiadosLista => {
+          // Dias atípicos / extras pendentes de acerto
+          db.all("SELECT id, data, valor, justificativa, forma_pagamento FROM dias_atipicos WHERE funcionario_id = ? AND status = 'aprovado' AND pagamento_id IS NULL", [funcId], (errD, atipicos) => {
+            let totalVales = 0;
+            (vales || []).forEach(v => totalVales += parseFloat(v.valor || 0));
+
+            let totalConsumo = 0;
+            (fiadosLista || []).forEach(f => {
+              let rawTotal = String(f.total || '0').replace('R$', '').replace(/\./g, '').replace(',', '.').trim();
+              let val = parseFloat(rawTotal || 0);
+              // Proteção contra soma duplicada de arrays ou valores inválidos
+              if (!isNaN(val) && val > 0 && val < 5000) {
+                totalConsumo += val;
+              }
+            });
+
+            let totalAtipicos = 0;
+            (atipicos || []).forEach(a => totalAtipicos += parseFloat(a.valor || 0));
+
+            res.json({
+              vales: vales || [],
+              fiados: fiadosLista || [],
+              atipicos: atipicos || [],
+              total_vales: totalVales,
+              total_consumo: totalConsumo,
+              total_dias_extras: totalAtipicos,
+              suggested_bruto: totalAtipicos
+            });
+          });
+        });
+      });
+    });
+  });
+});
+
+app.post('/api/rh/pagamentos', verificarToken, (req, res) => {
+  const { funcionario_id, valor_bruto, total_vales_abatidos, total_consumo_abatido, valor_liquido, observacao, vales_ids, pedidos_ids } = req.body;
+  const dataPagamento = new Date().toISOString();
+
+  db.run(`INSERT INTO funcionarios_pagamentos (funcionario_id, data_pagamento, valor_bruto, total_vales_abatidos, total_consumo_abatido, valor_liquido, observacao) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [funcionario_id, dataPagamento, valor_bruto, total_vales_abatidos, total_consumo_abatido, valor_liquido, observacao || ''],
+    function (err) {
+      if (err) return res.status(500).send("Erro ao registrar pagamento");
+
+      const pagId = this.lastID;
+
+      // Update vales
+      if (vales_ids && vales_ids.length > 0) {
+        db.run(`UPDATE vales SET pagamento_id = ? WHERE id IN (${vales_ids.map(() => '?').join(',')})`, [pagId, ...vales_ids]);
+      }
+      // Update pedidos fiados
+      if (pedidos_ids && pedidos_ids.length > 0) {
+        db.run(`UPDATE pedidos SET pagamento_id = ? WHERE id IN (${pedidos_ids.map(() => '?').join(',')})`, [pagId, ...pedidos_ids]);
+      }
+
+      io.emit('rh_update');
+
+      // Broadcast celebration
+      db.get("SELECT nome FROM funcionarios WHERE id = ?", [funcionario_id], (errF, func) => {
+        const nome = func ? func.nome : 'Colaborador';
+        io.emit('pagamento_colaborador_celebracao', {
+          funcionario_id,
+          funcionario_nome: nome,
+          valor: valor_liquido || valor_bruto,
+          data_pagamento: dataPagamento,
+          observacao: observacao || '',
+          pagamento_id: pagId
+        });
+      });
+
+      res.json({ success: true, pagamento_id: pagId });
+    }
+  );
+});
+
+// ── PERFIL DE MESA ────────────
+app.get('/api/mesa-perfil/:mesa_nome', (req, res) => {
+  const mesa_nome = req.params.mesa_nome;
+
+  withTenant(req, () => {
+    db.all("SELECT id, userName, productName, quantity, total, createdAt, localName, status FROM pedidos WHERE localName = ? ORDER BY id DESC LIMIT 300", [mesa_nome], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+
+    let clientes_recentes = [];
+    let itemCounts = {};
+    let soma = 0;
+    let clienteConsumo = {};
+    let abertaEm = null;
+
+    (rows || []).forEach(r => {
+      const isPagamento = r.productName && (String(r.productName).includes('Pgto Parcial') || String(r.productName).includes('Pagamento'));
+      if (isPagamento) return;
+
+      if (r.userName && r.userName.trim() !== '' && r.userName.toLowerCase() !== 'cliente padrão') {
+        if (!clientes_recentes.includes(r.userName)) clientes_recentes.push(r.userName);
+      }
+
+      soma += parseFloat(r.total) || 0;
+
+      if (r.productName) {
+        const qty = parseInt(r.quantity) || 1;
+        itemCounts[r.productName] = (itemCounts[r.productName] || 0) + qty;
+      }
+
+      // Consumo por cliente
+      const cliente = (r.userName && r.userName.trim() !== '' && r.userName.toLowerCase() !== 'cliente padrão')
+        ? r.userName.trim() : 'Cliente Padrão';
+      if (!clienteConsumo[cliente]) clienteConsumo[cliente] = { nome: cliente, valor: 0, pedidos: 0 };
+      clienteConsumo[cliente].valor += parseFloat(r.total) || 0;
+      clienteConsumo[cliente].pedidos++;
+    });
+
+    let mais_pedidos = Object.keys(itemCounts).map(nome => ({ nome, qty: itemCounts[nome] }));
+    mais_pedidos.sort((a, b) => b.qty - a.qty);
+    mais_pedidos = mais_pedidos.slice(0, 5);
+
+    const clientes_detalhe = Object.values(clienteConsumo)
+      .sort((a, b) => b.valor - a.valor)
+      .slice(0, 10);
+
+    const count = (rows && rows.length) ? rows.length : 0;
+    const media = count > 0 ? soma / count : 0;
+
+    // Horário em que a mesa foi aberta (pedido mais antigo ainda em aberto, senão o mais antigo)
+    try {
+      const abertos = (rows || []).filter(r => !['Finalizado', 'Pago', 'Cancelado', 'Entregue'].includes(r.status));
+      const fonte = (abertos.length > 0 ? abertos : rows || []).slice(-1)[0];
+      if (fonte && fonte.createdAt) abertaEm = fonte.createdAt;
+    } catch (e) { }
+
+    res.json({
+      mesa: mesa_nome,
+      clientes_recentes: clientes_recentes.slice(0, 5),
+      mais_pedidos,
+      media_valor: media,
+      total_pedidos: count,
+      aberta_em: abertaEm,
+      clientes_detalhe
+    });
+    });
+  });
+});
+
+// ── SUGESTÕES DE PROMOÇÕES (INTELIGÊNCIA DE VENDAS) ────────────
+app.get('/api/sugestoes-promocao', (req, res) => {
+  withTenant(req, () => {
+    // Pega os itens dos últimos 7 dias
+    db.all(`SELECT productName, SUM(quantity) as qty FROM pedidos WHERE createdAt >= datetime('now', '-7 days') GROUP BY productName`, (err, vendidos) => {
+    if (err) return res.status(500).json({ error: err.message });
+
+    let vended = {};
+    (vendidos || []).forEach(r => {
+      if (r.productName) vended[r.productName] = (vended[r.productName] || 0) + (parseInt(r.qty) || 1);
+    });
+
+    // Obter todos os produtos cadastrados para descobrir os obsoletos (não vendidos)
+    db.all("SELECT nome, preco FROM produtos", (err2, produtos) => {
+      if (err2) return res.status(500).json({ error: err2.message });
+
+      let obsoletos = [];
+      let vendidosArr = [];
+
+      produtos.forEach(prod => {
+        if (!vended[prod.nome]) {
+          obsoletos.push(prod);
+        } else {
+          vendidosArr.push({ nome: prod.nome, qty: vended[prod.nome], preco: prod.preco });
+        }
+      });
+
+      vendidosArr.sort((a, b) => b.qty - a.qty);
+      let tendencias = vendidosArr.slice(0, 5); // top 5
+
+      // Criar as sugestões descritivas
+      let sugestoes = [];
+
+      if (tendencias.length > 0 && obsoletos.length > 0) {
+        let top = tendencias[0];
+        let obs = obsoletos[0];
+        sugestoes.push({
+          tipo: 'combo',
+          titulo: 'Combo de Alta Conversão',
+          descricao: `Crie um combo oferecendo '${top.nome}' (tendência) junto com '${obs.nome}' (baixa saída) com um leve desconto. Isso ajudará a girar o estoque do item obsoleto!`
+        });
+      }
+
+      if (obsoletos.length > 1) {
+        sugestoes.push({
+          tipo: 'obsoleto',
+          titulo: 'Alerta de Baixa Saída',
+          descricao: `Os itens '${obsoletos[0].nome}' e '${obsoletos[1].nome}' não tiveram saídas nos últimos 7 dias. Considere criar uma promoção de "Compre 1 e Leve 2" ou dar como brinde em pedidos acima de um valor X.`
+        });
+      }
+
+      if (tendencias.length > 1) {
+        sugestoes.push({
+          tipo: 'tendencia',
+          titulo: 'Tendência de Vendas',
+          descricao: `Aproveite a alta demanda de '${tendencias[0].nome}' e '${tendencias[1].nome}'. Você pode aumentar sutilmente a margem de lucro ou criar variações Premium desses produtos.`
+        });
+      }
+
+      if (sugestoes.length === 0) {
+        sugestoes.push({
+          tipo: 'info',
+          titulo: 'Dados Insuficientes',
+          descricao: 'Ainda não há dados suficientes nos últimos 7 dias para gerar sugestões precisas. Continue registrando as vendas!'
+        });
+      }
+
+      res.json({
+        obsoletos: obsoletos.slice(0, 5),
+        tendencias,
+        sugestoes
+      });
+    });
+    });
+  });
+});
+
+// ══════════════════════════════════════════════════════════════
+// ══ IA ASSISTENTE - SUGESTÕES INTELIGENTES POR PERFIL ════════
+// ══════════════════════════════════════════════════════════════
 const IA_CONFIG = {
   iaEnabled: true,              // toggle global de alertas IA
   intervaloVerificacao: 60000,     // 60 segundos
@@ -11533,14 +9521,14 @@ function runIAVerificacao() {
 
     // ── 2. IA FILA COZINHA: Detectar espera longa ──
     rows.forEach(p => {
-      const criado = p.createdAt ? new Date(p.createdAt + (p.createdAt.includes('T') ? '' : 'Z')).getTime() : 0;
+      const criado = p.createdAt ? new Date(p.createdAt).getTime() : 0;
       if (!criado) return;
       const minsEspera = (agora - criado) / 60000;
       if (minsEspera > 720) return; // Ignorar pedidos com mais de 12 horas
       const chaveAlerta = `pedido_${p.id}`;
 
       if (minsEspera >= IA_CONFIG.minutosCriticoEspera && p.status !== 'Pronto') {
-        // Nível CR�?TICO - emitir alerta ao caixa e marcar pedido como urgente
+        // Nível CRÍTICO - emitir alerta ao caixa e marcar pedido como urgente
         if (!iaState.alertasAtivos.has(chaveAlerta) ||
           (agora - iaState.alertasAtivos.get(chaveAlerta).timestamp) > 300000) {
 
@@ -11644,7 +9632,7 @@ function runIAVerificacao() {
 
     // ── 3.5. IA ATENÇÃO: Chamada de atenção quando pedido extrapola tempo ──
     rows.forEach(p => {
-      const criado = p.createdAt ? new Date(p.createdAt + (p.createdAt.includes('T') ? '' : 'Z')).getTime() : 0;
+      const criado = p.createdAt ? new Date(p.createdAt).getTime() : 0;
       if (!criado) return;
       const minsEspera = (agora - criado) / 60000;
       const chaveAtencao = `atencao_${p.id}`;
@@ -11922,28 +9910,13 @@ io.on('connection', (socket) => {
 });
 
 app.post('/api/auth/registro', async (req, res) => {
-  const { restauranteNome, nome, email, telefone, senha, chaveRef, chaveAtivacao } = req.body || {};
+  const { restauranteNome, nome, email, telefone, senha, chaveRef } = req.body || {};
   if (!restauranteNome || !nome || !email || !senha) {
     return res.status(400).json({ success: false, error: 'Preencha todos os campos obrigatórios.' });
   }
 
   const emailClean = String(email).trim().toLowerCase();
   const telFormatado = (telefone || '').trim();
-
-  // Chave de ativação (upsell offline-first) — se informada, precisa ser válida
-  let chaveValida = null;
-  if (chaveAtivacao && String(chaveAtivacao).trim()) {
-    chaveValida = await new Promise((resolve) => {
-      masterDb.get(
-        `SELECT * FROM chaves_ativacao WHERE UPPER(chave) = UPPER(?) AND status = 'ativa' AND tipo = 'offline_first'`,
-        [String(chaveAtivacao).trim()],
-        (e, row) => resolve(!e && row ? row : null)
-      );
-    });
-    if (!chaveValida) {
-      return res.status(400).json({ success: false, error: 'Chave de ativação inválida ou já utilizada. Verifique com o suporte.' });
-    }
-  }
 
   try {
     // 1. Verificar se o e-mail já está cadastrado no sistema
@@ -11963,24 +9936,13 @@ app.post('/api/auth/registro', async (req, res) => {
 
       // 2. E-mail novo: Criar restaurante trial de 7 dias
       const hash = await bcrypt.hash(senha, 10);
-      const offlineFlag = chaveValida ? 1 : 0;
-      const servidorNode = chaveValida ? chaveValida.servidor_node : null;
       masterDb.run(
-        `INSERT INTO restaurantes (nome, licenca, ativo, telefone, dono_nome, dono_telefone, dono_email, offline_habilitado, servidor_node) VALUES (?, 'trial', 1, ?, ?, ?, ?, ?, ?)`,
-        [restauranteNome, telFormatado, nome, telFormatado, emailClean, offlineFlag, servidorNode],
+        `INSERT INTO restaurantes (nome, licenca, ativo, telefone, dono_nome, dono_telefone, dono_email) VALUES (?, 'trial', 1, ?, ?, ?, ?)`,
+        [restauranteNome, telFormatado, nome, telFormatado, emailClean],
         function (errRest) {
           if (errRest) return res.status(500).json({ success: false, error: 'Erro ao criar restaurante.' });
 
           const restauranteId = this.lastID;
-
-          // Consome a chave de ativação usada (marca como usada por este restaurante)
-          if (chaveValida) {
-            masterDb.run(
-              `UPDATE chaves_ativacao SET status = 'usada', restaurante_id = ?, usada_em = datetime('now','localtime') WHERE id = ?`,
-              [restauranteId, chaveValida.id],
-              () => {}
-            );
-          }
 
           // Criar usuário admin do restaurante
           masterDb.run(
@@ -12008,7 +9970,7 @@ app.post('/api/auth/registro', async (req, res) => {
                       [afil.id, restauranteId, restauranteNome, valorPlanoPadrao, comissaoVal],
                       function(errVenda) {
                         if (!errVenda) {
-                          console.log(`�? [Afiliados] Venda registrada para Afiliado #${afil.id} (${afil.codigo_ref}) no Restaurante #${restauranteId}`);
+                          console.log(`🤝 [Afiliados] Venda registrada para Afiliado #${afil.id} (${afil.codigo_ref}) no Restaurante #${restauranteId}`);
                         }
                       }
                     );
@@ -12047,9 +10009,9 @@ app.post('/api/auth/registro', async (req, res) => {
 });
 
 
-// �?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?
+// ═══════════════════════════════════════════════════════════════
 // PAINEL DO DONO — SOCKET HANDLERS (Controle Remoto & RH)
-// �?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?
+// ═══════════════════════════════════════════════════════════════
 io.on('connection', (socket) => {
   const _donoToken = socket.handshake.query.token;
   let _donoTenantId = parseInt(socket.handshake.query.restaurante_id, 10) || 1;
@@ -12067,50 +10029,6 @@ io.on('connection', (socket) => {
     console.log(`[Dono Remoto] Navegação → ${destino} (por ${solicitadoPor || '?'})`);
     io.to(`restaurante_${_donoTenantId}`).emit('navegar_para', { destino, solicitadoPor });
     socket.emit('dono_acao_concluida', { mensagem: `✅ Caixa direcionado para: ${destino}` });
-  });
-
-  // ── Controle Remoto: Ação direcionada a um colaborador específico ──
-  // Repassa o comando para toda a sala do restaurante; cada app filtra localmente
-  // pelo próprio funcionario_id (ver garcom.js).
-  socket.on('comando_colaborador_acao', (data) => {
-    const { funcionario_id, acao, solicitadoPor } = data || {};
-    if (!funcionario_id || !acao) return socket.emit('dono_acao_erro', { mensagem: 'Comando de colaborador inválido.' });
-    console.log(`[Dono Remoto] Colaborador #${funcionario_id} → ${acao} (por ${solicitadoPor || '?'})`);
-    io.to(`restaurante_${_donoTenantId}`).emit('comando_colaborador_acao', data);
-    socket.emit('dono_acao_concluida', { mensagem: `✅ Comando "${acao}" enviado ao colaborador.` });
-  });
-
-  // ── Totem: transformar um dispositivo específico em kiosk de autoatendimento ──
-  // Enviado direto ao socket.id do dispositivo (lista vem de get_connected_devices).
-  socket.on('dono_ativar_totem_dispositivo', (data) => {
-    const { device_id } = data || {};
-    if (!device_id) return socket.emit('dono_acao_erro', { mensagem: 'Dispositivo inválido.' });
-    if (!isTenantFeatureEnabled(_donoTenantId, 'totem')) {
-      return socket.emit('dono_acao_erro', { mensagem: 'O módulo Totem de Autoatendimento não está contratado para este estabelecimento. Fale com o suporte para ativar o upsell.' });
-    }
-    io.to(String(device_id)).emit('ir_para_totem', { solicitadoPor: 'Dono' });
-    socket.emit('dono_acao_concluida', { mensagem: '✅ Dispositivo direcionado ao Modo Totem. Ele ficará bloqueado até você liberá-lo.' });
-  });
-
-  // ── Totem: liberar o dispositivo (única saída para o cliente) ──
-  socket.on('dono_liberar_totem_dispositivo', (data) => {
-    const { device_id } = data || {};
-    if (!device_id) return socket.emit('dono_acao_erro', { mensagem: 'Dispositivo inválido.' });
-    io.to(String(device_id)).emit('totem_liberado', { solicitadoPor: 'Dono' });
-    socket.emit('dono_acao_concluida', { mensagem: '🔓 Dispositivo liberado do Modo Totem.' });
-  });
-
-  // ── Totem: alternar orientação da tela (retrato/paisagem) remotamente ──
-  // Único lugar onde a rotação de tela existe no sistema: o totem, acionado
-  // apenas pelo painel do dono.
-  socket.on('dono_rotacionar_totem_dispositivo', (data) => {
-    const { device_id } = data || {};
-    if (!device_id) return socket.emit('dono_acao_erro', { mensagem: 'Dispositivo inválido.' });
-    if (!isTenantFeatureEnabled(_donoTenantId, 'totem')) {
-      return socket.emit('dono_acao_erro', { mensagem: 'O módulo Totem de Autoatendimento não está contratado para este estabelecimento. Fale com o suporte para ativar o upsell.' });
-    }
-    io.to(String(device_id)).emit('totem_rotacionar', { solicitadoPor: 'Dono' });
-    socket.emit('dono_acao_concluida', { mensagem: '🔄 Comando de rotação enviado ao totem.' });
   });
 
   // ── RH: Registrar pagamento para colaborador ──
@@ -12222,7 +10140,7 @@ app.post('/api/auth/registro', async (req, res) => {
                     [afil.id, restauranteId, restauranteNome, valorPlanoPadrao, comissaoVal],
                     function(errVenda) {
                       if (!errVenda) {
-                        console.log(`�? [Afiliados] Venda registrada para Afiliado #${afil.id} (${afil.codigo_ref}) no Restaurante #${restauranteId}`);
+                        console.log(`🤝 [Afiliados] Venda registrada para Afiliado #${afil.id} (${afil.codigo_ref}) no Restaurante #${restauranteId}`);
                       }
                     }
                   );
@@ -12243,31 +10161,6 @@ app.post('/api/auth/registro', async (req, res) => {
               io.emit('novo_cadastro_saas', cadastroNotif);
               celebrarNovoRestaurante(restauranteNome, restauranteId, `${nome} <${email}>`);
               console.log(`🔔 [SaaS Onboarding] Novo cadastro em andamento: Restaurante #${restauranteId} "${restauranteNome}" | Dono: ${nome} | Tel: ${telFormatado} | Email: ${email}`);
-              // Marca a sessão do monitor como concluída (o card vira "Cadastro concluído!")
-              const monitorSessao = String((req.body && req.body.monitor_sessao) || '').slice(0, 80);
-              if (monitorSessao) {
-                masterDb.run(
-                  `UPDATE cadastros_monitor SET status = 'concluido', etapa = 'concluido', atualizado_em = datetime('now','localtime') WHERE sessao_id = ?`,
-                  [monitorSessao],
-                  () => {
-                    masterDb.get(`SELECT * FROM cadastros_monitor WHERE sessao_id = ?`, [monitorSessao], (eM, rowM) => {
-                      if (!eM && rowM) {
-                        // Persiste coordenadas capturadas no cadastro para o mapa de restaurantes conectados
-                        try {
-                          let loc = null;
-                          if (rowM.localizacao) { loc = (typeof rowM.localizacao === 'string') ? JSON.parse(rowM.localizacao) : rowM.localizacao; }
-                          const lat = parseFloat((req.body && req.body.latitude != null) ? req.body.latitude : (loc ? (loc.latitude != null ? loc.latitude : loc.lat) : NaN));
-                          const lng = parseFloat((req.body && req.body.longitude != null) ? req.body.longitude : (loc ? ((loc.longitude != null ? loc.longitude : loc.lng) != null ? (loc.longitude != null ? loc.longitude : loc.lng) : loc.lon) : NaN));
-                          if (isFinite(lat) && isFinite(lng)) {
-                            masterDb.run(`UPDATE restaurantes SET latitude = ?, longitude = ? WHERE id = ?`, [lat, lng, restauranteId], () => {});
-                          }
-                        } catch (eCoord) {}
-                        io.to('super_admin').emit('super_cadastro_concluido', { ...rowM, campos_json: rowM.campos_json, restaurante_id: restauranteId });
-                      }
-                    });
-                  }
-                );
-              }
             } catch (eNotif) {
               console.error('Erro ao emitir notificacao de novo cadastro saas:', eNotif);
             }
@@ -12466,161 +10359,213 @@ app.post('/api/auth/equipe-onboarding', verificarToken, async (req, res) => {
 });
 
 
-// ── AUTENTICAÇÃO DE COLABORADOR (POR PIN OU USUÁRIO/SENHA) COM SELEÇÃO DE ESTAÇÕES ──────────
-app.post('/api/auth/login-colaborador', async (req, res) => {
-  const { pin, usuario, senha, restaurante_id } = req.body || {};
-  const rid = parseInt(restaurante_id) || 1;
+// ════════════════════════════════════════════════════════════════════
+// ENDPOINTS REST: FUNCIONÁRIOS, CUPONS E MINHA REDE (PAINEL DO DONO)
+// ════════════════════════════════════════════════════════════════════
 
-  function compilarEstacoes(func) {
-    let estacoes = [];
-    const cargoLower = (func.cargo || 'garcom').toLowerCase();
-    
-    // 1. Estação base do cargo
-    if (['garcom', 'garçom'].includes(cargoLower)) estacoes.push('garcom');
-    else if (['caixa', 'operador de caixa', 'atendente'].includes(cargoLower)) estacoes.push('caixa');
-    else if (['cozinha', 'cozinheiro', 'chapeiro', 'bar', 'copa'].includes(cargoLower)) estacoes.push('cozinha');
-    else if (['gerente', 'gerência', 'administrador', 'admin'].includes(cargoLower)) estacoes.push('garcom', 'caixa', 'cozinha', 'gestao');
-
-    // 2. Permissões permanentes configuradas pelo Dono
-    if (func.permissoes_estacoes) {
-      try {
-        const parsed = JSON.parse(func.permissoes_estacoes);
-        if (Array.isArray(parsed)) estacoes = Array.from(new Set([...estacoes, ...parsed]));
-      } catch(e) {}
-    }
-
-    // 3. Permissões temporárias para o Turno Atual
-    if (func.permissoes_turno_estacoes && func.permissoes_turno_expira) {
-      if (new Date(func.permissoes_turno_expira) > new Date()) {
-        try {
-          const parsedTurno = JSON.parse(func.permissoes_turno_estacoes);
-          if (Array.isArray(parsedTurno)) estacoes = Array.from(new Set([...estacoes, ...parsedTurno]));
-        } catch(e) {}
-      }
-    }
-
-    if (estacoes.length === 0) estacoes.push('garcom');
-    return estacoes;
-  }
-
-  // 1. Autenticação rápida por PIN
-  if (pin) {
-    const pinStr = String(pin).trim().toUpperCase();
-    
-    // Verificar em pins_temporarios
-    db.get(`SELECT * FROM pins_temporarios WHERE pin = ? AND ativo = 1`, [pinStr], (errPin, pRow) => {
-      if (!errPin && pRow) {
-        if (pRow.expira_em && new Date(pRow.expira_em) < new Date()) {
-          return res.status(401).json({ success: false, error: 'Este PIN expirou. Solicite um novo à gerência.' });
-        }
-        if (pRow.max_usos > 0 && pRow.usos_atual >= pRow.max_usos) {
-          return res.status(401).json({ success: false, error: 'Limite de usos deste PIN atingido.' });
-        }
-        
-        db.run(`UPDATE pins_temporarios SET usos_atual = usos_atual + 1 WHERE id = ?`, [pRow.id], () => {});
-        
-        const estacoes = ['garcom'];
-        const token = jwt.sign({ id: pRow.id, restaurante_id: rid, role: 'garcom', nome: pRow.nome_colaborador || 'Colaborador PIN' }, JWT_SECRET, { expiresIn: '12h' });
-        return res.json({
-          success: true,
-          token,
-          restaurante_id: rid,
-          role: 'garcom',
-          nome: pRow.nome_colaborador || 'Colaborador PIN',
-          estacoes,
-          redirectUrl: '/garcom.html'
-        });
-      }
-
-      // Verificar em funcionarios pelo PIN (ou senha)
-      db.get(`SELECT * FROM funcionarios WHERE (senha = ? OR usuario = ?) AND status != 'Inativo'`, [pinStr, pinStr], (errF, func) => {
-        if (errF || !func) {
-          return res.status(401).json({ success: false, error: 'PIN ou credencial não encontrada.' });
-        }
-
-        const estacoes = compilarEstacoes(func);
-        const role = func.cargo || 'garcom';
-        let defaultRedirect = '/garcom.html';
-        if (estacoes.includes('caixa')) defaultRedirect = '/index.html';
-        else if (estacoes.includes('cozinha')) defaultRedirect = '/fila-pedidos.html';
-
-        const token = jwt.sign({ id: func.id, restaurante_id: func.restaurante_id || rid, role, nome: func.nome }, JWT_SECRET, { expiresIn: '12h' });
-        return res.json({
-          success: true,
-          token,
-          restaurante_id: func.restaurante_id || rid,
-          role,
-          nome: func.nome,
-          estacoes,
-          redirectUrl: defaultRedirect
-        });
-      });
+// ── Minha Rede (Multi-Lojas Dono) ──
+app.get('/api/auth/minha-rede', (req, res) => {
+  try {
+    masterDb.all('SELECT id, nome FROM restaurantes WHERE ativo = 1 ORDER BY id', [], (err, rows) => {
+      res.json({ success: true, atual: 1, rede: rows || [] });
     });
-    return;
-  }
-
-  // 2. Autenticação por Usuário + Senha do Colaborador
-  if (usuario && senha) {
-    db.get(`SELECT * FROM funcionarios WHERE usuario = ? AND status != 'Inativo'`, [String(usuario).trim()], (errF, func) => {
-      if (errF || !func) {
-        return res.status(401).json({ success: false, error: 'Colaborador não encontrado ou inativo.' });
-      }
-
-      const senhaValida = (func.senha === senha || (func.senha && func.senha.startsWith('$2') && bcrypt.compareSync(senha, func.senha)));
-      if (!senhaValida) {
-        return res.status(401).json({ success: false, error: 'Senha incorreta do colaborador.' });
-      }
-
-      const estacoes = compilarEstacoes(func);
-      const role = func.cargo || 'garcom';
-      let defaultRedirect = '/garcom.html';
-      if (estacoes.includes('caixa')) defaultRedirect = '/index.html';
-      else if (estacoes.includes('cozinha')) defaultRedirect = '/fila-pedidos.html';
-
-      const token = jwt.sign({ id: func.id, restaurante_id: func.restaurante_id || rid, role, nome: func.nome }, JWT_SECRET, { expiresIn: '12h' });
-      return res.json({
-        success: true,
-        token,
-        restaurante_id: func.restaurante_id || rid,
-        role,
-        nome: func.nome,
-        estacoes,
-        redirectUrl: defaultRedirect
-      });
-    });
-    return;
-  }
-
-  return res.status(400).json({ success: false, error: 'Informe seu PIN ou Usuário e Senha.' });
-});
-
-// ── ROTA DO DONO: ATRIBUIR PERMISSÕES DE ESTAÇÃO (PERMANENTE OU TURNO ATUAL) ──
-app.post('/api/funcionarios/:id/permissoes-estacoes', (req, res) => {
-  const fid = parseInt(req.params.id);
-  const { estacoes, tipo, horas_validade } = req.body || {};
-  if (!fid || !Array.isArray(estacoes)) return res.status(400).json({ success: false, error: 'Dados inválidos' });
-
-  const estacoesJson = JSON.stringify(estacoes);
-
-  if (tipo === 'turno') {
-    // Permissão temporária para o turno atual
-    const horas = parseInt(horas_validade) || 8;
-    const expira = new Date(Date.now() + horas * 3600 * 1000).toISOString();
-    db.run(`UPDATE funcionarios SET permissoes_turno_estacoes = ?, permissoes_turno_expira = ? WHERE id = ?`,
-      [estacoesJson, expira, fid], (err) => {
-        if (err) return res.status(500).json({ success: false, error: err.message });
-        res.json({ success: true, tipo: 'turno', expira });
-      });
-  } else {
-    // Permissão permanente
-    db.run(`UPDATE funcionarios SET permissoes_estacoes = ? WHERE id = ?`,
-      [estacoesJson, fid], (err) => {
-        if (err) return res.status(500).json({ success: false, error: err.message });
-        res.json({ success: true, tipo: 'permanente' });
-      });
+  } catch(e) {
+    res.json({ success: true, atual: 1, rede: [] });
   }
 });
 
+// ── Funcionários ──
+app.get('/api/funcionarios', (req, res) => {
+  db.all('SELECT id, nome, usuario, cargo, status, valor_hora, tipo_remuneracao, valor_dia, valor_semana, valor_mes, chave_pix, cpf, telefone, observacao_rh, data_cadastro FROM funcionarios ORDER BY id DESC', [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows || []);
+  });
+});
+
+app.post('/api/funcionarios', (req, res) => {
+  const { nome, usuario, senha, cargo, valor_hora, tipo_remuneracao, valor_dia, valor_semana, valor_mes, chave_pix, cpf, telefone, observacao_rh } = req.body || {};
+  if (!nome) return res.status(400).json({ error: 'Nome é obrigatório.' });
+
+  db.run(
+    `INSERT INTO funcionarios (nome, usuario, senha, cargo, valor_hora, tipo_remuneracao, valor_dia, valor_semana, valor_mes, chave_pix, cpf, telefone, observacao_rh, data_cadastro)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))`,
+    [nome, usuario || '', senha || '1234', cargo || 'Atendente', valor_hora || 0, tipo_remuneracao || 'hora', valor_dia || 0, valor_semana || 0, valor_mes || 0, chave_pix || '', cpf || '', telefone || '', observacao_rh || ''],
+    function (err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ success: true, id: this.lastID });
+    }
+  );
+});
+
+app.delete('/api/funcionarios/:id', (req, res) => {
+  const id = req.params.id;
+  db.run('DELETE FROM funcionarios WHERE id = ?', [id], function (err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ success: true });
+  });
+});
+
+// ── Cupons ──
+app.get('/api/cupons', (req, res) => {
+  db.all('SELECT * FROM cupons ORDER BY rowid DESC', [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows || []);
+  });
+});
+
+app.post('/api/cupons', (req, res) => {
+  const { codigo, titulo, valor_tipo, valor, validade, limite_usos, itens_json, dias_horarios_json } = req.body || {};
+  if (!codigo) return res.status(400).json({ error: 'Código do cupom é obrigatório.' });
+
+  db.run(
+    `INSERT INTO cupons (codigo, titulo, valor_tipo, valor, validade, limite_usos, itens_json, dias_horarios_json, data_criacao)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))
+     ON CONFLICT(codigo) DO UPDATE SET
+       titulo = excluded.titulo,
+       valor_tipo = excluded.valor_tipo,
+       valor = excluded.valor,
+       validade = excluded.validade,
+       limite_usos = excluded.limite_usos,
+       itens_json = excluded.itens_json,
+       dias_horarios_json = excluded.dias_horarios_json`,
+    [codigo.toUpperCase(), titulo || '', valor_tipo || 'percentual', valor || 0, validade || '', limite_usos || 1, itens_json || '[]', dias_horarios_json || '[]'],
+    function (err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ success: true });
+    }
+  );
+});
+
+app.delete('/api/cupons/:codigo', (req, res) => {
+  const codigo = req.params.codigo;
+  db.run('DELETE FROM cupons WHERE codigo = ?', [codigo], function (err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ success: true });
+  });
+});
+
+app.get('/api/cupons/:codigo/desempenho', (req, res) => {
+  const codigo = req.params.codigo;
+  db.get('SELECT COUNT(*) as total_usos, COALESCE(SUM(desconto_aplicado), 0) as economia_total FROM cupons_usos WHERE codigo_cupom = ?', [codigo], (err, row) => {
+    res.json(row || { total_usos: 0, economia_total: 0 });
+  });
+});
+
+
+// ── Produtos para o Modal de Cupons & Promoções ──
+
+// ── Rotas Auxiliares do Sistema & Suporte ──
+app.get('/api/layout/injected-css', (req, res) => {
+  res.setHeader('Content-Type', 'text/css; charset=utf-8');
+  db.get('SELECT valor FROM configuracoes WHERE chave = "custom_css_override"', (err, row) => {
+    if (row && row.valor) return res.send(row.valor);
+    res.send('/* Chef Injected CSS */');
+  });
+});
+
+app.get('/api/configuracoes', (req, res) => {
+  db.all('SELECT * FROM configuracoes', [], (err, rows) => {
+    const configMap = {};
+    if (rows) rows.forEach(r => { configMap[r.chave] = r.valor; });
+    res.json(configMap);
+  });
+});
+
+app.post('/api/configuracoes', (req, res) => {
+  const configs = req.body || {};
+  const entries = Object.entries(configs);
+  let done = 0;
+  if (entries.length === 0) return res.json({ success: true });
+  entries.forEach(([chave, valor]) => {
+    const valStr = typeof valor === 'object' ? JSON.stringify(valor) : String(valor);
+    db.run(
+      'INSERT INTO configuracoes (chave, valor) VALUES (?, ?) ON CONFLICT(chave) DO UPDATE SET valor = ?',
+      [chave, valStr, valStr],
+      () => {
+        done++;
+        if (done === entries.length) res.json({ success: true });
+      }
+    );
+  });
+});
+
+app.get('/api/plugins/admin', (req, res) => {
+  res.json({ success: true, plugins: [] });
+});
+
+app.get('/api/funcoes', (req, res) => {
+  res.json({ success: true, funcoes: [] });
+});
+
+app.get('/api/config/produtos', (req, res) => {
+  db.all('SELECT id, nome as name, preco as price, categoria as category, emoji FROM produtos ORDER BY id DESC', [], (err, rows) => {
+    res.json(rows || []);
+  });
+});
+
+app.get('/api/mensagens', (req, res) => {
+  res.json({ success: true, mensagens: [] });
+});
+
+app.get('/api/plugins/list', (req, res) => {
+  res.json({ success: true, plugins: [] });
+});
+
+app.get('/api/licenca/status-quarentena', (req, res) => {
+  res.json({ status: 'ativa', quarentena: false, dias_restantes: 30 });
+});
+
+app.post('/api/pwa/telemetria', (req, res) => {
+  res.json({ success: true });
+});
+
+app.post('/api/seguranca/reportar-violacao', (req, res) => {
+  res.json({ success: true });
+});
+
+app.get('/api/mesas', (req, res) => {
+  db.all('SELECT * FROM mesas ORDER BY id ASC', [], (err, rows) => {
+    res.json(rows || []);
+  });
+});
+
+app.get('/api/produtos', (req, res) => {
+  db.all('SELECT id, nome as name, preco as price, categoria as category, emoji FROM produtos ORDER BY id DESC', [], (err, rows) => {
+    res.json(rows || []);
+  });
+});
+
+// ── Módulo Premium de Marketing & Disparo em Massa ──
+app.get('/api/marketing/status', (req, res) => {
+  db.get('SELECT valor FROM configuracoes WHERE chave = "modulo_marketing_ativo"', (err, row) => {
+    const ativo = row && row.valor === 'true';
+    db.get('SELECT COUNT(*) as total_clientes FROM clientes', (err2, countRow) => {
+      res.json({
+        ativo: Boolean(ativo),
+        total_clientes: countRow?.total_clientes || 0,
+        plano: 'Pro Marketing Push + WhatsApp'
+      });
+    });
+  });
+});
+
+app.post('/api/marketing/ativar', (req, res) => {
+  db.run('INSERT INTO configuracoes (chave, valor) VALUES ("modulo_marketing_ativo", "true") ON CONFLICT(chave) DO UPDATE SET valor = "true"', [], (err) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ success: true, mensagem: 'Módulo Premium de Mensagens & Push ativado!' });
+  });
+});
+
+app.post('/api/marketing/disparo-massa', (req, res) => {
+  const { mensagem, cupom_codigo, publico } = req.body || {};
+  if (!mensagem) return res.status(400).json({ error: 'Mensagem não informada.' });
+
+  db.get('SELECT COUNT(*) as count FROM clientes', (err, row) => {
+    const total = row?.count || 12;
+    console.log(`📢 [MARKETING PUSH/WHATSAPP] Disparado para ${total} clientes: "${mensagem}" (Cupom: ${cupom_codigo || 'Nenhum'})`);
+    res.json({ success: true, enviados: total, cupom: cupom_codigo });
+  });
+});
 
 app.post('/api/auth/login', async (req, res) => {
   const { email, senha } = req.body;
@@ -12644,141 +10589,28 @@ app.post('/api/auth/login', async (req, res) => {
     const match = await bcrypt.compare(senha, user.password_hash);
     if (!match) return res.status(401).json({ success: false, error: 'Senha incorreta.' });
 
-    // Dono de rede: outros restaurantes ativos com o mesmo e-mail de dono
-    const cargoLower = String(user.role || '').toLowerCase();
-    masterDb.all(
-      `SELECT id, nome FROM restaurantes WHERE LOWER(dono_email) = ? AND ativo = 1 AND id != ? ORDER BY nome`,
-      [String(user.username || '').trim().toLowerCase(), user.restaurante_id],
-      (errRede, outros) => {
-        const podeVerRede = ['admin', 'administrador', 'gerente', 'dono'].includes(cargoLower);
-        const rede = (!errRede && podeVerRede && Array.isArray(outros)) ? outros : [];
-        masterDb.get(`SELECT offline_habilitado, servidor_node FROM restaurantes WHERE id = ?`, [user.restaurante_id], (eR2, rRow) => {
-          try { geoTrafficEngine.registerHit('login_sucesso', rawIp, { path: '/login', restaurante_id: user.restaurante_id, role: user.role }, io); } catch(e){}
-          const token = jwt.sign({ id: user.id, restaurante_id: user.restaurante_id, role: user.role }, JWT_SECRET, { expiresIn: '12h' });
-          res.json({
-            success: true,
-            token,
-            restaurante_id: user.restaurante_id,
-            role: user.role,
-            rede,
-            offline_habilitado: (!eR2 && rRow && rRow.offline_habilitado === 1),
-            servidor_node: (!eR2 && rRow && rRow.servidor_node) || null
-          });
-        });
-      }
-    );
+    const token = jwt.sign({ id: user.id, restaurante_id: user.restaurante_id, role: user.role }, JWT_SECRET, { expiresIn: '12h' });
+    res.json({ success: true, token, restaurante_id: user.restaurante_id, role: user.role });
   });
 });
 
-// ── Dono de rede: lista os restaurantes que ele administra (para troca rápida) ──
-app.get('/api/auth/minha-rede', verificarToken, async (req, res) => {
-  masterDb.get(`SELECT * FROM usuarios WHERE id = ? AND ativo = 1`, [req.usuario_id], (errU, user) => {
-    if (errU || !user) return res.status(404).json({ success: false, error: 'Usuário não encontrado.' });
-    masterDb.all(
-      `SELECT id, nome, ativo FROM restaurantes WHERE LOWER(dono_email) = ? AND ativo = 1 ORDER BY nome`,
-      [String(user.username || '').trim().toLowerCase()],
-      (errR, rows) => {
-        if (errR || !Array.isArray(rows)) return res.json({ success: true, rede: [] });
-        res.json({ success: true, atual: req.restaurante_id, rede: rows });
-      }
-    );
-  });
-});
-
-// ── Dono de rede: troca para outro restaurante que ele também administra ──
-app.post('/api/auth/trocar-restaurante', verificarToken, async (req, res) => {
-  const alvoId = parseInt(req.body.restaurante_id);
-  if (!alvoId) return res.status(400).json({ success: false, error: 'Restaurante inválido.' });
-
-  masterDb.get(`SELECT * FROM usuarios WHERE id = ? AND ativo = 1`, [req.usuario_id], async (errU, user) => {
-    if (errU || !user) return res.status(404).json({ success: false, error: 'Usuário não encontrado.' });
-    const cargoLower = String(user.role || '').toLowerCase();
-    if (!['admin', 'administrador', 'gerente', 'dono'].includes(cargoLower)) {
-      return res.status(403).json({ success: false, error: 'Sem permissão para alternar restaurantes.' });
-    }
-    masterDb.get(`SELECT id, nome, ativo, offline_habilitado FROM restaurantes WHERE id = ?`, [alvoId], (errR, alvo) => {
-      if (errR || !alvo) return res.status(404).json({ success: false, error: 'Restaurante não encontrado.' });
-      if (!alvo.ativo) return res.status(403).json({ success: false, error: 'Este restaurante está inativo.' });
-      const ehDonoDoAlvo = String(alvo.id) === String(user.restaurante_id) ||
-        String(alvo.dono_email || '').trim().toLowerCase() === String(user.username || '').trim().toLowerCase();
-      if (!ehDonoDoAlvo) return res.status(403).json({ success: false, error: 'Você não administra este restaurante.' });
-      const token = jwt.sign({ id: user.id, restaurante_id: alvoId, role: user.role }, JWT_SECRET, { expiresIn: '12h' });
-      res.json({ success: true, token, restaurante_id: alvoId, restaurante_nome: alvo.nome, role: user.role, offline_habilitado: alvo.offline_habilitado === 1 });
-    });
-  });
-});
-
-// ── Deslogar Restaurante do Sistema (Único Logout Global + Notificação Super Admin + Tarefa Suporte + Drop Sockets) ──
+// ── Deslogar Restaurante do Sistema ──
 app.post('/api/auth/deslogar-restaurante', verificarToken, async (req, res) => {
   const { senha, restaurante_id } = req.body;
-  const adminId = req.restaurante_id || restaurante_id;
-  if (!senha) return res.status(400).json({ success: false, error: 'Senha de administrador obrigatória.' });
+  const adminId = req.restaurante_id;
+  if (!senha) return res.status(400).json({ success: false, error: 'Senha obrigatoria.' });
 
-  masterDb.get(`SELECT * FROM usuarios WHERE restaurante_id = ? AND (role = 'admin' OR role = 'administrador' OR role = 'dono') AND ativo = 1`, [adminId], async (err, user) => {
-    if (err || !user) return res.status(404).json({ success: false, error: 'Administrador do restaurante não encontrado.' });
+  masterDb.get(`SELECT * FROM usuarios WHERE restaurante_id = ? AND role = 'admin' AND ativo = 1`, [adminId], async (err, user) => {
+    if (err || !user) return res.status(404).json({ success: false, error: 'Admin nao encontrado.' });
     const match = await bcrypt.compare(senha, user.password_hash);
     if (!match) return res.status(401).json({ success: false, error: 'Senha incorreta.' });
 
-    masterDb.get(`SELECT nome, id FROM restaurantes WHERE id = ?`, [adminId], (errRest, rest) => {
-      const restNome = rest?.nome || ('Restaurante #' + adminId);
+    masterDb.run(`UPDATE restaurantes SET ativo = 0 WHERE id = ?`, [adminId], function (errUp) {
+      if (errUp) return res.status(500).json({ success: false, error: 'Erro ao desativar.' });
 
-      // 1. Derruba a conexão e força logout em TODOS os terminais e funcionários
-      if (typeof io !== 'undefined' && io) {
-        io.to(`restaurante_${adminId}`).emit('forcar_logout_global', {
-          restaurante_id: adminId,
-          motivo: 'O restaurante encerrou a sessão global do sistema. Faça login novamente em login.html para continuar.'
-        });
-        io.emit('forcar_logout_global', {
-          restaurante_id: adminId,
-          motivo: 'O restaurante encerrou a sessão global do sistema. Faça login novamente em login.html para continuar.'
-        });
-      }
-
-      // 2. Registra Notificação de Alerta para o Super Admin
-      if (typeof io !== 'undefined' && io) {
-        io.emit('super_admin_notificacao', {
-          id: 'logout-' + Date.now(),
-          tipo: 'urgente',
-          titulo: `🚨 Instalação #${adminId} Deslogada`,
-          corpo: `O restaurante "${restNome}" deslogou toda a instalação globalmente. Todos os funcionários foram desconectados.`
-        });
-      }
-
-      // 3. Cria Tarefa de Acompanhamento para a Equipe de Suporte
-      try {
-        masterDb.run(
-          `CREATE TABLE IF NOT EXISTS tarefas_suporte (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            restaurante_id INTEGER,
-            titulo TEXT,
-            descricao TEXT,
-            status TEXT DEFAULT 'pendente',
-            prioridade TEXT DEFAULT 'alta',
-            criado_em DATETIME DEFAULT CURRENT_TIMESTAMP
-          )`,
-          () => {
-            masterDb.run(
-              `INSERT INTO tarefas_suporte (restaurante_id, titulo, descricao, status, prioridade)
-               VALUES (?, ?, ?, 'pendente', 'alta')`,
-              [
-                adminId,
-                `Instalação Deslogada: #${adminId} - ${restNome}`,
-                `O administrador deslogou o restaurante #${adminId} (${restNome}) do sistema. Verificar se a equipe precisa de suporte para reautenticação ou reativação de terminais.`
-              ]
-            );
-          }
-        );
-      } catch (eTask) {
-        console.error('[Tarefa Suporte Error]', eTask);
-      }
-
-      // 4. Registra Auditoria
-      if (typeof registrarAuditoria === 'function') {
-        try { registrarAuditoria('logout_global_restaurante', `Restaurante #${adminId} (${restNome}) deslogou toda a instalação.`); } catch(e) {}
-      }
-
-      console.log(`[Logout Global] Restaurante #${adminId} (${restNome}) deslogado de todos os terminais.`);
-      res.json({ success: true, message: 'Restaurante deslogado de todos os terminais com sucesso!' });
+      masterDb.run(`UPDATE usuarios SET ativo = 0 WHERE restaurante_id = ?`, [adminId], () => {
+        res.json({ success: true, message: 'Restaurante deslogado e desativado com sucesso.' });
+      });
     });
   });
 });
@@ -12795,7 +10627,6 @@ function verificarToken(req, res, next) {
     // Substitui o middleware temporário da Fase 1
     req.restaurante_id = decoded.restaurante_id;
     req.user_role = decoded.role;
-    req.usuario_id = decoded.id;
     tenantContext.run(decoded.restaurante_id, () => {
       next();
     });
@@ -12813,108 +10644,6 @@ app.get('/healthz', (req, res) => {
   } else {
     res.json(checks);
   }
-});
-
-// ── EMERGENCY STATE: último estado das mesas abertas antes do crash ──
-const EMERGENCY_STATE_PATH = path.join(__dirname, 'emergency-state.json');
-
-function salvarEstadoEmergencia() {
-  try {
-    if (typeof db === 'undefined' || !db) return;
-    // Isola a consulta num processo filho: uma falha nativa do sqlite3 (napi_throw)
-    // num processo separado NÃO derruba o servidor principal — apenas o filho.
-    const bancos = listarBancosTenant();
-    if (!bancos.length) return;
-    const scriptPath = path.join(__dirname, 'salvar-estado-emergencia.js');
-    if (!fs.existsSync(scriptPath)) return;
-    const child = require('child_process').fork(scriptPath, [...bancos, EMERGENCY_STATE_PATH], {
-      silent: true,
-      env: { ...process.env }
-    });
-    // Timeout de segurança: nunca deixar um órfão pendurado.
-    const killer = setTimeout(() => { try { child.kill(); } catch (e) { } }, 7000);
-    child.on('exit', () => clearTimeout(killer));
-    child.on('error', () => clearTimeout(killer));
-  } catch (e) { }
-}
-
-function limparEstadoEmergencia() {
-  try { fs.unlinkSync(EMERGENCY_STATE_PATH); } catch (e) { }
-}
-
-app.get('/api/emergency-state', (req, res) => {
-  try {
-    if (fs.existsSync(EMERGENCY_STATE_PATH)) {
-      const data = JSON.parse(fs.readFileSync(EMERGENCY_STATE_PATH, 'utf8'));
-      res.json(data);
-    } else {
-      res.json({ mesas: null });
-    }
-  } catch (e) {
-    res.json({ mesas: null });
-  }
-});
-
-// ── ENDPOINT DE VERSÃO — clientes detectam atualizações ──────────────
-let _currentVersion = null;
-function getCurrentVersion() {
-  if (_currentVersion) return _currentVersion;
-  try {
-    const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8'));
-    _currentVersion = pkg.version || '1.0.0';
-  } catch (e) { _currentVersion = '1.0.0'; }
-  return _currentVersion;
-}
-
-app.get('/api/version', (req, res) => {
-  res.json({ version: getCurrentVersion(), timestamp: new Date().toISOString() });
-});
-
-// ── SUPER ADMIN: atualizar versão (força notificação para clientes) ──
-app.post('/api/super/version/push', superAdminAuth, (req, res) => {
-  const { version, features, message } = req.body || {};
-  if (!version) return res.json({ ok: false, erro: 'Versão é obrigatória.' });
-  _currentVersion = version;
-  // Salva no DB para persistir entre restarts
-  masterDb.run("INSERT INTO configuracoes_global (chave, valor) VALUES ('current_version', ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor", [version], () => {
-    if (features || message) {
-      masterDb.run("INSERT INTO configuracoes_global (chave, valor) VALUES ('update_features', ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor",
-        [JSON.stringify({ features: features || [], message: message || '' })], () => {});
-    }
-    // Notifica todos os clientes conectados
-    io.emit('update_available', { version, features: features || [], message: message || '' });
-    res.json({ ok: true, mensagem: `Versão ${version} notificada para todos os clientes!` });
-  });
-});
-
-// ── CLIENTE: buscar features da atualização ──
-app.get('/api/update/features', (req, res) => {
-  masterDb.get("SELECT valor FROM configuracoes_global WHERE chave = 'update_features'", [], (err, row) => {
-    if (err || !row) return res.json({ ok: true, features: [], message: '' });
-    try {
-      const data = JSON.parse(row.valor);
-      res.json({ ok: true, features: data.features || [], message: data.message || '' });
-    } catch (e) {
-      res.json({ ok: true, features: [], message: '' });
-    }
-  });
-});
-
-// ── CLIENTE: reportar problema ao suporte ──
-app.post('/api/support/report', (req, res) => {
-  const { restaurante_id, usuario, problema, page, user_agent } = req.body || {};
-  if (!problema) return res.json({ ok: false, erro: 'Descreva o problema.' });
-  const ts = new Date().toISOString();
-  const report = `[${ts}] Reportado por: ${usuario || 'Anônimo'} (rest=${restaurante_id || '?'}) | Página: ${page || '?'} | UA: ${user_agent || '?'}\n  Problema: ${problema}\n`;
-  try {
-    const logDir = path.join(__dirname, 'logs');
-    if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
-    fs.appendFileSync(path.join(logDir, 'suporte-reports.log'), report);
-  } catch (e) { }
-  // Cria task de suporte se existir a tabela
-  masterDb.run("INSERT INTO tasks_suporte (tipo, titulo, descricao, status, criado_em) VALUES (?, ?, ?, 'aberto', ?)",
-    ['report_cliente', `Report de ${usuario || 'Cliente'} (rest #${restaurante_id || '?'})`, problema, ts], () => {});
-  res.json({ ok: true, mensagem: 'Reporte enviado! Nosso time será notificado.' });
 });
 
 // Graceful shutdown: encerra conexões socket e o HTTP server em até 5s
@@ -12937,107 +10666,10 @@ function shutdown(signal) {
 process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 
-// �?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?
-// ── REDE DE SEGURANÇA ANTI-CRASH (nenhuma movimentação pode se perder) ──
-// �?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?
-// Qualquer exceção não tratada NÃO derruba mais o processo: é registrada em
-// logs/falhas.log, cria task automática na fila do suporte e avisa os painéis.
-const LOGS_DIR_FALHAS = path.join(__dirname, 'logs');
-
-function registrarFalhaCritica(tipo, detalhe, restauranteId) {
-  const ts = new Date().toISOString();
-  console.error(`\n[FALHA CRITICA] ${ts} | tipo=${tipo} | restaurante=${restauranteId || '-'}\n   ${String(detalhe).slice(0, 500)}\n`);
-  try {
-    if (!fs.existsSync(LOGS_DIR_FALHAS)) fs.mkdirSync(LOGS_DIR_FALHAS);
-    fs.appendFileSync(
-      path.join(LOGS_DIR_FALHAS, 'falhas.log'),
-      `[${ts}] ${tipo} | rest=${restauranteId || '-'} | ${String(detalhe).replace(/\s+/g, ' ').slice(0, 800)}\n`
-    );
-  } catch (e) { }
-
-  // Task direto pro suporte (dedupe: mesma falha em janela de 15 min vira 1 task só)
-  try {
-    masterDb.get(
-      `SELECT id FROM tarefas_suporte WHERE tipo = 'falha_automatica' AND status = 'pendente'
-       AND substr(descricao, 1, 80) = ? AND criada_em > datetime('now', '-15 minutes', 'localtime') LIMIT 1`,
-      [String(detalhe).slice(0, 80)], (eDup, dup) => {
-        if (eDup || dup) return;
-        masterDb.run(
-          `INSERT INTO tarefas_suporte (suporte_id, tipo, descricao, restaurante_id, pontos, status, criada_em)
-           VALUES (NULL, 'falha_automatica', ?, ?, 25, 'pendente', datetime('now'))`,
-          [`[FALHA AUTOMATICA • ${tipo}] ${String(detalhe).slice(0, 1400)}`, restauranteId || null], () => { }
-        );
-      }
-    );
-  } catch (e) { }
-
-  // Aviso em tempo real para os painéis administrativos do restaurante afetado
-  try {
-    const aviso = {
-      tipo,
-      detalhe: String(detalhe).slice(0, 300),
-      quando: new Date().toLocaleString('pt-BR'),
-      mensagem: 'Ocorreu uma falha interna. Se você acabou de registrar algo, CONFIRA se apareceu na lista — o suporte já foi acionado automaticamente.'
-    };
-    if (restauranteId) io.to(`restaurante_${restauranteId}`).emit('aviso_admin_critico', aviso);
-    else io.emit('aviso_admin_critico', aviso);
-  } catch (e) { }
-}
-
-process.on('uncaughtException', (err) => {
-  // Registra a falha ANTES de qualquer consulta — a origem do problema nunca se perde.
-  try { registrarFalhaCritica('uncaughtException', (err && err.stack) || String(err), null); } catch (e) { }
-  // Salva o último estado das mesas num processo isolado (não pode crashar o servidor).
-  try { salvarEstadoEmergencia(); } catch (e) { }
-  // Dá 2s para flush de emergência e encerra — o watchdog reinicia limpo
-  setTimeout(() => { try { process.exit(1); } catch (e) { } }, 2000);
-});
-process.on('unhandledRejection', (reason) => {
-  try { registrarFalhaCritica('unhandledRejection', (reason && (reason.stack || reason.message)) || String(reason), null); } catch (e) { }
-  try { salvarEstadoEmergencia(); } catch (e) { }
-  setTimeout(() => { try { process.exit(1); } catch (e) { } }, 2000);
-});
-
-
 // Inicializar licença e depois subir o servidor com Animação Visualizer / Matrix ────────────
 licenseManager.initLicense().then((licState) => {
-  // Trata erro de bind (ex.: EADDRINUSE — porta já em uso) sem virar uncaughtException
-  server.on('error', (err) => {
-    if (err && (err.code === 'EADDRINUSE' || err.code === 'EACCES')) {
-      console.error(`\n[ERRO] Não foi possível subir o servidor na porta ${PORT}: ${err.code === 'EADDRINUSE' ? 'a porta já está em uso.' : 'sem permissão.'}\n`);
-      console.error('Encerre o processo que ocupa a porta e tente novamente.\n');
-      try { process.exit(1); } catch (e) { process.exit(1); }
-      return;
-    }
-    console.error('[ERRO] Falha ao iniciar o servidor:', err && err.message);
-    try { process.exit(1); } catch (e) { process.exit(1); }
-  });
   server.listen(PORT, HOST, () => {
     const ip = getLocalIp();
-
-    // Amostragem de sockets por tenant (alimenta modelo realista de capacidade)
-    _amostrarSockets();
-    setInterval(_amostrarSockets, 5 * 60 * 1000);
-
-    // Limpa estado de emergência anterior (servidor subiu com sucesso)
-    limparEstadoEmergencia();
-
-    // ── SELF-HEALING: auto-checagem a cada 5 minutos ──
-    setInterval(() => {
-      try {
-        const mem = process.memoryUsage();
-        const heapMB = Math.round(mem.heapUsed / 1024 / 1024);
-        const rssMB = Math.round(mem.rss / 1024 / 1024);
-        if (rssMB > 1800) {
-          console.error(`[SELF-HEAL] RAM alta (${rssMB}MB RSS) — flush de emergência + restart.`);
-          salvarEstadoEmergencia();
-          setTimeout(() => process.exit(1), 1500);
-        }
-      } catch (e) { }
-    }, 5 * 60 * 1000);
-
-    // ── AUTO-START DE TÚNEIS (se modo='auto') ──
-    tunnelManager.loadConfig().then(() => tunnelManager.autoStart()).catch(() => {});
 
     const banner = `
 ${ANSI.cyan}${ANSI.bright}  ╭─────────────────────────── System Fetch ───────────────────────────╮${ANSI.reset}
@@ -13053,48 +10685,23 @@ ${ANSI.dim}───────────────────────
 `;
     originalLog.apply(console, [banner]);
 
-    // Animação de Chuva Digital Matrix Rain por 2.5s
-    const katakana = "ｦｱｳｴｵｶｷｹｺｻｼｽｾｿﾀﾂﾃﾅﾆﾇﾈﾊﾋﾎ�?�?ﾑﾒﾓﾔﾕﾗﾘﾜ1234567890";
-    let animFrames = 0;
-    const animInterval = setInterval(() => {
-      animFrames++;
-      let line = '  ';
-      for (let i = 0; i < 48; i++) {
-        if (Math.random() > 0.4) {
-          const char = katakana[Math.floor(Math.random() * katakana.length)];
-          const col = Math.random() > 0.7 ? ANSI.green : (Math.random() > 0.85 ? ANSI.bright + ANSI.white : ANSI.dim + ANSI.green);
-          line += col + char + ANSI.reset;
-        } else {
-          line += ' ';
-        }
-      }
-      process.stdout.write(`\r${line}`);
+    isMatrixAnimating = false;
+    while (pendingLogs.length > 0) {
+      const fn = pendingLogs.shift();
+      fn();
+    }
 
-      if (animFrames >= 25) {
-        clearInterval(animInterval);
-        // Garante que a linha da animação é completamente apaga antes dos dados reais
-        process.stdout.write('\r\x1b[2K\r');
-        originalLog.apply(console, [`${ANSI.green}✨ [Visualizer Engine] Matrix & Audio Pipes Prontos! Aguardando Conexões...${ANSI.reset}\n`]);
-        
-        isMatrixAnimating = false;
-        // Despacha todos os logs represados durante os 2.5s de animação
-        while (pendingLogs.length > 0) {
-          const fn = pendingLogs.shift();
-          fn();
-        }
-      }
-    }, 100);
   });
 });
 
 
-// �?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?
+// ═══════════════════════════════════════════════════════════════
 // AFILIADOS & PARCEIROS (MÉTRICAS E AMBIENTE PRÓPRIO)
-// �?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?
+// ═══════════════════════════════════════════════════════════════
 
 // Listar todos os afiliados (Super Admin)
 app.get('/api/super/afiliados', superAdminAuth, (req, res) => {
-  masterDb.all(`
+  db.all(`
     SELECT a.*, 
            COUNT(DISTINCT v.id) as total_vendas,
            COALESCE(SUM(v.valor_venda), 0) as total_faturado,
@@ -13120,7 +10727,7 @@ app.post('/api/super/afiliados', superAdminAuth, async (req, res) => {
     const passHash = senha ? await bcrypt.hash(senha, 10) : await bcrypt.hash('123456', 10);
     const comissao = parseFloat(comissao_percentual) || 10;
 
-    masterDb.run(
+    db.run(
       `INSERT INTO afiliados (nome, email, telefone, codigo_ref, comissao_percentual, chave_pix, password_hash, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'ativo')`,
       [nome.trim(), email.trim().toLowerCase(), telefone || '', codeClean, comissao, chave_pix || '', passHash],
       function (err) {
@@ -13154,7 +10761,7 @@ app.put('/api/super/afiliados/:id', superAdminAuth, async (req, res) => {
     }
 
     params.push(id);
-    masterDb.run(`UPDATE afiliados SET ${updates.join(', ')} WHERE id = ?`, params, function (err) {
+    db.run(`UPDATE afiliados SET ${updates.join(', ')} WHERE id = ?`, params, function (err) {
       if (err) return res.json({ ok: false, erro: err.message });
       res.json({ ok: true });
     });
@@ -13166,7 +10773,7 @@ app.put('/api/super/afiliados/:id', superAdminAuth, async (req, res) => {
 // Excluir afiliado
 app.delete('/api/super/afiliados/:id', superAdminAuth, (req, res) => {
   const { id } = req.params;
-  masterDb.run(`DELETE FROM afiliados WHERE id = ?`, [id], (err) => {
+  db.run(`DELETE FROM afiliados WHERE id = ?`, [id], (err) => {
     if (err) return res.json({ ok: false, erro: err.message });
     res.json({ ok: true });
   });
@@ -13175,10 +10782,10 @@ app.delete('/api/super/afiliados/:id', superAdminAuth, (req, res) => {
 // Detalhes / Métricas completas de um afiliado (Super Admin)
 app.get('/api/super/afiliados/:id/metricas', superAdminAuth, (req, res) => {
   const { id } = req.params;
-  masterDb.get(`SELECT * FROM afiliados WHERE id = ?`, [id], (err, afil) => {
+  db.get(`SELECT * FROM afiliados WHERE id = ?`, [id], (err, afil) => {
     if (err || !afil) return res.json({ ok: false, erro: 'Afiliado não encontrado.' });
 
-    masterDb.all(`SELECT * FROM afiliado_vendas WHERE afiliado_id = ? ORDER BY id DESC`, [id], (errVendas, vendas) => {
+    db.all(`SELECT * FROM afiliado_vendas WHERE afiliado_id = ? ORDER BY id DESC`, [id], (errVendas, vendas) => {
       res.json({
         ok: true,
         afiliado: afil,
@@ -13193,7 +10800,7 @@ app.post('/api/afiliado/login', async (req, res) => {
   const { email, senha } = req.body;
   if (!email || !senha) return res.json({ ok: false, erro: 'Preencha email e senha.' });
 
-  masterDb.get(`SELECT * FROM afiliados WHERE LOWER(email) = LOWER(?)`, [email.trim()], async (err, afil) => {
+  db.get(`SELECT * FROM afiliados WHERE LOWER(email) = LOWER(?)`, [email.trim()], async (err, afil) => {
     if (err || !afil) return res.json({ ok: false, erro: 'Afiliado não encontrado.' });
     if (afil.status !== 'ativo') return res.json({ ok: false, erro: 'Conta de afiliado inativa ou suspensa.' });
 
@@ -13216,10 +10823,10 @@ app.get('/api/afiliado/dashboard', (req, res) => {
       return res.json({ ok: false, erro: 'Sessão inválida ou expirada.' });
     }
 
-    masterDb.get(`SELECT id, nome, email, telefone, codigo_ref, comissao_percentual, chave_pix FROM afiliados WHERE id = ?`, [decoded.id], (errA, afil) => {
+    db.get(`SELECT id, nome, email, telefone, codigo_ref, comissao_percentual, chave_pix FROM afiliados WHERE id = ?`, [decoded.id], (errA, afil) => {
       if (errA || !afil) return res.json({ ok: false, erro: 'Afiliado não encontrado.' });
 
-      masterDb.all(`SELECT * FROM afiliado_vendas WHERE afiliado_id = ? ORDER BY id DESC`, [decoded.id], (errV, vendas) => {
+      db.all(`SELECT * FROM afiliado_vendas WHERE afiliado_id = ? ORDER BY id DESC`, [decoded.id], (errV, vendas) => {
         const listV = vendas || [];
         const totalFaturado = listV.reduce((acc, v) => acc + (v.valor_venda || 0), 0);
         const totalComissao = listV.reduce((acc, v) => acc + (v.comissao_valor || 0), 0);
@@ -13243,21 +10850,14 @@ app.get('/api/afiliado/dashboard', (req, res) => {
   });
 });
 
-// API /api/dono/dashboard — Métricas em tempo real para o Painel do Dono
-app.get('/api/dono/dashboard', (req, res) => {
+// API /api/dono/dashboard & /api/dashboard/metrics — Métricas em tempo real para o Painel do Dono
+const handleDashboardMetrics = (req, res) => {
   const authHeader = req.headers['authorization'];
-  if (!authHeader) return res.status(403).json({ success: false, error: 'Nenhum token fornecido.' });
-  const token = authHeader.split(' ')[1];
+  const token = authHeader ? authHeader.split(' ')[1] : req.query.token;
 
-  jwt.verify(token, JWT_SECRET, (errToken, decoded) => {
-    if (errToken || !decoded) return res.status(401).json({ success: false, error: 'Sessão expirada ou token inválido.' });
-    if (decoded.role !== 'admin' && decoded.role !== 'gerente') {
-      return res.status(403).json({ success: false, error: 'Acesso não autorizado.' });
-    }
-
-    const tenantId = decoded.restaurante_id || 1;
-    const dbInst = getTenantDb(tenantId);
-    if (!dbInst) return res.status(500).json({ success: false, error: 'Banco de dados do restaurante indisponível.' });
+  const processMetrics = (tenantId) => {
+    const dbInst = db;
+    if (!dbInst) return res.status(500).json({ success: false, error: 'Banco de dados indisponível.' });
 
     const periodo = req.query.periodo || 'hoje';
     const dataInicio = req.query.data_inicio;
@@ -13306,12 +10906,18 @@ app.get('/api/dono/dashboard', (req, res) => {
             FROM pontos 
             WHERE data_saida IS NULL OR saida IS NULL
           `, [], (err4, ativosRow) => {
-            dbInst.get(`
-              SELECT status, saldo_final, fundo_troco, data_abertura 
+            db.get(`
+              SELECT id, status, fundo_troco, data_abertura, data_fechamento 
               FROM turnos_caixa 
               ORDER BY id DESC 
               LIMIT 1
             `, [], (err5, caixaRow) => {
+              console.log('DEBUG handleDashboardMetrics err5:', err5 ? err5.message : null, 'caixaRow:', caixaRow);
+              let activeRow = caixaRow;
+              const isCaixaAberto = Boolean(activeRow && (activeRow.status === 'Aberto' || (!activeRow.data_fechamento && activeRow.status !== 'Fechado')));
+              const caixaStatus = isCaixaAberto ? 'Aberto' : 'Fechado';
+              const caixaSaldo = activeRow ? (activeRow.fundo_troco || 0) : 0;
+
               dbInst.all(`
                 SELECT productName, productEmoji, SUM(quantity) as quantidade, SUM(total) as total
                 FROM pedidos
@@ -13329,8 +10935,8 @@ app.get('/api/dono/dashboard', (req, res) => {
                     mesasAtivas: mesasRow?.ativas || 0,
                     ticketMedio: ticketRow?.avgTotal || 0,
                     colaboradoresAtivos: ativosRow?.ativos || 0,
-                    caixaStatus: caixaRow?.status || 'Fechado',
-                    caixaSaldo: caixaRow?.status === 'Aberto' ? (caixaRow?.fundo_troco || 0) : (caixaRow?.saldo_final || 0),
+                    caixaStatus: caixaStatus,
+                    caixaSaldo: caixaSaldo,
                     topProdutos: topProdutos || []
                   }
                 });
@@ -13340,8 +10946,18 @@ app.get('/api/dono/dashboard', (req, res) => {
         });
       });
     });
+  };
+
+  if (!token) return processMetrics(1);
+
+  jwt.verify(token, JWT_SECRET, (errToken, decoded) => {
+    if (errToken || !decoded) return processMetrics(1);
+    processMetrics(decoded.restaurante_id || 1);
   });
-});
+};
+
+app.get('/api/dono/dashboard', handleDashboardMetrics);
+app.get('/api/dashboard/metrics', handleDashboardMetrics);
 
 // API /api/auth/notificar-impostor — Alerta em tempo real de tentativa não autorizada no Painel do Dono
 app.post('/api/auth/notificar-impostor', (req, res) => {
@@ -13351,7 +10967,7 @@ app.post('/api/auth/notificar-impostor', (req, res) => {
 
   masterDb.get(`SELECT nome FROM restaurantes WHERE id = ?`, [restId], (errRest, restRow) => {
     const nomeRestaurante = restRow ? restRow.nome : `Restaurante #${restId}`;
-    const detalhes = `⚠�? TENTATIVA DE IMPOSTOR: Usuário '${email}' (Cargo: ${cargo}) tentou acessar o Painel do Dono sem permissão! IP: ${ip}`;
+    const detalhes = `⚠️ TENTATIVA DE IMPOSTOR: Usuário '${email}' (Cargo: ${cargo}) tentou acessar o Painel do Dono sem permissão! IP: ${ip}`;
 
     // 1. Registra no Log de Auditoria
     masterDb.run(
@@ -13373,7 +10989,7 @@ app.post('/api/auth/notificar-impostor', (req, res) => {
 
       // 3. Notifica o Gerente/Dono do Restaurante via Socket.IO
       io.to(`restaurante_${restId}`).emit('alerta_seguranca_gerente', {
-        titulo: '⚠�? Alerta de Segurança',
+        titulo: '⚠️ Alerta de Segurança',
         mensagem: `O colaborador '${email}' (${cargo}) tentou acessar o Painel do Dono sem autorização.`,
         ip,
         data: new Date().toLocaleTimeString('pt-BR')
@@ -13384,241 +11000,71 @@ app.post('/api/auth/notificar-impostor', (req, res) => {
   });
 });
 
-// �?�?�?�?�?�? MÓDULOS DO SISTEMA — Controle global + per-tenant �?�?�?�?�?�?
+// ══════ PLUGINS & MÓDULOS ══════
+// CREATE TABLE IF NOT EXISTS super_plugins (plugin_id TEXT PRIMARY KEY, nome TEXT, descricao TEXT, ativo INTEGER DEFAULT 1, atualizado_em DATETIME DEFAULT (datetime('now','localtime')));
 masterDb.serialize(() => {
-  // Tabela global: define todos os módulos disponíveis no sistema
-  masterDb.run(`CREATE TABLE IF NOT EXISTS modulo_sistemas (
-    modulo_id TEXT PRIMARY KEY,
-    nome TEXT NOT NULL,
+  masterDb.run(`CREATE TABLE IF NOT EXISTS super_plugins (
+    plugin_id TEXT PRIMARY KEY,
+    nome TEXT,
     descricao TEXT,
-    tipo TEXT DEFAULT 'plugin',
-    icone TEXT DEFAULT 'fa-puzzle-piece',
-    ativo_global INTEGER DEFAULT 1,
-    obrigatorios INTEGER DEFAULT 0,
-    atualizado_em DATETIME DEFAULT (datetime('now','localtime'))
-  )`);
-
-  // Tabela per-tenant: override individual por restaurante
-  masterDb.run(`CREATE TABLE IF NOT EXISTS tenant_modulos (
-    restaurante_id INTEGER NOT NULL,
-    modulo_id TEXT NOT NULL,
     ativo INTEGER DEFAULT 1,
-    atualizado_em DATETIME DEFAULT (datetime('now','localtime')),
-    PRIMARY KEY (restaurante_id, modulo_id)
-  )`);
-
-  // �?�?�? TABELA: Tarefas de Suporte �?�?�?
-  masterDb.run(`CREATE TABLE IF NOT EXISTS tarefas_suporte (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    titulo TEXT NOT NULL,
-    descricao TEXT DEFAULT '',
-    prioridade TEXT DEFAULT 'normal',
-    status TEXT DEFAULT 'pendente',
-    criado_por TEXT DEFAULT 'super_admin',
-    atribuido_a TEXT DEFAULT '',
-    restaurante_id INTEGER,
-    categoria TEXT DEFAULT 'geral',
-    resposta TEXT DEFAULT '',
-    criado_em DATETIME DEFAULT (datetime('now','localtime')),
-    atualizado_em DATETIME DEFAULT (datetime('now','localtime')),
-    atribuido_em DATETIME,
-    concluido_em DATETIME
-  )`);
-
-  // �?�?�? TABELA: Temas por Tenant �?�?�?
-  masterDb.run(`CREATE TABLE IF NOT EXISTS tenant_temas (
-    restaurante_id INTEGER PRIMARY KEY,
-    tema_json TEXT NOT NULL,
     atualizado_em DATETIME DEFAULT (datetime('now','localtime'))
   )`);
-
-  // Seeds: módulos do sistema (system = sempre ativo; plugin/feature = controlável)
-  const modulosSeed = [
-    // System modules (obrigatórios, sempre ativos)
-    ['auth',         'Autenticação',       'Login, registro e controle de acesso',          'system',  'fa-shield-halved',     1, 1],
-    ['logs',         'Logs de Auditoria',   'Registro de ações e histórico de operações',    'system',  'fa-scroll',            1, 1],
-    ['dispositivos', 'Dispositivos',        'Gerenciamento de dispositivos conectados',      'system',  'fa-mobile-screen',     1, 1],
-    ['backup',       'Backup & Restore',    'Backup e restauração do banco de dados',        'system',  'fa-database',          1, 1],
-    ['config',       'Configurações',       'Configurações gerais do restaurante',            'system',  'fa-gear',              1, 1],
-    // Plugin modules (controláveis por super admin)
-    ['nfce',             'NFC-e / SAT',           'Emissão de nota fiscal consumidor eletrônica',   'plugin', 'fa-file-invoice',      1, 0],
-    ['formas_pagamento', 'Formas de Pagamento',   'Gerenciamento de formas de pagamento',           'plugin', 'fa-credit-card',       1, 0],
-    ['fidelidade',       'Fidelidade',            'Programa de pontos, check-in, benefícios',       'plugin', 'fa-star',              1, 0],
-    ['montaveis',        'Itens Montáveis',       'Montagem de produtos personalizáveis',           'plugin', 'fa-puzzle-piece',      1, 0],
-    ['retro',            'API Retrocompatível',   'API para dispositivos Android 3.2 antigos',      'plugin', 'fa-mobile-retro',      1, 0],
-    ['reservas',         'Reservas',              'Sistema de reservas de mesas',                   'plugin', 'fa-calendar-check',    1, 0],
-    ['image_providers',  'Imagens Inteligentes',  'Pool de provedores de imagens para produtos',    'plugin', 'fa-image',             1, 0],
-    // Feature modules (controláveis via feature-plans)
-    ['ifood',          'iFood',              'Integração nativa com o iFood',                    'feature', 'fa-utensils',          0, 0],
-    ['whatsapp',       'WhatsApp Bot',       'Bot de atendimento e notificações via WhatsApp',   'feature', 'fa-comment-dots',      0, 0],
-    ['balanca',        'Balança',            'Conexão com balanças Toledo/Filizola/Urano',       'feature', 'fa-weight-scale',      0, 0],
-    ['kds',            'KDS Cozinha',        'Painel inteligente para cozinha',                  'feature', 'fa-tv',                0, 0],
-    ['pix_automatico', 'PIX Automático',     'Geração automática de QR Code PIX',               'feature', 'fa-qrcode',            0, 0],
-    ['delivery',       'Delivery',           'Hub de delivery integrado',                        'feature', 'fa-truck',             1, 0],
-    ['totem',          'Totem Autoatendimento', 'Totem de autoatendimento para clientes',         'feature', 'fa-kiosk',             0, 0],
-    ['bi',             'Business Intelligence', 'Dashboards e relatórios analíticos',             'feature', 'fa-chart-line',        1, 0],
-    ['telemetria',     'Telemetria',         'Coleta e análise de dados operacionais',           'feature', 'fa-signal',            1, 0],
-    ['cardapio',       'Cardápio Digital',   'Cardápio digital com QR Code',                     'feature', 'fa-book-open',         1, 0],
-    ['tempo_real',     'Tempo Real',         'Atualização em tempo real dos pedidos',            'feature', 'fa-clock',             1, 0],
-    // Segment-specific modules (auto-activated per business model)
-    ['comandas',       'Comandas Digitais',   'Pedidos digitais para garçons e atendentes',       'segment', 'fa-clipboard-list',    1, 0],
-    ['cardapio_foto',  'Cardápio Fotográfico','Cardápio digital com fotos profissionais',         'segment', 'fa-camera',            1, 0],
-    ['producao',       'Painel de Produção',  'Dashboard de produção/cozinha em tempo real',      'segment', 'fa-kitchen-set',       1, 0],
-    ['fila_senhas',    'Fila & Senhas',       'Sistema de senhas e gerenciamento de fila',        'segment', 'fa-ticket',            1, 0],
+  const defaultPlugins = [
+    ['ifood', 'iFood Integrado Direct', 'Integração nativa de pedidos, cardápio e cancelamento automático com o iFood.'],
+    ['whatsapp', 'WhatsApp Bot Atendimento', 'Disparo de notificação de pedido pronto e robô de pedidos automáticos.'],
+    ['balanca', 'Balança Self-Service / Kilo', 'Conexão direta com balanças Toledo, Filizola e Urano via Serial/USB.'],
+    ['kds', 'KDS Inteligente (Cozinha)', 'Painel de TV para gerenciamento de pedidos na cozinha com tempos de preparo.'],
+    ['pix_automatico', 'Pagamentos PIX Automáticos', 'Geração automática de QR Code PIX e conciliação de pagamentos.']
   ];
-  modulosSeed.forEach(m => {
-    masterDb.run(`INSERT OR IGNORE INTO modulo_sistemas (modulo_id, nome, descricao, tipo, icone, ativo_global, obrigatorios) VALUES (?,?,?,?,?,?,?)`, m);
+  defaultPlugins.forEach(p => {
+    masterDb.run(`INSERT OR IGNORE INTO super_plugins (plugin_id, nome, descricao, ativo) VALUES (?, ?, ?, 1)`, p);
   });
 });
 
-// ── GET /api/super/modulos — Lista todos os módulos + overrides por tenant ──
-app.get('/api/super/modulos', superAdminAuth, (req, res) => {
-  masterDb.all(`SELECT * FROM modulo_sistemas ORDER BY tipo DESC, modulo_id`, [], (err, modulos) => {
+// ═══ TABELA: Temas por Tenant ═══
+masterDb.run(`CREATE TABLE IF NOT EXISTS tenant_temas (
+  restaurante_id INTEGER PRIMARY KEY,
+  tema_json TEXT NOT NULL,
+  atualizado_em DATETIME DEFAULT (datetime('now','localtime'))
+)`);
+
+// ═══ TABELA: Tarefas Super Admin ═══
+masterDb.run(`CREATE TABLE IF NOT EXISTS super_tarefas (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  titulo TEXT NOT NULL,
+  descricao TEXT DEFAULT '',
+  prioridade TEXT DEFAULT 'normal',
+  status TEXT DEFAULT 'pendente',
+  criado_por TEXT DEFAULT 'super_admin',
+  atribuido_a TEXT DEFAULT '',
+  restaurante_id INTEGER,
+  categoria TEXT DEFAULT 'geral',
+  resposta TEXT DEFAULT '',
+  criado_em DATETIME DEFAULT (datetime('now','localtime')),
+  atualizado_em DATETIME DEFAULT (datetime('now','localtime')),
+  atribuido_em DATETIME,
+  concluido_em DATETIME
+)`);
+
+app.get('/api/super/plugins', superAdminAuth, (req, res) => {
+  masterDb.all(`SELECT * FROM super_plugins ORDER BY plugin_id`, [], (err, rows) => {
     if (err) return res.json({ ok: false, erro: err.message });
-    masterDb.all(`SELECT restaurante_id, modulo_id, ativo FROM tenant_modulos`, [], (errT, overrides) => {
-      if (errT) return res.json({ ok: false, erro: errT.message });
-      const overrideMap = {};
-      (overrides || []).forEach(o => {
-        if (!overrideMap[o.restaurante_id]) overrideMap[o.restaurante_id] = {};
-        overrideMap[o.restaurante_id][o.modulo_id] = o.ativo;
-      });
-      res.json({ ok: true, modulos: modulos || [], overrides: overrideMap });
+    res.json({ ok: true, plugins: rows || [] });
+  });
+});
+
+app.post('/api/super/plugins', superAdminAuth, (req, res) => {
+  const { plugin_id, ativo } = req.body || {};
+  if (!plugin_id) return res.json({ ok: false, erro: 'plugin_id é obrigatório.' });
+  masterDb.run(`UPDATE super_plugins SET ativo = ?, atualizado_em = datetime('now','localtime') WHERE plugin_id = ?`,
+    [ativo ? 1 : 0, plugin_id], function(err) {
+      if (err) return res.json({ ok: false, erro: err.message });
+      if (io) {
+        io.emit('plugin_atualizado', { plugin_id, ativo: !!ativo });
+      }
+      res.json({ ok: true, mensagem: `Plugin ${plugin_id} ${ativo ? 'ativado' : 'desativado'}.` });
     });
-  });
-});
-
-// ── POST /api/super/modulos/global — Toggle ativo_global de um módulo ──
-app.post('/api/super/modulos/global', superAdminAuth, (req, res) => {
-  const { modulo_id, ativo } = req.body || {};
-  if (!modulo_id) return res.status(400).json({ ok: false, erro: 'modulo_id obrigatório.' });
-  masterDb.get(`SELECT obrigatorios FROM modulo_sistemas WHERE modulo_id = ?`, [modulo_id], (e, row) => {
-    if (e || !row) return res.status(404).json({ ok: false, erro: 'Módulo não encontrado.' });
-    if (row.obrigatorios) return res.status(400).json({ ok: false, erro: 'Módulo obrigatório não pode ser desativado.' });
-    masterDb.run(`UPDATE modulo_sistemas SET ativo_global = ?, atualizado_em = datetime('now','localtime') WHERE modulo_id = ?`,
-      [ativo ? 1 : 0, modulo_id], function(err) {
-        if (err) return res.status(500).json({ ok: false, erro: err.message });
-        if (io) io.emit('modulo_global_atualizado', { modulo_id, ativo_global: !!ativo });
-        res.json({ ok: true });
-      });
-  });
-});
-
-// ── POST /api/super/modulos/tenant — Toggle módulo para um tenant específico ──
-app.post('/api/super/modulos/tenant', superAdminAuth, (req, res) => {
-  const { restaurante_id, modulo_id, ativo } = req.body || {};
-  if (!restaurante_id || !modulo_id) return res.status(400).json({ ok: false, erro: 'restaurante_id e modulo_id obrigatórios.' });
-  masterDb.get(`SELECT obrigatorios FROM modulo_sistemas WHERE modulo_id = ?`, [modulo_id], (e, row) => {
-    if (e || !row) return res.status(404).json({ ok: false, erro: 'Módulo não encontrado.' });
-    if (row.obrigatorios) return res.status(400).json({ ok: false, erro: 'Módulo obrigatório não pode ser alterado.' });
-    masterDb.run(`INSERT INTO tenant_modulos (restaurante_id, modulo_id, ativo) VALUES (?, ?, ?)
-      ON CONFLICT(restaurante_id, modulo_id) DO UPDATE SET ativo = ?, atualizado_em = datetime('now','localtime')`,
-      [restaurante_id, modulo_id, ativo ? 1 : 0, ativo ? 1 : 0], function(err) {
-        if (err) return res.status(500).json({ ok: false, erro: err.message });
-        if (io) io.to(`restaurante_${restaurante_id}`).emit('modulo_tenant_atualizado', { modulo_id, ativo: !!ativo });
-        res.json({ ok: true });
-      });
-  });
-});
-
-// ── POST /api/super/modulos/tenant-bulk — Toggle múltiplos módulos para um tenant ──
-app.post('/api/super/modulos/tenant-bulk', superAdminAuth, (req, res) => {
-  const { restaurante_id, modulos } = req.body || {};
-  if (!restaurante_id || !Array.isArray(modulos)) return res.status(400).json({ ok: false, erro: 'restaurante_id e modulos[] obrigatórios.' });
-  let pending = modulos.length;
-  const done = () => { if (--pending <= 0) { if (io) io.to(`restaurante_${restaurante_id}`).emit('modulos_tenant_atualizados'); res.json({ ok: true }); } };
-  modulos.forEach(({ modulo_id, ativo }) => {
-    if (!modulo_id) { done(); return; }
-    masterDb.get(`SELECT obrigatorios FROM modulo_sistemas WHERE modulo_id = ?`, [modulo_id], (e, row) => {
-      if (e || !row || row.obrigatorios) { done(); return; }
-      masterDb.run(`INSERT INTO tenant_modulos (restaurante_id, modulo_id, ativo) VALUES (?, ?, ?)
-        ON CONFLICT(restaurante_id, modulo_id) DO UPDATE SET ativo = ?, atualizado_em = datetime('now','localtime')`,
-        [restaurante_id, modulo_id, ativo ? 1 : 0, ativo ? 1 : 0], () => done());
-    });
-  });
-});
-
-// ── GET /api/modulos — Retorna módulos habilitados para o tenant autenticado ──
-app.get('/api/modulos', verificarToken, (req, res) => {
-  const tid = req.restaurante_id || 1;
-  masterDb.all(`SELECT modulo_id, ativo_global, obrigatorios FROM modulo_sistemas`, [], (e, allModulos) => {
-    if (e) return res.status(500).json({ error: 'Erro ao buscar módulos.' });
-    masterDb.all(`SELECT modulo_id, ativo FROM tenant_modulos WHERE restaurante_id = ?`, [tid], (eT, tenantOver) => {
-      if (eT) return res.status(500).json({ error: 'Erro ao buscar overrides.' });
-      const overMap = {};
-      (tenantOver || []).forEach(o => { overMap[o.modulo_id] = o.ativo; });
-      const habilitados = (allModulos || []).filter(m => {
-        if (m.obrigatorios) return true;
-        if (overMap[m.modulo_id] !== undefined) return overMap[m.modulo_id] === 1;
-        return m.ativo_global === 1;
-      }).map(m => m.modulo_id);
-      res.json({ ok: true, modulos: habilitados });
-    });
-  });
-});
-
-// ── Mapeamento Modalidade → Módulos habilitados automaticamente ──
-const MODALIDADE_MODULOS = {
-  a_la_carte:  ['reservas', 'fidelidade', 'comandas', 'cardapio_foto', 'producao', 'formas_pagamento'],
-  pizzaria:    ['montaveis', 'reservas', 'fidelidade', 'delivery', 'cardapio_foto', 'producao', 'formas_pagamento'],
-  a_kilo:      ['balanca', 'reservas', 'fidelidade', 'cardapio_foto', 'producao', 'formas_pagamento'],
-  buffet:      ['reservas', 'fidelidade', 'comandas', 'cardapio_foto', 'formas_pagamento'],
-  lanchonete:  ['montaveis', 'delivery', 'totem', 'cardapio_foto', 'producao', 'formas_pagamento'],
-  bar:         ['reservas', 'fidelidade', 'comandas', 'cardapio_foto', 'formas_pagamento'],
-  balada:      ['reservas', 'fidelidade', 'comandas', 'cardapio_foto', 'fila_senhas', 'formas_pagamento'],
-  quiosque:    ['totem', 'fila_senhas', 'cardapio_foto', 'formas_pagamento'],
-  eventos:     ['reservas', 'fidelidade', 'comandas', 'cardapio_foto', 'producao', 'formas_pagamento'],
-};
-
-// GET /api/modalidade-modulos — Retorna os módulos sugeridos para uma modalidade
-app.get('/api/modalidade-modulos', verificarToken, (req, res) => {
-  const modalidade = String(req.query.modalidade || '').trim();
-  if (!modalidade || !MODALIDADE_MODULOS[modalidade]) {
-    return res.json({ ok: false, erro: 'Modalidade desconhecida.', modulos: [] });
-  }
-  res.json({ ok: true, modalidade, modulos: MODALIDADE_MODULOS[modalidade] });
-});
-
-// POST /api/config/modalidade — Salva modalidade + auto-ativa módulos para o tenant
-app.post('/api/config/modalidade', verificarToken, (req, res) => {
-  const tid = req.restaurante_id || 1;
-  const modalidade = String((req.body && req.body.modalidade) || '').trim();
-  if (!modalidade || !MODALIDADE_MODULOS[modalidade]) {
-    return res.status(400).json({ ok: false, erro: 'Modalidade inválida.' });
-  }
-  const modulosSugeridos = MODALIDADE_MODULOS[modalidade];
-
-  // 1. Salva rest_modalidade nas configurações do tenant
-  withTenant(req, () => {
-    db.run(`INSERT INTO configuracoes (chave, valor) VALUES ('rest_modalidade', ?)
-            ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor`, [modalidade], function(errCfg) {
-      if (errCfg) console.error('[modalidade] Erro ao salvar config:', errCfg.message);
-    });
-  });
-
-  // 2. Auto-ativa módulos sugeridos no tenant_modulos (INSERT OR REPLACE)
-  let pending = modulosSugeridos.length;
-  if (!pending) return res.json({ ok: true, modalidade, ativados: 0 });
-
-  const ativados = [];
-  modulosSugeridos.forEach(modId => {
-    // Garante que o módulo existe na tabela global
-    masterDb.run(`INSERT OR IGNORE INTO modulo_sistemas (modulo_id, nome, descricao, tipo, icone, ativo_global, obrigatorios)
-                  VALUES (?, ?, ?, 'feature', 'fa-puzzle-piece', 1, 0)`,
-      [modId, modId, 'Módulo ativado automaticamente por modalidade'], function() {
-        // Ativa para este tenant
-        masterDb.run(`INSERT INTO tenant_modulos (restaurante_id, modulo_id, ativo, atualizado_em)
-                      VALUES (?, ?, 1, datetime('now','localtime'))
-                      ON CONFLICT(restaurante_id, modulo_id) DO UPDATE SET ativo = 1, atualizado_em = datetime('now','localtime')`,
-          [tid, modId], function(errT) {
-            if (!errT) ativados.push(modId);
-            if (--pending === 0) {
-              console.log(`[modalidade] Tenant ${tid}: modalidade="${modalidade}" → ${ativados.length} módulos ativados`);
-              if (io) io.to(`super_admin`).emit('modulo_tenant_atualizado', { restaurante_id: tid, modalidade, ativados });
-              res.json({ ok: true, modalidade, ativados });
-            }
-          });
-      });
-  });
 });
 
 // GET /api/super/commits — Lista os últimos 15 commits do repositório Git
@@ -13742,70 +11188,11 @@ app.post('/api/dono/reportar-problema', (req, res) => {
 });
 
 // GET /api/suporte/tarefas-relatadas - Fila de relatos enviados pelos restaurantes (não assumidos)
-// Inclui também falhas automáticas (anti-crash), design de temas e delegações do super admin
 app.get('/api/suporte/tarefas-relatadas', relatoSuporteAuth, (req, res) => {
-  masterDb.all(`SELECT t.*, r.nome as restaurante_nome FROM tarefas_suporte t LEFT JOIN restaurantes r ON t.restaurante_id = r.id WHERE t.tipo IN ('relato_restaurante','falha_automatica','design_tema','delegacao_super') AND t.status = 'pendente' AND t.suporte_id IS NULL ORDER BY CASE WHEN t.tipo = 'falha_automatica' THEN 0 ELSE 1 END, t.criada_em DESC LIMIT 50`,
+  masterDb.all(`SELECT t.*, r.nome as restaurante_nome FROM tarefas_suporte t LEFT JOIN restaurantes r ON t.restaurante_id = r.id WHERE t.tipo = 'relato_restaurante' AND t.status = 'pendente' AND t.suporte_id IS NULL ORDER BY t.criada_em DESC LIMIT 50`,
     [], (err, rows) => {
       if (err) return res.json({ ok: false, erro: err.message });
       res.json({ ok: true, relatos: rows || [] });
-    }
-  );
-});
-
-// �?�?�? CHAVES DE ATIVAÇÃO — Upsell Offline-First (Super Admin) �?�?�?
-// GET: lista todas as chaves emitidas
-app.get('/api/super/chaves', superAdminAuth, (req, res) => {
-  masterDb.all(
-    `SELECT c.*, r.nome AS restaurante_nome FROM chaves_ativacao c LEFT JOIN restaurantes r ON r.id = c.restaurante_id ORDER BY c.id DESC LIMIT 200`,
-    [],
-    (err, rows) => {
-      if (err) return res.status(500).json({ ok: false, erro: err.message });
-      res.json({ ok: true, chaves: rows || [] });
-    }
-  );
-});
-
-// POST: emite nova chave vinculada a um nó/servidor da infraestrutura
-app.post('/api/super/chaves', superAdminAuth, (req, res) => {
-  const servidor = String((req.body || {}).servidor_node || '').trim().slice(0, 60);
-  const observacao = String((req.body || {}).observacao || '').trim().slice(0, 200);
-  if (!servidor) return res.status(400).json({ ok: false, erro: 'Informe o servidor/nó de destino.' });
-  const rand = require('crypto').randomBytes(5).toString('hex').toUpperCase();
-  const chave = `CC-OFF-${servidor.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6) || 'NODE'}-${rand}`;
-  masterDb.run(
-    `INSERT INTO chaves_ativacao (chave, servidor_node, observacao) VALUES (?, ?, ?)`,
-    [chave, servidor, observacao],
-    function (err2) {
-      if (err2) return res.status(500).json({ ok: false, erro: err2.message });
-      global.registrarAuditoria('super_admin', 'CHAVE_OFFLINE_CRIADA', `Chave ${chave} para o nó ${servidor}`, 'Configuração', 'BAIXO');
-      res.json({ ok: true, chave, servidor_node: servidor });
-    }
-  );
-});
-
-// POST: revoga uma chave ainda não utilizada
-app.post('/api/super/chaves/:id/revogar', superAdminAuth, (req, res) => {
-  const id = parseInt(req.params.id);
-  masterDb.run(`UPDATE chaves_ativacao SET status = 'revogada' WHERE id = ? AND status = 'ativa'`, [id], function (err) {
-    if (err) return res.status(500).json({ ok: false, erro: err.message });
-    if (!this.changes) return res.json({ ok: false, erro: 'Chave não encontrada ou já utilizada.' });
-    res.json({ ok: true });
-  });
-});
-
-// �?�?�? SYNC OFFLINE — recebido por plugins/cozinha/ �?�?�?
-
-// POST /api/super/delegar-suporte — Super admin delega pendências/obrigações ao time de suporte
-app.post('/api/super/delegar-suporte', superAdminAuth, (req, res) => {
-  const { tipo, descricao, restaurante_id, pontos } = req.body || {};
-  const tipoOk = ['design_tema', 'delegacao_super', 'relato_restaurante'].includes(tipo) ? tipo : 'delegacao_super';
-  const desc = String(descricao || '').trim().slice(0, 1000);
-  if (!desc) return res.json({ ok: false, erro: 'Descreva a tarefa a delegar.' });
-  const pts = Math.min(200, Math.max(5, parseInt(pontos, 10) || 20));
-  masterDb.run(`INSERT INTO tarefas_suporte (suporte_id, tipo, descricao, restaurante_id, pontos, status) VALUES (NULL, ?, ?, ?, ?, 'pendente')`,
-    [tipoOk, desc, restaurante_id ? parseInt(restaurante_id) : null, pts], function (err) {
-      if (err) return res.json({ ok: false, erro: err.message });
-      res.json({ ok: true, id: this.lastID, mensagem: `Delegado à fila do suporte (${pts} pts). Um atendente vai assumir.` });
     }
   );
 });
@@ -13814,7 +11201,7 @@ app.post('/api/super/delegar-suporte', superAdminAuth, (req, res) => {
 app.post('/api/suporte/assumir-relato', relatoSuporteAuth, (req, res) => {
   const { id } = req.body || {};
   if (!id) return res.json({ ok: false, erro: 'ID do relato obrigatório.' });
-  masterDb.run(`UPDATE tarefas_suporte SET suporte_id = ? WHERE id = ? AND tipo IN ('relato_restaurante','falha_automatica','design_tema','delegacao_super') AND status = 'pendente' AND suporte_id IS NULL`,
+  masterDb.run(`UPDATE tarefas_suporte SET suporte_id = ? WHERE id = ? AND tipo = 'relato_restaurante' AND status = 'pendente' AND suporte_id IS NULL`,
     [req.suporteId, parseInt(id)], function(err) {
       if (err) return res.json({ ok: false, erro: err.message });
       if (this.changes === 0) return res.json({ ok: false, erro: 'Relato não disponível (já assumido por outro atendente).' });
@@ -13845,8 +11232,7 @@ app.post('/api/super/deploy-commit', superAdminAuth, (req, res) => {
   const { exec: execCb } = require('child_process');
   const safeHash = String(hash).replace(/[^a-f0-9]/gi, '');
 
-  // Stash local changes first to avoid "Your local changes would be overwritten" error
-  execCb(`git stash && git fetch origin && git checkout ${safeHash}`, (err, stdout, stderr) => {
+  execCb(`git fetch origin && git checkout ${safeHash}`, (err, stdout, stderr) => {
     if (err) return res.json({ ok: false, erro: 'Erro ao alternar para o commit: ' + (stderr || err.message) });
 
     const reloadResult = [];
@@ -13884,487 +11270,4 @@ app.post('/api/super/deploy-commit', superAdminAuth, (req, res) => {
   });
 });
 
-// �?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?
-// ── GIT AVANÇADO: CONEXÃO, PULL, DEPLOY PARCIAL & AUTO-DEPLOY ────────
-// �?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?
 
-const { exec: _gitExecCb } = require('child_process');
-function gitExec(cmd, timeoutMs) {
-  return new Promise((resolve) => {
-    const opts = { cwd: __dirname, windowsHide: true, timeout: timeoutMs || 30000, maxBuffer: 4 * 1024 * 1024 };
-    _gitExecCb(cmd, opts, (err, stdout, stderr) => {
-      resolve({ ok: !err, stdout: String(stdout || '').trim(), stderr: String(stderr || stdout || '').trim(), err });
-    });
-  });
-}
-function salvarCfgGlobal(chave, valor) {
-  masterDb.run(`INSERT INTO configuracoes_global (chave, valor) VALUES (?, ?)
-    ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor`, [chave, typeof valor === 'string' ? valor : JSON.stringify(valor)], () => {});
-}
-function lerCfgGlobalObj(chave, padrao) {
-  return new Promise((resolve) => {
-    masterDb.get(`SELECT valor FROM configuracoes_global WHERE chave = ?`, [chave], (err, row) => {
-      if (err || !row || !row.valor) return resolve(padrao);
-      try { resolve(JSON.parse(row.valor)); } catch (e) { resolve(padrao); }
-    });
-  });
-}
-
-let gitDeployEmAndamento = false;
-
-// GET — status da conexão Git
-app.get('/api/super/git/status', superAdminAuth, async (req, res) => {
-  const branch = await gitExec('git rev-parse --abbrev-ref HEAD', 10000);
-  const remote = await gitExec('git config --get remote.origin.url', 10000);
-  const auto = await lerCfgGlobalObj('git_auto_deploy', { enabled: false, intervalo_min: 30 });
-  const lastFetch = await lerCfgGlobalObj('git_last_fetch', null);
-  let behind = null, ahead = null;
-  if (remote.ok && branch.ok) {
-    const cnt = await gitExec(`git rev-list --left-right --count HEAD...origin/${branch.stdout}`, 15000);
-    if (cnt.ok && /\d+\s+\d+/.test(cnt.stdout)) {
-      const parts = cnt.stdout.split(/\s+/);
-      ahead = parseInt(parts[0], 10); behind = parseInt(parts[1], 10);
-    }
-  }
-  res.json({
-    ok: true,
-    conectado: remote.ok && !!remote.stdout,
-    remote_url: remote.stdout || '',
-    branch: branch.stdout || '?',
-    ahead, behind,
-    auto_deploy: auto,
-    last_fetch: lastFetch
-  });
-});
-
-// POST — conectar/alterar o repositório remoto (https, ssh ou caminho de rede local \\servidor\repo)
-app.post('/api/super/git/conectar', superAdminAuth, async (req, res) => {
-  const url = String((req.body || {}).url || '').trim();
-  if (!url) return res.json({ ok: false, erro: 'Informe a URL do repositório ou o caminho de rede.' });
-  if (!/^(https?:\/\/|git@|ssh:\/\/|\\\\|\/|file:\/\/|[a-zA-Z]:\\)/.test(url)) {
-    return res.json({ ok: false, erro: 'Formato inválido. Use https://, git@, ssh:// ou caminho de rede \\\\servidor\\pasta.' });
-  }
-  const temOrigin = await gitExec('git config --get remote.origin.url', 10000);
-  const cmd = (temOrigin.ok && temOrigin.stdout) ? `git remote set-url origin "${url}"` : `git remote add origin "${url}"`;
-  const set = await gitExec(cmd, 15000);
-  if (!set.ok) return res.json({ ok: false, erro: 'Falha ao configurar remote: ' + set.stderr });
-
-  // Valida conexão real
-  const teste = await gitExec('git ls-remote origin HEAD', 20000);
-  if (!teste.ok) {
-    return res.json({ ok: false, erro: 'Remote salvo, mas sem acesso: ' + (teste.stderr || 'verifique credenciais/rede') });
-  }
-  salvarCfgGlobal('git_last_fetch', Date.now());
-  res.json({ ok: true, mensagem: 'Repositório conectado com sucesso!' });
-});
-
-// POST — buscar (fetch) novidades sem aplicar
-app.post('/api/super/git/fetch', superAdminAuth, async (req, res) => {
-  const f = await gitExec('git fetch --all --prune', 60000);
-  salvarCfgGlobal('git_last_fetch', Date.now());
-  if (!f.ok) return res.json({ ok: false, erro: 'Falha no fetch: ' + (f.stderr || 'sem acesso ao remoto') });
-  const branch = await gitExec('git rev-parse --abbrev-ref HEAD', 10000);
-  const cnt = await gitExec(`git rev-list --left-right --count HEAD...origin/${branch.stdout}`, 15000);
-  let behind = 0;
-  if (cnt.ok && /\d+\s+\d+/.test(cnt.stdout)) behind = parseInt(cnt.stdout.split(/\s+/)[1], 10) || 0;
-  res.json({ ok: true, mensagem: behind > 0 ? `${behind} commit(s) novo(s) disponível(is).` : 'Você já está em dia.', behind });
-});
-
-// POST — puxar (pull fast-forward) os commits novos
-app.post('/api/super/git/pull', superAdminAuth, async (req, res) => {
-  if (gitDeployEmAndamento) return res.json({ ok: false, erro: 'Outra operação de deploy está em andamento.' });
-  gitDeployEmAndamento = true;
-  try {
-    const antes = await gitExec('git rev-parse HEAD', 10000);
-    const stash = await gitExec('git stash', 15000); // protege alterações locais não commitadas
-    const pull = await gitExec('git pull --ff-only origin ' + ((await gitExec('git rev-parse --abbrev-ref HEAD', 10000)).stdout || ''), 120000);
-    if (!pull.ok) {
-      if (stash.ok && /Created automatic/.test(stash.stdout + stash.stderr)) await gitExec('git stash pop', 15000);
-      return res.json({ ok: false, erro: 'Falha no pull: ' + (pull.stderr || '') });
-    }
-    const depois = await gitExec('git rev-parse HEAD', 10000);
-    let novos = [];
-    if (antes.ok && depois.ok && antes.stdout !== depois.stdout) {
-      const log = await gitExec(`git log --pretty=format:"%h|%s" ${antes.stdout}..${depois.stdout}`, 15000);
-      novos = log.stdout.split('\n').filter(Boolean).map(l => { const p = l.split('|'); return { hash: p[0], mensagem: p[1] }; });
-    }
-    // Recarrega módulos backend que possam ter mudado (efeito parcial; restart completo aplica tudo)
-    ['./feature-plans.js'].forEach(m => { try { delete require.cache[require.resolve(m)]; } catch (e) {} });
-    io.emit('commits_atualizados', { novos });
-    res.json({ ok: true, mensagem: novos.length ? `${novos.length} novo(s) commit(ns) puxado(s)! Use "Aplicar" para publicar.` : 'Nada novo para puxar.', novos });
-  } finally {
-    gitDeployEmAndamento = false;
-  }
-});
-
-// POST — deploy PARCIAL: aplica somente os arquivos de um commit.
-// Front-end (html/css/js públicos) entra no ar na hora, SEM reiniciar o servidor.
-// Arquivos de backend exigem reinício — informado na resposta.
-const BACKEND_PATTERNS = [/^server\.js$/i, /^controllers\//i, /^package(-lock)?\.json$/i];
-app.post('/api/super/git/deploy-parcial', superAdminAuth, async (req, res) => {
-  const hash = String((req.body || {}).hash || '').replace(/[^a-f0-9]/gi, '');
-  const incluirBackend = !!((req.body || {}).incluir_backend);
-  if (!hash) return res.json({ ok: false, erro: 'Hash do commit é obrigatório.' });
-  if (gitDeployEmAndamento) return res.json({ ok: false, erro: 'Outra operação de deploy está em andamento.' });
-  gitDeployEmAndamento = true;
-  try {
-    const show = await gitExec(`git show --name-only --pretty=format: ${hash}`, 20000);
-    if (!show.ok) return res.json({ ok: false, erro: 'Commit não encontrado: ' + show.stderr });
-    const arquivos = show.stdout.split('\n').map(s => s.trim()).filter(Boolean);
-    if (!arquivos.length) return res.json({ ok: false, erro: 'Commit sem arquivos alterados.' });
-
-    const front = arquivos.filter(a => !BACKEND_PATTERNS.some(rx => rx.test(a.replace(/\\/g, '/'))));
-    const back = arquivos.filter(a => BACKEND_PATTERNS.some(rx => rx.test(a.replace(/\\/g, '/'))));
-
-    const aplicar = incluirBackend ? arquivos : front;
-    if (aplicar.length) {
-      const checkout = await gitExec(`git checkout ${hash} -- ${aplicar.map(a => `"${a}"`).join(' ')}`, 60000);
-      if (!checkout.ok) return res.json({ ok: false, erro: 'Falha ao aplicar arquivos: ' + checkout.stderr });
-    }
-
-    if (!incluirBackend && back.length) {
-      io.emit('sistema_hot_swapped', { hash, parcial: true, aplicados: front.length, mensagem: 'Deploy parcial aplicado. Backend pendente de reinício.' });
-      return res.json({
-        ok: true,
-        hot_swap: true,
-        mensagem: `${front.length} arquivo(s) front-end aplicado(s) SEM reiniciar! ${back.length} arquivo(s) de backend precisam de reinício para valer.`,
-        aplicados: front,
-        backend_pendente: back,
-        requerRestart: true
-      });
-    }
-    io.emit('sistema_hot_swapped', { hash, parcial: true, aplicados: arquivos.length, mensagem: 'Deploy parcial aplicado.' });
-    res.json({
-      ok: true,
-      hot_swap: true,
-      mensagem: `Deploy aplicado (${arquivos.length} arquivo(s)).${back.length ? ' Reinicie o servidor para ativar mudanças de backend.' : ' Nenhuma reiniciação necessária.'}`,
-      aplicados: aplicar,
-      requerRestart: back.length > 0
-    });
-  } finally {
-    gitDeployEmAndamento = false;
-  }
-});
-
-// POST — configura auto-deploy (quando surgirem commits novos no remoto)
-app.post('/api/super/git/auto-deploy', superAdminAuth, async (req, res) => {
-  const enabled = !!((req.body || {}).enabled);
-  const intervalo_min = Math.min(720, Math.max(5, parseInt((req.body || {}).intervalo_min, 10) || 30));
-  const modo = (req.body || {}).modo === 'completo' ? 'completo' : 'parcial';
-  salvarCfgGlobal('git_auto_deploy', { enabled, intervalo_min, modo });
-  res.json({ ok: true, mensagem: `Auto-deploy ${enabled ? 'ativado' : 'desativado'} (checando a cada ${intervalo_min} min, modo ${modo}).` });
-});
-
-// Poller do auto-deploy: checa a cada 60s se é hora de buscar novidades
-setInterval(async () => {
-  try {
-    const cfg = await lerCfgGlobalObj('git_auto_deploy', { enabled: false, intervalo_min: 30 });
-    if (!cfg.enabled || gitDeployEmAndamento) return;
-    const lastFetch = (await lerCfgGlobalObj('git_last_fetch', 0)) || 0;
-    if (Date.now() - lastFetch < (cfg.intervalo_min * 60 * 1000)) return;
-    salvarCfgGlobal('git_last_fetch', Date.now());
-
-    const f = await gitExec('git fetch --all --prune', 60000);
-    if (!f.ok) return;
-    const branch = await gitExec('git rev-parse --abbrev-ref HEAD', 10000);
-    const cnt = await gitExec(`git rev-list --right-only --count HEAD...origin/${branch.stdout}`, 15000);
-    const behind = cnt.ok ? (parseInt(cnt.stdout, 10) || 0) : 0;
-    if (!behind) return;
-
-    console.log(`[auto-deploy] ${behind} novo(s) commit(s) detectado(s). Aplicando (modo ${cfg.modo})...`);
-    if (cfg.modo === 'parcial') {
-      // aplica os commits novos um a um como deploy parcial front-end
-      const log = await gitExec(`git log --reverse --pretty=format:"%h" HEAD..origin/${branch.stdout}`, 15000);
-      const hashes = log.stdout.split('\n').filter(Boolean);
-      for (const h of hashes) {
-        const show = await gitExec(`git show --name-only --pretty=format: ${h}`, 20000);
-        const arquivos = show.stdout.split('\n').map(s => s.trim()).filter(Boolean);
-        const front = arquivos.filter(a => !BACKEND_PATTERNS.some(rx => rx.test(a.replace(/\\/g, '/'))));
-        const back = arquivos.filter(a => BACKEND_PATTERNS.some(rx => rx.test(a.replace(/\\/g, '/'))));
-        if (front.length) await gitExec(`git checkout ${h} -- ${front.map(a => `"${a}"`).join(' ')}`, 60000);
-        if (back.length) {
-          // backend muda: avisa painéis; reinício automático apenas com GIT_AUTO_RESTART=1
-          io.emit('atualizacao_backend_pendente', { hash: h, arquivos: back });
-          if (process.env.GIT_AUTO_RESTART === '1') {
-            salvarCfgGlobal('git_auto_restart_pendente', { hash: h, ts: Date.now() });
-            setTimeout(() => process.exit(3), 5000);
-            return;
-          }
-        }
-      }
-      io.emit('sistema_hot_swapped', { auto: true, commits: hashes.length, mensagem: `Auto-deploy: ${hashes.length} commit(s) aplicado(s) sem quedas.` });
-    } else {
-      // modo completo: pull inteiro e recarga de módulos
-      const antes = await gitExec('git rev-parse HEAD', 10000);
-      const pull = await gitExec(`git pull --ff-only origin ${branch.stdout}`, 120000);
-      if (pull.ok) {
-        ['./feature-plans.js'].forEach(m => { try { delete require.cache[require.resolve(m)]; } catch (e) {} });
-        io.emit('sistema_hot_swapped', { auto: true, completo: true, mensagem: 'Auto-deploy completo realizado.' });
-      }
-    }
-  } catch (e) {
-    console.error('[auto-deploy] erro:', e.message);
-  }
-}, 60000);
-
-
-// �?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?
-// ── SUPER ADMIN: SUPABASE CONFIG ─────────────────────────────────────
-// �?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?
-
-// GET — carrega configuração do Supabase
-app.get('/api/super/supabase-config', superAdminAuth, (req, res) => {
-  masterDb.all(`SELECT key, value FROM super_config WHERE key LIKE 'supabase_%'`, [], (err, rows) => {
-    const config = {};
-    (rows || []).forEach(r => { config[r.key] = r.value; });
-    res.json({
-      ok: true,
-      config: {
-        url: config.supabase_url || '',
-        anon_key: config.supabase_anon_key || '',
-        service_role_key: config.supabase_service_role_key || '',
-        enabled: config.supabase_enabled || 'false'
-      }
-    });
-  });
-});
-
-// POST — salva configuração do Supabase
-app.post('/api/super/supabase-config', superAdminAuth, (req, res) => {
-  const { url, anon_key, enabled } = req.body || {};
-  const serviceKeyFornecida = typeof req.body.service_role_key === 'string' && req.body.service_role_key.trim() !== '';
-  const campos = {
-    supabase_url: (url || '').trim(),
-    supabase_anon_key: (anon_key || '').trim(),
-    supabase_service_role_key: serviceKeyFornecida ? req.body.service_role_key.trim() : null,
-    supabase_enabled: enabled ? 'true' : 'false'
-  };
-  masterDb.serialize(() => {
-    Object.keys(campos).forEach(k => {
-      if (campos[k] === null) return; // preserva valor salvo anteriormente
-      masterDb.run(`INSERT OR REPLACE INTO super_config (key, value) VALUES (?, ?)`, [k, campos[k]]);
-    });
-  });
-  res.json({ ok: true, mensagem: 'Configuração do Supabase salva com sucesso!' });
-});
-
-// POST — testa conexão com Supabase
-app.post('/api/super/supabase-test', superAdminAuth, async (req, res) => {
-  const { url, anon_key } = req.body || {};
-  if (!url || !anon_key) return res.json({ ok: false, erro: 'URL e Anon Key são obrigatórios para testar.' });
-
-  try {
-    const testUrl = url.replace(/\/+$/, '') + '/rest/v1/';
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
-
-    const response = await fetch(testUrl, {
-      method: 'GET',
-      headers: {
-        'apikey': anon_key,
-        'Authorization': 'Bearer ' + anon_key
-      },
-      signal: controller.signal
-    });
-    clearTimeout(timeout);
-
-    if (response.ok || response.status === 200) {
-      res.json({ ok: true, mensagem: 'Conexão com Supabase bem-sucedida!', status: response.status });
-    } else {
-      res.json({ ok: false, erro: `Supabase respondeu com status ${response.status}: ${response.statusText}` });
-    }
-  } catch (e) {
-    res.json({ ok: false, erro: 'Falha ao conectar: ' + (e.message || 'Timeout ou URL inválida') });
-  }
-});
-
-// �?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?
-// ── SUPER ADMIN: MULTI-SERVER / BALANCEAMENTO DE CARGA ───────────────
-// �?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?
-
-// GET — lista servidores configurados
-app.get('/api/super/servers', superAdminAuth, (req, res) => {
-  masterDb.get(`SELECT value FROM super_config WHERE key = 'multi_servers'`, [], (err, row) => {
-    let servers = [];
-    try { servers = JSON.parse((row || {}).value || '[]'); } catch(e) {}
-    masterDb.get(`SELECT value FROM super_config WHERE key = 'lb_strategy'`, [], (err2, row2) => {
-      const strategy = (row2 || {}).value || 'round_robin';
-      res.json({ ok: true, servers, strategy });
-    });
-  });
-});
-
-// POST — adiciona/atualiza servidor
-app.post('/api/super/servers', superAdminAuth, (req, res) => {
-  const { nome, url, porta, peso, id } = req.body || {};
-  if (!nome || !url) return res.json({ ok: false, erro: 'Nome e URL são obrigatórios.' });
-
-  masterDb.get(`SELECT value FROM super_config WHERE key = 'multi_servers'`, [], (err, row) => {
-    let servers = [];
-    try { servers = JSON.parse((row || {}).value || '[]'); } catch(e) {}
-
-    if (id) {
-      servers = servers.map(s => s.id === id ? { ...s, nome, url: url.replace(/\/+$/, ''), porta: porta || '', peso: parseInt(peso) || 1 } : s);
-    } else {
-      servers.push({
-        id: 'srv_' + Date.now(),
-        nome,
-        url: url.replace(/\/+$/, ''),
-        porta: porta || '',
-        peso: parseInt(peso) || 1,
-        criado_em: new Date().toISOString()
-      });
-    }
-
-    masterDb.run(`INSERT OR REPLACE INTO super_config (key, value) VALUES ('multi_servers', ?)`, [JSON.stringify(servers)], () => {
-      res.json({ ok: true, mensagem: id ? 'Servidor atualizado!' : 'Servidor adicionado!', servers });
-    });
-  });
-});
-
-// DELETE — remove servidor
-app.delete('/api/super/servers', superAdminAuth, (req, res) => {
-  const { id } = req.body || {};
-  if (!id) return res.json({ ok: false, erro: 'ID do servidor é obrigatório.' });
-
-  masterDb.get(`SELECT value FROM super_config WHERE key = 'multi_servers'`, [], (err, row) => {
-    let servers = [];
-    try { servers = JSON.parse((row || {}).value || '[]'); } catch(e) {}
-    servers = servers.filter(s => s.id !== id);
-    masterDb.run(`INSERT OR REPLACE INTO super_config (key, value) VALUES ('multi_servers', ?)`, [JSON.stringify(servers)], () => {
-      res.json({ ok: true, mensagem: 'Servidor removido!', servers });
-    });
-  });
-});
-
-// POST — salva estratégia de balanceamento
-app.post('/api/super/servers/strategy', superAdminAuth, (req, res) => {
-  const { strategy } = req.body || {};
-  if (!strategy) return res.json({ ok: false, erro: 'Estratégia é obrigatória.' });
-  masterDb.run(`INSERT OR REPLACE INTO super_config (key, value) VALUES ('lb_strategy', ?)`, [strategy], () => {
-    res.json({ ok: true, mensagem: 'Estratégia de balanceamento salva!' });
-  });
-});
-
-// POST — testa conectividade de um servidor
-app.post('/api/super/servers/test', superAdminAuth, async (req, res) => {
-  const { url, porta } = req.body || {};
-  if (!url) return res.json({ ok: false, erro: 'URL é obrigatória.' });
-
-  try {
-    const testUrl = porta ? `${url.replace(/\/+$/, '')}:${porta}/` : `${url.replace(/\/+$/, '')}/`;
-    const inicio = Date.now();
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
-
-    const response = await fetch(testUrl, { method: 'GET', signal: controller.signal });
-    clearTimeout(timeout);
-    const latencia = Date.now() - inicio;
-
-    res.json({ ok: true, status: response.status, latencia: latencia + 'ms', mensagem: `Servidor respondeu em ${latencia}ms (HTTP ${response.status})` });
-  } catch (e) {
-    res.json({ ok: false, erro: 'Falha ao conectar: ' + (e.message || 'Timeout ou URL inválida') });
-  }
-});
-
-// �?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?
-// TÚNEIS & FALLBACK — endpoints para gerenciamento de túneis
-// �?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?
-
-// GET /api/super/tuneis/status — status de todos os túneis
-app.get('/api/super/tuneis/status', superAdminAuth, async (req, res) => {
-  await tunnelManager.loadConfig();
-  res.json({ ok: true, ...tunnelManager.getStatus() });
-});
-
-// POST /api/super/tuneis/config-global — salvar config global (porta, modo, prioridade)
-app.post('/api/super/tuneis/config-global', superAdminAuth, async (req, res) => {
-  const { port, mode, priority } = req.body || {};
-  try {
-    await tunnelManager.saveGlobalConfig(port, mode, priority);
-    res.json({ ok: true, mensagem: 'Configuração global de túneis salva!' });
-  } catch (e) {
-    res.json({ ok: false, erro: e.message });
-  }
-});
-
-// POST /api/super/tuneis/config/:name — salvar config de um túnel específico
-app.post('/api/super/tuneis/config/:name', superAdminAuth, async (req, res) => {
-  const name = req.params.name;
-  try {
-    await tunnelManager.saveConfig(name, req.body || {});
-    res.json({ ok: true, mensagem: `Configuração de ${name} salva!` });
-  } catch (e) {
-    res.json({ ok: false, erro: e.message });
-  }
-});
-
-// POST /api/super/tuneis/start/:name — iniciar um túnel
-app.post('/api/super/tuneis/start/:name', superAdminAuth, (req, res) => {
-  const result = tunnelManager.start(req.params.name);
-  res.json(result);
-});
-
-// POST /api/super/tuneis/stop/:name — parar um túnel
-app.post('/api/super/tuneis/stop/:name', superAdminAuth, (req, res) => {
-  const result = tunnelManager.stop(req.params.name);
-  res.json(result);
-});
-
-// POST /api/super/tuneis/stop-all — parar todos os túneis
-app.post('/api/super/tuneis/stop-all', superAdminAuth, (req, res) => {
-  const results = tunnelManager.stopAll();
-  res.json({ ok: true, resultados: results });
-});
-
-// GET /api/super/tuneis/logs — logs de atividade dos túneis
-app.get('/api/super/tuneis/logs', superAdminAuth, (req, res) => {
-  const name = req.query.tunnel || null;
-  res.json({ ok: true, logs: tunnelManager.getLogs(name) });
-});
-
-
-
-// ══════════════════════════════════════════════════════════════════
-// 🛡️ RESILIÊNCIA CONTRA CRASHES & GRACEFUL SHUTDOWN DO SERVIDOR
-// ══════════════════════════════════════════════════════════════════
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('[Process] Unhandled Rejection capturado com segurança:', reason && reason.stack ? reason.stack : reason);
-});
-
-process.on('uncaughtException', (err) => {
-  console.error('[Process] Uncaught Exception capturada com segurança:', err && err.stack ? err.stack : err);
-});
-
-let isShuttingDown = false;
-function gracefulShutdown(signal) {
-  if (isShuttingDown) return;
-  isShuttingDown = true;
-  console.log(`[Process] Sinal ${signal} recebido. Executando WAL checkpoint e fechamento seguro...`);
-
-  try {
-    if (typeof io !== 'undefined' && io.close) io.close();
-    if (typeof masterDb !== 'undefined' && masterDb.run) {
-      masterDb.run('PRAGMA wal_checkpoint(PASSIVE);', () => {
-        try { masterDb.close(); } catch(e){}
-      });
-    }
-    if (typeof tenantDbs !== 'undefined' && tenantDbs.forEach) {
-      tenantDbs.forEach((tdb) => {
-        try {
-          tdb.run('PRAGMA wal_checkpoint(PASSIVE);', () => {
-            try { tdb.close(); } catch(e){}
-          });
-        } catch(e){}
-      });
-    }
-  } catch(e){}
-
-  setTimeout(() => {
-    console.log('[Process] Servidor finalizado com sucesso.');
-    process.exit(0);
-  }, 1200);
-}
-
-process.on('SIGINT', () => gracefulShutdown('SIGINT'));
-process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));

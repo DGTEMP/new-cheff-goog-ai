@@ -1937,11 +1937,11 @@ function renderOrders() {
 
   const renderSection = (title, count, items, statusClass) => {
     if (items.length === 0) return '';
-    if (window.chefMesaStatusFilter !== 'all' && window.chefMesaStatusFilter !== statusClass) {
+    if (window.chefMesaStatusFilter && window.chefMesaStatusFilter !== 'all' && window.chefMesaStatusFilter !== statusClass) {
       return '';
     }
 
-    const isCollapsed = !!window.chefMesaCollapsedCategories[statusClass];
+    const isCollapsed = window.chefMesaCollapsedCategories && !!window.chefMesaCollapsedCategories[statusClass];
     let html = '';
 
     if (window.chefMesasAgrupado) {
@@ -2013,14 +2013,16 @@ function renderOrders() {
   };
 
   let html = '';
-  if (window.viewFilter === 'Comandas') {
+  if (window.viewFilter === 'Comandas' || window.viewFilter === 'Todas') {
     html += renderComandasInsideMesas(comandaEntries);
   }
-  html += renderSection('Conta Solicitada', ped.length, ped, 'solicitada');
-  html += renderSection('Para Fechar', fech.length, fech, 'fechamento');
-  html += renderSection('Ocupadas', ocup.length, ocup, 'ocupada');
-  html += renderSection('Reservadas', reser.length, reser, 'reservada');
-  html += renderSection('Disponíveis', disp.length, disp, 'disponivel');
+  if (window.viewFilter !== 'Comandas') {
+    html += renderSection('Conta Solicitada', ped.length, ped, 'solicitada');
+    html += renderSection('Para Fechar', fech.length, fech, 'fechamento');
+    html += renderSection('Ocupadas', ocup.length, ocup, 'ocupada');
+    html += renderSection('Reservadas', reser.length, reser, 'reservada');
+    html += renderSection('Disponíveis', disp.length, disp, 'disponivel');
+  }
 
   if (typeof morphdom !== 'undefined') morphdom(grid, '<div>' + html + '</div>', { childrenOnly: true }); else grid.innerHTML = html;
   const allRenderedItems = [...ped, ...fech, ...ocup, ...reser, ...disp];
@@ -2845,6 +2847,7 @@ function renderOrders() {
   if (typeof window.updateTimers === 'function') window.updateTimers();
 }
 
+
 window.removerItemPedido = (id) => {
   window.solicitarAutorizacaoAdmin('Excluir Item', 'Informe a senha de administrador para confirmar a exclusão.', (senha, motivo) => {
     socket.emit('remover_pedido_item', { id, senha, userName: window.loggedInUser || 'Caixa' });
@@ -2934,6 +2937,20 @@ function updateSummaryValue(id, value) {
     el.innerText = `R$ ${value.toFixed(2).replace('.', ',')}`;
   }
 }
+
+// ─── FALLBACK HTTP: Carrega mesas imediatamente via REST ao abrir a página ───
+(function carregarMesasImediato() {
+  fetch('/api/mesas')
+    .then(r => r.ok ? r.json() : null)
+    .then(data => {
+      if (!data || !data.pedidos) return;
+      if (!ordersData || ordersData.length === 0) {
+        ordersData = data.pedidos;
+        if (typeof renderOrders === 'function') renderOrders();
+      }
+    })
+    .catch(() => {});
+})();
 
 // WebSocket Events
 socket.on('initial_data_caixa', (data) => {
@@ -3146,13 +3163,28 @@ document.addEventListener('DOMContentLoaded', () => {
     btnAbrir.onclick = () => {
       let valInput = document.getElementById('fundo-troco') ? document.getElementById('fundo-troco').value : '0';
       const fundo = parseFloat(String(valInput || '0').replace(',', '.'));
-      const operador = window.crmPerfil ? window.crmPerfil.nome : 'Caixa';
+      const operador = (window.crmPerfil && window.crmPerfil.nome) || localStorage.getItem('usuario_logado') || 'Caixa';
       
       btnAbrir.disabled = true;
       btnAbrir.innerText = 'Abrindo...';
 
+      const fecharOverlayCaixa = () => {
+        const overlay = document.getElementById('caixa-overlay');
+        const span = document.getElementById('status-caixa-name');
+        if (overlay) overlay.style.display = 'none';
+        if (span) span.innerText = 'Caixa Aberto';
+        btnAbrir.disabled = false;
+        btnAbrir.innerText = 'ABRIR CAIXA';
+        if (typeof showToast === 'function') showToast('Caixa aberto com sucesso!', 'success');
+        if (typeof socket !== 'undefined' && socket) {
+          socket.emit('get_estado_caixa');
+          socket.emit('get_mesas');
+        }
+      };
+
       if (typeof socket !== 'undefined' && socket.connected) {
         socket.emit('abrir_caixa', { fundo_troco: isNaN(fundo) ? 0 : fundo, operador: operador });
+        setTimeout(fecharOverlayCaixa, 300);
       }
 
       // Fallback via HTTP API
@@ -3161,16 +3193,9 @@ document.addEventListener('DOMContentLoaded', () => {
         headers: { 'Content-Type': 'application/json', ...(typeof authHeaders === 'function' ? authHeaders() : {}) },
         body: JSON.stringify({ fundo_troco: isNaN(fundo) ? 0 : fundo, operador: operador })
       }).then(() => {
-        const modalCaixa = document.getElementById('modal-caixa-fechado');
-        if (modalCaixa) modalCaixa.style.display = 'none';
-        btnAbrir.disabled = false;
-        btnAbrir.innerText = 'ABRIR CAIXA';
-        if (typeof showToast === 'function') showToast('Caixa aberto com sucesso!', 'success');
+        fecharOverlayCaixa();
       }).catch(() => {
-        const modalCaixa = document.getElementById('modal-caixa-fechado');
-        if (modalCaixa) modalCaixa.style.display = 'none';
-        btnAbrir.disabled = false;
-        btnAbrir.innerText = 'ABRIR CAIXA';
+        fecharOverlayCaixa();
       });
     };
   }
@@ -4909,13 +4934,19 @@ let _wizardModoMesas = 'exemplos'; /* 'exemplos' | 'zero' */
   const tipoPedido = document.getElementById('pdv-tipo-pedido');
   if (tipoPedido) {
     tipoPedido.onchange = (e) => {
-      document.getElementById('pdv-delivery-fields').style.display = e.target.value === 'Delivery' ? 'flex' : 'none';
-      window.renderPdvCart();
+      const delivEl = document.getElementById('pdv-delivery-fields');
+      if (delivEl) {
+        delivEl.style.removeProperty('display');
+        delivEl.style.display = e.target.value === 'Delivery' ? 'flex' : 'none';
+      }
+      if (typeof window.renderPdvCart === 'function') window.renderPdvCart();
     };
   }
 
   const taxaEntregaInput = document.getElementById('pdv-taxa-entrega');
-  if (taxaEntregaInput) taxaEntregaInput.oninput = window.renderPdvCart;
+  if (taxaEntregaInput) taxaEntregaInput.oninput = () => {
+    if (typeof window.renderPdvCart === 'function') window.renderPdvCart();
+  };
 
   // --- AUTO-COMPLETE CLIENTE POR TELEFONE ---
   const pdvTelInput = document.getElementById('pdv-cliente-telefone');
@@ -10653,12 +10684,55 @@ window.setMesaGridCols = function(cols) {
   });
 };
 
+// ─── ORIENTAÇÃO DAS MESAS (HORIZONTAL / VERTICAL) ───
+window.chefMesasOrientation = (() => {
+  try { return localStorage.getItem('chef_mesas_orientation') || 'horizontal'; } catch(e) { return 'horizontal'; }
+})();
+
+window.setMesasOrientation = function(orient) {
+  window.chefMesasOrientation = orient;
+  try { localStorage.setItem('chef_mesas_orientation', orient); } catch(e) {}
+
+  const grid = document.getElementById('orders-grid');
+  if (grid) {
+    grid.classList.toggle('orientation-vertical', orient === 'vertical');
+  }
+
+  ['horizontal', 'vertical'].forEach(o => {
+    const btn = document.getElementById('btn-orient-' + o);
+    if (!btn) return;
+    if (o === orient) {
+      btn.style.background = 'var(--bg-card)';
+      btn.style.color = 'var(--text-main)';
+      btn.style.fontWeight = '800';
+    } else {
+      btn.style.background = 'transparent';
+      btn.style.color = 'var(--text-muted)';
+      btn.style.fontWeight = '700';
+    }
+  });
+};
+
+// ─── RECOLHER / EXPANDIR CATEGORIAS DE MESAS ───
+window.chefMesaCollapsedCategories = (() => {
+  try { return JSON.parse(localStorage.getItem('chef_mesa_collapsed') || '{}'); } catch(e) { return {}; }
+})();
+
+window.toggleMesaCategory = function(statusClass) {
+  if (!window.chefMesaCollapsedCategories) window.chefMesaCollapsedCategories = {};
+  window.chefMesaCollapsedCategories[statusClass] = !window.chefMesaCollapsedCategories[statusClass];
+  try { localStorage.setItem('chef_mesa_collapsed', JSON.stringify(window.chefMesaCollapsedCategories)); } catch(e) {}
+  if (typeof renderOrders === 'function') renderOrders();
+};
+
 document.addEventListener('DOMContentLoaded', () => {
   try {
-    const savedFilter = localStorage.getItem('chef_mesa_view_filter');
+    const savedFilter = localStorage.getItem('chef_mesa_view_filter') || 'Todas';
     if (savedFilter) window.setMesaViewFilter(savedFilter);
     const savedCols = localStorage.getItem('chef_mesa_grid_cols');
     if (savedCols) window.setMesaGridCols(savedCols);
+    // Restaurar orientação salva
+    window.setMesasOrientation(window.chefMesasOrientation);
   } catch(e){}
 });
 
