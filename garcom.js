@@ -965,8 +965,30 @@ function renderTables() {
   }
   grid.style.display = '';
   if (empty) empty.style.display = 'none';
-  
-  MESAS.forEach(mesa => {
+
+  // ─── APLICAR ORDENAÇÃO SALVA ───
+  let mesasOrdenadas = [...MESAS];
+  const sortType = (function() { try { return localStorage.getItem('garcom_mesa_sort') || 'nome'; } catch(e) { return 'nome'; } })();
+  if (sortType === 'status') {
+    const ordem = { 'Ocupada': 0, 'Reservada': 1, 'Disponível': 2, 'Livre': 2 };
+    mesasOrdenadas.sort((a, b) => (ordem[a.status] ?? 9) - (ordem[b.status] ?? 9));
+  } else if (sortType === 'valor') {
+    mesasOrdenadas.sort((a, b) => (b._total || 0) - (a._total || 0));
+  } else {
+    // padrão: nome numérico
+    mesasOrdenadas.sort((a, b) => {
+      const na = parseInt((a.nome || '').replace(/\D/g, '')) || 0;
+      const nb = parseInt((b.nome || '').replace(/\D/g, '')) || 0;
+      return na !== nb ? na - nb : (a.nome || '').localeCompare(b.nome || '');
+    });
+  }
+  // Aplicar layout salvo
+  const layout = (function() { try { return localStorage.getItem('garcom_mesa_layout') || 'auto'; } catch(e) { return 'auto'; } })();
+  if (layout === 'list') grid.style.gridTemplateColumns = '1fr';
+  else if (layout === 'compacto') grid.style.gridTemplateColumns = 'repeat(3, 1fr)';
+  else grid.style.gridTemplateColumns = 'repeat(2, 1fr)';
+
+  mesasOrdenadas.forEach(mesa => {
     const card = document.createElement('div');
     card.className = 'table-card';
     if (mesa.status === 'Ocupada') card.classList.add('ocupada');
@@ -1009,6 +1031,10 @@ function renderTables() {
     };
     grid.appendChild(card);
   });
+
+  // Atualizar seletor visual
+  const sel = document.getElementById('select-garcom-mesa-sort');
+  if (sel && sel.value !== sortType) sel.value = sortType;
 }
 
 function loadCart(mesaName) {
@@ -2522,7 +2548,22 @@ window.openNewComandaModal = () => {
   document.getElementById('new-comanda-phone').value = '';
   var hist = document.getElementById('cliente-historico');
   if (hist) { hist.style.display = 'none'; hist.innerHTML = ''; }
-  document.getElementById('new-comanda-name').focus();
+
+  // Preencher seletor de mesas
+  const _sel = document.getElementById('new-comanda-mesa');
+  if (_sel) {
+    _sel.innerHTML = '<option value="">-- Sem mesa (comanda avulsa) --</option>';
+    const _mesaAtual = (typeof currentTable !== 'undefined' ? currentTable : '') || '';
+    ((typeof MESAS !== 'undefined' ? MESAS : [])).forEach(function(m) {
+      const opt = document.createElement('option');
+      opt.value = m.nome;
+      const st = m.status === 'Ocupada' ? ' (Ocupada)' : m.status === 'Reservada' ? ' (Reservada)' : ' (Livre)';
+      opt.textContent = m.nome + st;
+      if (m.nome === _mesaAtual) opt.selected = true;
+      _sel.appendChild(opt);
+    });
+  }
+  setTimeout(function() { document.getElementById('new-comanda-name').focus(); }, 150);
 };
 
 window.closeNewComandaModal = () => {
@@ -2556,8 +2597,26 @@ window.submitNewComanda = () => {
     saveCart(currentTable);
   }
   
-  window.closeNewComandaModal();
-  renderCart();
+  // Verificar mesa selecionada
+  const _mesaSel = document.getElementById('new-comanda-mesa');
+  const _mesaEscolhida = _mesaSel ? _mesaSel.value.trim() : '';
+
+  if (window.pendingComandaItemIdx !== null && window.pendingComandaItemIdx !== undefined) {
+    if (_mesaEscolhida && typeof currentTable !== 'undefined') currentTable = _mesaEscolhida;
+    window.closeNewComandaModal();
+    if (typeof renderCart === 'function') renderCart();
+  } else if (_mesaEscolhida) {
+    currentTable = _mesaEscolhida;
+    try { localStorage.setItem('chef_last_mesa', currentTable); } catch(e) {}
+    if (typeof loadCart === 'function') loadCart(_mesaEscolhida);
+    window.closeNewComandaModal();
+    if (typeof showView === 'function') showView('menu', 'Pedido: ' + _mesaEscolhida);
+    if (typeof renderMenu === 'function') renderMenu();
+    if (typeof showToast === 'function') showToast('Comanda aberta: ' + name + ' — ' + _mesaEscolhida, '#10b981');
+  } else {
+    window.closeNewComandaModal();
+    if (typeof showToast === 'function') showToast('Comanda criada: ' + name, '#6366f1');
+  }
 };
 
 window.changeItemComanda = (idx, value) => {
@@ -2978,7 +3037,7 @@ window.renderFilaPreparoGarcom = function(pedidos) {
       <div style="background: var(--g-card-bg, #ffffff); border: 1.5px solid var(--g-border, #e2e8f0); border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.02);">
         <div style="display: flex; justify-content: space-between; align-items: center;">
           <div style="display: flex; align-items: center; gap: 6px;">
-            <span style="font-size: 13px; font-weight: 800; background: #0f172a; color: white; padding: 3px 8px; border-radius: 8px;">${p.mesa || 'Mesa ?'}</span>
+            <span style="font-size: 13px; font-weight: 800; background: #0f172a; color: white; padding: 3px 8px; border-radius: 8px;">${p.localName || p.mesa_grupo || p.mesa || p.mesa_comanda || 'Mesa ?'}</span>
             ${p.garcom ? `<span style="font-size: 11.5px; color: var(--g-text-muted, #64748b);">por <strong>${p.garcom}</strong></span>` : ''}
           </div>
           <span style="display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 800; padding: 4px 10px; border-radius: 12px; background: ${stBg}; color: ${stColor}; border: 1px solid ${stBorder};">
@@ -3030,13 +3089,23 @@ window.filtrarConsultaPreco = function(query) {
   const container = document.getElementById('lista-consulta-preco-garcom');
   if (!container) return;
 
+  // MENU usa campos: name, category, emoji, price (mapeados do socket produtos_atualizados)
   const prods = (typeof MENU !== 'undefined' && Array.isArray(MENU)) ? MENU : [];
+
+  if (prods.length === 0) {
+    container.innerHTML = '<div style="text-align: center; color: #94a3b8; padding: 30px; font-size: 14px;"><i class="ph ph-spinner" style="font-size:28px;display:block;margin-bottom:8px;"></i>Carregando cardápio...</div>';
+    // Solicita produtos ao servidor se MENU estiver vazio
+    if (typeof socket !== 'undefined' && socket) socket.emit('get_produtos');
+    return;
+  }
+
   let filtrados = prods;
   if (q) {
     filtrados = prods.filter(p => {
-      const n = (p.nome || '').toLowerCase();
-      const c = (p.categoria || '').toLowerCase();
-      const d = (p.descricao || '').toLowerCase();
+      // MENU usa 'name' e 'category' (não 'nome'/'categoria')
+      const n = (p.name || p.nome || '').toLowerCase();
+      const c = (p.category || p.categoria || '').toLowerCase();
+      const d = (p.descricao || p.description || '').toLowerCase();
       return n.includes(q) || c.includes(q) || d.includes(q);
     });
   }
@@ -3046,22 +3115,24 @@ window.filtrarConsultaPreco = function(query) {
     return;
   }
 
-  container.innerHTML = filtrados.slice(0, 50).map(p => {
-    const preco = parseFloat(p.preco || 0).toFixed(2).replace('.', ',');
+  container.innerHTML = filtrados.slice(0, 60).map(p => {
+    const nome = p.name || p.nome || 'Item';
+    const categoria = p.category || p.categoria || 'Geral';
+    const preco = parseFloat(p.price || p.preco || 0).toFixed(2).replace('.', ',');
+    const emoji = p.emoji || '🍽️';
     const imgHtml = p.imagem
       ? `<img src="${p.imagem}" style="width: 44px; height: 44px; border-radius: 12px; object-fit: cover;">`
-      : `<div style="width: 44px; height: 44px; border-radius: 12px; background: rgba(252,75,21,0.1); color: #fc4b15; display: flex; align-items: center; justify-content: center; font-size: 24px;">${p.emoji || '🍽️'}</div>`;
+      : `<div style="width: 44px; height: 44px; border-radius: 12px; background: rgba(252,75,21,0.1); color: #fc4b15; display: flex; align-items: center; justify-content: center; font-size: 24px;">${emoji}</div>`;
 
     return `
       <div style="background: var(--g-app-bg, #f8fafc); border: 1px solid var(--g-border, #e2e8f0); border-radius: 14px; padding: 10px 12px; display: flex; align-items: center; gap: 12px;">
         ${imgHtml}
         <div style="flex: 1; min-width: 0;">
-          <strong style="font-size: 14px; color: var(--g-text, #0f172a); display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${p.nome}</strong>
-          <span style="font-size: 11.5px; color: var(--g-text-muted, #64748b);">${p.categoria || 'Geral'} ${p.descricao ? `• ${p.descricao.substring(0, 30)}...` : ''}</span>
+          <strong style="font-size: 14px; color: var(--g-text, #0f172a); display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${nome}</strong>
+          <span style="font-size: 11.5px; color: var(--g-text-muted, #64748b);">${categoria}</span>
         </div>
         <div style="text-align: right;">
           <strong style="font-size: 15px; color: #fc4b15;">R$ ${preco}</strong>
-          <span style="font-size: 11px; display: block; color: ${p.estoque === 0 ? '#dc2626' : '#16a34a'}; font-weight: 700;">${p.estoque === 0 ? 'Sem estoque' : 'Disponível'}</span>
         </div>
       </div>
     `;

@@ -3325,6 +3325,16 @@ io.on('connection', (socket) => {
   });
 
 
+  
+  // Alias: front-end emite 'get_orders' -> responde com pedidos do caixa
+  socket.on('get_orders', () => {
+    db.all("SELECT * FROM pedidos WHERE status NOT IN ('Finalizado','Pago','Cancelado') ORDER BY createdAt ASC", [], (err, rows) => {
+      const dados = rows || [];
+      socket.emit('pedidos_atualizados', dados);
+      socket.emit('initial_data', dados);
+    });
+  });
+
   socket.on('get_pedidos', () => {
     if (!socket.auth) return;
     db.all("SELECT * FROM pedidos WHERE status NOT IN ('Finalizado','Pago','Cancelado') ORDER BY createdAt ASC", [], (err, rows) => {

@@ -2024,7 +2024,16 @@ function renderOrders() {
     html += renderSection('Disponíveis', disp.length, disp, 'disponivel');
   }
 
-  if (typeof morphdom !== 'undefined') morphdom(grid, '<div>' + html + '</div>', { childrenOnly: true }); else grid.innerHTML = html;
+  try {
+    if (typeof morphdom !== 'undefined') {
+      morphdom(grid, '<div>' + html + '</div>', { childrenOnly: true });
+    } else {
+      grid.innerHTML = html;
+    }
+  } catch(e) {
+    console.warn('[renderOrders] morphdom falhou, usando innerHTML:', e);
+    grid.innerHTML = html;
+  }
   const allRenderedItems = [...ped, ...fech, ...ocup, ...reser, ...disp];
   // Re-selection will run after events are bound at the end of renderOrders
 
@@ -2953,16 +2962,27 @@ function updateSummaryValue(id, value) {
 })();
 
 // WebSocket Events
-socket.on('initial_data_caixa', (data) => {
-  socket.emit('get_mesas'); // Ensure we fetch mesas
-  ordersData = data;
+// Server emits 'initial_data' on connect
+socket.on('initial_data', (data) => {
+  ordersData = Array.isArray(data) ? data : [];
   renderOrders();
 });
 
-// Feed completo do caixa: inclui itens 'Pago'/'Fracionado' (riscados na mesa)
-// para que os totais exibidos batam 100% com o cálculo do backend.
+// Alias legacy name just in case
+socket.on('initial_data_caixa', (data) => {
+  ordersData = Array.isArray(data) ? data : [];
+  renderOrders();
+});
+
+// Feed de atualização de pedidos (nome real do evento no servidor)
+socket.on('pedidos_atualizados', (pedidos) => {
+  ordersData = Array.isArray(pedidos) ? pedidos : [];
+  renderOrders();
+});
+
+// Alias legacy
 socket.on('pedidos_caixa_atualizados', (pedidos) => {
-  ordersData = pedidos;
+  ordersData = Array.isArray(pedidos) ? pedidos : [];
   renderOrders();
 });
 
