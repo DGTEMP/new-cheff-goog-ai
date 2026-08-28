@@ -431,7 +431,10 @@
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
   <script src="/socket.io.min.js"></script>
   <script src="/fuzzy-search.js"></script>
-    </head>
+      <link rel="stylesheet" href="/apple-transitions.css">
+  <script src="/apple-transitions.js" defer></script>
+  <script src="/chef-telemetry-clicks.js" defer></script>
+</head>
 <body>
   <div id="app">
     <header>
@@ -471,6 +474,34 @@
 
     <!-- Tables -->
     <div id="view-tables" class="view">
+      
+      <!-- BARRA DE CONTROLE: ORDENAÇÃO E DISTRIBUIÇÃO DAS MESAS -->
+      <div id="garcom-tables-control-bar" style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:12px; padding:4px 2px;">
+        <div style="display:flex; align-items:center; gap:6px; flex:1;">
+          <label style="font-size:11px; font-weight:700; color:var(--text-secondary, #64748b); text-transform:uppercase; letter-spacing:0.5px;"><i class="ph-bold ph-sort-ascending"></i> Ordem:</label>
+          <select id="select-garcom-mesa-sort" onchange="window.mudarOrdenacaoMesas(this.value)" style="flex:1; padding:7px 10px; border-radius:10px; border:1px solid rgba(0,0,0,0.12); background:var(--bg-card, #ffffff); color:var(--text-primary, #0f172a); font-size:12px; font-weight:700; outline:none;">
+            <option value="num_asc">🔢 Número (Menor p/ Maior)</option>
+            <option value="num_desc">🔢 Número (Maior p/ Menor)</option>
+            <option value="nome_asc">🔤 Nome da Mesa (A-Z)</option>
+            <option value="status_ocupadas">👥 Status (Ocupadas Primeiro)</option>
+            <option value="status_livres">🟢 Status (Livres Primeiro)</option>
+            <option value="valor_desc">💰 Maior Consumo (R$)</option>
+          </select>
+        </div>
+
+        <div style="display:inline-flex; gap:3px; background:rgba(0,0,0,0.06); padding:3px; border-radius:10px;">
+          <button type="button" onclick="window.mudarLayoutMesas('grid-2')" id="btn-layout-grid-2" class="btn-layout-mesa active" title="Grade 2 Colunas" style="padding:6px 9px; border-radius:7px; border:none; background:#fc4b15; color:#fff; font-size:13px; cursor:pointer;">
+            <i class="ph-bold ph-squares-four"></i>
+          </button>
+          <button type="button" onclick="window.mudarLayoutMesas('grid-3')" id="btn-layout-grid-3" class="btn-layout-mesa" title="Grade 3 Colunas" style="padding:6px 9px; border-radius:7px; border:none; background:transparent; color:var(--text-secondary, #64748b); font-size:13px; cursor:pointer;">
+            <i class="ph-bold ph-grid-nine"></i>
+          </button>
+          <button type="button" onclick="window.mudarLayoutMesas('list')" id="btn-layout-list" class="btn-layout-mesa" title="Lista Corrida" style="padding:6px 9px; border-radius:7px; border:none; background:transparent; color:var(--text-secondary, #64748b); font-size:13px; cursor:pointer;">
+            <i class="ph-bold ph-list-dashes"></i>
+          </button>
+        </div>
+      </div>
+
       <div id="tables-grid">
         <div class="skeleton-card" aria-hidden="true"><div class="skel-line skel-w60"></div><div class="skel-line skel-w40 skel-mt"></div></div>
         <div class="skeleton-card" aria-hidden="true"><div class="skel-line skel-w60"></div><div class="skel-line skel-w40 skel-mt"></div></div>
@@ -487,19 +518,20 @@
     </div>
 
     <!-- Table Options -->
-    <div id="view-table-options" class="view" style="justify-content: center; background: #fff;">
+    <div id="view-table-options" class="view" style="justify-content: center; background: var(--bg-main, #fff);">
       <div style="text-align: center; margin-bottom: 24px;">
-        <div style="width: 80px; height: 80px; border-radius: 50%; background: #fc4b15; color: white; display: flex; justify-content: center; align-items: center; font-size: 32px; margin: 0 auto; box-shadow: 0 4px 12px rgba(252, 75, 21, 0.3);">
-          <i class="ph ph-table"></i>
+        <div id="table-options-emoji-btn" onclick="window.mostrarQrMesaCliente()" style="cursor:pointer; width: 88px; height: 88px; border-radius: 50%; background: linear-gradient(135deg, #fc4b15, #ff7a45); color: white; display: flex; flex-direction: column; justify-content: center; align-items: center; font-size: 32px; margin: 0 auto; box-shadow: 0 8px 24px rgba(252, 75, 21, 0.4); transition: transform 0.2s;" title="Toque para mostrar QR Code da mesa ao cliente">
+          <i class="ph-bold ph-qr-code"></i>
+          <span style="font-size:9.5px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; margin-top:2px;">Ver QR</span>
         </div>
-        <h2 id="options-table-name" style="margin-top: 10px;">Mesa</h2>
+        <h2 id="options-table-name" style="margin-top: 12px; font-size:22px; font-weight:800; color:var(--text-primary, #0f172a);">Mesa</h2>
       </div>
       <div style="display: flex; flex-direction: column; gap: 12px; padding: 0 16px;">
         <button id="btn-opt-add" style="padding: 16px; border-radius: 12px; border: none; background: #fc4b15; color: white; font-weight: bold; font-size: 16px; display:flex; align-items:center; justify-content:center; gap:8px;" aria-label="Adicionar itens ao pedido"><i class="ph ph-plus" style="font-size:24px;"></i> Adicionar Itens</button>
         <button id="btn-opt-qr" style="padding: 16px; border-radius: 12px; border: none; background: #3ab55b; color: white; font-weight: bold; font-size: 16px; display:flex; align-items:center; justify-content:center; gap:8px;" aria-label="Ler cupom QR Code"><i class="ph ph-qr-code" style="font-size:24px;"></i> Ler Cupom QR</button>
         <button id="btn-opt-view" style="padding: 16px; border-radius: 12px; border: 1px solid #ddd; background: white; font-weight: bold; font-size: 16px; display:flex; align-items:center; justify-content:center; gap:8px;" aria-label="Ver conta parcial da mesa"><i class="ph ph-list" style="font-size:24px;"></i> Ver Conta Parcial</button>
         <button id="btn-opt-bill" style="padding: 16px; border-radius: 12px; border: 1px solid #ddd; background: white; font-weight: bold; font-size: 16px; color: #333; display:flex; align-items:center; justify-content:center; gap:8px;" aria-label="Pedir a conta"><i class="ph ph-receipt" style="font-size:24px;"></i> Pedir Conta</button>
-        <button id="btn-opt-mostrar-cliente" style="padding: 16px; border-radius: 12px; border: 1px solid #ddd; background: #e3fafc; color: #0b7285; font-weight: bold; font-size: 16px; display:flex; align-items:center; justify-content:center; gap:8px;" aria-label="Mostrar QR Code ao cliente"><i class="ph ph-device-mobile" style="font-size:24px;"></i> Mostrar ao Cliente</button>
+        <button id="btn-opt-mostrar-cliente" onclick="window.mostrarQrMesaCliente()" style="padding: 16px; border-radius: 12px; border: 1px solid #ddd; background: #e3fafc; color: #0b7285; font-weight: bold; font-size: 16px; display:flex; align-items:center; justify-content:center; gap:8px;" aria-label="Mostrar QR Code ao cliente"><i class="ph ph-device-mobile" style="font-size:24px;"></i> Mostrar ao Cliente</button>
       </div>
       
       <!-- Modal Leitor de QR Premium -->
@@ -1140,6 +1172,34 @@
   <script src="garcom.js"></script>
   <script>window.PUSH_ROLE = 'garcom';</script>
   <script src="push-client.js"></script>
+
+    <!-- MODAL DE QR CODE DA MESA PARA O CLIENTE -->
+    <div id="modal-qr-mesa-cliente" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); backdrop-filter:blur(10px); z-index:999999; flex-direction:column; align-items:center; justify-content:center; padding:20px; animation:fadeIn 0.2s ease;">
+      <div style="background:var(--bg-card, #ffffff); border-radius:24px; max-width:380px; width:100%; padding:24px 20px; text-align:center; box-shadow:0 20px 60px rgba(0,0,0,0.4); position:relative; border:1px solid rgba(255,255,255,0.1);">
+        <button type="button" onclick="document.getElementById('modal-qr-mesa-cliente').style.display='none'" style="position:absolute; right:16px; top:16px; width:36px; height:36px; border-radius:50%; border:none; background:rgba(0,0,0,0.06); color:var(--text-secondary, #64748b); font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center;">&times;</button>
+        
+        <div style="width:52px; height:52px; border-radius:16px; background:rgba(252,75,21,0.12); color:#fc4b15; display:flex; align-items:center; justify-content:center; font-size:26px; margin:0 auto 12px;">
+          <i class="ph-bold ph-device-mobile"></i>
+        </div>
+
+        <h3 id="modal-qr-mesa-title" style="margin:0 0 4px; font-size:20px; font-weight:800; color:var(--text-primary, #0f172a);">Mesa 4</h3>
+        <p style="margin:0 0 16px; font-size:13px; color:var(--text-secondary, #64748b);">Aponte a câmera do celular para ver o cardápio e a conta</p>
+
+        <div id="modal-qr-mesa-code-container" style="background:#ffffff; padding:16px; border-radius:16px; display:inline-block; box-shadow:0 4px 16px rgba(0,0,0,0.08); margin-bottom:16px;">
+          <!-- QR Code Canvas / Img gerado via JS -->
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <button type="button" onclick="window.abrirLinkClienteDireto()" style="background:#fc4b15; color:#ffffff; border:none; padding:12px; border-radius:12px; font-weight:800; font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;">
+            <i class="ph-bold ph-arrow-square-out"></i> Abrir Conta do Cliente
+          </button>
+          <button type="button" onclick="document.getElementById('modal-qr-mesa-cliente').style.display='none'" style="background:transparent; border:1px solid var(--border-color, #cbd5e1); color:var(--text-secondary, #64748b); padding:10px; border-radius:12px; font-weight:700; font-size:13px; cursor:pointer;">
+            Fechar
+          </button>
+        </div>
+      </div>
+    </div>
+
 </body>
 </html>
 

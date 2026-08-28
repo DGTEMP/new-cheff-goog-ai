@@ -48,6 +48,62 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  
+  // ─── TOGGLE MODAL FECHAMENTO ───
+  const modalFechamentoSelect = document.getElementById('select-modal-fechamento-tema');
+  if (modalFechamentoSelect) {
+    const atual = localStorage.getItem('chef_fechamento_modal_tema') || 'pro_ux';
+    modalFechamentoSelect.value = atual;
+    modalFechamentoSelect.addEventListener('change', (e) => {
+      const val = e.target.value || 'pro_ux';
+      try { localStorage.setItem('chef_fechamento_modal_tema', val); } catch (err) { }
+      socket.emit('save_restaurante_config', { fechamento_modal_tema: val });
+      window.showToast(val === 'pro_ux' ? 'Modal UX Pro com Cédulas ativado!' : 'Modal Clássico de Fechamento restaurado.', 'success');
+    });
+  }
+
+  // ─── TOGGLE MAPA SALAO ───
+  const mapaSalaoSelect = document.getElementById('select-mapa-salao-tema');
+  if (mapaSalaoSelect) {
+    const atual = localStorage.getItem('chef_mapa_salao_tema') || 'pro_ux';
+    mapaSalaoSelect.value = atual;
+    mapaSalaoSelect.addEventListener('change', (e) => {
+      const val = e.target.value || 'pro_ux';
+      try { localStorage.setItem('chef_mapa_salao_tema', val); } catch (err) { }
+      socket.emit('save_restaurante_config', { mapa_salao_tema: val });
+      window.showToast(val === 'pro_ux' ? 'Mapa do Salão UX Pro por Setores ativado!' : 'Mapa Clássico restaurado.', 'success');
+    });
+  }
+
+  
+  // ─── TOGGLE FUNCAO CORINGA RODAPE ───
+  const coringaSelect = document.getElementById('select-funcao-coringa-rodape');
+  if (coringaSelect) {
+    const atual = localStorage.getItem('chef_funcao_coringa_rodape') || 'qr_pendentes';
+    coringaSelect.value = atual;
+    coringaSelect.addEventListener('change', (e) => {
+      const val = e.target.value || 'qr_pendentes';
+      try { localStorage.setItem('chef_funcao_coringa_rodape', val); } catch (err) { }
+      socket.emit('save_restaurante_config', { funcao_coringa_rodape: val });
+      window.showToast('Função coringa do rodapé atualizada com sucesso!', 'success');
+    });
+  }
+
+  
+  // ─── TOGGLE ESCALA DE FONTE ───
+  const fontScaleSelect = document.getElementById('select-font-scale');
+  if (fontScaleSelect) {
+    const atual = localStorage.getItem('chef_font_scale') || 'lg';
+    fontScaleSelect.value = atual;
+    fontScaleSelect.addEventListener('change', (e) => {
+      const val = e.target.value || 'lg';
+      try { localStorage.setItem('chef_font_scale', val); } catch (err) { }
+      socket.emit('save_restaurante_config', { font_scale: val });
+      if (typeof window.aplicarEscalaFonte === 'function') window.aplicarEscalaFonte();
+      window.showToast('Tamanho da fonte atualizado com sucesso!', 'success');
+    });
+  }
+
   // ─── TEMA DA TELA DO CAIXA (clássico v1 / modular v1.1) ──
   const temaSelect = document.getElementById('select-caixa-tema');
   if (temaSelect) {
@@ -1632,6 +1688,100 @@ function initGeraisTab() {
       configs.qr_pix_name = inputQrPixName.value;
       salvarConfiguracoes();
     };
+  }
+
+  
+  // ── BINDING DAS CONFIGURAÇÕES AVANÇADAS DE PEDIDOS QR ──
+  const chkQrHorario = document.getElementById('chk-qr-horario-ativo');
+  const divQrHorario = document.getElementById('qr-horario-fields');
+  const inQrInicio = document.getElementById('input-qr-horario-inicio');
+  const inQrFim = document.getElementById('input-qr-horario-fim');
+  const selQrModo = document.getElementById('select-qr-modo-aceitacao');
+  const chkQrCheckin = document.getElementById('chk-qr-checkin-obrigatorio');
+  const divQrCheckin = document.getElementById('qr-checkin-fields');
+  const inCheckinIni = document.getElementById('input-qr-checkin-inicial');
+  const inCheckinRen = document.getElementById('input-qr-checkin-renovacao');
+  const selQrAuto = document.getElementById('select-qr-auto-aceite');
+  const divQrHoras = document.getElementById('qr-auto-horas-container');
+  const inQrHoras = document.getElementById('input-qr-auto-horas');
+  const divQrDias = document.getElementById('qr-auto-dias-container');
+
+  if (chkQrHorario && divQrHorario && selQrModo && chkQrCheckin && selQrAuto) {
+    chkQrHorario.checked = !!configs.qr_horario_ativo;
+    divQrHorario.style.display = configs.qr_horario_ativo ? 'flex' : 'none';
+    chkQrHorario.onchange = () => {
+      configs.qr_horario_ativo = chkQrHorario.checked;
+      divQrHorario.style.display = chkQrHorario.checked ? 'flex' : 'none';
+      salvarConfiguracoes();
+    };
+
+    if (inQrInicio) {
+      inQrInicio.value = configs.qr_horario_inicio || '11:00';
+      inQrInicio.onchange = () => { configs.qr_horario_inicio = inQrInicio.value; salvarConfiguracoes(); };
+    }
+    if (inQrFim) {
+      inQrFim.value = configs.qr_horario_fim || '23:30';
+      inQrFim.onchange = () => { configs.qr_horario_fim = inQrFim.value; salvarConfiguracoes(); };
+    }
+
+    selQrModo.value = configs.qr_modo_aceitacao || 'restaurante_apenas';
+    selQrModo.onchange = () => { configs.qr_modo_aceitacao = selQrModo.value; salvarConfiguracoes(); };
+
+    chkQrCheckin.checked = !!configs.qr_checkin_obrigatorio;
+    divQrCheckin.style.display = configs.qr_checkin_obrigatorio ? 'flex' : 'none';
+    chkQrCheckin.onchange = () => {
+      configs.qr_checkin_obrigatorio = chkQrCheckin.checked;
+      divQrCheckin.style.display = chkQrCheckin.checked ? 'flex' : 'none';
+      salvarConfiguracoes();
+    };
+
+    if (inCheckinIni) {
+      inCheckinIni.value = configs.qr_tempo_checkin_inicial_min || 90;
+      inCheckinIni.onchange = () => { configs.qr_tempo_checkin_inicial_min = parseInt(inCheckinIni.value, 10) || 90; salvarConfiguracoes(); };
+    }
+    if (inCheckinRen) {
+      inCheckinRen.value = configs.qr_tempo_renovacao_min || 15;
+      inCheckinRen.onchange = () => { configs.qr_tempo_renovacao_min = parseInt(inCheckinRen.value, 10) || 15; salvarConfiguracoes(); };
+    }
+
+    selQrAuto.value = configs.qr_auto_aceite_modo || 'manual';
+    if (divQrHoras) divQrHoras.style.display = selQrAuto.value === 'auto_proximas_horas' ? 'flex' : 'none';
+    if (divQrDias) divQrDias.style.display = selQrAuto.value === 'auto_dias_configurados' ? 'flex' : 'none';
+
+    selQrAuto.onchange = () => {
+      configs.qr_auto_aceite_modo = selQrAuto.value;
+      if (divQrHoras) divQrHoras.style.display = selQrAuto.value === 'auto_proximas_horas' ? 'flex' : 'none';
+      if (divQrDias) divQrDias.style.display = selQrAuto.value === 'auto_dias_configurados' ? 'flex' : 'none';
+      if (selQrAuto.value === 'auto_proximas_horas') {
+        const hrs = parseInt(inQrHoras ? inQrHoras.value : 4, 10) || 4;
+        configs.qr_auto_aceite_ate = Date.now() + (hrs * 3600000);
+      }
+      salvarConfiguracoes();
+    };
+
+    if (inQrHoras) {
+      inQrHoras.value = configs.qr_auto_aceite_horas || 4;
+      inQrHoras.onchange = () => {
+        const hrs = parseInt(inQrHoras.value, 10) || 4;
+        configs.qr_auto_aceite_horas = hrs;
+        if (configs.qr_auto_aceite_modo === 'auto_proximas_horas') {
+          configs.qr_auto_aceite_ate = Date.now() + (hrs * 3600000);
+        }
+        salvarConfiguracoes();
+      };
+    }
+
+    // Dias configurados
+    let diasArr = [];
+    try { diasArr = JSON.parse(configs.qr_auto_dias_json || '[0,5,6]'); } catch(e) { diasArr = [0,5,6]; }
+    document.querySelectorAll('.chk-qr-dia').forEach(chk => {
+      chk.checked = diasArr.includes(parseInt(chk.value, 10));
+      chk.onchange = () => {
+        const selected = Array.from(document.querySelectorAll('.chk-qr-dia:checked')).map(c => parseInt(c.value, 10));
+        configs.qr_auto_dias_json = JSON.stringify(selected);
+        salvarConfiguracoes();
+      };
+    });
   }
 
   const selectQrProtocol = document.getElementById('select-qr-protocol');

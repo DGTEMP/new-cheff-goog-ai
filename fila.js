@@ -1428,8 +1428,6 @@ window.alterarModoDisposicao = function(modo) {
   });
 };
 
-};
-
 window.fecharModalFilaSettings = function() {
   const modal = document.getElementById('modal-fila-settings');
   if (modal) {

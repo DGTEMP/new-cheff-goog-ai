@@ -450,7 +450,7 @@ app.use((req, res, next) => {
   if (wafConfig.block_sqli_xss) {
     const urlCheck = (req.originalUrl || '').toLowerCase();
     if (urlCheck.includes('<script>') || urlCheck.includes('union select') || urlCheck.includes('drop table') || urlCheck.includes('or 1=1') || urlCheck.includes('eval(')) {
-      console.warn(`⚠�? [WAF Anti-XSS/SQLi] Tentativa de injeção bloqueada de ${ip}`);
+      console.warn(`⚠? [WAF Anti-XSS/SQLi] Tentativa de injeção bloqueada de ${ip}`);
       const msg = pegarZoacao('sqli_xss');
       wafAttackLogs.unshift({ data: new Date().toISOString(), ip, metodo: req.method, endpoint: req.originalUrl, motivo: 'Tentativa de Injeção SQL/XSS' });
       if (wafAttackLogs.length > 100) wafAttackLogs.pop();
@@ -459,7 +459,8 @@ app.use((req, res, next) => {
     }
   }
 
-  // 4. Rate Limiter (Anti-DDoS por IP)
+  // 4. Rate Limiter (Anti-DDoS por IP) - Whitelist Localhost
+  const isLocal = ip === '127.0.0.1' || ip === '::1' || ip === 'localhost' || (typeof ip === 'string' && ip.includes('127.0.0.1'));
   const now = Date.now();
   const windowMs = 60 * 1000;
   const maxReqs = parseInt(wafConfig.max_reqs_per_minute) || 300;
@@ -469,7 +470,7 @@ app.use((req, res, next) => {
     rateLimitMap.set(ip, { count: 1, startTime: now });
   } else {
     record.count++;
-    if (record.count > maxReqs) {
+    if (!isLocal && record.count > maxReqs) {
       console.warn(`⚠�? [Anti-DDoS] IP bloqueado por limite de taxa (${record.count} reqs/min): ${ip}`);
       const msg = pegarZoacao('rate_limit');
       wafAttackLogs.unshift({ data: new Date().toISOString(), ip, metodo: req.method, endpoint: req.originalUrl, motivo: `Limite Rate Limit excedido (${record.count}/${maxReqs})` });
@@ -1998,6 +1999,155 @@ app.get('/api/super/telemetria', superAdminAuth, (req, res) => {
 });
 
 // ── SUPER ADMIN: MÉTRICAS GARÇONS ───────────────────────────────────
+
+// ─── TABELA DE TELEMETRIA DE CLIQUES, PRODUTIVIDADE & HEATMAP ───
+masterDb.run(`
+  CREATE TABLE IF NOT EXISTS telemetria_clicks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    restaurante_id TEXT,
+    restaurante_nome TEXT,
+    colaborador_nome TEXT,
+    colaborador_cargo TEXT,
+    tela TEXT,
+    funcao_nome TEXT,
+    elemento_id TEXT,
+    pos_x_pct REAL,
+    pos_y_pct REAL,
+    tempo_execucao_ms INTEGER,
+    dispositivo TEXT,
+    resolucao TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )
+`, (err) => {
+  if (err) console.error('[Telemetria] Erro ao criar tabela telemetria_clicks:', err);
+  else {
+    masterDb.run(`CREATE INDEX IF NOT EXISTS idx_telemetria_rest ON telemetria_clicks (restaurante_id)`);
+    masterDb.run(`CREATE INDEX IF NOT EXISTS idx_telemetria_func ON telemetria_clicks (funcao_nome)`);
+    masterDb.run(`CREATE INDEX IF NOT EXISTS idx_telemetria_created ON telemetria_clicks (created_at)`);
+  }
+});
+
+// Endpoint público/interno de ingestão de cliques
+app.post('/api/telemetria/clicks', express.json(), (req, res) => {
+  const clicks = (req.body && req.body.clicks) || [];
+  if (!Array.isArray(clicks) || clicks.length === 0) {
+    return res.json({ ok: true, count: 0 });
+  }
+
+  const stmt = masterDb.prepare(`
+    INSERT INTO telemetria_clicks (
+      restaurante_id, restaurante_nome, colaborador_nome, colaborador_cargo,
+      tela, funcao_nome, elemento_id, pos_x_pct, pos_y_pct,
+      tempo_execucao_ms, dispositivo, resolucao
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  clicks.forEach(c => {
+    stmt.run([
+      c.restaurante_id || '1',
+      c.restaurante_nome || 'Restaurante',
+      c.colaborador_nome || 'Anônimo',
+      c.colaborador_cargo || 'Colaborador',
+      c.tela || 'index.html',
+      c.funcao_nome || 'Ação',
+      c.elemento_id || '',
+      c.pos_x_pct || 50,
+      c.pos_y_pct || 50,
+      c.tempo_execucao_ms || 0,
+      c.dispositivo || 'Desktop',
+      c.resolucao || '1920x1080'
+    ], () => {});
+  });
+
+  stmt.finalize();
+  res.json({ ok: true, count: clicks.length });
+});
+
+// Endpoint Super-Admin: Métricas agregadas, Mapa de Calor e Produtividade
+app.get('/api/super/metricas/heatmap-clicks', (req, res) => {
+  const { restaurante_id, colaborador, periodo, tela } = req.query || {};
+
+  let whereClauses = ["created_at >= datetime('now', '-30 days')"];
+  let params = [];
+
+  if (periodo === 'hoje') {
+    whereClauses = ["created_at >= datetime('now', 'start of day', 'localtime')"];
+  } else if (periodo === '7dias') {
+    whereClauses = ["created_at >= datetime('now', '-7 days')"];
+  }
+
+  if (restaurante_id && restaurante_id !== 'todos') {
+    whereClauses.push("restaurante_id = ?");
+    params.push(restaurante_id);
+  }
+
+  if (colaborador && colaborador !== 'todos') {
+    whereClauses.push("colaborador_nome = ?");
+    params.push(colaborador);
+  }
+
+  if (tela && tela !== 'todas') {
+    whereClauses.push("tela LIKE ?");
+    params.push(`%${tela}%`);
+  }
+
+  const whereSql = whereClauses.length ? `WHERE ${whereClauses.join(' AND ')}` : '';
+
+  // 1. Totalizadores gerais
+  masterDb.get(`
+    SELECT 
+      COUNT(*) as total_cliques,
+      COUNT(DISTINCT restaurante_id) as total_restaurantes,
+      COUNT(DISTINCT colaborador_nome) as total_colaboradores,
+      AVG(tempo_execucao_ms) as media_tempo_ms
+    FROM telemetria_clicks ${whereSql}
+  `, params, (err, stats) => {
+    if (err) return res.status(500).json({ ok: false, error: err.message });
+
+    // 2. Ranking de funções mais usadas (Top 25)
+    masterDb.all(`
+      SELECT 
+        funcao_nome,
+        COUNT(*) as cliques,
+        COUNT(DISTINCT colaborador_nome) as colaboradores,
+        COUNT(DISTINCT restaurante_id) as restaurantes,
+        ROUND(AVG(tempo_execucao_ms) / 1000.0, 1) as media_segundos
+      FROM telemetria_clicks ${whereSql}
+      GROUP BY funcao_nome
+      ORDER BY cliques DESC
+      LIMIT 25
+    `, params, (err, topFuncoes) => {
+
+      // 3. Pontos de calor para o Heatmap (Agrupados por grade percentual X,Y)
+      masterDb.all(`
+        SELECT 
+          ROUND(pos_x_pct, 0) as x,
+          ROUND(pos_y_pct, 0) as y,
+          COUNT(*) as peso
+        FROM telemetria_clicks ${whereSql}
+        GROUP BY ROUND(pos_x_pct, 0), ROUND(pos_y_pct, 0)
+        ORDER BY peso DESC
+        LIMIT 100
+      `, params, (err, heatmapPoints) => {
+
+        // 4. Lista de restaurantes e colaboradores para filtros
+        masterDb.all(`SELECT DISTINCT restaurante_id, restaurante_nome FROM telemetria_clicks ORDER BY restaurante_nome`, [], (err, rests) => {
+          masterDb.all(`SELECT DISTINCT colaborador_nome, colaborador_cargo FROM telemetria_clicks ORDER BY colaborador_nome`, [], (err, colabs) => {
+            res.json({
+              ok: true,
+              stats: stats || {},
+              topFuncoes: topFuncoes || [],
+              heatmapPoints: heatmapPoints || [],
+              restaurantes: rests || [],
+              colaboradores: colabs || []
+            });
+          });
+        });
+      });
+    });
+  });
+});
+
 app.get('/api/super/metricas/garcons', superAdminAuth, (req, res) => {
   const restauranteId = parseInt(req.query.restaurante_id) || null;
   function calcularMetricas(funcionarios, pedidos, restId, restNome) {
@@ -2312,6 +2462,93 @@ app.get('/api/super/logs-sistema', superAdminAuth, (req, res) => {
 });
 
 // ── SUPER ADMIN: SERVER STATUS ──────────────────────────────────────
+
+// ─── GERENCIADOR DO VITE DEV SERVER (SUPER-ADMIN) ───
+const childProcess = require('child_process');
+global._vitePort = global._vitePort || 5173;
+global._viteProcess = global._viteProcess || null;
+
+app.get('/api/super/vite/status', (req, res) => {
+  const isRunning = !!global._viteProcess && !global._viteProcess.killed;
+  res.json({
+    ok: true,
+    running: isRunning,
+    port: global._vitePort,
+    pid: isRunning ? global._viteProcess.pid : null,
+    url: `http://localhost:${global._vitePort}`
+  });
+});
+
+app.post('/api/super/vite/control', (req, res) => {
+  const { action, port } = req.body || {};
+  const targetPort = parseInt(port) || global._vitePort || 5173;
+  global._vitePort = targetPort;
+
+  function matarViteExistente(cb) {
+    if (global._viteProcess && global._viteProcess.pid) {
+      try {
+        if (process.platform === 'win32') {
+          exec(`taskkill /pid ${global._viteProcess.pid} /T /F`, () => {
+            global._viteProcess = null;
+            if (cb) cb();
+          });
+          return;
+        } else {
+          global._viteProcess.kill('SIGTERM');
+          global._viteProcess = null;
+        }
+      } catch (e) {
+        global._viteProcess = null;
+      }
+    }
+    if (cb) cb();
+  }
+
+  if (action === 'stop') {
+    matarViteExistente(() => {
+      res.json({ ok: true, running: false, message: 'Vite desligado com sucesso.' });
+    });
+    return;
+  }
+
+  if (action === 'start' || action === 'restart') {
+    matarViteExistente(() => {
+      try {
+        const cmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+        global._viteProcess = spawn(cmd, ['vite', '--port', String(targetPort), '--host'], {
+          cwd: __dirname,
+          shell: true,
+          stdio: 'ignore'
+        });
+
+        global._viteProcess.on('error', (err) => {
+          console.error('[Vite Super-Admin] Erro ao iniciar Vite:', err);
+          global._viteProcess = null;
+        });
+
+        global._viteProcess.on('exit', () => {
+          global._viteProcess = null;
+        });
+
+        setTimeout(() => {
+          res.json({
+            ok: true,
+            running: true,
+            port: targetPort,
+            url: `http://localhost:${targetPort}`,
+            message: `Vite iniciado na porta ${targetPort} com sucesso!`
+          });
+        }, 1000);
+      } catch (err) {
+        res.status(500).json({ ok: false, error: err.message });
+      }
+    });
+    return;
+  }
+
+  res.status(400).json({ ok: false, error: 'Ação inválida.' });
+});
+
 app.get('/api/super/server-status', superAdminAuth, (req, res) => {
   const uptime = process.uptime();
   const mem = process.memoryUsage();
@@ -2361,6 +2598,59 @@ app.post('/api/super/backup', superAdminAuth, (req, res) => {
     });
     res.json({ ok: true, mensagem: 'Backup criado com sucesso!', arquivos: copied, timestamp });
   } catch (e) { res.json({ ok: false, erro: e.message }); }
+});
+
+
+// ── SUPER ADMIN: GESTÃO DE IA POR RESTAURANTE ─────────────────────────────
+app.get('/api/super/restaurantes/:id/ia', superAdminAuth, async (req, res) => {
+  const restId = parseInt(req.params.id, 10);
+  if (!restId) return res.status(400).json({ ok: false, erro: 'ID inválido' });
+  const tdb = getTenantDb(restId);
+  tdb.all("SELECT chave, valor FROM configuracoes WHERE chave IN ('ia_api_key', 'ia_model', 'ia_ativa', 'ia_tom_voz')", [], (err, rows) => {
+    if (err) return res.status(500).json({ ok: false, erro: err.message });
+    const cfgs = {};
+    (rows || []).forEach(r => { cfgs[r.chave] = r.valor; });
+    res.json({
+      ok: true,
+      ia_api_key: cfgs.ia_api_key || '',
+      ia_model: cfgs.ia_model || 'gemini-2.5-flash',
+      ia_ativa: cfgs.ia_ativa !== '0' && cfgs.ia_ativa !== 'false',
+      ia_tom_voz: cfgs.ia_tom_voz || ''
+    });
+  });
+});
+
+app.post('/api/super/restaurantes/:id/ia', superAdminAuth, async (req, res) => {
+  const restId = parseInt(req.params.id, 10);
+  if (!restId) return res.status(400).json({ ok: false, erro: 'ID inválido' });
+  const { ia_api_key, ia_model, ia_ativa, ia_tom_voz } = req.body || {};
+  const tdb = getTenantDb(restId);
+  tdb.serialize(() => {
+    if (ia_api_key !== undefined) {
+      tdb.run("INSERT INTO configuracoes (chave, valor) VALUES ('ia_api_key', ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor", [String(ia_api_key).trim()]);
+    }
+    if (ia_model !== undefined) {
+      tdb.run("INSERT INTO configuracoes (chave, valor) VALUES ('ia_model', ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor", [String(ia_model).trim()]);
+    }
+    if (ia_ativa !== undefined) {
+      tdb.run("INSERT INTO configuracoes (chave, valor) VALUES ('ia_ativa', ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor", [String(ia_ativa)]);
+    }
+    if (ia_tom_voz !== undefined) {
+      tdb.run("INSERT INTO configuracoes (chave, valor) VALUES ('ia_tom_voz', ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor", [String(ia_tom_voz).trim()]);
+    }
+    res.json({ ok: true, mensagem: 'Configurações de IA do restaurante atualizadas com sucesso!' });
+  });
+});
+
+app.post('/api/super/ia-test-key', superAdminAuth, async (req, res) => {
+  try {
+    const { apiKey, model } = req.body || {};
+    if (!apiKey) return res.json({ ok: false, erro: 'Nenhuma chave informada para teste.' });
+    const resultado = await iaService.testarApiKey(apiKey, model || iaService.DEFAULT_MODEL);
+    res.json(resultado);
+  } catch (err) {
+    res.json({ ok: false, erro: err.message });
+  }
 });
 
 // ── SUPER ADMIN: CONFIG GLOBAL ──────────────────────────────────────
@@ -5431,6 +5721,18 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
   db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('qr_order_flow', 'caixa')`);
   db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('qr_pix_key', '')`);
   db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('qr_pix_name', '')`);
+
+  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('qr_horario_ativo', 'false')`);
+  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('qr_horario_inicio', '11:00')`);
+  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('qr_horario_fim', '23:30')`);
+  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('qr_modo_aceitacao', 'restaurante_apenas')`);
+  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('qr_checkin_obrigatorio', 'false')`);
+  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('qr_tempo_checkin_inicial_min', '90')`);
+  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('qr_tempo_renovacao_min', '15')`);
+  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('qr_auto_aceite_modo', 'manual')`);
+  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('qr_auto_aceite_horas', '4')`);
+  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('qr_auto_dias_json', '[0,5,6]')`);
+
   // �?�?�?�?�?�? MÓDULO TOTEM (autoatendimento kiosk — upsell SaaS) �?�?�?�?�?�?
   db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('totem_enabled', 'false')`);
   db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('totem_mesa', 'Totem 1')`);
@@ -10432,30 +10734,390 @@ app.post('/api/config', verificarToken, (req, res) => {
 // --- BACKUP & RESTORE API → migrado para plugins/caixa/ ---
 
 
-// ── INTELIGÊNCIA ARTIFICIAL PARA RESTAURANTES (GOOGLE GEMINI) ─────────────────────
 
-app.get('/api/ia/config', verificarToken, (req, res) => {
-  db.all(`SELECT chave, valor FROM configuracoes WHERE chave IN ('ia_api_key', 'ia_model', 'ia_tom_voz', 'ia_ativa')`, [], (err, rows) => {
-    if (err) return res.status(500).json({ ok: false, erro: err.message });
-    const cfgs = {};
-    (rows || []).forEach(r => { cfgs[r.chave] = r.valor; });
-    const hasKey = Boolean(cfgs.ia_api_key && cfgs.ia_api_key.trim());
-    let maskedKey = '';
-    if (hasKey) {
-      const k = cfgs.ia_api_key.trim();
-      maskedKey = k.length > 8 ? k.slice(0, 4) + '••••••••' + k.slice(-4) : '••••••••';
+
+// ── INTELIGÊNCIA GEOGRÁFICA / DEEP RESEARCH PARA ONBOARDING ───────────────
+app.post('/api/ia/pesquisar-estabelecimento-geo', async (req, res) => {
+  try {
+    const { lat, lng } = req.body || {};
+    if (!lat || !lng) {
+      return res.status(400).json({ ok: false, erro: 'Latitude e longitude são obrigatórias.' });
     }
+
+    const iaConfig = await getEffectiveIaConfig(db);
+    const apiKey = (iaConfig && iaConfig.enabled) ? iaConfig.apiKey : null;
+    const model = (iaConfig && iaConfig.enabled) ? iaConfig.model : null;
+
+    const resultado = await iaService.pesquisarEstabelecimentoGeo({
+      lat,
+      lng,
+      apiKey,
+      model
+    });
+
+    res.json(resultado);
+  } catch (err) {
+    console.error('[Pesquisar Estabelecimento Geo Error]', err);
+    res.status(500).json({ ok: false, erro: err.message });
+  }
+});
+
+
+
+// ── TABELA DE RASTREIO DE SESSÕES DEMO E MULTI-PERFIL ───────────────────
+masterDb.serialize(() => {
+  masterDb.run(`
+    CREATE TABLE IF NOT EXISTS sessoes_demo_rastreio (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      sessao_id TEXT,
+      ip TEXT,
+      lat REAL,
+      lng REAL,
+      user_agent TEXT,
+      fingerprint TEXT,
+      restaurante_nome TEXT,
+      criado_em DATETIME DEFAULT (datetime('now', 'localtime')),
+      expira_em DATETIME,
+      ativo INTEGER DEFAULT 1
+    )
+  `);
+});
+
+// ── VERIFICA SE JÁ EXISTE DEMO ATIVA NO MESMO LOCAL / IP (60 MINUTOS) ───
+app.post('/api/auth/verificar-demo-ativa', (req, res) => {
+  const { lat, lng, fingerprint } = req.body || {};
+  const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
+
+  masterDb.all(
+    `SELECT * FROM sessoes_demo_rastreio 
+     WHERE (ip = ? OR (lat IS NOT NULL AND abs(lat - ?) < 0.003 AND abs(lng - ?) < 0.003))
+       AND criado_em >= datetime('now', 'localtime', '-60 minutes')
+       AND ativo = 1
+     ORDER BY id DESC LIMIT 5`,
+    [ip, parseFloat(lat) || 0, parseFloat(lng) || 0],
+    (err, rows) => {
+      if (err) return res.status(500).json({ ok: false, erro: err.message });
+      
+      const sessoesRecentes = rows || [];
+      
+      // Alerta Super Admin se o mesmo IP gerou múltiplos perfis diferentes
+      if (sessoesRecentes.length >= 2) {
+        io.emit('alerta_impostor_super_admin', {
+          email: 'Detectado via IP/GPS',
+          cargo: 'Tentativa Multi-Perfil',
+          restaurante_id: 999,
+          restaurante_nome: 'Multi-Perfil no mesmo local (' + ip + ')',
+          ip,
+          mensagem: `🚨 ALERTA MULTI-PERFIL: Usuário no IP ${ip} tentou gerar múltiplos perfis/demos no mesmo local em menos de 60 minutos!`
+        });
+      }
+
+      if (sessoesRecentes.length > 0) {
+        const maisRecente = sessoesRecentes[0];
+        return res.json({
+          ok: true,
+          existe_demo: true,
+          demo: {
+            id: maisRecente.id,
+            restaurante_nome: maisRecente.restaurante_nome || 'Demonstração em Andamento',
+            criado_em: maisRecente.criado_em,
+            ip: maisRecente.ip
+          }
+        });
+      }
+
+      res.json({ ok: true, existe_demo: false });
+    }
+  );
+});
+
+// ── REPORTE DE VIOLAÇÃO DE SEGURANÇA / TENTATIVAS DE DEVTOOLS / SCRAPING ─
+app.post('/api/seguranca/reportar-violacao', (req, res) => {
+  const { tipo_violacao, url, restaurante_id, is_demo } = req.body || {};
+  const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
+  const ua = req.headers['user-agent'] || '';
+
+  console.warn(`🚨 [SEGURANÇA] Violação detectada: ${tipo_violacao} de ${ip} na URL ${url}`);
+
+  // Emite alerta em tempo real para o Super Admin
+  if (io) {
+    io.emit('alerta_impostor_super_admin', {
+      email: 'Alerta Anti-Tamper',
+      cargo: 'Intruso / Tentativa Dev',
+      restaurante_id: restaurante_id || 0,
+      restaurante_nome: is_demo ? 'Modo Demonstração (Intruso)' : 'Sistema Online',
+      ip,
+      mensagem: `🚨 TENTATIVA DE CÓPIA/INSPEÇÃO: Foi detectada uma ação suspeita (${tipo_violacao}) no IP ${ip} (Navegador: ${ua.slice(0, 50)}). Ação bloqueada pelo sistema anti-tamper.`
+    });
+  }
+
+  masterDb.run(
+    `INSERT INTO suporte_logs_audit (suporte_id, suporte_nome, acao, detalhes, ip) VALUES (?, ?, ?, ?, ?)`,
+    [0, 'Anti-Tamper Bot', tipo_violacao, `URL: ${url} | UA: ${ua}`, ip],
+    () => {}
+  );
+
+  res.json({ ok: true, bloqueado: true });
+});
+
+// ── AUTENTICAÇÃO E ENTRADA EM MODO DEMONSTRAÇÃO (TENANT DEMO ISOLADO 999) ─
+app.post('/api/auth/entrar-modo-demo', (req, res) => {
+  const demoTenantId = 999;
+  masterDb.serialize(() => {
+    // 1. Garante que o restaurante demo 999 exista no masterDb
+    masterDb.run(
+      `INSERT INTO restaurantes (id, restaurante, responsavel, email, telefone, status, plano, login_mode, criado_em)
+       VALUES (999, 'Restaurante Demonstração', 'Dono Demonstração', 'demo@chefcozinha.com', '(11) 99999-9999', 'ativo', 'pro', 'multi', datetime('now','localtime'))
+       ON CONFLICT(id) DO UPDATE SET status = 'ativo', plano = 'pro'`,
+      () => {
+        // 2. Garante que o tenant DB do demo esteja criado e semeado
+        try {
+          const tdb = getTenantDb(demoTenantId);
+          ensureAllTenantTablesAndColumns(tdb);
+          seedTenantDb(tdb);
+          tdb.run("INSERT INTO configuracoes (chave, valor) VALUES ('nome_restaurante', 'Restaurante Demonstração') ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor");
+          tdb.run("INSERT INTO configuracoes (chave, valor) VALUES ('onboarding_completo', 'true') ON CONFLICT(chave) DO UPDATE SET valor = 'true'");
+        } catch (e) {
+          console.warn('[Demo Tenant Seed Error]', e.message);
+        }
+
+        // 3. Emite token JWT de demonstração com restaurante_id = 999
+        // Sessão Demo com expiração estrita de 60 minutos
+        const expiraEmMs = Date.now() + 60 * 60 * 1000;
+        const ipReq = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
+        const { lat, lng, restaurante_nome } = req.body || {};
+
+        masterDb.run(
+          `INSERT INTO sessoes_demo_rastreio (sessao_id, ip, lat, lng, user_agent, restaurante_nome, expira_em, ativo)
+           VALUES (?, ?, ?, ?, ?, ?, datetime('now', '+60 minutes'), 1)`,
+          ['demo-' + Date.now(), ipReq, parseFloat(lat) || null, parseFloat(lng) || null, req.headers['user-agent'] || '', restaurante_nome || 'Demonstração', 1],
+          () => {}
+        );
+
+        const demoToken = jwt.sign(
+          {
+            id: 999,
+            nome: 'Dono Demonstração',
+            usuario: 'demo',
+            role: 'admin',
+            cargo: 'Dono (Demo)',
+            is_dono: true,
+            is_demo: true,
+            demo_expira_em: expiraEmMs,
+            restaurante_id: demoTenantId
+          },
+          JWT_SECRET,
+          { expiresIn: '60m' }
+        );
+
+        res.json({
+          ok: true,
+          token: demoToken,
+          expira_em_timestamp: expiraEmMs,
+          limite_minutos: 60,
+          user: {
+            nome: 'Dono Demonstração',
+            usuario: 'demo',
+            role: 'admin',
+            cargo: 'Dono (Demo)',
+            is_dono: true,
+            is_demo: true
+          },
+          restaurante_id: demoTenantId,
+          mensagem: 'Modo Demonstração de 60 minutos ativado com sucesso!'
+        });
+      }
+    );
+  });
+});
+
+// ── SETUP INICIAL: CRIAÇÃO DA CONTA DO DONO / FUNCIONÁRIO MASTER ─────────
+app.post('/api/setup-dono', (req, res) => {
+  const { nome_restaurante, telefone_restaurante, endereco_restaurante, dono_nome, dono_usuario, dono_senha, dono_pin } = req.body || {};
+  
+  const restNome = String(nome_restaurante || '').trim();
+  const nomeDono = String(dono_nome || '').trim();
+  const usuarioDono = String(dono_usuario || '').trim().toLowerCase();
+  const senhaDono = String(dono_senha || '').trim();
+  const pin = String(dono_pin || '0000').replace(/\D/g, '') || '0000';
+
+  if (!restNome || restNome.length < 3) {
+    return res.status(400).json({ ok: false, erro: 'O nome do restaurante deve ter no mínimo 3 caracteres válidos.' });
+  }
+  if (!nomeDono || nomeDono.length < 3) {
+    return res.status(400).json({ ok: false, erro: 'O nome do Dono / Responsável deve ter no mínimo 3 caracteres.' });
+  }
+  if (!usuarioDono || usuarioDono.length < 3 || !/^[a-z0-9._-]+$/.test(usuarioDono)) {
+    return res.status(400).json({ ok: false, erro: 'O usuário do Dono deve ter no mínimo 3 caracteres (sem espaços ou caracteres especiais).' });
+  }
+  if (!senhaDono || senhaDono.length < 4) {
+    return res.status(400).json({ ok: false, erro: 'A senha do Dono deve ter no mínimo 4 caracteres.' });
+  }
+
+  const salt = bcrypt.genSaltSync(10);
+  const hash = bcrypt.hashSync(senhaDono, salt);
+
+  db.serialize(() => {
+    // 1. Cria ou atualiza o usuário na tabela usuarios
+    db.run(
+      `INSERT INTO usuarios (username, password_hash, role, ativo, pin) VALUES (?, ?, 'admin', 1, ?)
+       ON CONFLICT(username) DO UPDATE SET password_hash = excluded.password_hash, role = 'admin', ativo = 1, pin = excluded.pin`,
+      [usuarioDono, hash, pin]
+    );
+
+    // 2. Cria ou atualiza na tabela funcionarios como Dono / Gerente Master
+    db.run(
+      `INSERT INTO funcionarios (nome, usuario, cargo, role, pin, ativo, permissao_total, senha) VALUES (?, ?, 'Dono / Gerente Master', 'admin', ?, 1, 1, ?)
+       ON CONFLICT(usuario) DO UPDATE SET nome = excluded.nome, cargo = 'Dono / Gerente Master', role = 'admin', pin = excluded.pin, ativo = 1, permissao_total = 1, senha = excluded.senha`,
+      [nomeDono, usuarioDono, pin, hash]
+    );
+
+    // 3. Salva nas configurações do restaurante
+    const cfgs = {
+      dono_nome: nomeDono,
+      dono_usuario: usuarioDono,
+      pin_admin: pin,
+      senha_admin: dono_senha
+    };
+    if (nome_restaurante) cfgs.nome_restaurante = nome_restaurante;
+    if (telefone_restaurante) cfgs.telefone_restaurante = telefone_restaurante;
+    if (endereco_restaurante) cfgs.endereco_restaurante = endereco_restaurante;
+    if (req.body.restaurante_lat) cfgs.restaurante_lat = req.body.restaurante_lat;
+    if (req.body.restaurante_lng) cfgs.restaurante_lng = req.body.restaurante_lng;
+    if (req.body.restaurante_precisao) cfgs.restaurante_precisao = req.body.restaurante_precisao;
+
+    Object.keys(cfgs).forEach(k => {
+      db.run(`INSERT INTO configuracoes (chave, valor) VALUES (?, ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor`, [k, String(cfgs[k])]);
+    });
+
+    // 4. Gera o token JWT para o dono com permissão total e 365 dias de validade
+    const currentTenant = (typeof tenantContext !== 'undefined' && tenantContext.getStore()) || 1;
+    const token = jwt.sign(
+      {
+        id: 1,
+        nome: nomeDono,
+        usuario: usuarioDono,
+        role: 'admin',
+        cargo: 'Dono',
+        is_dono: true,
+        restaurante_id: currentTenant
+      },
+      JWT_SECRET,
+      { expiresIn: '365d' }
+    );
+
     res.json({
       ok: true,
-      config: {
-        ia_ativa: cfgs.ia_ativa === 'true' || cfgs.ia_ativa === '1',
-        ia_model: cfgs.ia_model || (iaService ? iaService.DEFAULT_MODEL : 'gemini-2.5-flash'),
-        ia_tom_voz: cfgs.ia_tom_voz || '',
-        has_key: hasKey,
-        masked_key: maskedKey
+      mensagem: 'Conta de Dono e Funcionário Master criada com sucesso!',
+      token,
+      user: {
+        nome: nomeDono,
+        usuario: usuarioDono,
+        role: 'admin',
+        cargo: 'Dono',
+        is_dono: true
       }
     });
   });
+});
+
+
+async function getEffectiveIaConfig(tenantDb) {
+  // 1. Configuração global no masterDb
+  const gRows = await new Promise((resolve) => {
+    masterDb.all("SELECT chave, valor FROM configuracoes_global WHERE chave IN ('ia_global_key', 'ia_global_mode', 'ia_global_model')", [], (e, r) => resolve(r || []));
+  });
+  const gCfgs = {};
+  gRows.forEach(r => { gCfgs[r.chave] = r.valor; });
+  const globalKey = (gCfgs.ia_global_key || '').trim();
+  const globalMode = gCfgs.ia_global_mode || 'hibrido';
+  const globalModel = gCfgs.ia_global_model || (iaService ? iaService.DEFAULT_MODEL : 'gemini-2.5-flash');
+
+  if (globalMode === 'desativado') {
+    return { enabled: false, error: 'A Inteligência Artificial está temporariamente desativada pelo administrador da plataforma.' };
+  }
+
+  // 2. Configuração do tenant
+  const tRows = await new Promise((resolve) => {
+    tenantDb.all("SELECT chave, valor FROM configuracoes WHERE chave IN ('ia_api_key', 'ia_model', 'ia_tom_voz', 'ia_ativa', 'nome_restaurante')", [], (e, r) => resolve(r || []));
+  });
+  const tCfgs = {};
+  tRows.forEach(r => { tCfgs[r.chave] = r.valor; });
+  const tenantKey = (tCfgs.ia_api_key || '').trim();
+  const tenantModel = tCfgs.ia_model || globalModel;
+  const tenantTom = tCfgs.ia_tom_voz || '';
+  const tenantNome = tCfgs.nome_restaurante || 'Restaurante';
+
+  let finalKey = '';
+  let finalModel = tenantModel;
+  let source = 'propria';
+
+  if (globalMode === 'global') {
+    finalKey = globalKey;
+    finalModel = globalModel;
+    source = 'global';
+  } else if (globalMode === 'propria') {
+    finalKey = tenantKey;
+    source = 'propria';
+  } else {
+    // Híbrido: usa a chave própria se tiver; caso contrário usa a global
+    if (tenantKey) {
+      finalKey = tenantKey;
+      source = 'propria';
+    } else {
+      finalKey = globalKey;
+      finalModel = globalModel;
+      source = 'global_fallback';
+    }
+  }
+
+  if (!finalKey) {
+    return {
+      enabled: false,
+      error: 'Nenhuma chave de IA configurada. O administrador da plataforma pode configurar uma chave global no Super Admin ou você pode cadastrar a sua em Configurações > Inteligência de Vendas.'
+    };
+  }
+
+  return {
+    enabled: true,
+    apiKey: finalKey,
+    model: finalModel,
+    source,
+    tomVoz: tenantTom,
+    nomeRestaurante: tenantNome
+  };
+}
+
+// ── INTELIGÊNCIA ARTIFICIAL PARA RESTAURANTES (GOOGLE GEMINI) ─────────────────────
+
+app.get('/api/ia/config', verificarToken, async (req, res) => {
+  try {
+    const effective = await getEffectiveIaConfig(db);
+    db.all(`SELECT chave, valor FROM configuracoes WHERE chave IN ('ia_api_key', 'ia_model', 'ia_tom_voz', 'ia_ativa')`, [], (err, rows) => {
+      if (err) return res.status(500).json({ ok: false, erro: err.message });
+      const cfgs = {};
+      (rows || []).forEach(r => { cfgs[r.chave] = r.valor; });
+      const hasKey = Boolean(cfgs.ia_api_key && cfgs.ia_api_key.trim());
+      let maskedKey = '';
+      if (hasKey) {
+        const k = cfgs.ia_api_key.trim();
+        maskedKey = k.length > 8 ? k.slice(0, 4) + '••••••••' + k.slice(-4) : '••••••••';
+      }
+      res.json({
+        ok: true,
+        config: {
+          ia_ativa: cfgs.ia_ativa !== '0' && cfgs.ia_ativa !== 'false',
+          ia_model: cfgs.ia_model || (iaService ? iaService.DEFAULT_MODEL : 'gemini-2.5-flash'),
+          ia_tom_voz: cfgs.ia_tom_voz || '',
+          has_key: hasKey || (effective && effective.enabled && effective.source.includes('global')),
+          is_using_global_key: effective && effective.source.includes('global'),
+          masked_key: maskedKey || (effective && effective.source.includes('global') ? 'Chave Global da Plataforma (Ativa)' : '')
+        }
+      });
+    });
+  } catch(e) {
+    res.status(500).json({ ok: false, erro: e.message });
+  }
 });
 
 app.post('/api/ia/config', verificarToken, (req, res) => {
@@ -10497,14 +11159,9 @@ app.post('/api/ia/test-key', verificarToken, async (req, res) => {
 app.post('/api/ia/gerar-promocoes', verificarToken, async (req, res) => {
   try {
     const { objetivo } = req.body || {};
-    const cfgRows = await new Promise((resolve) => {
-      db.all(`SELECT chave, valor FROM configuracoes WHERE chave IN ('ia_api_key', 'ia_model', 'ia_tom_voz', 'nome_restaurante')`, [], (e, r) => resolve(r || []));
-    });
-    const cfgs = {};
-    cfgRows.forEach(r => { cfgs[r.chave] = r.valor; });
-    const apiKey = cfgs.ia_api_key || process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      return res.status(400).json({ ok: false, erro: 'Chave do Google Gemini não configurada. Adicione sua chave em Configurações > Inteligência de Vendas.' });
+    const iaConfig = await getEffectiveIaConfig(db);
+    if (!iaConfig.enabled) {
+      return res.status(400).json({ ok: false, erro: iaConfig.error });
     }
 
     const produtos = await new Promise((resolve) => {
@@ -10521,9 +11178,9 @@ app.post('/api/ia/gerar-promocoes', verificarToken, async (req, res) => {
     });
 
     const resultado = await iaService.gerarPromocoesIA({
-      apiKey,
-      model: cfgs.ia_model || iaService.DEFAULT_MODEL,
-      contextoRestaurante: `${cfgs.nome_restaurante || 'Restaurante'} - ${cfgs.ia_tom_voz || ''}`,
+      apiKey: iaConfig.apiKey,
+      model: iaConfig.model,
+      contextoRestaurante: `${iaConfig.nomeRestaurante} - ${iaConfig.tomVoz}`,
       cardapio: produtos,
       historicoVendas: vendas,
       objetivo
@@ -10539,21 +11196,15 @@ app.post('/api/ia/gerar-promocoes', verificarToken, async (req, res) => {
 app.post('/api/ia/gerar-copy', verificarToken, async (req, res) => {
   try {
     const { produtos, promocao, canal } = req.body || {};
-    const rowKey = await new Promise((resolve) => {
-      db.get(`SELECT valor FROM configuracoes WHERE chave = 'ia_api_key'`, [], (e, r) => resolve(r));
-    });
-    const rowContext = await new Promise((resolve) => {
-      db.get(`SELECT valor FROM configuracoes WHERE chave = 'ia_tom_voz'`, [], (e, r) => resolve(r));
-    });
-    const apiKey = rowKey?.valor || process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      return res.status(400).json({ ok: false, erro: 'Chave do Google Gemini não configurada.' });
+    const iaConfig = await getEffectiveIaConfig(db);
+    if (!iaConfig.enabled) {
+      return res.status(400).json({ ok: false, erro: iaConfig.error });
     }
 
     const resultado = await iaService.gerarCopyMarketing({
-      apiKey,
-      model: iaService.DEFAULT_MODEL,
-      contextoRestaurante: rowContext?.valor || 'Restaurante',
+      apiKey: iaConfig.apiKey,
+      model: iaConfig.model,
+      contextoRestaurante: `${iaConfig.nomeRestaurante} - ${iaConfig.tomVoz}`,
       produtos,
       promocao,
       canal
@@ -10572,14 +11223,9 @@ app.post('/api/ia/consultor', verificarToken, async (req, res) => {
       return res.status(400).json({ ok: false, erro: 'Pergunta obrigatória.' });
     }
 
-    const cfgRows = await new Promise((resolve) => {
-      db.all(`SELECT chave, valor FROM configuracoes WHERE chave IN ('ia_api_key', 'ia_model', 'ia_tom_voz', 'nome_restaurante')`, [], (e, r) => resolve(r || []));
-    });
-    const cfgs = {};
-    cfgRows.forEach(r => { cfgs[r.chave] = r.valor; });
-    const apiKey = cfgs.ia_api_key || process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      return res.status(400).json({ ok: false, erro: 'Chave do Google Gemini não configurada. Adicione sua chave em Configurações > Inteligência de Vendas.' });
+    const iaConfig = await getEffectiveIaConfig(db);
+    if (!iaConfig.enabled) {
+      return res.status(400).json({ ok: false, erro: iaConfig.error });
     }
 
     const produtos = await new Promise((resolve) => {
@@ -10591,9 +11237,9 @@ app.post('/api/ia/consultor', verificarToken, async (req, res) => {
     });
 
     const resposta = await iaService.consultarAssistenteVendas({
-      apiKey,
-      model: cfgs.ia_model || iaService.DEFAULT_MODEL,
-      contextoRestaurante: `${cfgs.nome_restaurante || 'Restaurante'} - ${cfgs.ia_tom_voz || ''}`,
+      apiKey: iaConfig.apiKey,
+      model: iaConfig.model,
+      contextoRestaurante: `${iaConfig.nomeRestaurante} - ${iaConfig.tomVoz}`,
       cardapio: produtos,
       historicoVendas: vendas,
       historicoMensagens: historico || [],

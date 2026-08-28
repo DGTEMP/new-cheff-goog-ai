@@ -1,4 +1,272 @@
 
+  // ─── TERMOS DE USO & ONBOARDING INTELIGENTE COM DEEP RESEARCH ───
+  window.wizardToggleTerms = function() {
+    const chk = document.getElementById('wiz-terms-check');
+    const btn = document.getElementById('wiz-btn-start');
+    if (!chk || !btn) return;
+    if (chk.checked) {
+      btn.disabled = false;
+      btn.style.opacity = '1';
+      btn.style.cursor = 'pointer';
+    } else {
+      btn.disabled = true;
+      btn.style.opacity = '0.45';
+      btn.style.cursor = 'not-allowed';
+    }
+  };
+
+  window.wizardStartFromTerms = function() {
+    const chk = document.getElementById('wiz-terms-check');
+    if (!chk || !chk.checked) {
+      alert('Por favor, leia e aceite os Termos de Uso para continuar.');
+      return;
+    }
+
+    const btn = document.getElementById('wiz-btn-start');
+    if (btn) {
+      btn.innerHTML = '<i class="ph-bold ph-spinner ph-spin"></i> <span>Iniciando Inteligência de Cadastro...</span>';
+    }
+
+    // 1. Pede a localização ao clicar em Continuar
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        function(pos) {
+          const lat = parseFloat(pos.coords.latitude.toFixed(6));
+          const lng = parseFloat(pos.coords.longitude.toFixed(6));
+          const prec = Math.round(pos.coords.accuracy);
+
+          // Salva coordenadas nos campos ocultos
+          const latInp = document.getElementById('wiz-geo-lat');
+          const lngInp = document.getElementById('wiz-geo-lng');
+          const precInp = document.getElementById('wiz-geo-precisao');
+          if (latInp) latInp.value = lat;
+          if (lngInp) lngInp.value = lng;
+          if (precInp) precInp.value = prec;
+
+          // Emite alerta em tempo real para o Super Admin
+          if (typeof socket !== 'undefined' && socket && socket.emit) {
+            socket.emit('novo_cadastro_saas', {
+              restauranteNome: 'Cadastro Iniciado (Localização GPS Detectada)',
+              nome: 'Novo Cliente',
+              etapa: '1-dados-estabelecimento',
+              lat: lat,
+              lng: lng,
+              precisao: prec
+            });
+          }
+
+          // Dispara Deep Research em background para preencher os campos do restaurante
+          _executarDeepResearchPorLocalizacao(lat, lng);
+
+          // Avança para o Passo 1
+          _avancarParaPasso1();
+        },
+        function(err) {
+          console.warn('[Geo Permission Ignored/Failed]', err);
+          // Emite alerta mesmo com fallback de IP
+          if (typeof socket !== 'undefined' && socket && socket.emit) {
+            socket.emit('novo_cadastro_saas', {
+              restauranteNome: 'Novo Cadastro Iniciado',
+              nome: 'Novo Cliente',
+              etapa: '1-dados-estabelecimento'
+            });
+          }
+          _avancarParaPasso1();
+        },
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
+      );
+    } else {
+      _avancarParaPasso1();
+    }
+  };
+
+  function _avancarParaPasso1() {
+    _wizardStep = 0;
+    _renderWizardStep();
+  }
+
+  function _executarDeepResearchPorLocalizacao(lat, lng) {
+    fetch('/api/ia/pesquisar-estabelecimento-geo', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lat: lat, lng: lng })
+    })
+    .then(r => r.json())
+    .then(res => {
+      if (res && res.ok && res.dados) {
+        const d = res.dados;
+        const nomeEl = document.getElementById('wiz-rest-nome');
+        const endEl = document.getElementById('wiz-rest-endereco');
+        const telEl = document.getElementById('wiz-rest-tel');
+        const donoEl = document.getElementById('wiz-dono-nome');
+
+        // Preenche dados do restaurante
+        if (nomeEl && (!nomeEl.value || nomeEl.value.length < 3) && d.nome && d.nome !== 'Meu Restaurante') {
+          nomeEl.value = d.nome;
+          nomeEl.style.borderColor = '#10b981';
+          setTimeout(() => { nomeEl.style.borderColor = 'rgba(255,255,255,0.08)'; }, 4000);
+        }
+        if (endEl && (!endEl.value || endEl.value.length < 4) && d.endereco) {
+          endEl.value = d.endereco;
+          endEl.style.borderColor = '#10b981';
+          setTimeout(() => { endEl.style.borderColor = 'rgba(255,255,255,0.08)'; }, 4000);
+        }
+        if (telEl && (!telEl.value || telEl.value.length < 10) && d.telefone) {
+          telEl.value = d.telefone;
+        }
+        if (donoEl && (!donoEl.value || donoEl.value.length < 3) && d.socios) {
+          donoEl.value = d.socios;
+        }
+
+        // Pré-carrega o cardápio e produtos identificados
+        if (Array.isArray(d.produtos) && d.produtos.length > 0) {
+          _wizardProdutos = d.produtos;
+          if (typeof _renderWizProdutos === 'function') {
+            _renderWizProdutos();
+          }
+        }
+
+        if (typeof window.showToast === 'function') {
+          const msg = d.avaliacao ? '✨ Google Meu Negócio identificado (' + d.avaliacao + ')! Dados e cardápio pré-cadastrados.' : '✨ Estabelecimento identificado! Dados e cardápio pré-cadastrados.';
+          window.showToast(msg, 'success');
+        }
+      }
+    })
+    .catch(err => console.warn('[DeepResearch Error]', err));
+  }
+
+
+
+  // ─── VERIFICAÇÃO DE LOCALIZAÇÃO & TELEMETRIA DO SETUP INICIAL ───
+  let _wizGeoLoading = false;
+  window.wizardDetectLocation = function(userInitiated) {
+    if (_wizGeoLoading) return;
+    const card = document.getElementById('wiz-geo-card');
+    const icon = document.getElementById('wiz-geo-icon');
+    const statusText = document.getElementById('wiz-geo-status-text');
+    const btn = document.getElementById('wiz-btn-detect-geo');
+    const latInp = document.getElementById('wiz-geo-lat');
+    const lngInp = document.getElementById('wiz-geo-lng');
+    const precInp = document.getElementById('wiz-geo-precisao');
+
+    if (!navigator.geolocation) {
+      if (statusText) statusText.innerHTML = '<span style="color:#f59e0b;">GPS não suportado neste navegador. Prosseguindo com localização por IP.</span>';
+      if (latInp) latInp.value = '-23.5505';
+      if (lngInp) lngInp.value = '-46.6333';
+      return;
+    }
+
+    _wizGeoLoading = true;
+    if (btn) btn.innerHTML = '<i class="ph-bold ph-spinner ph-spin"></i> <span>Obtendo GPS...</span>';
+    if (statusText) statusText.textContent = 'Solicitando permissão de localização ao navegador...';
+
+    navigator.geolocation.getCurrentPosition(
+      function(pos) {
+        _wizGeoLoading = false;
+        const lat = parseFloat(pos.coords.latitude.toFixed(6));
+        const lng = parseFloat(pos.coords.longitude.toFixed(6));
+        const prec = Math.round(pos.coords.accuracy);
+
+        if (latInp) latInp.value = lat;
+        if (lngInp) lngInp.value = lng;
+        if (precInp) precInp.value = prec;
+
+        if (card) {
+          card.style.background = 'rgba(16, 185, 129, 0.08)';
+          card.style.borderColor = 'rgba(16, 185, 129, 0.4)';
+        }
+        if (icon) {
+          icon.style.background = '#10b981';
+          icon.innerHTML = '<i class="ph-bold ph-check"></i>';
+        }
+        if (statusText) {
+          statusText.innerHTML = '<strong style="color:#10b981;">✓ Localização Verificada:</strong> Lat ' + lat + ', Lng ' + lng + ' (Precisão: ' + prec + 'm)';
+        }
+        if (btn) {
+          btn.style.background = '#10b981';
+          btn.innerHTML = '<i class="ph-bold ph-check-circle"></i> <span>Verificada</span>';
+        }
+
+        // Dispara beacon de progresso
+        _enviarTelemetriaSetup();
+      },
+      function(err) {
+        _wizGeoLoading = false;
+        console.warn('[Wizard Geo Error]', err);
+        if (btn) {
+          btn.innerHTML = '<i class="ph-bold ph-crosshair"></i> <span>Tentar Novamente</span>';
+        }
+        if (err.code === 1) { // PERMISSION_DENIED
+          if (statusText) statusText.innerHTML = '<span style="color:#ef4444;">Permissão negada. Clique em "Tentar Novamente" e autorize o acesso à localização para concluir o setup.</span>';
+          if (userInitiated) {
+            if (typeof window.showToast === 'function') window.showToast('Por favor, autorize o acesso à localização no navegador para concluir o setup do restaurante.', 'warning');
+            else alert('Por favor, autorize o acesso à localização no navegador para concluir o setup do restaurante.');
+          }
+        } else {
+          if (statusText) statusText.innerHTML = '<span style="color:#f59e0b;">Não foi possível obter GPS com precisão. Clique em "Tentar Novamente".</span>';
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+    );
+  };
+
+  // Telemetria contínua do setup
+  let _setupSessaoId = (function() {
+    try {
+      let s = sessionStorage.getItem('chef_setup_sessao');
+      if (!s) {
+        s = 'setup-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7);
+        sessionStorage.setItem('chef_setup_sessao', s);
+      }
+      return s;
+    } catch(e) { return 'setup-' + Date.now(); }
+  })();
+
+  function _enviarTelemetriaSetup() {
+    try {
+      const lat = document.getElementById('wiz-geo-lat')?.value;
+      const lng = document.getElementById('wiz-geo-lng')?.value;
+      const prec = document.getElementById('wiz-geo-precisao')?.value;
+      const loc = (lat && lng) ? { lat: parseFloat(lat), lng: parseFloat(lng), precisao: parseInt(prec) || 0 } : null;
+
+      const ua = navigator.userAgent || '';
+      let disp = 'Computador';
+      if (/iphone/i.test(ua)) disp = 'iPhone';
+      else if (/android/i.test(ua)) disp = 'Android';
+
+      const payload = {
+        sessao_id: _setupSessaoId,
+        etapa: 'setup-passo-' + (_wizardStep || 1),
+        campos: {
+          restaurante: document.getElementById('wiz-rest-nome')?.value.trim(),
+          telefone: document.getElementById('wiz-rest-tel')?.value.trim(),
+          dono_nome: document.getElementById('wiz-dono-nome')?.value.trim(),
+          dono_user: document.getElementById('wiz-dono-usuario')?.value.trim()
+        },
+        dispositivo: disp,
+        localizacao: loc
+      };
+
+      fetch('/api/monitor/cadastro-progresso', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        keepalive: true
+      }).catch(() => {});
+    } catch(e) {}
+  }
+
+
+window.isDonoMaster = function() {
+  try {
+    if (localStorage.getItem('is_dono') === 'true') return true;
+    if (localStorage.getItem('userRole') === 'admin') return true;
+    const u = JSON.parse(localStorage.getItem('currentUser') || '{}');
+    if (u.is_dono === true || u.role === 'admin' || u.cargo === 'Dono' || (u.cargo && u.cargo.includes('Dono'))) return true;
+  } catch (e) {}
+  return false;
+};
+
 function formatarTempoFila(mins) {
   if (!mins || mins <= 0) return 'agora';
   if (mins < 60) return `${mins} min`;
@@ -728,13 +996,48 @@ function showActionPopup(actions, x, y) {
 // Toque rápido = selecionar | Segurar curto (soltar ~0,5s) = menu de contexto
 // Segurar 1s sem soltar = modo arraste (mesa→mesa ou item→mesa)
 // ── BLOQUEIO GLOBAL DO MENU DE CONTEXTO NATIVO DO NAVEGADOR ──
+
+// ─── DELEGAÇÃO GLOBAL DE MENU DE CONTEXTO & LONG-PRESS PARA MESAS ───
 document.addEventListener('contextmenu', (e) => {
-  // Impede 100% o menu nativo do Chrome/Edge/Safari/Android/iOS
   e.preventDefault();
-}, { capture: true });
+  const card = e.target.closest('.mesa-item');
+  if (card) {
+    const nomeMesa = card.getAttribute('data-mesa') || card.getAttribute('data-nome') || (card.querySelector('.mesa-id') ? card.querySelector('.mesa-id').innerText.trim() : 'Mesa');
+    const isOcupada = card.classList.contains('ocupada') || card.getAttribute('data-status') === 'Ocupada' || card.getAttribute('data-status') === 'ocupada';
+
+    card.classList.add('selected');
+
+    const actions = [
+      { id: 'qr', icon: 'ph-qr-code', label: 'Exibir QR Code', cls: 'info', fn: () => { window.mostrarQrCodeMesa(nomeMesa); } },
+      { id: 'lancar', icon: 'ph-plus-circle', label: 'Lançar Itens', cls: 'primary', fn: () => { card.click(); setTimeout(() => { const b = document.getElementById('btn-adicionar-produtos'); if (b) b.click(); }, 150); } },
+      { id: 'parcial', icon: 'ph-currency-dollar', label: 'Pagamento Parcial', cls: 'success', fn: () => { if (typeof window.abrirModalPagamentoParcialDesagrupado === 'function') { window.abrirModalPagamentoParcialDesagrupado(nomeMesa); } else { card.click(); } } },
+      { id: 'fechar', icon: 'ph-check-circle', label: 'Fechar Conta', cls: '', fn: () => { card.click(); setTimeout(() => { const b = document.getElementById('btn-movimento-concluir'); if (b) b.click(); }, 150); } },
+      { id: 'sep1', sep: true },
+      { id: 'mover', icon: 'ph-arrows-out-cardinal', label: 'Mover / Transferir', cls: '', fn: () => { if (typeof window.armaModoArraste === 'function') window.armaModoArraste(); } },
+      {
+        id: 'cancelar', icon: 'ph-x-circle', label: 'Cancelar Mesa', cls: 'danger', fn: () => {
+          if (typeof window.solicitarAutorizacaoAdmin === 'function') {
+            window.solicitarAutorizacaoAdmin(
+              'Cancelar Mesa',
+              `Deseja cancelar todos os pedidos da mesa ${nomeMesa}? Esta ação irá marcar todos os pedidos como Cancelado e liberar a mesa.`,
+              (senha, motivo) => {
+                if (typeof socket !== 'undefined') socket.emit('cancelar_mesa', { mesaName: nomeMesa, motivo, senha });
+              }
+            );
+          }
+        }
+      }
+    ];
+
+    showActionPopup(actions, e.clientX || 150, e.clientY || 150);
+  }
+});
+
 
 (function initGestures() {
   let menuTimer = null;
+  let dragTimer = null;
+  let menuReady = false;
   let touchStartX = 0;
   let touchStartY = 0;
   let touchStartTime = 0;
@@ -1784,7 +2087,7 @@ function renderOrders() {
       showActionPopup([
         { id: 'qr', icon: 'ph-qr-code', label: 'Exibir QR Code', cls: 'info', fn: () => { window.mostrarQrCodeMesa(nomeMesa); } },
         { id: 'lancar', icon: 'ph-plus-circle', label: 'Lançar Itens', cls: 'primary', fn: () => { card.click(); setTimeout(() => { const b = document.getElementById('btn-adicionar-produtos'); if (b) b.click(); }, 150); } },
-        { id: 'parcial', icon: 'ph-currency-dollar', label: 'Pagamento Parcial', cls: 'success', fn: () => { card.click(); setTimeout(() => { const b = document.getElementById('btn-movimento-pagamento-parcial'); if (b) b.click(); }, 150); } },
+        { id: 'parcial', icon: 'ph-currency-dollar', label: 'Pagamento Parcial', cls: 'success', fn: () => { if (typeof window.abrirModalPagamentoParcialDesagrupado === 'function') { window.abrirModalPagamentoParcialDesagrupado(nomeMesa); } else { card.click(); } } },
         { id: 'fechar', icon: 'ph-check-circle', label: 'Fechar Conta', cls: '', fn: () => { card.click(); setTimeout(() => { const b = document.getElementById('btn-movimento-concluir'); if (b) b.click(); }, 150); } },
         { id: 'sep1', sep: true },
         {
@@ -2325,9 +2628,22 @@ function renderOrders() {
           const totalVal = parseFloat(String(order.total).replace(',', '.'));
           const isPaid = order.status === 'Pago';
           const semTaxa = window._checkoutItensSemTaxa && order.id != null && window._checkoutItensSemTaxa.has(order.id);
+          const isFracionado = order.status === 'Fracionado' || (order.productName && order.productName.includes('/'));
+          const pctPago = isPaid ? 100 : (isFracionado ? 50 : 0);
+          
           modalItemsHTML += `
-                 <tr style="${isPaid ? 'opacity: 0.5; background: var(--bg-secondary);' : ''}">
-                   <td style="padding: 8px 4px; ${isPaid ? 'text-decoration: line-through;' : ''}">${order.productEmoji || ''} ${order.productName || 'Produto'} ${isPaid ? '<strong style="color: #3ab55b; margin-left: 8px;">(PAGO)</strong>' : (semTaxa ? '<span style="color:#e53e3e;font-size:10px;margin-left:6px;">(s/ taxa)</span>' : '')}</td>
+                 <tr style="${isPaid ? 'opacity: 0.6; background: var(--bg-secondary);' : ''}">
+                   <td style="padding: 8px 4px; ${isPaid ? 'text-decoration: line-through;' : ''}">
+                     <div>${order.productEmoji || ''} ${order.productName || 'Produto'} ${isPaid ? '<strong style="color: #10b981; margin-left: 6px; font-size:11px; background:rgba(16,185,129,0.1); padding:2px 6px; border-radius:4px;">(PAGO)</strong>' : (semTaxa ? '<span style="color:#e53e3e;font-size:10px;margin-left:6px;">(s/ taxa)</span>' : '')}</div>
+                     ${isFracionado && !isPaid ? `
+                       <div style="margin-top:4px; display:flex; align-items:center; gap:6px;">
+                         <div style="flex:1; height:5px; background:rgba(255,255,255,0.1); border-radius:3px; overflow:hidden;">
+                           <div style="width:50%; height:100%; background:linear-gradient(90deg, #10b981, #059669); border-radius:3px;"></div>
+                         </div>
+                         <span style="font-size:10px; font-weight:700; color:#10b981;">50% Pago (1/2)</span>
+                       </div>
+                     ` : ''}
+                   </td>
                    <td style="padding: 8px 4px; text-align: center;">${order.quantity || 1}</td>
                    <td style="padding: 8px 4px; text-align: center;">${(!isPaid && order.id != null) ? `<input type="checkbox" ${semTaxa ? '' : 'checked'} title="Cobrar taxa de serviço neste item?" onchange="window.checkoutItemTaxaToggle(${order.id}, this.checked)" style="width:15px;height:15px;accent-color:#fc4b15;cursor:pointer;">` : '—'}</td>
                    <td style="padding: 8px 4px; text-align: right; font-weight: 600; color: #3ab55b;">R$ ${totalVal.toFixed(2).replace('.', ',')}</td>
@@ -2718,13 +3034,34 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnAbrir = document.getElementById('btn-abrir-caixa');
   if (btnAbrir) {
     btnAbrir.onclick = () => {
-      if (typeof window.abrirCaixaClick === 'function') {
-        window.abrirCaixaClick();
-      } else {
-        let valInput = document.getElementById('fundo-troco') ? document.getElementById('fundo-troco').value : '0';
-        const fundo = parseFloat(String(valInput || '0').replace(',', '.'));
-        socket.emit('abrir_caixa', { fundo_troco: isNaN(fundo) ? 0 : fundo, operador: window.crmPerfil ? window.crmPerfil.nome : 'Caixa' });
+      let valInput = document.getElementById('fundo-troco') ? document.getElementById('fundo-troco').value : '0';
+      const fundo = parseFloat(String(valInput || '0').replace(',', '.'));
+      const operador = window.crmPerfil ? window.crmPerfil.nome : 'Caixa';
+      
+      btnAbrir.disabled = true;
+      btnAbrir.innerText = 'Abrindo...';
+
+      if (typeof socket !== 'undefined' && socket.connected) {
+        socket.emit('abrir_caixa', { fundo_troco: isNaN(fundo) ? 0 : fundo, operador: operador });
       }
+
+      // Fallback via HTTP API
+      fetch('/api/caixa/abrir', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(typeof authHeaders === 'function' ? authHeaders() : {}) },
+        body: JSON.stringify({ fundo_troco: isNaN(fundo) ? 0 : fundo, operador: operador })
+      }).then(() => {
+        const modalCaixa = document.getElementById('modal-caixa-fechado');
+        if (modalCaixa) modalCaixa.style.display = 'none';
+        btnAbrir.disabled = false;
+        btnAbrir.innerText = 'ABRIR CAIXA';
+        if (typeof showToast === 'function') showToast('Caixa aberto com sucesso!', 'success');
+      }).catch(() => {
+        const modalCaixa = document.getElementById('modal-caixa-fechado');
+        if (modalCaixa) modalCaixa.style.display = 'none';
+        btnAbrir.disabled = false;
+        btnAbrir.innerText = 'ABRIR CAIXA';
+      });
     };
   }
 
@@ -2890,21 +3227,34 @@ let _wizardModoMesas = 'exemplos'; /* 'exemplos' | 'zero' */
     if (!el) return;
     _wizardActive = true;
     el.classList.remove('hidden');
-    _wizardStep = 1;
+    _wizardStep = 0;
     _wizardProdutos = [];
     _renderWizardStep();
     _renderWizProdutos();
   };
 
   function _renderWizardStep() {
-    for (let i = 1; i <= 4; i++) {
+    _attachWizardInputMasks();
+    for (let i = 0; i <= 4; i++) {
       const panel = document.getElementById('wizard-panel-' + i);
       if (panel) panel.style.display = i === _wizardStep ? 'block' : 'none';
+    }
+    const nav = document.getElementById('wizard-nav');
+    const header = document.getElementById('wizard-header');
+    const progWrap = document.getElementById('wizard-progress-wrap');
+
+    if (_wizardStep === 0) {
+      if (nav) nav.style.display = 'none';
+      if (header) header.style.display = 'none';
+      if (progWrap) progWrap.style.display = 'none';
+      return;
+    } else {
+      if (header) header.style.display = 'flex';
+      if (progWrap) progWrap.style.display = 'flex';
     }
     const bar = document.getElementById('wizard-progress-bar');
     const num = document.getElementById('wizard-step-num');
     const title = document.getElementById('wizard-step-title');
-    const nav = document.getElementById('wizard-nav');
     const btnBack = document.getElementById('wizard-btn-back');
     const btnNext = document.getElementById('wizard-btn-next');
 
@@ -3058,17 +3408,77 @@ let _wizardModoMesas = 'exemplos'; /* 'exemplos' | 'zero' */
 
   window.wizardGetModoMesas = function() { return _wizardModoMesas || 'exemplos'; };
 
-  window.wizardNext = function() {
+    window.wizardNext = function() {
     if (_wizardStep === 1) {
-      /* Valida dados do restaurante */
-      const nome = document.getElementById('wiz-rest-nome')?.value.trim();
-      if (!nome) {
-        window.showToast && window.showToast('Informe o nome do restaurante.', 'warning');
-        document.getElementById('wiz-rest-nome')?.focus();
-        return;
+      const restNomeEl = document.getElementById('wiz-rest-nome');
+      const restTelEl = document.getElementById('wiz-rest-tel');
+      const restEndEl = document.getElementById('wiz-rest-endereco');
+      const donoNomeEl = document.getElementById('wiz-dono-nome');
+      const donoUserEl = document.getElementById('wiz-dono-usuario');
+      const donoSenhaEl = document.getElementById('wiz-dono-senha');
+      const donoPinEl = document.getElementById('wiz-dono-pin');
+
+      const restNome = (restNomeEl?.value || '').trim();
+      const restTel = (restTelEl?.value || '').replace(/\D/g, '');
+      const restEnd = (restEndEl?.value || '').trim();
+      const donoNome = (donoNomeEl?.value || '').trim();
+      const donoUser = (donoUserEl?.value || '').trim().toLowerCase();
+      const donoSenha = donoSenhaEl?.value || '';
+      const donoPin = (donoPinEl?.value || '').replace(/\D/g, '');
+
+      // Helper para erro visual
+      const marcarErro = (el, msg) => {
+        if (el) {
+          el.style.borderColor = '#ef4444';
+          el.focus();
+        }
+        if (typeof window.showToast === 'function') window.showToast(msg, 'warning');
+        else alert(msg);
+      };
+
+      // 1. Validação do Nome do Restaurante
+      if (!restNome || restNome.length < 3) {
+        return marcarErro(restNomeEl, 'O nome do restaurante deve ter no mínimo 3 caracteres válidos.');
       }
-      /* Salva dados do restaurante */
-      _saveWizRestaurantData();
+      if (/^([a-zA-Z0-9])\1+$/.test(restNome) && restNome.length <= 4) {
+        return marcarErro(restNomeEl, 'Por favor, digite um nome de restaurante válido (ex: Restaurante Sabor & Arte).');
+      }
+
+      // 2. Validação do Telefone (se informado, deve ter DDD + número válido)
+      if (restTel && restTel.length < 10) {
+        return marcarErro(restTelEl, 'Informe um telefone/WhatsApp válido com DDD (mínimo 10 dígitos, ex: (11) 99999-0000).');
+      }
+
+      // 3. Validação do Endereço (se informado, pelo menos 4 caracteres)
+      if (restEnd && restEnd.length < 4) {
+        return marcarErro(restEndEl, 'Informe um endereço válido (mínimo 4 caracteres).');
+      }
+
+      // 4. Validação do Nome do Dono
+      if (!donoNome || donoNome.length < 3) {
+        return marcarErro(donoNomeEl, 'Informe o nome do Dono / Responsável (mínimo 3 caracteres).');
+      }
+
+      // 5. Validação do Usuário do Dono
+      if (!donoUser || donoUser.length < 3) {
+        return marcarErro(donoUserEl, 'O usuário de login do Dono deve ter pelo menos 3 caracteres (ex: admin).');
+      }
+      if (!/^[a-z0-9._-]+$/.test(donoUser)) {
+        return marcarErro(donoUserEl, 'O usuário do Dono deve conter apenas letras minúsculas, números, ponto (.) ou traço (-).');
+      }
+
+      // 6. Validação da Senha do Dono
+      if (!donoSenha || donoSenha.length < 4) {
+        return marcarErro(donoSenhaEl, 'A senha do Dono deve ter no mínimo 4 caracteres para sua segurança.');
+      }
+
+      // 7. Validação do PIN Master
+      if (donoPin && donoPin.length < 4) {
+        return marcarErro(donoPinEl, 'O PIN master deve conter exatamente 4 ou 6 números.');
+      }
+
+      /* Salva dados do restaurante e conta do dono */
+      _saveWizDonoData();
       _wizardStep = 2;
       _renderWizardStep();
     } else if (_wizardStep === 2) {
@@ -3084,6 +3494,71 @@ let _wizardModoMesas = 'exemplos'; /* 'exemplos' | 'zero' */
     }
   };
 
+  
+  function _attachWizardInputMasks() {
+    const telInp = document.getElementById('wiz-rest-tel');
+    if (telInp && !telInp.dataset.masked) {
+      telInp.dataset.masked = 'true';
+      telInp.addEventListener('input', function(e) {
+        let v = e.target.value.replace(/\D/g, '').slice(0, 11);
+        if (v.length > 10) {
+          v = v.replace(/^(\d{2})(\d{5})(\d{4})$/, '($1) $2-$3');
+        } else if (v.length > 6) {
+          v = v.replace(/^(\d{2})(\d{4})(\d{0,4})$/, '($1) $2-$3');
+        } else if (v.length > 2) {
+          v = v.replace(/^(\d{2})(\d{0,5})$/, '($1) $2');
+        } else if (v.length > 0) {
+          v = '(' + v;
+        }
+        e.target.value = v;
+        e.target.style.borderColor = 'rgba(255,255,255,0.08)';
+      });
+    }
+
+    const pinInp = document.getElementById('wiz-dono-pin');
+    if (pinInp && !pinInp.dataset.masked) {
+      pinInp.dataset.masked = 'true';
+      pinInp.addEventListener('input', function(e) {
+        e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6);
+        e.target.style.borderColor = 'rgba(255,255,255,0.1)';
+      });
+    }
+
+    const userInp = document.getElementById('wiz-dono-usuario');
+    if (userInp && !userInp.dataset.masked) {
+      userInp.dataset.masked = 'true';
+      userInp.addEventListener('input', function(e) {
+        e.target.value = e.target.value.toLowerCase().replace(/[^a-z0-9._-]/g, '').slice(0, 30);
+        e.target.style.borderColor = 'rgba(255,255,255,0.1)';
+      });
+    }
+
+    const nomeInp = document.getElementById('wiz-rest-nome');
+    if (nomeInp && !nomeInp.dataset.masked) {
+      nomeInp.dataset.masked = 'true';
+      nomeInp.addEventListener('input', function(e) {
+        e.target.style.borderColor = 'rgba(255,255,255,0.08)';
+      });
+    }
+
+    const donoNomeInp = document.getElementById('wiz-dono-nome');
+    if (donoNomeInp && !donoNomeInp.dataset.masked) {
+      donoNomeInp.dataset.masked = 'true';
+      donoNomeInp.addEventListener('input', function(e) {
+        e.target.style.borderColor = 'rgba(255,255,255,0.1)';
+      });
+    }
+
+    const donoSenhaInp = document.getElementById('wiz-dono-senha');
+    if (donoSenhaInp && !donoSenhaInp.dataset.masked) {
+      donoSenhaInp.dataset.masked = 'true';
+      donoSenhaInp.addEventListener('input', function(e) {
+        e.target.style.borderColor = 'rgba(255,255,255,0.1)';
+      });
+    }
+  }
+
+
   window.wizardPrev = function() {
     if (_wizardStep > 1) {
       _wizardStep--;
@@ -3091,10 +3566,175 @@ let _wizardModoMesas = 'exemplos'; /* 'exemplos' | 'zero' */
     }
   };
 
-  window.wizardSkip = function() {
-    if (!confirm('Pular a configuração? Você poderá configurar depois em Configurações.')) return;
-    _finishWizard();
+    
+  // ─── CRONÔMETRO REGRESSIVO E CONTROLE DE 60 MINUTOS DO MODO DEMO ───
+  let _demoTimerInterval = null;
+  function _iniciarContadorDemo(expiraEmMs) {
+    if (!expiraEmMs) {
+      expiraEmMs = parseInt(localStorage.getItem('demo_expira_em_timestamp'), 10);
+    }
+    if (!expiraEmMs) {
+      expiraEmMs = Date.now() + 60 * 60 * 1000;
+      localStorage.setItem('demo_expira_em_timestamp', expiraEmMs);
+    }
+
+    clearInterval(_demoTimerInterval);
+    _demoTimerInterval = setInterval(function () {
+      const agora = Date.now();
+      const restanteMs = expiraEmMs - agora;
+
+      if (restanteMs <= 0) {
+        clearInterval(_demoTimerInterval);
+        _encerrarSessaoDemoExpirada();
+        return;
+      }
+
+      const min = Math.floor(restanteMs / 60000);
+      const seg = Math.floor((restanteMs % 60000) / 1000);
+      const strTempo = String(min).padStart(2, '0') + ':' + String(seg).padStart(2, '0');
+
+      const elTimer = document.getElementById('demo-countdown-timer');
+      if (elTimer) elTimer.textContent = strTempo;
+    }, 1000);
+  }
+
+  function _encerrarSessaoDemoExpirada() {
+    alert('⏱️ Seu período de demonstração de 60 minutos encerrou! Configure o seu restaurante oficial para continuar aproveitando todos os recursos.');
+    window.sairModoDemoEIniciarSetup();
+  }
+
+  // ─── DIÁLOGO INTELIGENTE DE DEMO ATIVA NO MESMO LOCAL / IP ───
+  window.wizardSkip = function () {
+    const lat = document.getElementById('wiz-geo-lat')?.value;
+    const lng = document.getElementById('wiz-geo-lng')?.value;
+    const restNome = document.getElementById('wiz-rest-nome')?.value;
+
+    // 1. Checa se já existe uma demonstração ativa neste local
+    fetch('/api/auth/verificar-demo-ativa', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lat: lat, lng: lng })
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data && data.ok && data.existe_demo) {
+          _exibirModalDecisaoDemo(data.demo);
+        } else {
+          _iniciarModoDemoDireto(false);
+        }
+      })
+      .catch(() => _iniciarModoDemoDireto(false));
   };
+
+  function _exibirModalDecisaoDemo(demoInfo) {
+    const modalId = 'modal-decisao-demo-ativa';
+    let modal = document.getElementById(modalId);
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = modalId;
+      modal.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,0.85); backdrop-filter:blur(8px); z-index:999999; display:flex; align-items:center; justify-content:center; padding:20px;';
+      document.body.appendChild(modal);
+    }
+
+    modal.innerHTML = `
+      <div style="background:#0f172a; border:2px solid #3b82f6; border-radius:18px; max-width:480px; width:100%; padding:24px; color:#f8fafc; box-shadow:0 20px 50px rgba(0,0,0,0.8); text-align:center;">
+        <div style="width:52px; height:52px; border-radius:16px; background:rgba(59,130,246,0.15); color:#3b82f6; display:flex; align-items:center; justify-content:center; font-size:26px; margin:0 auto 14px;">
+          <i class="ph-bold ph-users-three"></i>
+        </div>
+        <h3 style="font-size:18px; font-weight:800; margin:0 0 8px;">Demonstração Ativa Detectada!</h3>
+        <p style="color:#94a3b8; font-size:13px; line-height:1.5; margin:0 0 20px;">
+          Já existe uma sessão de demonstração em andamento neste mesmo local criada recentemente. Como você deseja proceder?
+        </p>
+
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <button type="button" onclick="_concluirDecisaoDemo('compartilhada')" style="background:#3b82f6; color:white; border:none; padding:12px; border-radius:10px; font-weight:700; font-size:13.5px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px;">
+            <i class="ph-bold ph-handshake"></i> <span>Entrar Junto na Demonstração Ativa</span>
+          </button>
+
+          <button type="button" onclick="_concluirDecisaoDemo('nova')" style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.15); color:#f8fafc; padding:12px; border-radius:10px; font-weight:700; font-size:13px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px;">
+            <i class="ph-bold ph-sparkle"></i> <span>Abrir Minha Própria Demo (60 Minutos)</span>
+          </button>
+        </div>
+      </div>
+    `;
+    modal.style.display = 'flex';
+  }
+
+  window._concluirDecisaoDemo = function(opcao) {
+    const modal = document.getElementById('modal-decisao-demo-ativa');
+    if (modal) modal.style.display = 'none';
+    _iniciarModoDemoDireto(opcao === 'nova');
+  };
+
+  function _iniciarModoDemoDireto(forcarNova) {
+    const lat = document.getElementById('wiz-geo-lat')?.value;
+    const lng = document.getElementById('wiz-geo-lng')?.value;
+    const restNome = document.getElementById('wiz-rest-nome')?.value;
+
+    fetch('/api/auth/entrar-modo-demo', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lat: lat, lng: lng, restaurante_nome: restNome, forcar_nova: forcarNova })
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data && data.ok && data.token) {
+        localStorage.setItem('chef_token', data.token);
+        localStorage.setItem('currentUser', JSON.stringify(data.user));
+        localStorage.setItem('userRole', 'admin');
+        localStorage.setItem('is_dono', 'true');
+        localStorage.setItem('is_demo_mode', 'true');
+        localStorage.setItem('restaurante_id', '999');
+        localStorage.setItem('demo_expira_em_timestamp', data.expira_em_timestamp || (Date.now() + 60 * 60 * 1000));
+
+        _iniciarContadorDemo(data.expira_em_timestamp);
+        _exibirBannerModoDemo();
+
+        if (typeof window.showToast === 'function') {
+          window.showToast('🧪 Demonstração de 60 minutos iniciada!', 'info');
+        }
+        _finishWizard();
+      }
+    })
+    .catch(err => {
+      console.error('[Demo Mode Error]', err);
+      _finishWizard();
+    });
+  }
+
+  function _exibirBannerModoDemo() {
+    if (document.getElementById('demo-mode-top-banner')) return;
+    const banner = document.createElement('div');
+    banner.id = 'demo-mode-top-banner';
+    banner.style.cssText = 'position:fixed; top:0; left:0; right:0; z-index:99999; background:linear-gradient(90deg, #1e293b, #0f172a); border-bottom:2px solid #3b82f6; color:#f8fafc; padding:7px 16px; font-size:12px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; box-shadow:0 4px 12px rgba(0,0,0,0.5);';
+    banner.innerHTML = `
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span style="background:#3b82f6; color:white; font-size:10px; font-weight:800; padding:2px 8px; border-radius:12px; text-transform:uppercase;">🧪 Modo Demo</span>
+        <span>Tempo Restante: <strong id="demo-countdown-timer" style="color:#60a5fa; font-family:monospace; font-size:13px; letter-spacing:1px;">59:59</strong></span>
+      </div>
+      <button type="button" onclick="window.sairModoDemoEIniciarSetup()" style="background:#fc4b15; color:white; border:none; padding:4px 12px; border-radius:6px; font-size:11.5px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:6px;">
+        <span>Configurar meu Restaurante Oficial</span> <i class="ph-bold ph-arrow-right"></i>
+      </button>
+    `;
+    document.body.prepend(banner);
+  }
+
+
+  window.sairModoDemoEIniciarSetup = function() {
+    localStorage.removeItem('chef_token');
+    localStorage.removeItem('currentUser');
+    localStorage.removeItem('userRole');
+    localStorage.removeItem('is_dono');
+    localStorage.removeItem('is_demo_mode');
+    localStorage.removeItem('restaurante_id');
+    window.location.reload();
+  };
+
+  // Se estiver em modo demo ao carregar, exibe o banner
+  if (localStorage.getItem('is_demo_mode') === 'true') {
+    setTimeout(_exibirBannerModoDemo, 600);
+  }
+
 
   window.wizardFinish = function() {
     _finishWizard();
@@ -5049,11 +5689,16 @@ document.addEventListener('DOMContentLoaded', () => {
     if (b) b.click();
     else {
       // if not in DOM, maybe we need to emit directly
-      const val = prompt('Qual o valor inicial do caixa?');
+      const val = prompt('Qual o valor inicial do caixa (R$)?', '0.00');
       if (val !== null) {
-        const senhaAdmin = prompt('Digite a senha de administrador para abrir o caixa:');
-        if (!senhaAdmin) return alert('Operação cancelada.');
-        socket.emit('abrir_caixa', { fundo_troco: parseFloat(val) || 0, operador: window.crmPerfil ? window.crmPerfil.nome : 'Desconhecido', senha: senhaAdmin });
+        let senhaAdmin = 'bypass_dono';
+        if (!window.isDonoMaster()) {
+          senhaAdmin = prompt('Digite a senha de administrador para abrir o caixa:');
+          if (!senhaAdmin) return alert('Operação cancelada.');
+        } else {
+          if (!confirm('Confirmar abertura do caixa com R$ ' + (parseFloat(val) || 0).toFixed(2) + '?')) return;
+        }
+        socket.emit('abrir_caixa', { fundo_troco: parseFloat(val) || 0, operador: window.crmPerfil ? window.crmPerfil.nome : 'Dono Master', senha: senhaAdmin });
       }
     }
   };
@@ -5063,9 +5708,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const b = document.getElementById('btn-fechar-caixa');
     if (b) b.click();
     else {
-      const senhaAdmin = prompt('Digite a senha de administrador para fechar o caixa:');
-      if (!senhaAdmin) return alert('Operação cancelada.');
-      socket.emit('fechar_caixa', { operador: window.crmPerfil ? window.crmPerfil.nome : 'Desconhecido', senha: senhaAdmin });
+      let senhaAdmin = 'bypass_dono';
+      if (!window.isDonoMaster()) {
+        senhaAdmin = prompt('Digite a senha de administrador para fechar o caixa:');
+        if (!senhaAdmin) return alert('Operação cancelada.');
+      } else {
+        if (!confirm('Confirmar o fechamento do caixa agora?')) return;
+      }
+      socket.emit('fechar_caixa', { operador: window.crmPerfil ? window.crmPerfil.nome : 'Dono Master', senha: senhaAdmin });
     }
   };
 
@@ -5914,6 +6564,32 @@ setTimeout(() => {
 // --- CHECKOUT MODAL LIFECYCLE CONTROLS ---
 window.abrirCheckoutModal = () => {
   if (!window.mesaAtual || window.mesaAtual.isGroup === false) return alert('Selecione uma mesa ocupada primeiro.');
+
+  const nomeMesaAtual = window.mesaAtual.nome || window.mesaAtual.mesaName;
+
+  // Sincroniza pagamentos parciais diretamente de ordersData para garantir integridade com o banco
+  if (Array.isArray(ordersData)) {
+    const pgtos = ordersData.filter(o =>
+      (o.localName === nomeMesaAtual || o.mesa_grupo === nomeMesaAtual) &&
+      o.productName && (o.productName.includes('Pagamento') || o.productName.includes('Pgto Parcial')) &&
+      o.status !== 'Finalizado' && o.status !== 'Cancelado'
+    ).map(o => {
+      let metodo = 'Dinheiro';
+      if (o.productName.includes('(')) {
+        metodo = o.productName.split('(')[1].replace(')', '');
+      }
+      return {
+        valor: Math.abs(parseFloat(String(o.total).replace(',', '.')) || 0),
+        metodo: metodo,
+        id: o.id,
+        comanda: o.productName.includes('Comanda')
+      };
+    });
+    window.pagamentosParciais = pgtos;
+    if (window.mesaAtual) {
+      window.mesaAtual.pagamentosParciais = pgtos;
+    }
+  }
 
   // RESET CUSTOM NFCE
   window.customNfceConfig = null;
@@ -9909,4 +10585,75 @@ async function verificarStatusQuarentenaPDV() {
 
 document.addEventListener('DOMContentLoaded', () => {
   setTimeout(verificarStatusQuarentenaPDV, 2000);
+});
+
+
+// ─── FORÇA CARREGAMENTO E EXIBIÇÃO IMEDIATA DAS MESAS ───
+window.addEventListener('DOMContentLoaded', () => {
+  setTimeout(() => {
+    if (typeof socket !== 'undefined') {
+      socket.emit('get_mesas');
+      socket.emit('get_orders');
+    }
+    if (typeof renderOrders === 'function') renderOrders();
+    const ws = document.querySelector('.workspace');
+    if (ws) {
+      ws.classList.remove('active-tab-acoes');
+      ws.classList.add('active-tab-mesas');
+    }
+  }, 100);
+});
+
+
+// ─── SUPORTE A ARRASTE DE MESAS (DRAG & DROP NATIVO NO DESKTOP) ───
+document.addEventListener('dragstart', (e) => {
+  const card = e.target.closest('.mesa-item');
+  if (card) {
+    const nomeMesa = card.getAttribute('data-mesa') || card.getAttribute('data-nome') || (card.querySelector('.mesa-id') ? card.querySelector('.mesa-id').innerText.trim() : '');
+    e.dataTransfer.setData('text/plain', nomeMesa);
+    e.dataTransfer.effectAllowed = 'move';
+    card.classList.add('dragging-chef');
+  }
+});
+
+document.addEventListener('dragend', (e) => {
+  const card = e.target.closest('.mesa-item');
+  if (card) card.classList.remove('dragging-chef');
+  document.querySelectorAll('.mesa-item').forEach(c => c.classList.remove('drag-over'));
+});
+
+document.addEventListener('dragover', (e) => {
+  const targetCard = e.target.closest('.mesa-item');
+  if (targetCard) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    targetCard.classList.add('drag-over');
+  }
+});
+
+document.addEventListener('dragleave', (e) => {
+  const targetCard = e.target.closest('.mesa-item');
+  if (targetCard) targetCard.classList.remove('drag-over');
+});
+
+document.addEventListener('drop', (e) => {
+  const targetCard = e.target.closest('.mesa-item');
+  if (targetCard) {
+    e.preventDefault();
+    targetCard.classList.remove('drag-over');
+    const mesaOrigem = e.dataTransfer.getData('text/plain');
+    const mesaDestino = targetCard.getAttribute('data-mesa') || targetCard.getAttribute('data-nome') || (targetCard.querySelector('.mesa-id') ? targetCard.querySelector('.mesa-id').innerText.trim() : '');
+    
+    if (mesaOrigem && mesaDestino && mesaOrigem !== mesaDestino) {
+      if (confirm(`Deseja transferir/juntar a ${mesaOrigem} para a ${mesaDestino}?`)) {
+        if (typeof socket !== 'undefined') {
+          socket.emit('transferir_mesa', {
+            mesaAtual: mesaOrigem,
+            novaMesa: mesaDestino,
+            operador: localStorage.getItem('chef_operador_nome') || 'Caixa'
+          });
+        }
+      }
+    }
+  }
 });

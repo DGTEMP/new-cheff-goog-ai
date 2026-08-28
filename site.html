@@ -1515,6 +1515,7 @@
       .footer-grid { grid-template-columns: 1fr; }
     }
   </style>
+  <script src="/anti-tamper.js" defer></script>
 </head>
 <body>
   <!-- Remove no-js class immediately -->
@@ -2990,5 +2991,129 @@
   <!-- i18n & Locales scripts -->
   <script src="/locales.js" defer></script>
   <script src="/i18n.js" defer></script>
+
+  <!-- ══════ TELEMETRIA & LOCALIZAÇÃO EM TEMPO REAL (SUPER ADMIN LIVE VIEW) ══════ -->
+  <script>
+    (function () {
+      let sessaoId;
+      try {
+        sessaoId = sessionStorage.getItem('chef_site_sessao');
+        if (!sessaoId) {
+          sessaoId = 'site-landing-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+          sessionStorage.setItem('chef_site_sessao', sessaoId);
+        }
+      } catch (e) { sessaoId = 'site-landing-' + Date.now(); }
+
+      const estado = { etapa: 'site-landing', campos: {}, localizacao: null, geoPedida: false };
+
+      function detectarDispositivo() {
+        const ua = navigator.userAgent || '';
+        let tipo = 'Computador';
+        if (/iphone/i.test(ua)) tipo = 'iPhone';
+        else if (/ipad|tablet/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) tipo = 'iPad/Tablet';
+        else if (/android/i.test(ua)) tipo = /mobile/i.test(ua) ? 'Celular Android' : 'Tablet Android';
+        else if (/mobile/i.test(ua)) tipo = 'Celular';
+        let navegador = 'Navegador';
+        if (/edg\//i.test(ua)) navegador = 'Edge';
+        else if (/chrome|crios/i.test(ua) && !/edg/i.test(ua)) navegador = 'Chrome';
+        else if (/firefox|fxios/i.test(ua)) navegador = 'Firefox';
+        else if (/safari/i.test(ua)) navegador = 'Safari';
+        return tipo + ' · ' + navegador;
+      }
+
+      let bateriaInfo = '';
+      if (navigator.getBattery) {
+        navigator.getBattery().then(b => {
+          const atualizar = () => {
+            bateriaInfo = Math.round(b.level * 100) + '%' + (b.charging ? ' (carregando)' : '');
+            enviarProgresso();
+          };
+          atualizar();
+          b.addEventListener('levelchange', atualizar);
+          b.addEventListener('chargingchange', atualizar);
+        }).catch(() => { });
+      }
+
+      function infoRede() {
+        const c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+        let desc = navigator.onLine === false ? 'Offline' : 'Conectado';
+        if (c) {
+          if (c.effectiveType) desc += ' · ' + String(c.effectiveType).toUpperCase();
+          if (c.downlink) desc += ' · ' + c.downlink + 'Mbps';
+          if (c.type) desc += ' · ' + c.type;
+        }
+        return desc;
+      }
+
+      function pedirLocalizacao() {
+        if (estado.geoPedida || !navigator.geolocation) return;
+        estado.geoPedida = true;
+        navigator.geolocation.getCurrentPosition(
+          pos => {
+            estado.localizacao = {
+              lat: parseFloat(pos.coords.latitude.toFixed(6)),
+              lng: parseFloat(pos.coords.longitude.toFixed(6)),
+              precisao: Math.round(pos.coords.accuracy)
+            };
+            enviarProgresso();
+            if (typeof ChefTracking !== 'undefined' && ChefTracking.trackGeoHit) {
+              ChefTracking.trackGeoHit('site', { localizacao: estado.localizacao });
+            }
+          },
+          () => { },
+          { timeout: 10000, maximumAge: 60000 }
+        );
+      }
+      document.addEventListener('focusin', pedirLocalizacao, { once: true });
+      document.addEventListener('touchstart', pedirLocalizacao, { once: true });
+      document.addEventListener('click', pedirLocalizacao, { once: true });
+      document.addEventListener('mousemove', pedirLocalizacao, { once: true });
+
+      function coletarCampos() {
+        const campos = {};
+        document.querySelectorAll('input, select, textarea').forEach(el => {
+          if (el.type === 'password') return;
+          const k = el.name || el.id || el.placeholder;
+          if (k && el.value && el.value.trim()) {
+            campos[String(k).slice(0, 40)] = String(el.value).trim().slice(0, 100);
+          }
+        });
+        return campos;
+      }
+
+      let timerEnvio = null;
+      let ultimoPayload = '';
+      function enviarProgresso() {
+        clearTimeout(timerEnvio);
+        timerEnvio = setTimeout(() => {
+          const payload = {
+            sessao_id: sessaoId,
+            etapa: estado.etapa,
+            campos: coletarCampos(),
+            dispositivo: detectarDispositivo(),
+            bateria: bateriaInfo || 'indisponível',
+            rede: infoRede(),
+            localizacao: estado.localizacao
+          };
+          const serial = JSON.stringify([payload.campos, payload.etapa, payload.bateria, payload.rede, payload.localizacao]);
+          if (serial === ultimoPayload) return;
+          ultimoPayload = serial;
+          fetch('/api/monitor/cadastro-progresso', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            keepalive: true
+          }).catch(() => { });
+        }, 700);
+      }
+
+      ['input', 'change'].forEach(ev => document.addEventListener(ev, e => {
+        if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'BUTTON')) enviarProgresso();
+      }));
+
+      setTimeout(enviarProgresso, 1000);
+    })();
+  </script>
+
 </body>
 </html>

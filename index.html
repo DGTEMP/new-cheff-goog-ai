@@ -5,7 +5,7 @@
 
 
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Chef Cozinha">
@@ -48,7 +48,15 @@
   <script src="/plugin-client.js"></script>
   <script src="/chef-tz.js"></script>
   <script src="/pwa-telemetry.js"></script>
-  <script src="main.js?v=20260825b"></script>
+  <script src="main.js?v=1787935895233"></script>
+  <script src="/anti-tamper.js" defer></script>
+  <link rel="stylesheet" href="/apple-transitions.css">
+  <script src="/apple-transitions.js" defer></script>
+  <link rel="stylesheet" href="/caixa-pro-ux.css?v=1787935895233">
+  <script src="/caixa-pro-ux.js" defer></script>
+  <script src="/pagamento-parcial-modal.js" defer></script>
+  <script src="/chef-telemetry-clicks.js" defer></script>
+  <script src="/chef-layout-customizer.js" defer></script>
 </head>
 
 <body>
@@ -67,31 +75,19 @@
   <!-- Onboarding modal for modality selection -->
   <div id="onboarding-modal" class="onboarding-overlay hidden">
     <div class="onboarding-card">
-      <div class="onboarding-title-area">
-        <h2>Seja bem-vindo ao Chef Cozinha!</h2>
-        <p>Selecione a modalidade que melhor descreve o seu estabelecimento para adaptarmos os fluxos e ferramentas:</p>
+      <div class="onboarding-header">
+        <div class="onboarding-icon">
+          <i class="ph-bold ph-fork-knife"></i>
+        </div>
+        <h2 class="onboarding-title">Bem-vindo ao Chef Cozinha!</h2>
+        <p class="onboarding-subtitle">Para personalizar sua experiência, escolha o tipo do seu estabelecimento:</p>
       </div>
 
       <div class="onboarding-grid">
-        <div class="onboarding-item-card" data-modalidade="a_la_carte" onclick="selectOnboardingModality(this)">
-          <i class="ph-bold ph-bowl-food"></i>
-          <span class="onboarding-item-name">À La Carte</span>
-          <span class="onboarding-item-desc">Atendimento tradicional por mesas e garçons</span>
-        </div>
-        <div class="onboarding-item-card" data-modalidade="pizzaria" onclick="selectOnboardingModality(this)">
-          <i class="ph-bold ph-pizza"></i>
-          <span class="onboarding-item-name">Pizzaria</span>
-          <span class="onboarding-item-desc">Sabores fracionados (meio a meio) e tamanhos</span>
-        </div>
-        <div class="onboarding-item-card" data-modalidade="a_kilo" onclick="selectOnboardingModality(this)">
-          <i class="ph-bold ph-scales"></i>
-          <span class="onboarding-item-name">Restaurante À Kilo</span>
-          <span class="onboarding-item-desc">Venda por peso em gramas integrada com balança</span>
-        </div>
-        <div class="onboarding-item-card" data-modalidade="buffet" onclick="selectOnboardingModality(this)">
-          <i class="ph-bold ph-cooking-pot"></i>
-          <span class="onboarding-item-name">Buffet</span>
-          <span class="onboarding-item-desc">Valor fixo por pessoa (Livre / Rodízio)</span>
+        <div class="onboarding-item-card" data-modalidade="restaurante" onclick="selectOnboardingModality(this)">
+          <i class="ph-bold ph-fork-knife"></i>
+          <span class="onboarding-item-name">Restaurante / Pizzaria</span>
+          <span class="onboarding-item-desc">Mesas, garçom, delivery e autoatendimento</span>
         </div>
         <div class="onboarding-item-card" data-modalidade="lanchonete" onclick="selectOnboardingModality(this)">
           <i class="ph-bold ph-hamburger"></i>
@@ -143,43 +139,144 @@
     <div class="onboarding-card" style="max-width:600px; gap:0; padding:0; overflow:hidden;">
 
       <!-- Barra de progresso -->
-      <div style="display:flex; height:4px; background:rgba(255,255,255,0.06);">
+      <div id="wizard-progress-wrap" style="display:none; height:4px; background:rgba(255,255,255,0.06);">
         <div id="wizard-progress-bar" style="width:33%; background:#fc4b15; transition:width 0.4s ease;"></div>
       </div>
 
       <!-- Header comum -->
-      <div style="padding:24px 28px 0 28px; display:flex; justify-content:space-between; align-items:center;">
+      <div id="wizard-header" style="display:none; padding:20px 28px 0 28px; justify-content:space-between; align-items:center;">
         <div>
-          <div style="font-size:11px; font-weight:700; color:#fc4b15; text-transform:uppercase; letter-spacing:1.5px; margin-bottom:4px;">
+          <div style="font-size:11px; font-weight:700; color:#fc4b15; text-transform:uppercase; letter-spacing:1.5px; margin-bottom:2px;">
             Passo <span id="wizard-step-num">1</span> de 3
           </div>
-          <h2 id="wizard-step-title" style="font-size:20px; font-weight:800; color:#f8fafc; margin:0;">Dados do Restaurante</h2>
+          <h2 id="wizard-step-title" style="font-size:18px; font-weight:800; color:#f8fafc; margin:0;">Dados do Restaurante & Conta do Dono</h2>
         </div>
-        <button onclick="window.wizardSkip()" style="background:none; border:none; color: var(--text-secondary); font-size:13px; cursor:pointer; padding:6px 10px; border-radius:8px; transition:color 0.2s;" onmouseover="this.style.color='#f8fafc'" onmouseout="this.style.color='#64748b'">
-          Pular <i class="ph ph-arrow-right" style="font-size:14px;"></i>
+        <button type="button" onclick="window.wizardSkip()" style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:#94a3b8; padding:6px 12px; border-radius:8px; font-size:11.5px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:4px;" onmouseover="this.style.color='#f8fafc'" onmouseout="this.style.color='#94a3b8'">
+          <span>Pular</span> <i class="ph ph-arrow-right"></i>
         </button>
+      </div>/div>
+
+      
+      
+      <!-- PASSO 0 — Boas-Vindas, Foco no Valor e Termos de Uso -->
+      <div id="wizard-panel-0" class="wizard-panel" style="padding:26px 30px 28px 30px; text-align:center;">
+        <div style="width:56px; height:56px; border-radius:18px; background:linear-gradient(135deg, #fc4b15, #ff8533); color:white; display:flex; align-items:center; justify-content:center; font-size:26px; margin:0 auto 12px; box-shadow:0 10px 24px rgba(252,75,21,0.35);">
+          <i class="ph-bold ph-sparkle"></i>
+        </div>
+        <h3 style="color:#f8fafc; font-size:20px; font-weight:800; margin:0 0 6px;">Bem-vindo ao Chef Cozinha!</h3>
+        <p style="color:#94a3b8; font-size:13px; line-height:1.5; margin:0 auto 16px; max-width:460px;">
+          Tudo o que seu restaurante precisa para acelerar o atendimento, zerar filas e aumentar o faturamento.
+        </p>
+
+        <!-- CARTÕES DE VALOR / BENEFÍCIOS REAIS -->
+        <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; margin-bottom:18px; text-align:left;">
+          <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:12px; padding:12px 10px;">
+            <div style="color:#fc4b15; font-size:18px; margin-bottom:4px;"><i class="ph-bold ph-lightning"></i></div>
+            <strong style="color:#f8fafc; font-size:12px; display:block; margin-bottom:2px;">PDV Ultra-Rápido</strong>
+            <span style="color:#94a3b8; font-size:10.5px; line-height:1.3; display:block;">Venda em segundos, funciona mesmo sem internet.</span>
+          </div>
+
+          <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:12px; padding:12px 10px;">
+            <div style="color:#3b82f6; font-size:18px; margin-bottom:4px;"><i class="ph-bold ph-cooking-pot"></i></div>
+            <strong style="color:#f8fafc; font-size:12px; display:block; margin-bottom:2px;">KDS Cozinha</strong>
+            <span style="color:#94a3b8; font-size:10.5px; line-height:1.3; display:block;">Pedidos direto no monitor dos cozinheiros sem papel.</span>
+          </div>
+
+          <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:12px; padding:12px 10px;">
+            <div style="color:#10b981; font-size:18px; margin-bottom:4px;"><i class="ph-bold ph-brain"></i></div>
+            <strong style="color:#f8fafc; font-size:12px; display:block; margin-bottom:2px;">Inteligência IA</strong>
+            <span style="color:#94a3b8; font-size:10.5px; line-height:1.3; display:block;">Promoções automáticas para vender mais todo dia.</span>
+          </div>
+        </div>
+
+        <!-- Caixa de Termos e Consentimento -->
+        <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:12px 14px; text-align:left; margin-bottom:18px;">
+          <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer;">
+            <input type="checkbox" id="wiz-terms-check" onchange="window.wizardToggleTerms()" style="accent-color:#fc4b15; width:17px; height:17px; margin-top:2px; cursor:pointer;">
+            <span style="color:#cbd5e1; font-size:12px; font-weight:600; line-height:1.4;">
+              Concordo com os <strong>Termos de Uso</strong> e autorizo a <strong>localização inteligente</strong> para auto-preenchimento dos dados.
+            </span>
+          </label>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <button type="button" id="wiz-btn-start" onclick="window.wizardStartFromTerms()" disabled style="background:#fc4b15; color:white; border:none; padding:13px 24px; border-radius:12px; font-size:14px; font-weight:800; width:100%; cursor:not-allowed; opacity:0.45; display:flex; align-items:center; justify-content:center; gap:8px; transition:all 0.2s; box-shadow:0 8px 20px rgba(252,75,21,0.3);">
+            <span>Iniciar Configuração Inteligente</span> <i class="ph-bold ph-arrow-right"></i>
+          </button>
+
+          <button type="button" onclick="window.wizardSkip()" style="background:none; border:none; color:#94a3b8; font-size:12.5px; font-weight:600; cursor:pointer; padding:6px; transition:color 0.2s;" onmouseover="this.style.color='#f8fafc'" onmouseout="this.style.color='#94a3b8'">
+            Pular introdução e testar com dados de demonstração →
+          </button>
+        </div>
       </div>
 
-      <!-- PASSO 1 — Dados do Restaurante -->
-      <div id="wizard-panel-1" class="wizard-panel" style="padding:20px 28px 24px 28px;">
-        <p style="color:#94a3b8; font-size:13px; margin:0 0 16px 0;">Conte-nos sobre o seu estabelecimento. Esses dados aparecem nos comprovantes e cardápios.</p>
+
+      <!-- PASSO 1 — Dados do Restaurante e Conta do Dono -->
+      <div id="wizard-panel-1" class="wizard-panel" style="padding:20px 28px 24px 28px; max-height:480px; overflow-y:auto;">
+        <p style="color:#94a3b8; font-size:13px; margin:0 0 14px 0;">Configure seu estabelecimento e crie a <strong>Conta do Dono (Acesso Master)</strong>. Com esta conta você tem acesso irrestrito sem bloqueios de senhas.</p>
+        
         <div style="display:flex; flex-direction:column; gap:12px;">
+          <!-- Dados do Estabelecimento -->
           <div>
-            <label style="color:#cbd5e1; font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Nome do Restaurante *</label>
+            <label style="color:#cbd5e1; font-size:12px; font-weight:700; display:block; margin-bottom:4px;">Nome do Restaurante *</label>
             <input type="text" id="wiz-rest-nome" placeholder="Ex: Restaurante Bom Sabor" style="width:100%; padding:12px 14px; border-radius:12px; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.04); color:#f8fafc; font-size:14px; outline:none; box-sizing:border-box; transition:border-color 0.2s;" onfocus="this.style.borderColor='#fc4b15'" onblur="this.style.borderColor='rgba(255,255,255,0.08)'">
           </div>
-          <div>
-            <label style="color:#cbd5e1; font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Telefone</label>
-            <input type="tel" id="wiz-rest-tel" placeholder="(11) 99999-0000" style="width:100%; padding:12px 14px; border-radius:12px; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.04); color:#f8fafc; font-size:14px; outline:none; box-sizing:border-box; transition:border-color 0.2s;" onfocus="this.style.borderColor='#fc4b15'" onblur="this.style.borderColor='rgba(255,255,255,0.08)'">
+          
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+            <div>
+              <label style="color:#cbd5e1; font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Telefone / WhatsApp</label>
+              <input type="tel" id="wiz-rest-tel" placeholder="(11) 99999-0000" style="width:100%; padding:12px 14px; border-radius:12px; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.04); color:#f8fafc; font-size:14px; outline:none; box-sizing:border-box;">
+            </div>
+            <div>
+              <label style="color:#cbd5e1; font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Endereço</label>
+              <input type="text" id="wiz-rest-endereco" placeholder="Rua, número, bairro" style="width:100%; padding:12px 14px; border-radius:12px; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.04); color:#f8fafc; font-size:14px; outline:none; box-sizing:border-box;">
+            </div>
           </div>
-          <div>
-            <label style="color:#cbd5e1; font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Endereço</label>
-            <input type="text" id="wiz-rest-endereco" placeholder="Rua, número, bairro" style="width:100%; padding:12px 14px; border-radius:12px; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.04); color:#f8fafc; font-size:14px; outline:none; box-sizing:border-box; transition:border-color 0.2s;" onfocus="this.style.borderColor='#fc4b15'" onblur="this.style.borderColor='rgba(255,255,255,0.08)'">
+
+          <!-- BLOCO DA CONTA DE DONO / MASTER -->
+          <div style="background:rgba(252,75,21,0.06); border:1.5px solid rgba(252,75,21,0.3); border-radius:14px; padding:16px; margin-top:6px;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
+              <div style="width:28px; height:28px; border-radius:8px; background:#fc4b15; color:white; display:flex; align-items:center; justify-content:center; font-size:16px;">
+                <i class="ph-bold ph-crown"></i>
+              </div>
+              <div>
+                <strong style="color:#f8fafc; font-size:13.5px;">Conta do Dono (Acesso Master)</strong>
+                <p style="color:#94a3b8; font-size:11px; margin:0;">Cria o usuário administrador e o Funcionário Master com permissão total</p>
+              </div>
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:10px;">
+              <div>
+                <label style="color:#cbd5e1; font-size:12px; font-weight:700; display:block; margin-bottom:4px;">Nome do Dono / Responsável *</label>
+                <input type="text" id="wiz-dono-nome" placeholder="Ex: Carlos Eduardo" style="width:100%; padding:10px 12px; border-radius:10px; border:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.06); color:#f8fafc; font-size:13px; outline:none; box-sizing:border-box;">
+              </div>
+
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                <div>
+                  <label style="color:#cbd5e1; font-size:12px; font-weight:700; display:block; margin-bottom:4px;">Usuário de Login *</label>
+                  <input type="text" id="wiz-dono-usuario" placeholder="Ex: admin ou seu nome" style="width:100%; padding:10px 12px; border-radius:10px; border:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.06); color:#f8fafc; font-size:13px; outline:none; box-sizing:border-box;">
+                </div>
+                <div>
+                  <label style="color:#cbd5e1; font-size:12px; font-weight:700; display:block; margin-bottom:4px;">PIN Master (4 dígitos)</label>
+                  <input type="text" id="wiz-dono-pin" maxlength="6" value="0000" placeholder="0000" style="width:100%; padding:10px 12px; border-radius:10px; border:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.06); color:#f8fafc; font-size:13px; text-align:center; font-weight:bold; letter-spacing:2px; outline:none; box-sizing:border-box;">
+                </div>
+              </div>
+
+              <div>
+                <label style="color:#cbd5e1; font-size:12px; font-weight:700; display:block; margin-bottom:4px;">Senha de Acesso do Dono *</label>
+                <div style="display:flex; gap:6px;">
+                  <input type="password" id="wiz-dono-senha" placeholder="Digite uma senha segura" style="flex:1; padding:10px 12px; border-radius:10px; border:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.06); color:#f8fafc; font-size:13px; outline:none; box-sizing:border-box;">
+                  <button type="button" onclick="const inp=document.getElementById('wiz-dono-senha'); inp.type=inp.type==='password'?'text':'password';" style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); border-radius:10px; padding:0 12px; color:#cbd5e1; cursor:pointer;">
+                    <i class="ph ph-eye"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- PASSO 2 — Mesas -->
+      <!-- PASSO 2 — Mesas & Espaços -->
       <div id="wizard-panel-2" class="wizard-panel" style="padding:20px 28px 24px 28px; display:none;">
         <p style="color:#94a3b8; font-size:13px; margin:0 0 12px 0;">Como você quer começar? Já preparamos um pacote de exemplos completo para você testar na hora.</p>
 
@@ -188,38 +285,43 @@
           <label id="wiz-modo-exemplos-card" onclick="window.wizardSetModoMesas('exemplos')" style="display:flex; gap:12px; align-items:flex-start; background:rgba(252,75,21,0.08); border:2px solid #fc4b15; border-radius:14px; padding:14px; cursor:pointer; transition:all 0.2s;">
             <input type="radio" name="wiz-modo-mesas" value="exemplos" checked style="accent-color:#fc4b15; margin-top:3px;">
             <div>
-              <strong style="color:#f8fafc; font-size:14px;">✨ Usar os exemplos prontos <span style="background:#fc4b15; color:white; font-size:10px; font-weight:800; padding:2px 8px; border-radius:10px; margin-left:4px;">RECOMENDADO</span></strong>
-              <p style="color:#94a3b8; font-size:12px; margin:4px 0 0 0;">Vem com mesas, cardápio de exemplo (bebidas, porções...), garçom de teste e filas de preparo configuradas. Você edita tudo depois.</p>
+              <strong style="color:#f8fafc; font-size:14px; display:block;">✨ Começar com pacote completo de exemplos (Recomendado)</strong>
+              <p style="color:#94a3b8; font-size:12px; margin:4px 0 0 0;">Já vem com 15 mesas, delivery, balcão, cardápio completo e garçom de teste configurados.</p>
             </div>
           </label>
-          <label id="wiz-modo-zero-card" onclick="window.wizardSetModoMesas('zero')" style="display:flex; gap:12px; align-items:flex-start; background:rgba(255,255,255,0.03); border:2px solid rgba(255,255,255,0.08); border-radius:14px; padding:14px; cursor:pointer; transition:all 0.2s;">
+
+          <label id="wiz-modo-zero-card" onclick="window.wizardSetModoMesas('zero')" style="display:flex; gap:12px; align-items:flex-start; background:rgba(255,255,255,0.02); border:2px solid rgba(255,255,255,0.08); border-radius:14px; padding:14px; cursor:pointer; transition:all 0.2s;">
             <input type="radio" name="wiz-modo-mesas" value="zero" style="accent-color:#fc4b15; margin-top:3px;">
             <div>
-              <strong style="color:#f8fafc; font-size:14px;">🧹 Começar do zero</strong>
-              <p style="color:#94a3b8; font-size:12px; margin:4px 0 0 0;">Removemos os exemplos e criamos exatamente as mesas que você informar.</p>
+              <strong style="color:#f8fafc; font-size:14px; display:block;">⚙️ Configurar minhas mesas do zero</strong>
+              <p style="color:#94a3b8; font-size:12px; margin:4px 0 0 0;">Defina a quantidade exata de mesas e canais de atendimento do seu salão.</p>
             </div>
           </label>
         </div>
 
-        <!-- Detalhes do modo "do zero" -->
-        <div id="wiz-zero-detalhes" style="display:none;">
-          <div style="display:flex; flex-direction:column; gap:14px;">
-            <div>
-              <label style="color:#cbd5e1; font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Número de Mesas</label>
-              <input type="number" id="wiz-qtd-mesas" min="1" max="100" value="10" style="width:100%; padding:12px 14px; border-radius:12px; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.04); color:#f8fafc; font-size:14px; outline:none; box-sizing:border-box;">
+        <!-- Opções do modo "do zero" (inicia oculto) -->
+        <div id="wiz-opcoes-zero" style="display:none; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:12px; padding:14px; margin-bottom:14px;">
+          <div style="margin-bottom:12px;">
+            <label style="color:#cbd5e1; font-size:12px; font-weight:600; display:block; margin-bottom:6px;">Quantas mesas você tem no salão?</label>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <input type="number" id="wiz-qtd-mesas" value="10" min="1" max="200" style="width:90px; padding:8px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.05); color:#f8fafc; font-size:15px; font-weight:700; text-align:center; outline:none;" oninput="window._updateMesasPreview && window._updateMesasPreview()">
+              <span style="color:#94a3b8; font-size:12px;">mesas numeradas de 1 a N</span>
             </div>
-            <div>
-              <label style="color:#cbd5e1; font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Incluir também:</label>
-              <div style="display:flex; gap:10px; flex-wrap:wrap;">
-                <label style="display:flex; align-items:center; gap:6px; color:#94a3b8; font-size:13px; cursor:pointer;">
-                  <input type="checkbox" id="wiz-add-delivery" checked style="accent-color:#fc4b15;"> Delivery
-                </label>
-                <label style="display:flex; align-items:center; gap:6px; color:#94a3b8; font-size:13px; cursor:pointer;">
-                  <input type="checkbox" id="wiz-add-balcao" style="accent-color:#fc4b15;"> Balcão
-                </label>
-              </div>
-            </div>
-            <div id="wiz-mesas-preview" style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:12px; display:flex; flex-wrap:wrap; gap:6px; max-height:120px; overflow-y:auto;"></div>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+              <input type="checkbox" id="wiz-add-delivery" checked style="accent-color:#fc4b15;" onchange="window._updateMesasPreview && window._updateMesasPreview()">
+              <span style="color:#e2e8f0; font-size:13px;">Incluir canal de <strong>Delivery</strong></span>
+            </label>
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+              <input type="checkbox" id="wiz-add-balcao" checked style="accent-color:#fc4b15;" onchange="window._updateMesasPreview && window._updateMesasPreview()">
+              <span style="color:#e2e8f0; font-size:13px;">Incluir atendimento de <strong>Balcão</strong></span>
+            </label>
+          </div>
+          <!-- Preview das mesas geradas -->
+          <div style="margin-top:12px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.06);">
+            <span style="color:#94a3b8; font-size:11px; text-transform:uppercase; letter-spacing:0.5px;">Mesas que serão criadas:</span>
+            <div id="wiz-mesas-preview" style="display:flex; flex-wrap:wrap; gap:4px; margin-top:6px; max-height:80px; overflow-y:auto;"></div>
           </div>
         </div>
 
@@ -254,7 +356,7 @@
           <i class="ph-bold ph-check-circle" style="font-size:36px; color:#34d399;"></i>
         </div>
         <h3 style="color:#f8fafc; font-size:18px; font-weight:700; margin:0 0 8px 0;">Tudo pronto!</h3>
-        <p style="color:#94a3b8; font-size:13px; margin:0 0 20px 0;">Seu restaurante está configurado. Você já pode começar a usar o sistema.</p>
+        <p style="color:#94a3b8; font-size:13px; margin:0 0 20px 0;">Seu restaurante e a Conta Master do Dono estão configurados com sucesso.</p>
         <button onclick="window.wizardFinish()" class="onboarding-btn" style="margin:0 auto;">
           Ir para o PDV <i class="ph-bold ph-arrow-right"></i>
         </button>
@@ -266,9 +368,10 @@
           <i class="ph ph-arrow-left"></i> Voltar
         </button>
         <button id="wizard-btn-next" onclick="window.wizardNext()" class="onboarding-btn" style="margin-left:auto;">
-          Próximo <i class="ph-bold ph-arrow-right"></i>
+          <span>Próximo</span> <i class="ph-bold ph-arrow-right"></i>
         </button>
       </div>
+
     </div>
   </div>
 
@@ -527,42 +630,11 @@
     <div class="workspace active-tab-mesas">
 
       <!-- LEFT ACTIONS (AUTO-RECOLHÍVEL HOVER/TOUCH) -->
-      <aside class="left-actions auto-collapsible" id="left-panel">
-        <div class="panel-handle panel-handle-left" id="handle-left-panel" onclick="window.toggleLeftPanel && window.toggleLeftPanel(event)" title="Ações Rápidas (Passe o mouse ou toque para expandir)">
-          <div class="panel-handle-pin-btn" id="btn-pin-left-panel" onclick="window.togglePinLeftPanel && window.togglePinLeftPanel(event)" title="Fixar / Auto-Recolher">
-            <i class="ph ph-push-pin" id="icon-pin-left-panel"></i>
-          </div>
+      <aside class="left-actions" id="left-panel">
+        
 
-          <div class="dock-mini-icons-list" id="dock-mini-icons-list">
-            <button class="dock-mini-btn primary" data-mini-id="mini-lancar" onclick="event.stopPropagation(); document.getElementById('btn-adicionar-produtos') && document.getElementById('btn-adicionar-produtos').click()" title="Lançar Produtos (F2)">
-              <i class="ph-bold ph-plus-circle"></i>
-            </button>
-            <button class="dock-mini-btn" data-mini-id="mini-parcial" onclick="event.stopPropagation(); document.getElementById('btn-movimento-parcial') && document.getElementById('btn-movimento-parcial').click()" title="Pagamento Parcial">
-              <i class="ph-bold ph-currency-dollar" style="color: #10b981;"></i>
-            </button>
-            <button class="dock-mini-btn" data-mini-id="mini-fechar" onclick="event.stopPropagation(); document.getElementById('btn-movimento-concluir') && document.getElementById('btn-movimento-concluir').click()" title="Fechar Conta (F3)">
-              <i class="ph-bold ph-check" style="color: #10b981;"></i>
-            </button>
-            <button class="dock-mini-btn" data-mini-id="mini-imprimir" onclick="event.stopPropagation(); document.getElementById('btn-imprimir-conta') && document.getElementById('btn-imprimir-conta').click()" title="Imprimir Conta">
-              <i class="ph ph-printer"></i>
-            </button>
-            <button class="dock-mini-btn" data-mini-id="mini-cliente" onclick="event.stopPropagation(); document.getElementById('btn-mostrar-conta-cliente') && document.getElementById('btn-mostrar-conta-cliente').click()" title="Ver Conta no Dispositivo">
-              <i class="ph ph-device-mobile"></i>
-            </button>
-            <button class="dock-mini-btn" data-mini-id="mini-qrcode" onclick="event.stopPropagation(); document.getElementById('btn-qr-mesa') && document.getElementById('btn-qr-mesa').click()" title="QR Code da Mesa">
-              <i class="ph ph-qr-code"></i>
-            </button>
-            <button class="dock-mini-btn" data-mini-id="mini-desconto" onclick="event.stopPropagation(); document.getElementById('btn-aplicar-desconto') && document.getElementById('btn-aplicar-desconto').click()" title="Desconto">
-              <i class="ph ph-percent" style="color: #ef4444;"></i>
-            </button>
-            <button class="dock-mini-btn" data-mini-id="mini-juntar" onclick="event.stopPropagation(); document.getElementById('btn-juntar-mesa') && document.getElementById('btn-juntar-mesa').click()" title="Juntar Mesas">
-              <i class="ph ph-arrows-merge" style="color: #f59e0b;"></i>
-            </button>
-            <button class="dock-mini-btn" data-mini-id="mini-chamar" onclick="event.stopPropagation(); document.getElementById('btn-chamar-garcom') && document.getElementById('btn-chamar-garcom').click()" title="Chamar Garçom">
-              <i class="ph ph-bell-ringing" style="color: #3b82f6;"></i>
-            </button>
-          </div>
-        </div>
+        
+        
 
         <div class="panel-content-inner" id="inner-left-panel">
           <!-- RESUMO COMPACTO (MOBILE - AÇÕES) -->
@@ -695,6 +767,12 @@
                 </button>
               </div>
 
+              
+      <!-- BOTÃO RÁPIDO PARA PERSONALIZAR LAYOUT DO COLABORADOR -->
+      <button type="button" onclick="window.abrirModalPersonalizarLayout()" id="btn-header-personalizar-layout" class="chip-view-btn" title="Personalizar Meu Layout (Disposição de Mesas, Botões e Resumo)" style="padding: 4px 9px; border-radius: 6px; border: 1px solid rgba(252,75,21,0.3); font-size: 11.5px; font-weight: 700; cursor: pointer; background: rgba(252,75,21,0.08); color: #fc4b15; display: inline-flex; align-items: center; gap: 4px;">
+        <i class="ph-bold ph-layout"></i> Personalizar
+      </button>
+
               <!-- SELETOR DE MODO DE GRADE / COLUNAS -->
               <div class="mesas-grid-mode-switcher" style="display: inline-flex; align-items: center; gap: 2px; background: rgba(0,0,0,0.06); padding: 2px 4px; border-radius: 8px;">
                 <button type="button" onclick="window.setMesaGridCols(3)" id="btn-grid-cols-3" title="Grade com 3 Colunas" style="padding: 4px 7px; border-radius: 6px; border: none; font-size: 11px; cursor: pointer; background: transparent; color: var(--text-muted); font-weight: 700;">
@@ -800,23 +878,11 @@
       <div class="resizer" id="resizer-right"></div>
 
       <!-- RIGHT PANEL (INFO - AUTO-RECOLHÍVEL HOVER/TOUCH) -->
-      <aside class="right-info auto-collapsible" id="right-panel">
-        <div class="panel-handle panel-handle-right" id="handle-right-panel" onclick="window.toggleRightPanel && window.toggleRightPanel(event)" title="Resumo e Pagamento (Passe o mouse ou toque para expandir)">
-          <div class="panel-handle-pin-btn" id="btn-pin-right-panel" onclick="window.togglePinRightPanel && window.togglePinRightPanel(event)" title="Fixar / Auto-Recolher">
-            <i class="ph ph-push-pin" id="icon-pin-right-panel"></i>
-          </div>
+      <aside class="right-info" id="right-panel">
+        
 
-          <div class="dock-mini-icons-list" id="dock-mini-icons-right">
-            <button class="dock-mini-btn" onclick="event.stopPropagation(); window.abrirCheckoutModal && window.abrirCheckoutModal()" title="Finalizar Venda / Pagamento" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important; color: white !important; border: none !important;">
-              <i class="ph-bold ph-receipt"></i>
-            </button>
-            <button class="dock-mini-btn" onclick="event.stopPropagation(); document.getElementById('btn-imprimir-conta') && document.getElementById('btn-imprimir-conta').click()" title="Imprimir Conferência">
-              <i class="ph ph-printer"></i>
-            </button>
-          </div>
-
-          <span class="handle-text">RESUMO</span>
-        </div>
+        
+        
 
         <div class="panel-content-inner" id="inner-right-panel">
           <div class="info-row" id="row-info-cliente-nome" style="display: none;">
@@ -2910,8 +2976,14 @@
   <script src="/chef-modal.js"></script>
 
   <!-- Camada responsiva "Native App" (tablet gavetas + ultrawide enquadrado) -->
-  <script src="/responsive-native.js"></script>
+  <script src="/responsive-native.js?v=1787935895233"></script>
   <script src="/sw-register.js"></script>
+
+    <!-- BOTÕES FLUTUANTES PARA RESTAURAR BARRAS OCULTAS -->
+    
+    
+
+  <script src="/chef-resizable-sidebars.js?v=1787936330722"></script>
 </body>
 
 </html>

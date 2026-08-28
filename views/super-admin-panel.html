@@ -1901,6 +1901,65 @@
           </div>
         </div>
 
+        
+          <!-- CARD DE GESTÃO GLOBAL DE IA (GOOGLE GEMINI) -->
+          <div class="form-box" style="margin-top: 2rem; border-left: 4px solid #3b82f6;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; flex-wrap: wrap; gap: 10px;">
+              <div>
+                <h3 style="font-family:'Outfit',sans-serif;font-size:1.3rem; margin: 0 0 4px; display: flex; align-items: center; gap: 8px;">
+                  <i class="fa-solid fa-brain" style="color: #3b82f6;"></i> Inteligência Artificial Global (Google Gemini)
+                </h3>
+                <p style="color:var(--text-muted);font-size:0.85rem;margin: 0;">
+                  Defina a Chave Master da plataforma e como a IA opera para todos os restaurantes contratantes.
+                </p>
+              </div>
+              <span id="super-ia-status-badge" style="background: rgba(59, 130, 246, 0.1); color: #3b82f6; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 700;">
+                Modo Híbrido Ativo
+              </span>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group" style="flex: 2;">
+                <label for="cfg-ia-global-key">Chave Global Master (Gemini API Key)</label>
+                <div style="display: flex; gap: 8px;">
+                  <input type="password" id="cfg-ia-global-key" placeholder="AIzaSy... (Chave da plataforma para atender restaurantes sem chave)">
+                  <button type="button" class="btn-action" onclick="window.toggleShowSuperIaKey()" style="padding: 0 12px;" title="Mostrar/Ocultar">
+                    <i id="super-ia-key-icon" class="fa-solid fa-eye"></i>
+                  </button>
+                </div>
+              </div>
+              <div class="form-group" style="flex: 1;">
+                <label for="cfg-ia-global-model">Modelo Gemini Padrão</label>
+                <select id="cfg-ia-global-model">
+                  <option value="gemini-2.5-flash" selected>Gemini 2.5 Flash (Ultra Rápido)</option>
+                  <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+                  <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="cfg-ia-global-mode">Modo de Operação de IA para os Restaurantes</label>
+              <select id="cfg-ia-global-mode">
+                <option value="hibrido" selected>⭐ Modo Híbrido Inteligente (Recomendado: se o restaurante tiver chave usa a dele; se não, usa a Chave Global Master)</option>
+                <option value="global">🌐 SaaS Total (Todos os restaurantes usam a Chave Global Master da plataforma)</option>
+                <option value="propria">🔑 Apenas Chaves Próprias (Cada restaurante deve cadastrar sua própria chave)</option>
+                <option value="desativado">🚫 IA Desativada Globalmente</option>
+              </select>
+            </div>
+
+            <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 1.2rem; align-items: center;">
+              <button class="btn-login form-submit" id="btn-save-ia-global" type="button" style="margin: 0;">
+                <i class="fa-solid fa-floppy-disk"></i><span>Salvar Configuração Global de IA</span>
+              </button>
+              <button class="btn-action" id="btn-test-ia-global" type="button" onclick="window.testarSuperIaGlobal()" style="margin: 0; padding: 10px 18px;">
+                <i class="fa-solid fa-plug"></i><span>Testar Chave Global</span>
+              </button>
+              <span id="super-ia-test-feedback" style="font-size: 0.85rem; font-weight: 600; margin-left: 8px;"></span>
+            </div>
+          </div>
+
+
         <!-- ════ SEÇÃO: FUNÇÕES POR TENANT ════ -->
         <div class="content-section" id="sec-funcoes">
           <div class="info-banner">

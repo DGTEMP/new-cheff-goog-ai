@@ -1297,7 +1297,7 @@ function renderBillItemsList() {
             <div style="font-weight:600; color:#333;">${item.quantity}x ${item.productEmoji || '🍽️'} ${item.productName} ${isPaid ? '<span style="color:#3ab55b; font-size:12px; margin-left:8px;">(Pago)</span>' : ''}</div>
             <div style="font-size:14px; color:#666;">Total: R$ ${finalVal.toFixed(2).replace('.',',')}</div>
           </div>
-          ${!isPaid ? `<button class="btn-split-item ${fraction === 0.5 ? 'active' : ''}" onclick="event.stopPropagation(); splitItemFraction(${item.id})">
+          ${!isPaid ? `<button class="btn-split-item" title="Dividir / Fracionar em Comandas" onclick="event.stopPropagation(); window.abrirModalFracionarItem(${item.id})"><i class="ph-bold ph-scissors"></i> Dividir</button> <button style="display:none;" class="btn-split-item-old ${fraction === 0.5 ? 'active' : ''}" onclick="event.stopPropagation(); splitItemFraction(${item.id})">
             ${fraction === 0.5 ? 'Metade' : 'Rachar Meio'}
           </button>` : ''}
         </div>
@@ -3371,4 +3371,238 @@ window.lancarItemRapidoDireto = function(prodId, qtd = 1) {
   setTimeout(() => {
     socket.emit('get_itens_mesa', currentTable);
   }, 200);
+};
+
+
+// ─── MODAL DE DIVISÃO / FRACIONAMENTO DE ITENS NA COMANDA MOBILE ───
+window._itemEmFracionamento = null;
+
+window.abrirModalFracionarItem = function (itemId) {
+  const item = billItems.find(i => i.id === itemId);
+  if (!item) return;
+
+  window._itemEmFracionamento = item;
+
+  let modal = document.getElementById('modal-fracionar-item-mobile');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'modal-fracionar-item-mobile';
+    modal.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,0.85); backdrop-filter:blur(8px); z-index:999999; display:flex; align-items:flex-end; justify-content:center; padding:0;';
+    document.body.appendChild(modal);
+  }
+
+  const multiplier = typeof getBillMultiplier === 'function' ? getBillMultiplier() : 1.0;
+  const valorTotal = (parseFloat(String(item.total).replace(',', '.')) || 0) * multiplier;
+
+  modal.innerHTML = `
+    <div style="background:#ffffff; border-top-left-radius:24px; border-top-right-radius:24px; max-width:500px; width:100%; padding:20px; color:#1e293b; box-shadow:0 -10px 40px rgba(0,0,0,0.3); max-height:85vh; overflow-y:auto; animation:slideUp 0.3s ease;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; border-bottom:1px solid #e2e8f0; padding-bottom:12px;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <div style="width:36px; height:36px; border-radius:10px; background:#fff7ed; color:#fc4b15; display:flex; align-items:center; justify-content:center; font-size:18px;">
+            <i class="ph-bold ph-scissors"></i>
+          </div>
+          <div>
+            <h4 style="margin:0; font-size:16px; font-weight:800; color:#0f172a;">Dividir / Fracionar Item</h4>
+            <span style="font-size:12px; color:#64748b;">${item.productEmoji || '🍽️'} ${item.productName} (R$ ${valorTotal.toFixed(2).replace('.', ',')})</span>
+          </div>
+        </div>
+        <button onclick="document.getElementById('modal-fracionar-item-mobile').style.display='none'" style="background:#f1f5f9; border:none; width:32px; height:32px; border-radius:50%; color:#64748b; font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center;">&times;</button>
+      </div>
+
+      <div style="margin-bottom:16px;">
+        <label style="font-size:12.5px; font-weight:700; color:#475569; display:block; margin-bottom:8px;">Escolha a quantidade de frações:</label>
+        <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:8px;">
+          <button type="button" onclick="window._gerarFracoesItem(2)" style="background:#fc4b15; color:white; border:none; padding:10px; border-radius:10px; font-weight:700; font-size:13px; cursor:pointer;">
+            1/2 (2 Partes)
+          </button>
+          <button type="button" onclick="window._gerarFracoesItem(3)" style="background:#f8fafc; color:#334155; border:1px solid #cbd5e1; padding:10px; border-radius:10px; font-weight:700; font-size:13px; cursor:pointer;">
+            1/3 (3 Partes)
+          </button>
+          <button type="button" onclick="window._gerarFracoesItem(4)" style="background:#f8fafc; color:#334155; border:1px solid #cbd5e1; padding:10px; border-radius:10px; font-weight:700; font-size:13px; cursor:pointer;">
+            1/4 (4 Partes)
+          </button>
+        </div>
+      </div>
+
+      <div id="lista-fracoes-container" style="display:flex; flex-direction:column; gap:10px; margin-bottom:20px;">
+        <!-- Injetado dinamicamente -->
+      </div>
+
+      <div style="display:flex; gap:10px;">
+        <button type="button" onclick="window._confirmarFracionamentoItem()" style="flex:1; background:#10b981; color:white; border:none; padding:14px; border-radius:12px; font-weight:800; font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px;">
+          <i class="ph-bold ph-check"></i> Salvar Divisão nas Comandas
+        </button>
+      </div>
+    </div>
+  `;
+
+  modal.style.display = 'flex';
+  window._gerarFracoesItem(2);
+};
+
+window._gerarFracoesItem = function (qtd) {
+  const item = window._itemEmFracionamento;
+  if (!item) return;
+
+  const multiplier = typeof getBillMultiplier === 'function' ? getBillMultiplier() : 1.0;
+  const valorTotal = (parseFloat(String(item.total).replace(',', '.')) || 0) * multiplier;
+  const valorPorParte = valorTotal / qtd;
+  const comandasDisponiveis = window.activeComandas || [];
+
+  let html = '';
+  for (let i = 1; i <= qtd; i++) {
+    const fracaoTxt = '1/' + qtd;
+    html += `
+      <div style="background:#f8fafc; border:1.5px solid #e2e8f0; border-radius:12px; padding:12px; display:flex; flex-direction:column; gap:8px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-weight:800; font-size:13px; color:#0f172a; display:flex; align-items:center; gap:6px;">
+            <span style="background:#fc4b15; color:white; font-size:10px; padding:2px 6px; border-radius:6px;">${fracaoTxt}</span>
+            Parte ${i}
+          </span>
+          <span style="font-weight:800; font-size:14px; color:#10b981;">R$ ${valorPorParte.toFixed(2).replace('.', ',')}</span>
+        </div>
+
+        <div style="display:flex; gap:6px; align-items:center;">
+          <select class="select-comanda-fracao" data-fracao="${fracaoTxt}" data-valor="${valorPorParte}" style="flex:1; padding:8px 10px; border-radius:8px; border:1px solid #cbd5e1; font-size:12.5px; background:white; outline:none;">
+            <option value="">👤 Consumo Geral da Mesa</option>
+            ${comandasDisponiveis.map(c => `<option value="${c}">👤 Comanda: ${c}</option>`).join('')}
+            <option value="__nova__">➕ Criar Nova Comanda...</option>
+          </select>
+
+          <button type="button" onclick="window._pagarFracaoDiretoMobile(${item.id}, ${valorPorParte}, '${fracaoTxt}')" style="background:#e0f2fe; border:1px solid #bae6fd; color:#0369a1; padding:8px 12px; border-radius:8px; font-weight:700; font-size:12px; cursor:pointer; display:flex; align-items:center; gap:4px; white-space:nowrap;">
+            <i class="ph-bold ph-credit-card"></i> Pagar Fração
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  const container = document.getElementById('lista-fracoes-container');
+  if (container) container.innerHTML = html;
+};
+
+window._confirmarFracionamentoItem = function () {
+  const item = window._itemEmFracionamento;
+  if (!item) return;
+
+  const selects = document.querySelectorAll('.select-comanda-fracao');
+  const fracoes = [];
+
+  selects.forEach((sel) => {
+    let comanda = sel.value;
+    if (comanda === '__nova__') {
+      const nova = prompt('Digite o nome da nova comanda para esta fração:');
+      comanda = nova && nova.trim() ? nova.trim() : null;
+    }
+    fracoes.push({
+      fracao: sel.dataset.fracao,
+      valor: parseFloat(sel.dataset.valor) || 0,
+      comanda: comanda
+    });
+  });
+
+  socket.emit('dividir_item_fracoes', {
+    itemId: item.id,
+    fracoes: fracoes,
+    mesaName: currentTable,
+    operador: typeof garcomOperador === 'function' ? garcomOperador() : 'Garçom'
+  });
+
+  const modal = document.getElementById('modal-fracionar-item-mobile');
+  if (modal) modal.style.display = 'none';
+  if (typeof showToast === 'function') showToast('✂️ Item fracionado com sucesso!', 'success');
+};
+
+window._pagarFracaoDiretoMobile = function (itemId, valor, fracaoTxt) {
+  const metodo = prompt('Selecione o método de pagamento:\n1 - Dinheiro\n2 - Cartão de Crédito\n3 - Cartão de Débito\n4 - PIX', '1');
+  if (!metodo) return;
+
+  let metodoStr = 'Dinheiro';
+  if (metodo === '2' || metodo.toLowerCase().includes('crédito') || metodo.toLowerCase().includes('credito')) metodoStr = 'Cartão de Crédito';
+  else if (metodo === '3' || metodo.toLowerCase().includes('débito') || metodo.toLowerCase().includes('debito')) metodoStr = 'Cartão de Débito';
+  else if (metodo === '4' || metodo.toLowerCase().includes('pix')) metodoStr = 'PIX';
+
+  socket.emit('pagar_fracao_item_garcom', {
+    itemId: itemId,
+    valor: valor,
+    metodo: metodoStr,
+    mesaName: currentTable,
+    operador: typeof garcomOperador === 'function' ? garcomOperador() : 'Garçom'
+  });
+
+  const modal = document.getElementById('modal-fracionar-item-mobile');
+  if (modal) modal.style.display = 'none';
+  if (typeof showToast === 'function') showToast(`💳 Pagamento de ${fracaoTxt} (${metodoStr}) registrado!`, 'success');
+};
+
+
+// ─── GERENCIAMENTO DE ORDENAÇÃO E LAYOUT DE MESAS (GARÇOM MOBILE) ───
+window.mudarOrdenacaoMesas = function (tipo) {
+  try { localStorage.setItem('garcom_mesa_sort', tipo); } catch(e){}
+  renderTables();
+};
+
+window.mudarLayoutMesas = function (layout) {
+  try { localStorage.setItem('garcom_mesa_layout', layout); } catch(e){}
+  
+  document.querySelectorAll('.btn-layout-mesa').forEach(b => {
+    b.classList.remove('active');
+    b.style.background = 'transparent';
+    b.style.color = 'var(--text-secondary, #64748b)';
+  });
+
+  const btnAtivo = document.getElementById('btn-layout-' + layout);
+  if (btnAtivo) {
+    btnAtivo.classList.add('active');
+    btnAtivo.style.background = '#fc4b15';
+    btnAtivo.style.color = '#ffffff';
+  }
+
+  const grid = document.getElementById('tables-grid');
+  if (grid) {
+    grid.className = '';
+    if (layout === 'grid-3') {
+      grid.style.gridTemplateColumns = 'repeat(3, 1fr)';
+    } else if (layout === 'list') {
+      grid.style.gridTemplateColumns = '1fr';
+    } else {
+      grid.style.gridTemplateColumns = 'repeat(2, 1fr)';
+    }
+  }
+};
+
+window.mostrarQrMesaCliente = function () {
+  const mesaNome = currentTable || 'Mesa';
+  const modal = document.getElementById('modal-qr-mesa-cliente');
+  const titleEl = document.getElementById('modal-qr-mesa-title');
+  const containerEl = document.getElementById('modal-qr-mesa-code-container');
+
+  if (titleEl) titleEl.innerText = mesaNome;
+  
+  const clienteUrl = window.location.origin + '/conta-cliente.html?mesa=' + encodeURIComponent(mesaNome);
+  window._clienteUrlAtual = clienteUrl;
+
+  if (containerEl) {
+    containerEl.innerHTML = '';
+    if (typeof qrcode !== 'undefined') {
+      try {
+        const qr = qrcode(0, 'M');
+        qr.addData(clienteUrl);
+        qr.make();
+        containerEl.innerHTML = qr.createImgTag(5, 8);
+      } catch(e) {
+        containerEl.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(clienteUrl)}" style="width:180px;height:180px;" alt="QR Code">`;
+      }
+    } else {
+      containerEl.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(clienteUrl)}" style="width:180px;height:180px;" alt="QR Code">`;
+    }
+  }
+
+  if (modal) modal.style.display = 'flex';
+};
+
+window.abrirLinkClienteDireto = function () {
+  if (window._clienteUrlAtual) {
+    window.open(window._clienteUrlAtual, '_blank');
+  }
 };

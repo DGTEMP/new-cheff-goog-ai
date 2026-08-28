@@ -24,11 +24,11 @@ module.exports = function(socket, io, db, helpers) {
   //  - Garçom/demais: deve informar a senha de um caixa, admin ou gerente.
   function socketEhAdminOuGerente(sock) {
     if (!sock) return false;
-    if (sock.isAdminToken) return true;
-    const jwtRole = String(sock.jwtRole || '').toLowerCase();
-    if (['admin', 'administrador', 'gerente'].includes(jwtRole)) return true;
-    const cargo = String(sock.funcionarioCargo || '');
-    return ['Admin', 'Administrador', 'adm', 'Gerente'].includes(cargo);
+    if (sock.isAdminToken || sock.auth?.is_dono) return true;
+    const jwtRole = String(sock.jwtRole || sock.auth?.role || '').toLowerCase();
+    if (['admin', 'administrador', 'gerente', 'dono', 'proprietario', 'master'].includes(jwtRole)) return true;
+    const cargo = String(sock.funcionarioCargo || sock.auth?.cargo || '').toLowerCase();
+    return ['admin', 'administrador', 'adm', 'gerente', 'dono', 'master', 'dono / gerente master'].some(c => cargo.includes(c));
   }
 
   function getFuncionarioPorId(id) {

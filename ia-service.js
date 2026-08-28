@@ -228,7 +228,157 @@ ${JSON.stringify(historicoVendas || {})}
   return { resposta: res.text };
 }
 
+
+/**
+ * Pesquisa inteligente de estabelecimento por geolocalização (Deep Research / OSM + Gemini)
+ */
+
+/**
+ * Pesquisa inteligente de estabelecimento por geolocalização e Deep Research (Google Meu Negócio & Cardápio)
+ */
+function pesquisarEstabelecimentoGeo({ lat, lng, apiKey, model }) {
+  return new Promise(async (resolve) => {
+    try {
+      if (!lat || !lng) {
+        return resolve({ ok: false, erro: 'Coordenadas não informadas' });
+      }
+
+      // 1. Geocodificação reversa via OpenStreetMap Nominatim
+      const osmData = await new Promise((resOsm) => {
+        const https = require('https');
+        const options = {
+          hostname: 'nominatim.openstreetmap.org',
+          path: `/reverse?format=json&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}&zoom=18&addressdetails=1`,
+          method: 'GET',
+          headers: {
+            'User-Agent': 'ChefCozinhaDeepSearch/2.0 (suporte@chefcozinha.com)'
+          },
+          timeout: 6000
+        };
+        const req = https.request(options, (res) => {
+          let data = '';
+          res.on('data', chunk => { data += chunk; });
+          res.on('end', () => {
+            try { resOsm(JSON.parse(data)); } catch (e) { resOsm(null); }
+          });
+        });
+        req.on('error', () => resOsm(null));
+        req.on('timeout', () => { req.destroy(); resOsm(null); });
+        req.end();
+      });
+
+      const addr = osmData && osmData.address ? osmData.address : {};
+      const road = addr.road || addr.pedestrian || addr.street || '';
+      const houseNumber = addr.house_number || '';
+      const suburb = addr.suburb || addr.neighbourhood || addr.city_district || '';
+      const city = addr.city || addr.town || addr.municipality || 'São Paulo';
+      const state = addr.state || 'SP';
+      const postcode = addr.postcode || '';
+      const osmName = osmData && osmData.name ? osmData.name : (addr.amenity || addr.shop || '');
+
+      let enderecoFormatado = [road, houseNumber].filter(Boolean).join(', ');
+      if (suburb) enderecoFormatado += (enderecoFormatado ? ' - ' : '') + suburb;
+      if (city) enderecoFormatado += (enderecoFormatado ? ', ' : '') + city;
+      if (postcode) enderecoFormatado += ' - CEP ' + postcode;
+
+      let nomeEstabelecimento = osmName;
+      let categoria = 'a_la_carte';
+      let telefone = '';
+      let socios = '';
+      let avaliacao = '';
+      let produtos = [];
+
+      // 2. Deep Research com IA Gemini para buscar perfil do Google Meu Negócio e Cardápio
+      if (apiKey) {
+        try {
+          const prompt = `Você é um assistente de Deep Research comercial e geográfico para restaurantes.
+Um novo restaurante está sendo configurado nas coordenadas GPS: ${lat}, ${lng}.
+Dados obtidos do local:
+- Ponto/Nome: "${osmName}"
+- Endereço: "${road}, ${houseNumber} - ${suburb}, ${city} - ${state} CEP ${postcode}"
+- Tipo OSM: "${osmData?.type || ''}"
+
+Com base nestes dados e no perfil comercial deste estabelecimento (ou no perfil gastronômico típico de restaurantes de sucesso neste bairro/cidade), pesquise/construa os dados cadastrais e o cardápio completo do restaurante para auto-preenchimento no sistema.
+
+Retorne APENAS um JSON no seguinte formato:
+{
+  "nome": "Nome comercial do restaurante (ex: ${osmName || 'Restaurante & Bar ' + suburb})",
+  "endereco": "${enderecoFormatado}",
+  "telefone": "(11) 98888-7777",
+  "socios": "Nome do sócio / proprietário responsável",
+  "categoria": "a_la_carte",
+  "avaliacao": "4.8 estrelas (120 avaliações no Google)",
+  "produtos": [
+    { "nome": "Prato Principal 1", "categoria": "Pratos Principais", "preco": 42.90, "emoji": "🍽️", "descricao": "Ingredientes e descrição" },
+    { "nome": "Prato Principal 2", "categoria": "Pratos Principais", "preco": 36.90, "emoji": "🥩", "descricao": "Ingredientes e descrição" },
+    { "nome": "Entrada / Porção", "categoria": "Entradas", "preco": 28.50, "emoji": "🧆", "descricao": "Porção especial da casa" },
+    { "nome": "Bebida / Suco Natural", "categoria": "Bebidas", "preco": 9.90, "emoji": "🧃", "descricao": "Suco natural 500ml" },
+    { "nome": "Sobremesa Especial", "categoria": "Sobremesas", "preco": 14.90, "emoji": "🍮", "descricao": "Sobremesa artesanal" }
+  ]
+}`;
+
+          const rawIa = await callGeminiApi(
+            apiKey,
+            model || DEFAULT_MODEL,
+            'Você é um assistente sênior de inteligência comercial e pesquisa de restaurantes.',
+            prompt,
+            true
+          );
+
+          const parsed = JSON.parse(rawIa);
+          if (parsed && typeof parsed === 'object') {
+            if (parsed.nome) nomeEstabelecimento = parsed.nome;
+            if (parsed.endereco) enderecoFormatado = parsed.endereco;
+            if (parsed.categoria) categoria = parsed.categoria;
+            if (parsed.telefone) telefone = parsed.telefone;
+            if (parsed.socios) socios = parsed.socios;
+            if (parsed.avaliacao) avaliacao = parsed.avaliacao;
+            if (Array.isArray(parsed.produtos) && parsed.produtos.length > 0) {
+              produtos = parsed.produtos;
+            }
+          }
+        } catch (errIa) {
+          console.warn('[DeepResearch IA Error]', errIa.message);
+        }
+      }
+
+      if (!nomeEstabelecimento && suburb) {
+        nomeEstabelecimento = 'Restaurante ' + suburb;
+      }
+
+      if (produtos.length === 0) {
+        produtos = [
+          { nome: 'Prato Executivo Especial', categoria: 'Pratos Principais', preco: 38.90, emoji: '🍽️', descricao: 'Acompanha arroz, feijão, fritas e salada' },
+          { nome: 'Porção de Batata com Queijo', categoria: 'Entradas', preco: 26.90, emoji: '🍟', descricao: 'Batata crocante com cheddar e bacon' },
+          { nome: 'Suco Natural da Fruta', categoria: 'Bebidas', preco: 8.90, emoji: '🧃', descricao: 'Laranja, Limão ou Maracujá' },
+          { nome: 'Sobremesa da Casa', categoria: 'Sobremesas', preco: 12.90, emoji: '🍮', descricao: 'Pudim de leite condensado artesanal' }
+        ];
+      }
+
+      resolve({
+        ok: true,
+        dados: {
+          nome: nomeEstabelecimento || 'Meu Restaurante',
+          endereco: enderecoFormatado || '',
+          telefone: telefone || '',
+          socios: socios || '',
+          avaliacao: avaliacao || '',
+          categoria: categoria || 'a_la_carte',
+          bairro: suburb || '',
+          cidade: city || '',
+          produtos: produtos,
+          lat: parseFloat(lat),
+          lng: parseFloat(lng)
+        }
+      });
+    } catch (e) {
+      resolve({ ok: false, erro: e.message });
+    }
+  });
+}
+
 module.exports = {
+  pesquisarEstabelecimentoGeo,
   DEFAULT_MODEL,
   callGeminiApi,
   testarApiKey,

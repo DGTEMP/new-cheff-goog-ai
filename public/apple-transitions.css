@@ -1,0 +1,170 @@
+/**
+ * apple-transitions.css — Apple HIG (iOS Mobile & macOS Desktop Pro)
+ * 
+ * - Mobile / Tablet (< 1024px, > 4GB RAM): iOS & SwiftUI Navigation (Push/Pop, Modal Sheet)
+ * - Desktop (>= 1024px/FullHD, >= 6GB RAM): macOS Navigation (Split-View Cross-Fade, Miller Columns, Titlebar Sheets)
+ */
+
+:root {
+  --apple-spring-curve: cubic-bezier(0.32, 0.72, 0, 1);
+  --macos-fluid-curve: cubic-bezier(0.16, 1, 0.3, 1);
+  --macos-duration-fade: 200ms;
+  --macos-duration-sheet: 280ms;
+  --macos-duration-column: 320ms;
+  --apple-duration-push: 380ms;
+  --apple-duration-modal: 420ms;
+  --apple-duration-quick: 240ms;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   1. MODO MACOS DESKTOP PRO (>= 6GB RAM & TELAS FULLHD / DESKTOP)
+   ══════════════════════════════════════════════════════════════ */
+
+/* A. Navegação Plana (Split-View & Sidebar Cross-Fade) */
+html.macos-pro-motion .macos-crossfade-enter {
+  animation: macosCrossFade var(--macos-duration-fade) var(--macos-fluid-curve) forwards !important;
+  will-change: opacity, transform;
+}
+
+@keyframes macosCrossFade {
+  0% { opacity: 0; transform: scale(0.995); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* B. Revelação Lateral / Miller Columns (Navegação Hierárquica sem perder contexto) */
+html.macos-pro-motion .macos-column-reveal-enter {
+  animation: macosColumnReveal var(--macos-duration-column) var(--macos-fluid-curve) forwards !important;
+  will-change: transform, opacity, width;
+}
+
+@keyframes macosColumnReveal {
+  0% { opacity: 0; transform: translate3d(24px, 0, 0); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+/* C. Fichas Suspensas da Barra de Título (Window Attached Sheets) */
+html.macos-pro-motion .macos-window-sheet {
+  animation: macosSheetAttach var(--macos-duration-sheet) var(--macos-fluid-curve) forwards !important;
+  transform-origin: top center;
+  border-radius: 12px !important;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.1) !important;
+  backdrop-filter: blur(20px) !important;
+}
+
+@keyframes macosSheetAttach {
+  0% { opacity: 0; transform: translate3d(0, -20px, 0) scale(0.97); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+
+@keyframes macosSheetDetach {
+  0% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+  100% { opacity: 0; transform: translate3d(0, -16px, 0) scale(0.97); }
+}
+
+/* D. Diálogos e Alertas Centrais macOS */
+html.macos-pro-motion .macos-alert-dialog {
+  animation: macosDialogPop var(--macos-duration-sheet) var(--macos-fluid-curve) forwards !important;
+  border-radius: 14px !important;
+  box-shadow: 0 25px 70px rgba(0, 0, 0, 0.4) !important;
+}
+
+@keyframes macosDialogPop {
+  0% { opacity: 0; transform: scale(0.92); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* E. Persistência de Sidebar macOS */
+html.macos-pro-motion .sidebar-nav-item {
+  transition: background-color 150ms ease, color 150ms ease, transform 150ms ease;
+}
+
+html.macos-pro-motion .sidebar-nav-item:active {
+  transform: scale(0.98);
+}
+
+
+/* ══════════════════════════════════════════════════════════════
+   2. MODO IOS MOBILE / TABLET (Telas Menores / Push-Pop / Sheets)
+   ══════════════════════════════════════════════════════════════ */
+
+html.ios-fluid-motion:not(.macos-pro-motion) .ios-view-push-enter {
+  animation: iosPushEnter var(--apple-duration-push) var(--apple-spring-curve) forwards !important;
+  will-change: transform, opacity;
+  box-shadow: -10px 0 30px rgba(0, 0, 0, 0.15);
+  z-index: 20;
+}
+
+html.ios-fluid-motion:not(.macos-pro-motion) .ios-view-push-exit {
+  animation: iosPushExit var(--apple-duration-push) var(--apple-spring-curve) forwards !important;
+  will-change: transform, opacity, filter;
+  z-index: 10;
+}
+
+html.ios-fluid-motion:not(.macos-pro-motion) .ios-view-pop-enter {
+  animation: iosPopEnter var(--apple-duration-push) var(--apple-spring-curve) forwards !important;
+  will-change: transform, opacity;
+  z-index: 10;
+}
+
+html.ios-fluid-motion:not(.macos-pro-motion) .ios-view-pop-exit {
+  animation: iosPopExit var(--apple-duration-push) var(--apple-spring-curve) forwards !important;
+  will-change: transform, opacity;
+  box-shadow: -10px 0 30px rgba(0, 0, 0, 0.15);
+  z-index: 20;
+}
+
+@keyframes iosPushEnter {
+  0% { transform: translate3d(100%, 0, 0); }
+  100% { transform: translate3d(0, 0, 0); }
+}
+
+@keyframes iosPushExit {
+  0% { transform: translate3d(0, 0, 0) scale(1); opacity: 1; filter: brightness(1); }
+  100% { transform: translate3d(-24%, 0, 0) scale(0.96); opacity: 0.85; filter: brightness(0.85); }
+}
+
+@keyframes iosPopEnter {
+  0% { transform: translate3d(-24%, 0, 0) scale(0.96); opacity: 0.85; filter: brightness(0.85); }
+  100% { transform: translate3d(0, 0, 0) scale(1); opacity: 1; filter: brightness(1); }
+}
+
+@keyframes iosPopExit {
+  0% { transform: translate3d(0, 0, 0); }
+  100% { transform: translate3d(100%, 0, 0); }
+}
+
+html.ios-fluid-motion:not(.macos-pro-motion) .ios-sheet-card {
+  animation: iosSheetEnter var(--apple-duration-modal) var(--apple-spring-curve) forwards !important;
+  will-change: transform, opacity;
+  border-top-left-radius: 22px !important;
+  border-top-right-radius: 22px !important;
+  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.25) !important;
+}
+
+html.ios-fluid-motion:not(.macos-pro-motion) .ios-sheet-backdrop-active {
+  transition: transform var(--apple-duration-modal) var(--apple-spring-curve), border-radius var(--apple-duration-modal) var(--apple-spring-curve), filter var(--apple-duration-modal) var(--apple-spring-curve);
+  transform: scale(0.94) translateY(8px) !important;
+  border-radius: 18px !important;
+  filter: brightness(0.85) !important;
+  overflow: hidden !important;
+}
+
+@keyframes iosSheetEnter {
+  0% { transform: translate3d(0, 100%, 0); }
+  100% { transform: translate3d(0, 0, 0); }
+}
+
+@keyframes iosSheetExit {
+  0% { transform: translate3d(0, 0, 0); }
+  100% { transform: translate3d(0, 100%, 0); }
+}
+
+.hero-transition-ghost {
+  position: fixed;
+  z-index: 999999;
+  pointer-events: none;
+  transition: all var(--apple-duration-modal) var(--apple-spring-curve);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.3);
+  border-radius: 16px;
+  overflow: hidden;
+}

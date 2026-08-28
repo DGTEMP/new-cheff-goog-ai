@@ -8442,3 +8442,187 @@ initSuperAdminSockets = function () {
     } catch(e) {}
   }
 })();
+
+
+// ─── CONTROLE DO VITE DEV SERVER (SUPER-ADMIN) ───
+window.atualizarStatusViteDevServer = function () {
+  fetch('/api/super/vite/status')
+    .then(r => r.json())
+    .then(data => {
+      const badge = document.getElementById('badge-vite-status');
+      const inputPort = document.getElementById('input-super-vite-port');
+      const linkOpen = document.getElementById('link-super-vite-open');
+
+      if (inputPort && data.port) inputPort.value = data.port;
+      if (linkOpen && data.url) linkOpen.href = data.url;
+
+      if (badge) {
+        if (data.running) {
+          badge.innerHTML = `<span style="color:#10b981;">●</span> Rodando na porta ${data.port}`;
+          badge.style.background = 'rgba(16,185,129,0.12)';
+          badge.style.color = '#065f46';
+        } else {
+          badge.innerHTML = `<span style="color:#ef4444;">●</span> Desligado / Parado`;
+          badge.style.background = 'rgba(239,68,68,0.12)';
+          badge.style.color = '#991b1b';
+        }
+      }
+    })
+    .catch(() => {});
+};
+
+window.controlarViteDevServer = function (action) {
+  const port = document.getElementById('input-super-vite-port') ? document.getElementById('input-super-vite-port').value : 5173;
+  if (typeof showToast === 'function') showToast('Processando comando do Vite...', 'info');
+
+  fetch('/api/super/vite/control', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: action, port: parseInt(port) || 5173 })
+  })
+    .then(r => r.json())
+    .then(res => {
+      if (res.ok) {
+        if (typeof showToast === 'function') showToast(res.message || 'Comando executado com sucesso!', 'success');
+        setTimeout(window.atualizarStatusViteDevServer, 1200);
+      } else {
+        if (typeof showToast === 'function') showToast('Erro: ' + (res.error || 'Falha ao controlar Vite'), 'danger');
+      }
+    })
+    .catch(err => {
+      if (typeof showToast === 'function') showToast('Erro de comunicação: ' + err.message, 'danger');
+    });
+};
+
+setInterval(window.atualizarStatusViteDevServer, 5000);
+setTimeout(window.atualizarStatusViteDevServer, 1000);
+
+
+// ─── MOTOR DE MAPA DE CALOR & TELEMETRIA DE CLIQUES (SUPER-ADMIN) ───
+window.carregarMetricasHeatmap = function () {
+  const restSelect = document.getElementById('filtro-heatmap-restaurante');
+  const colabSelect = document.getElementById('filtro-heatmap-colaborador');
+  const periodoSelect = document.getElementById('filtro-heatmap-periodo');
+
+  const restId = restSelect ? restSelect.value : 'todos';
+  const colab = colabSelect ? colabSelect.value : 'todos';
+  const periodo = periodoSelect ? periodoSelect.value : '7dias';
+
+  fetch(`/api/super/metricas/heatmap-clicks?restaurante_id=${encodeURIComponent(restId)}&colaborador=${encodeURIComponent(colab)}&periodo=${encodeURIComponent(periodo)}`)
+    .then(r => r.json())
+    .then(data => {
+      if (!data || !data.ok) return;
+
+      // 1. Atualizar KPIs
+      const stats = data.stats || {};
+      const kpiCliques = document.getElementById('kpi-total-cliques');
+      const kpiTempo = document.getElementById('kpi-tempo-medio');
+      const kpiColabs = document.getElementById('kpi-total-colaboradores');
+      const kpiRests = document.getElementById('kpi-total-restaurantes');
+
+      if (kpiCliques) kpiCliques.innerText = Number(stats.total_cliques || 0).toLocaleString();
+      if (kpiTempo) {
+        const seg = ((stats.media_tempo_ms || 0) / 1000).toFixed(1);
+        kpiTempo.innerText = seg + 's';
+      }
+      if (kpiColabs) kpiColabs.innerText = Number(stats.total_colaboradores || 0).toLocaleString();
+      if (kpiRests) kpiRests.innerText = Number(stats.total_restaurantes || 0).toLocaleString();
+
+      // 2. Preencher Selects de Filtros (se vazios)
+      if (restSelect && restSelect.children.length <= 1 && data.restaurantes) {
+        data.restaurantes.forEach(r => {
+          const opt = document.createElement('option');
+          opt.value = r.restaurante_id;
+          opt.innerText = '🏢 ' + (r.restaurante_nome || ('Restaurante ' + r.restaurante_id));
+          restSelect.appendChild(opt);
+        });
+      }
+
+      if (colabSelect && colabSelect.children.length <= 1 && data.colaboradores) {
+        data.colaboradores.forEach(c => {
+          const opt = document.createElement('option');
+          opt.value = c.colaborador_nome;
+          opt.innerText = '👤 ' + c.colaborador_nome + (c.colaborador_cargo ? (' (' + c.colaborador_cargo + ')') : '');
+          colabSelect.appendChild(opt);
+        });
+      }
+
+      // 3. Renderizar Pontos no Canvas do Heatmap
+      const layer = document.getElementById('heatmap-points-layer');
+      if (layer) {
+        layer.innerHTML = '';
+        const points = data.heatmapPoints || [];
+        const maxPeso = points.reduce((m, p) => Math.max(m, p.peso || 1), 1);
+
+        points.forEach(p => {
+          const dot = document.createElement('div');
+          const intensity = Math.min((p.peso / maxPeso), 1);
+          const size = 18 + Math.round(intensity * 32);
+
+          let cor = 'rgba(59, 130, 246, 0.4)'; // Azul (baixa)
+          if (intensity > 0.6) cor = 'rgba(239, 68, 68, 0.85)'; // Vermelho (alta)
+          else if (intensity > 0.3) cor = 'rgba(245, 158, 11, 0.7)'; // Amarelo (média)
+
+          dot.style.position = 'absolute';
+          dot.style.left = p.x + '%';
+          dot.style.top = p.y + '%';
+          dot.style.width = size + 'px';
+          dot.style.height = size + 'px';
+          dot.style.borderRadius = '50%';
+          dot.style.background = cor;
+          dot.style.filter = 'blur(' + Math.round(size / 3) + 'px)';
+          dot.style.transform = 'translate(-50%, -50%)';
+          dot.style.pointerEvents = 'none';
+          layer.appendChild(dot);
+        });
+      }
+
+      // 4. Renderizar Ranking de Funções
+      const rankingContainer = document.getElementById('ranking-funcoes-lista');
+      if (rankingContainer) {
+        rankingContainer.innerHTML = '';
+        const funcs = data.topFuncoes || [];
+        if (funcs.length === 0) {
+          rankingContainer.innerHTML = '<p style="text-align:center; color:#94a3b8; font-size:13px; margin:30px 0;">Nenhum clique registrado no período selecionado.</p>';
+          return;
+        }
+
+        const maxCliques = funcs[0].cliques || 1;
+        funcs.forEach((f, idx) => {
+          const pct = Math.round((f.cliques / maxCliques) * 100);
+          const row = document.createElement('div');
+          row.style.background = '#f8fafc';
+          row.style.borderRadius = '10px';
+          row.style.padding = '10px 12px';
+          row.style.border = '1px solid #e2e8f0';
+
+          row.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span style="width:20px; height:20px; border-radius:50%; background:#fc4b15; color:white; font-size:11px; font-weight:800; display:flex; align-items:center; justify-content:center;">${idx + 1}</span>
+                <strong style="font-size:13px; color:#0f172a;">${f.funcao_nome}</strong>
+              </div>
+              <div style="text-align:right;">
+                <strong style="font-size:13px; color:#fc4b15;">${f.cliques.toLocaleString()} cliques</strong>
+                <span style="display:block; font-size:11px; color:#64748b;">${f.colaboradores} usuários • ${f.media_segundos}s</span>
+              </div>
+            </div>
+            <div style="width:100%; height:6px; background:#e2e8f0; border-radius:3px; overflow:hidden;">
+              <div style="width:${pct}%; height:100%; background:linear-gradient(90deg, #fc4b15, #f59e0b); border-radius:3px;"></div>
+            </div>
+          `;
+          rankingContainer.appendChild(row);
+        });
+      }
+    })
+    .catch(() => {});
+};
+
+// Carregamento automático ao entrar na aba
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(() => {
+    if (typeof window.carregarMetricasHeatmap === 'function') {
+      window.carregarMetricasHeatmap();
+    }
+  }, 1500);
+});

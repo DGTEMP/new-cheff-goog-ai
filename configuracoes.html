@@ -2605,38 +2605,169 @@
             </button>
           </div>
 
+<div id="admin-tab-resolucao" class="admin-tab-content"
+        style="display:none; flex-direction:column; overflow-y:auto; padding-right: 8px;">
+        <div style="background: var(--cfg-card-bg); padding: 24px; border-radius: 14px; border: 1px solid var(--cfg-border); color: white;">
+          <h3 style="margin-top:0; color: #fc4b15; font-size: 20px; display:flex; align-items:center; gap:10px;">
+            <i class="ph ph-monitor" style="font-size: 26px;"></i> Otimização de Resolução &amp; Escala da Tela
+          </h3>
+          <p style="color: var(--cfg-text-muted); font-size: 14px; margin-bottom: 24px; line-height: 1.5;">
+            Escolha o perfil de resolução adequado ao seu monitor, notebook ou tablet. O sistema ajustará dinamicamente
+            o tamanho das tabelas, botões, ícones e fontes para maximizar o aproveitamento de tela e garantir a
+            usabilidade mais fluida possível.
+          </p>
+
+          <!-- PROFILES CARDS -->
+          <div
+            style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-bottom: 24px;">
+
+            <!-- CARD AUTO -->
+            <label class="resolucao-card" data-res="auto"
+              style="display:flex; flex-direction:column; gap:10px; padding: 18px; border-radius: 12px; background: rgba(255,255,255,0.05); border: 2px solid #3a3a4c; cursor: pointer; transition: all 0.2s;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span
+                  style="font-size: 16px; font-weight: 700; color: #fff; display:flex; align-items:center; gap:8px;">
+                  <i class="ph ph-lightning" style="color: #3b82f6;"></i> Automático (Recomendado)
+                </span>
+                <input type="radio" name="radio-resolucao" value="auto" checked
+                  style="accent-color: #fc4b15; width: 18px; height: 18px;">
+              </div>
+              <p style="font-size: 12.5px; color: #aaa; margin: 0; line-height: 1.4;">
+                Ajusta a escala de forma inteligente de acordo com o tamanho da janela e resolução nativa do
+                dispositivo.
+              </p>
+              <span
+                style="display:inline-block; font-size:11px; padding:3px 8px; background:rgba(59,130,246,0.15); color:#60a5fa; border-radius:4px; font-weight:bold; align-self:flex-start;">
+                Escala Dinâmica 100%
+              </span>
+            </label>
+
+            <!-- CARD COMPACT (1366x768) -->
+            <label class="resolucao-card" data-res="compact"
+              style="display:flex; flex-direction:column; gap:10px; padding: 18px; border-radius: 12px; background: rgba(255,255,255,0.05); border: 2px solid #3a3a4c; cursor: pointer; transition: all 0.2s;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span
+                  style="font-size: 16px; font-weight: 700; color: #fff; display:flex; align-items:center; gap:8px;">
+                  <i class="ph ph-laptop" style="color: #f59e0b;"></i> Notebooks (1366 x 768)
+                </span>
+                <input type="radio" name="radio-resolucao" value="compact"
+                  style="accent-color: #fc4b15; width: 18px; height: 18px;">
+              </div>
+              <p style="font-size: 12.5px; color: #aaa; margin: 0; line-height: 1.4;">
+                Modo compacto a 88% de zoom. Otimizado para telas menores, notebooks e monitores HD antigos sem rolagem
+                excessiva.
+              </p>
+              <span
+                style="display:inline-block; font-size:11px; padding:3px 8px; background:rgba(245,158,11,0.15); color:#fbbf24; border-radius:4px; font-weight:bold; align-self:flex-start;">
+                Escala Compacta 88%
+              </span>
+            </label>
+
+            <!-- CARD STANDARD (1920x1080) -->
+            <label class="resolucao-card" data-res="standard"
+              style="display:flex; flex-direction:column; gap:10px; padding: 18px; border-radius: 12px; background: rgba(255,255,255,0.05); border: 2px solid #3a3a4c; cursor: pointer; transition: all 0.2s;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span
+                  style="font-size: 16px; font-weight: 700; color: #fff; display:flex; align-items:center; gap:8px;">
+                  <i class="ph ph-desktop" style="color: #10b981;"></i> Full HD (1920 x 1080)
+                </span>
+                <input type="radio" name="radio-resolucao" value="standard"
+                  style="accent-color: #fc4b15; width: 18px; height: 18px;">
+              </div>
+              <p style="font-size: 12.5px; color: #aaa; margin: 0; line-height: 1.4;">
+                Escala padrão de 100%. Recomendada para a maioria dos caixas de supermercado, restaurantes e monitores
+                de mesa.
+              </p>
+              <span
+                style="display:inline-block; font-size:11px; padding:3px 8px; background:rgba(16,185,129,0.15); color:#34d399; border-radius:4px; font-weight:bold; align-self:flex-start;">
+                Escala Padrão 100%
+              </span>
+            </label>
+
+            <!-- CARD LARGE (2K / 4K) -->
+            <label class="resolucao-card" data-res="large"
+              style="display:flex; flex-direction:column; gap:10px; padding: 18px; border-radius: 12px; background: rgba(255,255,255,0.05); border: 2px solid #3a3a4c; cursor: pointer; transition: all 0.2s;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span
+                  style="font-size: 16px; font-weight: 700; color: #fff; display:flex; align-items:center; gap:8px;">
+                  <i class="ph ph-television" style="color: #8b5cf6;"></i> Monitores Grandes / 4K
+                </span>
+                <input type="radio" name="radio-resolucao" value="large"
+                  style="accent-color: #fc4b15; width: 18px; height: 18px;">
+              </div>
+              <p style="font-size: 12.5px; color: #aaa; margin: 0; line-height: 1.4;">
+                Zoom ampliado a 118%. Otimizado para telas de TV na parede ou monitores grandes vistos à distância.
+              </p>
+              <span
+                style="display:inline-block; font-size:11px; padding:3px 8px; background:rgba(139,92,246,0.15); color:#a78bfa; border-radius:4px; font-weight:bold; align-self:flex-start;">
+                Escala Ampliada 118%
+              </span>
+            </label>
+
+            <!-- CARD TOUCHSCREEN -->
+            <label class="resolucao-card" data-res="touch"
+              style="display:flex; flex-direction:column; gap:10px; padding: 18px; border-radius: 12px; background: rgba(255,255,255,0.05); border: 2px solid #3a3a4c; cursor: pointer; transition: all 0.2s;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span
+                  style="font-size: 16px; font-weight: 700; color: #fff; display:flex; align-items:center; gap:8px;">
+                  <i class="ph ph-hand-tap" style="color: #ec4899;"></i> Modo Touchscreen / Tablet
+                </span>
+                <input type="radio" name="radio-resolucao" value="touch"
+                  style="accent-color: #fc4b15; width: 18px; height: 18px;">
+              </div>
+              <p style="font-size: 12.5px; color: #aaa; margin: 0; line-height: 1.4;">
+                Botões de toque gigantes, espaçamentos maiores e alta legibilidade para operação ágil com os dedos.
+              </p>
+              <span
+                style="display:inline-block; font-size:11px; padding:3px 8px; background:rgba(236,72,153,0.15); color:#f472b6; border-radius:4px; font-weight:bold; align-self:flex-start;">
+                Escala Toque 112%
+              </span>
+            </label>
+
+            <!-- CARD PERSONALIZADO -->
+            <label class="resolucao-card" data-res="custom"
+              style="display:flex; flex-direction:column; gap:10px; padding: 18px; border-radius: 12px; background: rgba(255,255,255,0.05); border: 2px solid #3a3a4c; cursor: pointer; transition: all 0.2s;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span
+                  style="font-size: 16px; font-weight: 700; color: #fff; display:flex; align-items:center; gap:8px;">
+                  <i class="ph ph-sliders-horizontal" style="color: #38bdf8;"></i> Zoom Personalizado
+                </span>
+                <input type="radio" name="radio-resolucao" value="custom"
+                  style="accent-color: #fc4b15; width: 18px; height: 18px;">
+              </div>
+              <p style="font-size: 12.5px; color: #aaa; margin: 0; line-height: 1.4;">
+                Defina manualmente a porcentagem exata de zoom ideal para seu estabelecimento.
+              </p>
+              <div style="display:flex; align-items:center; gap:10px;">
+                <input type="range" id="slider-zoom-custom" min="75" max="130" value="100"
+                  style="flex:1; accent-color:#fc4b15;">
+                <span id="label-zoom-val" style="font-size:13px; font-weight:bold; color:#fc4b15;">100%</span>
+              </div>
+            </label>
+
+          </div>
+
+          <!-- BOTÃO DE APLICAR E PREVIEW -->
+          <div
+            style="display:flex; justify-content:space-between; align-items:center; border-top: 1px solid var(--cfg-border); padding-top: 20px;">
+            <div style="font-size: 13px; color: #888;">
+              <i class="ph ph-info"></i> A configuração é aplicada instantaneamente em todas as telas e salva no
+              dispositivo.
+            </div>
+            <button onclick="window.salvarConfiguracaoResolucao()"
+              style="padding: 12px 28px; background: #3ab55b; color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: transform 0.1s;">
+              <i class="ph ph-floppy-disk"></i> Salvar e Aplicar Resolução
+            </button>
+          </div>
+
         </div>
       </div>
 
       <!-- TAB GERAIS -->
 
-<div id="admin-tab-gerais" class="admin-tab-content" style="display:none; flex-direction:column; overflow-y:auto; padding-right: 8px;">
-
-        <div style="background:var(--cfg-subtle-bg); padding: 20px; border-radius: 12px; border: 1px solid var(--cfg-border); margin-bottom: 20px;">
-          <h3 style="margin-top:0; color: #fc4b15;"><i class="ph ph-globe"></i> Idioma do Sistema</h3>
-          <p style="color:var(--cfg-text-muted); font-size: 14px; margin-bottom: 15px;">
-            Selecione o idioma para a interface do sistema.
-          </p>
-          <div style="display: flex; gap: 10px;">
-            <select id="select-idioma" style="flex:1; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px;">
-              <option value="pt-BR">Português (Brasil) - Padrão</option>
               <option value="en">English</option>
               <option value="es">Español</option>
               <option value="fr">Français</option>
-              <option value="pt-PT">Português (Portugal)</option>
-            </select>
-          </div>
-        </div>
-
-        <div style="background:var(--cfg-subtle-bg); padding: 20px; border-radius: 12px; border: 1px solid var(--cfg-border); margin-bottom: 20px;">
-          <h3 style="margin-top:0; color: #fc4b15;"><i class="ph ph-clock"></i> Fuso Horário</h3>
-          <p style="color:var(--cfg-text-muted); font-size: 14px; margin-bottom: 15px;">
-            Configure o fuso horário do restaurante. Todos os horários de pedidos, relatórios e auditoria seguirão esta configuração.
-          </p>
-          <div style="display: flex; gap: 10px; align-items: center;">
-            <select id="select-timezone" style="flex:1; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px;">
-              <option value="-180">GMT-3 — Horário de Brasília (SP, RJ, MG, etc.)</option>
-              <option value="-240">GMT-4 — Amazonas, Roraima, Mato Grosso</option>
               <option value="-300">GMT-5 — Acre, Amapá</option>
               <option value="-120">GMT-2 — Fernando de Noronha</option>
               <option value="0">GMT+0 — UTC (Londres)</option>
@@ -2668,9 +2799,10 @@
             responsivos para TV, desktop, tablet e celular.
           </p>
           <div style="display: flex; gap: 10px;">
-            <select id="select-caixa-tema" style="flex:1; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px;">
-              <option value="classico">Clássico (v1) — Tela operacional tradicional</option>
-              <option value="v11">Novo v1.1 (Beta) — Painel modular com blocos</option>
+            <select id="select-caixa-tema" style="flex:1; padding: 12px; border: 1.5px solid #fc4b15; border-radius: 8px; font-size: 14px; font-weight:700; background:white; color:#0f172a; outline:none;">
+              <option value="pro_ux">✨ Caixa Moderno UX Pro (Novo - Otimizado)</option>
+              <option value="classico">🏛️ Caixa Clássico Tradicional (Versão Anterior)</option>
+              <option value="v11">🧩 Caixa Modular v1.1 (Painel com Widgets)</option>
             </select>
           </div>
         </div>

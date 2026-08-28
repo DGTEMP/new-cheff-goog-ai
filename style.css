@@ -2389,9 +2389,12 @@ body {
   display: none !important;
 }
 
-.workspace.active-tab-acoes .main-workspace,
-.workspace.active-tab-acoes .right-info {
-  display: none !important;
+/* Regra móvel restrita a max-width 767px */
+@media (max-width: 767px) {
+  .workspace.active-tab-acoes .main-workspace,
+  .workspace.active-tab-acoes .right-info {
+    display: none !important;
+  }
 }
 
 .workspace.active-tab-acoes .left-actions {
@@ -2475,10 +2478,13 @@ body {
     box-sizing: border-box !important;
   }
 
+  /* Regra móvel restrita a max-width 767px */
+@media (max-width: 767px) {
   .workspace.active-tab-acoes .main-workspace,
   .workspace.active-tab-acoes .right-info {
     display: none !important;
   }
+}
 
   .left-actions .action-group {
     margin-bottom: 10px !important;

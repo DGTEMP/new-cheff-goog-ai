@@ -1,0 +1,853 @@
+
+/* ══════════════════════════════════════════════════════════════════
+   DESIGN SYSTEM PRO: APPLE / MODERN SAAS POS (CHEF COZINHA)
+   ══════════════════════════════════════════════════════════════════ */
+
+:root {
+  --primary-orange: #fc4b15;
+  --primary-orange-hover: #e03e0d;
+  --accent-green: #10b981;
+  --bg-slate: #0f172a;
+  --bg-slate-card: #1e293b;
+  --border-light: rgba(0, 0, 0, 0.08);
+  --border-dark: rgba(255, 255, 255, 0.08);
+}
+
+/* ── OCULTAR BARRAS RETRÔ OBSOLETAS ── */
+.top-menu,
+.menu-bar,
+.old-toolbar,
+#old-app-header-menu,
+.topbar > div[style*="Arquivo"],
+.menubar-container {
+  display: none !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   1. DESKTOP & MONITORES (>= 768px): 3 COLUNAS VISÍVEIS
+   ══════════════════════════════════════════════════════════════════ */
+@media (min-width: 768px) {
+  body {
+    overflow: hidden !important;
+  }
+
+  .workspace,
+  .workspace.active-tab-mesas,
+  .workspace.active-tab-acoes,
+  .workspace.active-tab-resumo,
+  .workspace.active-tab-comanda {
+    display: flex !important;
+    flex-direction: row !important;
+    width: 100vw !important;
+    height: calc(100vh - 56px - 36px) !important;
+    overflow: hidden !important;
+    background: #f8fafc !important;
+  }
+
+  /* BARRA LATERAL ESQUERDA (AÇÕES COMPLETAS VISÍVEIS) */
+  .left-actions,
+  aside.left-actions,
+  #left-panel,
+  .workspace.active-tab-mesas .left-actions,
+  .workspace.active-tab-acoes .left-actions,
+  .workspace.active-tab-resumo .left-actions {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: 230px !important;
+    min-width: 230px !important;
+    max-width: 230px !important;
+    background: #0f172a !important;
+    color: #f8fafc !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
+    flex-direction: column !important;
+    padding: 14px 12px !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    flex-shrink: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  .left-actions .panel-content-inner,
+  #inner-left-panel {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+
+  /* SALÃO DE MESAS E WORKSPACE CENTRAL (TOTALMENTE EXPANDIDO) */
+  .main-workspace,
+  #main-panel,
+  .workspace.active-tab-mesas .main-workspace,
+  .workspace.active-tab-acoes .main-workspace,
+  .workspace.active-tab-resumo .main-workspace {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    flex: 1 !important;
+    min-width: 0 !important;
+    flex-direction: column !important;
+    background: #ffffff !important;
+    overflow: hidden !important;
+    height: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* BARRA LATERAL DIREITA (RESUMO COMPLETO VISÍVEL) */
+  .right-info,
+  aside.right-info,
+  #right-panel,
+  .workspace.active-tab-mesas .right-info,
+  .workspace.active-tab-acoes .right-info,
+  .workspace.active-tab-resumo .right-info {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: 310px !important;
+    min-width: 310px !important;
+    max-width: 310px !important;
+    background: #ffffff !important;
+    border-left: 1px solid #e2e8f0 !important;
+    flex-direction: column !important;
+    padding: 16px !important;
+    overflow-y: auto !important;
+    flex-shrink: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  .right-info .panel-content-inner,
+  #inner-right-panel {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+
+  /* SEÇÕES DENTRO DO SALÃO CENTRAL */
+  #mesas-section-container,
+  .mesas-container {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    flex: 0 0 54% !important;
+    min-height: 200px !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+  }
+
+  #products-section-container,
+  .products-container {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    flex: 1 !important;
+    min-height: 120px !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    background: #ffffff !important;
+  }
+
+  .mesas-scroll,
+  #orders-grid {
+    display: grid !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)) !important;
+    gap: 12px !important;
+    padding: 16px !important;
+    overflow-y: auto !important;
+    background: #f8fafc !important;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   2. MOBILE & SMARTPHONES (< 768px): ABAS EM TELA CHEIA
+   ══════════════════════════════════════════════════════════════════ */
+@media (max-width: 767px) {
+  .workspace {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100vw !important;
+    height: calc(100vh - 56px) !important;
+    overflow: hidden !important;
+  }
+
+  /* 1. ABA MESAS (PADRÃO) */
+  .workspace.active-tab-mesas .main-workspace,
+  .workspace:not(.active-tab-acoes):not(.active-tab-resumo) .main-workspace {
+    display: flex !important;
+    width: 100% !important;
+    flex: 1 !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+  }
+  .workspace.active-tab-mesas .left-actions,
+  .workspace.active-tab-mesas .right-info,
+  .workspace:not(.active-tab-acoes):not(.active-tab-resumo) .left-actions,
+  .workspace:not(.active-tab-acoes):not(.active-tab-resumo) .right-info {
+    display: none !important;
+  }
+
+  /* 2. ABA AÇÕES */
+  .workspace.active-tab-acoes .left-actions {
+    display: flex !important;
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    flex: 1 !important;
+    padding: 16px !important;
+    background: #0f172a !important;
+  }
+  .workspace.active-tab-acoes .main-workspace,
+  .workspace.active-tab-acoes .right-info {
+    display: none !important;
+  }
+
+  /* 3. ABA RESUMO */
+  .workspace.active-tab-resumo .right-info {
+    display: flex !important;
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    flex: 1 !important;
+    padding: 16px !important;
+    background: #ffffff !important;
+  }
+  .workspace.active-tab-resumo .left-actions,
+  .workspace.active-tab-resumo .main-workspace {
+    display: none !important;
+  }
+
+  /* Header do salão mobile */
+  .mesas-header {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 8px !important;
+    padding: 8px 12px !important;
+    overflow-x: auto !important;
+    white-space: nowrap !important;
+  }
+
+  .mesas-header .chip-view-group,
+  .mesas-header #btn-header-personalizar-layout,
+  .mesas-header .mesas-toggle-collapse {
+    display: none !important;
+  }
+
+  /* Grade de mesas mobile em 2 colunas */
+  .mesas-scroll,
+  #orders-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+    padding: 12px 10px 85px !important;
+  }
+
+  .mesa-item {
+    min-height: 98px !important;
+    padding: 10px !important;
+    border-radius: 14px !important;
+  }
+}
+
+/* ── CARDS DE MESAS EM ESTILO APPLE PREMIUM ── */
+.mesa-item {
+  background: #ffffff !important;
+  border-radius: 16px !important;
+  border: 1.5px solid #e2e8f0 !important;
+  padding: 14px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-between !important;
+  min-height: 115px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03) !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  position: relative !important;
+  overflow: hidden !important;
+  cursor: pointer !important;
+}
+
+.mesa-item:hover {
+  transform: translateY(-3px) !important;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08) !important;
+  border-color: #fc4b15 !important;
+}
+
+.mesa-item.selected {
+  border-color: #fc4b15 !important;
+  box-shadow: 0 0 0 3px rgba(252, 75, 21, 0.2), 0 8px 24px rgba(252, 75, 21, 0.15) !important;
+}
+
+.mesa-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 5px;
+  background: #10b981;
+}
+
+.mesa-item.ocupada::before,
+.mesa-item[data-status="Ocupada"]::before {
+  background: #fc4b15 !important;
+}
+
+.mesa-item.fechando::before,
+.mesa-item[data-status="Fechando"]::before {
+  background: #f59e0b !important;
+}
+
+.mesa-item .mesa-id {
+  font-size: 15px !important;
+  font-weight: 800 !important;
+  color: #0f172a !important;
+  margin: 0 !important;
+}
+
+.mesa-item .mesa-client {
+  font-size: 12px !important;
+  color: #64748b !important;
+  margin-top: 2px !important;
+}
+
+.mesa-item .mesa-value {
+  font-size: 14.5px !important;
+  font-weight: 800 !important;
+  color: #10b981 !important;
+  margin-top: auto !important;
+  padding-top: 8px !important;
+}
+
+/* ── TABELA DE PRODUTOS INFERIOR ── */
+.products-table-wrapper {
+  flex: 1 !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  width: 100% !important;
+}
+
+table.products-table,
+#order-items-table {
+  width: 100% !important;
+  border-collapse: collapse !important;
+  table-layout: fixed !important;
+}
+
+table.products-table th {
+  background: #f8fafc !important;
+  color: #64748b !important;
+  font-size: 11.5px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  padding: 8px 12px !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+}
+
+table.products-table td {
+  padding: 10px 12px !important;
+  font-size: 13px !important;
+  color: #0f172a !important;
+  border-bottom: 1px solid #f1f5f9 !important;
+}
+
+/* ── BOTÕES DA SIDEBAR ESQUERDA ── */
+.action-group {
+  margin-bottom: 12px !important;
+}
+
+.action-group .group-title {
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  color: #94a3b8 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.6px !important;
+  margin-bottom: 8px !important;
+  padding-left: 2px !important;
+}
+
+.btn-action {
+  width: 100% !important;
+  border-radius: 12px !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  background: #1e293b !important;
+  color: #f8fafc !important;
+  padding: 11px 14px !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+  margin-bottom: 6px !important;
+  box-sizing: border-box !important;
+}
+
+.btn-action:hover {
+  background: #334155 !important;
+  transform: translateY(-1px) !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+.btn-action.btn-lancar,
+#btn-adicionar-produtos {
+  background: #fc4b15 !important;
+  color: #ffffff !important;
+  border: none !important;
+  box-shadow: 0 4px 14px rgba(252, 75, 21, 0.35) !important;
+}
+
+.btn-action.btn-lancar:hover,
+#btn-adicionar-produtos:hover {
+  background: #e03e0d !important;
+}
+
+/* ── BARRA DE INFORMAÇÕES DO RODAPÉ ── */
+footer,
+.status-bar,
+.footer-info-bar {
+  height: 36px !important;
+  background: #0f172a !important;
+  color: #94a3b8 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 0 16px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+  overflow: hidden !important;
+}
+
+
+/* ── EXIBIÇÃO EXPLÍCITA DE MESAS NO MOBILE ── */
+@media (max-width: 767px) {
+  .workspace.active-tab-mesas #mesas-section-container,
+  .workspace:not(.active-tab-acoes):not(.active-tab-resumo) #mesas-section-container,
+  #mesas-section-container {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    flex: 1 !important;
+    height: 100% !important;
+    flex-direction: column !important;
+  }
+
+  .workspace.active-tab-mesas .mesas-scroll,
+  .workspace:not(.active-tab-acoes):not(.active-tab-resumo) .mesas-scroll,
+  .workspace.active-tab-mesas #orders-grid,
+  .workspace:not(.active-tab-acoes):not(.active-tab-resumo) #orders-grid,
+  .mesas-scroll,
+  #orders-grid {
+    display: grid !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+    padding: 10px 10px 85px !important;
+  }
+
+  .workspace.active-tab-mesas .mesa-item,
+  .workspace:not(.active-tab-acoes):not(.active-tab-resumo) .mesa-item,
+  .mesa-item {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+}
+
+
+/* ══════════════════════════════════════════════════════════════════
+   MODO HORIZONTAL / LANDSCAPE (SMARTPHONES E TABLETS DEITADOS)
+   ══════════════════════════════════════════════════════════════════ */
+@media (orientation: landscape) and (max-height: 550px) {
+  body {
+    overflow: hidden !important;
+  }
+
+  .top-menu, .menu-bar, .old-toolbar, #old-app-header-menu {
+    display: none !important;
+  }
+
+  .workspace {
+    display: flex !important;
+    flex-direction: row !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    overflow: hidden !important;
+  }
+
+  /* BARRA ESQUERDA COMPACTA LADO A LADO */
+  .left-actions, #left-panel {
+    display: flex !important;
+    width: 170px !important;
+    min-width: 170px !important;
+    max-width: 170px !important;
+    background: #0f172a !important;
+    padding: 8px !important;
+    overflow-y: auto !important;
+    flex-shrink: 0 !important;
+  }
+  .left-actions .btn-action {
+    padding: 8px 10px !important;
+    font-size: 11.5px !important;
+    border-radius: 8px !important;
+    margin-bottom: 4px !important;
+  }
+  .left-actions .action-group {
+    margin-bottom: 8px !important;
+  }
+
+  /* SALÃO CENTRAL DE MESAS NO MEIO */
+  .main-workspace, #main-panel {
+    display: flex !important;
+    flex: 1 !important;
+    min-width: 0 !important;
+    height: 100% !important;
+    flex-direction: column !important;
+  }
+
+  #mesas-section-container, .mesas-container {
+    display: flex !important;
+    flex: 1 !important;
+    height: 100% !important;
+    border-bottom: none !important;
+  }
+
+  .mesas-scroll, #orders-grid {
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)) !important;
+    gap: 8px !important;
+    padding: 8px !important;
+  }
+
+  .mesa-item {
+    min-height: 85px !important;
+    padding: 8px 10px !important;
+    border-radius: 12px !important;
+  }
+  .mesa-item .mesa-id {
+    font-size: 13px !important;
+  }
+  .mesa-item .mesa-value {
+    font-size: 12.5px !important;
+  }
+
+  /* BARRA DIREITA DE RESUMO COMPACTA LADO A LADO */
+  .right-info, #right-panel {
+    display: flex !important;
+    width: 220px !important;
+    min-width: 220px !important;
+    max-width: 220px !important;
+    padding: 10px !important;
+    border-left: 1px solid #e2e8f0 !important;
+    overflow-y: auto !important;
+    flex-shrink: 0 !important;
+  }
+
+  #products-section-container {
+    display: none !important;
+  }
+}
+
+
+/* ══════════════════════════════════════════════════════════════════
+   EXCLUSÃO TOTAL DE BOTÕES FLUTUANTES & RESPONSIVIDADE FLUIDA
+   ══════════════════════════════════════════════════════════════════ */
+
+/* EXCLUSÃO TOTAL DOS BOTÕES FLUTUANTES LARANJA/VERDE */
+.chef-drawer-fab,
+#chef-fab-acoes,
+#chef-fab-resumo,
+.floating-restore-sidebar-btn,
+.mobile-floating-actions,
+#mobile-floating-actions,
+.mobile-tabs-grip {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
+}
+
+/* OCULTAR BARRAS RETRÔ EM TODAS AS TELAS */
+.top-menu,
+.menu-bar,
+.old-toolbar,
+#old-app-header-menu,
+.menubar-container,
+.topbar > div[style*="Arquivo"] {
+  display: none !important;
+}
+
+/* ── LAYOUT RESPONSIVO INTELIGENTE COM ZOOM TOTAL ── */
+.workspace {
+  display: flex !important;
+  flex-direction: row !important;
+  width: 100% !important;
+  min-height: calc(100vh - 56px - 36px) !important;
+  height: calc(100vh - 56px - 36px) !important;
+  overflow: hidden !important;
+  background: #f8fafc !important;
+}
+
+/* 1. BARRA ESQUERDA (FLEXÍVEL E PROPORCIONAL) */
+.left-actions,
+aside.left-actions,
+#left-panel {
+  width: 220px !important;
+  min-width: 180px !important;
+  max-width: 240px !important;
+  background: #0f172a !important;
+  color: #f8fafc !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  padding: 12px 10px !important;
+  overflow-y: auto !important;
+  flex-shrink: 0 !important;
+}
+
+/* 2. ÁREA CENTRAL DE MESAS (FLUIDA) */
+.main-workspace,
+#main-panel {
+  flex: 1 !important;
+  min-width: 280px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  background: #ffffff !important;
+  overflow: hidden !important;
+  height: 100% !important;
+}
+
+/* 3. BARRA DIREITA DE RESUMO (FLEXÍVEL) */
+.right-info,
+aside.right-info,
+#right-panel {
+  width: 280px !important;
+  min-width: 240px !important;
+  max-width: 320px !important;
+  background: #ffffff !important;
+  border-left: 1px solid #e2e8f0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  padding: 14px !important;
+  overflow-y: auto !important;
+  flex-shrink: 0 !important;
+}
+
+/* AJUSTES EM TELAS BAIXAS / HORIZONTAL / ZOOM */
+@media (max-height: 520px) {
+  .workspace {
+    height: calc(100vh - 44px) !important;
+  }
+  .mesas-container, #mesas-section-container {
+    flex: 1 !important;
+    height: 100% !important;
+  }
+  #products-section-container {
+    display: none !important;
+  }
+  .left-actions {
+    width: 170px !important;
+    min-width: 170px !important;
+    padding: 6px !important;
+  }
+  .right-info {
+    width: 230px !important;
+    min-width: 230px !important;
+    padding: 8px !important;
+  }
+}
+
+
+/* ══════════════════════════════════════════════════════════════════
+   OCULTAÇÃO TOTAL DE BARRAS RETRÔ E FABS FLUTUANTES NO MOBILE
+   ══════════════════════════════════════════════════════════════════ */
+.menu-bar,
+.top-toolbar,
+.old-toolbar,
+#old-app-header-menu,
+.menubar-container,
+.topbar > div[style*="Arquivo"] {
+  display: none !important;
+}
+
+/* OCULTAR FABS POR PADRÃO */
+.chef-drawer-fab,
+#chef-fab-acoes,
+#chef-fab-resumo,
+.mobile-floating-actions,
+#mobile-floating-actions,
+.mobile-tabs-grip {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+/* Permitir ativação apenas se classe 'mostrar-abas-ativas' estiver no body */
+body.mostrar-abas-ativas .mobile-tabs-grip {
+  display: flex !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
+
+/* ── SALÃO DE MESAS EM TELA CHEIA NO MOBILE / HORIZONTAL ── */
+@media (max-width: 767px) {
+  body {
+    padding-top: 0 !important;
+  }
+
+  .workspace {
+    height: 100vh !important;
+    max-height: 100vh !important;
+    width: 100vw !important;
+  }
+}
+
+
+/* ══════════════════════════════════════════════════════════════════
+   COERÊNCIA TOTAL DE TEMA CLARO / ESCURO & SPLITTERS DE ARRASTE
+   ══════════════════════════════════════════════════════════════════ */
+
+/* SPLITTER DE ARRASTE ENTRE AS COLUNAS */
+.chef-sidebar-splitter {
+  width: 6px !important;
+  cursor: col-resize !important;
+  background: transparent !important;
+  transition: background 0.2s !important;
+  position: relative !important;
+  z-index: 100 !important;
+  flex-shrink: 0 !important;
+}
+
+.chef-sidebar-splitter::after {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0;
+  left: 2px; width: 2px;
+  background: rgba(0,0,0,0.08);
+  transition: background 0.2s;
+}
+
+.chef-sidebar-splitter:hover::after,
+body.chef-resizing .chef-sidebar-splitter::after {
+  background: #fc4b15 !important;
+  width: 4px !important;
+  left: 1px !important;
+}
+
+body.chef-resizing {
+  user-select: none !important;
+  cursor: col-resize !important;
+}
+
+/* ── TEMA CLARO (LIGHT MODE) — 100% COERENTE ── */
+html[data-theme="light"],
+body.theme-light,
+body:not(.dark-mode):not(.theme-dark) {
+  --bg-app: #f8fafc;
+  --surface-panel: #ffffff;
+  --surface-sidebar: #f1f5f9;
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+  --border-subtle: #e2e8f0;
+}
+
+html[data-theme="light"] .left-actions,
+body.theme-light .left-actions,
+body:not(.dark-mode):not(.theme-dark) .left-actions {
+  background: #f8fafc !important;
+  color: #0f172a !important;
+  border-right: 1px solid #e2e8f0 !important;
+}
+
+html[data-theme="light"] .left-actions .action-group,
+body.theme-light .left-actions .action-group,
+body:not(.dark-mode):not(.theme-dark) .left-actions .action-group {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 12px !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04) !important;
+}
+
+html[data-theme="light"] .left-actions .group-title,
+body.theme-light .left-actions .group-title,
+body:not(.dark-mode):not(.theme-dark) .left-actions .group-title {
+  color: #475569 !important;
+  font-weight: 800 !important;
+}
+
+html[data-theme="light"] .left-actions .btn-action:not(.btn-primary):not(.btn-success):not(.btn-danger),
+body.theme-light .left-actions .btn-action:not(.btn-primary):not(.btn-success):not(.btn-danger),
+body:not(.dark-mode):not(.theme-dark) .left-actions .btn-action:not(.btn-primary):not(.btn-success):not(.btn-danger) {
+  background: #f1f5f9 !important;
+  color: #1e293b !important;
+  border: 1px solid #e2e8f0 !important;
+}
+
+html[data-theme="light"] .right-info,
+body.theme-light .right-info,
+body:not(.dark-mode):not(.theme-dark) .right-info {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border-left: 1px solid #e2e8f0 !important;
+}
+
+/* ── TEMA ESCURO (DARK MODE) — 100% COERENTE ── */
+html[data-theme="dark"],
+body.dark-mode,
+body.theme-dark {
+  --bg-app: #090d16;
+  --surface-panel: #0f172a;
+  --surface-sidebar: #0b1120;
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --border-subtle: rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme="dark"] .workspace,
+body.dark-mode .workspace {
+  background: #090d16 !important;
+}
+
+html[data-theme="dark"] .left-actions,
+body.dark-mode .left-actions {
+  background: #0b1120 !important;
+  color: #f8fafc !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+html[data-theme="dark"] .main-workspace,
+body.dark-mode .main-workspace {
+  background: #0f172a !important;
+  color: #f8fafc !important;
+}
+
+html[data-theme="dark"] .right-info,
+body.dark-mode .right-info {
+  background: #0b1120 !important;
+  color: #f8fafc !important;
+  border-left: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+html[data-theme="dark"] .mesa-item,
+body.dark-mode .mesa-item {
+  background: #1e293b !important;
+  color: #f8fafc !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* MODO MINI (ÍCONES COMPACTOS) */
+.left-actions.sidebar-mini .btn-action span,
+.left-actions.sidebar-mini .group-title {
+  display: none !important;
+}
+
+.left-actions.sidebar-mini .btn-action {
+  justify-content: center !important;
+  padding: 8px !important;
+}

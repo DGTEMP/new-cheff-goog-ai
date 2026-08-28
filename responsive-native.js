@@ -10,18 +10,10 @@
   var mqWide = window.matchMedia('(min-width: 1600px)');
 
   /* FABs flutuantes (visíveis só em toque via CSS) */
-  function makeFab(id, icon, label, aria) {
-    var b = document.createElement('button');
-    b.id = id;
-    b.className = 'chef-drawer-fab';
-    b.type = 'button';
-    b.setAttribute('aria-label', 'Abrir painel de ações');
-    b.innerHTML = '<i class="ph ' + icon + '"></i><span>' + label + '</span>';
-    return b;
-  }
+  function makeFab() { return null; }
 
-  document.body.appendChild(makeFab('chef-fab-acoes', 'ph-sliders', 'Ações', 'Abrir painel de ações'));
-  document.body.appendChild(makeFab('chef-fab-resumo', 'ph-receipt', 'Resumo', 'Abrir resumo e pagamento'));
+  // fabs removidos
+  // fabs removidos
 
   var fabAcoes = document.getElementById('chef-fab-acoes');
   var fabResumo = document.getElementById('chef-fab-resumo');

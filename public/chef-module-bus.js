@@ -203,3 +203,33 @@
   window.ChefModules = ChefModules;
 
 })(window);
+
+
+  /**
+   * Exibe aviso amigável de manutenção ao tentar acessar módulo inativo ou em manutenção
+   */
+  window.exibirAvisoModuloManutencao = function (nomeModulo) {
+    const modalId = 'modal-modulo-manutencao';
+    let el = document.getElementById(modalId);
+    if (!el) {
+      el = document.createElement('div');
+      el.id = modalId;
+      el.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,0.85); backdrop-filter:blur(8px); z-index:999999; display:flex; align-items:center; justify-content:center; padding:20px;';
+      document.body.appendChild(el);
+    }
+    el.innerHTML = `
+      <div style="background:#0f172a; border:2px solid #fc4b15; border-radius:18px; max-width:460px; width:100%; padding:24px; color:#f8fafc; box-shadow:0 20px 50px rgba(0,0,0,0.8); text-align:center; animation:popIn 0.3s ease;">
+        <div style="width:56px; height:56px; border-radius:16px; background:rgba(252,75,21,0.15); color:#fc4b15; display:flex; align-items:center; justify-content:center; font-size:28px; margin:0 auto 14px;">
+          <i class="ph-bold ph-wrench"></i>
+        </div>
+        <h3 style="font-size:18px; font-weight:800; margin:0 0 8px; color:#f8fafc;">Ops! Estamos em Manutenção</h3>
+        <p style="color:#cbd5e1; font-size:13.5px; line-height:1.6; margin:0 0 20px;">
+          Tropecei nuns fios aqui, mas já estou conectando tudo de volta e já te aviso assim que funcionar! 🔌⚡
+        </p>
+        <button type="button" onclick="document.getElementById('${modalId}').style.display='none'" style="background:#fc4b15; color:white; border:none; padding:12px 24px; border-radius:10px; font-weight:700; font-size:13.5px; cursor:pointer; width:100%;">
+          Entendido, aguardar!
+        </button>
+      </div>
+    `;
+    el.style.display = 'flex';
+  };

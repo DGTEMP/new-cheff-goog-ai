@@ -150,6 +150,105 @@ module.exports.registerGarcomSockets = function(socket, ctx) {
     });
   });
 
+
+  // ── DIVIDIR / FRACIONAR ITEM EM COMANDAS ──
+  socket.on('dividir_item_fracoes', ({ itemId, fracoes, operador, mesaName }) => {
+    if (!itemId || !Array.isArray(fracoes) || fracoes.length === 0) return;
+    
+    db.get(`SELECT * FROM pedidos WHERE id = ?`, [itemId], (err, itemOriginal) => {
+      if (err || !itemOriginal) {
+        return socket.emit('erro_garcom', 'Item não encontrado para divisão.');
+      }
+
+      // 1. Marca o item original como 'Fracionado' para preservar histórico fiscal sem duplicar valor
+      db.run(`UPDATE pedidos SET status = 'Fracionado' WHERE id = ?`, [itemId], (e1) => {
+        if (e1) return socket.emit('erro_garcom', 'Erro ao fracionar item.');
+
+        const stmt = db.prepare(
+          `INSERT INTO pedidos (productName, productEmoji, quantity, total, status, localName, mesa_grupo, mesa_comanda, userName, time, sector, createdAt, observacoes)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'), ?)`
+        );
+
+        fracoes.forEach((f) => {
+          const valorFormatado = Number(f.valor).toFixed(2).replace('.', ',');
+          const nomeFracao = `${itemOriginal.productName} (${f.fracao || 'Fração'})`;
+          const comandaVal = f.comanda && String(f.comanda).trim() ? String(f.comanda).trim() : (itemOriginal.mesa_comanda || null);
+          const obs = `Fracionado de #${itemId} (${f.fracao})`;
+
+          stmt.run([
+            nomeFracao,
+            itemOriginal.productEmoji || '🍽️',
+            1,
+            valorFormatado,
+            f.pago ? 'Pago' : (itemOriginal.status === 'Fracionado' ? 'Em preparo' : itemOriginal.status),
+            itemOriginal.localName,
+            itemOriginal.mesa_grupo,
+            comandaVal,
+            operador || itemOriginal.userName,
+            itemOriginal.time,
+            itemOriginal.sector || 'Cozinha 1',
+            obs
+          ]);
+        });
+
+        stmt.finalize(() => {
+          global.registrarAuditoria(operador || 'Garçom', 'FRACIONAR_ITEM', `Item #${itemId} fracionado em ${fracoes.length} partes na ${mesaName || itemOriginal.localName}`, 'Operação de Salão', 'BAIXO');
+          _broadcastPedidos();
+          if (mesaName || itemOriginal.localName) {
+            db.all(`SELECT * FROM pedidos WHERE (localName = ? OR mesa_grupo = ?) AND status != 'Finalizado'`, [mesaName || itemOriginal.localName, mesaName || itemOriginal.localName], (e, r) => {
+              io.emit('itens_mesa_recebidos', { mesaName: mesaName || itemOriginal.localName, items: r || [] });
+            });
+          }
+          socket.emit('item_fracionado_sucesso', { itemId, totalFracoes: fracoes.length });
+        });
+      });
+    });
+  });
+
+  // ── PAGAMENTO DIRETO DE FRAÇÃO OU ITEM NA COMANDA MOBILE ──
+  socket.on('pagar_fracao_item_garcom', ({ itemId, valor, metodo, mesaName, operador, comandaName }) => {
+    if (!itemId || !valor || !metodo) return;
+
+    db.get(`SELECT * FROM pedidos WHERE id = ?`, [itemId], (err, item) => {
+      if (err || !item) return socket.emit('erro_garcom', 'Item não encontrado.');
+
+      // 1. Marca o item/fração como 'Pago' (sem nunca excluir)
+      db.run(`UPDATE pedidos SET status = 'Pago' WHERE id = ?`, [itemId], (e2) => {
+        if (e2) return socket.emit('erro_garcom', 'Erro ao registrar pagamento.');
+
+        const valorNum = parseFloat(String(valor).replace(',', '.')) || 0;
+        const descPgto = `Pgto Item: ${item.productName} (${metodo})`;
+        const timeStr = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+        // 2. Insere registro de pagamento parcial vinculado
+        db.run(
+          `INSERT INTO pedidos (productName, productEmoji, quantity, total, status, localName, mesa_grupo, mesa_comanda, userName, time, sector, createdAt)
+           VALUES (?, '💸', 1, ?, 'Entregue', ?, ?, ?, ?, ?, 'Caixa', datetime('now', 'localtime'))`,
+          [descPgto, (-Math.abs(valorNum)).toFixed(2).replace('.', ','), mesaName || item.localName, item.mesa_grupo, comandaName || item.mesa_comanda, operador || 'Garçom', timeStr]
+        );
+
+        // 3. Registra na tabela de movimentações do caixa
+        db.get(`SELECT id FROM turnos_caixa WHERE status = 'aberto' ORDER BY id DESC LIMIT 1`, (errT, turno) => {
+          const turnoId = turno ? turno.id : null;
+          db.run(
+            `INSERT INTO movimentacoes (turno_id, tipo, valor, forma_pagamento, descricao, data) VALUES (?, 'Entrada', ?, ?, ?, datetime('now', 'localtime'))`,
+            [turnoId, valorNum, metodo, `Pgto Garçom: ${item.productName} (${mesaName || item.localName})`]
+          );
+
+          global.registrarAuditoria(operador || 'Garçom', 'PAGAMENTO_ITEM_MOBILE', `Pago ${item.productName} (R$ ${valorNum.toFixed(2)}) via ${metodo}`, 'Financeiro', 'MEDIO');
+          _broadcastPedidos();
+          
+          if (mesaName || item.localName) {
+            db.all(`SELECT * FROM pedidos WHERE (localName = ? OR mesa_grupo = ?) AND status != 'Finalizado'`, [mesaName || item.localName, mesaName || item.localName], (e, r) => {
+              io.emit('itens_mesa_recebidos', { mesaName: mesaName || item.localName, items: r || [] });
+            });
+          }
+          socket.emit('pagamento_fracao_sucesso', { itemId, valor: valorNum, metodo });
+        });
+      });
+    });
+  });
+
   // ── ATRIBUIR COMANDA ──
   socket.on('atribuir_comanda_item', ({ itemId, comandaName, operador }) => {
     const comandaVal = (comandaName && String(comandaName).trim()) ? String(comandaName).trim() : null;

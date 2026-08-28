@@ -36,7 +36,11 @@ function initSocket() {
 
   socket.on('erro_servidor', (msg) => showToast(msg, 'error'));
 
-  socket.on('connect', () => {
+  socket.on('update_ponto_token', (data) => {
+      _pontoUrlMobile = data && data.url ? data.url : '';
+      renderQrPontoMobile();
+    });
+    socket.on('connect', () => {
     socket.emit('registrar_sessao', { nome: 'Caixa Mobile', cargo: 'Operador' });
     socket.emit('get_mesas');
     socket.emit('get_produtos');
@@ -218,7 +222,7 @@ function renderMesas() {
     const cliente = getMesaCliente(mesa.nome);
 
     html += `
-      <div class="mesa-card ${statusClass}" onclick="abrirMesa(${escJs(mesa.nome)})">
+      <div class="mesa-card ${statusClass}" onclick="window.abrirModalItensMesa(${escJs(mesa.nome)})" oncontextmenu="event.preventDefault(); window.abrirContextMenuPdvMobile(event, ${escJs(mesa.nome)});" data-mesa-nome="${escHtml(mesa.nome)}">
         <div class="mesa-card-header">
           <span>${escHtml(mesa.nome)}</span>
           <i class="ph ${isOcupada ? 'ph-users' : 'ph-armchair'}"></i>
@@ -948,3 +952,115 @@ window.voltarSelecaoSetor = () => {
   filaSectorSelecionado = null;
   mostrarSelecaoSetor();
 };
+
+
+  // ─── MODAL DE DETALHES DOS ITENS DA MESA (PDV MOBILE) ───
+  window.abrirModalItensMesa = function (nomeMesa) {
+    const orders = getMesaOrders(nomeMesa);
+    const total = getMesaTotalComTaxa(nomeMesa);
+    const cliente = getMesaCliente(nomeMesa);
+
+    let modal = document.getElementById('modal-detalhes-mesa-pdv-mobile');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'modal-detalhes-mesa-pdv-mobile';
+      modal.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,0.7); backdrop-filter:blur(6px); z-index:999999; display:flex; align-items:flex-end; justify-content:center; padding:0; animation:fadeIn 0.2s ease;';
+      document.body.appendChild(modal);
+    }
+
+    modal.innerHTML = `
+      <div style="background:#ffffff; border-radius:24px 24px 0 0; width:100%; max-width:500px; max-height:85vh; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 -10px 40px rgba(0,0,0,0.3); color:#0f172a;">
+        <div style="padding:16px 20px; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <h3 style="margin:0; font-size:18px; font-weight:800; color:#fc4b15;">${nomeMesa}</h3>
+            <span style="font-size:12px; color:#64748b;">${cliente ? 'Cliente: ' + cliente : 'Consumo da mesa'}</span>
+          </div>
+          <button type="button" onclick="document.getElementById('modal-detalhes-mesa-pdv-mobile').style.display='none'" style="background:#f1f5f9; border:none; width:34px; height:34px; border-radius:50%; color:#64748b; font-size:18px; cursor:pointer;">&times;</button>
+        </div>
+
+        <div style="padding:16px 20px; overflow-y:auto; flex:1;">
+          ${orders.length === 0 ? `
+            <div style="text-align:center; padding:30px 10px; color:#94a3b8;">
+              <i class="ph ph-shopping-bag" style="font-size:36px; display:block; margin-bottom:8px;"></i>
+              Nenhum item lançado nesta mesa ainda.
+            </div>
+          ` : `
+            <div style="display:flex; flex-direction:column; gap:10px;">
+              ${orders.map(o => `
+                <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 12px; background:#f8fafc; border-radius:12px; border:1px solid #e2e8f0;">
+                  <div style="display:flex; align-items:center; gap:10px;">
+                    <span style="background:#fc4b15; color:white; font-weight:800; font-size:13px; padding:2px 8px; border-radius:8px;">${o.quantity || 1}x</span>
+                    <div>
+                      <strong style="font-size:14px; color:#0f172a; display:block;">${o.productName || o.nome}</strong>
+                      <span style="font-size:11.5px; color:#64748b;">R$ ${(parseFloat(o.price || o.preco || 0)).toFixed(2).replace('.', ',')} un</span>
+                    </div>
+                  </div>
+                  <span style="font-size:14px; font-weight:800; color:#10b981;">R$ ${((parseFloat(o.price || o.preco || 0)) * (o.quantity || 1)).toFixed(2).replace('.', ',')}</span>
+                </div>
+              `).join('')}
+            </div>
+          `}
+        </div>
+
+        <div style="padding:16px 20px; background:#f8fafc; border-top:1px solid #e2e8f0;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <span style="font-size:14px; font-weight:700; color:#64748b;">Total com Taxa:</span>
+            <strong style="font-size:20px; font-weight:900; color:#10b981;">R$ ${total.toFixed(2).replace('.', ',')}</strong>
+          </div>
+          
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+            <button onclick="document.getElementById('modal-detalhes-mesa-pdv-mobile').style.display='none'; abrirCardapioComMesa('${nomeMesa}')" style="padding:12px; background:#fc4b15; color:white; border:none; border-radius:12px; font-weight:800; font-size:13px; cursor:pointer;">
+              <i class="ph-bold ph-plus-circle"></i> Lançar Itens
+            </button>
+            <button onclick="document.getElementById('modal-detalhes-mesa-pdv-mobile').style.display='none'; abrirCheckoutMesa('${nomeMesa}')" style="padding:12px; background:#10b981; color:white; border:none; border-radius:12px; font-weight:800; font-size:13px; cursor:pointer;">
+              <i class="ph-bold ph-check-circle"></i> Pagar / Fechar
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    modal.style.display = 'flex';
+  };
+
+  window.abrirCardapioComMesa = function (nomeMesa) {
+    currentMesa = nomeMesa;
+    const navCardapio = document.querySelector('.nav-item[data-target="view-cardapio"]');
+    if (navCardapio) navCardapio.click();
+  };
+
+  // ─── CONTEXT MENU & LONG PRESS (PDV MOBILE) ───
+  window.abrirContextMenuPdvMobile = function (e, nomeMesa) {
+    if (e && e.preventDefault) e.preventDefault();
+    const x = e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : 150);
+    const y = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : 150);
+
+    let popup = document.getElementById('pdv-mobile-context-menu');
+    if (!popup) {
+      popup = document.createElement('div');
+      popup.id = 'pdv-mobile-context-menu';
+      popup.style.cssText = 'position:fixed; z-index:999999; background:#ffffff; border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,0.25); border:1px solid #e2e8f0; padding:8px; display:flex; flex-direction:column; gap:4px; min-width:180px;';
+      document.body.appendChild(popup);
+      document.addEventListener('click', () => { if (popup) popup.style.display = 'none'; });
+    }
+
+    popup.innerHTML = `
+      <button onclick="window.abrirModalItensMesa('${nomeMesa}')" style="display:flex; align-items:center; gap:8px; padding:10px 12px; border:none; background:transparent; font-size:13px; font-weight:700; color:#0f172a; cursor:pointer; border-radius:8px; text-align:left;">
+        <i class="ph-bold ph-receipt" style="color:#fc4b15; font-size:16px;"></i> Ver Itens da Mesa
+      </button>
+      <button onclick="window.abrirCardapioComMesa('${nomeMesa}')" style="display:flex; align-items:center; gap:8px; padding:10px 12px; border:none; background:transparent; font-size:13px; font-weight:700; color:#0f172a; cursor:pointer; border-radius:8px; text-align:left;">
+        <i class="ph-bold ph-plus-circle" style="color:#6366f1; font-size:16px;"></i> Lançar Itens
+      </button>
+      <button onclick="window.abrirModalPagamentoParcial('${nomeMesa}')" style="display:flex; align-items:center; gap:8px; padding:10px 12px; border:none; background:transparent; font-size:13px; font-weight:700; color:#0f172a; cursor:pointer; border-radius:8px; text-align:left;">
+        <i class="ph-bold ph-currency-dollar" style="color:#10b981; font-size:16px;"></i> Pagamento Parcial
+      </button>
+      <button onclick="window.abrirCheckoutMesa('${nomeMesa}')" style="display:flex; align-items:center; gap:8px; padding:10px 12px; border:none; background:transparent; font-size:13px; font-weight:700; color:#0f172a; cursor:pointer; border-radius:8px; text-align:left;">
+        <i class="ph-bold ph-check-circle" style="color:#10b981; font-size:16px;"></i> Fechar Conta
+      </button>
+    `;
+
+    popup.style.left = Math.min(x, window.innerWidth - 200) + 'px';
+    popup.style.top = Math.min(y, window.innerHeight - 200) + 'px';
+    popup.style.display = 'flex';
+  };
+  
