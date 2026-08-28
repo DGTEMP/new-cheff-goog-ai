@@ -191,6 +191,7 @@ const { setupRedisAdapter } = require('./redis-adapter-loader');
 const cloudBackupManager = new CloudBackupManager({ baseDir: __dirname });
 const LicenseGuard = require('./license-guard');
 const licenseGuard = new LicenseGuard({ baseDir: __dirname });
+const iaService = require('./ia-service');
 
 // Carrega variáveis do arquivo .env (sem dependência externa)
 try {
@@ -4024,62 +4025,166 @@ function getTenantDb() {
   return tenantDbs.get(tenantId);
 }
 
+function ensureAllTenantTablesAndColumns(tenantDb, callback) {
+  tenantDb.serialize(() => {
+    tenantDb.run(`
+      CREATE TABLE IF NOT EXISTS configuracoes (
+        chave TEXT PRIMARY KEY,
+        valor TEXT
+      )
+    `);
+    tenantDb.run(`
+      CREATE TABLE IF NOT EXISTS mesas (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nome TEXT UNIQUE,
+        status TEXT DEFAULT 'Disponível',
+        observacao TEXT
+      )
+    `);
+    tenantDb.run(`
+      CREATE TABLE IF NOT EXISTS produtos (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        categoria TEXT,
+        nome TEXT,
+        preco REAL,
+        emoji TEXT,
+        hasAddons BOOLEAN DEFAULT false,
+        setor TEXT DEFAULT 'Cozinha 1',
+        status_inicial TEXT DEFAULT 'Em espera',
+        status TEXT DEFAULT 'ativo',
+        categoria_fiscal TEXT DEFAULT 'Alimentacao',
+        descricao TEXT DEFAULT '',
+        codigo_barras TEXT,
+        visibilidade TEXT DEFAULT 'todos',
+        foto_url TEXT,
+        estoque REAL DEFAULT 0,
+        validade TEXT,
+        preco_custo REAL DEFAULT 0,
+        unidade TEXT DEFAULT 'UN',
+        fornecedor TEXT,
+        sync_version INTEGER DEFAULT 0
+      )
+    `);
+    const prodCols = [
+      'hasAddons BOOLEAN DEFAULT false', 'setor TEXT DEFAULT "Cozinha 1"', 'status_inicial TEXT DEFAULT "Em espera"',
+      'status TEXT DEFAULT "ativo"', 'categoria_fiscal TEXT DEFAULT "Alimentacao"', 'descricao TEXT DEFAULT ""',
+      'codigo_barras TEXT', 'visibilidade TEXT DEFAULT "todos"', 'foto_url TEXT', 'estoque REAL DEFAULT 0',
+      'validade TEXT', 'preco_custo REAL DEFAULT 0', 'unidade TEXT DEFAULT "UN"', 'fornecedor TEXT', 'sync_version INTEGER DEFAULT 0'
+    ];
+    prodCols.forEach(col => { tenantDb.run(`ALTER TABLE produtos ADD COLUMN ${col}`, () => {}); });
+
+    tenantDb.run(`
+      CREATE TABLE IF NOT EXISTS pedidos (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tableNumber TEXT,
+        productName TEXT,
+        quantity INTEGER,
+        unitPrice REAL,
+        total REAL,
+        status TEXT DEFAULT 'Em espera',
+        setor TEXT DEFAULT 'Cozinha 1',
+        garcom TEXT,
+        customerName TEXT,
+        createdAt DATETIME DEFAULT (datetime('now')),
+        observacoes TEXT,
+        adicionais TEXT,
+        tipo_entrega TEXT,
+        cupom_desconto TEXT,
+        valor_desconto REAL DEFAULT 0
+      )
+    `);
+
+    tenantDb.run(`
+      CREATE TABLE IF NOT EXISTS formas_pagamento (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nome TEXT,
+        tipo TEXT,
+        taxa REAL DEFAULT 0,
+        prazo_dias INTEGER DEFAULT 0,
+        ativo INTEGER DEFAULT 1,
+        icone TEXT,
+        ordem INTEGER DEFAULT 0
+      )
+    `);
+
+    tenantDb.run(`
+      CREATE TABLE IF NOT EXISTS promocoes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        titulo TEXT,
+        tipo TEXT,
+        emoji TEXT,
+        descricao TEXT,
+        preco_original REAL DEFAULT 0,
+        preco_promocional REAL DEFAULT 0,
+        desconto_percentual REAL DEFAULT 0,
+        dias_ativos TEXT,
+        produtos_json TEXT,
+        ativo INTEGER DEFAULT 1,
+        criado_por_ia INTEGER DEFAULT 0,
+        created_at DATETIME DEFAULT (datetime('now'))
+      )
+    `);
+
+    tenantDb.run(`
+      CREATE TABLE IF NOT EXISTS afiliados (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nome TEXT NOT NULL,
+        email TEXT UNIQUE NOT NULL,
+        telefone TEXT,
+        codigo_ref TEXT UNIQUE NOT NULL,
+        comissao_percentual REAL DEFAULT 10,
+        chave_pix TEXT,
+        status TEXT DEFAULT 'ativo',
+        password_hash TEXT,
+        created_at DATETIME DEFAULT (datetime('now'))
+      )
+    `);
+
+    tenantDb.run(`
+      CREATE TABLE IF NOT EXISTS afiliado_vendas (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        afiliado_id INTEGER NOT NULL,
+        restaurante_id INTEGER,
+        restaurante_nome TEXT,
+        plano TEXT,
+        valor_venda REAL DEFAULT 0,
+        comissao_valor REAL DEFAULT 0,
+        status TEXT DEFAULT 'pendente',
+        created_at DATETIME DEFAULT (datetime('now')),
+        FOREIGN KEY (afiliado_id) REFERENCES afiliados(id)
+      )
+    `);
+  }, callback || (() => {}));
+}
+
 // Cria dados iniciais para um banco de tenant novo (mesas, config, formas_pagamento)
 function seedTenantDb(db, restauranteNome, done) {
   const onErr = (e) => { if (e) console.error('[Seed] Erro:', e.message); };
-  db.serialize(() => {
-  db.run(`
-    CREATE TABLE IF NOT EXISTS afiliados (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      nome TEXT NOT NULL,
-      email TEXT UNIQUE NOT NULL,
-      telefone TEXT,
-      codigo_ref TEXT UNIQUE NOT NULL,
-      comissao_percentual REAL DEFAULT 10,
-      chave_pix TEXT,
-      status TEXT DEFAULT 'ativo',
-      password_hash TEXT,
-      created_at DATETIME DEFAULT (datetime('now'))
-    )
-  `);
-
-  db.run(`
-    CREATE TABLE IF NOT EXISTS afiliado_vendas (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      afiliado_id INTEGER NOT NULL,
-      restaurante_id INTEGER,
-      restaurante_nome TEXT,
-      plano TEXT,
-      valor_venda REAL DEFAULT 0,
-      comissao_valor REAL DEFAULT 0,
-      status TEXT DEFAULT 'pendente',
-      created_at DATETIME DEFAULT (datetime('now')),
-      FOREIGN KEY (afiliado_id) REFERENCES afiliados(id)
-    )
-  `);
-
-    for (let i = 1; i <= 6; i++) {
-      db.run(`INSERT OR IGNORE INTO mesas (nome, status, observacao) VALUES (?, 'Disponível', NULL)`, ['Mesa ' + i], onErr);
-    }
-    if (restauranteNome) {
-      db.run(`INSERT OR REPLACE INTO configuracoes (chave, valor) VALUES ('nome_restaurante', ?)`, [restauranteNome], onErr);
-    }
-    const defaultMethods = [
-      ['Dinheiro', 'dinheiro', 0.0, 0, 1, 'ph-currency-dollar', 1],
-      ['Cartão de Crédito', 'credito', 2.5, 30, 1, 'ph-credit-card', 2],
-      ['Cartão de Débito', 'debito', 1.2, 1, 1, 'ph-credit-card', 3],
-      ['PIX', 'pix', 0.0, 0, 1, 'ph-qr-code', 4]
-    ];
-    db.get('SELECT COUNT(*) as c FROM formas_pagamento', [], (e, r) => {
-      if (!e && r && r.c === 0) {
-        const q = 'INSERT INTO formas_pagamento (nome, tipo, taxa, prazo_dias, ativo, icone, ordem) VALUES (?, ?, ?, ?, ?, ?, ?)';
-        defaultMethods.forEach(m => db.run(q, m, onErr));
+  ensureAllTenantTablesAndColumns(db, () => {
+    db.serialize(() => {
+      for (let i = 1; i <= 6; i++) {
+        db.run(`INSERT OR IGNORE INTO mesas (nome, status, observacao) VALUES (?, 'Disponível', NULL)`, ['Mesa ' + i], onErr);
       }
-    });
-  }, done || (() => {}));
+      if (restauranteNome) {
+        db.run(`INSERT OR REPLACE INTO configuracoes (chave, valor) VALUES ('nome_restaurante', ?)`, [restauranteNome], onErr);
+      }
+      const defaultMethods = [
+        ['Dinheiro', 'dinheiro', 0.0, 0, 1, 'ph-currency-dollar', 1],
+        ['Cartão de Crédito', 'credito', 2.5, 30, 1, 'ph-credit-card', 2],
+        ['Cartão de Débito', 'debito', 1.2, 1, 1, 'ph-credit-card', 3],
+        ['PIX', 'pix', 0.0, 0, 1, 'ph-qr-code', 4]
+      ];
+      db.get('SELECT COUNT(*) as c FROM formas_pagamento', [], (e, r) => {
+        if (!e && r && r.c === 0) {
+          const q = 'INSERT INTO formas_pagamento (nome, tipo, taxa, prazo_dias, ativo, icone, ordem) VALUES (?, ?, ?, ?, ?, ?, ?)';
+          defaultMethods.forEach(m => db.run(q, m, onErr));
+        }
+      });
+    }, done || (() => {}));
+  });
 }
 
-// Cria um banco de tenant novo com schema vazio + dados iniciais (sem copiar database_1.sqlite)
+// Cria um banco de tenant novo com schema completo + dados iniciais
 function createFreshTenantDb(dbPath, restauranteNome) {
   return new Promise((resolve) => {
     const newDb = new sqlite3.Database(dbPath, (err) => {
@@ -4087,14 +4192,16 @@ function createFreshTenantDb(dbPath, restauranteNome) {
       newDb.run('PRAGMA journal_mode = WAL;');
       newDb.run('PRAGMA synchronous = NORMAL;');
       newDb.run('PRAGMA busy_timeout = 5000;');
-      const refPath = path.join(__dirname, 'database_1.sqlite');
-      if (fsSync.existsSync(refPath)) {
-        syncTenantSchema(newDb, refPath, () => {
+      ensureAllTenantTablesAndColumns(newDb, () => {
+        const refPath = path.join(__dirname, 'database_1.sqlite');
+        if (fsSync.existsSync(refPath)) {
+          syncTenantSchema(newDb, refPath, () => {
+            seedTenantDb(newDb, restauranteNome, () => resolve(newDb));
+          });
+        } else {
           seedTenantDb(newDb, restauranteNome, () => resolve(newDb));
-        });
-      } else {
-        seedTenantDb(newDb, restauranteNome, () => resolve(newDb));
-      }
+        }
+      });
     });
   });
 }
@@ -10276,6 +10383,7 @@ app.post('/api/funcoes/solicitar', verificarToken, (req, res) => {
 });
 
 const CONFIG_SECRET_KEYS = [
+  'ia_api_key', 'ia_gemini_key',
   'mp_access_token', 'pagbank_token', 'stone_stonecode', 'sitef_ip',
   'cert_senha', 'csc', 'token_api_fiscal', 'ponto_token', 'jwt_secret'
 ];
@@ -10322,6 +10430,216 @@ app.post('/api/config', verificarToken, (req, res) => {
 // --- ENDPOINT TESTE DE CONEXÃO COM MAQUININHA → migrado para plugins/caixa/ ---
 
 // --- BACKUP & RESTORE API → migrado para plugins/caixa/ ---
+
+
+// ── INTELIGÊNCIA ARTIFICIAL PARA RESTAURANTES (GOOGLE GEMINI) ─────────────────────
+
+app.get('/api/ia/config', verificarToken, (req, res) => {
+  db.all(`SELECT chave, valor FROM configuracoes WHERE chave IN ('ia_api_key', 'ia_model', 'ia_tom_voz', 'ia_ativa')`, [], (err, rows) => {
+    if (err) return res.status(500).json({ ok: false, erro: err.message });
+    const cfgs = {};
+    (rows || []).forEach(r => { cfgs[r.chave] = r.valor; });
+    const hasKey = Boolean(cfgs.ia_api_key && cfgs.ia_api_key.trim());
+    let maskedKey = '';
+    if (hasKey) {
+      const k = cfgs.ia_api_key.trim();
+      maskedKey = k.length > 8 ? k.slice(0, 4) + '••••••••' + k.slice(-4) : '••••••••';
+    }
+    res.json({
+      ok: true,
+      config: {
+        ia_ativa: cfgs.ia_ativa === 'true' || cfgs.ia_ativa === '1',
+        ia_model: cfgs.ia_model || (iaService ? iaService.DEFAULT_MODEL : 'gemini-2.5-flash'),
+        ia_tom_voz: cfgs.ia_tom_voz || '',
+        has_key: hasKey,
+        masked_key: maskedKey
+      }
+    });
+  });
+});
+
+app.post('/api/ia/config', verificarToken, (req, res) => {
+  const { ia_api_key, ia_model, ia_tom_voz, ia_ativa } = req.body || {};
+  db.serialize(() => {
+    if (ia_api_key !== undefined && ia_api_key !== '***' && !ia_api_key.includes('••••')) {
+      db.run(`INSERT INTO configuracoes (chave, valor) VALUES ('ia_api_key', ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor`, [ia_api_key.trim()]);
+    }
+    if (ia_model !== undefined) {
+      db.run(`INSERT INTO configuracoes (chave, valor) VALUES ('ia_model', ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor`, [ia_model.trim()]);
+    }
+    if (ia_tom_voz !== undefined) {
+      db.run(`INSERT INTO configuracoes (chave, valor) VALUES ('ia_tom_voz', ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor`, [ia_tom_voz.trim()]);
+    }
+    if (ia_ativa !== undefined) {
+      db.run(`INSERT INTO configuracoes (chave, valor) VALUES ('ia_ativa', ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor`, [String(ia_ativa)]);
+    }
+    res.json({ ok: true, mensagem: 'Configurações de IA salvas com sucesso!' });
+  });
+});
+
+app.post('/api/ia/test-key', verificarToken, async (req, res) => {
+  try {
+    let { apiKey, model } = req.body || {};
+    if (!apiKey || apiKey.includes('••••')) {
+      const row = await new Promise((resolve) => {
+        db.get(`SELECT valor FROM configuracoes WHERE chave = 'ia_api_key'`, [], (e, r) => resolve(r));
+      });
+      apiKey = row?.valor;
+    }
+    if (!apiKey) return res.json({ ok: false, erro: 'Nenhuma chave de API informada.' });
+    const resultado = await iaService.testarApiKey(apiKey, model || iaService.DEFAULT_MODEL);
+    res.json(resultado);
+  } catch (err) {
+    res.json({ ok: false, erro: err.message });
+  }
+});
+
+app.post('/api/ia/gerar-promocoes', verificarToken, async (req, res) => {
+  try {
+    const { objetivo } = req.body || {};
+    const cfgRows = await new Promise((resolve) => {
+      db.all(`SELECT chave, valor FROM configuracoes WHERE chave IN ('ia_api_key', 'ia_model', 'ia_tom_voz', 'nome_restaurante')`, [], (e, r) => resolve(r || []));
+    });
+    const cfgs = {};
+    cfgRows.forEach(r => { cfgs[r.chave] = r.valor; });
+    const apiKey = cfgs.ia_api_key || process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return res.status(400).json({ ok: false, erro: 'Chave do Google Gemini não configurada. Adicione sua chave em Configurações > Inteligência de Vendas.' });
+    }
+
+    const produtos = await new Promise((resolve) => {
+      db.all(`SELECT id, nome, categoria, preco, emoji, categoria_fiscal FROM produtos WHERE status = 'ativo'`, [], (e, r) => resolve(r || []));
+    });
+
+    if (produtos.length === 0) {
+      return res.status(400).json({ ok: false, erro: 'Cadastre pelo menos 1 produto no cardápio para a IA analisar.' });
+    }
+
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const vendas = await new Promise((resolve) => {
+      db.all(`SELECT productName, COUNT(*) as qtd, SUM(total) as faturamento FROM pedidos WHERE createdAt >= ? AND status IN ('Finalizado','Pago','Entregue') GROUP BY productName ORDER BY qtd DESC LIMIT 20`, [thirtyDaysAgo], (e, r) => resolve(r || []));
+    });
+
+    const resultado = await iaService.gerarPromocoesIA({
+      apiKey,
+      model: cfgs.ia_model || iaService.DEFAULT_MODEL,
+      contextoRestaurante: `${cfgs.nome_restaurante || 'Restaurante'} - ${cfgs.ia_tom_voz || ''}`,
+      cardapio: produtos,
+      historicoVendas: vendas,
+      objetivo
+    });
+
+    res.json({ ok: true, resultado });
+  } catch (err) {
+    console.error('[IA Gerar Promocoes Error]', err);
+    res.status(500).json({ ok: false, erro: err.message });
+  }
+});
+
+app.post('/api/ia/gerar-copy', verificarToken, async (req, res) => {
+  try {
+    const { produtos, promocao, canal } = req.body || {};
+    const rowKey = await new Promise((resolve) => {
+      db.get(`SELECT valor FROM configuracoes WHERE chave = 'ia_api_key'`, [], (e, r) => resolve(r));
+    });
+    const rowContext = await new Promise((resolve) => {
+      db.get(`SELECT valor FROM configuracoes WHERE chave = 'ia_tom_voz'`, [], (e, r) => resolve(r));
+    });
+    const apiKey = rowKey?.valor || process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return res.status(400).json({ ok: false, erro: 'Chave do Google Gemini não configurada.' });
+    }
+
+    const resultado = await iaService.gerarCopyMarketing({
+      apiKey,
+      model: iaService.DEFAULT_MODEL,
+      contextoRestaurante: rowContext?.valor || 'Restaurante',
+      produtos,
+      promocao,
+      canal
+    });
+
+    res.json({ ok: true, resultado });
+  } catch (err) {
+    res.status(500).json({ ok: false, erro: err.message });
+  }
+});
+
+app.post('/api/ia/consultor', verificarToken, async (req, res) => {
+  try {
+    const { pergunta, historico } = req.body || {};
+    if (!pergunta || !pergunta.trim()) {
+      return res.status(400).json({ ok: false, erro: 'Pergunta obrigatória.' });
+    }
+
+    const cfgRows = await new Promise((resolve) => {
+      db.all(`SELECT chave, valor FROM configuracoes WHERE chave IN ('ia_api_key', 'ia_model', 'ia_tom_voz', 'nome_restaurante')`, [], (e, r) => resolve(r || []));
+    });
+    const cfgs = {};
+    cfgRows.forEach(r => { cfgs[r.chave] = r.valor; });
+    const apiKey = cfgs.ia_api_key || process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return res.status(400).json({ ok: false, erro: 'Chave do Google Gemini não configurada. Adicione sua chave em Configurações > Inteligência de Vendas.' });
+    }
+
+    const produtos = await new Promise((resolve) => {
+      db.all(`SELECT id, nome, categoria, preco FROM produtos WHERE status = 'ativo' LIMIT 40`, [], (e, r) => resolve(r || []));
+    });
+
+    const vendas = await new Promise((resolve) => {
+      db.all(`SELECT productName, COUNT(*) as qtd FROM pedidos WHERE status IN ('Finalizado','Pago','Entregue') GROUP BY productName ORDER BY qtd DESC LIMIT 10`, [], (e, r) => resolve(r || []));
+    });
+
+    const resposta = await iaService.consultarAssistenteVendas({
+      apiKey,
+      model: cfgs.ia_model || iaService.DEFAULT_MODEL,
+      contextoRestaurante: `${cfgs.nome_restaurante || 'Restaurante'} - ${cfgs.ia_tom_voz || ''}`,
+      cardapio: produtos,
+      historicoVendas: vendas,
+      historicoMensagens: historico || [],
+      pergunta: pergunta.trim()
+    });
+
+    res.json({ ok: true, ...resposta });
+  } catch (err) {
+    res.status(500).json({ ok: false, erro: err.message });
+  }
+});
+
+app.post('/api/ia/aplicar-promocao', verificarToken, (req, res) => {
+  const { titulo, categoria, preco, emoji, descricao, produtos_envolvidos, desconto_percentual } = req.body || {};
+  if (!titulo || !preco) {
+    return res.status(400).json({ ok: false, erro: 'Título e preço são obrigatórios.' });
+  }
+
+  const cat = categoria || 'Promoções & Combos';
+  const valor = parseFloat(preco) || 0;
+  const emo = emoji || '🔥';
+  const desc = descricao || (produtos_envolvidos ? `Combo com: ${produtos_envolvidos.join(', ')}` : '');
+
+  db.serialize(() => {
+    db.run(
+      `INSERT INTO produtos (categoria, nome, preco, emoji, setor, status_inicial, status, categoria_fiscal, descricao, visibilidade) VALUES (?, ?, ?, ?, 'Cozinha 1', 'Em espera', 'ativo', 'Alimentacao', ?, 'todos')`,
+      [cat, titulo.trim(), valor, emo, desc],
+      function(err) {
+        if (err) {
+          console.error('[Aplicar Promocao Error]', err.message);
+          return res.status(500).json({ ok: false, erro: 'Erro ao cadastrar produto promocional: ' + err.message });
+        }
+        const produtoId = this.lastID;
+
+        db.run(
+          `INSERT INTO promocoes (titulo, tipo, emoji, descricao, preco_promocional, desconto_percentual, produtos_json, ativo, criado_por_ia) VALUES (?, 'combo', ?, ?, ?, ?, ?, 1, 1)`,
+          [titulo.trim(), emo, desc, valor, parseFloat(desconto_percentual) || 0, JSON.stringify(produtos_envolvidos || [])],
+          () => {}
+        );
+
+        broadcastProdutos();
+        res.json({ ok: true, mensagem: `Promoção "${titulo}" adicionada ao cardápio com sucesso!`, produtoId });
+      }
+    );
+  });
+});
 
 let PORT = parseInt(process.env.PORT, 10) || 3000;
 try {

@@ -3689,141 +3689,236 @@
       <!-- TAB INTELIGÊNCIA -->
 
 <div id="admin-tab-inteligencia" class="admin-tab-content">
-        <!-- Header com gradiente -->
-        <div style="background:linear-gradient(135deg, #3b82f6, #1d4ed8); border-radius:16px; padding:20px; color:white; margin-bottom:20px;">
-          <h3 style="margin:0 0 4px; font-size:18px;"><i class="ph ph-brain"></i> Inteligência de Vendas</h3>
-          <p style="margin:0; opacity:0.85; font-size:13px;">Análise automática do seu cardápio para aumentar o ticket médio e reduzir custos fiscais.</p>
-        </div>
-        
-        <!-- Resumo Rápido (KPIs) -->
-        <div id="ia-kpi-row" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(140px,1fr)); gap:10px; margin-bottom:20px;">
-          <div style="background:var(--cfg-card-bg); border:1px solid var(--cfg-border); border-radius:12px; padding:14px; text-align:center;">
-            <div style="font-size:10px; font-weight:700; text-transform:uppercase; color:var(--cfg-text-muted); letter-spacing:0.5px;">Ticket Médio</div>
-            <div id="ia-kpi-ticket" style="font-size:22px; font-weight:800; color:#3b82f6; margin-top:4px;">—</div>
-          </div>
-          <div style="background:var(--cfg-card-bg); border:1px solid var(--cfg-border); border-radius:12px; padding:14px; text-align:center;">
-            <div style="font-size:10px; font-weight:700; text-transform:uppercase; color:var(--cfg-text-muted); letter-spacing:0.5px;">Itens Vendidos (7d)</div>
-            <div id="ia-kpi-itens" style="font-size:22px; font-weight:800; color:#059669; margin-top:4px;">—</div>
-          </div>
-          <div style="background:var(--cfg-card-bg); border:1px solid var(--cfg-border); border-radius:12px; padding:14px; text-align:center;">
-            <div style="font-size:10px; font-weight:700; text-transform:uppercase; color:var(--cfg-text-muted); letter-spacing:0.5px;">Top Vendido</div>
-            <div id="ia-kpi-top" style="font-size:14px; font-weight:700; color:#d97706; margin-top:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">—</div>
-          </div>
-          <div style="background:var(--cfg-card-bg); border:1px solid var(--cfg-border); border-radius:12px; padding:14px; text-align:center;">
-            <div style="font-size:10px; font-weight:700; text-transform:uppercase; color:var(--cfg-text-muted); letter-spacing:0.5px;">Sugestões IA</div>
-            <div id="ia-kpi-sugestoes" style="font-size:22px; font-weight:800; color:#8b5cf6; margin-top:4px;">—</div>
-          </div>
-        </div>
-        
-        <!-- IA CONFIG PANEL (colapsável) -->
-        <details id="ia-config-panel" style="background:var(--cfg-card-bg);border-radius:12px;padding:16px;border:1px solid var(--cfg-border);margin-bottom:20px;">
-          <summary style="cursor:pointer; font-weight:700; font-size:14px; color:var(--cfg-text); list-style:none; display:flex; align-items:center; gap:8px;">
-            <i class="ph ph-gear" style="color:#64748b;"></i> Configurações de Alertas IA
-            <i class="ph ph-caret-right" style="margin-left:auto; transition:transform 0.2s;"></i>
-          </summary>
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-            <div>
-              <h4 style="margin:0;color:var(--cfg-text);font-size:16px;"><i class="ph ph-brain" style="color:#3b82f6;"></i> Alertas Inteligentes</h4>
-              <p style="margin:4px 0 0;color:#94a3b8;font-size:13px;">Ativar/Desativar notificacoes IA em tempo real</p>
+        <!-- Header com Gradiente Moderno -->
+        <div style="background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 50%, #06b6d4 100%); border-radius: 16px; padding: 24px; color: white; margin-bottom: 20px; box-shadow: 0 10px 25px rgba(59, 130, 246, 0.25); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+          <div>
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
+              <span style="background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Google Gemini AI</span>
+              <span id="ia-status-badge-header" style="background: #ef4444; color: white; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700;">Chave não configurada</span>
             </div>
-            <label style="position:relative;display:inline-block;width:52px;height:28px;">
-              <input type="checkbox" id="ia-toggle-switch" checked onchange="window.toggleIAAlertas(this.checked)" style="opacity:0;width:0;height:0;">
-              <span id="ia-toggle-track" style="position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background-color:#22c55e;transition:.3s;border-radius:28px;"></span>
-              <span id="ia-toggle-thumb" style="position:absolute;content:'';height:22px;width:22px;left:24px;bottom:3px;background-color:white;transition:.3s;border-radius:50%;box-shadow:0 2px 4px rgba(0,0,0,0.2);"></span>
+            <h2 style="margin: 0 0 6px; font-size: 22px; font-weight: 800; display: flex; align-items: center; gap: 8px;">
+              <i class="ph-bold ph-brain"></i> Inteligência de Vendas & Promoções
+            </h2>
+            <p style="margin: 0; opacity: 0.9; font-size: 13px; max-width: 650px;">
+              Crie promoções irresistíveis, combos de alto lucro, mensagens persuasivas para WhatsApp e receba consultoria estratégica personalizada para o seu restaurante.
+            </p>
+          </div>
+          <button onclick="document.getElementById('ia-key-card').scrollIntoView({behavior:'smooth'})" style="background: white; color: #1e3a8a; border: none; padding: 10px 18px; border-radius: 10px; font-weight: 700; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+            <i class="ph-bold ph-key"></i> Configurar Chave IA
+          </button>
+        </div>
+
+        <!-- CARD DE CONFIGURAÇÃO DA CHAVE IA (GOOGLE GEMINI) -->
+        <div id="ia-key-card" style="background: var(--cfg-card-bg); border: 1px solid var(--cfg-border); border-radius: 16px; padding: 22px; margin-bottom: 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.06);">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(59, 130, 246, 0.12); display: flex; align-items: center; justify-content: center; color: #3b82f6; font-size: 22px;">
+                <i class="ph-bold ph-sparkle"></i>
+              </div>
+              <div>
+                <h4 style="margin: 0; font-size: 16px; color: var(--cfg-text); font-weight: 700;">Chave de API do Google Gemini</h4>
+                <p style="margin: 2px 0 0; font-size: 12px; color: var(--cfg-text-muted);">Cada restaurante pode usar sua própria chave gratuita ou paga para gerar estratégias</p>
+              </div>
+            </div>
+            <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" style="color: #3b82f6; font-size: 12px; font-weight: 600; text-decoration: none; display: flex; align-items: center; gap: 4px; background: rgba(59, 130, 246, 0.08); padding: 6px 12px; border-radius: 8px;">
+              <i class="ph-bold ph-arrow-square-out"></i> Gerar chave grátis no Google AI Studio
+            </a>
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 16px;">
+            <!-- Campo API Key -->
+            <div>
+              <label style="display: block; font-size: 12px; font-weight: 700; color: var(--cfg-text); margin-bottom: 6px;">
+                Chave da API (Gemini API Key)
+              </label>
+              <div style="display: flex; gap: 8px;">
+                <input type="password" id="ia-gemini-key" placeholder="Cole sua chave AIzaSy..." style="flex: 1; padding: 10px 14px; border: 1.5px solid var(--cfg-border); border-radius: 10px; font-size: 13px; font-family: monospace; background: var(--cfg-input-bg); color: var(--cfg-text); outline: none;">
+                <button type="button" onclick="window.toggleShowIaKey()" style="background: var(--cfg-card-bg); border: 1.5px solid var(--cfg-border); border-radius: 10px; padding: 0 12px; cursor: pointer; color: var(--cfg-text-muted);" title="Mostrar/Ocultar chave">
+                  <i id="ia-key-eye-icon" class="ph ph-eye"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- Seletor de Modelo -->
+            <div>
+              <label style="display: block; font-size: 12px; font-weight: 700; color: var(--cfg-text); margin-bottom: 6px;">
+                Modelo Gemini
+              </label>
+              <select id="ia-gemini-model" style="width: 100%; padding: 10px 14px; border: 1.5px solid var(--cfg-border); border-radius: 10px; font-size: 13px; background: var(--cfg-input-bg); color: var(--cfg-text); outline: none;">
+                <option value="gemini-2.5-flash" selected>Gemini 2.5 Flash (Recomendado - Ultra Rápido & Inteligente)</option>
+                <option value="gemini-1.5-flash">Gemini 1.5 Flash (Econômico)</option>
+                <option value="gemini-2.0-flash">Gemini 2.0 Flash (Experimental)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Tom de Voz / Identidade do Estabelecimento -->
+          <div style="margin-bottom: 18px;">
+            <label style="display: block; font-size: 12px; font-weight: 700; color: var(--cfg-text); margin-bottom: 6px;">
+              Tom de Voz e Identidade do Restaurante (Opcional)
             </label>
+            <input type="text" id="ia-tom-voz" placeholder="Ex: Hamburgueria artesanal premium, ambiente jovem e descontraído, foco em delivery rápido" style="width: 100%; padding: 10px 14px; border: 1.5px solid var(--cfg-border); border-radius: 10px; font-size: 13px; background: var(--cfg-input-bg); color: var(--cfg-text); outline: none; box-sizing: border-box;">
           </div>
-          <div id="ia-config-fields" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-            <div>
-              <label style="font-size:12px;font-weight:600;color:#64748b;display:block;margin-bottom:4px;">Refill Bebida (min)</label>
-              <input type="number" id="ia-minutos-refill" value="18" min="5" max="120" style="width:100%;padding:8px 12px;border:1px solid var(--cfg-border);border-radius:8px;font-size:14px;outline:none;" onchange="window.updateIAConfig()">
-            </div>
-            <div>
-              <label style="font-size:12px;font-weight:600;color:#64748b;display:block;margin-bottom:4px;">Alerta Espera (min)</label>
-              <input type="number" id="ia-minutos-alerta" value="25" min="5" max="120" style="width:100%;padding:8px 12px;border:1px solid var(--cfg-border);border-radius:8px;font-size:14px;outline:none;" onchange="window.updateIAConfig()">
-            </div>
-            <div>
-              <label style="font-size:12px;font-weight:600;color:#64748b;display:block;margin-bottom:4px;">Critico Espera (min)</label>
-              <input type="number" id="ia-minutos-critico" value="40" min="10" max="180" style="width:100%;padding:8px 12px;border:1px solid var(--cfg-border);border-radius:8px;font-size:14px;outline:none;" onchange="window.updateIAConfig()">
-            </div>
-            <div>
-              <label style="font-size:12px;font-weight:600;color:#64748b;display:block;margin-bottom:4px;">Manobra (min)</label>
-              <input type="number" id="ia-minutos-manobra" value="30" min="10" max="180" style="width:100%;padding:8px 12px;border:1px solid var(--cfg-border);border-radius:8px;font-size:14px;outline:none;" onchange="window.updateIAConfig()">
-            </div>
-            <div>
-              <label style="font-size:12px;font-weight:600;color:#64748b;display:block;margin-bottom:4px;">Atencao Fila (min)</label>
-              <input type="number" id="ia-minutos-atencao" value="50" min="15" max="240" style="width:100%;padding:8px 12px;border:1px solid var(--cfg-border);border-radius:8px;font-size:14px;outline:none;" onchange="window.updateIAConfig()">
-            </div>
-          </div>
-          <button onclick="window.resetIAState()" style="margin-top:12px;padding:8px 16px;border:1px solid #fecaca;background:#fef2f2;color:#dc2626;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;"><i class="ph ph-trash"></i> Reiniciar Estado IA</button>
-        </details>
 
-        <div id="loading-inteligencia" style="text-align: center; padding: 40px; color: #94a3b8;">
-          <i class="ph ph-spinner ph-spin" style="font-size: 32px; color: #3b82f6; margin-bottom: 10px;"></i>
-          <p>Analisando dados...</p>
+          <!-- Botões de Ação do Card de Configuração -->
+          <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+            <button type="button" onclick="window.salvarConfigIA()" class="btn-salvar-cfg" style="background: #3b82f6; color: white; border: none; padding: 10px 20px; border-radius: 10px; font-weight: 700; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+              <i class="ph-bold ph-floppy-disk"></i> Salvar Configuração de IA
+            </button>
+            <button type="button" id="btn-testar-ia" onclick="window.testarChaveIA()" style="background: rgba(59, 130, 246, 0.1); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.3); padding: 10px 18px; border-radius: 10px; font-weight: 700; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+              <i class="ph-bold ph-plug"></i> Testar Conexão IA
+            </button>
+            <span id="ia-test-result" style="font-size: 12px; font-weight: 600; margin-left: 8px;"></span>
+          </div>
         </div>
 
-        <div id="content-inteligencia" style="display: none; flex-direction: column; gap: 20px;">
-          <!-- Suggestions will be injected here -->
+        <!-- NAVEGAÇÃO DE SUB-ABAS DO HUB IA -->
+        <div style="display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 2px solid var(--cfg-border); padding-bottom: 12px; flex-wrap: wrap;">
+          <button type="button" class="ia-subtab-btn active" data-subtab="promocoes" onclick="window.switchIaSubtab('promocoes')" style="background: #3b82f6; color: white; border: none; padding: 10px 18px; border-radius: 10px; font-weight: 700; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s;">
+            <i class="ph-bold ph-tag"></i> 1. Gerador de Promoções & Combos
+          </button>
+          <button type="button" class="ia-subtab-btn" data-subtab="copy" onclick="window.switchIaSubtab('copy')" style="background: var(--cfg-card-bg); color: var(--cfg-text); border: 1px solid var(--cfg-border); padding: 10px 18px; border-radius: 10px; font-weight: 700; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s;">
+            <i class="ph-bold ph-chat-circle-dots"></i> 2. Mensagens & Copy de Vendas
+          </button>
+          <button type="button" class="ia-subtab-btn" data-subtab="consultor" onclick="window.switchIaSubtab('consultor')" style="background: var(--cfg-card-bg); color: var(--cfg-text); border: 1px solid var(--cfg-border); padding: 10px 18px; border-radius: 10px; font-weight: 700; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s;">
+            <i class="ph-bold ph-robot"></i> 3. Consultor de Vendas IA
+          </button>
         </div>
 
-        <!-- AI COMBO GENERATOR - Redução de Carga Tributária -->
-        <div style="margin-top: 32px; border-top: 2px solid var(--cfg-border); padding-top: 24px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
-            <div>
-              <h3 style="margin: 0; color: #059669; font-size: 18px; display: flex; align-items: center; gap: 8px;">
-                <i class="ph ph-chart-line-down" style="font-size: 22px;"></i> Gerador de Combos Inteligentes
-              </h3>
-              <p style="color: #94a3b8; font-size: 13px; margin: 4px 0 0;">Análise fiscal automática — Combos que reduzem a carga tributária do seu cardápio</p>
+        <!-- ════ SUB-ABA 1: PROMOÇÕES E COMBOS COM IA ════ -->
+        <div id="ia-subtab-panel-promocoes" class="ia-subtab-panel">
+          <div style="background: var(--cfg-card-bg); border: 1px solid var(--cfg-border); border-radius: 16px; padding: 20px; margin-bottom: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+              <div>
+                <h3 style="margin: 0 0 4px; font-size: 16px; color: var(--cfg-text); font-weight: 800;">
+                  <i class="ph-bold ph-magic-wand" style="color: #3b82f6;"></i> Gerar Promoções Estratégicas com IA
+                </h3>
+                <p style="margin: 0; font-size: 12px; color: var(--cfg-text-muted);">
+                  A IA analisa seus produtos cadastrados, preços e vendas para sugerir combos com nomes atrativos e alta conversão.
+                </p>
+              </div>
+              <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                <select id="ia-promocao-foco" style="padding: 10px 14px; border: 1.5px solid var(--cfg-border); border-radius: 10px; font-size: 13px; background: var(--cfg-input-bg); color: var(--cfg-text); outline: none;">
+                  <option value="Aumentar Ticket Médio e Vendas Casadas">Foco: Aumentar Ticket Médio (Combos)</option>
+                  <option value="Promoção para Dias de Menor Movimento (Terça/Quarta)">Foco: Atrair Clientes em Dias Fracos</option>
+                  <option value="Giro Rápido de Itens Parados no Cardápio">Foco: Girar Itens com Baixa Saída</option>
+                  <option value="Combos Executivos para Horário de Almoço">Foco: Almoço Executivo / Dia a Dia</option>
+                  <option value="Combos Noturnos e Fim de Semana Família">Foco: Noite / Fim de Semana Família</option>
+                </select>
+                <button type="button" id="btn-gerar-promocoes-ia" onclick="window.gerarPromocoesIAComGemini()" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border: none; padding: 10px 20px; border-radius: 10px; font-weight: 800; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);">
+                  <i class="ph-bold ph-sparkle"></i> Gerar Promoções Agora
+                </button>
+              </div>
             </div>
-            <button id="btn-gerar-combos" onclick="window.gerarCombosIA()" style="background: #059669; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 13px; box-shadow: 0 4px 6px rgba(5,150,105,0.25);">
-              <i class="ph ph-magic-wand"></i> Gerar Sugestões de Combos
+          </div>
+
+          <!-- Loading das Promoções -->
+          <div id="ia-promocoes-loading" style="display: none; text-align: center; padding: 40px 20px; background: var(--cfg-card-bg); border-radius: 16px; border: 1px solid var(--cfg-border); margin-bottom: 20px;">
+            <i class="ph-bold ph-spinner ph-spin" style="font-size: 38px; color: #3b82f6; margin-bottom: 12px;"></i>
+            <h4 style="margin: 0 0 6px; color: var(--cfg-text);">Analisando cardápio com o Google Gemini...</h4>
+            <p style="margin: 0; font-size: 13px; color: var(--cfg-text-muted);">Calculando margens, combinações apetitosas e motivos estratégicos.</p>
+          </div>
+
+          <!-- Diagnóstico Estratégico da IA -->
+          <div id="ia-diagnostico-card" style="display: none; background: rgba(59, 130, 246, 0.06); border: 1.5px solid rgba(59, 130, 246, 0.2); border-radius: 14px; padding: 18px; margin-bottom: 20px;">
+            <h4 style="margin: 0 0 6px; font-size: 14px; color: #2563eb; font-weight: 800; display: flex; align-items: center; gap: 6px;">
+              <i class="ph-bold ph-lightbulb"></i> Diagnóstico Comercial da IA
+            </h4>
+            <p id="ia-diagnostico-texto" style="margin: 0; font-size: 13px; color: var(--cfg-text); line-height: 1.5;"></p>
+          </div>
+
+          <!-- Grid de Sugestões de Promoções -->
+          <div id="ia-promocoes-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px;"></div>
+
+          <!-- Estado Vazio -->
+          <div id="ia-promocoes-empty" style="text-align: center; padding: 50px 20px; background: var(--cfg-card-bg); border-radius: 16px; border: 2px dashed var(--cfg-border);">
+            <div style="font-size: 42px; margin-bottom: 12px;">🍔✨</div>
+            <h4 style="margin: 0 0 6px; color: var(--cfg-text); font-size: 16px;">Nenhuma promoção gerada ainda</h4>
+            <p style="margin: 0 auto 16px auto; font-size: 13px; color: var(--cfg-text-muted); max-width: 480px;">
+              Clique no botão verde <strong>"Gerar Promoções Agora"</strong> para que a IA analise seus pratos e monte combos inteligentes com 1 clique para ativar no cardápio.
+            </p>
+          </div>
+        </div>
+
+        <!-- ════ SUB-ABA 2: MENSAGENS E COPY DE VENDAS ════ -->
+        <div id="ia-subtab-panel-copy" class="ia-subtab-panel" style="display: none;">
+          <div style="background: var(--cfg-card-bg); border: 1px solid var(--cfg-border); border-radius: 16px; padding: 20px; margin-bottom: 20px;">
+            <h3 style="margin: 0 0 6px; font-size: 16px; color: var(--cfg-text); font-weight: 800;">
+              <i class="ph-bold ph-chat-centered-text" style="color: #8b5cf6;"></i> Gerador de Mensagens Persuasivas para Vendas
+            </h3>
+            <p style="margin: 0 0 16px; font-size: 12px; color: var(--cfg-text-muted);">
+              Crie textos irresistíveis para disparar no WhatsApp dos clientes ou publicar no Instagram com emojis e formatação pronta.
+            </p>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 16px;">
+              <div>
+                <label style="display: block; font-size: 12px; font-weight: 700; color: var(--cfg-text); margin-bottom: 6px;">Canal de Vendas</label>
+                <select id="ia-copy-canal" style="width: 100%; padding: 10px 14px; border: 1.5px solid var(--cfg-border); border-radius: 10px; font-size: 13px; background: var(--cfg-input-bg); color: var(--cfg-text); outline: none;">
+                  <option value="whatsapp">WhatsApp (Disparo Direto)</option>
+                  <option value="instagram_feed">Instagram (Legenda Feed)</option>
+                  <option value="instagram_stories">Instagram (Stories / Enquete)</option>
+                </select>
+              </div>
+              <div>
+                <label style="display: block; font-size: 12px; font-weight: 700; color: var(--cfg-text); margin-bottom: 6px;">Prato ou Promoção em Destaque</label>
+                <input type="text" id="ia-copy-tema" placeholder="Ex: Combo Sexta Burguer com frete grátis" style="width: 100%; padding: 10px 14px; border: 1.5px solid var(--cfg-border); border-radius: 10px; font-size: 13px; background: var(--cfg-input-bg); color: var(--cfg-text); outline: none; box-sizing: border-box;">
+              </div>
+            </div>
+
+            <button type="button" id="btn-gerar-copy-ia" onclick="window.gerarCopyVendasIA()" style="background: #8b5cf6; color: white; border: none; padding: 10px 20px; border-radius: 10px; font-weight: 800; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+              <i class="ph-bold ph-pencil-simple-line"></i> Criar Textos de Vendas
             </button>
           </div>
 
-          <!-- Loading State -->
-          <div id="combo-loading" style="display: none; text-align: center; padding: 40px; background:var(--cfg-card-bg); border-radius: 12px; border: 1px solid var(--cfg-border);">
-            <i class="ph ph-spinner ph-spin" style="font-size: 36px; color: #059669; margin-bottom: 12px;"></i>
-            <p style="color: #64748b; font-size: 14px;">Analisando cardápio e calculando impacto fiscal...</p>
+          <div id="ia-copy-loading" style="display: none; text-align: center; padding: 30px; background: var(--cfg-card-bg); border-radius: 16px; border: 1px solid var(--cfg-border); margin-bottom: 20px;">
+            <i class="ph-bold ph-spinner ph-spin" style="font-size: 32px; color: #8b5cf6; margin-bottom: 8px;"></i>
+            <p style="margin: 0; color: var(--cfg-text);">Escrevendo mensagens de alta conversão...</p>
           </div>
 
-          <!-- Stats Panel -->
-          <div id="combo-stats-panel" style="display: none;">
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 20px;">
-              <div style="background:var(--cfg-card-bg); padding: 16px; border-radius: 12px; border: 1px solid var(--cfg-border);">
-                <div style="font-size: 11px; color: #64748b; text-transform: uppercase; font-weight: 600;">Produtos Ativos</div>
-                <div id="combo-stat-produtos" style="font-size: 22px; font-weight: 800; color:var(--cfg-text); margin-top: 4px;">0</div>
+          <div id="ia-copy-results-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px;"></div>
+        </div>
+
+        <!-- ════ SUB-ABA 3: CONSULTOR DE VENDAS IA (CHAT) ════ -->
+        <div id="ia-subtab-panel-consultor" class="ia-subtab-panel" style="display: none;">
+          <div style="background: var(--cfg-card-bg); border: 1px solid var(--cfg-border); border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; height: 550px;">
+            <!-- Header do Chat -->
+            <div style="background: rgba(59, 130, 246, 0.08); padding: 14px 20px; border-bottom: 1px solid var(--cfg-border); display: flex; align-items: center; gap: 10px;">
+              <div style="width: 32px; height: 32px; border-radius: 50%; background: #3b82f6; color: white; display: flex; align-items: center; justify-content: center; font-size: 16px;">
+                <i class="ph-bold ph-robot"></i>
               </div>
-              <div style="background:var(--cfg-card-bg); padding: 16px; border-radius: 12px; border: 1px solid var(--cfg-border);">
-                <div style="font-size: 11px; color: #64748b; text-transform: uppercase; font-weight: 600;">Faturamento 30 dias</div>
-                <div id="combo-stat-faturamento" style="font-size: 22px; font-weight: 800; color: #059669; margin-top: 4px;">R$ 0</div>
-              </div>
-              <div style="background:var(--cfg-card-bg); padding: 16px; border-radius: 12px; border: 1px solid var(--cfg-border);">
-                <div style="font-size: 11px; color: #64748b; text-transform: uppercase; font-weight: 600;">Pedidos (30d)</div>
-                <div id="combo-stat-taxa" style="font-size: 22px; font-weight: 800; color: #dc2626; margin-top: 4px;">0</div>
-              </div>
-              <div style="background:var(--cfg-card-bg); padding: 16px; border-radius: 12px; border: 1px solid var(--cfg-border);">
-                <div style="font-size: 11px; color: #64748b; text-transform: uppercase; font-weight: 600;">Combos Sugeridos</div>
-                <div id="combo-stat-sugestoes" style="font-size: 22px; font-weight: 800; color: #3b82f6; margin-top: 4px;">0</div>
+              <div>
+                <h4 style="margin: 0; font-size: 14px; color: var(--cfg-text); font-weight: 700;">Consultor Estratégico de Restaurante</h4>
+                <span style="font-size: 11px; color: #10b981; font-weight: 600;">● Conectado com seu cardápio e histórico de vendas</span>
               </div>
             </div>
 
-            <!-- Category Distribution -->
-            <div style="background:var(--cfg-card-bg); padding: 20px; border-radius: 12px; border: 1px solid var(--cfg-border); margin-bottom: 20px;">
-              <h4 style="margin: 0 0 12px 0; font-size: 14px; color:var(--cfg-text); display: flex; align-items: center; gap: 6px;">
-                <i class="ph ph-chart-pie" style="color: #059669;"></i> Distribuição por Categoria Fiscal
-              </h4>
-              <div id="combo-cat-distribution" style="display: flex; flex-direction: column; gap: 10px;"></div>
+            <!-- Área de Mensagens -->
+            <div id="ia-chat-messages" style="flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px;">
+              <div style="background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.15); border-radius: 14px 14px 14px 4px; padding: 14px 18px; max-width: 80%; font-size: 13px; color: var(--cfg-text); line-height: 1.5;">
+                👋 Olá! Sou o seu <strong>Consultor de Vendas IA</strong>. Já analisei os produtos do seu estabelecimento. Como posso ajudar você a faturar mais hoje? Você pode me pedir ideias de promoções, sugestões para aumentar o ticket médio ou estratégias para datas especiais!
+              </div>
             </div>
-          </div>
 
-          <!-- Suggestions Grid -->
-          <div id="combo-suggestions-grid" style="display: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 16px;"></div>
+            <!-- Sugestões Rápidas de Perguntas -->
+            <div style="padding: 8px 16px; background: var(--cfg-card-bg); border-top: 1px solid var(--cfg-border); display: flex; gap: 8px; overflow-x: auto; white-space: nowrap;">
+              <button type="button" onclick="window.enviarPromptRapidoConsultor('Como posso aumentar o ticket médio das mesas no fim de semana?')" style="background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.2); color: #3b82f6; padding: 5px 10px; border-radius: 15px; font-size: 11px; font-weight: 600; cursor: pointer;">
+                💡 Aumentar Ticket Médio
+              </button>
+              <button type="button" onclick="window.enviarPromptRapidoConsultor('Crie uma estratégia para atrair mais clientes na terça-feira à noite')" style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.2); color: #10b981; padding: 5px 10px; border-radius: 15px; font-size: 11px; font-weight: 600; cursor: pointer;">
+                📅 Movimento em Dias Fracos
+              </button>
+              <button type="button" onclick="window.enviarPromptRapidoConsultor('Quais são as melhores sobremesas e bebidas para sugerir de sobremesa aos clientes?')" style="background: rgba(139, 92, 246, 0.08); border: 1px solid rgba(139, 92, 246, 0.2); color: #8b5cf6; padding: 5px 10px; border-radius: 15px; font-size: 11px; font-weight: 600; cursor: pointer;">
+                🍰 Venda Cruzada (Cross-sell)
+              </button>
+            </div>
 
-          <!-- Empty State -->
-          <div id="combo-empty" style="text-align: center; padding: 50px 20px; background:var(--cfg-card-bg); border-radius: 12px; border: 2px dashed #e2e8f0;">
-            <i class="ph ph-chart-line-down" style="font-size: 48px; color: #cbd5e1; margin-bottom: 16px;"></i>
-            <h4 style="color: #94a3b8; margin: 0 0 8px;">Nenhuma análise ainda</h4>
-            <p style="color: #94a3b8; font-size: 13px; margin: 0;">Clique em "Gerar Sugestões de Combos" para analisar seu cardápio e gerar combos que reduzem a carga tributária.</p>
+            <!-- Input do Chat -->
+            <div style="padding: 12px 16px; background: var(--cfg-card-bg); border-top: 1px solid var(--cfg-border); display: flex; gap: 8px;">
+              <input type="text" id="ia-chat-input" placeholder="Pergunte qualquer coisa sobre vendas, combos, cardápio..." onkeydown="if(event.key==='Enter') window.enviarMensagemConsultorIA()" style="flex: 1; padding: 10px 14px; border: 1.5px solid var(--cfg-border); border-radius: 10px; font-size: 13px; background: var(--cfg-input-bg); color: var(--cfg-text); outline: none;">
+              <button type="button" id="btn-ia-chat-send" onclick="window.enviarMensagemConsultorIA()" style="background: #3b82f6; color: white; border: none; padding: 0 16px; border-radius: 10px; font-weight: 700; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center;">
+                <i class="ph-bold ph-paper-plane-right"></i>
+              </button>
+            </div>
           </div>
         </div>
       </div>

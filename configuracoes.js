@@ -9099,3 +9099,415 @@ window.salvarMarcaSuporteUI = function() {
     window.carregarLayoutHomeUI();
   });
 })();
+
+
+
+  // =========================================================================
+  // 🧠 HUB DE INTELIGÊNCIA ARTIFICIAL (GOOGLE GEMINI) - VENDAS & PROMOÇÕES
+  // =========================================================================
+
+  let _iaChatHistory = [];
+  let _iaPromocoesGeradas = [];
+
+  window.toggleShowIaKey = function() {
+    const input = document.getElementById('ia-gemini-key');
+    const icon = document.getElementById('ia-key-eye-icon');
+    if (!input || !icon) return;
+    if (input.type === 'password') {
+      input.type = 'text';
+      icon.className = 'ph ph-eye-slash';
+    } else {
+      input.type = 'password';
+      icon.className = 'ph ph-eye';
+    }
+  };
+
+  window.switchIaSubtab = function(tabName) {
+    document.querySelectorAll('.ia-subtab-btn').forEach(btn => {
+      const active = btn.getAttribute('data-subtab') === tabName;
+      btn.style.background = active ? '#3b82f6' : 'var(--cfg-card-bg)';
+      btn.style.color = active ? 'white' : 'var(--cfg-text)';
+      btn.style.border = active ? 'none' : '1px solid var(--cfg-border)';
+    });
+
+    document.querySelectorAll('.ia-subtab-panel').forEach(p => { p.style.display = 'none'; });
+    const target = document.getElementById('ia-subtab-panel-' + tabName);
+    if (target) target.style.display = 'block';
+  };
+
+  window.carregarConfigIA = async function() {
+    try {
+      const res = await fetch('/api/ia/config', { credentials: 'same-origin' });
+      const data = await res.json();
+      if (!data || !data.ok || !data.config) return;
+
+      const cfg = data.config;
+      const keyInput = document.getElementById('ia-gemini-key');
+      const modelSelect = document.getElementById('ia-gemini-model');
+      const tomInput = document.getElementById('ia-tom-voz');
+      const badgeHeader = document.getElementById('ia-status-badge-header');
+
+      if (keyInput && cfg.has_key && !keyInput.value) {
+        keyInput.value = cfg.masked_key;
+      }
+      if (modelSelect && cfg.ia_model) {
+        modelSelect.value = cfg.ia_model;
+      }
+      if (tomInput && cfg.ia_tom_voz) {
+        tomInput.value = cfg.ia_tom_voz;
+      }
+
+      if (badgeHeader) {
+        if (cfg.has_key) {
+          badgeHeader.textContent = '● Chave IA Conectada';
+          badgeHeader.style.background = '#10b981';
+        } else {
+          badgeHeader.textContent = 'Chave não configurada';
+          badgeHeader.style.background = '#ef4444';
+        }
+      }
+    } catch (e) {
+      console.warn('[IA Config] Falha ao carregar configurações de IA:', e.message);
+    }
+  };
+
+  window.salvarConfigIA = async function() {
+    const keyInput = document.getElementById('ia-gemini-key');
+    const modelSelect = document.getElementById('ia-gemini-model');
+    const tomInput = document.getElementById('ia-tom-voz');
+
+    const payload = {
+      ia_model: modelSelect ? modelSelect.value : 'gemini-2.5-flash',
+      ia_tom_voz: tomInput ? tomInput.value.trim() : '',
+      ia_ativa: true
+    };
+
+    if (keyInput && keyInput.value && !keyInput.value.includes('••••')) {
+      payload.ia_api_key = keyInput.value.trim();
+    }
+
+    try {
+      const res = await fetch('/api/ia/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (data && data.ok) {
+        if (typeof showToast === 'function') showToast(data.mensagem || 'Configuração de IA salva com sucesso!', 'success');
+        else alert(data.mensagem || 'Configuração de IA salva com sucesso!');
+        window.carregarConfigIA();
+      } else {
+        alert(data.erro || 'Erro ao salvar configuração de IA.');
+      }
+    } catch (err) {
+      alert('Erro de conexão ao salvar IA: ' + err.message);
+    }
+  };
+
+  window.testarChaveIA = async function() {
+    const keyInput = document.getElementById('ia-gemini-key');
+    const modelSelect = document.getElementById('ia-gemini-model');
+    const btn = document.getElementById('btn-testar-ia');
+    const resultSpan = document.getElementById('ia-test-result');
+
+    if (btn) btn.innerHTML = '<i class="ph ph-spinner ph-spin"></i> Testando...';
+    if (resultSpan) { resultSpan.textContent = 'Validando chave com o Google...'; resultSpan.style.color = '#3b82f6'; }
+
+    try {
+      const res = await fetch('/api/ia/test-key', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          apiKey: keyInput ? keyInput.value.trim() : '',
+          model: modelSelect ? modelSelect.value : 'gemini-2.5-flash'
+        })
+      });
+      const data = await res.json();
+      if (data && data.ok) {
+        if (resultSpan) { resultSpan.textContent = '✓ Conexão com Gemini OK!'; resultSpan.style.color = '#10b981'; }
+        if (typeof showToast === 'function') showToast('Chave de API do Gemini validada com sucesso!', 'success');
+      } else {
+        if (resultSpan) { resultSpan.textContent = '✗ Falha: ' + (data.erro || 'Chave inválida'); resultSpan.style.color = '#ef4444'; }
+      }
+    } catch (e) {
+      if (resultSpan) { resultSpan.textContent = '✗ Erro: ' + e.message; resultSpan.style.color = '#ef4444'; }
+    } finally {
+      if (btn) btn.innerHTML = '<i class="ph-bold ph-plug"></i> Testar Conexão IA';
+    }
+  };
+
+  window.gerarPromocoesIAComGemini = async function() {
+    const focoSelect = document.getElementById('ia-promocao-foco');
+    const loading = document.getElementById('ia-promocoes-loading');
+    const empty = document.getElementById('ia-promocoes-empty');
+    const grid = document.getElementById('ia-promocoes-grid');
+    const diagCard = document.getElementById('ia-diagnostico-card');
+    const diagTexto = document.getElementById('ia-diagnostico-texto');
+    const btnGerar = document.getElementById('btn-gerar-promocoes-ia');
+
+    if (loading) loading.style.display = 'block';
+    if (empty) empty.style.display = 'none';
+    if (grid) { grid.innerHTML = ''; grid.style.display = 'none'; }
+    if (diagCard) diagCard.style.display = 'none';
+    if (btnGerar) { btnGerar.disabled = true; btnGerar.innerHTML = '<i class="ph ph-spinner ph-spin"></i> Criando...'; }
+
+    try {
+      const res = await fetch('/api/ia/gerar-promocoes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ objetivo: focoSelect ? focoSelect.value : '' })
+      });
+      const data = await res.json();
+
+      if (!data || !data.ok || !data.resultado) {
+        if (empty) {
+          empty.style.display = 'block';
+          empty.querySelector('h4').textContent = 'Aviso da IA';
+          empty.querySelector('p').textContent = data.erro || 'Não foi possível gerar sugestões com os dados atuais.';
+        }
+        return;
+      }
+
+      const resIA = data.resultado;
+      _iaPromocoesGeradas = resIA.promocoes || [];
+
+      if (resIA.analise_estrategica && diagCard && diagTexto) {
+        diagTexto.textContent = resIA.analise_estrategica;
+        diagCard.style.display = 'block';
+      }
+
+      if (_iaPromocoesGeradas.length === 0) {
+        if (empty) empty.style.display = 'block';
+        return;
+      }
+
+      if (grid) {
+        grid.style.display = 'grid';
+        grid.innerHTML = _iaPromocoesGeradas.map((p, idx) => {
+          const promoEncoded = encodeURIComponent(JSON.stringify(p));
+          const prodsBadges = (p.produtos_envolvidos || []).map(pr =>
+            `<span style="background: rgba(59, 130, 246, 0.08); color: #2563eb; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 600;">${escapeHtml(pr)}</span>`
+          ).join(' ');
+
+          const diasStr = Array.isArray(p.dias_recomendados) ? p.dias_recomendados.join(', ') : (p.dias_recomendados || 'Todos os dias');
+
+          return `
+            <div style="background: var(--cfg-card-bg); border: 1.5px solid var(--cfg-border); border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; box-shadow: 0 4px 15px rgba(0,0,0,0.05); transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='translateY(-3px)'; this.style.boxShadow='0 10px 25px rgba(0,0,0,0.1)';" onmouseout="this.style.transform='none'; this.style.boxShadow='0 4px 15px rgba(0,0,0,0.05)';">
+              <div style="padding: 18px;">
+                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px; gap: 8px;">
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 26px;">${p.emoji || '🍔'}</span>
+                    <div>
+                      <h4 style="margin: 0; font-size: 16px; font-weight: 800; color: var(--cfg-text);">${escapeHtml(p.titulo)}</h4>
+                      <span style="font-size: 11px; color: #10b981; font-weight: 700; text-transform: uppercase;">${escapeHtml(p.tipo || 'Combo')}</span>
+                    </div>
+                  </div>
+                  <span style="background: #dcfce7; color: #15803d; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 800;">
+                    -${p.desconto_percentual || 0}% OFF
+                  </span>
+                </div>
+
+                <p style="margin: 0 0 12px; font-size: 13px; color: var(--cfg-text-muted); line-height: 1.4;">
+                  ${escapeHtml(p.descricao)}
+                </p>
+
+                <div style="margin-bottom: 12px; display: flex; flex-wrap: wrap; gap: 4px;">
+                  ${prodsBadges}
+                </div>
+
+                <div style="background: rgba(245, 158, 11, 0.08); border-left: 3px solid #f59e0b; padding: 8px 12px; border-radius: 4px; margin-bottom: 14px;">
+                  <div style="font-size: 10px; font-weight: 800; color: #d97706; text-transform: uppercase;">💡 Motivo Estratégico IA</div>
+                  <div style="font-size: 12px; color: var(--cfg-text); line-height: 1.3;">${escapeHtml(p.motivo_estrategico || 'Aumenta conversão e giro.')}</div>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.02); border-radius: 10px; padding: 10px 14px; border: 1px dashed var(--cfg-border);">
+                  <div>
+                    <div style="font-size: 11px; color: var(--cfg-text-muted); text-decoration: line-through;">De R$ ${Number(p.preco_original || 0).toFixed(2).replace('.', ',')}</div>
+                    <div style="font-size: 18px; font-weight: 800; color: #10b981;">Por R$ ${Number(p.preco_promocional || 0).toFixed(2).replace('.', ',')}</div>
+                  </div>
+                  <div style="text-align: right; font-size: 11px; color: var(--cfg-text-muted);">
+                    📅 ${escapeHtml(diasStr)}
+                  </div>
+                </div>
+              </div>
+
+              <!-- Ações da Promoção -->
+              <div style="padding: 14px 18px; background: rgba(0,0,0,0.02); border-top: 1px solid var(--cfg-border); display: flex; flex-direction: column; gap: 8px;">
+                <button type="button" onclick="window.aplicarPromocaoIADireto('${promoEncoded}')" style="width: 100%; padding: 10px; background: #10b981; color: white; border: none; border-radius: 10px; font-weight: 800; font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 4px 10px rgba(16,185,129,0.2);">
+                  <i class="ph-bold ph-plus-circle"></i> Adicionar ao Cardápio com 1 Clique
+                </button>
+                <div style="display: flex; gap: 6px;">
+                  <button type="button" onclick="window.copiarTextoGenerico('${encodeURIComponent(p.copy_whatsapp || '')}', 'Copiado para WhatsApp!')" style="flex: 1; padding: 7px; background: #25D366; color: white; border: none; border-radius: 8px; font-size: 11px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;">
+                    <i class="ph-bold ph-whatsapp-logo"></i> WhatsApp
+                  </button>
+                  <button type="button" onclick="window.copiarTextoGenerico('${encodeURIComponent(p.copy_instagram || '')}', 'Copiado para Instagram!')" style="flex: 1; padding: 7px; background: #E1306C; color: white; border: none; border-radius: 8px; font-size: 11px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;">
+                    <i class="ph-bold ph-instagram-logo"></i> Instagram
+                  </button>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+    } catch (err) {
+      alert('Erro ao gerar promoções: ' + err.message);
+    } finally {
+      if (loading) loading.style.display = 'none';
+      if (btnGerar) { btnGerar.disabled = false; btnGerar.innerHTML = '<i class="ph-bold ph-sparkle"></i> Gerar Promoções Agora'; }
+    }
+  };
+
+  window.aplicarPromocaoIADireto = async function(encodedPromo) {
+    try {
+      const p = JSON.parse(decodeURIComponent(encodedPromo));
+      const res = await fetch('/api/ia/aplicar-promocao', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          titulo: p.titulo,
+          preco: p.preco_promocional,
+          emoji: p.emoji,
+          descricao: p.descricao,
+          produtos_envolvidos: p.produtos_envolvidos,
+          desconto_percentual: p.desconto_percentual
+        })
+      });
+      const data = await res.json();
+      if (data && data.ok) {
+        if (typeof showToast === 'function') showToast(data.mensagem || 'Promoção cadastrada com sucesso no cardápio!', 'success');
+        else alert(data.mensagem || 'Promoção cadastrada com sucesso!');
+      } else {
+        alert(data.erro || 'Erro ao cadastrar promoção.');
+      }
+    } catch (e) {
+      alert('Falha ao aplicar promoção: ' + e.message);
+    }
+  };
+
+  window.copiarTextoGenerico = function(encodedText, msgSuccess) {
+    const text = decodeURIComponent(encodedText || '');
+    if (!text) { alert('Nenhum texto disponível para cópia.'); return; }
+    navigator.clipboard.writeText(text).then(() => {
+      if (typeof showToast === 'function') showToast(msgSuccess || 'Texto copiado para a área de transferência!', 'success');
+      else alert(msgSuccess || 'Texto copiado com sucesso!');
+    }).catch(() => {
+      prompt('Copie o texto abaixo:', text);
+    });
+  };
+
+  window.gerarCopyVendasIA = async function() {
+    const canalSelect = document.getElementById('ia-copy-canal');
+    const temaInput = document.getElementById('ia-copy-tema');
+    const loading = document.getElementById('ia-copy-loading');
+    const grid = document.getElementById('ia-copy-results-grid');
+    const btn = document.getElementById('btn-gerar-copy-ia');
+
+    if (loading) loading.style.display = 'block';
+    if (grid) { grid.innerHTML = ''; }
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ph ph-spinner ph-spin"></i> Escrevendo...'; }
+
+    try {
+      const res = await fetch('/api/ia/gerar-copy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          canal: canalSelect ? canalSelect.value : 'whatsapp',
+          promocao: temaInput ? temaInput.value.trim() : ''
+        })
+      });
+      const data = await res.json();
+      if (!data || !data.ok || !data.resultado || !data.resultado.opcoes) {
+        alert(data.erro || 'Erro ao gerar textos de vendas.');
+        return;
+      }
+
+      if (grid) {
+        grid.innerHTML = data.resultado.opcoes.map((op, idx) => `
+          <div style="background: var(--cfg-card-bg); border: 1.5px solid var(--cfg-border); border-radius: 14px; padding: 18px; display: flex; flex-direction: column; justify-content: space-between;">
+            <div>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span style="background: rgba(139, 92, 246, 0.1); color: #8b5cf6; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700;">
+                  ${escapeHtml(op.estilo || 'Opção')}
+                </span>
+                <span style="font-size: 11px; color: var(--cfg-text-muted);">Opção #${idx + 1}</span>
+              </div>
+              <h4 style="margin: 0 0 10px; font-size: 14px; color: var(--cfg-text);">${escapeHtml(op.titulo || '')}</h4>
+              <div style="background: rgba(0,0,0,0.02); border: 1px solid var(--cfg-border); border-radius: 8px; padding: 12px; font-size: 13px; color: var(--cfg-text); white-space: pre-wrap; line-height: 1.5; font-family: sans-serif; margin-bottom: 14px;">${escapeHtml(op.texto || '')}</div>
+            </div>
+            <button type="button" onclick="window.copiarTextoGenerico('${encodeURIComponent(op.texto || '')}', 'Mensagem copiada!')" style="width: 100%; padding: 9px; background: #8b5cf6; color: white; border: none; border-radius: 8px; font-weight: 700; font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+              <i class="ph-bold ph-copy"></i> Copiar Mensagem Pronta
+            </button>
+          </div>
+        `).join('');
+      }
+    } catch (e) {
+      alert('Falha de conexão: ' + e.message);
+    } finally {
+      if (loading) loading.style.display = 'none';
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ph-bold ph-pencil-simple-line"></i> Criar Textos de Vendas'; }
+    }
+  };
+
+  window.enviarPromptRapidoConsultor = function(promptText) {
+    const input = document.getElementById('ia-chat-input');
+    if (input) {
+      input.value = promptText;
+      window.enviarMensagemConsultorIA();
+    }
+  };
+
+  window.enviarMensagemConsultorIA = async function() {
+    const input = document.getElementById('ia-chat-input');
+    const msgContainer = document.getElementById('ia-chat-messages');
+    const btnSend = document.getElementById('btn-ia-chat-send');
+    const pergunta = input ? input.value.trim() : '';
+
+    if (!pergunta) return;
+    input.value = '';
+
+    // Adiciona mensagem do usuário na tela
+    const userBubble = document.createElement('div');
+    userBubble.style.cssText = 'background: #3b82f6; color: white; border-radius: 14px 14px 4px 14px; padding: 12px 16px; max-width: 80%; font-size: 13px; line-height: 1.4; align-self: flex-end;';
+    userBubble.textContent = pergunta;
+    if (msgContainer) {
+      msgContainer.appendChild(userBubble);
+      msgContainer.scrollTop = msgContainer.scrollHeight;
+    }
+
+    // Loading da IA
+    const botLoading = document.createElement('div');
+    botLoading.style.cssText = 'background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.15); border-radius: 14px 14px 14px 4px; padding: 12px 16px; max-width: 80%; font-size: 13px; color: var(--cfg-text); align-self: flex-start;';
+    botLoading.innerHTML = '<i class="ph ph-spinner ph-spin"></i> Pensando na melhor estratégia...';
+    if (msgContainer) {
+      msgContainer.appendChild(botLoading);
+      msgContainer.scrollTop = msgContainer.scrollHeight;
+    }
+
+    if (btnSend) btnSend.disabled = true;
+
+    try {
+      const res = await fetch('/api/ia/consultor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pergunta,
+          historico: _iaChatHistory.slice(-6)
+        })
+      });
+      const data = await res.json();
+
+      if (data && data.ok && data.resposta) {
+        botLoading.innerHTML = data.resposta.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        _iaChatHistory.push({ role: 'user', text: pergunta });
+        _iaChatHistory.push({ role: 'assistant', text: data.resposta });
+      } else {
+        botLoading.innerHTML = '<span style="color:#ef4444;">❌ ' + (data.erro || 'Erro ao consultar IA.') + '</span>';
+      }
+    } catch (e) {
+      botLoading.innerHTML = '<span style="color:#ef4444;">❌ Erro de conexão: ' + e.message + '</span>';
+    } finally {
+      if (btnSend) btnSend.disabled = false;
+      if (msgContainer) msgContainer.scrollTop = msgContainer.scrollHeight;
+    }
+  };
