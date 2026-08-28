@@ -2,6 +2,11 @@
  * tracking-loader.js — Script global de inicialização dinâmica de Google Tag (GTAG) e Meta Pixel
  * Injeta pixels de rastreamento de acordo com o contexto da página (Site de Vendas, Cardápio, Colaborador/Garçom, Home/PDV)
  * e fornece utilitários para disparo de eventos e público-alvo (dono, funcionário, cliente, visitante).
+ *
+ * Além disso, registra acessos geográficos em tempo real para o Live View (Globo 3D / Heatmap) do Super Admin:
+ * - 🟢 Verde Limão (#a3e635 / #ccff00): Acessos ao Site / Landing Page / Cardápio Público
+ * - 🔵 Azul (#3b82f6 / #00b4d8): Acessos à tela de Login e tentativas de autenticação
+ * - 🟢 Verde Normal (#22c55e / #16a34a): Login Aprovado / Sessão Ativa / Pedidos Concluídos
  */
 (function () {
   'use strict';
@@ -13,6 +18,16 @@
     init: function (pageContext) {
       this.context = pageContext || 'home';
       var self = this;
+
+      // Dispara ping de tráfego geográfico em tempo real
+      var defaultTipo = 'site';
+      var pathname = (window.location.pathname || '').toLowerCase();
+      if (self.context === 'login' || pathname.indexOf('login') !== -1 || pathname.indexOf('entrar') !== -1) {
+        defaultTipo = 'login';
+      } else if (self.context === 'site' || self.context === 'cardapio' || self.context === 'home') {
+        defaultTipo = 'site';
+      }
+      self.trackGeoHit(defaultTipo);
 
       fetch('/api/public/tracking-config')
         .then(function (res) { return res.json(); })
@@ -27,11 +42,43 @@
         });
     },
 
+    // Envia beacon geográfico ao servidor para alimentar o Live View 3D / Heatmap
+    trackGeoHit: function (tipoOverride, extra) {
+      try {
+        var tipo = tipoOverride || 'site';
+        var payload = {
+          tipo: tipo,
+          path: window.location.pathname || '/',
+          referrer: document.referrer || '',
+          userAgent: navigator.userAgent || ''
+        };
+        if (extra && typeof extra === 'object') {
+          for (var k in extra) {
+            if (Object.prototype.hasOwnProperty.call(extra, k)) {
+              payload[k] = extra[k];
+            }
+          }
+        }
+
+        if (navigator.sendBeacon) {
+          var blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+          navigator.sendBeacon('/api/public/geo-hit', blob);
+        } else {
+          fetch('/api/public/geo-hit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            keepalive: true
+          }).catch(function () {});
+        }
+      } catch (e) {}
+    },
+
     injectScripts: function () {
       var cfg = this.config;
       if (!cfg) return;
 
-      var ctx = this.context; // 'site', 'cardapio', 'colaborador', 'home'
+      var ctx = this.context; // 'site', 'cardapio', 'colaborador', 'home', 'login'
       
       var gtagId = cfg['gtag_' + ctx] || cfg['gtag_global'];
       var pixelId = cfg['pixel_' + ctx] || cfg['pixel_global'];

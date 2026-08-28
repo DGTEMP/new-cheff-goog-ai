@@ -25,63 +25,74 @@ const CIPHER_ALGO = 'aes-256-gcm';
 function initSyncCheffDb(masterDb) {
   if (!masterDb) return;
 
-  masterDb.run(`
-    CREATE TABLE IF NOT EXISTS synccheff_nodes (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      restaurante_id INTEGER NOT NULL UNIQUE,
-      nome_restaurante TEXT,
-      status TEXT DEFAULT 'inviolado', -- 'inviolado', 'violado', 'offline', 'suspeito'
-      versao_script TEXT DEFAULT 'v2.4-e2ee',
-      script_hash TEXT,
-      ultimo_sync DATETIME,
-      total_syncs INTEGER DEFAULT 0,
-      tentativas_violacao INTEGER DEFAULT 0,
-      ip_origem TEXT,
-      chave_restaurante TEXT,
-      criado_em DATETIME DEFAULT (datetime('now', 'localtime'))
-    )
-  `);
+  try {
+    masterDb.run(`
+      CREATE TABLE IF NOT EXISTS synccheff_nodes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        restaurante_id INTEGER NOT NULL UNIQUE,
+        nome_restaurante TEXT,
+        status TEXT DEFAULT 'inviolado',
+        versao_script TEXT DEFAULT 'v2.4-e2ee',
+        script_hash TEXT,
+        ultimo_sync DATETIME,
+        total_syncs INTEGER DEFAULT 0,
+        tentativas_violacao INTEGER DEFAULT 0,
+        ip_origem TEXT,
+        chave_restaurante TEXT,
+        criado_em DATETIME DEFAULT (datetime('now', 'localtime'))
+      )
+    `, (err) => { if (err) console.warn('[SyncCheff] Tabela synccheff_nodes aviso:', err.message); });
 
-  masterDb.run(`
-    CREATE TABLE IF NOT EXISTS synccheff_audit_logs (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      restaurante_id INTEGER,
-      tipo_evento TEXT, -- 'sync_sucesso', 'violacao_script', 'replay_bloqueado', 'script_validado'
-      detalhes TEXT,
-      script_hash TEXT,
-      ip TEXT,
-      nivel_alerta TEXT DEFAULT 'info', -- 'info', 'warning', 'critico'
-      data_registro DATETIME DEFAULT (datetime('now', 'localtime'))
-    )
-  `);
+    masterDb.run(`
+      CREATE TABLE IF NOT EXISTS synccheff_audit_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        restaurante_id INTEGER,
+        tipo_evento TEXT,
+        detalhes TEXT,
+        script_hash TEXT,
+        ip TEXT,
+        nivel_alerta TEXT DEFAULT 'info',
+        data_registro DATETIME DEFAULT (datetime('now', 'localtime'))
+      )
+    `, (err) => { if (err) console.warn('[SyncCheff] Tabela synccheff_audit_logs aviso:', err.message); });
 
-  masterDb.run(`
-    CREATE TABLE IF NOT EXISTS synccheff_master_scripts (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      nome TEXT NOT NULL UNIQUE,
-      tipo TEXT NOT NULL, -- 'google_apps_script', 'webhook_relay', 'node_agent'
-      versao TEXT NOT NULL,
-      codigo TEXT NOT NULL,
-      hash_sha256 TEXT NOT NULL,
-      assinatura_hmac TEXT NOT NULL,
-      atualizado_em DATETIME DEFAULT (datetime('now', 'localtime'))
-    )
-  `);
+    masterDb.run(`
+      CREATE TABLE IF NOT EXISTS synccheff_master_scripts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nome TEXT NOT NULL UNIQUE,
+        tipo TEXT NOT NULL,
+        versao TEXT NOT NULL,
+        codigo TEXT NOT NULL,
+        hash_sha256 TEXT NOT NULL,
+        assinatura_hmac TEXT NOT NULL,
+        atualizado_em DATETIME DEFAULT (datetime('now', 'localtime'))
+      )
+    `, (err) => {
+      if (err) {
+        console.warn('[SyncCheff] Tabela synccheff_master_scripts aviso:', err.message);
+        return;
+      }
+      try {
+        const officialGsCode = getOfficialGoogleAppsScript();
+        const officialHash = calculateSha256(officialGsCode);
+        const officialSig = signHmac(officialHash, MASTER_SECRET_KEY);
 
-  // Registra o Script Oficial Inviolável padrão do Google Apps Script
-  const officialGsCode = getOfficialGoogleAppsScript();
-  const officialHash = calculateSha256(officialGsCode);
-  const officialSig = signHmac(officialHash, MASTER_SECRET_KEY);
-
-  masterDb.run(`
-    INSERT INTO synccheff_master_scripts (nome, tipo, versao, codigo, hash_sha256, assinatura_hmac, atualizado_em)
-    VALUES ('SyncCheff Official Gas', 'google_apps_script', 'v2.4-inviolavel', ?, ?, ?, datetime('now', 'localtime'))
-    ON CONFLICT(nome) DO UPDATE SET 
-      codigo = excluded.codigo,
-      hash_sha256 = excluded.hash_sha256,
-      assinatura_hmac = excluded.assinatura_hmac,
-      atualizado_em = datetime('now', 'localtime')
-  `, [officialGsCode, officialHash, officialSig]);
+        masterDb.run(`
+          INSERT INTO synccheff_master_scripts (nome, tipo, versao, codigo, hash_sha256, assinatura_hmac, atualizado_em)
+          VALUES ('SyncCheff Official Gas', 'google_apps_script', 'v2.4-inviolavel', ?, ?, ?, datetime('now', 'localtime'))
+          ON CONFLICT(nome) DO UPDATE SET 
+            codigo = excluded.codigo,
+            hash_sha256 = excluded.hash_sha256,
+            assinatura_hmac = excluded.assinatura_hmac,
+            atualizado_em = datetime('now', 'localtime')
+        `, [officialGsCode, officialHash, officialSig], () => {});
+      } catch (e) {
+        console.warn('[SyncCheff] Erro ao semear script oficial:', e.message);
+      }
+    });
+  } catch (errDb) {
+    console.warn('[SyncCheff] Falha ao criar tabelas SyncCheff:', errDb.message);
+  }
 }
 
 // ─── CRIPTOGRAFIA & ASSINATURA DIGITAL ─────────────────────────────────────────

@@ -3791,7 +3791,39 @@ window.salvarMissaoSurpresa = function() {
     if (vazio) vazio.style.display = comLocal.length === 0 ? 'flex' : 'none';
   }
 
+  window.alternarSubtabMapa = function (tab) {
+    var liveCont = document.getElementById('subtab-mapa-live-container');
+    var restCont = document.getElementById('subtab-mapa-restaurantes-container');
+    var btnLive = document.getElementById('btn-subtab-mapa-live');
+    var btnRest = document.getElementById('btn-subtab-mapa-restaurantes');
+
+    if (tab === 'live') {
+      if (liveCont) liveCont.style.display = 'block';
+      if (restCont) restCont.style.display = 'none';
+      if (btnLive) btnLive.classList.add('active');
+      if (btnRest) btnRest.classList.remove('active');
+      if (!window.liveGeoMapInstance && typeof LiveGeoMap !== 'undefined') {
+        var root = document.getElementById('live-geo-map-root');
+        if (root) window.liveGeoMapInstance = new LiveGeoMap('live-geo-map-root');
+      } else if (window.liveGeoMapInstance && window.liveGeoMapInstance.resizeCanvases) {
+        setTimeout(function () { window.liveGeoMapInstance.resizeCanvases(); }, 60);
+      }
+    } else {
+      if (liveCont) liveCont.style.display = 'none';
+      if (restCont) restCont.style.display = 'block';
+      if (btnRest) btnRest.classList.add('active');
+      if (btnLive) btnLive.classList.remove('active');
+      window.renderMapa();
+    }
+  };
+
   window.renderMapa = function() {
+    if (!window.liveGeoMapInstance && typeof LiveGeoMap !== 'undefined') {
+      var root = document.getElementById('live-geo-map-root');
+      if (root) window.liveGeoMapInstance = new LiveGeoMap('live-geo-map-root');
+    } else if (window.liveGeoMapInstance && window.liveGeoMapInstance.resizeCanvases) {
+      setTimeout(function () { window.liveGeoMapInstance.resizeCanvases(); }, 60);
+    }
     apiGet('/api/super/mapa', function(err, data) {
       if (err || !data || !data.ok) {
         showToast('Erro ao carregar mapa: ' + (err ? err.message : (data ? data.erro : 'Sem resposta')), 'danger');
@@ -7777,8 +7809,8 @@ initSuperAdminSockets = function () {
   const _tarefasState = { filtro: '', tarefas: [], equipe: [], restaurantes: [] };
 
   function authHeaders() {
-    const t = localStorage.getItem('super_token') || '';
-    return { 'Authorization': 'Bearer ' + t, 'Content-Type': 'application/json' };
+    const t = localStorage.getItem('super_admin_token') || sessionStorage.getItem('super_admin_token') || localStorage.getItem('super_token') || (typeof localToken !== 'undefined' ? localToken : '') || '';
+    return { 'Authorization': 'Bearer ' + t, 'x-super-admin-token': t, 'Content-Type': 'application/json' };
   }
 
   function esc(str) {
@@ -7791,8 +7823,8 @@ initSuperAdminSockets = function () {
   }
 
   function statusBadge(s) {
-    const colors = { pendente: '#f59e0b', atribuida: '#3b82f6', em_andamento: '#8b5cf6', concluida: '#10b981', cancelada: '#6b7280' };
-    const labels = { pendente: 'Pendente', atribuida: 'Atribuída', em_andamento: 'Em Andamento', concluida: 'Concluída', cancelada: 'Cancelada' };
+    const colors = { pendente: '#f59e0b', atribuida: '#3b82f6', em_andamento: '#8b5cf6', concluida: '#10b981', cancelada: '#6b7280', aviso: '#f59e0b' };
+    const labels = { pendente: 'Pendente', atribuida: 'Atribuída', em_andamento: 'Em Andamento', concluida: 'Concluída', cancelada: 'Cancelada', aviso: 'Pendente' };
     return '<span style="display:inline-block;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;color:#fff;background:' + (colors[s] || '#6b7280') + ';">' + (labels[s] || s) + '</span>';
   }
 
@@ -7800,14 +7832,14 @@ initSuperAdminSockets = function () {
     try {
       const params = _tarefasState.filtro ? '?status=' + _tarefasState.filtro : '';
       const [tRes, sRes] = await Promise.all([
-        fetch('/api/super/tarefas' + params, { headers: authHeaders() }).then(r => r.json()),
-        fetch('/api/super/tarefas/stats', { headers: authHeaders() }).then(r => r.json())
+        fetch('/api/super/tarefas' + params, { headers: authHeaders(), credentials: 'include' }).then(r => r.json()),
+        fetch('/api/super/tarefas/stats', { headers: authHeaders(), credentials: 'include' }).then(r => r.json())
       ]);
       if (tRes.ok) _tarefasState.tarefas = tRes.tarefas || [];
       if (sRes.ok && sRes.stats) {
         const s = sRes.stats;
         const el = (id) => document.getElementById(id);
-        if (el('tarefa-stat-pendente')) el('tarefa-stat-pendente').textContent = (s.pendente || 0) + (s.atribuida || 0);
+        if (el('tarefa-stat-pendente')) el('tarefa-stat-pendente').textContent = s.pendente || 0;
         if (el('tarefa-stat-atribuida')) el('tarefa-stat-atribuida').textContent = s.atribuida || 0;
         if (el('tarefa-stat-em_andamento')) el('tarefa-stat-em_andamento').textContent = s.em_andamento || 0;
         if (el('tarefa-stat-concluida')) el('tarefa-stat-concluida').textContent = s.concluida || 0;
@@ -7818,6 +7850,7 @@ initSuperAdminSockets = function () {
       renderizarTarefas();
     } catch (e) { console.error('[Tarefas] Erro:', e); }
   }
+  window.carregarTarefas = carregarTarefas;
 
   function renderizarTarefas() {
     const box = document.getElementById('tarefas-lista');
@@ -7825,19 +7858,19 @@ initSuperAdminSockets = function () {
     const tarefas = _tarefasState.tarefas;
     if (!tarefas.length) { box.innerHTML = '<div style="text-align:center;padding:40px;color:#999;"><i class="fa-solid fa-check-circle" style="font-size:32px;color:#10b981;display:block;margin-bottom:12px;"></i>Nenhuma tarefa encontrada.</div>'; return; }
     box.innerHTML = tarefas.map(t => {
-      const dataCriacao = t.criado_em ? new Date(t.criado_em).toLocaleDateString('pt-BR') : '—';
+      const dataCriacao = (t.criado_em || t.criada_em) ? new Date(t.criado_em || t.criada_em).toLocaleDateString('pt-BR') + ' ' + new Date(t.criado_em || t.criada_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '—';
       const dataConcl = t.concluido_em ? new Date(t.concluido_em).toLocaleDateString('pt-BR') : '';
       return '<div style="background:var(--card-bg,#1e293b); border:1px solid var(--border,#334155); border-radius:12px; padding:14px 18px; display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;">' +
         '<div style="flex:1; min-width:200px;">' +
           '<div style="display:flex; align-items:center; gap:8px; margin-bottom:6px; flex-wrap:wrap;">' +
             prioridadeBadge(t.prioridade) + statusBadge(t.status) +
-            '<span style="font-size:10px;color:#94a3b8;">' + esc(t.categoria || 'geral') + '</span>' +
+            '<span style="font-size:11px;color:#94a3b8;background:rgba(255,255,255,0.06);padding:2px 6px;border-radius:4px;">' + esc(t.categoria || 'geral') + '</span>' +
           '</div>' +
           '<div style="font-weight:700; color:var(--text,#f8fafc); font-size:14px; margin-bottom:4px;">' + esc(t.titulo) + '</div>' +
-          (t.descricao ? '<div style="font-size:12.5px; color:#94a3b8; line-height:1.4;">' + esc(t.descricao) + '</div>' : '') +
+          (t.descricao ? '<div style="font-size:12.5px; color:#cbd5e1; line-height:1.4; white-space:pre-wrap; word-break:break-word;">' + esc(t.descricao) + '</div>' : '') +
           '<div style="font-size:11px; color:#64748b; margin-top:6px; display:flex; gap:12px; flex-wrap:wrap;">' +
             '<span><i class="fa-solid fa-clock"></i> ' + dataCriacao + '</span>' +
-            (t.atribuido_a ? '<span><i class="fa-solid fa-user"></i> ' + esc(t.atribuido_a) + '</span>' : '') +
+            (t.atribuido_a ? '<span style="color:#60a5fa;"><i class="fa-solid fa-user"></i> ' + esc(t.atribuido_a) + '</span>' : '') +
             (t.restaurante_id ? '<span><i class="fa-solid fa-store"></i> #' + t.restaurante_id + '</span>' : '') +
             (dataConcl ? '<span style="color:#10b981;"><i class="fa-solid fa-check"></i> ' + dataConcl + '</span>' : '') +
           '</div>' +
@@ -7861,8 +7894,8 @@ initSuperAdminSockets = function () {
   async function carregarEquipeRestaurantes() {
     try {
       const [eRes, rRes] = await Promise.all([
-        fetch('/api/super/equipe', { headers: authHeaders() }).then(r => r.json()),
-        fetch('/api/super/restaurantes', { headers: authHeaders() }).then(r => r.json())
+        fetch('/api/super/equipe', { headers: authHeaders(), credentials: 'include' }).then(r => r.json()),
+        fetch('/api/super/restaurantes', { headers: authHeaders(), credentials: 'include' }).then(r => r.json())
       ]);
       if (eRes.ok && Array.isArray(eRes.equipe)) _tarefasState.equipe = eRes.equipe;
       if (rRes.ok && Array.isArray(rRes.restaurantes)) _tarefasState.restaurantes = rRes.restaurantes;

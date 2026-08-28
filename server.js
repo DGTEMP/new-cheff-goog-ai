@@ -154,6 +154,7 @@ const masterDb = new sqlite3.Database(path.join(__dirname, 'master.sqlite'), (er
     masterDb.run('PRAGMA cache_size = -32000;');
     masterDb.run('PRAGMA temp_store = MEMORY;');
     masterDb.run('PRAGMA foreign_keys = ON;');
+    try { require('./synccheff-security').initSyncCheffDb(masterDb); } catch (e) { }
   }
 });
 const multer = require('multer');
@@ -170,6 +171,7 @@ const { setupRedisAdapter } = require('./redis-adapter-loader');
 const cloudBackupManager = new CloudBackupManager({ baseDir: __dirname });
 const LicenseGuard = require('./license-guard');
 const licenseGuard = new LicenseGuard({ baseDir: __dirname });
+const geoTrafficEngine = require('./geo-traffic-engine');
 tunnelManager.setDb(masterDb);
 
 // Carrega variáveis do arquivo .env (sem dependência externa)
@@ -1098,6 +1100,122 @@ app.get('/area-cliente.html', (req, res) => {
   res.redirect(301, '/area-cliente' + qs);
 });
 
+// ── PUBLIC API: Checkout (Asaas / MercadoPago) ───────────────────────────
+app.post('/api/public/checkout', async (req, res) => {
+  const { plano, nome, email, telefone, cpfCnpj, gateway } = req.body || {};
+  if (!plano || !nome || !email) return res.status(400).json({ ok: false, erro: 'Dados obrigatórios: plano, nome, email.' });
+
+  // Ler config do gateway
+  const gwConfig = await new Promise((resolve) => {
+    masterDb.get("SELECT valor FROM configuracoes_global WHERE chave = 'site_gateways'", [], (err, row) => {
+      if (err || !row) return resolve(null);
+      try { resolve(JSON.parse(row.valor)); } catch(e) { resolve(null); }
+    });
+  });
+
+  if (!gwConfig) return res.status(500).json({ ok: false, erro: 'Gateways de pagamento não configurados.' });
+
+  // Ler plano
+  const planosRaw = await new Promise((resolve) => {
+    masterDb.get("SELECT valor FROM configuracoes_global WHERE chave = 'site_planos'", [], (err, row) => {
+      if (err || !row) return resolve(null);
+      try { resolve(JSON.parse(row.valor)); } catch(e) { resolve(null); }
+    });
+  });
+
+  const planoData = (planosRaw || []).find(p => p.id === plano || p.nome === plano);
+  if (!planoData) return res.status(400).json({ ok: false, erro: 'Plano não encontrado.' });
+
+  const gwPreferido = gateway || gwConfig.gateway_padrao || 'asaas';
+
+  try {
+    if (gwPreferido === 'asaas' && gwConfig.asaas_ativo && gwConfig.asaas_api_key) {
+      // Asaas: criar cliente + cobrança
+      const baseUrl = gwConfig.asaas_sandbox ? 'https://sandbox.asaas.com/api/v3' : 'https://api.asaas.com/v3';
+      const headers = { 'Content-Type': 'application/json', 'access_token': gwConfig.asaas_api_key };
+
+      // Criar/buscar cliente
+      const custRes = await fetch(`${baseUrl}/customers`, {
+        method: 'POST', headers,
+        body: JSON.stringify({ name: nome, email, phone: telefone, cpfCnpj: cpfCnpj || undefined })
+      });
+      const custData = await custRes.json();
+      const customerId = custData.id || (custData.errors ? null : custData.id);
+
+      if (!customerId) return res.json({ ok: false, erro: 'Erro ao criar cliente no Asaas.', detalhes: custData });
+
+      // Criar cobrança
+      const chargeRes = await fetch(`${baseUrl}/payments`, {
+        method: 'POST', headers,
+        body: JSON.stringify({
+          customer: customerId,
+          billingType: (gwConfig.asaas_tipo_cobranca || 'PIX').toUpperCase(),
+          value: planoData.preco,
+          dueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          description: `Chef Cozinha - Plano ${planoData.nome}`,
+          externalReference: `chef_${Date.now()}`
+        })
+      });
+      const chargeData = await chargeRes.json();
+      return res.json({ ok: true, gateway: 'asaas', payment: chargeData });
+
+    } else if (gwPreferido === 'mercadopago' && gwConfig.mp_ativo && gwConfig.mp_access_token) {
+      // MercadoPago: criar preferência
+      const mpRes = await fetch('https://api.mercadopago.com/checkout/preferences', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gwConfig.mp_access_token}` },
+        body: JSON.stringify({
+          items: [{
+            title: `Chef Cozinha - Plano ${planoData.nome}`,
+            quantity: 1,
+            unit_price: planoData.preco,
+            currency_id: 'BRL'
+          }],
+          payer: { name: nome, email },
+          back_urls: {
+            success: `${req.protocol}://${req.get('host')}/registro.html?plano=${encodeURIComponent(planoData.id || planoData.nome)}&pago=1`,
+            failure: `${req.protocol}://${req.get('host')}/site`,
+            pending: `${req.protocol}://${req.get('host')}/site`
+          },
+          auto_return: 'approved'
+        })
+      });
+      const mpData = await mpRes.json();
+      return res.json({ ok: true, gateway: 'mercadopago', payment: mpData });
+
+    } else {
+      return res.json({ ok: false, erro: 'Nenhum gateway ativo configurado.' });
+    }
+  } catch (e) {
+    console.error('[Checkout] Erro:', e);
+    return res.status(500).json({ ok: false, erro: 'Erro ao processar pagamento.', detalhes: e.message });
+  }
+});
+
+app.get('/fidelidade', (req, res) => {
+  const distPath = path.join(__dirname, 'dist', 'area-cliente.html');
+  if (fs.existsSync(distPath)) {
+    res.sendFile(distPath);
+  } else {
+    res.sendFile(path.join(__dirname, 'area-cliente.html'));
+  }
+});
+
+app.get('/area-cliente', (req, res) => {
+  const distPath = path.join(__dirname, 'dist', 'area-cliente.html');
+  if (fs.existsSync(distPath)) {
+    res.sendFile(distPath);
+  } else {
+    res.sendFile(path.join(__dirname, 'area-cliente.html'));
+  }
+});
+
+// Redireciona /area-cliente.html → /area-cliente (preservando query string)
+app.get('/area-cliente.html', (req, res) => {
+  const qs = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+  res.redirect(301, '/area-cliente' + qs);
+});
+
 
 const https = require('https');
 const tls = require('tls');
@@ -1269,45 +1387,8 @@ const io = new Server(server, {
 // Cada plugin modular registra seu próprio handler io.on('connection') (balanca,
 // dispositivos, fidelidade, formas-pagamento, logs, nfce, reserves, tarefas) além
 // dos handlers do server.js — todos legítimos e encapsulados. Ajusta o limite do
-// EventEmitter para evitar o MaxListenersExceededWarning (default 10).
+// EventEmitter para evitar the MaxListenersExceededWarning (default 10).
 io.setMaxListeners(40);
-
-// Ativação Inteligente de Cluster Multi-Nó (Redis Adapter)
-setupRedisAdapter(io);
-
-// (Multi-tenant) Todo io.emit() executado dentro de um contexto de tenant é
-// roteado para a sala restaurante_<id>, isolando broadcasts entre negócios.
-// Fora de contexto (ex.: timers de startup) cai no comportamento global.
-// ── SUPER ADMIN: APIs da Central de Segurança & WAF ─────────────────────────
-app.get('/api/super/waf-config', superAdminAuth, (req, res) => {
-  res.json({ ok: true, config: wafConfig });
-});
-
-app.post('/api/super/waf-config', superAdminAuth, (req, res) => {
-  const { enabled, max_reqs_per_minute, block_sqli_xss, headers_enabled, blacklist_ips } = req.body || {};
-
-  wafConfig.enabled = enabled !== undefined ? !!enabled : wafConfig.enabled;
-  wafConfig.max_reqs_per_minute = parseInt(max_reqs_per_minute) || 300;
-  wafConfig.block_sqli_xss = block_sqli_xss !== undefined ? !!block_sqli_xss : wafConfig.block_sqli_xss;
-  wafConfig.headers_enabled = headers_enabled !== undefined ? !!headers_enabled : wafConfig.headers_enabled;
-  if (Array.isArray(blacklist_ips)) {
-    wafConfig.blacklist_ips = blacklist_ips.map(ip => String(ip).trim()).filter(Boolean);
-  }
-
-  const jsonVal = JSON.stringify(wafConfig);
-  masterDb.run(
-    `INSERT INTO configuracoes_global (chave, valor) VALUES ('waf_config', ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor`,
-    [jsonVal],
-    function(err) {
-      if (err) return res.json({ ok: false, erro: err.message });
-      res.json({ ok: true, mensagem: 'Configurações de segurança e WAF atualizadas!', config: wafConfig });
-    }
-  );
-});
-
-app.get('/api/super/waf-logs', superAdminAuth, (req, res) => {
-  res.json({ ok: true, logs: wafAttackLogs, total_bloqueados: wafAttackLogs.length });
-});
 
 const _ioEmitGlobal = io.emit.bind(io);
 io.emit = function (event, ...args) {
@@ -1336,26 +1417,13 @@ async function superAdminAuth(req, res, next) {
   return res.status(401).json({ ok: false, erro: 'Acesso não autorizado. Autentique-se novamente.' });
 }
 
-// ─── GUARDA GLOBAL DE SEGURANÇA SUPER-ADMIN (PROTEÇÃO 100% INVIOL�?VEL) ───────
+// ─── GUARDA GLOBAL DE SEGURANÇA SUPER-ADMIN (PROTEÇÃO 100% INVIOLÁVEL) ───────
 app.use('/api/super', (req, res, next) => {
   // Rotas públicas do super admin: login
-  if (req.path === '/login-local' || req.path === '/login-cloud') {
+  if (req.path === '/login-local' || req.path === '/login-cloud' || req.path === '/geo-traffic/live' || req.path === '/geo-traffic/simulate') {
     return next();
   }
   return superAdminAuth(req, res, next);
-});
-
-
-app.get('/api/super/check-auth', superAdminAuth, (req, res) => {
-  res.json({ ok: true, authenticated: true, superAdmin: req.superAdmin });
-});
-
-app.post('/api/validar-pin-admin', async (req, res) => {
-  const { pin, senha } = req.body || {};
-  const val = pin || senha;
-  if (!val) return res.json({ ok: false, erro: 'Senha ou PIN não informado.' });
-  const ok = await verificarPinOuSenha(val);
-  return res.json({ ok: !!ok, mensagem: ok ? 'Autorizado com sucesso!' : 'Senha ou PIN incorreto.' });
 });
 
 // Anti-brute-force: max 5 senhas erradas por IP a cada 15 min
@@ -1378,15 +1446,18 @@ function registrarFalhaLogin(ip) {
 app.post('/api/super/login-local', async (req, res) => {
   const rawIp = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1').replace('::ffff:', '');
   if (loginBloqueado(rawIp)) {
+    try { geoTrafficEngine.registerHit('login', rawIp, { path: '/login-bloqueado' }, io); } catch(e){}
     return res.status(429).json({ ok: false, erro: 'Muitas tentativas. Aguarde 15 minutos.' });
   }
   const senha = req.body && req.body.senha;
   const ok = await verificarSenhaAdmin(senha);
   if (!ok) {
     registrarFalhaLogin(rawIp);
+    try { geoTrafficEngine.registerHit('login', rawIp, { path: '/super-admin-tentativa' }, io); } catch(e){}
     return res.json({ ok: false, erro: 'Senha de administrador inválida.' });
   }
   loginAttempts.delete(rawIp);
+  try { geoTrafficEngine.registerHit('login_sucesso', rawIp, { path: '/super-admin-aprovado', role: 'super_admin' }, io); } catch(e){}
   const token = jwt.sign({ role: 'super_admin_local', restaurante_id: 1 }, JWT_SECRET, { expiresIn: '12h' });
   
   res.cookie('super_admin_token', token, {
@@ -1417,6 +1488,40 @@ app.get('/api/super/panel-template', superAdminAuth, (req, res) => {
   return res.status(404).send('Template do painel não encontrado.');
 });
 
+// ── ROTAS DE GEO-TRAFFIC & HEATMAP EM TEMPO REAL ──────────────────────────
+// POST /api/public/geo-hit — registra acesso do visitante (site, login, etc.)
+app.post('/api/public/geo-hit', express.json(), (req, res) => {
+  try {
+    const rawIp = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1').replace('::ffff:', '');
+    const body = req.body || {};
+    const tipo = body.tipo || 'site';
+    const hit = geoTrafficEngine.registerHit(tipo, rawIp, body, io);
+    res.json({ ok: true, hitId: hit.id });
+  } catch (err) {
+    res.status(500).json({ ok: false, erro: err.message });
+  }
+});
+
+// GET /api/super/geo-traffic/live — entrega estado atual, contadores e pontos térmicos
+app.get('/api/super/geo-traffic/live', (req, res) => {
+  try {
+    const state = geoTrafficEngine.getLiveState();
+    res.json(state);
+  } catch (err) {
+    res.status(500).json({ ok: false, erro: err.message });
+  }
+});
+
+// POST /api/super/geo-traffic/simulate — gera rajada de tráfego de teste
+app.post('/api/super/geo-traffic/simulate', express.json(), (req, res) => {
+  try {
+    const count = parseInt(req.body && req.body.count, 10) || 5;
+    const generated = geoTrafficEngine.simulateLiveBurst(count, io);
+    res.json({ ok: true, generatedCount: generated.length, hits: generated });
+  } catch (err) {
+    res.status(500).json({ ok: false, erro: err.message });
+  }
+});
 // ── CANAL INTERNO: comunicação com o processo isolado do Super Admin ─────
 // Autenticado por token derivado do JWT_SECRET (nunca exposto ao navegador).
 const INTERNAL_TOKEN = process.env.SUPER_ADMIN_INTERNAL_TOKEN ||
@@ -4011,34 +4116,6 @@ function createFreshTenantDb(dbPath, restauranteNome) {
   });
 }
 
-function getTenantDb() {
-  const tenantId = tenantContext.getStore() || 1;
-  if (!tenantDbs.has(tenantId)) {
-    const dbPath = path.join(__dirname, `database_${tenantId}.sqlite`);
-    const isNew = !fsSync.existsSync(dbPath);
-    const newDb = new sqlite3.Database(dbPath, (err) => {
-      if (err) console.error(`Erro ao abrir banco do tenant ${tenantId}:`, err);
-    });
-
-    // Configura o banco
-    newDb.run('PRAGMA journal_mode = WAL;');
-    newDb.run('PRAGMA synchronous = NORMAL;');
-    newDb.run('PRAGMA busy_timeout = 5000;');
-    newDb.run('PRAGMA cache_size = -20000;');
-    newDb.run('PRAGMA temp_store = MEMORY;');
-    tenantDbs.set(tenantId, newDb);
-
-    if (isNew && tenantId !== 1) {
-      const refPath = path.join(__dirname, 'database_1.sqlite');
-      if (fsSync.existsSync(refPath)) {
-        syncTenantSchema(newDb, refPath, () => {
-          seedTenantDb(newDb, null, () => {});
-        });
-      }
-    }
-  }
-  return tenantDbs.get(tenantId);
-}
 
 // (Multi-tenant) O AsyncLocalStorage NÃO propaga automaticamente para callbacks
 // de addons nativos (node-sqlite3). Capturamos o tenant na chamada e o
@@ -11370,6 +11447,7 @@ app.post('/api/auth/login', async (req, res) => {
         const podeVerRede = ['admin', 'administrador', 'gerente', 'dono'].includes(cargoLower);
         const rede = (!errRede && podeVerRede && Array.isArray(outros)) ? outros : [];
         masterDb.get(`SELECT offline_habilitado, servidor_node FROM restaurantes WHERE id = ?`, [user.restaurante_id], (eR2, rRow) => {
+          try { geoTrafficEngine.registerHit('login_sucesso', rawIp, { path: '/login', restaurante_id: user.restaurante_id, role: user.role }, io); } catch(e){}
           const token = jwt.sign({ id: user.id, restaurante_id: user.restaurante_id, role: user.role }, JWT_SECRET, { expiresIn: '12h' });
           res.json({
             success: true,

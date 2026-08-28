@@ -5,20 +5,96 @@
 module.exports = function({ app, db, masterDb, io, options, log }) {
   const { verificarToken, superAdminAuth } = options;
 
+  // Migração de schema e compatibilidade para tarefas_suporte
+  try {
+    const requiredCols = [
+      'titulo TEXT',
+      'descricao TEXT',
+      'prioridade TEXT',
+      'status TEXT',
+      'criado_por TEXT',
+      'atribuido_a TEXT',
+      'restaurante_id INTEGER',
+      'categoria TEXT',
+      'resposta TEXT',
+      'criado_em DATETIME',
+      'criada_em DATETIME',
+      'atribuido_em DATETIME',
+      'atualizado_em DATETIME',
+      'concluido_em DATETIME',
+      'pontos INTEGER',
+      'tipo TEXT'
+    ];
+
+    masterDb.all('PRAGMA table_info(tarefas_suporte)', [], (err, cols) => {
+      if (!err && Array.isArray(cols)) {
+        const existing = new Set(cols.map(c => c.name));
+        const missing = requiredCols.filter(colDef => !existing.has(colDef.split(' ')[0]));
+        
+        function addNext() {
+          if (missing.length === 0) {
+            masterDb.run("UPDATE tarefas_suporte SET titulo = COALESCE(NULLIF(titulo, ''), tipo, 'Demanda #' || id) WHERE titulo IS NULL OR titulo = ''", () => {});
+            masterDb.run("UPDATE tarefas_suporte SET prioridade = 'normal' WHERE prioridade IS NULL OR prioridade = ''", () => {});
+            masterDb.run("UPDATE tarefas_suporte SET status = 'pendente' WHERE status IS NULL OR status = '' OR status = 'aviso'", () => {});
+            masterDb.run("UPDATE tarefas_suporte SET criado_em = COALESCE(criado_em, criada_em, datetime('now','localtime')) WHERE criado_em IS NULL", () => {});
+            return;
+          }
+          const colDef = missing.shift();
+          masterDb.run(`ALTER TABLE tarefas_suporte ADD COLUMN ${colDef}`, () => {
+            addNext();
+          });
+        }
+        addNext();
+      }
+    });
+  } catch (e) {
+    console.error('[Tarefas] Erro na migração de schema:', e);
+  }
+
   /* ══════ SUPER ADMIN: CRUD de Tarefas ══════ */
 
   // GET /api/super/tarefas — Listar todas as tarefas
   app.get('/api/super/tarefas', superAdminAuth, (req, res) => {
     const { status, atribuido_a, limite } = req.query;
-    let sql = 'SELECT * FROM tarefas_suporte WHERE 1=1';
+    let sql = `SELECT id,
+      COALESCE(NULLIF(titulo, ''), tipo, 'Demanda #' || id) AS titulo,
+      descricao,
+      COALESCE(prioridade, 'normal') AS prioridade,
+      CASE WHEN status = 'aviso' THEN 'pendente' ELSE COALESCE(status, 'pendente') END AS status,
+      criado_por,
+      atribuido_a,
+      restaurante_id,
+      COALESCE(categoria, tipo, 'geral') AS categoria,
+      resposta,
+      COALESCE(criado_em, criada_em, datetime('now','localtime')) AS criado_em,
+      atribuido_em,
+      atualizado_em,
+      concluido_em,
+      COALESCE(pontos, 10) AS pontos,
+      tipo
+      FROM tarefas_suporte WHERE 1=1`;
     const params = [];
-    if (status) { sql += ' AND status = ?'; params.push(status); }
-    if (atribuido_a) { sql += ' AND atribuido_a = ?'; params.push(atribuido_a); }
-    sql += ' ORDER BY criado_em DESC';
-    if (limite) { sql += ' LIMIT ?'; params.push(parseInt(limite)); }
-    else { sql += ' LIMIT 200'; }
+    if (status) {
+      if (status === 'pendente') {
+        sql += " AND (status = 'pendente' OR status = 'aviso' OR status IS NULL)";
+      } else {
+        sql += ' AND status = ?';
+        params.push(status);
+      }
+    }
+    if (atribuido_a) {
+      sql += ' AND atribuido_a = ?';
+      params.push(atribuido_a);
+    }
+    sql += " ORDER BY COALESCE(criado_em, criada_em, id) DESC";
+    if (limite) {
+      sql += ' LIMIT ?';
+      params.push(parseInt(limite));
+    } else {
+      sql += ' LIMIT 200';
+    }
     masterDb.all(sql, params, (err, rows) => {
-      if (err) return res.json({ ok: false, erro: err.message });
+      if (err) return res.json({ ok: false, erro: err.message, tarefas: [] });
       res.json({ ok: true, tarefas: rows || [] });
     });
   });
@@ -28,8 +104,8 @@ module.exports = function({ app, db, masterDb, io, options, log }) {
     const { titulo, descricao, prioridade, atribuido_a, restaurante_id, categoria } = req.body || {};
     if (!titulo) return res.json({ ok: false, erro: 'Título é obrigatório.' });
     masterDb.run(
-      `INSERT INTO tarefas_suporte (titulo, descricao, prioridade, status, criado_por, atribuido_a, restaurante_id, categoria)
-       VALUES (?, ?, ?, 'pendente', 'super_admin', ?, ?, ?)`,
+      `INSERT INTO tarefas_suporte (titulo, descricao, prioridade, status, criado_por, atribuido_a, restaurante_id, categoria, criado_em)
+       VALUES (?, ?, ?, 'pendente', 'super_admin', ?, ?, ?, datetime('now','localtime'))`,
       [titulo, descricao || '', prioridade || 'normal', atribuido_a || '', restaurante_id || null, categoria || 'geral'],
       function(err) {
         if (err) return res.json({ ok: false, erro: err.message });
@@ -50,10 +126,27 @@ module.exports = function({ app, db, masterDb, io, options, log }) {
     const { status, atribuido_a, prioridade, resposta } = req.body || {};
     const sets = ['atualizado_em = datetime(\'now\',\'localtime\')'];
     const params = [];
-    if (status) { sets.push('status = ?'); params.push(status); if (status === 'concluida') sets.push('concluido_em = datetime(\'now\',\'localtime\')'); }
-    if (atribuido_a !== undefined) { sets.push('atribuido_a = ?'); params.push(atribuido_a); if (atribuido_a) { sets.push('atribuido_em = datetime(\'now\',\'localtime\')'); if (status === 'pendente') { sets.push('status = \'atribuida\''); } } }
-    if (prioridade) { sets.push('prioridade = ?'); params.push(prioridade); }
-    if (resposta !== undefined) { sets.push('resposta = ?'); params.push(resposta); }
+    if (status) {
+      sets.push('status = ?');
+      params.push(status);
+      if (status === 'concluida') sets.push('concluido_em = datetime(\'now\',\'localtime\')');
+    }
+    if (atribuido_a !== undefined) {
+      sets.push('atribuido_a = ?');
+      params.push(atribuido_a);
+      if (atribuido_a) {
+        sets.push('atribuido_em = datetime(\'now\',\'localtime\')');
+        if (status === 'pendente') sets.push('status = \'atribuida\'');
+      }
+    }
+    if (prioridade) {
+      sets.push('prioridade = ?');
+      params.push(prioridade);
+    }
+    if (resposta !== undefined) {
+      sets.push('resposta = ?');
+      params.push(resposta);
+    }
     params.push(id);
     masterDb.run(`UPDATE tarefas_suporte SET ${sets.join(', ')} WHERE id = ?`, params, function(err) {
       if (err) return res.json({ ok: false, erro: err.message });
@@ -74,10 +167,13 @@ module.exports = function({ app, db, masterDb, io, options, log }) {
 
   // GET /api/super/tarefas/stats — Estatísticas para dashboard
   app.get('/api/super/tarefas/stats', superAdminAuth, (req, res) => {
-    masterDb.all(`SELECT status, COUNT(*) as total FROM tarefas_suporte GROUP BY status`, [], (err, rows) => {
+    masterDb.all(`SELECT CASE WHEN status = 'aviso' THEN 'pendente' ELSE COALESCE(status, 'pendente') END as st, COUNT(*) as total FROM tarefas_suporte GROUP BY st`, [], (err, rows) => {
       if (err) return res.json({ ok: false, erro: err.message });
       const stats = { pendente: 0, atribuida: 0, em_andamento: 0, concluida: 0, cancelada: 0, total: 0 };
-      (rows || []).forEach(r => { stats[r.status] = r.total; stats.total += r.total; });
+      (rows || []).forEach(r => {
+        if (r.st) stats[r.st] = (stats[r.st] || 0) + r.total;
+        stats.total += r.total;
+      });
       res.json({ ok: true, stats });
     });
   });
@@ -89,8 +185,23 @@ module.exports = function({ app, db, masterDb, io, options, log }) {
     const nome = (req.user && req.user.nome) || (req.suporteNome) || '';
     if (!nome) return res.json({ ok: true, tarefas: [] });
     masterDb.all(
-      `SELECT * FROM tarefas_suporte WHERE atribuido_a = ? AND status IN ('atribuida','em_andamento') ORDER BY
-        CASE prioridade WHEN 'urgente' THEN 0 WHEN 'alta' THEN 1 WHEN 'normal' THEN 2 ELSE 3 END, criado_em DESC`,
+      `SELECT id,
+        COALESCE(NULLIF(titulo, ''), tipo, 'Demanda #' || id) AS titulo,
+        descricao,
+        COALESCE(prioridade, 'normal') AS prioridade,
+        status,
+        criado_por,
+        atribuido_a,
+        restaurante_id,
+        COALESCE(categoria, tipo, 'geral') AS categoria,
+        resposta,
+        COALESCE(criado_em, criada_em, datetime('now','localtime')) AS criado_em,
+        atribuido_em,
+        atualizado_em,
+        concluido_em,
+        COALESCE(pontos, 10) AS pontos
+        FROM tarefas_suporte WHERE atribuido_a = ? AND status IN ('atribuida','em_andamento') ORDER BY
+        CASE prioridade WHEN 'urgente' THEN 0 WHEN 'alta' THEN 1 WHEN 'normal' THEN 2 ELSE 3 END, COALESCE(criado_em, criada_em, id) DESC`,
       [nome], (err, rows) => {
         if (err) return res.json({ ok: false, erro: err.message });
         res.json({ ok: true, tarefas: rows || [] });
@@ -106,11 +217,15 @@ module.exports = function({ app, db, masterDb, io, options, log }) {
     const sets = ['atualizado_em = datetime(\'now\',\'localtime\')'];
     const params = [];
     if (status) {
-      sets.push('status = ?'); params.push(status);
+      sets.push('status = ?');
+      params.push(status);
       if (status === 'em_andamento') sets.push('atribuido_em = datetime(\'now\',\'localtime\')');
       if (status === 'concluida') sets.push('concluido_em = datetime(\'now\',\'localtime\')');
     }
-    if (resposta !== undefined) { sets.push('resposta = ?'); params.push(resposta); }
+    if (resposta !== undefined) {
+      sets.push('resposta = ?');
+      params.push(resposta);
+    }
     params.push(id);
     masterDb.run(`UPDATE tarefas_suporte SET ${sets.join(', ')} WHERE id = ?`, params, function(err) {
       if (err) return res.json({ ok: false, erro: err.message });
@@ -127,5 +242,5 @@ module.exports = function({ app, db, masterDb, io, options, log }) {
     });
   });
 
-  log('Tarefas: routes + sockets registered.');
+  log('Tarefas: routes + sockets registered with backward compatibility.');
 };

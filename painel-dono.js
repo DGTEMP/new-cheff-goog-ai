@@ -1,4 +1,4 @@
-﻿// painel-dono.js - Owner Mobile Dashboard Logic (v2 - 60+ Acessível)
+// painel-dono.js - Owner Mobile Dashboard Logic (v2 - 60+ Acessível)
 
 // (Segurança) Escapa valor para conteúdo HTML.
 function escHtml(v) {
