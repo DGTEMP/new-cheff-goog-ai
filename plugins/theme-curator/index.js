@@ -247,20 +247,100 @@ module.exports = function ({ app, db, masterDb, io, options, log }) {
       aplicado_em DATETIME DEFAULT (datetime('now','localtime'))
     )`);
 
+    // Tabela para Módulos Dinâmicos do Site de Vendas
+    db.run(`CREATE TABLE IF NOT EXISTS site_vendas_modulos (
+      id TEXT PRIMARY KEY,
+      tipo TEXT NOT NULL,
+      titulo TEXT NOT NULL,
+      ativo INTEGER DEFAULT 1,
+      ordem INTEGER DEFAULT 0,
+      config_json TEXT DEFAULT '{}',
+      criado_em DATETIME DEFAULT (datetime('now','localtime')),
+      atualizado_em DATETIME DEFAULT (datetime('now','localtime'))
+    )`);
+
     // Seed com temas padrão se a tabela estiver vazia
     db.get(`SELECT COUNT(*) as n FROM temas_catalogo`, (err, row) => {
       if (err || (row && row.n > 0)) return;
-      const stmt = db.prepare(`INSERT OR IGNORE INTO temas_catalogo
+      const sqlInsert = `INSERT OR IGNORE INTO temas_catalogo
         (id, nome, nicho, emoji_nicho, descricao, badge, desconto, estrelas, votos, ordem, novo, cores)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`);
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`;
       TEMAS_DEFAULT.forEach(t => {
-        stmt.run(t.id, t.nome, t.nicho, t.emoji_nicho, t.descricao, t.badge, t.desconto, t.estrelas, t.votos, t.ordem, t.novo, t.cores);
+        db.run(sqlInsert, [t.id, t.nome, t.nicho, t.emoji_nicho, t.descricao, t.badge, t.desconto, t.estrelas, t.votos, t.ordem, t.novo, t.cores]);
       });
-      stmt.finalize();
       log('Catálogo de temas semeado com ' + TEMAS_DEFAULT.length + ' temas padrão.');
     });
 
-    log('Tabelas Theme Curator criadas/verificadas.');
+    // Seed módulos padrão do site de vendas
+    db.get(`SELECT COUNT(*) as n FROM site_vendas_modulos`, (err, row) => {
+      if (err || (row && row.n > 0)) return;
+      const defaultModulos = [
+        {
+          id: 'mod_whatsapp_vendas',
+          tipo: 'whatsapp',
+          titulo: 'Botão Flutuante WhatsApp de Vendas',
+          ativo: 1,
+          ordem: 1,
+          config_json: JSON.stringify({
+            numero: '5511999999999',
+            mensagem: 'Olá! Gostaria de uma demonstração gratuita do Chef Cozinha para o meu restaurante.',
+            posicao: 'bottom-right',
+            pulsar: true,
+            atendente: 'Consultor Comercial Chef'
+          })
+        },
+        {
+          id: 'mod_urgencia_topbar',
+          tipo: 'urgencia_bar',
+          titulo: 'Barra Superior de Urgência & Promoção',
+          ativo: 1,
+          ordem: 2,
+          config_json: JSON.stringify({
+            texto: '⚡ Promoção Especial de Lançamento: Ganhe 14 Dias Grátis + Setup Guiado sem custo!',
+            cupom: 'CHEFPROMO',
+            botaoTexto: 'Garantir Oferta',
+            botaoLink: '#planos',
+            corFundo: '#fc4b15',
+            corTexto: '#ffffff'
+          })
+        },
+        {
+          id: 'mod_exit_popup',
+          tipo: 'lead_popup',
+          titulo: 'Pop-up de Retenção / Saída com Desconto',
+          ativo: 1,
+          ordem: 3,
+          config_json: JSON.stringify({
+            gatilho: 'exit_intent',
+            titulo: 'Espere! Não deixe seu restaurante na mão.',
+            subtitulo: 'Cadastre-se agora e ganhe 1 mês de KDS Grátis no seu plano.',
+            botaoTexto: 'Quero meu Mês Grátis',
+            descontoCupom: 'BEMVINDOCHEF'
+          })
+        },
+        {
+          id: 'mod_calculadora_lucro',
+          tipo: 'calculadora',
+          titulo: 'Calculadora Interativa de Economia',
+          ativo: 1,
+          ordem: 4,
+          config_json: JSON.stringify({
+            titulo: 'Quanto seu restaurante vai economizar por mês?',
+            ticketMedioPadrao: 65,
+            pedidosDiaPadrao: 120,
+            economiaGarcomPct: 22
+          })
+        }
+      ];
+
+      defaultModulos.forEach(m => {
+        db.run(`INSERT OR IGNORE INTO site_vendas_modulos (id, tipo, titulo, ativo, ordem, config_json) VALUES (?,?,?,?,?,?)`,
+          [m.id, m.tipo, m.titulo, m.ativo, m.ordem, m.config_json]);
+      });
+      log('Módulos padrão do Site de Vendas semeados.');
+    });
+
+    log('Tabelas Theme Curator e Site Vendas criadas/verificadas.');
   });
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -414,5 +494,72 @@ module.exports = function ({ app, db, masterDb, io, options, log }) {
     res.json({ ok: true, uso: rows });
   }));
 
-  log('Theme Curator inicializado. Rotas: /api/modulo/temas/* e /api/super/temas/*');
+  // ══════════════════════════════════════════════════════════════════════════
+  // ROTAS DE MÓDULOS DO SITE DE VENDAS (Suporte / Marketing / Landing)
+  // ══════════════════════════════════════════════════════════════════════════
+
+  // GET /api/public/site-vendas/modulos — Lista módulos ativos para renderizar no site de vendas
+  app.get('/api/public/site-vendas/modulos', safe(async (req, res) => {
+    const rows = await dbAll(`SELECT * FROM site_vendas_modulos WHERE ativo = 1 ORDER BY ordem ASC`);
+    res.json({
+      ok: true,
+      modulos: rows.map(r => ({
+        ...r,
+        config: JSON.parse(r.config_json || '{}')
+      }))
+    });
+  }));
+
+  // GET /api/super/site-vendas/modulos — Listagem completa para o painel de suporte
+  app.get('/api/super/site-vendas/modulos', authCuradoria, safe(async (req, res) => {
+    const rows = await dbAll(`SELECT * FROM site_vendas_modulos ORDER BY ordem ASC`);
+    res.json({
+      ok: true,
+      modulos: rows.map(r => ({
+        ...r,
+        config: JSON.parse(r.config_json || '{}')
+      }))
+    });
+  }));
+
+  // POST /api/super/site-vendas/modulos — Criar novo módulo do site de vendas
+  app.post('/api/super/site-vendas/modulos', authCuradoria, safe(async (req, res) => {
+    const { id, tipo, titulo, ativo, ordem, config } = req.body || {};
+    if (!tipo || !titulo) return res.json({ ok: false, erro: 'tipo e titulo são obrigatórios.' });
+    const modId = id || 'mod_' + Date.now();
+    await dbRun(`INSERT INTO site_vendas_modulos (id, tipo, titulo, ativo, ordem, config_json)
+      VALUES (?,?,?,?,?,?)
+      ON CONFLICT(id) DO UPDATE SET tipo=excluded.tipo, titulo=excluded.titulo, ativo=excluded.ativo,
+      ordem=excluded.ordem, config_json=excluded.config_json, atualizado_em=datetime('now','localtime')`,
+      [modId, tipo, titulo, ativo ? 1 : 0, parseInt(ordem) || 0, typeof config === 'object' ? JSON.stringify(config) : (config || '{}')]
+    );
+    res.json({ ok: true, id: modId });
+  }));
+
+  // PUT /api/super/site-vendas/modulos/:id — Atualizar módulo existente
+  app.put('/api/super/site-vendas/modulos/:id', authCuradoria, safe(async (req, res) => {
+    const { tipo, titulo, ativo, ordem, config } = req.body || {};
+    const updates = [];
+    const params = [];
+    if (tipo !== undefined) { updates.push('tipo=?'); params.push(tipo); }
+    if (titulo !== undefined) { updates.push('titulo=?'); params.push(titulo); }
+    if (ativo !== undefined) { updates.push('ativo=?'); params.push(ativo ? 1 : 0); }
+    if (ordem !== undefined) { updates.push('ordem=?'); params.push(parseInt(ordem) || 0); }
+    if (config !== undefined) { updates.push('config_json=?'); params.push(typeof config === 'object' ? JSON.stringify(config) : config); }
+
+    if (!updates.length) return res.json({ ok: false, erro: 'Nada para atualizar.' });
+    updates.push(`atualizado_em=datetime('now','localtime')`);
+    params.push(req.params.id);
+
+    await dbRun(`UPDATE site_vendas_modulos SET ${updates.join(',')} WHERE id=?`, params);
+    res.json({ ok: true });
+  }));
+
+  // DELETE /api/super/site-vendas/modulos/:id — Excluir ou desativar módulo
+  app.delete('/api/super/site-vendas/modulos/:id', authCuradoria, safe(async (req, res) => {
+    await dbRun(`DELETE FROM site_vendas_modulos WHERE id=?`, [req.params.id]);
+    res.json({ ok: true });
+  }));
+
+  log('Theme Curator inicializado. Rotas: /api/modulo/temas/*, /api/super/temas/* e /api/super/site-vendas/*');
 };

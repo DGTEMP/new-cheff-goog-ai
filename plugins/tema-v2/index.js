@@ -36,7 +36,11 @@ function salvarConfig(cfg) {
   }
 }
 
-module.exports = function registerThemeV2Routes(app, io, db) {
+module.exports = function registerThemeV2Routes(ctxOrApp, maybeIo, maybeDb) {
+  const app = ctxOrApp && ctxOrApp.app ? ctxOrApp.app : ctxOrApp;
+  const io = ctxOrApp && ctxOrApp.io ? ctxOrApp.io : maybeIo;
+  const db = ctxOrApp && ctxOrApp.db ? ctxOrApp.db : maybeDb;
+
   // Retorna as configurações do tema v2.0
   app.get('/api/tema-v2/config', (req, res) => {
     const cfg = carregarConfig();
