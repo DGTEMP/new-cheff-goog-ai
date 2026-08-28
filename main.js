@@ -4190,7 +4190,7 @@ let _wizardModoMesas = 'exemplos'; /* 'exemplos' | 'zero' */
         document.getElementById('pdv-cliente-endereco').value = cliente.endereco;
       }
       if (cliente.pontos !== undefined) {
-        document.getElementById('pdv-cliente-pontos').innerText = `â­ ${cliente.pontos} pts`;
+        document.getElementById('pdv-cliente-pontos').innerText = `⭐ ${cliente.pontos} pts`;
       }
       if (cliente.observacao) {
         alert(`Atenção: O cliente ${cliente.nome} possui a seguinte observação em seu cadastro:\n\n"${cliente.observacao}"`);
@@ -4234,7 +4234,7 @@ let _wizardModoMesas = 'exemplos'; /* 'exemplos' | 'zero' */
     window.renderPdvCart();
 
     // Atualizar os pontos exibidos no PDV (subtrair)
-    document.getElementById('pdv-cliente-pontos').innerText = `â­ ${cliente.pontos - custo} pts`;
+    document.getElementById('pdv-cliente-pontos').innerText = `⭐ ${cliente.pontos - custo} pts`;
   });
 
   const btnLancarPdv = document.getElementById('btn-lancar-pdv');
@@ -4551,7 +4551,7 @@ socket.on('clientes_atualizados', (lista) => {
         <td style="padding: 10px;">${c.nome}<br><small style="color:gray;">Nasc: ${c.data_nascimento ? new Date(c.data_nascimento).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '-'}</small></td>
         <td style="padding: 10px;">${c.telefone || '-'}<br><small style="color:gray;">End: ${c.endereco || '-'}</small></td>
         <td style="padding: 10px; max-width: 150px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;" title="${c.observacao || ''}">${c.observacao || '-'}</td>
-        <td style="padding: 10px; text-align: center; font-weight: bold; color: #3ab55b;">â­ ${c.pontos || 0}</td>
+        <td style="padding: 10px; text-align: center; font-weight: bold; color: #3ab55b;">⭐ ${c.pontos || 0}</td>
         <td style="padding: 10px;">
           <button onclick="window.editCliente(${c.id}, '${c.nome.replace(/'/g, "\\'")}', '${c.telefone || ''}', '${(c.observacao || '').replace(/'/g, "\\'")}', '${(c.endereco || '').replace(/'/g, "\\'")}', '${c.data_nascimento || ''}')" style="color: #2D9CDB; border: none; background: none; cursor: pointer; margin-right: 8px;"><i class="ph ph-pencil"></i></button>
           <button onclick="window.deleteCliente(${c.id})" style="color: red; border: none; background: none; cursor: pointer;"><i class="ph ph-trash"></i></button>

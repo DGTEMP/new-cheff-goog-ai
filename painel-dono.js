@@ -195,7 +195,7 @@ async function carregarMetricas() {
           rankingList.innerHTML = data.topProdutos.map((p, idx) => `
             <div class="ranking-item">
               <span class="ranking-pos">${idx + 1}º</span>
-              <span class="rk-name">${escHtml(p.productEmoji || 'ðŸ½ï¸')} ${escHtml(p.productName)}</span>
+              <span class="rk-name">${escHtml(p.productEmoji || '🍽️')} ${escHtml(p.productName)}</span>
               <span class="rk-val">${p.quantidade}x</span>
             </div>
           `).join('');
@@ -260,7 +260,7 @@ window.comandarCaixaAcao = function(acao, payload) {
     'bloquear_tela': '🔒 Bloqueio de segurança enviado ao Caixa!',
     'tocar_alerta': '🔔 Alerta sonoro tocando no Caixa!',
     'alternar_tema': '🌓 Tema do Caixa alternado!',
-    'abrir_gaveta': 'ðŸ–¨ï¸ Gaveta de dinheiro acionada!',
+    'abrir_gaveta': '🖨️ Gaveta de dinheiro acionada!',
     'abrir_fila': '🪑 Fila de espera aberta no Caixa!'
   };
   showToast(labels[acao] || `Comando ${acao} enviado ao Caixa!`, 'ph-lightning');
@@ -870,7 +870,7 @@ socket.on('funcionarios_atualizados', (funcs) => {
 socket.on('alerta_desconto_financeiro', (data) => {
   carregarMetricas();
   if (data && data.valor) {
-    adicionarAoFeed('venda', `âš ï¸ Desconto R$${parseFloat(data.valor).toFixed(2)} por ${data.operador} em ${data.localName}`);
+    adicionarAoFeed('venda', `⚠️ Desconto R$${parseFloat(data.valor).toFixed(2)} por ${data.operador} em ${data.localName}`);
   }
 });
 
@@ -1091,9 +1091,9 @@ window.enviarRelato = async function() {
   botao.disabled = false;
 };
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-// ðŸŽŸï¸ GESTÃO DE CUPONS QR DE PROMOÇÃO & DESEMPENHO (PAINEL DO DONO)
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═════════════════════════════════════════════════════════════════════
+// 🎟️ GESTÃO DE CUPONS QR DE PROMOÇÃO & DESEMPENHO (PAINEL DO DONO)
+// ═════════════════════════════════════════════════════════════════════
 let _cuponsDonoCache = [];
 let _cupomFlyerAtual = null;
 
@@ -1154,7 +1154,7 @@ window.carregarCuponsDono = async function() {
     if (_cuponsDonoCache.length === 0) {
       grid.innerHTML = `
         <div style="background:var(--card); border:1.5px dashed var(--border); border-radius:14px; padding:28px 16px; text-align:center;">
-          <div style="font-size:32px; margin-bottom:8px;">ðŸŽŸï¸</div>
+          <div style="font-size:32px; margin-bottom:8px;">🎟️</div>
           <strong style="display:block; font-size:var(--fs-md); margin-bottom:4px;">Nenhum cupom promocional ativo</strong>
           <span style="display:block; font-size:var(--fs-xs); color:var(--text-sub); margin-bottom:16px;">Crie seu primeiro cupom QR para atrair mais clientes e aumentar suas vendas!</span>
           <button class="btn-primary" onclick="abrirModalCriarCupom()" style="margin:0 auto; padding:10px 18px; font-size:var(--fs-sm);">
@@ -1298,7 +1298,7 @@ window.salvarNovoCupom = async function() {
     const data = await res.json();
     if (res.ok && data.success) {
       fecharModal('modal-criar-cupom');
-      showToast(`ðŸŽŸï¸ Cupom ${codigo} criado com sucesso!`, 'ph-check-circle', 'success');
+      showToast(`🎟️ Cupom ${codigo} criado com sucesso!`, 'ph-check-circle', 'success');
       window.carregarCuponsDono();
     } else {
       showToast(data.error || 'Erro ao criar cupom.', 'ph-warning', 'error');
@@ -1412,9 +1412,9 @@ window.compartilharQrWhatsApp = function() {
 
   const msg = `🎉 *PROMOÇÃO EXCLUSIVA - ${restNome.toUpperCase()}* 🎉\n\n` +
     `Olá! Preparamos um presente especial para você:\n` +
-    `ðŸŽ *${_cupomFlyerAtual.titulo || 'Super Desconto'}*\n` +
+    `🎁 *${_cupomFlyerAtual.titulo || 'Super Desconto'}*\n` +
     `💰 Ganhe *${valorTxt}* no seu pedido!\n\n` +
-    `ðŸŽŸï¸ Use o código do cupom: *${_cupomFlyerAtual.codigo}*\n` +
+    `🎟️ Use o código do cupom: *${_cupomFlyerAtual.codigo}*\n` +
     `👉 Ou escaneie o QR Code na nossa mesa quando nos visitar!\n\n` +
     `Te esperamos! 😋`;
 
@@ -1490,7 +1490,7 @@ window.excluirCupomDono = async function(codigo) {
     });
 
     if (res.ok) {
-      showToast(`ðŸ—‘ï¸ Cupom ${codigo} excluído.`, 'ph-trash', 'info');
+      showToast(`🗑️ Cupom ${codigo} excluído.`, 'ph-trash', 'info');
       window.carregarCuponsDono();
     } else {
       showToast('Erro ao excluir cupom.', 'ph-warning', 'error');

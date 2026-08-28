@@ -2715,238 +2715,6 @@ function initAdminPanelUI() {
   });
   var btnSalvarAtrib = document.getElementById('btn-salvar-atribuicoes');
   if (btnSalvarAtrib) btnSalvarAtrib.addEventListener('click', salvarAtribuicoes);
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-  /* Login screen event listeners */
-  var btnLogin = document.getElementById('btn-entrar-local');
-  if (btnLogin) btnLogin.addEventListener('click', loginLocal);
-
-  var senhaInput = document.getElementById('local-senha');
-  if (senhaInput) {
-    senhaInput.addEventListener('keydown', function(e) {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        loginLocal();
-      }
-    });
-  }
-
-  var tabLocal = document.getElementById('tab-local');
-  var tabCloud = document.getElementById('tab-cloud');
-  if (tabLocal) tabLocal.addEventListener('click', function() { setLoginMode('local'); });
-  if (tabCloud) tabCloud.addEventListener('click', function() { setLoginMode('cloud'); });
-
-  var btnEntrar = document.getElementById('btn-entrar');
-  if (btnEntrar) btnEntrar.addEventListener('click', function() {
-    showToast('Modo cloud indisponível. Use o login local.', 'warning');
-  });
-
-  /* Global removal delegation */
-  document.addEventListener('click', function(e) {
-    if (e.target.closest('.remove-team-row')) {
-      var row = e.target.closest('.initial-team-row');
-      if (row) row.remove();
-    }
-  });
-
-  /* Auto-autenticação ao carregar a página */
-  var savedToken = localStorage.getItem('chef_super_admin_local_token');
-  if (savedToken) localToken = savedToken;
-
-  entrarNoPainel(false);
-});
-
-/* ═══ TAREFAS E AVISOS DE SUPORTE (SUPER ADMIN) ═══ */
-window.abrirModalNovaTaskSuporte = function() {
-  var modal = document.getElementById('modal-nova-task-suporte');
-  if (!modal) return;
-  
-  // Preencher select de suportes
-  var selectSuporte = document.getElementById('task-suporte-id');
-  selectSuporte.innerHTML = '<option value="">Selecione o atendente de suporte...</option>';
-  var list = (typeof suporteData !== 'undefined' && Array.isArray(suporteData)) ? suporteData : [];
-  for (var i = 0; i < list.length; i++) {
-    var s = list[i];
-    selectSuporte.innerHTML += '<option value="' + s.id + '">' + escapeHtml(s.nome) + ' (' + escapeHtml(s.cargo || 'Atendente') + ')</option>';
-  }
-  
-  // Preencher select de restaurantes
-  var selectRest = document.getElementById('task-restaurante-id');
-  selectRest.innerHTML = '<option value="">Nenhum / Geral</option>';
-  apiGet('/api/super/restaurantes', function(err, data) {
-    if (!err && data && data.ok && data.clients) {
-      for (var j = 0; j < data.clients.length; j++) {
-        var r = data.clients[j];
-        selectRest.innerHTML += '<option value="' + r.id + '">' + escapeHtml(r.nome) + ' (#' + r.id + ')</option>';
-      }
-    }
-  });
-
-  document.getElementById('task-tipo').value = '';
-  document.getElementById('task-descricao').value = '';
-  document.getElementById('task-pontos').value = '10';
-  modal.classList.add('active');
-  modal.style.display = 'flex';
-};
-
-window.fecharModalNovaTaskSuporte = function() {
-  var modal = document.getElementById('modal-nova-task-suporte');
-  if (modal) {
-    modal.classList.remove('active');
-    modal.style.display = 'none';
-  }
-};
-
-window.salvarTaskSuporte = function() {
-  var suporteId = document.getElementById('task-suporte-id').value;
-  var restId = document.getElementById('task-restaurante-id').value;
-  var tipo = document.getElementById('task-tipo').value.trim();
-  var descricao = document.getElementById('task-descricao').value.trim();
-  var pontos = parseInt(document.getElementById('task-pontos').value) || 10;
-
-  if (!suporteId) { alert('Selecione um atendente de suporte.'); return; }
-  if (!tipo) { alert('Digite um título ou tipo para a task.'); return; }
-  if (!descricao) { alert('Digite a descrição detalhada da task.'); return; }
-
-  apiPost('/api/super/equipe/tasks', {
-    suporte_id: parseInt(suporteId),
-    restaurante_id: restId ? parseInt(restId) : null,
-    tipo: tipo,
-    descricao: descricao,
-    pontos: pontos
-  }, function(err, data) {
-    if (err || !data || !data.ok) {
-      alert(err || (data && data.erro) || 'Erro ao criar task.');
-      return;
-    }
-    showToast(data.mensagem || 'Task atribuída com sucesso!', 'success');
-    fecharModalNovaTaskSuporte();
-  });
-};
-
-window.abrirModalEnviarAvisoSuporte = function() {
-  var modal = document.getElementById('modal-enviar-aviso-suporte');
-  if (!modal) return;
-
-  document.getElementById('aviso-destino-tipo').value = 'todos';
-  document.getElementById('aviso-titulo').value = '';
-  document.getElementById('aviso-tipo').value = 'aviso';
-  document.getElementById('aviso-corpo').value = '';
-  toggleSelecaoSuporteAviso();
-
-  // Renderizar checkboxes de suporte
-  var listDiv = document.getElementById('lista-checkbox-suporte');
-  var h = '';
-  var list = (typeof suporteData !== 'undefined' && Array.isArray(suporteData)) ? suporteData : [];
-  for (var i = 0; i < list.length; i++) {
-    var s = list[i];
-    h += '<label style="display:flex;align-items:center;gap:8px;font-size:13px;color:white;cursor:pointer;">' +
-      '<input type="checkbox" class="check-suporte-aviso" value="' + s.id + '"> ' + escapeHtml(s.nome) + ' (' + escapeHtml(s.email) + ')' +
-      '</label>';
-  }
-  listDiv.innerHTML = h || '<div style="color:#888;font-size:12px;">Nenhum atendente cadastrado.</div>';
-
-  modal.classList.add('active');
-  modal.style.display = 'flex';
-};
-
-window.toggleSelecaoSuporteAviso = function() {
-  var tipo = document.getElementById('aviso-destino-tipo').value;
-  var container = document.getElementById('container-selecao-suporte');
-  if (container) container.style.display = (tipo === 'selecionados') ? 'block' : 'none';
-};
-
-window.fecharModalEnviarAvisoSuporte = function() {
-  var modal = document.getElementById('modal-enviar-aviso-suporte');
-  if (modal) {
-    modal.classList.remove('active');
-    modal.style.display = 'none';
-  }
-};
-
-window.enviarAvisoSuporte = function() {
-  var destinoTipo = document.getElementById('aviso-destino-tipo').value;
-  var titulo = document.getElementById('aviso-titulo').value.trim();
-  var tipo = document.getElementById('aviso-tipo').value;
-  var corpo = document.getElementById('aviso-corpo').value.trim();
-
-  if (!titulo) { alert('Digite o título do aviso.'); return; }
-  if (!corpo) { alert('Digite a mensagem do aviso.'); return; }
-
-  var suporteIds = [];
-  if (destinoTipo === 'selecionados') {
-    var checks = document.querySelectorAll('.check-suporte-aviso:checked');
-    checks.forEach(function(c) { suporteIds.push(parseInt(c.value)); });
-    if (suporteIds.length === 0) {
-      alert('Selecione pelo menos um atendente de suporte.');
-      return;
-    }
-  }
-
-  apiPost('/api/super/equipe/avisos', {
-    destino: destinoTipo,
-    suporte_ids: suporteIds,
-    titulo: titulo,
-    tipo: tipo,
-    corpo: corpo
-  }, function(err, data) {
-    if (err || !data || !data.ok) {
-      alert(err || (data && data.erro) || 'Erro ao enviar aviso.');
-      return;
-    }
-    showToast(data.mensagem || 'Aviso transmitido com sucesso!', 'success');
-    fecharModalEnviarAvisoSuporte();
-  });
-};
-
-window.abrirModalCriarMissaoSurpresa = function() {
-  var modal = document.getElementById('modal-criar-missao-surpresa');
-  if (!modal) return;
-  document.getElementById('missao-titulo').value = '';
-  document.getElementById('missao-meta').value = '5';
-  document.getElementById('missao-recompensa').value = '1000';
-  document.getElementById('missao-limite').value = '';
-  document.getElementById('missao-descricao').value = '';
-  modal.classList.add('active');
-  modal.style.display = 'flex';
-};
-
-window.fecharModalCriarMissaoSurpresa = function() {
-  var modal = document.getElementById('modal-criar-missao-surpresa');
-  if (modal) {
-    modal.classList.remove('active');
-    modal.style.display = 'none';
-  }
-};
-
-window.salvarMissaoSurpresa = function() {
-  var titulo = document.getElementById('missao-titulo').value.trim();
-  var meta = parseInt(document.getElementById('missao-meta').value) || 1;
-  var recompensa = parseFloat(document.getElementById('missao-recompensa').value) || 0;
-  var limite = document.getElementById('missao-limite').value.trim();
-  var desc = document.getElementById('missao-descricao').value.trim();
-
-  if (!titulo || !recompensa) {
-    alert('Preencha o título e o valor da bonificação.');
-    return;
-  }
-
-  apiPost('/api/super/missoes', {
-    titulo: titulo,
-    meta_qtd: meta,
-    recompensa_valor: recompensa,
-    data_limite: limite,
-    descricao: desc
-  }, function(err, data) {
-    if (err || !data || !data.ok) {
-      alert(err || (data && data.erro) || 'Erro ao lançar missão.');
-      return;
-    }
-    showToast(data.mensagem || 'Promoção surpresa lançada!', 'success');
-    fecharModalCriarMissaoSurpresa();
-  });
-};
 
   /* Servidor */
   var btnRefreshServer = document.getElementById('btn-refresh-server');
@@ -3268,6 +3036,237 @@ window.salvarMissaoSurpresa = function() {
       }
     });
   }
+
+}
+
+/* ═══ TAREFAS E AVISOS DE SUPORTE (SUPER ADMIN) ═══ */
+window.abrirModalNovaTaskSuporte = function() {
+  var modal = document.getElementById('modal-nova-task-suporte');
+  if (!modal) return;
+  
+  var selectSuporte = document.getElementById('task-suporte-id');
+  selectSuporte.innerHTML = '<option value="">Selecione o atendente de suporte...</option>';
+  var list = (typeof suporteData !== 'undefined' && Array.isArray(suporteData)) ? suporteData : [];
+  for (var i = 0; i < list.length; i++) {
+    var s = list[i];
+    selectSuporte.innerHTML += '<option value="' + s.id + '">' + escapeHtml(s.nome) + ' (' + escapeHtml(s.cargo || 'Atendente') + ')</option>';
+  }
+  
+  var selectRest = document.getElementById('task-restaurante-id');
+  selectRest.innerHTML = '<option value="">Nenhum / Geral</option>';
+  apiGet('/api/super/restaurantes', function(err, data) {
+    if (!err && data && data.ok) {
+      var rList = data.restaurantes || data.clients || [];
+      for (var j = 0; j < rList.length; j++) {
+        var r = rList[j];
+        selectRest.innerHTML += '<option value="' + r.id + '">' + escapeHtml(r.nome || r.restaurante) + ' (#' + r.id + ')</option>';
+      }
+    }
+  });
+
+  document.getElementById('task-tipo').value = '';
+  document.getElementById('task-descricao').value = '';
+  document.getElementById('task-pontos').value = '10';
+  modal.classList.add('active');
+  modal.style.display = 'flex';
+};
+
+window.fecharModalNovaTaskSuporte = function() {
+  var modal = document.getElementById('modal-nova-task-suporte');
+  if (modal) {
+    modal.classList.remove('active');
+    modal.style.display = 'none';
+  }
+};
+
+window.salvarTaskSuporte = function() {
+  var suporteId = document.getElementById('task-suporte-id').value;
+  var restId = document.getElementById('task-restaurante-id').value;
+  var tipo = document.getElementById('task-tipo').value.trim();
+  var descricao = document.getElementById('task-descricao').value.trim();
+  var pontos = parseInt(document.getElementById('task-pontos').value) || 10;
+
+  if (!suporteId) { alert('Selecione um atendente de suporte.'); return; }
+  if (!tipo) { alert('Digite um título ou tipo para a task.'); return; }
+  if (!descricao) { alert('Digite a descrição detalhada da task.'); return; }
+
+  apiPost('/api/super/equipe/tasks', {
+    suporte_id: parseInt(suporteId),
+    restaurante_id: restId ? parseInt(restId) : null,
+    tipo: tipo,
+    descricao: descricao,
+    pontos: pontos
+  }, function(err, data) {
+    if (err || !data || !data.ok) {
+      alert(err || (data && data.erro) || 'Erro ao criar task.');
+      return;
+    }
+    showToast(data.mensagem || 'Task atribuída com sucesso!', 'success');
+    fecharModalNovaTaskSuporte();
+  });
+};
+
+window.abrirModalEnviarAvisoSuporte = function() {
+  var modal = document.getElementById('modal-enviar-aviso-suporte');
+  if (!modal) return;
+
+  document.getElementById('aviso-destino-tipo').value = 'todos';
+  document.getElementById('aviso-titulo').value = '';
+  document.getElementById('aviso-tipo').value = 'aviso';
+  document.getElementById('aviso-corpo').value = '';
+  toggleSelecaoSuporteAviso();
+
+  var listDiv = document.getElementById('lista-checkbox-suporte');
+  var h = '';
+  var list = (typeof suporteData !== 'undefined' && Array.isArray(suporteData)) ? suporteData : [];
+  for (var i = 0; i < list.length; i++) {
+    var s = list[i];
+    h += '<label style="display:flex;align-items:center;gap:8px;font-size:13px;color:white;cursor:pointer;">' +
+      '<input type="checkbox" class="check-suporte-aviso" value="' + s.id + '"> ' + escapeHtml(s.nome) + ' (' + escapeHtml(s.email) + ')' +
+      '</label>';
+  }
+  listDiv.innerHTML = h || '<div style="color:#888;font-size:12px;">Nenhum atendente cadastrado.</div>';
+
+  modal.classList.add('active');
+  modal.style.display = 'flex';
+};
+
+window.toggleSelecaoSuporteAviso = function() {
+  var tipo = document.getElementById('aviso-destino-tipo').value;
+  var container = document.getElementById('container-selecao-suporte');
+  if (container) container.style.display = (tipo === 'selecionados') ? 'block' : 'none';
+};
+
+window.fecharModalEnviarAvisoSuporte = function() {
+  var modal = document.getElementById('modal-enviar-aviso-suporte');
+  if (modal) {
+    modal.classList.remove('active');
+    modal.style.display = 'none';
+  }
+};
+
+window.enviarAvisoSuporte = function() {
+  var destinoTipo = document.getElementById('aviso-destino-tipo').value;
+  var titulo = document.getElementById('aviso-titulo').value.trim();
+  var tipo = document.getElementById('aviso-tipo').value;
+  var corpo = document.getElementById('aviso-corpo').value.trim();
+
+  if (!titulo) { alert('Digite o título do aviso.'); return; }
+  if (!corpo) { alert('Digite a mensagem do aviso.'); return; }
+
+  var suporteIds = [];
+  if (destinoTipo === 'selecionados') {
+    var checks = document.querySelectorAll('.check-suporte-aviso:checked');
+    checks.forEach(function(c) { suporteIds.push(parseInt(c.value)); });
+    if (suporteIds.length === 0) {
+      alert('Selecione pelo menos um atendente de suporte.');
+      return;
+    }
+  }
+
+  apiPost('/api/super/equipe/avisos', {
+    destino: destinoTipo,
+    suporte_ids: suporteIds,
+    titulo: titulo,
+    tipo: tipo,
+    corpo: corpo
+  }, function(err, data) {
+    if (err || !data || !data.ok) {
+      alert(err || (data && data.erro) || 'Erro ao enviar aviso.');
+      return;
+    }
+    showToast(data.mensagem || 'Aviso transmitido com sucesso!', 'success');
+    fecharModalEnviarAvisoSuporte();
+  });
+};
+
+window.abrirModalCriarMissaoSurpresa = function() {
+  var modal = document.getElementById('modal-criar-missao-surpresa');
+  if (!modal) return;
+  document.getElementById('missao-titulo').value = '';
+  document.getElementById('missao-meta').value = '5';
+  document.getElementById('missao-recompensa').value = '1000';
+  document.getElementById('missao-limite').value = '';
+  document.getElementById('missao-descricao').value = '';
+  modal.classList.add('active');
+  modal.style.display = 'flex';
+};
+
+window.fecharModalCriarMissaoSurpresa = function() {
+  var modal = document.getElementById('modal-criar-missao-surpresa');
+  if (modal) {
+    modal.classList.remove('active');
+    modal.style.display = 'none';
+  }
+};
+
+window.salvarMissaoSurpresa = function() {
+  var titulo = document.getElementById('missao-titulo').value.trim();
+  var meta = parseInt(document.getElementById('missao-meta').value) || 1;
+  var recompensa = parseFloat(document.getElementById('missao-recompensa').value) || 0;
+  var limite = document.getElementById('missao-limite').value.trim();
+  var desc = document.getElementById('missao-descricao').value.trim();
+
+  if (!titulo || !recompensa) {
+    alert('Preencha o título e o valor da bonificação.');
+    return;
+  }
+
+  apiPost('/api/super/missoes', {
+    titulo: titulo,
+    meta_qtd: meta,
+    recompensa_valor: recompensa,
+    data_limite: limite,
+    descricao: desc
+  }, function(err, data) {
+    if (err || !data || !data.ok) {
+      alert(err || (data && data.erro) || 'Erro ao lançar missão.');
+      return;
+    }
+    showToast(data.mensagem || 'Promoção surpresa lançada!', 'success');
+    fecharModalCriarMissaoSurpresa();
+  });
+};
+
+document.addEventListener('DOMContentLoaded', function() {
+  /* Login screen event listeners */
+  var btnLogin = document.getElementById('btn-entrar-local');
+  if (btnLogin) btnLogin.addEventListener('click', loginLocal);
+
+  var senhaInput = document.getElementById('local-senha');
+  if (senhaInput) {
+    senhaInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        loginLocal();
+      }
+    });
+  }
+
+  var tabLocal = document.getElementById('tab-local');
+  var tabCloud = document.getElementById('tab-cloud');
+  if (tabLocal) tabLocal.addEventListener('click', function() { setLoginMode('local'); });
+  if (tabCloud) tabCloud.addEventListener('click', function() { setLoginMode('cloud'); });
+
+  var btnEntrar = document.getElementById('btn-entrar');
+  if (btnEntrar) btnEntrar.addEventListener('click', function() {
+    showToast('Modo cloud indisponível. Use o login local.', 'warning');
+  });
+
+  /* Global removal delegation */
+  document.addEventListener('click', function(e) {
+    if (e.target.closest('.remove-team-row')) {
+      var row = e.target.closest('.initial-team-row');
+      if (row) row.remove();
+    }
+  });
+
+  /* Auto-autenticação ao carregar a página */
+  var savedToken = localStorage.getItem('chef_super_admin_local_token');
+  if (savedToken) localToken = savedToken;
+
+  entrarNoPainel(false);
+});
 
   /* ═══ LICENÇAS & TELEMETRIA ═══ */
   window.carregarLicencas = function() {
