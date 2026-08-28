@@ -119,6 +119,7 @@ function switchTabSuporte(targetId) {
   else if (targetId === 'sec-tarefas') carregarAtividades();
   else if (targetId === 'sec-ranking') carregarRanking();
   else if (targetId === 'sec-temas-curadoria') { if (typeof carregarCuradoriaTemas === 'function') carregarCuradoriaTemas(); }
+  else if (targetId === 'sec-site-vendas-modulos') { if (typeof carregarModulosSiteVendas === 'function') carregarModulosSiteVendas(); }
 }
 
 function entrarPainel() {

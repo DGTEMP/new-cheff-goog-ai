@@ -417,6 +417,7 @@
         <div class="menu-item" data-target="sec-ranking"><i class="fa-solid fa-trophy"></i> Ranking</div>
         <div class="menu-item" data-target="sec-theme-studio"><i class="fa-solid fa-wand-magic-sparkles" style="color:var(--accent);"></i> Theme Studio Pro</div>
         <div class="menu-item" data-target="sec-temas-curadoria"><i class="fa-solid fa-palette" style="color:#a78bfa;"></i> Curadoria de Temas</div>
+        <div class="menu-item" data-target="sec-site-vendas-modulos"><i class="fa-solid fa-bullhorn" style="color:#38bdf8;"></i> Módulos Site de Vendas</div>
       </div>
 
       <div class="content-area">
@@ -701,6 +702,72 @@
             </div>
             <div style="height:480px;overflow:hidden;position:relative;">
               <iframe id="iframe-loja-preview" src="/theme-store.html" style="width:100%;height:100%;border:none;border-radius:0 0 var(--radius) var(--radius);pointer-events:none;transform:scale(0.9);transform-origin:top left;width:111.1%;height:111.1%;"></iframe>
+              <div style="position:absolute;inset:0;cursor:default;"></div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- ══════════════════════════════════════════════════════════════
+             SEÇÃO: MÓDULOS & MARKETING DO SITE DE VENDAS
+             ══════════════════════════════════════════════════════════════ -->
+        <div class="content-section" id="sec-site-vendas-modulos">
+
+          <!-- HEADER -->
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;flex-wrap:wrap;gap:0.8rem;">
+            <div>
+              <h2 style="font-family:'Outfit',sans-serif;margin:0;display:flex;align-items:center;gap:0.5rem;">
+                <i class="fa-solid fa-bullhorn" style="color:#38bdf8;"></i> Construtor de Módulos do Site de Vendas
+              </h2>
+              <p style="color:var(--text-muted);font-size:0.82rem;margin:0.3rem 0 0;">Crie, ative e personalize botões de WhatsApp, banners de urgência, pop-ups de retenção e simuladores para o site comercial.</p>
+            </div>
+            <div style="display:flex;gap:0.5rem;">
+              <button class="btn btn-primary" onclick="abrirModalNovoModuloVendas()">
+                <i class="fa-solid fa-plus"></i> Novo Módulo de Vendas
+              </button>
+              <button class="btn" onclick="carregarModulosSiteVendas()">
+                <i class="fa-solid fa-rotate"></i> Atualizar
+              </button>
+            </div>
+          </div>
+
+          <!-- STATS DE MÓDULOS DE VENDAS -->
+          <div id="vendas-modulos-stats-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:0.8rem;margin-bottom:1.5rem;"></div>
+
+          <!-- TABELA DE MÓDULOS DO SITE DE VENDAS -->
+          <div class="card" style="padding:0;overflow:hidden;">
+            <div style="padding:0.9rem 1.2rem;background:rgba(56,189,248,0.06);border-bottom:1px solid var(--border-color);display:flex;justify-content:space-between;align-items:center;">
+              <b style="font-size:0.9rem;color:#38bdf8;"><i class="fa-solid fa-layer-group"></i> Módulos Ativos no Site Comercial</b>
+              <span style="font-size:0.75rem;color:var(--text-muted);">As alterações entram em vigor imediatamente no site de vendas</span>
+            </div>
+            <div class="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width:40px;text-align:center;">#</th>
+                    <th style="width:140px;">Tipo</th>
+                    <th>Título / Descrição</th>
+                    <th>Configuração Ativa</th>
+                    <th style="width:70px;text-align:center;">Ordem</th>
+                    <th style="width:80px;text-align:center;">Status</th>
+                    <th style="width:120px;text-align:center;">Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="vendas-modulos-body">
+                  <tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:2rem;"><i class="fa-solid fa-spinner fa-spin"></i> Carregando módulos...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- PREVIEW DO SITE DE VENDAS -->
+          <div class="card" style="margin-top:1.5rem;padding:0;overflow:hidden;">
+            <div style="padding:1rem;background:rgba(56,189,248,0.07);border-bottom:1px solid var(--border-color);display:flex;justify-content:space-between;align-items:center;">
+              <h4 style="margin:0;"><i class="fa-solid fa-globe" style="color:#38bdf8;"></i> Pré-visualização do Site de Vendas</h4>
+              <a href="/site-vendas.html" target="_blank" class="btn btn-sm" style="background:#38bdf8;color:#0b0f19;font-weight:800;"><i class="fa-solid fa-arrow-up-right-from-square"></i> Abrir Site em Nova Aba</a>
+            </div>
+            <div style="height:480px;overflow:hidden;position:relative;">
+              <iframe id="iframe-site-vendas-preview" src="/site-vendas.html" style="width:100%;height:100%;border:none;border-radius:0 0 var(--radius) var(--radius);pointer-events:none;transform:scale(0.85);transform-origin:top left;width:117.6%;height:117.6%;"></iframe>
               <div style="position:absolute;inset:0;cursor:default;"></div>
             </div>
           </div>
@@ -1164,12 +1231,478 @@
       setTimeout(function(){el.remove();},2800);
     }
 
-    // Auto-load quando aba de curadoria for clicada
-    document.addEventListener('DOMContentLoaded',function(){
+    // ══════════════════════════════════════════════════════════════
+    // MÓDULOS DO SITE DE VENDAS (CONTROLLER DO SUPORTE)
+    // ══════════════════════════════════════════════════════════════
+    var _modulosVendasCache = [];
+
+    async function carregarModulosSiteVendas() {
+      var tbody = document.getElementById('vendas-modulos-body');
+      if (tbody) tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:2rem;"><i class="fa-solid fa-spinner fa-spin"></i> Carregando módulos do site...</td></tr>';
+
+      var token = localStorage.getItem('token') || window._suporteToken || '';
+      try {
+        var res = await fetch('/api/super/site-vendas/modulos', {
+          headers: { 'Authorization': 'Bearer ' + token, 'x-suporte-token': token }
+        });
+        var data = await res.json();
+        if (!data.ok) throw new Error(data.erro || 'Falha ao buscar módulos');
+        _modulosVendasCache = data.modulos || [];
+        renderizarTabelaModulosVendas(_modulosVendasCache);
+        renderizarStatsModulosVendas(_modulosVendasCache);
+      } catch (e) {
+        if (tbody) tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#ef4444;padding:2rem;"><i class="fa-solid fa-triangle-exclamation"></i> ' + e.message + '</td></tr>';
+      }
+    }
+
+    function renderizarStatsModulosVendas(modulos) {
+      var grid = document.getElementById('vendas-modulos-stats-grid');
+      if (!grid) return;
+      var total = modulos.length;
+      var ativos = modulos.filter(function(m){ return m.ativo; }).length;
+      var whats = modulos.filter(function(m){ return m.tipo === 'whatsapp'; }).length;
+      var urg = modulos.filter(function(m){ return m.tipo === 'urgencia_bar'; }).length;
+      var leads = modulos.filter(function(m){ return m.tipo === 'lead_popup'; }).length;
+
+      grid.innerHTML = `
+        <div class="card" style="padding:0.9rem;border-left:4px solid #38bdf8;">
+          <div style="font-size:0.75rem;color:var(--text-muted);">Módulos Cadastrados</div>
+          <b style="font-size:1.3rem;color:#f8fafc;">${total}</b>
+        </div>
+        <div class="card" style="padding:0.9rem;border-left:4px solid #22c55e;">
+          <div style="font-size:0.75rem;color:var(--text-muted);">Ativos no Site</div>
+          <b style="font-size:1.3rem;color:#22c55e;">${ativos}</b>
+        </div>
+        <div class="card" style="padding:0.9rem;border-left:4px solid #16a34a;">
+          <div style="font-size:0.75rem;color:var(--text-muted);">WhatsApp Vendas</div>
+          <b style="font-size:1.3rem;color:#4ade80;">${whats}</b>
+        </div>
+        <div class="card" style="padding:0.9rem;border-left:4px solid #f97316;">
+          <div style="font-size:0.75rem;color:var(--text-muted);">Urgência / Cupons</div>
+          <b style="font-size:1.3rem;color:#fb923c;">${urg}</b>
+        </div>
+        <div class="card" style="padding:0.9rem;border-left:4px solid #a855f7;">
+          <div style="font-size:0.75rem;color:var(--text-muted);">Retenção de Leads</div>
+          <b style="font-size:1.3rem;color:#c084fc;">${leads}</b>
+        </div>
+      `;
+    }
+
+    function renderizarTabelaModulosVendas(modulos) {
+      var tbody = document.getElementById('vendas-modulos-body');
+      if (!tbody) return;
+      if (!modulos.length) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:2rem;">Nenhum módulo de vendas cadastrado ainda. Clique em "+ Novo Módulo de Vendas" para criar.</td></tr>';
+        return;
+      }
+
+      var iconMap = {
+        whatsapp: '<span style="color:#22c55e;"><i class="fa-brands fa-whatsapp fa-lg"></i> WhatsApp</span>',
+        urgencia_bar: '<span style="color:#f97316;"><i class="fa-solid fa-bolt fa-lg"></i> Barra Urgência</span>',
+        lead_popup: '<span style="color:#a855f7;"><i class="fa-solid fa-gift fa-lg"></i> Pop-up Saída</span>',
+        calculadora: '<span style="color:#06b6d4;"><i class="fa-solid fa-calculator fa-lg"></i> Calculadora</span>',
+        custom_banner: '<span style="color:#eab308;"><i class="fa-solid fa-image fa-lg"></i> Banner</span>'
+      };
+
+      tbody.innerHTML = modulos.map(function(m, idx) {
+        var cfg = m.config || {};
+        var resumoConfig = '';
+        if (m.tipo === 'whatsapp') {
+          resumoConfig = 'Tel: <b>' + (cfg.telefone || 'Não inf.') + '</b> | ' + (cfg.atendente || 'Consultor');
+        } else if (m.tipo === 'urgencia_bar') {
+          resumoConfig = 'Cupom: <b>' + (cfg.cupom || 'Nenhum') + '</b> | Fundo: <span style="display:inline-block;width:10px;height:10px;background:' + (cfg.cor_fundo || '#dc2626') + ';border-radius:50%;"></span> ' + (cfg.cor_fundo || '');
+        } else if (m.tipo === 'lead_popup') {
+          resumoConfig = 'Gatilho: <b>' + (cfg.gatilho || 'exit_intent') + '</b> | Desconto: <b>' + (cfg.desconto || '15%') + '</b>';
+        } else if (m.tipo === 'calculadora') {
+          resumoConfig = 'Economia: <b>' + (cfg.economia_percentual || 12) + '%</b>';
+        } else {
+          resumoConfig = JSON.stringify(cfg).substring(0, 35) + '...';
+        }
+
+        var isAtivo = !!m.ativo;
+        return `
+          <tr>
+            <td style="text-align:center;color:var(--text-muted);">${idx + 1}</td>
+            <td><b>${iconMap[m.tipo] || m.tipo}</b></td>
+            <td>
+              <div style="font-weight:700;color:#f8fafc;">${m.titulo || '(Sem título)'}</div>
+              <div style="font-size:0.75rem;color:var(--text-muted);">${m.descricao || ''}</div>
+            </td>
+            <td style="font-size:0.8rem;color:#cbd5e1;">${resumoConfig}</td>
+            <td style="text-align:center;">
+              <input type="number" value="${m.ordem || 1}" style="width:50px;text-align:center;padding:2px 4px;font-size:0.8rem;border:1px solid var(--border-color);border-radius:4px;background:var(--bg-card);color:#fff;" onchange="atualizarOrdemModuloVendas('${m.id}', this.value)">
+            </td>
+            <td style="text-align:center;">
+              <button class="btn btn-sm ${isAtivo ? 'btn-success' : 'btn-danger'}" style="padding:2px 8px;font-size:0.72rem;font-weight:800;" onclick="toggleAtivoModuloVendas('${m.id}', ${isAtivo ? 0 : 1})">
+                ${isAtivo ? '✓ Ativo' : '✕ Desativado'}
+              </button>
+            </td>
+            <td style="text-align:center;">
+              <div style="display:flex;gap:4px;justify-content:center;">
+                <button class="btn btn-sm" style="padding:4px 8px;" title="Editar" onclick="editarModuloVendas('${m.id}')">
+                  <i class="fa-solid fa-pen"></i>
+                </button>
+                <button class="btn btn-sm btn-danger" style="padding:4px 8px;" title="Excluir" onclick="excluirModuloVendas('${m.id}')">
+                  <i class="fa-solid fa-trash"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function abrirModalNovoModuloVendas() {
+      document.getElementById('mod-vendas-title').textContent = 'Novo Módulo de Vendas';
+      document.getElementById('mod-vendas-edit-id').value = '';
+      document.getElementById('mod-vendas-id').value = 'mod_' + Date.now();
+      document.getElementById('mod-vendas-id').disabled = false;
+      document.getElementById('mod-vendas-tipo').value = 'whatsapp';
+      document.getElementById('mod-vendas-titulo').value = 'Suporte & Vendas WhatsApp';
+      document.getElementById('mod-vendas-desc').value = 'Botão flutuante para atendimento comercial direto.';
+      document.getElementById('mod-vendas-ordem').value = 1;
+      document.getElementById('mod-vendas-ativo').checked = true;
+
+      // WhatsApp fields default
+      document.getElementById('mod-cfg-whats-tel').value = '5511999998888';
+      document.getElementById('mod-cfg-whats-msg').value = 'Olá! Gostaria de uma demonstração do Chef Cozinha.';
+      document.getElementById('mod-cfg-whats-atendente').value = 'Consultor Especialista';
+      document.getElementById('mod-cfg-whats-pos').value = 'bottom-right';
+      document.getElementById('mod-cfg-whats-pulsar').checked = true;
+
+      // Urgência fields default
+      document.getElementById('mod-cfg-urg-texto').value = '🔥 PROMOÇÃO EXCLUSIVA: Garanta 20% OFF no primeiro ano com o cupom:';
+      document.getElementById('mod-cfg-urg-cupom').value = 'CHEF2026';
+      document.getElementById('mod-cfg-urg-btn').value = 'QUERO MEU DESCONTO';
+      document.getElementById('mod-cfg-urg-bg').value = '#dc2626';
+
+      // Lead Popup fields default
+      document.getElementById('mod-cfg-lead-gatilho').value = 'exit_intent';
+      document.getElementById('mod-cfg-lead-desc').value = 'Preencha seu WhatsApp e ganhe 30 dias grátis sem compromisso!';
+
+      alternarCamposPorTipoModuloVendas('whatsapp');
+      document.getElementById('modal-modulo-vendas-editor').classList.add('active');
+    }
+
+    function editarModuloVendas(id) {
+      var m = _modulosVendasCache.find(function(x){ return x.id === id; });
+      if (!m) return;
+      document.getElementById('mod-vendas-title').textContent = 'Editar Módulo: ' + m.titulo;
+      document.getElementById('mod-vendas-edit-id').value = m.id;
+      document.getElementById('mod-vendas-id').value = m.id;
+      document.getElementById('mod-vendas-id').disabled = true;
+      document.getElementById('mod-vendas-tipo').value = m.tipo || 'whatsapp';
+      document.getElementById('mod-vendas-titulo').value = m.titulo || '';
+      document.getElementById('mod-vendas-desc').value = m.descricao || '';
+      document.getElementById('mod-vendas-ordem').value = m.ordem || 1;
+      document.getElementById('mod-vendas-ativo').checked = !!m.ativo;
+
+      var cfg = m.config || {};
+      if (m.tipo === 'whatsapp') {
+        document.getElementById('mod-cfg-whats-tel').value = cfg.telefone || '';
+        document.getElementById('mod-cfg-whats-msg').value = cfg.mensagem || '';
+        document.getElementById('mod-cfg-whats-atendente').value = cfg.atendente || '';
+        document.getElementById('mod-cfg-whats-pos').value = cfg.posicao || 'bottom-right';
+        document.getElementById('mod-cfg-whats-pulsar').checked = !!cfg.pulsar;
+      } else if (m.tipo === 'urgencia_bar') {
+        document.getElementById('mod-cfg-urg-texto').value = cfg.texto || '';
+        document.getElementById('mod-cfg-urg-cupom').value = cfg.cupom || '';
+        document.getElementById('mod-cfg-urg-btn').value = cfg.texto_botao || '';
+        document.getElementById('mod-cfg-urg-bg').value = cfg.cor_fundo || '#dc2626';
+      } else if (m.tipo === 'lead_popup') {
+        document.getElementById('mod-cfg-lead-gatilho').value = cfg.gatilho || 'exit_intent';
+        document.getElementById('mod-cfg-lead-desc').value = cfg.subtitulo || '';
+      }
+
+      alternarCamposPorTipoModuloVendas(m.tipo);
+      document.getElementById('modal-modulo-vendas-editor').classList.add('active');
+    }
+
+    function fecharModalModuloVendas() {
+      document.getElementById('modal-modulo-vendas-editor').classList.remove('active');
+    }
+
+    function alternarCamposPorTipoModuloVendas(tipo) {
+      document.getElementById('fields-tipo-whatsapp').style.display = tipo === 'whatsapp' ? 'block' : 'none';
+      document.getElementById('fields-tipo-urgencia').style.display = tipo === 'urgencia_bar' ? 'block' : 'none';
+      document.getElementById('fields-tipo-lead').style.display = tipo === 'lead_popup' ? 'block' : 'none';
+      document.getElementById('fields-tipo-calc').style.display = tipo === 'calculadora' ? 'block' : 'none';
+    }
+
+    async function salvarModuloVendas() {
+      var editId = document.getElementById('mod-vendas-edit-id').value;
+      var isEdit = !!editId;
+      var id = document.getElementById('mod-vendas-id').value.trim();
+      var tipo = document.getElementById('mod-vendas-tipo').value;
+      var titulo = document.getElementById('mod-vendas-titulo').value.trim();
+      var desc = document.getElementById('mod-vendas-desc').value.trim();
+      var ordem = parseInt(document.getElementById('mod-vendas-ordem').value) || 1;
+      var ativo = document.getElementById('mod-vendas-ativo').checked ? 1 : 0;
+
+      if (!id || !titulo) { alert('ID e Título são obrigatórios!'); return; }
+
+      var config = {};
+      if (tipo === 'whatsapp') {
+        config = {
+          telefone: document.getElementById('mod-cfg-whats-tel').value.trim(),
+          mensagem: document.getElementById('mod-cfg-whats-msg').value.trim(),
+          atendente: document.getElementById('mod-cfg-whats-atendente').value.trim(),
+          posicao: document.getElementById('mod-cfg-whats-pos').value,
+          pulsar: document.getElementById('mod-cfg-whats-pulsar').checked
+        };
+      } else if (tipo === 'urgencia_bar') {
+        config = {
+          texto: document.getElementById('mod-cfg-urg-texto').value.trim(),
+          cupom: document.getElementById('mod-cfg-urg-cupom').value.trim(),
+          texto_botao: document.getElementById('mod-cfg-urg-btn').value.trim(),
+          cor_fundo: document.getElementById('mod-cfg-urg-bg').value,
+          cor_texto: '#ffffff'
+        };
+      } else if (tipo === 'lead_popup') {
+        config = {
+          gatilho: document.getElementById('mod-cfg-lead-gatilho').value,
+          subtitulo: document.getElementById('mod-cfg-lead-desc').value.trim(),
+          desconto: '15%'
+        };
+      } else if (tipo === 'calculadora') {
+        config = {
+          economia_percentual: 12,
+          ticket_medio_padrao: 85
+        };
+      }
+
+      var payload = {
+        tipo: tipo,
+        titulo: titulo,
+        descricao: desc,
+        config: config,
+        ordem: ordem,
+        ativo: ativo
+      };
+      if (!isEdit) payload.id = id;
+
+      var token = localStorage.getItem('token') || window._suporteToken || '';
+      try {
+        var url = isEdit ? '/api/super/site-vendas/modulos/' + encodeURIComponent(editId) : '/api/super/site-vendas/modulos';
+        var method = isEdit ? 'PUT' : 'POST';
+        var res = await fetch(url, {
+          method: method,
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token, 'x-suporte-token': token },
+          body: JSON.stringify(payload)
+        });
+        var data = await res.json();
+        if (!data.ok) throw new Error(data.erro || 'Falha ao salvar módulo');
+        fecharModalModuloVendas();
+        mostrarToastCuradoria('✅ Módulo de vendas ' + (isEdit ? 'atualizado' : 'criado') + ' com sucesso!', 'success');
+        carregarModulosSiteVendas();
+        var iframe = document.getElementById('iframe-site-vendas-preview');
+        if (iframe) setTimeout(function(){ iframe.src = iframe.src; }, 600);
+      } catch (e) {
+        mostrarToastCuradoria('❌ ' + e.message, 'danger');
+      }
+    }
+
+    async function toggleAtivoModuloVendas(id, novoStatus) {
+      var token = localStorage.getItem('token') || window._suporteToken || '';
+      try {
+        var res = await fetch('/api/super/site-vendas/modulos/' + encodeURIComponent(id), {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token, 'x-suporte-token': token },
+          body: JSON.stringify({ ativo: novoStatus })
+        });
+        var data = await res.json();
+        if (!data.ok) throw new Error(data.erro || 'Erro ao alterar status');
+        mostrarToastCuradoria('Status atualizado!', 'info');
+        carregarModulosSiteVendas();
+        var iframe = document.getElementById('iframe-site-vendas-preview');
+        if (iframe) setTimeout(function(){ iframe.src = iframe.src; }, 600);
+      } catch (e) {
+        mostrarToastCuradoria('❌ ' + e.message, 'danger');
+      }
+    }
+
+    async function atualizarOrdemModuloVendas(id, novaOrdem) {
+      var token = localStorage.getItem('token') || window._suporteToken || '';
+      try {
+        await fetch('/api/super/site-vendas/modulos/' + encodeURIComponent(id), {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token, 'x-suporte-token': token },
+          body: JSON.stringify({ ordem: parseInt(novaOrdem) || 1 })
+        });
+        mostrarToastCuradoria('Ordem salva!', 'info');
+      } catch (e) {}
+    }
+
+    async function excluirModuloVendas(id) {
+      if (!confirm('Deseja realmente excluir este módulo do site de vendas?')) return;
+      var token = localStorage.getItem('token') || window._suporteToken || '';
+      try {
+        var res = await fetch('/api/super/site-vendas/modulos/' + encodeURIComponent(id), {
+          method: 'DELETE',
+          headers: { 'Authorization': 'Bearer ' + token, 'x-suporte-token': token }
+        });
+        var data = await res.json();
+        if (!data.ok) throw new Error(data.erro || 'Erro ao excluir');
+        mostrarToastCuradoria('Módulo excluído!', 'success');
+        carregarModulosSiteVendas();
+        var iframe = document.getElementById('iframe-site-vendas-preview');
+        if (iframe) setTimeout(function(){ iframe.src = iframe.src; }, 600);
+      } catch (e) {
+        mostrarToastCuradoria('❌ ' + e.message, 'danger');
+      }
+    }
+
+    // Auto-load quando abas forem clicadas
+    document.addEventListener('DOMContentLoaded', function(){
       document.querySelectorAll('.menu-item[data-target="sec-temas-curadoria"]').forEach(function(btn){
-        btn.addEventListener('click',function(){setTimeout(carregarCuradoriaTemas,80);});
+        btn.addEventListener('click', function(){ setTimeout(carregarCuradoriaTemas, 80); });
+      });
+      document.querySelectorAll('.menu-item[data-target="sec-site-vendas-modulos"]').forEach(function(btn){
+        btn.addEventListener('click', function(){ setTimeout(carregarModulosSiteVendas, 80); });
       });
     });
   </script>
+
+  <!-- MODAL DE CRIAÇÃO / EDIÇÃO DE MÓDULO DO SITE DE VENDAS -->
+  <div class="modal-overlay" id="modal-modulo-vendas-editor">
+    <div class="modal-content" style="max-width:580px;background:#111827;border:1px solid #374151;border-radius:14px;">
+      <div class="modal-header" style="background:#1f2937;border-bottom:1px solid #374151;border-radius:14px 14px 0 0;padding:1rem 1.4rem;">
+        <h3 id="mod-vendas-title" style="margin:0;color:#38bdf8;font-size:1.1rem;display:flex;align-items:center;gap:8px;">
+          <i class="fa-solid fa-bullhorn"></i> Configurar Módulo de Vendas
+        </h3>
+        <button class="modal-close" onclick="fecharModalModuloVendas()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <div class="modal-body" style="padding:1.4rem;display:flex;flex-direction:column;gap:12px;max-height:75vh;overflow-y:auto;">
+        <input type="hidden" id="mod-vendas-edit-id">
+
+        <div class="form-row">
+          <div class="form-group" style="flex:1;">
+            <label style="font-size:0.8rem;color:#94a3b8;font-weight:700;">ID / Slug Único *</label>
+            <input type="text" id="mod-vendas-id" placeholder="ex: whatsapp_flutuante" style="background:#1f2937;border:1px solid #374151;color:#fff;border-radius:8px;padding:8px 12px;font-size:0.85rem;">
+          </div>
+          <div class="form-group" style="flex:1;">
+            <label style="font-size:0.8rem;color:#94a3b8;font-weight:700;">Tipo de Módulo *</label>
+            <select id="mod-vendas-tipo" onchange="alternarCamposPorTipoModuloVendas(this.value)" style="background:#1f2937;border:1px solid #374151;color:#fff;border-radius:8px;padding:8px 12px;font-size:0.85rem;">
+              <option value="whatsapp">💬 Botão Flutuante de WhatsApp</option>
+              <option value="urgencia_bar">⚡ Barra de Urgência & Cupom Topo</option>
+              <option value="lead_popup">🎁 Pop-up de Retenção na Saída</option>
+              <option value="calculadora">🧮 Calculadora de Economia / ROI</option>
+              <option value="custom_banner">🖼️ Banner Promocional Custom</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label style="font-size:0.8rem;color:#94a3b8;font-weight:700;">Título Exibido *</label>
+          <input type="text" id="mod-vendas-titulo" placeholder="Ex: Fale com um Especialista no WhatsApp" style="background:#1f2937;border:1px solid #374151;color:#fff;border-radius:8px;padding:8px 12px;font-size:0.85rem;">
+        </div>
+
+        <div class="form-group">
+          <label style="font-size:0.8rem;color:#94a3b8;font-weight:700;">Descrição / Subtítulo</label>
+          <input type="text" id="mod-vendas-desc" placeholder="Ex: Resposta em menos de 2 minutos" style="background:#1f2937;border:1px solid #374151;color:#fff;border-radius:8px;padding:8px 12px;font-size:0.85rem;">
+        </div>
+
+        <!-- CAMPOS ESPECÍFICOS DE WHATSAPP -->
+        <div id="fields-tipo-whatsapp" style="background:#1f2937;padding:12px;border-radius:8px;border:1px solid #374151;display:flex;flex-direction:column;gap:10px;">
+          <b style="font-size:0.82rem;color:#4ade80;"><i class="fa-brands fa-whatsapp"></i> Configurações do WhatsApp de Vendas:</b>
+          <div class="form-row">
+            <div class="form-group" style="flex:1;">
+              <label style="font-size:0.78rem;color:#94a3b8;">Número WhatsApp (com DDI e DDD)</label>
+              <input type="text" id="mod-cfg-whats-tel" placeholder="5511999998888" style="background:#111827;border:1px solid #374151;color:#fff;border-radius:6px;padding:6px 10px;font-size:0.82rem;">
+            </div>
+            <div class="form-group" style="flex:1;">
+              <label style="font-size:0.78rem;color:#94a3b8;">Nome do Atendente / Consultor</label>
+              <input type="text" id="mod-cfg-whats-atendente" placeholder="Ex: Lucas - Consultor Chef" style="background:#111827;border:1px solid #374151;color:#fff;border-radius:6px;padding:6px 10px;font-size:0.82rem;">
+            </div>
+          </div>
+          <div class="form-group">
+            <label style="font-size:0.78rem;color:#94a3b8;">Mensagem Pré-pronta (ao abrir WhatsApp)</label>
+            <input type="text" id="mod-cfg-whats-msg" placeholder="Olá! Gostaria de agendar uma demonstração gratuita." style="background:#111827;border:1px solid #374151;color:#fff;border-radius:6px;padding:6px 10px;font-size:0.82rem;">
+          </div>
+          <div class="form-row" style="align-items:center;">
+            <div class="form-group" style="flex:1;">
+              <label style="font-size:0.78rem;color:#94a3b8;">Posição na Tela</label>
+              <select id="mod-cfg-whats-pos" style="background:#111827;border:1px solid #374151;color:#fff;border-radius:6px;padding:6px 10px;font-size:0.82rem;">
+                <option value="bottom-right">↘️ Inferior Direito</option>
+                <option value="bottom-left">↙️ Inferior Esquerdo</option>
+              </select>
+            </div>
+            <div class="form-group" style="flex:1;display:flex;align-items:center;gap:6px;margin-top:16px;">
+              <input type="checkbox" id="mod-cfg-whats-pulsar" checked>
+              <label for="mod-cfg-whats-pulsar" style="font-size:0.78rem;color:#cbd5e1;cursor:pointer;">Efeito Pulsar / Chamar Atenção</label>
+            </div>
+          </div>
+        </div>
+
+        <!-- CAMPOS ESPECÍFICOS DE BARRA DE URGÊNCIA -->
+        <div id="fields-tipo-urgencia" style="display:none;background:#1f2937;padding:12px;border-radius:8px;border:1px solid #374151;flex-direction:column;gap:10px;">
+          <b style="font-size:0.82rem;color:#fb923c;"><i class="fa-solid fa-bolt"></i> Configurações da Barra de Urgência Topo:</b>
+          <div class="form-group">
+            <label style="font-size:0.78rem;color:#94a3b8;">Texto do Alerta Promocional</label>
+            <input type="text" id="mod-cfg-urg-texto" placeholder="🔥 OPORTUNIDADE: Desconto de lançamento válido hoje!" style="background:#111827;border:1px solid #374151;color:#fff;border-radius:6px;padding:6px 10px;font-size:0.82rem;">
+          </div>
+          <div class="form-row">
+            <div class="form-group" style="flex:1;">
+              <label style="font-size:0.78rem;color:#94a3b8;">Código do Cupom</label>
+              <input type="text" id="mod-cfg-urg-cupom" placeholder="CHEF2026" style="background:#111827;border:1px solid #374151;color:#fff;border-radius:6px;padding:6px 10px;font-size:0.82rem;">
+            </div>
+            <div class="form-group" style="flex:1;">
+              <label style="font-size:0.78rem;color:#94a3b8;">Texto do Botão CTA</label>
+              <input type="text" id="mod-cfg-urg-btn" placeholder="RESGATAR DESCONTO" style="background:#111827;border:1px solid #374151;color:#fff;border-radius:6px;padding:6px 10px;font-size:0.82rem;">
+            </div>
+            <div class="form-group" style="width:70px;">
+              <label style="font-size:0.78rem;color:#94a3b8;">Cor Fundo</label>
+              <input type="color" id="mod-cfg-urg-bg" value="#dc2626" style="width:100%;height:32px;border:none;border-radius:6px;cursor:pointer;">
+            </div>
+          </div>
+        </div>
+
+        <!-- CAMPOS ESPECÍFICOS DE POPUP DE LEADS -->
+        <div id="fields-tipo-lead" style="display:none;background:#1f2937;padding:12px;border-radius:8px;border:1px solid #374151;flex-direction:column;gap:10px;">
+          <b style="font-size:0.82rem;color:#c084fc;"><i class="fa-solid fa-gift"></i> Configurações do Pop-up de Retenção:</b>
+          <div class="form-group">
+            <label style="font-size:0.78rem;color:#94a3b8;">Gatilho de Disparo</label>
+            <select id="mod-cfg-lead-gatilho" style="background:#111827;border:1px solid #374151;color:#fff;border-radius:6px;padding:6px 10px;font-size:0.82rem;">
+              <option value="exit_intent">🖱️ Intenção de Saída (Mouse fora da tela / fechar aba)</option>
+              <option value="tempo_15s">⏱️ Após 15 segundos navegando no site</option>
+              <option value="scroll_50">📜 Ao rolar 50% da página</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label style="font-size:0.78rem;color:#94a3b8;">Chamada / Oferta Especial</label>
+            <input type="text" id="mod-cfg-lead-desc" placeholder="Preencha seu WhatsApp e ganhe 30 dias grátis sem compromisso!" style="background:#111827;border:1px solid #374151;color:#fff;border-radius:6px;padding:6px 10px;font-size:0.82rem;">
+          </div>
+        </div>
+
+        <!-- CAMPOS ESPECÍFICOS DE CALCULADORA -->
+        <div id="fields-tipo-calc" style="display:none;background:#1f2937;padding:12px;border-radius:8px;border:1px solid #374151;flex-direction:column;gap:10px;">
+          <b style="font-size:0.82rem;color:#38bdf8;"><i class="fa-solid fa-calculator"></i> Configurações da Calculadora:</b>
+          <div style="font-size:0.8rem;color:#94a3b8;">
+            A calculadora permite que o dono do restaurante simule o quanto ele economizará eliminando taxas abusivas de delivery e comanda de terceiros.
+          </div>
+        </div>
+
+        <div class="form-row" style="margin-top:6px;align-items:center;">
+          <div class="form-group" style="width:100px;">
+            <label style="font-size:0.8rem;color:#94a3b8;font-weight:700;">Ordem</label>
+            <input type="number" id="mod-vendas-ordem" value="1" min="1" max="99" style="background:#1f2937;border:1px solid #374151;color:#fff;border-radius:8px;padding:8px 12px;font-size:0.85rem;">
+          </div>
+          <div class="form-group" style="display:flex;align-items:center;gap:8px;margin-top:20px;">
+            <input type="checkbox" id="mod-vendas-ativo" checked style="width:18px;height:18px;">
+            <label for="mod-vendas-ativo" style="font-size:0.85rem;color:#f8fafc;font-weight:700;cursor:pointer;">Ativo no Site de Vendas</label>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="modal-footer" style="background:#1f2937;border-top:1px solid #374151;border-radius:0 0 14px 14px;padding:1rem 1.4rem;display:flex;justify-content:flex-end;gap:10px;">
+        <button class="btn" onclick="fecharModalModuloVendas()">Cancelar</button>
+        <button class="btn btn-primary" onclick="salvarModuloVendas()" style="background:#38bdf8;color:#0b0f19;font-weight:800;">
+          <i class="fa-solid fa-floppy-disk"></i> Salvar Módulo
+        </button>
+      </div>
+    </div>
+  </div>
 </body>
 </html>
