@@ -118,6 +118,7 @@ function switchTabSuporte(targetId) {
   else if (targetId === 'sec-cardapio') { if (_restauranteAtual) carregarProdutos(); }
   else if (targetId === 'sec-tarefas') carregarAtividades();
   else if (targetId === 'sec-ranking') carregarRanking();
+  else if (targetId === 'sec-temas-curadoria') { if (typeof carregarCuradoriaTemas === 'function') carregarCuradoriaTemas(); }
 }
 
 function entrarPainel() {

@@ -19,7 +19,10 @@
     "temas": true,
     "pesagem-selfservice": true,
     "tema-v2": true,
-    "rh": true
+    "rh": true,
+    "cheff-ai": false,
+    "cheff-entregas": true,
+    "theme-curator": true
   },
   "order": []
 }

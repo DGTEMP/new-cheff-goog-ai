@@ -7,8 +7,70 @@
 'use strict';
 
 module.exports = function ({ app, db, masterDb, io, options, log }) {
-  const { verificarToken } = options;
+  const jwt = require('jsonwebtoken');
+  const suporteSecret = process.env.SUPORTE_JWT_SECRET || 'chef-suporte-secret-key-2026';
+  const mainSecret = (options && options.JWT_SECRET) || process.env.JWT_SECRET || 'chef-cozinha-secret-key-2026';
+
   log('Theme Curator ativado — App Store de Temas inicializada.');
+
+  // ── Auth helpers ───────────────────────────────────────────────────────────
+  const authCuradoria = (req, res, next) => {
+    // 1. Token de Suporte via header x-suporte-token
+    const supHeader = req.headers['x-suporte-token'];
+    if (supHeader) {
+      try {
+        req.suporteData = jwt.verify(supHeader, suporteSecret);
+        return next();
+      } catch (e) {}
+    }
+
+    // 2. Token via Authorization Bearer
+    const authHeader = req.headers['authorization'];
+    if (authHeader) {
+      const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+      try {
+        req.suporteData = jwt.verify(token, suporteSecret);
+        return next();
+      } catch (e1) {
+        try {
+          req.user = jwt.verify(token, mainSecret);
+          return next();
+        } catch (e2) {}
+      }
+    }
+
+    // 3. Fallback para superAdminAuth ou verificarToken se fornecido pelo host
+    if (options && typeof options.superAdminAuth === 'function') {
+      return options.superAdminAuth(req, res, (err) => {
+        if (!err) return next();
+        if (options && typeof options.verificarToken === 'function') {
+          return options.verificarToken(req, res, next);
+        }
+        res.status(401).json({ ok: false, erro: 'Acesso restrito ao Suporte ou Administração.' });
+      });
+    }
+
+    if (options && typeof options.verificarToken === 'function') {
+      return options.verificarToken(req, res, next);
+    }
+    next();
+  };
+
+  const authRestaurante = (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader ? authHeader.replace(/^Bearer\s+/i, '').trim() : (req.headers['x-token'] || req.query.token);
+    if (token) {
+      try {
+        req.user = jwt.verify(token, mainSecret);
+        req.restaurante_id = req.user.restaurante_id || req.user.id;
+        return next();
+      } catch (e) {}
+    }
+    if (options && typeof options.verificarToken === 'function') {
+      return options.verificarToken(req, res, next);
+    }
+    next();
+  };
 
   // ── Helpers ────────────────────────────────────────────────────────────────
   const safe = fn => async (req, res, next) => {
@@ -228,7 +290,7 @@ module.exports = function ({ app, db, masterDb, io, options, log }) {
   }));
 
   // POST /api/modulo/temas/avaliar — Restaurante avalia um tema
-  app.post('/api/modulo/temas/avaliar', verificarToken, safe(async (req, res) => {
+  app.post('/api/modulo/temas/avaliar', authRestaurante, safe(async (req, res) => {
     const { tema_id, estrelas, comentario } = req.body || {};
     const rid = req.restaurante_id || (req.user && req.user.restaurante_id);
     if (!tema_id || !estrelas) return res.json({ ok: false, erro: 'tema_id e estrelas são obrigatórios.' });
@@ -248,7 +310,7 @@ module.exports = function ({ app, db, masterDb, io, options, log }) {
   }));
 
   // POST /api/modulo/temas/aplicar — Registrar tema aplicado no restaurante
-  app.post('/api/modulo/temas/aplicar', verificarToken, safe(async (req, res) => {
+  app.post('/api/modulo/temas/aplicar', authRestaurante, safe(async (req, res) => {
     const { tema_id, tema_json } = req.body || {};
     const rid = req.restaurante_id || (req.user && req.user.restaurante_id);
     if (!tema_id) return res.json({ ok: false, erro: 'tema_id obrigatório.' });
@@ -266,7 +328,7 @@ module.exports = function ({ app, db, masterDb, io, options, log }) {
   // ══════════════════════════════════════════════════════════════════════════
 
   // GET /api/super/temas — Listar todos os temas (admin)
-  app.get('/api/super/temas', verificarToken, safe(async (req, res) => {
+  app.get('/api/super/temas', authCuradoria, safe(async (req, res) => {
     const { ordenar = 'ordem', badge, ativo } = req.query;
     let sql = `SELECT * FROM temas_catalogo`;
     const params = [];
@@ -282,7 +344,7 @@ module.exports = function ({ app, db, masterDb, io, options, log }) {
   }));
 
   // POST /api/super/temas — Criar novo tema
-  app.post('/api/super/temas', verificarToken, safe(async (req, res) => {
+  app.post('/api/super/temas', authCuradoria, safe(async (req, res) => {
     const { id, nome, nicho, emoji_nicho, descricao, badge, desconto, ordem, novo, cores, css_custom } = req.body || {};
     if (!id || !nome) return res.json({ ok: false, erro: 'id e nome são obrigatórios.' });
     const r = await dbRun(`INSERT INTO temas_catalogo
@@ -295,7 +357,7 @@ module.exports = function ({ app, db, masterDb, io, options, log }) {
   }));
 
   // PUT /api/super/temas/:id — Editar tema (curadoria)
-  app.put('/api/super/temas/:id', verificarToken, safe(async (req, res) => {
+  app.put('/api/super/temas/:id', authCuradoria, safe(async (req, res) => {
     const { nome, nicho, emoji_nicho, descricao, badge, desconto, ordem, novo, ativo, cores, css_custom } = req.body || {};
     const updates = [];
     const params = [];
@@ -320,7 +382,7 @@ module.exports = function ({ app, db, masterDb, io, options, log }) {
   }));
 
   // PUT /api/super/temas/ordenar/batch — Reordenar lote
-  app.put('/api/super/temas/ordenar/batch', verificarToken, safe(async (req, res) => {
+  app.put('/api/super/temas/ordenar/batch', authCuradoria, safe(async (req, res) => {
     const { ordem } = req.body || {}; // [{ id, ordem }]
     if (!Array.isArray(ordem)) return res.json({ ok: false, erro: 'ordem deve ser um array [{id, ordem}].' });
     for (const item of ordem) {
@@ -330,13 +392,13 @@ module.exports = function ({ app, db, masterDb, io, options, log }) {
   }));
 
   // DELETE /api/super/temas/:id — Desativar tema
-  app.delete('/api/super/temas/:id', verificarToken, safe(async (req, res) => {
+  app.delete('/api/super/temas/:id', authCuradoria, safe(async (req, res) => {
     await dbRun(`UPDATE temas_catalogo SET ativo=0, atualizado_em=datetime('now','localtime') WHERE id=?`, [req.params.id]);
     res.json({ ok: true });
   }));
 
   // GET /api/super/temas/avaliacoes — Ver avaliações
-  app.get('/api/super/temas/avaliacoes', verificarToken, safe(async (req, res) => {
+  app.get('/api/super/temas/avaliacoes', authCuradoria, safe(async (req, res) => {
     const rows = await dbAll(`SELECT a.*, t.nome as tema_nome FROM temas_avaliacoes a
       LEFT JOIN temas_catalogo t ON a.tema_id = t.id
       ORDER BY a.criado_em DESC LIMIT 100`);
@@ -344,7 +406,7 @@ module.exports = function ({ app, db, masterDb, io, options, log }) {
   }));
 
   // GET /api/super/temas/uso — Ver quais temas os restaurantes estão usando
-  app.get('/api/super/temas/uso', verificarToken, safe(async (req, res) => {
+  app.get('/api/super/temas/uso', authCuradoria, safe(async (req, res) => {
     const rows = await dbAll(`SELECT ta.tema_id, COUNT(*) as qtd, t.nome
       FROM temas_aplicados ta
       LEFT JOIN temas_catalogo t ON ta.tema_id = t.id
