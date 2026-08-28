@@ -901,3 +901,171 @@ document.addEventListener('DOMContentLoaded', function() {
     carregarRelatosRestaurantes();
   }
 });
+
+// ── ESTÚDIO DE CRIAÇÃO DE MÓDULOS (CAIXA V1.1) ──
+async function carregarModulosSuporte() {
+  const tbody = document.getElementById('lista-modulos-suporte-body');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:1.5rem; color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Carregando módulos...</td></tr>';
+
+  try {
+    const res = await fetch('/api/suporte/modulos/listar');
+    const data = await res.json();
+    if (!data.sucesso || !data.modulos) throw new Error(data.erro || 'Falha ao carregar');
+
+    if (data.modulos.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:2rem; color:var(--text-muted);">Nenhum módulo encontrado. Clique em Criar Novo Módulo acima!</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = data.modulos.map(m => `
+      <tr>
+        <td style="font-size:1.3rem; text-align:center; color:#fc4b15;"><i class="${m.icon || 'fa-solid fa-puzzle-piece'}"></i></td>
+        <td><strong>${m.name || m.id}</strong><br><small style="color:var(--text-muted);">${m.description || 'Sem descrição'}</small></td>
+        <td><code style="background:var(--bg-tertiary); padding:2px 6px; border-radius:4px; font-size:0.8rem;">plugins/${m.id}</code></td>
+        <td><span class="badge" style="background:rgba(56,189,248,0.15); color:#38bdf8;">${m.category || 'Geral'}</span></td>
+        <td><span class="badge">${m.defaultSize || 'sz-m'}</span></td>
+        <td>
+          <small style="color:var(--text-muted);">
+            ${m.temWidget ? '🟢 Widget ' : '⚪ '}
+            ${m.temServer ? '🟢 Server ' : '⚪ '}
+            ${m.temStyle ? '🟢 CSS ' : '⚪ '}
+          </small>
+        </td>
+        <td>
+          <span class="badge ${m.enabled !== false ? 'badge-success' : 'badge-danger'}">
+            ${m.enabled !== false ? 'Ativo' : 'Inativo'}
+          </span>
+        </td>
+        <td>
+          <button class="btn btn-sm" onclick="toggleStatusModulo('${m.id}', ${m.enabled === false})">
+            ${m.enabled !== false ? '<i class="fa-solid fa-pause"></i> Desativar' : '<i class="fa-solid fa-play"></i> Ativar'}
+          </button>
+        </td>
+      </tr>
+    `).join('');
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:1.5rem; color:var(--danger);">Erro: ${err.message}</td></tr>`;
+  }
+}
+
+async function toggleStatusModulo(id, novoStatus) {
+  try {
+    const res = await fetch('/api/suporte/modulos/toggle', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, enabled: novoStatus })
+    });
+    const data = await res.json();
+    if (data.sucesso) {
+      if (typeof showToast === 'function') showToast('Status do módulo atualizado!', 'success');
+      carregarModulosSuporte();
+    }
+  } catch (e) {
+    alert('Erro ao alterar status: ' + e.message);
+  }
+}
+
+window.abrirModalCriarModulo = function() {
+  const modal = document.createElement('div');
+  modal.className = 'modal-overlay active';
+  modal.id = 'modal-criar-modulo-suporte';
+  modal.innerHTML = `
+    <div class="modal-content" style="max-width:620px;">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-wand-magic-sparkles" style="color:#fc4b15;"></i> Criar Novo Módulo para Caixa v1.1</h3>
+        <button class="btn btn-sm" onclick="document.getElementById('modal-criar-modulo-suporte').remove()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body" style="max-height:75vh; overflow-y:auto; padding:1.5rem;">
+        <div class="form-row">
+          <div class="form-group" style="flex:1;">
+            <label>ID do Módulo (slug único) *</label>
+            <input type="text" id="novo-mod-id" placeholder="ex: gorjetas, reservas-vip, couvert">
+          </div>
+          <div class="form-group" style="flex:1;">
+            <label>Nome Visual do Módulo *</label>
+            <input type="text" id="novo-mod-nome" placeholder="ex: Gestão de Gorjetas">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group" style="flex:1;">
+            <label>Ícone Phosphor / FontAwesome</label>
+            <input type="text" id="novo-mod-icone" placeholder="ph-hand-coins ou fa-solid fa-coins" value="ph-puzzle-piece">
+          </div>
+          <div class="form-group" style="flex:1;">
+            <label>Categoria</label>
+            <select id="novo-mod-cat">
+              <option value="operacao">Operação</option>
+              <option value="financeiro">Financeiro</option>
+              <option value="hardware">Hardware / Balança</option>
+              <option value="marketing">Marketing & Fidelidade</option>
+              <option value="delivery">Delivery</option>
+              <option value="atendimento">Atendimento</option>
+            </select>
+          </div>
+          <div class="form-group" style="flex:1;">
+            <label>Tamanho Inicial</label>
+            <select id="novo-mod-size">
+              <option value="sz-m">M (Médio)</option>
+              <option value="sz-s">P (Pequeno)</option>
+              <option value="sz-l">G (Grande)</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Descrição do Módulo</label>
+          <input type="text" id="novo-mod-desc" placeholder="Breve explicação da utilidade do bloco">
+        </div>
+        <div class="form-group">
+          <label>Código do Widget (HTML/JS)</label>
+          <textarea id="novo-mod-widget" rows="4" placeholder="Código customizado do widget (deixe em branco para usar o template padrão)"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="document.getElementById('modal-criar-modulo-suporte').remove()">Cancelar</button>
+        <button class="btn btn-primary" onclick="salvarNovoModuloSuporte()"><i class="fa-solid fa-check"></i> Gerar e Publicar Módulo</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+};
+
+window.salvarNovoModuloSuporte = async function() {
+  const id = document.getElementById('novo-mod-id').value.trim();
+  const name = document.getElementById('novo-mod-nome').value.trim();
+  const icon = document.getElementById('novo-mod-icone').value.trim();
+  const category = document.getElementById('novo-mod-cat').value;
+  const defaultSize = document.getElementById('novo-mod-size').value;
+  const description = document.getElementById('novo-mod-desc').value.trim();
+  const widgetCode = document.getElementById('novo-mod-widget').value.trim();
+
+  if (!id || !name) return alert('Preencha o ID e o Nome do módulo.');
+
+  try {
+    const res = await fetch('/api/suporte/modulos/salvar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, name, icon, category, defaultSize, description, widgetCode: widgetCode || null })
+    });
+    const data = await res.json();
+    if (data.sucesso) {
+      alert('Módulo criado e publicado com sucesso!');
+      document.getElementById('modal-criar-modulo-suporte').remove();
+      carregarModulosSuporte();
+    } else {
+      alert('Erro: ' + data.erro);
+    }
+  } catch (e) {
+    alert('Erro de conexão: ' + e.message);
+  }
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.menu-item').forEach(item => {
+    item.addEventListener('click', () => {
+      if (item.getAttribute('data-target') === 'sec-estudio-modulos') {
+        carregarModulosSuporte();
+      }
+    });
+  });
+});

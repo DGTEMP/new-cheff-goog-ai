@@ -243,48 +243,105 @@
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
   </head>
 <body>
-  <div class="login-container">
+    <div class="login-container">
     <div class="login-header-side">
       <div class="logo-icon">
-      <i class="ph ph-cooking-pot"></i>
+        <i class="ph-fill ph-chef-hat"></i>
+      </div>
+      <h1 id="login-title">Acesso ao Sistema</h1>
+      <p class="subtitle" id="login-subtitle">Escolha seu tipo de perfil para continuar.</p>
+      
+      <!-- Seletor Principal: Proprietário (Owner) vs Colaborador (Equipe) -->
+      <div class="login-type-toggle" style="display:flex; background:#f1f5f9; padding:4px; border-radius:14px; margin-bottom:18px; border:1px solid #e2e8f0;">
+        <button id="tab-login-owner" type="button" onclick="setTipoPerfil('owner')" style="flex:1; padding:10px 8px; border:none; border-radius:10px; font-weight:800; font-size:13px; cursor:pointer; background:var(--primary); color:white; transition:all 0.2s; display:flex; align-items:center; justify-content:center; gap:6px;">
+          <i class="ph-bold ph-crown"></i> <span>Dono / Owner</span>
+        </button>
+        <button id="tab-login-colaborador" type="button" onclick="setTipoPerfil('colaborador')" style="flex:1; padding:10px 8px; border:none; border-radius:10px; font-weight:700; font-size:13px; cursor:pointer; background:transparent; color:var(--text-muted); transition:all 0.2s; display:flex; align-items:center; justify-content:center; gap:6px;">
+          <i class="ph-bold ph-users-three"></i> <span>Colaborador</span>
+        </button>
+      </div>
     </div>
-    <h1>Bem-vindo de volta!</h1>
-    <p class="subtitle">Faça login para acessar o sistema.</p>
-    
-    <!-- Seletor de Destino do Login -->
-      <div class="login-type-toggle" style="display:flex;background:#f1f5f9;padding:4px;border-radius:12px;margin-bottom:14px;">
-      <button id="tab-login-sistema" type="button" onclick="setDestinoLogin('sistema')" style="flex:1;padding:10px;border:none;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;background:var(--primary);color:white;transition:all 0.2s;">
-        <i class="ph ph-desktop"></i> Sistema Operacional
-      </button>
-      <button id="tab-login-dono" type="button" onclick="setDestinoLogin('dono')" style="flex:1;padding:10px;border:none;border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;background:transparent;color:var(--text-muted);transition:all 0.2s;">
-        <i class="ph ph-chart-line-up"></i> Painel do Dono
-      </button>
-    </div>
-    
-    </div>
-    <div class="login-form-side">
+
+    <!-- FORMULÁRIO DO OWNER / DONO -->
+    <div class="login-form-side" id="form-owner-side">
       <div class="input-group">
-        <label>Usuário (E-mail)</label>
-      <div class="input-wrapper">
-        <i class="ph ph-user"></i>
-        <input type="text" id="username" placeholder="Digite seu e-mail" autocomplete="username">
+        <label>E-mail ou Usuário do Dono</label>
+        <div class="input-wrapper">
+          <i class="ph ph-envelope-simple"></i>
+          <input type="text" id="username" placeholder="seuemail@restaurante.com" autocomplete="username">
+        </div>
+      </div>
+      
+      <div class="input-group">
+        <label>Senha Master</label>
+        <div class="input-wrapper">
+          <i class="ph ph-lock-key"></i>
+          <input type="password" id="password" placeholder="Sua senha secreta" autocomplete="current-password">
+        </div>
+      </div>
+      
+      <button class="btn-login" id="btn-submit" onclick="attemptOwnerLogin()">
+        <i class="ph-bold ph-sign-in"></i> Entrar como Proprietário
+      </button>
+      <div class="error-msg" id="error-msg">Usuário ou senha inválidos.</div>
+      
+      <div class="login-footer-link" style="margin-top: 14px;">
+        <a href="/registro.html" style="color: var(--primary); text-decoration: none; font-size: 14px; font-weight: 700;">
+          Novo Restaurante? <span style="text-decoration: underline;">Criar Conta de Teste</span>
+        </a>
       </div>
     </div>
-    
-    <div class="input-group">
-      <label>Senha</label>
-      <div class="input-wrapper">
-        <i class="ph ph-lock-key"></i>
-        <input type="password" id="password" placeholder="Sua senha secreta" autocomplete="current-password">
+
+    <!-- FORMULÁRIO DO COLABORADOR / EQUIPE (PIN OU USUÁRIO) -->
+    <div class="login-form-side" id="form-colaborador-side" style="display:none;">
+      
+      <!-- Sub-alternador: PIN Rápido vs Usuário/Senha -->
+      <div style="display:flex; justify-content:center; gap:12px; margin-bottom:14px;">
+        <button type="button" id="btn-colab-mode-pin" onclick="setModoColaborador('pin')" style="background:rgba(252,75,21,0.1); color:#fc4b15; border:1px solid rgba(252,75,21,0.3); padding:6px 14px; border-radius:8px; font-weight:800; font-size:12px; cursor:pointer;">
+          <i class="ph-bold ph-key"></i> PIN de Acesso
+        </button>
+        <button type="button" id="btn-colab-mode-user" onclick="setModoColaborador('user')" style="background:#f1f5f9; color:#64748b; border:1px solid #e2e8f0; padding:6px 14px; border-radius:8px; font-weight:700; font-size:12px; cursor:pointer;">
+          <i class="ph-bold ph-user"></i> Usuário & Senha
+        </button>
       </div>
-    </div>
-    
-    <button class="btn-login" id="btn-submit">Entrar no Sistema</button>
-    <div class="error-msg" id="error-msg">Usuário ou senha inválidos.</div>
-    <div class="login-footer-link" style="margin-top: 10px;">
-      <a href="/registro.html" style="color: var(--primary); text-decoration: none; font-size: 15px; font-weight: 600; transition: color 0.2s;">
-        Novo Restaurante? <span style="text-decoration: underline;">Criar Conta de Teste (SaaS)</span>
-      </a>
+
+      <!-- MODO 1: PIN RÁPIDO -->
+      <div id="colab-pin-box">
+        <div class="input-group">
+          <label>Digite seu PIN de Acesso (4 a 6 dígitos)</label>
+          <div class="input-wrapper">
+            <i class="ph-bold ph-lock-key"></i>
+            <input type="password" id="colab-pin-input" placeholder="••••" maxlength="8" style="font-size:24px; letter-spacing:6px; text-align:center; padding-left:16px;">
+          </div>
+        </div>
+      </div>
+
+      <!-- MODO 2: USUÁRIO E SENHA DO COLABORADOR -->
+      <div id="colab-user-box" style="display:none;">
+        <div class="input-group">
+          <label>Usuário do Colaborador</label>
+          <div class="input-wrapper">
+            <i class="ph ph-user"></i>
+            <input type="text" id="colab-user-input" placeholder="Ex: joao.garcom">
+          </div>
+        </div>
+        <div class="input-group">
+          <label>Senha</label>
+          <div class="input-wrapper">
+            <i class="ph ph-lock-key"></i>
+            <input type="password" id="colab-pass-input" placeholder="Sua senha">
+          </div>
+        </div>
+      </div>
+
+      <button class="btn-login" id="btn-submit-colaborador" onclick="attemptColaboradorLogin()" style="background:#2563eb;">
+        <i class="ph-bold ph-check-circle"></i> Validar e Entrar
+      </button>
+      <div class="error-msg" id="error-msg-colaborador">PIN ou credenciais inválidas.</div>
+
+      <div style="margin-top:14px; font-size:12.5px; color:#64748b; text-align:center;">
+        O sistema direcionará automaticamente para sua tela autorizada (Garçom, Caixa ou Cozinha).
+      </div>
     </div>
   </div>
 

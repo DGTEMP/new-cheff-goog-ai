@@ -1167,7 +1167,86 @@ document.addEventListener('contextmenu', (e) => {
   }
 
   /* Menu de contexto → opção Mover arma o próximo toque como arraste */
+  
+  // ── MODAL PROFISSIONAL DE TRANSFERIR / MOVER MESA ──
+  window.abrirModalTransferirMesa = function(mesaOrigem) {
+    if (!mesaOrigem) {
+      mesaOrigem = currentSelectedMesa || 'Mesa 1';
+    }
+
+    const mesasDisponiveis = (window.mesas || []).filter(m => (m.nome || m) !== mesaOrigem);
+
+    let modal = document.getElementById('modal-transferir-mesa-pro');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'modal-transferir-mesa-pro';
+      modal.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,0.6); backdrop-filter:blur(6px); z-index:999999; display:flex; align-items:center; justify-content:center; padding:16px; animation:fadeIn 0.2s ease;';
+      document.body.appendChild(modal);
+    }
+
+    modal.innerHTML = `
+      <div style="background:#ffffff; border-radius:20px; width:100%; max-width:440px; box-shadow:0 20px 50px rgba(0,0,0,0.3); overflow:hidden; color:#0f172a;">
+        <div style="padding:18px 20px; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center; background:#f8fafc;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <div style="width:36px; height:36px; border-radius:10px; background:rgba(252,75,21,0.1); color:#fc4b15; display:flex; align-items:center; justify-content:center; font-size:18px;">
+              <i class="ph-bold ph-arrows-out-cardinal"></i>
+            </div>
+            <div>
+              <h3 style="margin:0; font-size:16px; font-weight:800;">Transferir Mesa</h3>
+              <span style="font-size:12px; color:#64748b;">Mover pedidos de ${mesaOrigem}</span>
+            </div>
+          </div>
+          <button type="button" onclick="document.getElementById('modal-transferir-mesa-pro').style.display='none'" style="background:none; border:none; width:32px; height:32px; border-radius:50%; color:#64748b; font-size:18px; cursor:pointer;">&times;</button>
+        </div>
+
+        <div style="padding:20px;">
+          <label style="display:block; font-size:13px; font-weight:700; margin-bottom:8px;">Selecione a Mesa de Destino:</label>
+          <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(90px, 1fr)); gap:8px; max-height:240px; overflow-y:auto; padding:4px;">
+            ${mesasDisponiveis.map(m => {
+              const nome = typeof m === 'object' ? (m.nome || m.id) : m;
+              const isOcup = typeof m === 'object' && ((m.status || '').toLowerCase() === 'ocupada');
+              return `
+                <button type="button" class="btn-destino-mesa" onclick="window.executarTransferenciaMesa('${mesaOrigem}', '${nome}')" style="padding:12px 8px; border:2px solid ${isOcup ? '#fecaca' : '#e2e8f0'}; background:${isOcup ? '#fff1f2' : '#ffffff'}; border-radius:12px; font-weight:800; font-size:13px; color:${isOcup ? '#b91c1c' : '#0f172a'}; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:4px; transition:all 0.15s;">
+                  <i class="ph ${isOcup ? 'ph-users' : 'ph-chair'}" style="font-size:18px;"></i>
+                  <span>${nome}</span>
+                  <small style="font-size:10px; font-weight:600; opacity:0.8;">${isOcup ? 'Ocupada' : 'Livre'}</small>
+                </button>
+              `;
+            }).join('')}
+          </div>
+        </div>
+
+        <div style="padding:14px 20px; background:#f8fafc; border-top:1px solid #e2e8f0; display:flex; justify-content:flex-end;">
+          <button type="button" onclick="document.getElementById('modal-transferir-mesa-pro').style.display='none'" style="padding:10px 18px; background:#e2e8f0; border:none; border-radius:10px; font-weight:700; font-size:13px; cursor:pointer;">Cancelar</button>
+        </div>
+      </div>
+    `;
+
+    modal.style.display = 'flex';
+  };
+
+  window.executarTransferenciaMesa = function(origem, destino) {
+    const modal = document.getElementById('modal-transferir-mesa-pro');
+    if (modal) modal.style.display = 'none';
+
+    if (confirm(`Deseja realmente transferir todos os pedidos da ${origem} para a ${destino}?`)) {
+      if (typeof socket !== 'undefined' && socket) {
+        socket.emit('transferir_mesa', {
+          mesaAtual: origem,
+          novaMesa: destino,
+          operador: (window.operadorAtual && window.operadorAtual.nome) || 'Caixa'
+        });
+        if (typeof showToast === 'function') {
+          showToast(`Transferência da ${origem} para a ${destino} enviada com sucesso!`, 'success');
+        }
+      }
+    }
+  };
+
   window.armaModoArraste = function () {
+    const selMesa = currentSelectedMesa || "Mesa 1";
+    window.abrirModalTransferirMesa(selMesa);
+    return;
     window._chefArrastarArmado = true;
     clearTimeout(armadoExpira);
     armadoExpira = setTimeout(() => { window._chefArrastarArmado = false; }, 8000);
@@ -1834,6 +1913,23 @@ function renderOrders() {
     return html;
   };
 
+  
+  // Atualizar contadores nos chips de filtro
+  const chipAll = document.getElementById('chip-count-all');
+  const chipOcup = document.getElementById('chip-count-ocup');
+  const chipFech = document.getElementById('chip-count-fech');
+  const chipReser = document.getElementById('chip-count-reser');
+  const chipDisp = document.getElementById('chip-count-disp');
+  if (chipAll) chipAll.textContent = (ped.length + fech.length + ocup.length + reser.length + disp.length);
+  if (chipOcup) chipOcup.textContent = (ocup.length + ped.length);
+  if (chipFech) chipFech.textContent = fech.length;
+  if (chipReser) chipReser.textContent = reser.length;
+  if (chipDisp) chipDisp.textContent = disp.length;
+
+  if (grid) {
+    grid.classList.toggle('orientation-vertical', window.chefMesasOrientation === 'vertical');
+  }
+
   if (elOcupadas) elOcupadas.innerText = ocup.length + fech.length + ped.length;
   if (elLivres) elLivres.innerText = disp.length;
   if (elFechando) elFechando.innerText = fech.length;
@@ -1841,14 +1937,28 @@ function renderOrders() {
 
   const renderSection = (title, count, items, statusClass) => {
     if (items.length === 0) return '';
-    let html = `
-      <div class="mesa-category">
-        <div class="mesa-category-title">
-          <span>${title}</span>
-          <span class="mesa-category-count">${count}</span>
-        </div>
-        <div class="mesas-grid-layout">
-    `;
+    if (window.chefMesaStatusFilter !== 'all' && window.chefMesaStatusFilter !== statusClass) {
+      return '';
+    }
+
+    const isCollapsed = !!window.chefMesaCollapsedCategories[statusClass];
+    let html = '';
+
+    if (window.chefMesasAgrupado) {
+      html += `
+        <div class="mesa-category ${isCollapsed ? 'collapsed' : ''}" data-category="${statusClass}">
+          <div class="mesa-category-title" onclick="window.toggleMesaCategory('${statusClass}')" title="Clique para recolher ou expandir">
+            <div class="mesa-category-header-left">
+              <i class="ph-bold ${isCollapsed ? 'ph-caret-right' : 'ph-caret-down'}"></i>
+              <span>${title}</span>
+            </div>
+            <span class="mesa-category-count" style="font-weight:800; background:#0f172a; color:white; padding:2px 8px; border-radius:12px; font-size:11px;">${count}</span>
+          </div>
+          <div class="mesas-grid-layout">
+      `;
+    } else {
+      html += `<div class="mesa-category-plain"><div class="mesas-grid-layout">`;
+    }
     items.forEach((item, idx) => {
       const isGroup = item.isGroup;
       const nome = isGroup ? item.mesaName : item.nome;

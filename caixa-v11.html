@@ -15,6 +15,7 @@
   <script src="/socket.io.min.js"></script>
   <script src="/auth.js"></script>
   <script src="/fullscreen.js"></script>
+  <script src="/vendor/qrcode/qr-helper.js"></script>
   <script src="/public/chef-module-bus.js"></script>
   <link rel="stylesheet" href="/apple-transitions.css">
   <script src="/apple-transitions.js" defer></script>
@@ -48,13 +49,45 @@
 
   <main class="v11-wrap">
     <p class="v11-edit-hint" id="v11-edit-hint"><i class="ph ph-hand-grabbing"></i> Arraste os blocos para reorganizar •
-      Use <strong>P/M/G</strong> para mudar o tamanho • <strong>×</strong> oculta o bloco</p>
+      Use <strong>P/M/G</strong> para mudar o tamanho • <i class="ph-bold ph-palette"></i> para mudar <strong>cores, botões e letras</strong> • <strong>×</strong> oculta o bloco</p>
     <section id="v11-grid" class="v11-grid" aria-live="polite">
+
+      
+      <!-- MÓDULO OPCIONAL 1: ENTREGAS & MOTOBOYS (CHEFF ENTREGAS) -->
+      <article class="v11-widget sz-m" data-w="entregas">
+        <header><i class="ph-fill ph-moped" style="color:#f59e0b;"></i><h2>Delivery &amp; Motoboys</h2>
+          <div class="w-ctl"><button class="w-style" title="Personalizar Cores, Botões e Letras" style="background:#e2e8f0; color:#0f172a; border:none; border-radius:4px; padding:2px 6px; font-size:11px; cursor:pointer; font-weight:bold; margin-right:2px;"><i class="ph-bold ph-palette"></i></button><button class="w-size" title="Tamanho">P</button><button class="w-hide" title="Ocultar">×</button></div>
+        </header>
+        <div class="w-body v11-resumo">
+          <div class="r-card r-laranja"><small>Em Rota / Despacho</small><strong id="v11-entregas-rota">0</strong></div>
+          <div class="r-card"><small>Motoboys Disponíveis</small><strong id="v11-motoboys-disp">0</strong></div>
+        </div>
+      </article>
+
+      <!-- MÓDULO OPCIONAL 2: TAREFAS & CHECKLIST DO TURNO -->
+      <article class="v11-widget sz-m" data-w="tarefas">
+        <header><i class="ph-fill ph-check-square" style="color:#3b82f6;"></i><h2>Checklist &amp; Tarefas</h2>
+          <div class="w-ctl"><button class="w-style" title="Personalizar Cores, Botões e Letras" style="background:#e2e8f0; color:#0f172a; border:none; border-radius:4px; padding:2px 6px; font-size:11px; cursor:pointer; font-weight:bold; margin-right:2px;"><i class="ph-bold ph-palette"></i></button><button class="w-size" title="Tamanho">P</button><button class="w-hide" title="Ocultar">×</button></div>
+        </header>
+        <div class="w-body">
+          <ul id="v11-tarefas-list" class="v11-list"><li class="w-empty">Todas as tarefas concluídas!</li></ul>
+        </div>
+      </article>
+
+      <!-- MÓDULO OPCIONAL 3: ESTOQUE CRÍTICO & ALERTAS -->
+      <article class="v11-widget sz-s" data-w="estoque">
+        <header><i class="ph-fill ph-warning" style="color:#ef4444;"></i><h2>Estoque Crítico</h2>
+          <div class="w-ctl"><button class="w-style" title="Personalizar Cores, Botões e Letras" style="background:#e2e8f0; color:#0f172a; border:none; border-radius:4px; padding:2px 6px; font-size:11px; cursor:pointer; font-weight:bold; margin-right:2px;"><i class="ph-bold ph-palette"></i></button><button class="w-size" title="Tamanho">P</button><button class="w-hide" title="Ocultar">×</button></div>
+        </header>
+        <div class="w-body">
+          <ul id="v11-estoque-list" class="v11-list"><li class="w-empty">Nenhum item em falta hoje.</li></ul>
+        </div>
+      </article>
 
       <!-- RESUMO DO DIA -->
       <article class="v11-widget sz-l" data-w="resumo">
         <header><i class="ph-fill ph-chart-bar"></i><h2>Resumo de Hoje</h2>
-          <div class="w-ctl"><button class="w-size" title="Tamanho">P</button><button class="w-hide"
+          <div class="w-ctl"><button class="w-style" title="Personalizar Cores, Botões e Letras" style="background:#e2e8f0; color:#0f172a; border:none; border-radius:4px; padding:2px 6px; font-size:11px; cursor:pointer; font-weight:bold; margin-right:2px;"><i class="ph-bold ph-palette"></i></button><button class="w-size" title="Tamanho">P</button><button class="w-hide"
               title="Ocultar">×</button></div>
         </header>
         <div class="w-body v11-resumo">
@@ -69,7 +102,7 @@
       <!-- MESAS & COMANDAS -->
       <article class="v11-widget sz-l" data-w="mesas">
         <header><i class="ph-fill ph-squares-four"></i><h2>Mesas &amp; Comandas</h2>
-          <div class="w-ctl"><button class="w-size" title="Tamanho">P</button><button class="w-hide"
+          <div class="w-ctl"><button class="w-style" title="Personalizar Cores, Botões e Letras" style="background:#e2e8f0; color:#0f172a; border:none; border-radius:4px; padding:2px 6px; font-size:11px; cursor:pointer; font-weight:bold; margin-right:2px;"><i class="ph-bold ph-palette"></i></button><button class="w-size" title="Tamanho">P</button><button class="w-hide"
               title="Ocultar">×</button></div>
         </header>
         <div class="w-body">
@@ -81,7 +114,7 @@
       <!-- CHAMADOS / CONTAS PEDIDAS -->
       <article class="v11-widget sz-m" data-w="chamados">
         <header><i class="ph-fill ph-hand-raising"></i><h2>Chamados</h2>
-          <div class="w-ctl"><button class="w-size" title="Tamanho">P</button><button class="w-hide"
+          <div class="w-ctl"><button class="w-style" title="Personalizar Cores, Botões e Letras" style="background:#e2e8f0; color:#0f172a; border:none; border-radius:4px; padding:2px 6px; font-size:11px; cursor:pointer; font-weight:bold; margin-right:2px;"><i class="ph-bold ph-palette"></i></button><button class="w-size" title="Tamanho">P</button><button class="w-hide"
               title="Ocultar">×</button></div>
         </header>
         <div class="w-body">
@@ -92,7 +125,7 @@
       <!-- FILA DA COZINHA -->
       <article class="v11-widget sz-m" data-w="fila">
         <header><i class="ph-fill ph-cooking-pot"></i><h2>Fila da Cozinha</h2>
-          <div class="w-ctl"><button class="w-size" title="Tamanho">P</button><button class="w-hide"
+          <div class="w-ctl"><button class="w-style" title="Personalizar Cores, Botões e Letras" style="background:#e2e8f0; color:#0f172a; border:none; border-radius:4px; padding:2px 6px; font-size:11px; cursor:pointer; font-weight:bold; margin-right:2px;"><i class="ph-bold ph-palette"></i></button><button class="w-size" title="Tamanho">P</button><button class="w-hide"
               title="Ocultar">×</button></div>
         </header>
         <div class="w-body">
@@ -104,7 +137,7 @@
       <!-- QR PONTO -->
       <article class="v11-widget sz-s" data-w="ponto">
         <header><i class="ph-fill ph-fingerprint"></i><h2>Ponto do Colaborador</h2>
-          <div class="w-ctl"><button class="w-size" title="Tamanho">P</button><button class="w-hide"
+          <div class="w-ctl"><button class="w-style" title="Personalizar Cores, Botões e Letras" style="background:#e2e8f0; color:#0f172a; border:none; border-radius:4px; padding:2px 6px; font-size:11px; cursor:pointer; font-weight:bold; margin-right:2px;"><i class="ph-bold ph-palette"></i></button><button class="w-size" title="Tamanho">P</button><button class="w-hide"
               title="Ocultar">×</button></div>
         </header>
         <div class="w-body w-center">
@@ -117,7 +150,7 @@
       <!-- ATALHOS -->
       <article class="v11-widget sz-l" data-w="atalhos">
         <header><i class="ph-fill ph-rocket-launch"></i><h2>Todas as Seções</h2>
-          <div class="w-ctl"><button class="w-size" title="Tamanho">P</button><button class="w-hide"
+          <div class="w-ctl"><button class="w-style" title="Personalizar Cores, Botões e Letras" style="background:#e2e8f0; color:#0f172a; border:none; border-radius:4px; padding:2px 6px; font-size:11px; cursor:pointer; font-weight:bold; margin-right:2px;"><i class="ph-bold ph-palette"></i></button><button class="w-size" title="Tamanho">P</button><button class="w-hide"
               title="Ocultar">×</button></div>
         </header>
         <div class="w-body">
@@ -137,6 +170,8 @@
 
   <script src="/chef-tz.js"></script>
   <script src="/caixa-v11.js"></script>
+  <script src="/caixa-v11-modals.js?v=1787938598083"></script>
+  <script src="/chef-colaborador-dock.js"></script>
 </body>
 
 </html>

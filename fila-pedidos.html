@@ -35,17 +35,17 @@
 
 <body class="kds-body">
 
-  <!-- TOP BARRA PRINCIPAL DO KDS (100% LARGURA) -->
+    <!-- TOP BARRA PRINCIPAL DO KDS -->
   <header class="kds-navbar">
     
     <!-- ESQUERDA: VOLTAR AO CAIXA + BRAND -->
     <div class="kds-navbar-left">
       <button class="kds-nav-btn kds-btn-caixa" onclick="window.location.href='/index.html'" title="Voltar ao Caixa (Início)">
-        <i class="ph ph-house"></i>
+        <i class="ph-bold ph-house"></i>
         <span>Caixa</span>
       </button>
       <div class="kds-brand-badge">
-        <i class="ph-fill ph-chef-hat" style="color: #fc4b15; font-size: 22px;"></i>
+        <i class="ph-fill ph-chef-hat" style="color: #fc4b15; font-size: 24px;"></i>
         <div class="kds-brand-texts">
           <strong class="kds-brand-name">KDS Cozinha</strong>
           <span class="kds-brand-sector" id="current-sector-label-sub">Todos os Setores</span>
@@ -53,7 +53,7 @@
       </div>
     </div>
 
-    <!-- CENTRO: STATUS TABS + SETORES + TIPOS -->
+    <!-- CENTRO: STATUS TABS + SETORES UNIFICADOS -->
     <div class="kds-navbar-center">
       <!-- Status Tabs Principais -->
       <div class="kds-segmented-control" id="kds-status-tabs-desktop">
@@ -79,57 +79,38 @@
       <!-- Setores (Chips com Scroll Horizontal) -->
       <div class="kds-chips-scroll" id="kds-sectors-scroll-wrap">
         <button class="kds-chip-item active sector-modal-btn" data-sector="Todos" onclick="filtrarSetor('Todos')">
-          <i class="ph ph-storefront"></i> <span>Todos</span>
+          <i class="ph-bold ph-storefront"></i> <span>Todos os Setores</span>
         </button>
         <div id="kds-sectors-chips-dynamic" style="display: contents;"></div>
       </div>
-
-      <div class="kds-nav-separator"></div>
-
-      <!-- Tipos de Pedido (Todos / Porções / A La Carte) -->
-      <div class="kds-chips-scroll queue-tipo-bar" id="queue-tipo-bar" style="margin:0; padding:0; background:transparent; border:none;">
-        <button class="kds-chip-item queue-tipo-btn active" data-tipo="todos" onclick="window.setFiltroTipo('todos')">
-          <i class="ph ph-list"></i> <span>Todos</span>
-        </button>
-        <button class="kds-chip-item queue-tipo-btn" data-tipo="porcao" onclick="window.setFiltroTipo('porcao')">
-          <i class="ph ph-bowl-food"></i> <span>Porções</span>
-        </button>
-        <button class="kds-chip-item queue-tipo-btn" data-tipo="alacarte" onclick="window.setFiltroTipo('alacarte')">
-          <i class="ph ph-fork-knife"></i> <span>A La Carte</span>
-        </button>
-      </div>
     </div>
 
-    <!-- DIREITA: BUSCA + ORDENAÇÃO + TEMA + AJUSTES -->
+    <!-- DIREITA: SELETOR GRADE/LINHAS + BUSCA + TEMA + AJUSTES -->
     <div class="kds-navbar-right">
-      <!-- Botão Rápido de Alternar Grade / Linhas -->
-      <button id="btn-toggle-kds-layout" class="kds-icon-btn" onclick="window.alternarLayoutRapido()" title="Alternar entre Grade KDS e Linhas">
-        <i class="ph ph-squares-four" id="icon-layout-kds"></i>
-      </button>
+      <!-- Seletor de Modo de Exibição: Grade vs Linhas -->
+      <div style="display: flex; background: var(--bg-tertiary, #1e293b); padding: 3px; border-radius: 10px; border: 1px solid var(--border-color, #334155);">
+        <button type="button" id="btn-layout-grid" onclick="window.alterarModoDisposicao('grid')" title="Modo Grade de Cards" style="padding: 5px 10px; border-radius: 8px; border: none; font-size: 12px; font-weight: 800; cursor: pointer; background: #fc4b15; color: white; display: flex; align-items: center; gap: 4px;">
+          <i class="ph-bold ph-squares-four"></i> <span>Grade</span>
+        </button>
+        <button type="button" id="btn-layout-lista" onclick="window.alterarModoDisposicao('lista')" title="Modo Exibição em Linha" style="padding: 5px 10px; border-radius: 8px; border: none; font-size: 12px; font-weight: 700; cursor: pointer; background: transparent; color: var(--text-muted, #94a3b8); display: flex; align-items: center; gap: 4px;">
+          <i class="ph-bold ph-rows"></i> <span>Linhas</span>
+        </button>
+      </div>
+
       <!-- Busca rápida -->
       <div class="kds-search-bar">
         <i class="ph ph-magnifying-glass"></i>
-        <input type="text" id="fila-search-input" placeholder="Buscar mesa ou prato..." oninput="window.filaSearchInput && window.filaSearchInput()">
+        <input type="text" id="fila-search-input" placeholder="Buscar mesa..." oninput="window.filaSearchInput && window.filaSearchInput()">
       </div>
-
-      <!-- Ordenação por tempo -->
-      <button id="btn-sort-delay" class="kds-icon-btn" onclick="window.toggleSortDelay()" title="Alternar Mais Antigos / Mais Recentes">
-        <i class="ph ph-sort-ascending"></i>
-      </button>
 
       <!-- Alternar Tema Claro / Escuro -->
       <button class="kds-icon-btn" onclick="if(window.ChefTheme && window.ChefTheme.toggle) { window.ChefTheme.toggle(); } else if(typeof window.toggleTheme==='function') { window.toggleTheme(); }" title="Alternar Tema Claro / Escuro">
-        <i class="ph ph-moon"></i>
-      </button>
-
-      <!-- Atualizar / Recarregar -->
-      <button class="kds-icon-btn" onclick="location.reload()" title="Recarregar Fila">
-        <i class="ph ph-arrows-clockwise"></i>
+        <i class="ph-bold ph-moon"></i>
       </button>
 
       <!-- Configurações do KDS -->
       <button class="kds-icon-btn" onclick="window.abrirModalFilaSettings()" title="Configurações da Fila">
-        <i class="ph ph-gear"></i>
+        <i class="ph-bold ph-gear"></i>
       </button>
     </div>
   </header>
@@ -265,6 +246,7 @@
   <script src="/fullscreen.js"></script>
   <script>window.PUSH_ROLE = 'cozinha';</script>
   <script src="/push-client.js"></script>
+  <script src="/chef-colaborador-dock.js"></script>
 </body>
 
 </html>

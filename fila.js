@@ -1402,24 +1402,31 @@ window.alternarLayoutRapido = function() {
   window.alterarModoDisposicao(current);
 };
 
+
 window.alterarModoDisposicao = function(modo) {
   localStorage.setItem('chef_kds_layout_mode', modo);
   const queueList = document.getElementById('queue-list');
-  const iconLayout = document.getElementById('icon-layout-kds');
-  const btnToggle = document.getElementById('btn-toggle-kds-layout');
+  const btnGrid = document.getElementById('btn-layout-grid');
+  const btnLista = document.getElementById('btn-layout-lista');
 
   if (queueList) {
     if (modo === 'lista') {
       queueList.classList.add('modo-lista');
       queueList.style.gridTemplateColumns = '1fr';
-      if (iconLayout) iconLayout.className = 'ph ph-squares-four';
-      if (btnToggle) btnToggle.title = 'Mudar para Grade KDS';
     } else {
       queueList.classList.remove('modo-lista');
       queueList.style.gridTemplateColumns = '';
-      if (iconLayout) iconLayout.className = 'ph ph-list-bullets';
-      if (btnToggle) btnToggle.title = 'Mudar para Linhas (Lista)';
     }
+  }
+
+  if (btnGrid && btnLista) {
+    btnGrid.style.background = modo === 'grid' ? '#fc4b15' : 'transparent';
+    btnGrid.style.color = modo === 'grid' ? '#ffffff' : 'var(--text-muted, #94a3b8)';
+    btnGrid.style.fontWeight = modo === 'grid' ? '800' : '700';
+
+    btnLista.style.background = modo === 'lista' ? '#fc4b15' : 'transparent';
+    btnLista.style.color = modo === 'lista' ? '#ffffff' : 'var(--text-muted, #94a3b8)';
+    btnLista.style.fontWeight = modo === 'lista' ? '800' : '700';
   }
 
   document.querySelectorAll('#modal-fila-settings .layout-btn').forEach(btn => {

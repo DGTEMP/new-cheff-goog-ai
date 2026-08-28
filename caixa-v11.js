@@ -1,3 +1,173 @@
+
+  // ── MOTOR DE CUSTOMIZAÇÃO DE CORES, BOTÕES E TIPOGRAFIA POR BLOCO ──
+  const STYLES_STORAGE_KEY = 'chef_v11_custom_widget_styles';
+
+  function getCustomStyles() {
+    try { return JSON.parse(localStorage.getItem(STYLES_STORAGE_KEY)) || {}; } catch(e) { return {}; }
+  }
+
+  function saveCustomStyles(styles) {
+    try { localStorage.setItem(STYLES_STORAGE_KEY, JSON.stringify(styles)); } catch(e) {}
+  }
+
+  function aplicarEstilosCustomizados() {
+    const styles = getCustomStyles();
+    grid.querySelectorAll('.v11-widget').forEach(widget => {
+      const id = widget.getAttribute('data-w');
+      const st = styles[id];
+      if (st) {
+        if (st.bgColor) widget.style.backgroundColor = st.bgColor;
+        if (st.headerBg) {
+          const hdr = widget.querySelector('header');
+          if (hdr) hdr.style.backgroundColor = st.headerBg;
+        }
+        if (st.textColor) widget.style.color = st.textColor;
+        if (st.fontFamily) widget.style.fontFamily = st.fontFamily;
+        if (st.fontSize) widget.style.fontSize = st.fontSize;
+        if (st.btnBg) {
+          widget.querySelectorAll('button:not(.w-size):not(.w-hide):not(.w-style), .v11-go, a.v11-go').forEach(btn => {
+            btn.style.backgroundColor = st.btnBg;
+            btn.style.borderColor = st.btnBg;
+          });
+        }
+      }
+    });
+  }
+
+  window.abrirModalPersonalizarEstilosWidget = function(widgetId, widgetTitle) {
+    const existing = document.getElementById('modal-customizar-estilos-widget');
+    if (existing) existing.remove();
+
+    const styles = getCustomStyles();
+    const st = styles[widgetId] || {
+      bgColor: '#ffffff',
+      headerBg: '#f8fafc',
+      textColor: '#0f172a',
+      btnBg: '#fc4b15',
+      fontFamily: 'Outfit, sans-serif',
+      fontSize: '14px',
+      modalColor: '#fc4b15'
+    };
+
+    const modal = document.createElement('div');
+    modal.id = 'modal-customizar-estilos-widget';
+    modal.style.cssText = 'position:fixed; inset:0; z-index:1000000; background:rgba(15,23,42,0.65); backdrop-filter:blur(8px); display:flex; align-items:center; justify-content:center; padding:16px; animation:v11Fade 0.2s ease;';
+    
+    modal.innerHTML = `
+      <div style="background:#ffffff; border-radius:20px; width:100%; max-width:480px; box-shadow:0 25px 60px rgba(0,0,0,0.35); overflow:hidden; font-family:'Outfit',sans-serif; color:#0f172a;">
+        <div style="padding:16px 20px; background:#f8fafc; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
+          <h3 style="margin:0; font-size:16.5px; font-weight:800; display:flex; align-items:center; gap:8px;">
+            <i class="ph-bold ph-palette" style="color:#fc4b15;"></i> Personalizar: ${widgetTitle || widgetId}
+          </h3>
+          <button onclick="document.getElementById('modal-customizar-estilos-widget').remove()" style="background:#e2e8f0; border:none; width:30px; height:30px; border-radius:50%; cursor:pointer; font-size:16px; display:flex; align-items:center; justify-content:center; color:#64748b;">&times;</button>
+        </div>
+
+        <div style="padding:20px; display:flex; flex-direction:column; gap:14px; max-height:75vh; overflow-y:auto;">
+          <!-- 1. COR DO BLOCO / FUNDO -->
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <label style="font-size:13px; font-weight:700; color:#475569;">Cor de Fundo do Bloco:</label>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <input type="color" id="v11-st-bg" value="${st.bgColor || '#ffffff'}" style="width:36px; height:36px; border:none; border-radius:8px; cursor:pointer;">
+            </div>
+          </div>
+
+          <!-- 2. COR DO CABEÇALHO / MODAL -->
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <label style="font-size:13px; font-weight:700; color:#475569;">Cor do Cabeçalho & Modal:</label>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <input type="color" id="v11-st-header" value="${st.headerBg || '#f8fafc'}" style="width:36px; height:36px; border:none; border-radius:8px; cursor:pointer;">
+            </div>
+          </div>
+
+          <!-- 3. COR DOS BOTÕES DE AÇÃO -->
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <label style="font-size:13px; font-weight:700; color:#475569;">Cor dos Botões de Ação:</label>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <input type="color" id="v11-st-btn" value="${st.btnBg || '#fc4b15'}" style="width:36px; height:36px; border:none; border-radius:8px; cursor:pointer;">
+            </div>
+          </div>
+
+          <!-- 4. COR DA LETRA / TEXTO -->
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <label style="font-size:13px; font-weight:700; color:#475569;">Cor do Texto / Letras:</label>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <input type="color" id="v11-st-text" value="${st.textColor || '#0f172a'}" style="width:36px; height:36px; border:none; border-radius:8px; cursor:pointer;">
+            </div>
+          </div>
+
+          <!-- 5. TIPOGRAFIA / FONTE -->
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            <label style="font-size:13px; font-weight:700; color:#475569;">Família da Fonte / Letra:</label>
+            <select id="v11-st-font" style="padding:10px 12px; border-radius:10px; border:1.5px solid #e2e8f0; font-size:13.5px; font-weight:600; outline:none; background:#f8fafc;">
+              <option value="'Outfit', sans-serif" ${st.fontFamily && st.fontFamily.includes('Outfit') ? 'selected' : ''}>Outfit (Padrão Moderno)</option>
+              <option value="'Inter', sans-serif" ${st.fontFamily && st.fontFamily.includes('Inter') ? 'selected' : ''}>Inter (Legibilidade Alta)</option>
+              <option value="'Roboto', sans-serif" ${st.fontFamily && st.fontFamily.includes('Roboto') ? 'selected' : ''}>Roboto (Clássico)</option>
+              <option value="'Montserrat', sans-serif" ${st.fontFamily && st.fontFamily.includes('Montserrat') ? 'selected' : ''}>Montserrat (Elegante)</option>
+              <option value="'Poppins', sans-serif" ${st.fontFamily && st.fontFamily.includes('Poppins') ? 'selected' : ''}>Poppins (Arredondado)</option>
+              <option value="monospace" ${st.fontFamily && st.fontFamily.includes('monospace') ? 'selected' : ''}>Monoespaçado (Técnico)</option>
+            </select>
+          </div>
+
+          <!-- 6. TAMANHO DA LETRA -->
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            <label style="font-size:13px; font-weight:700; color:#475569;">Tamanho Geral da Letra:</label>
+            <select id="v11-st-size" style="padding:10px 12px; border-radius:10px; border:1.5px solid #e2e8f0; font-size:13.5px; font-weight:600; outline:none; background:#f8fafc;">
+              <option value="12.5px" ${st.fontSize === '12.5px' ? 'selected' : ''}>Pequeno (12.5px)</option>
+              <option value="14px" ${st.fontSize === '14px' ? 'selected' : ''}>Padrão Médio (14px)</option>
+              <option value="15.5px" ${st.fontSize === '15.5px' ? 'selected' : ''}>Grande (15.5px)</option>
+              <option value="17px" ${st.fontSize === '17px' ? 'selected' : ''}>Extra Grande (17px)</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="padding:14px 20px; background:#f8fafc; border-top:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
+          <button type="button" onclick="window.restaurarEstilosWidget('${widgetId}')" style="background:transparent; border:none; color:#ef4444; font-size:12.5px; font-weight:700; cursor:pointer;">
+            <i class="ph-bold ph-arrow-counter-clockwise"></i> Restaurar Padrão
+          </button>
+          <div style="display:flex; gap:8px;">
+            <button type="button" onclick="document.getElementById('modal-customizar-estilos-widget').remove()" style="padding:9px 16px; border-radius:8px; background:#e2e8f0; border:none; font-size:13px; font-weight:700; cursor:pointer; color:#475569;">Cancelar</button>
+            <button type="button" onclick="window.salvarEstilosWidget('${widgetId}')" style="padding:9px 18px; border-radius:8px; background:#fc4b15; border:none; font-size:13px; font-weight:800; cursor:pointer; color:#ffffff;">Salvar Estilo</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+  };
+
+  window.salvarEstilosWidget = function(widgetId) {
+    const styles = getCustomStyles();
+    styles[widgetId] = {
+      bgColor: document.getElementById('v11-st-bg').value,
+      headerBg: document.getElementById('v11-st-header').value,
+      btnBg: document.getElementById('v11-st-btn').value,
+      textColor: document.getElementById('v11-st-text').value,
+      fontFamily: document.getElementById('v11-st-font').value,
+      fontSize: document.getElementById('v11-st-size').value
+    };
+
+    saveCustomStyles(styles);
+    aplicarEstilosCustomizados();
+    const modal = document.getElementById('modal-customizar-estilos-widget');
+    if (modal) modal.remove();
+    if (typeof showToast === 'function') showToast('Estilo do bloco salvo com sucesso!', 'success');
+  };
+
+  window.restaurarEstilosWidget = function(widgetId) {
+    const styles = getCustomStyles();
+    delete styles[widgetId];
+    saveCustomStyles(styles);
+    const widget = grid.querySelector('[data-w="' + widgetId + '"]');
+    if (widget) {
+      widget.removeAttribute('style');
+      const hdr = widget.querySelector('header');
+      if (hdr) hdr.removeAttribute('style');
+    }
+    const modal = document.getElementById('modal-customizar-estilos-widget');
+    if (modal) modal.remove();
+    if (typeof showToast === 'function') showToast('Estilo padrão restaurado.', 'info');
+  };
+
 /* ═══════════════════════════════════════════════════════════════
    CHEF COZINHA — CAIXA v1.1
    Interface modular: blocos arrastáveis, redimensionáveis e
@@ -106,7 +276,7 @@
     const all = getLayouts();
     delete all[perf];
     salvarLayouts(all);
-    aplicarLayout();
+    aplicarLayout(); aplicarEstilosCustomizados();
     window.showToast && window.showToast('Layout restaurado para o padrão.', 'success');
   });
 
@@ -114,7 +284,11 @@
     if (!editando) return;
     const widget = e.target.closest('.v11-widget');
     if (!widget) return;
-    if (e.target.classList.contains('w-size')) {
+    if (e.target.closest('.w-style')) {
+      const id = widget.getAttribute('data-w');
+      const title = widget.querySelector('h2') ? widget.querySelector('h2').innerText : id;
+      window.abrirModalPersonalizarEstilosWidget(id, title);
+    } else if (e.target.classList.contains('w-size')) {
       const lay = layoutAtual();
       const id = widget.getAttribute('data-w');
       const atual = lay.sizes[id] || widget.dataset.defaultSize;
@@ -326,18 +500,38 @@
 
   socket.on('atualizacao_caixa', () => { socket.emit('get_estado_caixa'); });
 
-  // ─── QR DO PONTO (com modo espera do fullscreen.js) ──────────
+  
+  // ─── QR DO PONTO (com renderizador direto e robusto) ──────────
   let pontoUrl = '';
   const pontoImg = document.getElementById('v11-ponto-img');
   const pontoZoom = document.getElementById('qr-ponto-img-zoomed');
 
+  function renderizarQrPonto(url) {
+    if (!url) return;
+    pontoUrl = url;
+    if (typeof window.qrImg === 'function') {
+      if (pontoImg) window.qrImg(pontoImg, url, 300);
+      if (pontoZoom) window.qrImg(pontoZoom, url, 340);
+    } else {
+      const src = 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=' + encodeURIComponent(url);
+      if (pontoImg) pontoImg.src = src;
+      if (pontoZoom) pontoZoom.src = src;
+    }
+  }
+
   socket.on('update_ponto_token', (data) => {
-    pontoUrl = data && data.url ? data.url : '';
-    if (!pontoUrl) return;
-    const src = (window.location.origin || '') + '/api/qr?size=300&data=' + encodeURIComponent(pontoUrl);
-    if (pontoImg) pontoImg.src = src;
-    if (pontoZoom) pontoZoom.src = (window.location.origin || '') + '/api/qr?size=340&data=' + encodeURIComponent(pontoUrl);
+    if (data && data.url) renderizarQrPonto(data.url);
   });
+
+  socket.on('connect', () => {
+    // Solicitar token inicial caso já conectado
+    if (pontoUrl) renderizarQrPonto(pontoUrl);
+    else {
+      const fallbackUrl = window.location.origin + '/painel-funcionario.html';
+      renderizarQrPonto(fallbackUrl);
+    }
+  });
+
 
   window.v11AbrirQrPonto = function () {
     const modal = document.getElementById('modal-zoom-qr-ponto');

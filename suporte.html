@@ -417,12 +417,75 @@
         <div class="menu-item" data-target="sec-tarefas"><i class="fa-solid fa-list-check"></i> Atividades</div>
         <div class="menu-item" data-target="sec-ranking"><i class="fa-solid fa-trophy"></i> Ranking</div>
         <div class="menu-item" data-target="sec-theme-studio"><i class="fa-solid fa-wand-magic-sparkles" style="color:var(--accent);"></i> Theme Studio Pro</div>
+                <div class="menu-item" data-target="sec-estudio-modulos"><i class="fa-solid fa-puzzle-piece" style="color:#fc4b15;"></i> Estúdio de Módulos (Caixa v1.1)</div>
         <div class="menu-item" data-target="sec-temas-curadoria"><i class="fa-solid fa-palette" style="color:#a78bfa;"></i> Curadoria de Temas</div>
         <div class="menu-item" data-target="sec-site-vendas-modulos"><i class="fa-solid fa-bullhorn" style="color:#38bdf8;"></i> Módulos Site de Vendas</div>
       </div>
 
       <div class="content-area">
         <!-- Dashboard -->
+        
+        <!-- ESTÚDIO DE CRIAÇÃO DE MÓDULOS (CAIXA V1.1) -->
+        <div class="content-section" id="sec-estudio-modulos">
+          <div class="card-header" style="margin-bottom:1.5rem; display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <h2 style="font-family:'Outfit',sans-serif; margin:0; display:flex; align-items:center; gap:10px;">
+                <i class="fa-solid fa-wand-magic-sparkles" style="color:#fc4b15;"></i> Estúdio de Módulos Plug-and-Play (Caixa v1.1)
+              </h2>
+              <p style="color:var(--text-muted); font-size:0.85rem; margin:4px 0 0 0;">
+                Crie, teste e publique novos blocos e funcionalidades operacionais para o Caixa v1.1 com menus de contexto e modais.
+              </p>
+            </div>
+            <button class="btn btn-primary" onclick="abrirModalCriarModulo()"><i class="fa-solid fa-plus"></i> Criar Novo Módulo</button>
+          </div>
+
+          <!-- LISTA DE MÓDULOS EXISTENTES -->
+          <div class="card" style="margin-bottom:1.5rem;">
+            <div class="card-header">
+              <h4><i class="fa-solid fa-cubes"></i> Módulos Instalados no Ecossistema</h4>
+              <button class="btn btn-sm" onclick="carregarModulosSuporte()"><i class="fa-solid fa-rotate"></i> Atualizar Lista</button>
+            </div>
+            <div class="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Ícone</th>
+                    <th>Nome do Módulo</th>
+                    <th>ID / Pasta</th>
+                    <th>Categoria</th>
+                    <th>Tamanho</th>
+                    <th>Arquivos</th>
+                    <th>Status</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="lista-modulos-suporte-body">
+                  <tr><td colspan="8" style="text-align:center; padding:2rem; color:var(--text-muted);">Carregando módulos...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- DOCUMENTAÇÃO E GUIA DE DESENVOLVIMENTO RÁPIDO -->
+          <div class="card" style="background:rgba(252,75,21,0.04); border:1px solid rgba(252,75,21,0.2);">
+            <h4 style="color:#fc4b15; margin-bottom:0.8rem;"><i class="fa-solid fa-code"></i> Veículos & Ferramentas para a Equipe de Criação</h4>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:1rem; font-size:0.85rem;">
+              <div style="background:var(--bg-tertiary); padding:1rem; border-radius:10px;">
+                <strong style="color:var(--text-primary); display:block; margin-bottom:4px;">1. Interface Visual (Estúdio)</strong>
+                <p style="color:var(--text-muted); margin:0;">Crie formulários, widgets interativos e menus contextuais diretamente por esta tela sem precisar reiniciar o servidor.</p>
+              </div>
+              <div style="background:var(--bg-tertiary); padding:1rem; border-radius:10px;">
+                <strong style="color:var(--text-primary); display:block; margin-bottom:4px;">2. CLI Automatizada</strong>
+                <code style="display:block; background:#0b0f19; padding:6px; border-radius:6px; margin-top:4px; color:#38bdf8;">node scripts/create-module.js &lt;id&gt; [Nome]</code>
+              </div>
+              <div style="background:var(--bg-tertiary); padding:1rem; border-radius:10px;">
+                <strong style="color:var(--text-primary); display:block; margin-bottom:4px;">3. Universal Module Bus</strong>
+                <p style="color:var(--text-muted); margin:0;">Uso do <code style="color:#fc4b15;">window.ChefModules.register()</code> para desacoplamento total e segurança operacional.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Theme Studio Pro Section -->
         <div class="content-section" id="sec-theme-studio" style="height: calc(100vh - 90px); padding: 0; overflow: hidden;">
           <iframe id="iframe-theme-studio" src="/theme-store.html?mode=studio_pro" style="width: 100%; height: 100%; border: none; border-radius: 12px; background: #0b0f19;"></iframe>

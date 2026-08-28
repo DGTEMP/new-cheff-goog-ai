@@ -851,3 +851,148 @@ body.dark-mode .mesa-item {
   justify-content: center !important;
   padding: 8px !important;
 }
+
+
+/* ══════════════════════════════════════════════════════════════════
+   CHIPS DE FILTRO, ACCORDION RECOLHÍVEL & ORIENTAÇÃO DAS MESAS
+   ══════════════════════════════════════════════════════════════════ */
+
+/* CHIPS DE FILTRO POR STATUS */
+.chip-status-filter {
+  padding: 4px 10px !important;
+  border-radius: 20px !important;
+  border: 1px solid #e2e8f0 !important;
+  background: #ffffff !important;
+  color: #64748b !important;
+  font-size: 11.5px !important;
+  font-weight: 700 !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  white-space: nowrap !important;
+  transition: all 0.15s ease !important;
+}
+
+.chip-status-filter:hover {
+  background: #f8fafc !important;
+  border-color: #cbd5e1 !important;
+}
+
+.chip-status-filter.active {
+  background: #0f172a !important;
+  color: #ffffff !important;
+  border-color: #0f172a !important;
+}
+
+.chip-status-filter.status-ocupada.active {
+  background: #ef4444 !important;
+  border-color: #ef4444 !important;
+}
+
+.chip-status-filter.status-fechamento.active {
+  background: #a855f7 !important;
+  border-color: #a855f7 !important;
+}
+
+.chip-status-filter.status-reservada.active {
+  background: #f59e0b !important;
+  border-color: #f59e0b !important;
+}
+
+.chip-status-filter.status-disponivel.active {
+  background: #10b981 !important;
+  border-color: #10b981 !important;
+}
+
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.status-dot.red { background: #ef4444; }
+.status-dot.purple { background: #a855f7; }
+.status-dot.amber { background: #f59e0b; }
+.status-dot.green { background: #10b981; }
+
+.chip-count {
+  font-size: 10.5px;
+  font-weight: 800;
+  opacity: 0.85;
+}
+
+/* CABEÇALHOS RECOLHÍVEIS DAS CATEGORIAS (ACCORDION) */
+.mesa-category {
+  margin-bottom: 12px !important;
+  transition: all 0.2s ease !important;
+}
+
+.mesa-category-title {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 8px 12px !important;
+  background: #f8fafc !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 10px !important;
+  cursor: pointer !important;
+  user-select: none !important;
+  margin-bottom: 8px !important;
+  transition: background 0.15s ease !important;
+}
+
+.mesa-category-title:hover {
+  background: #f1f5f9 !important;
+}
+
+.mesa-category-header-left {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  font-weight: 800 !important;
+  font-size: 13px !important;
+  color: #0f172a !important;
+}
+
+.mesa-category.collapsed .mesas-grid-layout {
+  display: none !important;
+}
+
+.mesa-category.collapsed .mesa-category-title {
+  opacity: 0.7 !important;
+  margin-bottom: 0 !important;
+}
+
+/* ── ORIENTAÇÃO VERTICAL (COLUNAS LADO A LADO) ── */
+#orders-grid.orientation-vertical {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: flex-start !important;
+  gap: 14px !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  padding: 10px !important;
+  height: 100% !important;
+}
+
+#orders-grid.orientation-vertical .mesa-category {
+  min-width: 220px !important;
+  max-width: 260px !important;
+  height: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  background: #f8fafc !important;
+  padding: 10px !important;
+  border-radius: 14px !important;
+  border: 1px solid #e2e8f0 !important;
+  flex-shrink: 0 !important;
+}
+
+#orders-grid.orientation-vertical .mesas-grid-layout {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  overflow-y: auto !important;
+  flex: 1 !important;
+}

@@ -1900,35 +1900,78 @@
       width: 100% !important;
     }
 
-    /* Grid Modular Bento Box em Telas Desktop/Wide apenas para abas ativas */
-    @media (min-width: 901px) {
-      #admin-tab-inicio.active,
-      #admin-tab-gerais.active,
-      #admin-tab-sons.active,
-      #admin-tab-atalhos.active,
-      #admin-tab-funcionalidades.active {
-        display: grid !important;
-        grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)) !important;
-        gap: 20px !important;
-        align-items: stretch !important;
-      }
+    
+    .config-sidebar {
+      transition: width 0.25s cubic-bezier(0.16, 1, 0.3, 1), padding 0.25s ease, opacity 0.2s ease !important;
+    }
+    .config-sidebar.collapsed {
+      width: 0 !important;
+      min-width: 0 !important;
+      max-width: 0 !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      border: none !important;
+      overflow: hidden !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
+    #btn-toggle-sidebar {
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      background: rgba(255,255,255,0.12) !important;
+      border: 1px solid rgba(255,255,255,0.25) !important;
+      border-radius: 8px !important;
+      color: #ffffff !important;
+      padding: 6px 10px !important;
+      cursor: pointer !important;
+      font-size: 20px !important;
+      transition: all 0.15s ease !important;
+    }
+    #btn-toggle-sidebar:hover {
+      background: rgba(255,255,255,0.22) !important;
+      transform: scale(1.05) !important;
+    }
 
-      /* Proporções customizáveis dos cards na Home */
-      .card-size-p { grid-column: span 1 !important; }
-      .card-size-m { grid-column: span 2 !important; }
-      .card-size-g { grid-column: 1 / -1 !important; }
+    /* ══════════════════════════════════════════════════════════════════
+       BENTO GRID MODULAR HORIZONTAL (APROVEITA TODA A TELA WIDE/DESKTOP)
+       ══════════════════════════════════════════════════════════════════ */
+    .admin-tab-content {
+      display: none !important;
+    }
+    .admin-tab-content.active {
+      display: grid !important;
+      grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)) !important;
+      gap: 18px !important;
+      width: 100% !important;
+      align-items: start !important;
+    }
 
-      /* Cards full-width ou com tabelas/listas ocupam todas as colunas */
-      #admin-tab-gerais > div:has(#cfg-pedidos-qr-ativo),
-      #admin-tab-gerais > div:has(#lista-ordem-categorias),
-      #admin-tab-gerais > div:has(#btn-deslogar-restaurante),
-      #admin-tab-gerais > div:last-child,
-      .grid-full,
-      .promo-card,
-      #admin-tab-modulos > div {
-        grid-column: 1 / -1 !important;
+    .admin-tab-content.active > div {
+      background: var(--cfg-card-bg) !important;
+      border: 1.5px solid var(--cfg-border) !important;
+      border-radius: 16px !important;
+      padding: 20px !important;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.03) !important;
+      box-sizing: border-box !important;
+    }
+
+    /* Cards largos ocupam a largura total horizontal */
+    .admin-tab-content.active > div.grid-full,
+    .admin-tab-content.active > div:has(table),
+    .admin-tab-content.active > div:has(#lista-ordem-categorias),
+    .admin-tab-content.active > div:has(#cfg-pedidos-qr-ativo),
+    .admin-tab-content.active > div:has(#btn-deslogar-restaurante),
+    .admin-tab-content.active > div:last-child {
+      grid-column: 1 / -1 !important;
+    }
+
+    @media (max-width: 768px) {
+      .admin-tab-content.active {
+        grid-template-columns: 1fr !important;
       }
     }
+
 
     /* Cartões Modulares de Configuração */
     .config-card,
@@ -2166,7 +2209,7 @@
 
   <div class="config-header">
     <h1 style="display: flex; align-items: center; gap: 12px;">
-      <button id="btn-toggle-sidebar"
+      <button id="btn-toggle-sidebar" onclick="window.toggleConfigSidebar()"
         style="background: transparent; border: none; color: white; font-size: 24px; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 4px; outline: none; transition: transform 0.2s;"><i
           class="ph ph-list"></i></button>
       <span><i class="ph ph-gear"></i> Painel de Configurações</span>
@@ -2191,6 +2234,9 @@
       </div>
       <div class="action-group">
         <div class="group-title">Sistema</div>
+        <button class="admin-tab-btn" data-tab="inicio">
+          <i class="ph ph-squares-four" style="color:#fc4b15;"></i> Central de Operações Modular
+        </button>
         <button class="admin-tab-btn" data-tab="gerais">
           <i class="ph ph-sliders"></i> Sistema &amp; Cardápio
         </button>
@@ -2294,9 +2340,7 @@
         <button class="admin-tab-btn" data-tab="dispositivos" style="color:#0284c7; font-weight: bold;">
           <i class="ph ph-devices"></i> Dispositivos & Terminais
         </button>
-        <button class="admin-tab-btn" data-tab="modulos" style="color: #8b5cf6; font-weight: 800;">
-          <i class="ph ph-puzzle-piece"></i> Módulos & Extensões
-        </button>
+        
         <button class="admin-tab-btn" data-tab="auditoria" style="color:#e11d48;">
           <i class="ph ph-shield-warning"></i> Auditoria &amp; Anti-Fraude
         </button>
@@ -2320,35 +2364,44 @@
     <!-- MAIN WORKSPACE -->
     <div class="main-workspace" id="main-panel">
 
-      <h2 class="aba-titulo" id="titulo-aba">Início Modular</h2>
-
-<div id="admin-tab-inicio" class="admin-tab-content active" style="display:flex; flex-direction:column; gap:20px; width:100%;">
-
-        <!-- HEADER DA HOME -->
-        <div style="background:var(--cfg-card-bg); border:1px solid var(--cfg-border); border-radius:18px; padding:22px 26px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; grid-column:1 / -1;">
+      <!-- TAB INÍCIO / CENTRAL DE OPERAÇÕES MODULAR -->
+      <div id="admin-tab-inicio" class="admin-tab-content" style="display:none; flex-direction:column; gap:20px; width:100%;">
+        
+        <!-- HEADER DA CENTRAL -->
+        <div style="background:var(--cfg-card-bg); border:1.5px solid var(--cfg-border); border-radius:16px; padding:22px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; box-shadow:0 4px 15px rgba(0,0,0,0.04);">
           <div>
-            <h2 style="margin:0; font-size:22px; font-weight:900; color:var(--cfg-heading); display:flex; align-items:center; gap:10px;">
-              <i class="ph-bold ph-squares-four" style="color:var(--cfg-primary);"></i> Central de Operações & Início Modular
+            <h2 style="margin:0; font-size:20px; font-weight:800; color:#fc4b15; display:flex; align-items:center; gap:10px;">
+              <i class="ph-bold ph-squares-four"></i> Central de Operações & Início Modular (Caixa v1.1)
             </h2>
-            <p style="margin:4px 0 0; color:var(--cfg-text-muted); font-size:13.5px;">
-              Personalize sua página inicial: escolha quais módulos exibir e ajuste o tamanho e proporção de cada cartão.
+            <p style="margin:4px 0 0; color:var(--cfg-text-muted); font-size:13px;">
+              Personalize sua central de operações: selecione quais blocos exibir no Caixa v1.1 e defina a proporção de cada um.
             </p>
           </div>
-          <div style="display:flex; gap:10px;">
-            <button onclick="window.abrirModalPersonalizarHome()" style="padding:11px 20px; background:linear-gradient(135deg, var(--cfg-primary), #ff8533); color:#fff; border:none; border-radius:10px; font-weight:800; font-size:13.5px; cursor:pointer; display:flex; align-items:center; gap:8px; box-shadow:0 4px 14px rgba(252,75,21,0.35);">
-              <i class="ph-bold ph-sliders-horizontal"></i> Personalizar Módulos da Home
+          <div style="display:flex; gap:10px; align-items:center;">
+            <a href="/caixa-v11.html" target="_blank" style="padding:10px 16px; background:#f1f5f9; color:#0f172a; border-radius:8px; font-weight:700; font-size:13px; text-decoration:none; display:flex; align-items:center; gap:6px; border:1px solid var(--cfg-border);">
+              <i class="ph-bold ph-arrow-square-out"></i> Abrir Caixa v1.1
+            </a>
+            <button onclick="window.salvarConfiguracaoModulosHome()" style="padding:10px 20px; background:#fc4b15; color:#fff; border:none; border-radius:8px; font-weight:800; font-size:13px; cursor:pointer; display:flex; align-items:center; gap:6px; box-shadow:0 4px 12px rgba(252,75,21,0.25);">
+              <i class="ph-bold ph-floppy-disk"></i> Salvar Módulos
             </button>
           </div>
         </div>
 
-        <!-- GRID DINÂMICO DE MÓDULOS DA HOME -->
-        <div id="home-modular-container" style="display:contents;">
-          <!-- Injetado dinamicamente via JavaScript com base nas preferências do colaborador -->
+        <!-- LISTA DE MÓDULOS CONFIGURÁVEIS COM CHECKBOX E SELEÇÃO DE TAMANHO -->
+        <div style="background:var(--cfg-card-bg); border:1.5px solid var(--cfg-border); border-radius:16px; padding:22px;">
+          <h3 style="margin:0 0 16px 0; font-size:16px; font-weight:800; color:var(--cfg-heading); display:flex; align-items:center; gap:8px;">
+            <i class="ph-bold ph-sliders"></i> Módulos Disponíveis para a Central
+          </h3>
+          
+          <div id="lista-modulos-config-painel" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:14px;">
+            <!-- Renderizado dinamicamente via JS -->
+          </div>
         </div>
 
-      </div>
+        <!-- CONTAINER DE PREVIEW MODULAR (APENAS DENTRO DA ABA INÍCIO) -->
+        <div id="home-modular-container" style="display:none;"></div>
 
-<h2 class="aba-titulo" id="titulo-aba">Sistema &amp; Cardápio</h2>
+      </div>
 
       <!-- TAB ATALHOS DE TECLADO -->
 
@@ -2764,31 +2817,93 @@
       </div>
 
       <!-- TAB GERAIS -->
+      <div id="admin-tab-gerais" class="admin-tab-content" style="display:none; flex-direction:column; gap:20px; width:100%;">
 
-              <option value="en">English</option>
-              <option value="es">Español</option>
-              <option value="fr">Français</option>
-              <option value="-300">GMT-5 — Acre, Amapá</option>
-              <option value="-120">GMT-2 — Fernando de Noronha</option>
-              <option value="0">GMT+0 — UTC (Londres)</option>
-              <option value="60">GMT+1 — Lisboa, Western Europe</option>
-              <option value="120">GMT+2 — Grécia, Finlândia</option>
-              <option value="180">GMT+3 — Moscou, Arábia Saudita</option>
-              <option value="210">GMT+3:30 — Irã</option>
-              <option value="240">GMT+4 — Emirados Árabes</option>
-              <option value="270">GMT+4:30 — Afeganistão</option>
-              <option value="300">GMT+5 — Paquistão</option>
-              <option value="330">GMT+5:30 — Índia</option>
-              <option value="360">GMT+6 — Bangladesh</option>
-              <option value="390">GMT+6:30 — Myanmar</option>
-              <option value="420">GMT+7 — Tailândia, Vietnã</option>
-              <option value="480">GMT+8 — China, Singapura, Filipinas</option>
-              <option value="540">GMT+9 — Japão, Coreia</option>
-              <option value="570">GMT+9:30 — Austrália Central</option>
-              <option value="600">GMT+10 — Austrália Oriental</option>
-              <option value="720">GMT+12 — Nova Zelândia</option>
-            </select>
-            <span id="timezone-preview" style="font-size:13px; color:var(--cfg-text-muted); white-space:nowrap;"></span>
+        <!-- SELETOR DE VERSÃO DO CAIXA: CLÁSSICO VS MACOS V2 -->
+        <div style="background:var(--cfg-card-bg); padding: 22px; border-radius: 14px; border: 1.5px solid var(--cfg-border); margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.04);">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
+            <div>
+              <h3 style="margin:0; font-size: 17px; font-weight:800; color: #fc4b15; display:flex; align-items:center; gap:8px;">
+                <i class="ph-bold ph-layout"></i> Versão da Interface do Caixa (Estilo Visual)
+              </h3>
+              <p style="color:var(--cfg-text-muted); font-size: 13px; margin:4px 0 0 0;">
+                Escolha o estilo de operação que melhor se adapta à sua equipe. Você pode alternar a qualquer momento.
+              </p>
+            </div>
+            <span style="background:rgba(252,75,21,0.1); color:#fc4b15; padding:4px 10px; border-radius:20px; font-size:11.5px; font-weight:800;">Alternância Flexível</span>
+          </div>
+
+          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin-top: 14px;">
+            <!-- CARD VERSÃO CLÁSSICA -->
+            <label class="interface-version-card" id="card-versao-v1" style="display:flex; flex-direction:column; justify-content:space-between; padding:16px; border-radius:12px; border:2px solid var(--cfg-border); background:var(--cfg-subtle-bg); cursor:pointer; transition:all 0.2s;">
+              <div>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                  <span style="font-weight:800; font-size:15px; display:flex; align-items:center; gap:6px;">
+                    <i class="ph-bold ph-desktop" style="color:#3b82f6;"></i> Versão 1.0 Clássica
+                  </span>
+                  <input type="radio" name="radio-versao-caixa" value="v1" id="radio-versao-v1" style="accent-color:#fc4b15; width:18px; height:18px;">
+                </div>
+                <p style="font-size:12.5px; color:var(--cfg-text-muted); line-height:1.4; margin:0 0 10px 0;">
+                  Layout clássico com 3 colunas tradicionais, barras laterais redimensionáveis, atalhos rápidos e salão de mesas clássico.
+                </p>
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--cfg-border); padding-top:10px; margin-top:10px;">
+                <span style="font-size:11px; font-weight:700; color:#3b82f6;">3 Colunas • Tradicional</span>
+                <a href="/index.html" style="font-size:11.5px; font-weight:800; color:#fc4b15; text-decoration:none;">Abrir Caixa 1.0 &rarr;</a>
+              </div>
+            </label>
+
+            <!-- CARD VERSÃO MACOS PRO 2.0 -->
+            <label class="interface-version-card" id="card-versao-v2" style="display:flex; flex-direction:column; justify-content:space-between; padding:16px; border-radius:12px; border:2px solid var(--cfg-border); background:var(--cfg-subtle-bg); cursor:pointer; transition:all 0.2s;">
+              <div>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                  <span style="font-weight:800; font-size:15px; display:flex; align-items:center; gap:6px;">
+                    <i class="ph-bold ph-apple-logo" style="color:#a855f7;"></i> Versão 2.0 macOS Pro (HIG)
+                  </span>
+                  <input type="radio" name="radio-versao-caixa" value="v2" id="radio-versao-v2" style="accent-color:#fc4b15; width:18px; height:18px;">
+                </div>
+                <p style="font-size:12.5px; color:var(--cfg-text-muted); line-height:1.4; margin:0 0 10px 0;">
+                  Interface ultra-moderna inspirada no macOS / Apple HIG com Widgets Bento Grid, Split-Views contínuas, Cross-Fade sutil e Sheets suspensos.
+                </p>
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--cfg-border); padding-top:10px; margin-top:10px;">
+                <span style="font-size:11px; font-weight:700; color:#a855f7;">Apple HIG • Bento Grid</span>
+                <a href="/caixa-v2.html" style="font-size:11.5px; font-weight:800; color:#fc4b15; text-decoration:none;">Abrir Caixa 2.0 &rarr;</a>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- IDIOMA E FUSO HORÁRIO -->
+        <div style="background:var(--cfg-card-bg); padding: 20px; border-radius: 12px; border: 1.5px solid var(--cfg-border); margin-bottom: 20px;">
+          <h3 style="margin-top:0; color: #fc4b15; display:flex; align-items:center; gap:8px;">
+            <i class="ph-bold ph-globe"></i> Idioma & Fuso Horário do Estabelecimento
+          </h3>
+          <p style="color:var(--cfg-text-muted); font-size: 13.5px; margin-bottom: 15px;">
+            Defina o idioma principal do sistema e o fuso horário correto para sincronização de comandas e relatórios.
+          </p>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px;">
+            <div>
+              <label style="display:block; font-size:12.5px; font-weight:700; color:var(--cfg-text-muted); margin-bottom:6px;">Idioma do Sistema:</label>
+              <select id="select-sistema-idioma" style="width:100%; padding:10px 12px; border-radius:8px; border:1px solid var(--cfg-border); background:var(--cfg-subtle-bg); font-weight:700;">
+                <option value="pt-BR" selected>Português (Brasil)</option>
+                <option value="en">English</option>
+                <option value="es">Español</option>
+                <option value="fr">Français</option>
+              </select>
+            </div>
+            <div>
+              <label style="display:block; font-size:12.5px; font-weight:700; color:var(--cfg-text-muted); margin-bottom:6px;">Fuso Horário:</label>
+              <select id="select-fuso-horario" style="width:100%; padding:10px 12px; border-radius:8px; border:1px solid var(--cfg-border); background:var(--cfg-subtle-bg); font-weight:700;">
+                <option value="-180" selected>GMT-3 — Brasília, São Paulo, Rio</option>
+                <option value="-240">GMT-4 — Manaus, Cuiabá, Boa Vista</option>
+                <option value="-300">GMT-5 — Acre, Amapá</option>
+                <option value="-120">GMT-2 — Fernando de Noronha</option>
+                <option value="0">GMT+0 — UTC (Londres)</option>
+                <option value="60">GMT+1 — Lisboa, Western Europe</option>
+              </select>
+              <span id="timezone-preview" style="font-size:13px; color:var(--cfg-text-muted); white-space:nowrap;"></span>
+            </div>
           </div>
         </div>
 
@@ -3267,7 +3382,26 @@
 
       <!-- TAB PRODUTOS -->
 
-<div id="admin-tab-produtos" class="admin-tab-content">
+
+      <!-- TAB PRODUTOS (UNIFICADA COM ITENS MONTÁVEIS E IMPORTAÇÃO) -->
+      <div id="admin-tab-produtos" class="admin-tab-content">
+        
+        <!-- SUB-ABAS DE NAVEGAÇÃO INTERNA DE PRODUTOS -->
+        <div style="background:var(--cfg-card-bg); border-radius:14px; border:1.5px solid var(--cfg-border); padding:10px 14px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:14px; box-shadow:0 2px 8px rgba(0,0,0,0.03);">
+          <button type="button" class="prod-subtab-btn active" id="btn-subtab-catalogo" onclick="window.alternarSubtabProdutos('catalogo')" style="padding:9px 18px; border-radius:10px; border:none; font-weight:800; font-size:13px; cursor:pointer; background:#fc4b15; color:#ffffff; display:flex; align-items:center; gap:6px; transition:all 0.15s;">
+            <i class="ph-bold ph-package"></i> Catálogo de Produtos
+          </button>
+          <button type="button" class="prod-subtab-btn" id="btn-subtab-montaveis" onclick="window.alternarSubtabProdutos('montaveis')" style="padding:9px 18px; border-radius:10px; border:none; font-weight:700; font-size:13px; cursor:pointer; background:var(--cfg-subtle-bg); color:var(--cfg-text); display:flex; align-items:center; gap:6px; transition:all 0.15s;">
+            <i class="ph-bold ph-puzzle-piece" style="color:#8b5cf6;"></i> Itens Montáveis / Compostos
+          </button>
+          <button type="button" class="prod-subtab-btn" id="btn-subtab-importar" onclick="window.alternarSubtabProdutos('importar')" style="padding:9px 18px; border-radius:10px; border:none; font-weight:700; font-size:13px; cursor:pointer; background:var(--cfg-subtle-bg); color:var(--cfg-text); display:flex; align-items:center; gap:6px; transition:all 0.15s;">
+            <i class="ph-bold ph-file-xls" style="color:#0284c7;"></i> Importar Planilha
+          </button>
+        </div>
+
+        <!-- SEÇÃO 1: CATÁLOGO DE PRODUTOS -->
+        <div id="subtab-content-catalogo" style="display:flex; flex-direction:column; gap:16px; width:100%;">
+
         <input type="hidden" id="admin-prod-id">
         <div class="tab-form-header">
           <div
@@ -3399,7 +3533,33 @@
           </table>
         </div>
 
-        <!-- Importar Produtos via Planilha -->
+        
+        </div> <!-- Fim de subtab-content-catalogo -->
+
+        <!-- SEÇÃO 2: ITENS MONTÁVEIS / COMPOSTOS (EMBUTIDA NA ABA PRODUTOS) -->
+        <div id="subtab-content-montaveis" style="display:none; flex-direction:column; gap:16px; width:100%;">
+          <div style="background:var(--cfg-card-bg); padding:20px; border-radius:14px; border:1.5px solid var(--cfg-border); box-shadow:0 4px 15px rgba(0,0,0,0.03);">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:8px;">
+              <div>
+                <h3 style="margin:0; font-size:18px; font-weight:800; color:#8b5cf6; display:flex; align-items:center; gap:8px;">
+                  <i class="ph-bold ph-puzzle-piece"></i> Itens Montáveis & Compostos ("Monte o Seu")
+                </h3>
+                <p style="color:var(--cfg-text-muted); font-size:13px; margin:4px 0 0 0;">
+                  Crie pizzas meio a meio, açaís, hambúrgueres artesanais e combos com categorias de escolha (recheios, bordas, adicionais).
+                </p>
+              </div>
+              <button onclick="window.abrirModalMontavel()" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed); color:white; border:none; padding:10px 20px; border-radius:10px; font-weight:800; cursor:pointer; font-size:13px; display:flex; align-items:center; gap:6px; box-shadow:0 4px 12px rgba(139,92,246,0.3);">
+                <i class="ph-bold ph-plus-circle"></i> Novo Item Montável
+              </button>
+            </div>
+
+            <div id="admin-montaveis-list" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:12px; margin-top:16px;"></div>
+          </div>
+        </div>
+
+        <!-- SEÇÃO 3: IMPORTAR PLANILHA -->
+        <div id="subtab-content-importar" style="display:none; flex-direction:column; gap:16px; width:100%;">
+<!-- Importar Produtos via Planilha -->
         <div style="margin: 16px; background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 12px; padding: 20px;">
           <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
             <i class="ph ph-file-xls" style="font-size: 22px; color: #0284c7;"></i>
@@ -3422,20 +3582,7 @@
         </div>
       </div>
 
-      <!-- TAB ITENS MONTAVEIS -->
-
-<div id="admin-tab-montaveis" class="admin-tab-content">
-        <div style="padding:16px;">
-          <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:6px;">
-            <h3 style="margin:0;"><i class="ph ph-puzzle-piece"></i> Itens Montáveis (Monte o Seu)</h3>
-            <button onclick="window.abrirModalMontavel()" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed); color:white; border:none; padding:9px 18px; border-radius:10px; font-weight:700; cursor:pointer; font-size:13px; white-space:nowrap;">
-              <i class="ph ph-plus"></i> Novo Item Montável
-            </button>
-          </div>
-          <p style="color:var(--cfg-text-muted); font-size:12.5px; margin:0 0 14px;">O cliente ou garçom escolhe composições; defina categorias, opções e modelo de preço.</p>
-
-          <div id="admin-montaveis-list" style="display:flex; flex-direction:column; gap:8px;"></div>
-        </div>
+      <!-- TAB ITENS MONTAVEIS (Embutido dentro de admin-tab-produtos) -->
       </div>
 
       <!-- MODAL CRIAR/EDITAR ITEM MONTAVEL -->
@@ -5532,40 +5679,7 @@
 
 
       
-      <!-- ════ ABA CENTRAL DE MÓDULOS, CRIAÇÃO & SUPORTE PLUG-AND-PLAY ════ -->
-
-<div class="admin-tab-content" id="admin-tab-modulos" style="display:none; flex-direction:column; gap:20px; overflow-y:auto; padding:16px;">
-        
-        <!-- Header com Estatísticas -->
-        <div style="background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%); border-radius: 20px; padding: 24px; color: white; box-shadow: 0 10px 30px rgba(139, 92, 246, 0.25); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
-          <div>
-            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
-              <span style="background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 800;">Ecossistema v1.1</span>
-              <span style="font-size: 13px; opacity: 0.9;">100% Plug-and-Play</span>
-            </div>
-            <h2 style="margin: 0; font-size: 24px; font-weight: 900;">Central de Módulos & Extensões</h2>
-            <p style="margin: 6px 0 0 0; opacity: 0.9; font-size: 14px; max-width: 540px;">
-              Crie novos módulos em 1 clique, ative ou desative extensões e personalize o Caixa v1.1 e o PDV sem risco de quebrar o sistema.
-            </p>
-          </div>
-          <button onclick="window.carregarListaModulosUI()" style="padding: 12px 20px; border-radius: 12px; background: rgba(255,255,255,0.2); border: 1.5px solid rgba(255,255,255,0.4); color: white; font-weight: 800; font-size: 14px; cursor: pointer; display: flex; align-items: center; gap: 8px; backdrop-filter: blur(8px);">
-            <i class="ph-bold ph-arrows-clockwise"></i> Atualizar Lista
-          </button>
-        </div>
-
-        <!-- SEÇÃO 1: CRIADOR VISUAL DE MÓDULOS -->
-        <div style="background:var(--cfg-card-bg); border: 1.5px solid var(--cfg-border); border-radius: 18px; padding: 20px; box-shadow: 0 4px 16px rgba(0,0,0,0.03);">
-          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom: 16px; border-bottom: 1px dashed var(--cfg-border); padding-bottom: 12px;">
-            <div style="display:flex; align-items:center; gap:10px;">
-              <div style="width:40px; height:40px; border-radius:10px; background:#f3e8ff; color:#8b5cf6; display:flex; align-items:center; justify-content:center; font-size:22px;">
-                <i class="ph-bold ph-magic-wand"></i>
-              </div>
-              <div>
-                <h3 style="margin:0; font-size:16.5px; color:var(--cfg-text); font-weight:800;">Criador de Novo Módulo (1 Clique)</h3>
-                <span style="font-size:12px; color:var(--cfg-text-muted);">Gera toda a estrutura na pasta plugins/ com backend, frontend e widget do Caixa v1.1</span>
-              </div>
-            </div>
-          </div>
+      
 
           <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:14px; margin-bottom: 16px;">
             <div class="form-group">

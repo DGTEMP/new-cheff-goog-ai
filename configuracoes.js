@@ -1,3 +1,39 @@
+
+// ─── SUBTABS DA ABA PRODUTOS (CATÁLOGO / MONTÁVEIS / IMPORTAR) ───
+window.alternarSubtabProdutos = function(subtab) {
+  const allSubtabs = ['catalogo', 'montaveis', 'importar'];
+  allSubtabs.forEach(st => {
+    const btn = document.getElementById('btn-subtab-' + st);
+    const content = document.getElementById('subtab-content-' + st);
+    if (btn) {
+      if (st === subtab) {
+        btn.style.background = '#fc4b15';
+        btn.style.color = '#ffffff';
+        btn.style.fontWeight = '800';
+      } else {
+        btn.style.background = 'var(--cfg-subtle-bg, #f1f5f9)';
+        btn.style.color = 'var(--cfg-text, #0f172a)';
+        btn.style.fontWeight = '700';
+      }
+    }
+    if (content) {
+      content.style.display = st === subtab ? 'flex' : 'none';
+    }
+  });
+
+  if (subtab === 'montaveis' && typeof window.initAdminMontaveis === 'function') {
+    window.initAdminMontaveis();
+  }
+};
+
+
+  window.toggleConfigSidebar = function() {
+    const sidebar = document.querySelector('.config-sidebar');
+    if (!sidebar) return;
+    sidebar.classList.toggle('collapsed');
+    localStorage.setItem('configSidebarCollapsed', sidebar.classList.contains('collapsed'));
+  };
+
 document.addEventListener('DOMContentLoaded', () => {
   const langSelect = document.getElementById('select-idioma');
   if (langSelect) {
@@ -1782,6 +1818,49 @@ function initGeraisTab() {
         salvarConfiguracoes();
       };
     });
+  }
+
+  
+  // ── BINDING DA VERSÃO DA INTERFACE DO CAIXA (CLÁSSICO VS MACOS V2) ──
+  const currentVersao = configs.versao_interface_caixa || localStorage.getItem('chef_versao_interface_caixa') || 'v1';
+  const radioV1 = document.getElementById('radio-versao-v1');
+  const radioV2 = document.getElementById('radio-versao-v2');
+  const cardV1 = document.getElementById('card-versao-v1');
+  const cardV2 = document.getElementById('card-versao-v2');
+
+  function updateCardsVersaoUI(v) {
+    if (radioV1 && radioV2) {
+      radioV1.checked = (v === 'v1');
+      radioV2.checked = (v === 'v2');
+    }
+    if (cardV1 && cardV2) {
+      cardV1.style.borderColor = (v === 'v1') ? '#fc4b15' : 'var(--cfg-border)';
+      cardV1.style.background = (v === 'v1') ? 'rgba(252,75,21,0.06)' : 'var(--cfg-subtle-bg)';
+      cardV2.style.borderColor = (v === 'v2') ? '#fc4b15' : 'var(--cfg-border)';
+      cardV2.style.background = (v === 'v2') ? 'rgba(252,75,21,0.06)' : 'var(--cfg-subtle-bg)';
+    }
+  }
+
+  updateCardsVersaoUI(currentVersao);
+
+  if (radioV1) {
+    radioV1.onchange = () => {
+      configs.versao_interface_caixa = 'v1';
+      localStorage.setItem('chef_versao_interface_caixa', 'v1');
+      updateCardsVersaoUI('v1');
+      salvarConfiguracoes();
+      if (typeof showToast === 'function') showToast('Versão 1.0 Clássica ativada para o Caixa!', 'success');
+    };
+  }
+
+  if (radioV2) {
+    radioV2.onchange = () => {
+      configs.versao_interface_caixa = 'v2';
+      localStorage.setItem('chef_versao_interface_caixa', 'v2');
+      updateCardsVersaoUI('v2');
+      salvarConfiguracoes();
+      if (typeof showToast === 'function') showToast('Versão 2.0 macOS Pro ativada para o Caixa!', 'success');
+    };
   }
 
   const selectQrProtocol = document.getElementById('select-qr-protocol');
@@ -8241,26 +8320,30 @@ window.initAdminMontaveis = function() {
     .catch(() => {});
 };
 
+
 window.renderAdminMontaveis = function(rows) {
   const list = document.getElementById('admin-montaveis-list');
   if (!list) return;
   if (!rows || rows.length === 0) {
-    list.innerHTML = '<div style="text-align:center; padding:40px; color:#94a3b8;"><i class="ph ph-puzzle-piece" style="font-size:48px; display:block; margin-bottom:8px;"></i>Nenhum item montável criado.<br>Clique em "Novo Item Montável" para começar.</div>';
+    list.innerHTML = '<div style="grid-column:1/-1; padding:30px; text-align:center; color:var(--cfg-text-muted); background:var(--cfg-subtle-bg); border-radius:12px; border:1.5px dashed var(--cfg-border); font-size:14px;">' +
+      '<i class="ph-bold ph-puzzle-piece" style="font-size:32px; color:#8b5cf6; display:block; margin-bottom:8px;"></i>' +
+      'Nenhum item montável cadastrado ainda.<br><span style="font-size:12.5px;">Clique em <strong>+ Novo Item Montável</strong> acima para configurar seu primeiro item composto.</span></div>';
     return;
   }
   list.innerHTML = rows.map(m => {
-    const pricing = m.pricing_model === 'fixo' ? 'Preço Fixo R$ ' + Number(m.preco_fixo || 0).toFixed(2).replace('.', ',') : 'Soma das composições';
-    return '<div style="background:white; border:1px solid #e2e8f0; border-radius:12px; padding:16px; display:flex; justify-content:space-between; align-items:center;">' +
+    const pricing = m.pricing_model === 'fixo' ? 'Preço Fixo R$ ' + Number(m.preco_fixo || 0).toFixed(2).replace('.', ',') : 'Soma das opções';
+    return '<div style="background:var(--cfg-card-bg); border:1.5px solid var(--cfg-border); border-radius:14px; padding:18px; display:flex; justify-content:space-between; align-items:center; gap:12px; box-shadow:0 4px 12px rgba(0,0,0,0.03);">' +
       '<div>' +
-      '<div style="font-weight:700; font-size:15px;">' + (m.produto_emoji || '🍽️') + ' ' + escHtml(m.produto_nome || 'Produto #' + m.produto_id) + '</div>' +
-      '<div style="font-size:12px; color:#64748b; margin-top:2px;">' + escHtml(pricing) + '</div>' +
+      '<div style="font-weight:800; font-size:16px; color:var(--cfg-heading); display:flex; align-items:center; gap:8px;">' + (m.produto_emoji || '🧩') + ' ' + escHtml(m.produto_nome || 'Produto #' + m.produto_id) + '</div>' +
+      '<div style="font-size:12.5px; color:#8b5cf6; font-weight:700; margin-top:4px;"><i class="ph-bold ph-coins"></i> ' + escHtml(pricing) + '</div>' +
       '</div>' +
-      '<div style="display:flex; gap:6px;">' +
-      '<button onclick="window.editarMontavel(' + m.id + ')" style="background:#f1f5f9; border:none; padding:6px 12px; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer;">Editar</button>' +
-      '<button onclick="window.excluirMontavel(' + m.id + ')" style="background:#fef2f2; color:#dc2626; border:none; padding:6px 12px; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer;">Excluir</button>' +
+      '<div style="display:flex; gap:8px;">' +
+      '<button onclick="window.editarMontavel(' + m.id + ')" style="background:rgba(139,92,246,0.12); color:#8b5cf6; border:1px solid rgba(139,92,246,0.3); padding:8px 14px; border-radius:8px; font-size:12.5px; font-weight:800; cursor:pointer;"><i class="ph-bold ph-pencil-simple"></i> Editar</button>' +
+      '<button onclick="window.excluirMontavel(' + m.id + ')" style="background:rgba(239,68,68,0.1); color:#ef4444; border:1px solid rgba(239,68,68,0.25); padding:8px 12px; border-radius:8px; font-size:12.5px; font-weight:800; cursor:pointer;"><i class="ph-bold ph-trash"></i></button>' +
       '</div></div>';
   }).join('');
 };
+
 
 window.abrirModalMontavel = function(montavel) {
   const modal = document.getElementById('modal-montavel');
@@ -9661,3 +9744,103 @@ window.salvarMarcaSuporteUI = function() {
       if (msgContainer) msgContainer.scrollTop = msgContainer.scrollHeight;
     }
   };
+
+
+  // ── GERENCIADOR DOS MÓDULOS DA CENTRAL OPERACIONAL / CAIXA V1.1 ──
+  const MODULOS_DISPONIVEIS_CENTRAL = [
+    { id: 'resumo', nome: 'Resumo do Dia & Caixa', desc: 'Faturamento, mesas ocupadas, contas pedidas e ações de suprimento/sangria', icone: 'ph-chart-bar', cor: '#10b981', defSize: 'l' },
+    { id: 'mesas', nome: 'Mesas & Comandas', desc: 'Mapa rápido de mesas do salão, comanda digital e transferência', icone: 'ph-squares-four', cor: '#fc4b15', defSize: 'l' },
+    { id: 'chamados', nome: 'Chamados & Contas Solicitadas', desc: 'Alertas de clientes e garçons solicitando fechamento ou atendimento', icone: 'ph-hand-raising', cor: '#3b82f6', defSize: 'm' },
+    { id: 'fila', nome: 'Fila de Cozinha & KDS', desc: 'Itens em preparo na cozinha aguardando entrega no salão', icone: 'ph-cooking-pot', cor: '#f59e0b', defSize: 'm' },
+    { id: 'entregas', nome: 'Delivery & Motoboys', desc: 'Pedidos em rota de entrega e disponibilidade de motoboys', icone: 'ph-moped', cor: '#f59e0b', defSize: 'm' },
+    { id: 'tarefas', nome: 'Checklist & Tarefas do Turno', desc: 'Controle de tarefas operacionais de abertura, limpeza e fechamento', icone: 'ph-check-square', cor: '#3b82f6', defSize: 'm' },
+    { id: 'estoque', nome: 'Estoque Crítico & Alertas', desc: 'Avisos visuais de ingredientes ou produtos com estoque baixo', icone: 'ph-warning', cor: '#ef4444', defSize: 's' },
+    { id: 'balanca', nome: 'Balança Comercial & Buffet', desc: 'Pesagem rápida com cálculo por kg e ajuste de tara de pratos', icone: 'ph-scales', cor: '#ec4899', defSize: 'm' },
+    { id: 'fidelidade', nome: 'Fidelidade & Cashback', desc: 'Consulta e resgate de saldo de cashback por CPF do cliente', icone: 'ph-gift', cor: '#8b5cf6', defSize: 'm' },
+    { id: 'ponto', nome: 'Ponto do Colaborador', desc: 'QR Code de registro de ponto em tempo real para os colaboradores', icone: 'ph-fingerprint', cor: '#0f172a', defSize: 's' },
+    { id: 'atalhos', nome: 'Todas as Seções & Atalhos', desc: 'Grid de botões rápidos para todas as páginas operacionais', icone: 'ph-rocket-launch', cor: '#fc4b15', defSize: 'l' }
+  ];
+
+  window.renderizarConfiguracaoModulosHome = function() {
+    const container = document.getElementById('lista-modulos-config-painel');
+    if (!container) return;
+
+    let layoutSalvo = {};
+    try {
+      layoutSalvo = JSON.parse(localStorage.getItem('chef_v11_layout_v1') || '{}');
+    } catch(e) {}
+
+    const desktopLayout = layoutSalvo.desktop || { order: [], hidden: [], sizes: {} };
+    const hiddenList = desktopLayout.hidden || [];
+    const sizesMap = desktopLayout.sizes || {};
+
+    container.innerHTML = MODULOS_DISPONIVEIS_CENTRAL.map(mod => {
+      const isAtivo = !hiddenList.includes(mod.id);
+      const sizeAtual = sizesMap[mod.id] || mod.defSize;
+
+      return `
+        <div style="background:var(--cfg-subtle-bg); border:1.5px solid var(--cfg-border); border-radius:14px; padding:16px; display:flex; flex-direction:column; justify-content:space-between; gap:12px;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <div style="width:36px; height:36px; border-radius:10px; background:${mod.cor}15; color:${mod.cor}; display:flex; align-items:center; justify-content:center; font-size:20px;">
+                <i class="ph-bold ${mod.icone}"></i>
+              </div>
+              <div>
+                <strong style="font-size:14px; color:var(--cfg-heading); display:block;">${mod.nome}</strong>
+                <span style="font-size:11.5px; color:var(--cfg-text-muted); line-height:1.3; display:block;">${mod.desc}</span>
+              </div>
+            </div>
+            <label style="cursor:pointer; display:flex; align-items:center;">
+              <input type="checkbox" id="cfg-mod-ativo-${mod.id}" ${isAtivo ? 'checked' : ''} style="width:18px; height:18px; accent-color:#fc4b15; cursor:pointer;">
+            </label>
+          </div>
+
+          <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--cfg-border); padding-top:10px; margin-top:4px;">
+            <span style="font-size:12px; font-weight:700; color:var(--cfg-text-muted);">Tamanho:</span>
+            <select id="cfg-mod-size-${mod.id}" style="padding:5px 10px; border-radius:8px; border:1px solid var(--cfg-border); background:var(--cfg-card-bg); color:var(--cfg-text); font-size:12px; font-weight:700; cursor:pointer;">
+              <option value="s" ${sizeAtual === 's' ? 'selected' : ''}>P (Pequeno)</option>
+              <option value="m" ${sizeAtual === 'm' ? 'selected' : ''}>M (Médio)</option>
+              <option value="l" ${sizeAtual === 'l' ? 'selected' : ''}>G (Grande / Largura Total)</option>
+            </select>
+          </div>
+        </div>
+      `;
+    }).join('');
+  };
+
+  window.salvarConfiguracaoModulosHome = function() {
+    let layoutSalvo = {};
+    try {
+      layoutSalvo = JSON.parse(localStorage.getItem('chef_v11_layout_v1') || '{}');
+    } catch(e) {}
+
+    const hidden = [];
+    const sizes = {};
+
+    MODULOS_DISPONIVEIS_CENTRAL.forEach(mod => {
+      const chk = document.getElementById(`cfg-mod-ativo-${mod.id}`);
+      const sel = document.getElementById(`cfg-mod-size-${mod.id}`);
+      if (chk && !chk.checked) hidden.push(mod.id);
+      if (sel) sizes[mod.id] = sel.value;
+    });
+
+    ['desktop', 'tv', 'tablet', 'mobile'].forEach(profile => {
+      if (!layoutSalvo[profile]) {
+        layoutSalvo[profile] = { order: MODULOS_DISPONIVEIS_CENTRAL.map(m => m.id), hidden: [], sizes: {} };
+      }
+      layoutSalvo[profile].hidden = hidden;
+      layoutSalvo[profile].sizes = { ...layoutSalvo[profile].sizes, ...sizes };
+    });
+
+    localStorage.setItem('chef_v11_layout_v1', JSON.stringify(layoutSalvo));
+
+    if (typeof showToast === 'function') {
+      showToast('Configurações dos módulos salvas com sucesso!', 'success');
+    } else {
+      alert('Configurações dos módulos salvas com sucesso!');
+    }
+  };
+
+  document.addEventListener('DOMContentLoaded', () => {
+    window.renderizarConfiguracaoModulosHome();
+  });

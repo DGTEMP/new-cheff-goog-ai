@@ -5133,6 +5133,11 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
   db.run(`ALTER TABLE funcionarios ADD COLUMN data_cadastro TEXT`, (err) => { });
   db.run(`ALTER TABLE funcionarios ADD COLUMN restaurante_id INTEGER`, (err) => { });
 
+  db.run("ALTER TABLE funcionarios ADD COLUMN permissoes_estacoes TEXT DEFAULT '["garcom"]'", (err) => { });
+  db.run("ALTER TABLE funcionarios ADD COLUMN permissoes_turno_estacoes TEXT", (err) => { });
+  db.run("ALTER TABLE funcionarios ADD COLUMN permissoes_turno_expira TEXT", (err) => { });
+
+
   db.run(`
     CREATE TABLE IF NOT EXISTS pontos (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -5721,6 +5726,7 @@ db.run(`ALTER TABLE mesas ADD COLUMN taxa_manual REAL`, (e) => { });
   db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('qr_order_flow', 'caixa')`);
   db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('qr_pix_key', '')`);
   db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('qr_pix_name', '')`);
+  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('versao_interface_caixa', 'v1')`);
 
   db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('qr_horario_ativo', 'false')`);
   db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('qr_horario_inicio', '11:00')`);
@@ -6999,7 +7005,103 @@ io.on('connection', (socket) => {
     socket.emit('license_status', { ...state, installId: state.installId });
   });
 
-  // ── transferir_mesa → migrado para plugins/garcom/ ──
+
+  // ── TRANSFERIR MESA ──
+  socket.on('transferir_mesa', ({ mesaAtual, novaMesa, operador }) => {
+    if (!mesaAtual || !novaMesa || mesaAtual === novaMesa) return;
+    db.run(`UPDATE pedidos SET localName = ? WHERE localName = ? AND status NOT IN ('Finalizado','Cancelado')`, [novaMesa, mesaAtual], (err) => {
+      if (!err) {
+        db.run(`UPDATE mesas SET status = 'Disponível' WHERE nome = ?`, [mesaAtual], () => {});
+        db.run(`UPDATE mesas SET status = 'Ocupada' WHERE nome = ?`, [novaMesa], () => {});
+        global.registrarAuditoria(socket.auth?.nome || operador || 'Sistema', 'TRANSFERENCIA_MESA', `Mesa ${mesaAtual} transferida para ${novaMesa}`, 'Operação de Salão', 'MEDIO');
+        _broadcastPedidos();
+        db.all(`SELECT * FROM mesas`, (e, rows) => io.emit('mesas_atualizadas', rows || []));
+      }
+    });
+  });
+
+  // ── TRANSFERIR MESAS ITENS ──
+  socket.on('transferir_mesas_itens', ({ mesaA, mesaB, operador }) => {
+    if (!mesaA || !mesaB || mesaA === mesaB) return;
+    db.run(`UPDATE pedidos SET localName = ?, mesa_grupo = NULL WHERE localName = ? AND status NOT IN ('Finalizado','Cancelado')`, [mesaB, mesaA], (err) => {
+      if (!err) {
+        db.run(`UPDATE mesas SET status = 'Disponível' WHERE nome = ?`, [mesaA], () => {});
+        db.run(`UPDATE mesas SET status = 'Ocupada' WHERE nome = ?`, [mesaB], () => {});
+        global.registrarAuditoria(socket.auth?.nome || operador || 'Sistema', 'TRANSFERENCIA_MESAS_ITENS', `Itens de ${mesaA} movidos para ${mesaB}. Mesa ${mesaA} liberada.`, 'Operação de Salão', 'MEDIO');
+        _broadcastPedidos();
+        db.all(`SELECT * FROM mesas`, (e, rows) => io.emit('mesas_atualizadas', rows || []));
+      }
+    });
+  });
+
+  // ── TRANSFERIR ITEM INDIVIDUAL ──
+  socket.on('transferir_item', ({ itemId, novaMesa, operador }) => {
+    if (!itemId || !novaMesa) return;
+    db.run(`UPDATE pedidos SET localName = ? WHERE id = ?`, [novaMesa, itemId], (err) => {
+      if (!err) {
+        db.run(`UPDATE mesas SET status = 'Ocupada' WHERE nome = ?`, [novaMesa], () => {});
+        global.registrarAuditoria(socket.auth?.nome || operador || 'Sistema', 'TRANSFERENCIA_ITEM', `Item #${itemId} transferido para ${novaMesa}`, 'Operação de Salão', 'MEDIO');
+        _broadcastPedidos();
+        db.all(`SELECT * FROM mesas`, (e, rows) => io.emit('mesas_atualizadas', rows || []));
+      }
+    });
+  });
+
+  // ── JUNTAR MESAS ──
+  socket.on('juntar_mesas', ({ mesaA, mesaB, operador }, ack) => {
+    const responder = (ok, mensagem) => {
+      if (typeof ack === 'function') ack({ ok, mensagem });
+      else if (!ok) socket.emit('erro_servidor', mensagem);
+    };
+    if (!mesaA || !mesaB || mesaA === mesaB) return responder(false, 'Mesas inválidas para junção.');
+    db.all(`SELECT * FROM mesas WHERE nome IN (?, ?)`, [mesaA, mesaB], (eSel, alvos) => {
+      if (eSel || !alvos || alvos.length < 2) return responder(false, 'Mesa não encontrada.');
+      const tokenBase = alvos.map(m => m.grupo_juncao).filter(Boolean)[0] || `J${Date.now()}`;
+      const nomesAlvo = alvos.map(m => m.nome);
+      db.all(`SELECT * FROM mesas WHERE grupo_juncao = ? OR nome IN (?, ?)`, [tokenBase, mesaA, mesaB], (eGrp, grupo) => {
+        const integrantes = [...new Set([...(grupo || []).map(m => m.nome), ...nomesAlvo])];
+        db.run(`UPDATE mesas SET grupo_juncao = ? WHERE grupo_juncao = ? OR nome IN (${integrantes.map(() => '?').join(', ')})`,
+          [tokenBase, tokenBase, ...integrantes], (eUp) => {
+            if (eUp) return responder(false, 'Falha ao juntar as mesas.');
+            const rotulo = integrantes.slice().sort((a, b) => a.localeCompare(b, 'pt-BR', { numeric: true })).join(' + ');
+            db.run(`UPDATE pedidos SET mesa_grupo = ? WHERE localName IN (${integrantes.map(() => '?').join(', ')}) AND status NOT IN ('Finalizado','Cancelado')`,
+              [rotulo, ...integrantes], () => {
+                global.registrarAuditoria(operador || 'Sistema', 'JUNCAO_MESAS', `${integrantes.join(' + ')} → grupo "${rotulo}"`, 'Operação de Salão', 'BAIXO');
+                db.all(`SELECT * FROM mesas`, (e, rows) => io.emit('mesas_atualizadas', rows || []));
+                _broadcastPedidos();
+                responder(true, `Mesas unidas: ${rotulo}`);
+              });
+          });
+      });
+    });
+  });
+
+  // ── DESFAZER JUNÇÃO ──
+  socket.on('desfazer_juncao', ({ mesaNome, operador }, ack) => {
+    const responder = (ok, mensagem) => {
+      if (typeof ack === 'function') ack({ ok, mensagem });
+      else if (!ok) socket.emit('erro_servidor', mensagem);
+    };
+    if (!mesaNome) return responder(false, 'Mesa inválida.');
+    db.get(`SELECT grupo_juncao FROM mesas WHERE nome = ?`, [mesaNome], (eSel, row) => {
+      if (eSel || !row) return responder(false, 'Mesa não encontrada.');
+      if (!row.grupo_juncao) return responder(true, 'Esta mesa não está em junção.');
+      db.all(`SELECT nome FROM mesas WHERE grupo_juncao = ?`, [row.grupo_juncao], (eG, grupo) => {
+        const nomes = (grupo || []).map(g => g.nome);
+        db.run(`UPDATE mesas SET grupo_juncao = NULL WHERE grupo_juncao = ?`, [row.grupo_juncao], () => {
+          if (nomes.length) {
+            db.run(`UPDATE pedidos SET mesa_grupo = NULL WHERE localName IN (${nomes.map(() => '?').join(', ')}) AND status NOT IN ('Finalizado','Cancelado')`,
+              nomes, () => { });
+          }
+          global.registrarAuditoria(operador || 'Sistema', 'DESFAZER_JUNCAO', `Grupo ${nomes.join(' + ')} desfeito`, 'Operação de Salão', 'BAIXO');
+          db.all(`SELECT * FROM mesas`, (e, rows) => io.emit('mesas_atualizadas', rows || []));
+          _broadcastPedidos();
+          responder(true, 'Junção desfeita.');
+        });
+      });
+    });
+  });
+
 
   // ── juntar_mesas → migrado para plugins/garcom/ ──
 
@@ -12362,6 +12464,163 @@ app.post('/api/auth/equipe-onboarding', verificarToken, async (req, res) => {
     res.json({ success: true, criados, erros });
   });
 });
+
+
+// ── AUTENTICAÇÃO DE COLABORADOR (POR PIN OU USUÁRIO/SENHA) COM SELEÇÃO DE ESTAÇÕES ──────────
+app.post('/api/auth/login-colaborador', async (req, res) => {
+  const { pin, usuario, senha, restaurante_id } = req.body || {};
+  const rid = parseInt(restaurante_id) || 1;
+
+  function compilarEstacoes(func) {
+    let estacoes = [];
+    const cargoLower = (func.cargo || 'garcom').toLowerCase();
+    
+    // 1. Estação base do cargo
+    if (['garcom', 'garçom'].includes(cargoLower)) estacoes.push('garcom');
+    else if (['caixa', 'operador de caixa', 'atendente'].includes(cargoLower)) estacoes.push('caixa');
+    else if (['cozinha', 'cozinheiro', 'chapeiro', 'bar', 'copa'].includes(cargoLower)) estacoes.push('cozinha');
+    else if (['gerente', 'gerência', 'administrador', 'admin'].includes(cargoLower)) estacoes.push('garcom', 'caixa', 'cozinha', 'gestao');
+
+    // 2. Permissões permanentes configuradas pelo Dono
+    if (func.permissoes_estacoes) {
+      try {
+        const parsed = JSON.parse(func.permissoes_estacoes);
+        if (Array.isArray(parsed)) estacoes = Array.from(new Set([...estacoes, ...parsed]));
+      } catch(e) {}
+    }
+
+    // 3. Permissões temporárias para o Turno Atual
+    if (func.permissoes_turno_estacoes && func.permissoes_turno_expira) {
+      if (new Date(func.permissoes_turno_expira) > new Date()) {
+        try {
+          const parsedTurno = JSON.parse(func.permissoes_turno_estacoes);
+          if (Array.isArray(parsedTurno)) estacoes = Array.from(new Set([...estacoes, ...parsedTurno]));
+        } catch(e) {}
+      }
+    }
+
+    if (estacoes.length === 0) estacoes.push('garcom');
+    return estacoes;
+  }
+
+  // 1. Autenticação rápida por PIN
+  if (pin) {
+    const pinStr = String(pin).trim().toUpperCase();
+    
+    // Verificar em pins_temporarios
+    db.get(`SELECT * FROM pins_temporarios WHERE pin = ? AND ativo = 1`, [pinStr], (errPin, pRow) => {
+      if (!errPin && pRow) {
+        if (pRow.expira_em && new Date(pRow.expira_em) < new Date()) {
+          return res.status(401).json({ success: false, error: 'Este PIN expirou. Solicite um novo à gerência.' });
+        }
+        if (pRow.max_usos > 0 && pRow.usos_atual >= pRow.max_usos) {
+          return res.status(401).json({ success: false, error: 'Limite de usos deste PIN atingido.' });
+        }
+        
+        db.run(`UPDATE pins_temporarios SET usos_atual = usos_atual + 1 WHERE id = ?`, [pRow.id], () => {});
+        
+        const estacoes = ['garcom'];
+        const token = jwt.sign({ id: pRow.id, restaurante_id: rid, role: 'garcom', nome: pRow.nome_colaborador || 'Colaborador PIN' }, JWT_SECRET, { expiresIn: '12h' });
+        return res.json({
+          success: true,
+          token,
+          restaurante_id: rid,
+          role: 'garcom',
+          nome: pRow.nome_colaborador || 'Colaborador PIN',
+          estacoes,
+          redirectUrl: '/garcom.html'
+        });
+      }
+
+      // Verificar em funcionarios pelo PIN (ou senha)
+      db.get(`SELECT * FROM funcionarios WHERE (senha = ? OR usuario = ?) AND status != 'Inativo'`, [pinStr, pinStr], (errF, func) => {
+        if (errF || !func) {
+          return res.status(401).json({ success: false, error: 'PIN ou credencial não encontrada.' });
+        }
+
+        const estacoes = compilarEstacoes(func);
+        const role = func.cargo || 'garcom';
+        let defaultRedirect = '/garcom.html';
+        if (estacoes.includes('caixa')) defaultRedirect = '/index.html';
+        else if (estacoes.includes('cozinha')) defaultRedirect = '/fila-pedidos.html';
+
+        const token = jwt.sign({ id: func.id, restaurante_id: func.restaurante_id || rid, role, nome: func.nome }, JWT_SECRET, { expiresIn: '12h' });
+        return res.json({
+          success: true,
+          token,
+          restaurante_id: func.restaurante_id || rid,
+          role,
+          nome: func.nome,
+          estacoes,
+          redirectUrl: defaultRedirect
+        });
+      });
+    });
+    return;
+  }
+
+  // 2. Autenticação por Usuário + Senha do Colaborador
+  if (usuario && senha) {
+    db.get(`SELECT * FROM funcionarios WHERE usuario = ? AND status != 'Inativo'`, [String(usuario).trim()], (errF, func) => {
+      if (errF || !func) {
+        return res.status(401).json({ success: false, error: 'Colaborador não encontrado ou inativo.' });
+      }
+
+      const senhaValida = (func.senha === senha || (func.senha && func.senha.startsWith('$2') && bcrypt.compareSync(senha, func.senha)));
+      if (!senhaValida) {
+        return res.status(401).json({ success: false, error: 'Senha incorreta do colaborador.' });
+      }
+
+      const estacoes = compilarEstacoes(func);
+      const role = func.cargo || 'garcom';
+      let defaultRedirect = '/garcom.html';
+      if (estacoes.includes('caixa')) defaultRedirect = '/index.html';
+      else if (estacoes.includes('cozinha')) defaultRedirect = '/fila-pedidos.html';
+
+      const token = jwt.sign({ id: func.id, restaurante_id: func.restaurante_id || rid, role, nome: func.nome }, JWT_SECRET, { expiresIn: '12h' });
+      return res.json({
+        success: true,
+        token,
+        restaurante_id: func.restaurante_id || rid,
+        role,
+        nome: func.nome,
+        estacoes,
+        redirectUrl: defaultRedirect
+      });
+    });
+    return;
+  }
+
+  return res.status(400).json({ success: false, error: 'Informe seu PIN ou Usuário e Senha.' });
+});
+
+// ── ROTA DO DONO: ATRIBUIR PERMISSÕES DE ESTAÇÃO (PERMANENTE OU TURNO ATUAL) ──
+app.post('/api/funcionarios/:id/permissoes-estacoes', (req, res) => {
+  const fid = parseInt(req.params.id);
+  const { estacoes, tipo, horas_validade } = req.body || {};
+  if (!fid || !Array.isArray(estacoes)) return res.status(400).json({ success: false, error: 'Dados inválidos' });
+
+  const estacoesJson = JSON.stringify(estacoes);
+
+  if (tipo === 'turno') {
+    // Permissão temporária para o turno atual
+    const horas = parseInt(horas_validade) || 8;
+    const expira = new Date(Date.now() + horas * 3600 * 1000).toISOString();
+    db.run(`UPDATE funcionarios SET permissoes_turno_estacoes = ?, permissoes_turno_expira = ? WHERE id = ?`,
+      [estacoesJson, expira, fid], (err) => {
+        if (err) return res.status(500).json({ success: false, error: err.message });
+        res.json({ success: true, tipo: 'turno', expira });
+      });
+  } else {
+    // Permissão permanente
+    db.run(`UPDATE funcionarios SET permissoes_estacoes = ? WHERE id = ?`,
+      [estacoesJson, fid], (err) => {
+        if (err) return res.status(500).json({ success: false, error: err.message });
+        res.json({ success: true, tipo: 'permanente' });
+      });
+  }
+});
+
 
 app.post('/api/auth/login', async (req, res) => {
   const { email, senha } = req.body;
