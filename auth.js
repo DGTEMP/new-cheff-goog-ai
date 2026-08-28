@@ -98,6 +98,19 @@ if (typeof window !== 'undefined') {
             window.location.href = '/login.html';
           }
         });
+
+        s.on('forcar_logout_duplicado', function(data) {
+          const creds = localStorage.getItem('chef_credentials') ? JSON.parse(localStorage.getItem('chef_credentials')) : {};
+          const myUser = creds.usuario || creds.nome || '';
+          const myUserId = localStorage.getItem('usuario_id') || creds.id || '';
+          
+          if (!data || (data.usuario_id && String(data.usuario_id) === String(myUserId)) || (data.usuario && String(data.usuario).toLowerCase() === String(myUser).toLowerCase())) {
+            localStorage.clear();
+            sessionStorage.clear();
+            alert(data?.motivo || 'Esta conta foi conectada em outro dispositivo. Esta sessão foi finalizada.');
+            window.location.href = '/login.html';
+          }
+        });
       }
     }
   });

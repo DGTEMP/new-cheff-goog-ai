@@ -7,11 +7,38 @@ let isMatrixAnimating = true;
 const pendingLogs = [];
 let tableGames = {};
 
-// �?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?
+const ANSI = {
+  reset: "\x1b[0m",
+  bright: "\x1b[1m",
+  dim: "\x1b[2m",
+  green: "\x1b[32m",
+  yellow: "\x1b[33m",
+  cyan: "\x1b[36m",
+  magenta: "\x1b[35m",
+  red: "\x1b[31m",
+  blue: "\x1b[34m",
+  white: "\x1b[37m",
+  bgBlue: "\x1b[44m\x1b[37m",
+  bgCyan: "\x1b[46m\x1b[30m",
+  bgMagenta: "\x1b[45m\x1b[37m",
+  bgGreen: "\x1b[42m\x1b[30m"
+};
+
+// Medição de disponibilidade do servidor
+const serverStartTime = Date.now();
+function getEfficiencyStars() {
+  const memRssMb = process.memoryUsage().rss / (1024 * 1024);
+  if (memRssMb < 150) return "⭐⭐⭐⭐⭐ [100% EXCELENTE]";
+  if (memRssMb < 300) return "⭐⭐⭐⭐ [95% ÓTIMO]";
+  if (memRssMb < 500) return "⭐⭐⭐ [85% BOM]";
+  return "⭐⭐ [ATENÇÃO RESTRIÇÃO]";
+}
+
+// ────────────────────────────────────────────────────────────────────────────
 // 🎉 ANIMAÇÃO DE VITÓRIA — NOVO RESTAURANTE CADASTRADO
-// �?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?
+// ────────────────────────────────────────────────────────────────────────────
 function celebrarNovoRestaurante(nome, id, dono) {
-  const frames = ['🎉', '🎊', '✨', '�?�', '🌟', '🎆', '🎇'];
+  const frames = ['🎉', '🎊', '✨', '🎈', '🌟', '🎆', '🎇'];
   let f = 0;
   const spinner = setInterval(() => {
     process.stdout.write(`\r  ${frames[f % frames.length]}  Processando novo cliente... `);
@@ -25,14 +52,14 @@ function celebrarNovoRestaurante(nome, id, dono) {
     const ts = new Date().toLocaleTimeString('pt-BR');
     const banner = [
       '',
-      `${ANSI.yellow}${ANSI.bright}  ╔�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?╗${ANSI.reset}`,
-      `${ANSI.yellow}${ANSI.bright}  ║   �?�  NOVO RESTAURANTE CADASTRADO  �?�            ║${ANSI.reset}`,
-      `${ANSI.yellow}${ANSI.bright}  ╠�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?╣${ANSI.reset}`,
-      `${ANSI.yellow}  ║${ANSI.reset}  ${ANSI.cyan}�?� Nome:${ANSI.reset}   ${ANSI.bright}${nome}${ANSI.reset}`,
+      `${ANSI.yellow}${ANSI.bright}  ╔══════════════════════════════════════════════════════════════╗${ANSI.reset}`,
+      `${ANSI.yellow}${ANSI.bright}  ║   ✨  NOVO RESTAURANTE CADASTRADO  ✨            ║${ANSI.reset}`,
+      `${ANSI.yellow}${ANSI.bright}  ╠══════════════════════════════════════════════════════════════╣${ANSI.reset}`,
+      `${ANSI.yellow}  ║${ANSI.reset}  ${ANSI.cyan}🏷 Nome:${ANSI.reset}   ${ANSI.bright}${nome}${ANSI.reset}`,
       `${ANSI.yellow}  ║${ANSI.reset}  ${ANSI.green}🆔 ID:${ANSI.reset}     #${id}`,
       dono ? `${ANSI.yellow}  ║${ANSI.reset}  ${ANSI.magenta}👤 Dono:${ANSI.reset}   ${dono}` : null,
-      `${ANSI.yellow}  ║${ANSI.reset}  ${ANSI.dim}�? Hora:${ANSI.reset}   ${ts}`,
-      `${ANSI.yellow}${ANSI.bright}  ╚�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?${ANSI.reset}`,
+      `${ANSI.yellow}  ║${ANSI.reset}  ${ANSI.dim}🕒 Hora:${ANSI.reset}   ${ts}`,
+      `${ANSI.yellow}${ANSI.bright}  ╚══════════════════════════════════════════════════════════════╝${ANSI.reset}`,
       `  ${ANSI.green}${ANSI.bright}🎊 Bem-vindo ao ecossistema Chef Cozinha SaaS! 🎊${ANSI.reset}`,
       '',
     ].filter(Boolean).join('\n');
@@ -56,34 +83,6 @@ function celebrarNovoRestaurante(nome, id, dono) {
   }, 800);
 }
 
-
-const ANSI = {
-  reset: "\x1b[0m",
-  bright: "\x1b[1m",
-  dim: "\x1b[2m",
-  green: "\x1b[32m",
-  yellow: "\x1b[33m",
-  cyan: "\x1b[36m",
-  magenta: "\x1b[35m",
-  red: "\x1b[31m",
-  blue: "\x1b[34m",
-  white: "\x1b[37m",
-  bgBlue: "\x1b[44m\x1b[37m",
-  bgCyan: "\x1b[46m\x1b[30m",
-  bgMagenta: "\x1b[45m\x1b[37m",
-  bgGreen: "\x1b[42m\x1b[30m"
-};
-
-// Medição de disponibilidade do servidor
-const serverStartTime = Date.now();
-function getEfficiencyStars() {
-  const memRssMb = process.memoryUsage().rss / (1024 * 1024);
-  if (memRssMb < 150) return "�?�?�?�?�? [100% EXCELENTE]";
-  if (memRssMb < 300) return "�?�?�?�? [95% ÓTIMO]";
-  if (memRssMb < 500) return "�?�?�? [85% BOM]";
-  return "�?�? [ATENÇÃO RESTRIÇÃO]";
-}
-
 console.log = function (...args) {
   const line = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(' ');
   logLines.push(`[LOG] ${new Date().toLocaleTimeString('pt-BR')} - ${line}`);
@@ -96,7 +95,7 @@ console.log = function (...args) {
   if (/^\[Cli-Click\]/.test(line)) {
     const content = line.replace(/^\[Cli-Click\]/, '').trim();
     const parts = content.split(' | ');
-    formatted = `${ANSI.magenta}╭─ 🖱�?  ${ANSI.bright}AÇÃO DO USU�?RIO${ANSI.reset} ${ANSI.dim}────── [${timeStr}] ──╮${ANSI.reset}\n` +
+    formatted = `${ANSI.magenta}╭─ 🖱️  ${ANSI.bright}AÇÃO DO USUÁRIO${ANSI.reset} ${ANSI.dim}────── [${timeStr}] ──╮${ANSI.reset}\n` +
                 parts.map(p => `${ANSI.magenta}│${ANSI.reset}   ${ANSI.cyan}•${ANSI.reset} ${p}`).join('\n') + `\n` +
                 `${ANSI.magenta}╰──────────────────────────────────────╯${ANSI.reset}`;
   }
@@ -118,7 +117,7 @@ console.error = function (...args) {
   const line = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(' ');
   logLines.push(`[ERR] ${new Date().toLocaleTimeString('pt-BR')} - ${line}`);
   if (logLines.length > 100) logLines.shift();
-  originalError.apply(console, [`\n${ANSI.red}${ANSI.bright}�?� [${new Date().toLocaleTimeString('pt-BR')}] [ERRO] ${line}${ANSI.reset}\n`]);
+  originalError.apply(console, [`\n${ANSI.red}${ANSI.bright}❌ [${new Date().toLocaleTimeString('pt-BR')}] [ERRO] ${line}${ANSI.reset}\n`]);
 };
 
 const express = require('express');
@@ -159,59 +158,10 @@ const masterDb = new sqlite3.Database(path.join(__dirname, 'master.sqlite'), (er
 });
 const multer = require('multer');
 const nfceService = require('./nfce-service');
-const ifoodApi = require('./ifood-integration');
-const deploymentConfig = require('./deployment-config');
-const instanceIdentity = require('./instance-identity');
-const dbProxy = require('./db-proxy');
-const loadPlugins = require('./plugin-loader');
-const TunnelManager = require('./tunnel-manager');
-const tunnelManager = new TunnelManager();
-const CloudBackupManager = require('./cloud-backup-manager');
-const { setupRedisAdapter } = require('./redis-adapter-loader');
-const cloudBackupManager = new CloudBackupManager({ baseDir: __dirname });
-const LicenseGuard = require('./license-guard');
-const licenseGuard = new LicenseGuard({ baseDir: __dirname });
-const geoTrafficEngine = require('./geo-traffic-engine');
-tunnelManager.setDb(masterDb);
-
-// Carrega variáveis do arquivo .env (sem dependência externa)
-try {
-  const envFile = path.join(__dirname, '.env');
-  if (fs.existsSync(envFile)) {
-    fs.readFileSync(envFile, 'utf8').split(/\r?\n/).forEach(line => {
-      const m = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/);
-      if (m && process.env[m[1]] === undefined) {
-        process.env[m[1]] = m[2].replace(/^["']|["']$/g, '');
-      }
-    });
-  }
-} catch (e) {
-  console.error('[Startup] Erro ao carregar .env:', e.message);
-}
-
 // ── NOTIFICAÇÕES PUSH (Web Push API) ──
 const webpush = require('web-push');
-const VAPID_PUBLIC_KEY = 'BCaA01Z--nSI2tJaXLNEf_mlW959ex1fW7x-jAH1tYSEqVYemjVApDllzr1jpwQqB_nlyjX3GIRb9uEyP_IUuRI';
-const VAPID_PRIVATE_KEY = '3Jo6x74iIdc7-YUIFTpbxflkElTMTn-OpKTBvvyCVNQ';
-try {
-  webpush.setVapidDetails(
-    'mailto:notificacoes@chefcozinha.local',
-    VAPID_PUBLIC_KEY,
-    VAPID_PRIVATE_KEY
-  );
-} catch (e) {
-  console.error('Erro ao configurar web-push:', e);
-}
-
-// Envia push para todos os dispositivos cadastrados de um papel (garcom/cozinha)
-async function sendPush(role, title, body, tag, url) {
-  const subscricoes = await new Promise((resolve) => {
-    db.all(`SELECT endpoint, auth, p256dh FROM push_subscriptions WHERE role = ?`, [role], (err, rows) => {
-      if (err) return resolve([]);
-      resolve(rows || []);
-    });
-  });
-  if (!subscricoes.length) return;
+async function sendPush(subscricoes, title, body, tag, url) {
+  if (!subscricoes || !subscricoes.length) return;
   const payload = JSON.stringify({ title, body, tag: tag || 'comanda', url: url || '/garcom.html' });
   await Promise.all(subscricoes.map(async (sub) => {
     if (!sub.endpoint || !sub.auth || !sub.p256dh) return;
@@ -228,6 +178,33 @@ async function sendPush(role, title, body, tag, url) {
       }
     }
   }));
+}
+const ifoodApi = require('./ifood-integration');
+const deploymentConfig = require('./deployment-config');
+const instanceIdentity = require('./instance-identity');
+const dbProxy = require('./db-proxy');
+const loadPlugins = require('./plugin-loader');
+const TunnelManager = require('./tunnel-manager');
+const tunnelManager = new TunnelManager();
+const CloudBackupManager = require('./cloud-backup-manager');
+const { setupRedisAdapter } = require('./redis-adapter-loader');
+const cloudBackupManager = new CloudBackupManager({ baseDir: __dirname });
+const LicenseGuard = require('./license-guard');
+const licenseGuard = new LicenseGuard({ baseDir: __dirname });
+
+// Carrega variáveis do arquivo .env (sem dependência externa)
+try {
+  const envFile = path.join(__dirname, '.env');
+  if (fs.existsSync(envFile)) {
+    fs.readFileSync(envFile, 'utf8').split(/\r?\n/).forEach(line => {
+      const m = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/);
+      if (m && process.env[m[1]] === undefined) {
+        process.env[m[1]] = m[2].replace(/^["']|["']$/g, '');
+      }
+    });
+  }
+} catch (e) {
+  console.error('[Startup] Erro ao carregar .env:', e.message);
 }
 
 
@@ -1402,10 +1379,16 @@ io.emit = function (event, ...args) {
 const mesasFechando = new Set();
 
 // ── SUPER ADMIN: AUTENTICAÇÃO LOCAL & COOKIE SESSÃO ─────────────────────
-// Middleware: aceita JWT via Cookie HttpOnly, header 'x-super-admin-token' ou query adminToken
+// Middleware: aceita JWT via Cookie HttpOnly, header 'x-super-admin-token', 'authorization' ou query adminToken
 async function superAdminAuth(req, res, next) {
-  const tokenHeader = (req.cookies && req.cookies.super_admin_token) || req.headers['x-super-admin-token'] || req.query.adminToken;
+  let tokenHeader = (req.cookies && req.cookies.super_admin_token) ||
+                    req.headers['x-super-admin-token'] ||
+                    req.headers['authorization'] ||
+                    req.query.adminToken;
   if (tokenHeader) {
+    if (typeof tokenHeader === 'string' && tokenHeader.startsWith('Bearer ')) {
+      tokenHeader = tokenHeader.slice(7).trim();
+    }
     try {
       const decoded = jwt.verify(tokenHeader, JWT_SECRET);
       if (decoded && decoded.role === 'super_admin_local') {
@@ -1414,7 +1397,7 @@ async function superAdminAuth(req, res, next) {
       }
     } catch (e) { }
   }
-  return res.status(401).json({ ok: false, erro: 'Acesso não autorizado. Autentique-se novamente.' });
+  return res.status(401).json({ ok: false, erro: 'Acesso não autorizado ao Super Admin.' });
 }
 
 // ─── GUARDA GLOBAL DE SEGURANÇA SUPER-ADMIN (PROTEÇÃO 100% INVIOLÁVEL) ───────

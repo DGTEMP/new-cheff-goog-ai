@@ -7809,7 +7809,7 @@ initSuperAdminSockets = function () {
   const _tarefasState = { filtro: '', tarefas: [], equipe: [], restaurantes: [] };
 
   function authHeaders() {
-    const t = localStorage.getItem('super_admin_token') || sessionStorage.getItem('super_admin_token') || localStorage.getItem('super_token') || (typeof localToken !== 'undefined' ? localToken : '') || '';
+    const t = localStorage.getItem('super_admin_token') || sessionStorage.getItem('super_admin_token') || localStorage.getItem('chef_super_admin_local_token') || localStorage.getItem('super_token') || (typeof localToken !== 'undefined' ? localToken : '') || '';
     return { 'Authorization': 'Bearer ' + t, 'x-super-admin-token': t, 'Content-Type': 'application/json' };
   }
 
@@ -7835,8 +7835,8 @@ initSuperAdminSockets = function () {
         fetch('/api/super/tarefas' + params, { headers: authHeaders(), credentials: 'include' }).then(r => r.json()),
         fetch('/api/super/tarefas/stats', { headers: authHeaders(), credentials: 'include' }).then(r => r.json())
       ]);
-      if (tRes.ok) _tarefasState.tarefas = tRes.tarefas || [];
-      if (sRes.ok && sRes.stats) {
+      if (tRes && tRes.ok) _tarefasState.tarefas = tRes.tarefas || [];
+      if (sRes && sRes.ok && sRes.stats) {
         const s = sRes.stats;
         const el = (id) => document.getElementById(id);
         if (el('tarefa-stat-pendente')) el('tarefa-stat-pendente').textContent = s.pendente || 0;
@@ -7856,7 +7856,7 @@ initSuperAdminSockets = function () {
     const box = document.getElementById('tarefas-lista');
     if (!box) return;
     const tarefas = _tarefasState.tarefas;
-    if (!tarefas.length) { box.innerHTML = '<div style="text-align:center;padding:40px;color:#999;"><i class="fa-solid fa-check-circle" style="font-size:32px;color:#10b981;display:block;margin-bottom:12px;"></i>Nenhuma tarefa encontrada.</div>'; return; }
+    if (!tarefas || !tarefas.length) { box.innerHTML = '<div style="text-align:center;padding:40px;color:#999;"><i class="fa-solid fa-check-circle" style="font-size:32px;color:#10b981;display:block;margin-bottom:12px;"></i>Nenhuma tarefa encontrada.</div>'; return; }
     box.innerHTML = tarefas.map(t => {
       const dataCriacao = (t.criado_em || t.criada_em) ? new Date(t.criado_em || t.criada_em).toLocaleDateString('pt-BR') + ' ' + new Date(t.criado_em || t.criada_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '—';
       const dataConcl = t.concluido_em ? new Date(t.concluido_em).toLocaleDateString('pt-BR') : '';

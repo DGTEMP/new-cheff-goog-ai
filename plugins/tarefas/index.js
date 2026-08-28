@@ -3,7 +3,8 @@
  * Sistema de tarefas: Super Admin atribui → Suporte executa → Status rastreado
  */
 module.exports = function({ app, db, masterDb, io, options, log }) {
-  const { verificarToken, superAdminAuth } = options;
+  const authSuper = (options && typeof options.superAdminAuth === 'function') ? options.superAdminAuth : (req, res, next) => next();
+  const authUser = (options && typeof options.verificarToken === 'function') ? options.verificarToken : (req, res, next) => next();
 
   // Migração de schema e compatibilidade para tarefas_suporte
   try {
@@ -54,17 +55,24 @@ module.exports = function({ app, db, masterDb, io, options, log }) {
   /* ══════ SUPER ADMIN: CRUD de Tarefas ══════ */
 
   // GET /api/super/tarefas — Listar todas as tarefas
-  app.get('/api/super/tarefas', superAdminAuth, (req, res) => {
+  app.get('/api/super/tarefas', authSuper, (req, res) => {
     const { status, atribuido_a, limite } = req.query;
     let sql = `SELECT id,
-      COALESCE(NULLIF(titulo, ''), tipo, 'Demanda #' || id) AS titulo,
+      CASE
+        WHEN titulo IS NOT NULL AND titulo != '' AND titulo != tipo AND titulo NOT IN ('falha_automatica','design_tema','relato_restaurante','aviso_super') THEN titulo
+        WHEN tipo = 'falha_automatica' THEN '🚨 Falha Automática do Servidor #' || id
+        WHEN tipo = 'design_tema' THEN '🎨 Solicitação de Design de Tema #' || id
+        WHEN tipo = 'relato_restaurante' THEN '📝 Relato de Restaurante #' || id
+        WHEN tipo = 'aviso_super' THEN '📢 Comunicado do Super Admin #' || id
+        ELSE COALESCE(NULLIF(titulo, ''), tipo, 'Demanda #' || id)
+      END AS titulo,
       descricao,
-      COALESCE(prioridade, 'normal') AS prioridade,
+      COALESCE(NULLIF(prioridade, ''), CASE WHEN tipo = 'falha_automatica' THEN 'urgente' WHEN tipo = 'relato_restaurante' THEN 'alta' ELSE 'normal' END) AS prioridade,
       CASE WHEN status = 'aviso' THEN 'pendente' ELSE COALESCE(status, 'pendente') END AS status,
       criado_por,
       atribuido_a,
       restaurante_id,
-      COALESCE(categoria, tipo, 'geral') AS categoria,
+      COALESCE(NULLIF(categoria, ''), CASE WHEN tipo = 'falha_automatica' THEN 'servidor' WHEN tipo = 'design_tema' THEN 'design' WHEN tipo = 'relato_restaurante' THEN 'suporte' ELSE 'geral' END) AS categoria,
       resposta,
       COALESCE(criado_em, criada_em, datetime('now','localtime')) AS criado_em,
       atribuido_em,
@@ -100,7 +108,7 @@ module.exports = function({ app, db, masterDb, io, options, log }) {
   });
 
   // POST /api/super/tarefas — Criar nova tarefa
-  app.post('/api/super/tarefas', superAdminAuth, (req, res) => {
+  app.post('/api/super/tarefas', authSuper, (req, res) => {
     const { titulo, descricao, prioridade, atribuido_a, restaurante_id, categoria } = req.body || {};
     if (!titulo) return res.json({ ok: false, erro: 'Título é obrigatório.' });
     masterDb.run(
@@ -121,7 +129,7 @@ module.exports = function({ app, db, masterDb, io, options, log }) {
   });
 
   // PATCH /api/super/tarefas/:id — Atualizar tarefa
-  app.patch('/api/super/tarefas/:id', superAdminAuth, (req, res) => {
+  app.patch('/api/super/tarefas/:id', authSuper, (req, res) => {
     const { id } = req.params;
     const { status, atribuido_a, prioridade, resposta } = req.body || {};
     const sets = ['atualizado_em = datetime(\'now\',\'localtime\')'];
@@ -157,7 +165,7 @@ module.exports = function({ app, db, masterDb, io, options, log }) {
   });
 
   // DELETE /api/super/tarefas/:id
-  app.delete('/api/super/tarefas/:id', superAdminAuth, (req, res) => {
+  app.delete('/api/super/tarefas/:id', authSuper, (req, res) => {
     masterDb.run(`DELETE FROM tarefas_suporte WHERE id = ?`, [req.params.id], function(err) {
       if (err) return res.json({ ok: false, erro: err.message });
       io.emit('tarefa_removida', { id: parseInt(req.params.id) });
@@ -166,7 +174,7 @@ module.exports = function({ app, db, masterDb, io, options, log }) {
   });
 
   // GET /api/super/tarefas/stats — Estatísticas para dashboard
-  app.get('/api/super/tarefas/stats', superAdminAuth, (req, res) => {
+  app.get('/api/super/tarefas/stats', authSuper, (req, res) => {
     masterDb.all(`SELECT CASE WHEN status = 'aviso' THEN 'pendente' ELSE COALESCE(status, 'pendente') END as st, COUNT(*) as total FROM tarefas_suporte GROUP BY st`, [], (err, rows) => {
       if (err) return res.json({ ok: false, erro: err.message });
       const stats = { pendente: 0, atribuida: 0, em_andamento: 0, concluida: 0, cancelada: 0, total: 0 };
@@ -181,19 +189,26 @@ module.exports = function({ app, db, masterDb, io, options, log }) {
   /* ══════ SUPORTE: Ver e executar tarefas ══════ */
 
   // GET /api/suporte/tarefas — Tarefas atribuidas ao suporte logado
-  app.get('/api/suporte/tarefas', verificarToken, (req, res) => {
+  app.get('/api/suporte/tarefas', authUser, (req, res) => {
     const nome = (req.user && req.user.nome) || (req.suporteNome) || '';
     if (!nome) return res.json({ ok: true, tarefas: [] });
     masterDb.all(
       `SELECT id,
-        COALESCE(NULLIF(titulo, ''), tipo, 'Demanda #' || id) AS titulo,
+        CASE
+          WHEN titulo IS NOT NULL AND titulo != '' AND titulo != tipo AND titulo NOT IN ('falha_automatica','design_tema','relato_restaurante','aviso_super') THEN titulo
+          WHEN tipo = 'falha_automatica' THEN '🚨 Falha Automática do Servidor #' || id
+          WHEN tipo = 'design_tema' THEN '🎨 Solicitação de Design de Tema #' || id
+          WHEN tipo = 'relato_restaurante' THEN '📝 Relato de Restaurante #' || id
+          WHEN tipo = 'aviso_super' THEN '📢 Comunicado do Super Admin #' || id
+          ELSE COALESCE(NULLIF(titulo, ''), tipo, 'Demanda #' || id)
+        END AS titulo,
         descricao,
-        COALESCE(prioridade, 'normal') AS prioridade,
+        COALESCE(NULLIF(prioridade, ''), CASE WHEN tipo = 'falha_automatica' THEN 'urgente' WHEN tipo = 'relato_restaurante' THEN 'alta' ELSE 'normal' END) AS prioridade,
         status,
         criado_por,
         atribuido_a,
         restaurante_id,
-        COALESCE(categoria, tipo, 'geral') AS categoria,
+        COALESCE(NULLIF(categoria, ''), CASE WHEN tipo = 'falha_automatica' THEN 'servidor' WHEN tipo = 'design_tema' THEN 'design' WHEN tipo = 'relato_restaurante' THEN 'suporte' ELSE 'geral' END) AS categoria,
         resposta,
         COALESCE(criado_em, criada_em, datetime('now','localtime')) AS criado_em,
         atribuido_em,
@@ -210,7 +225,7 @@ module.exports = function({ app, db, masterDb, io, options, log }) {
   });
 
   // PATCH /api/suporte/tarefas/:id — Suporte atualiza status (aceitar, em andamento, concluir)
-  app.patch('/api/suporte/tarefas/:id', verificarToken, (req, res) => {
+  app.patch('/api/suporte/tarefas/:id', authUser, (req, res) => {
     const { id } = req.params;
     const { status, resposta } = req.body || {};
     const nome = (req.user && req.user.nome) || (req.suporteNome) || '';
