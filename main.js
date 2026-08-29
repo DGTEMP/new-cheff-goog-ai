@@ -8337,12 +8337,14 @@ document.addEventListener('keydown', (e) => {
     splitterV.addEventListener('dblclick', toggleMesasSection);
 
     let isDraggingV = false;
+    let workspaceRect = null;
 
     const initDragV = () => {
       isDraggingV = true;
       splitterV.classList.add('dragging');
       document.body.style.cursor = 'row-resize';
       document.body.style.userSelect = 'none';
+      workspaceRect = middleWorkspace.getBoundingClientRect();
     };
     splitterV.addEventListener('mousedown', (e) => {
       e.preventDefault();
@@ -8353,10 +8355,9 @@ document.addEventListener('keydown', (e) => {
     }, { passive: true });
 
     const doDragV = (clientY) => {
-      if (!isDraggingV) return;
-      const rect = middleWorkspace.getBoundingClientRect();
-      const offsetY = clientY - rect.top;
-      let percent = (offsetY / rect.height) * 100;
+      if (!isDraggingV || !workspaceRect) return;
+      const offsetY = clientY - workspaceRect.top;
+      let percent = (offsetY / workspaceRect.height) * 100;
       if (percent < 10) percent = 10;
       if (percent > 85) percent = 85;
 
@@ -8380,6 +8381,7 @@ document.addEventListener('keydown', (e) => {
     const stopDragV = () => {
       if (isDraggingV) {
         isDraggingV = false;
+        workspaceRect = null;
         splitterV.classList.remove('dragging');
         document.body.style.cursor = '';
         document.body.style.userSelect = '';

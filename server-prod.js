@@ -454,7 +454,13 @@ function getTenantDb() {
       if (err) console.error(`Erro ao abrir banco do tenant ${tenantId}:`, err);
     });
     
-    newDb.run('PRAGMA journal_mode = WAL;');
+    newDb.serialize(() => {
+      newDb.run('PRAGMA journal_mode = WAL;');
+      newDb.run('PRAGMA synchronous = NORMAL;');
+      newDb.run('PRAGMA busy_timeout = 5000;');
+      newDb.run('PRAGMA cache_size = -20000;');
+      newDb.run('PRAGMA temp_store = MEMORY;');
+    });
     tenantDbs.set(tenantId, newDb);
   }
   return tenantDbs.get(tenantId);
@@ -730,6 +736,9 @@ function isValidId(v) { const n = Number(v); return Number.isInteger(n) && n > 0
 const MASTER_DB_PATH = path.join(APP_DATA_DIR, 'master.sqlite');
 const masterDb = new sqlite3.Database(MASTER_DB_PATH);
 masterDb.serialize(() => {
+  masterDb.run('PRAGMA journal_mode = WAL;');
+  masterDb.run('PRAGMA synchronous = NORMAL;');
+  masterDb.run('PRAGMA busy_timeout = 5000;');
   masterDb.run(`CREATE TABLE IF NOT EXISTS configuracoes_global (chave TEXT PRIMARY KEY, valor TEXT)`);
   masterDb.run(`CREATE TABLE IF NOT EXISTS ifood_app_config (chave TEXT PRIMARY KEY, valor TEXT)`);
   masterDb.run(`CREATE TABLE IF NOT EXISTS restaurantes (

@@ -65,6 +65,7 @@ if (!fs.existsSync(dbPath)) {
 }
 const masterDb = new sqlite3.Database(dbPath);
 masterDb.run(`PRAGMA journal_mode = WAL`);
+masterDb.run(`PRAGMA synchronous = NORMAL`);
 masterDb.run(`PRAGMA busy_timeout = 5000`);
 
 const app = express();
