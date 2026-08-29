@@ -458,6 +458,12 @@ module.exports = function(socket, io, db, helpers) {
             db.all(`SELECT * FROM pedidos WHERE (localName = ? OR mesa_grupo = ?) AND status != 'Finalizado'`, [mesaName, mesaName], (e, r) => {
                io.emit('itens_mesa_recebidos', { mesaName, items: r || [] });
             });
+            // Notificação em tempo real (caixa ↔ garçom): quem recebe o pagamento e quem
+            // está com o modal aberto na mesa atualiza na hora.
+            io.emit('pagamento_parcial_registrado', {
+              mesaName, valor: valorRegistrado, metodo, userName: userName || 'Caixa',
+              comandaName: comandaName || null, originSocket: socket.id
+            });
             setTimeout(() => io.emit('atualizacao_caixa'), 300);
           }
         );

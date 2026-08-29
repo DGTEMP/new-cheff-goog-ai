@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Separar Conta | Chef Cozinha</title>
+  <meta name="theme-color" content="#fc4b15">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/vendor/phosphor/src/regular/style.css">
+  <link rel="stylesheet" href="/vendor/phosphor/src/bold/style.css">
+  <link rel="stylesheet" href="/vendor/phosphor/src/fill/style.css">
+  <link rel="stylesheet" href="/dark-mode.css">
+  <script src="/theme-manager.js?v=20260829t1"></script>
+  <!-- QR Code local (funciona sem internet) -->
+  <script src="/vendor/qrcode/qrcode-generator.js"></script>
+  <script src="/vendor/qrcode/qr-helper.js"></script>
+  <script src="/socket.io.min.js"></script>
+  <style>
+    :root {
+      --primary: #fc4b15;
+      --primary-hover: #e03e09;
+      --bg: #f4f5f7;
+      --surface: #ffffff;
+      --surface-2: #f8fafc;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --border: #e5e7eb;
+      --success: #10b981;
+      --success-bg: #ecfdf5;
+      --amber: #f59e0b;
+      --amber-bg: #fffbeb;
+      --danger: #ef4444;
+      --danger-bg: #fef2f2;
+      --shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+    }
+
+    [data-theme="dark"], body.dark-mode {
+      --bg: #0e1218;
+      --surface: #161b24;
+      --surface-2: #1d2330;
+      --text: #e2e8f0;
+      --text-muted: #94a3b8;
+      --border: #27313f;
+      --success-bg: #0c2b23;
+      --amber-bg: #2a2310;
+      --danger-bg: #2b1616;
+      --shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', system-ui, sans-serif; -webkit-tap-highlight-color: transparent; }
+
+    body { background: var(--bg); color: var(--text); min-height: 100vh; padding-bottom: 96px; }
+
+    .app-header { position: sticky; top: 0; z-index: 50; background: var(--surface); border-bottom: 1px solid var(--border); padding: 14px 16px calc(10px + env(safe-area-inset-top)); display: flex; align-items: center; gap: 12px; }
+    .app-header .logo { width: 38px; height: 38px; border-radius: 12px; background: var(--primary); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+    .app-header h1 { font-size: 17px; font-weight: 800; line-height: 1.15; }
+    .app-header p { font-size: 12px; color: var(--text-muted); }
+
+    .container { max-width: 520px; margin: 0 auto; padding: 14px 16px; }
+
+    .nome-cliente { display: flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 10px 14px; margin-bottom: 12px; }
+    .nome-cliente i { color: var(--text-muted); font-size: 18px; }
+    .nome-cliente input { flex: 1; border: none; outline: none; background: transparent; color: var(--text); font-size: 14px; font-weight: 600; }
+    .nome-cliente input::placeholder { color: var(--text-muted); font-weight: 400; }
+
+    .resumo-mesa { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 14px 16px; margin-bottom: 14px; box-shadow: var(--shadow); display: flex; justify-content: space-between; align-items: center; }
+    .resumo-mesa .rot { font-size: 12px; color: var(--text-muted); }
+    .resumo-mesa .val { font-size: 20px; font-weight: 800; }
+    .resumo-mesa .val small { font-size: 12px; color: var(--text-muted); font-weight: 500; }
+
+    .grupo-comanda { margin-bottom: 10px; }
+    .grupo-titulo { display: flex; align-items: center; gap: 8px; padding: 10px 4px 8px; font-size: 13px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; }
+    .grupo-titulo .badge-comanda { background: var(--primary); color: #fff; font-size: 11px; font-weight: 800; padding: 3px 9px; border-radius: 20px; letter-spacing: 0; }
+
+    .item-row { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 12px 14px; margin-bottom: 10px; box-shadow: var(--shadow); }
+    .item-main { display: flex; align-items: center; gap: 12px; }
+    .item-emoji { width: 42px; height: 42px; flex-shrink: 0; border-radius: 12px; background: var(--surface-2); display: flex; align-items: center; justify-content: center; font-size: 22px; }
+    .item-info { flex: 1; min-width: 0; }
+    .item-info .nome { font-size: 14px; font-weight: 700; line-height: 1.25; }
+    .item-info .meta { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
+    .item-qty-stepper { display: flex; align-items: center; gap: 6px; }
+    .stepper-btn { width: 34px; height: 34px; border-radius: 11px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); font-size: 17px; font-weight: 800; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
+    .stepper-btn:active { transform: scale(0.92); }
+    .stepper-btn.plus { background: var(--primary); border-color: var(--primary); color: #fff; }
+    .stepper-btn:disabled { opacity: 0.35; cursor: default; }
+    .qty-val { min-width: 40px; text-align: center; font-size: 16px; font-weight: 800; }
+    .frac-btn { width: 34px; height: 34px; border-radius: 11px; border: 1px dashed var(--border); background: transparent; color: var(--text-muted); font-size: 12px; font-weight: 800; cursor: pointer; flex-shrink: 0; }
+    .frac-btn.active { background: var(--amber); border-style: solid; border-color: var(--amber); color: #fff; }
+    .item-valor { text-align: right; font-size: 14px; font-weight: 800; color: var(--success); white-space: nowrap; }
+    .item-valor.zero { color: var(--text-muted); }
+    .ja-pago { display: inline-block; margin-top: 6px; font-size: 11px; font-weight: 700; color: var(--amber); background: var(--amber-bg); padding: 2px 8px; border-radius: 8px; }
+
+    .empty-state { text-align: center; padding: 40px 20px; color: var(--text-muted); }
+    .empty-state i { font-size: 44px; display: block; margin-bottom: 10px; opacity: 0.5; }
+
+    .bottom-toolbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 80; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); background: var(--surface); border-top: 1px solid var(--border); display: flex; align-items: center; gap: 12px; }
+    .total-pegado { flex: 1; }
+    .total-pegado .rot { font-size: 11px; color: var(--text-muted); font-weight: 600; }
+    .total-pegado .val { font-size: 19px; font-weight: 800; }
+    .btn-primary { background: var(--primary); color: #fff; border: none; border-radius: 14px; font-weight: 800; font-size: 14px; padding: 14px 20px; cursor: pointer; box-shadow: 0 6px 18px rgba(252, 75, 21, 0.35); }
+    .btn-primary:active { transform: scale(0.97); }
+    .btn-primary:disabled { opacity: 0.4; cursor: default; box-shadow: none; }
+
+    .sheet-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.55); z-index: 90; display: none; align-items: flex-end; justify-content: center; backdrop-filter: blur(3px); }
+    .sheet-overlay.active { display: flex; }
+    .sheet { background: var(--surface); width: 100%; max-width: 520px; max-height: 92vh; border-radius: 24px 24px 0 0; padding: 20px 18px calc(20px + env(safe-area-inset-bottom)); overflow-y: auto; }
+    .sheet h3 { font-size: 17px; font-weight: 800; margin-bottom: 4px; }
+    .sheet .sub { font-size: 13px; color: var(--text-muted); margin-bottom: 16px; }
+
+    .metodos-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 9px; margin-bottom: 16px; }
+    .metodo-chip { padding: 12px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface-2); cursor: pointer; display: flex; align-items: center; gap: 9px; font-weight: 700; font-size: 13px; }
+    .metodo-chip i { font-size: 20px; }
+    .metodo-chip.active { border-color: var(--primary); background: rgba(252, 75, 21, 0.08); color: var(--primary); }
+
+    .field { margin-bottom: 14px; }
+    .field label { display: block; font-size: 12px; font-weight: 700; color: var(--text-muted); margin-bottom: 7px; }
+    .valor-input { width: 100%; padding: 14px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface-2); font-size: 24px; font-weight: 800; color: var(--text); outline: none; text-align: center; }
+
+    .excedente-box { border: 1px solid var(--amber); background: var(--amber-bg); border-radius: 14px; padding: 12px 14px; margin-bottom: 14px; }
+    .excedente-box .titulo { font-size: 12px; font-weight: 800; color: var(--amber); margin-bottom: 4px; }
+    .opt-row { display: flex; gap: 9px; }
+    .opt-chip { flex: 1; padding: 12px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; text-align: center; font-size: 13px; font-weight: 700; }
+    .opt-chip small { display: block; font-weight: 500; font-size: 11px; color: var(--text-muted); margin-top: 3px; }
+    .opt-chip.active { border-color: var(--amber); background: var(--amber-bg); color: #b45309; }
+
+    .pix-box { border: 1px solid var(--border); border-radius: 16px; padding: 14px; margin-bottom: 14px; background: var(--surface-2); }
+    .pix-box .linha { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 8px; }
+    .pix-box .linha b { color: var(--text); }
+    .pix-qr-box { display: flex; justify-content: center; padding: 8px 0 12px; }
+    .pix-qr-box img { width: 190px; height: 190px; border-radius: 12px; background: #fff; padding: 8px; }
+    .pix-copia { width: 100%; padding: 12px; border: 1px dashed var(--border); border-radius: 12px; font-size: 11.5px; color: var(--text-muted); background: var(--surface); word-break: break-all; margin-bottom: 8px; }
+
+    .btn-green { background: var(--success); color: #fff; border: none; border-radius: 14px; font-weight: 800; font-size: 15px; padding: 16px; width: 100%; cursor: pointer; }
+    .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text-muted); border-radius: 14px; font-weight: 700; font-size: 13px; padding: 12px; width: 100%; cursor: pointer; margin-top: 9px; }
+
+    .screen-msg { text-align: center; padding: 60px 30px; }
+    .screen-msg i { font-size: 52px; display: block; margin-bottom: 12px; opacity: 0.7; }
+    .screen-msg h2 { font-size: 20px; font-weight: 800; margin-bottom: 8px; }
+    .screen-msg p { color: var(--text-muted); font-size: 14px; }
+
+    .spinner { width: 44px; height: 44px; border: 4px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 14px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .sucesso-num { font-size: 34px; font-weight: 900; color: var(--success); margin: 6px 0 2px; }
+    .divisor { height: 1px; background: var(--border); margin: 14px 0; }
+  </style>
+</head>
+
+<body>
+  <header class="app-header">
+    <div class="logo"><i class="ph-bold ph-receipt"></i></div>
+    <div>
+      <h1 id="hdr-titulo">Separar Conta</h1>
+      <p id="hdr-sub">Escolha seus itens e pague</p>
+    </div>
+  </header>
+
+  <div id="view-loading" class="screen-msg">
+    <div class="spinner"></div>
+    <p>Carregando a conta da mesa...</p>
+  </div>
+
+  <div id="view-erro" class="container" style="display:none;">
+    <div class="screen-msg">
+      <i class="ph-bold ph-qr-code" id="err-icon" style="color:var(--danger);"></i>
+      <h2 id="err-titulo">Link inválido</h2>
+      <p id="err-msg">Este QR não é válido.</p>
+    </div>
+  </div>
+
+  <div id="view-main" style="display:none;">
+    <div class="container">
+      <div class="nome-cliente">
+        <i class="ph ph-user"></i>
+        <input id="input-nome-cliente" type="text" placeholder="Seu nome (opcional) — para o garçom identificar" maxlength="40" autocomplete="name">
+      </div>
+
+      <div class="resumo-mesa">
+        <div>
+          <div class="rot">Mesa <span id="res-mesa"></span></div>
+          <div class="val" id="res-restante"></div>
+          <small>restante da mesa (sem taxa)</small>
+        </div>
+        <div style="text-align:right;">
+          <div class="rot">Você pegou</div>
+          <div class="val" style="color:var(--primary);" id="res-pegou">R$ 0,00</div>
+          <small id="res-itens-cont">0 itens</small>
+        </div>
+      </div>
+
+      <div id="lista-itens"></div>
+    </div>
+
+    <div class="bottom-toolbar" id="bottom-toolbar" style="display:none;">
+      <div class="total-pegado">
+        <div class="rot">Total selecionado</div>
+        <div class="val" id="total-selecionado">R$ 0,00</div>
+      </div>
+      <button class="btn-primary" id="btn-pagar" onclick="window.openPagamento()" disabled>
+        <i class="ph-bold ph-hand-coins"></i> Pagar
+      </button>
+    </div>
+  </div>
+
+  <div id="sheet-pagamento" class="sheet-overlay" onclick="if(event.target===this)window.fecharPagamento()">
+    <div class="sheet">
+      <h3>Pagar R$ <span id="ps-valor"></span></h3>
+      <p class="sub">Itens selecionados: <b id="ps-itens"></b></p>
+
+      <div class="field">
+        <label>Valor a pagar</label>
+        <input type="number" id="input-valor-pagar" class="valor-input" min="0.01" step="0.01" inputmode="decimal" value="">
+      </div>
+
+      <div class="field">
+        <label>Forma de pagamento</label>
+        <div class="metodos-grid" id="metodos-grid"></div>
+      </div>
+
+      <div id="excedente-box" class="excedente-box" style="display:none;">
+        <div class="titulo">⚠️ Você vai pagar R$ <span id="exc-valor"></span> a mais</div>
+        <p style="font-size:12.5px; margin-bottom:10px;" id="exc-desc"></p>
+        <div class="opt-row" id="exc-opts"></div>
+      </div>
+
+      <div id="box-pix" class="pix-box" style="display:none;">
+        <div class="linha"><span>Beneficiário</span><b id="pix-beneficiario">-</b></div>
+        <div class="linha"><span>Valor</span><b id="pix-valor">R$ 0,00</b></div>
+        <div class="pix-qr-box"><img id="pix-qr-img" alt="Pix QR Code"></div>
+        <div class="pix-copia" id="pix-copia">-</div>
+        <button class="btn-green" onclick="window.copiarPix()" style="padding:12px;">Copiar código Pix</button>
+        <button class="btn-ghost" onclick="window.confirmarPix()" id="btn-confirmar-pix">Já fiz o pagamento Pix</button>
+      </div>
+
+      <div id="box-confirmar" style="display:block;">
+        <button class="btn-green" onclick="window.confirmarPagamento()" id="btn-confirmar-pagamento">Registrar pagamento</button>
+        <button class="btn-ghost" onclick="window.fecharPagamento()">Voltar</button>
+      </div>
+
+      <div id="box-spinner" style="display:none; text-align:center; padding:18px;">
+        <div class="spinner"></div>
+        <p style="font-size:14px; color:var(--text-muted);">Registrando pagamento...</p>
+      </div>
+    </div>
+  </div>
+
+  <div id="view-sucesso" class="container" style="display:none;">
+    <div class="screen-msg">
+      <i class="ph-bold ph-check-circle" style="color:var(--success); font-size:64px;"></i>
+      <h2>Pagamento registrado!</h2>
+      <div class="sucesso-num" id="ok-valor">R$ 0,00</div>
+      <p id="ok-desc"></p>
+      <div class="divisor"></div>
+      <p style="font-size:13px; color:var(--text-muted); margin-bottom:18px;">
+        Avisamos o garçom que você separou os seus itens.
+      </p>
+      <button class="btn-primary" style="width:100%;" onclick="window.continuarSeparando()">
+        <i class="ph-bold ph-user-plus"></i> Próxima pessoa separar
+      </button>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var qs = new URLSearchParams(window.location.search);
+      var TOKEN = (qs.get('token') || '').toString().trim();
+      var RESTAURANTE_ID = qs.get('restaurante_id') || localStorage.getItem('restaurante_id') || '1';
+
+      var socket = null;
+      var itens = [];
+      var pagoPorItem = {};
+      var claims = {};            // itemId -> qtd pego
+      var configs = {};
+      var mesaNome = '';
+      var metodoSel = 'Dinheiro';
+      var pixGerado = false;
+
+      var METODOS = [
+        { nome: 'Dinheiro', icone: 'ph-bold ph-currency-dollar', cor: '#22c55e' },
+        { nome: 'PIX', icone: 'ph-bold ph-qr-code', cor: '#00b0ff' },
+        { nome: 'Cartão Débito', icone: 'ph-bold ph-credit-card', cor: '#e67e22' },
+        { nome: 'Cartão Crédito', icone: 'ph-bold ph-credit-card', cor: '#9c27b0' }
+      ];
+
+      function num(v) { return parseFloat(String(v == null ? '' : v).replace(',', '.')) || 0; }
+
+      function brl(v) { return 'R$ ' + v.toFixed(2).replace('.', ','); }
+
+      function esc(v) {
+        return String(v == null ? '' : v)
+          .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+      }
+
+      function showView(view) {
+        var v = ['view-loading', 'view-erro', 'view-main', 'view-sucesso'];
+        v.forEach(function (id) {
+          var el = document.getElementById(id);
+          if (el) el.style.display = (id === view) ? 'block' : 'none';
+        });
+      }
+
+      function mostrarErro(msg) {
+        var toast = document.createElement('div');
+        toast.style.cssText = 'position:fixed; top:64px; left:50%; transform:translateX(-50%); background:#ef4444; color:#fff; padding:11px 18px; border-radius:12px; font-size:13.5px; font-weight:700; z-index:99999; max-width:90%; text-align:center; box-shadow:0 6px 20px rgba(239,68,68,0.35);';
+        toast.textContent = msg;
+        document.body.appendChild(toast);
+        setTimeout(function () { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.3s'; }, 2600);
+        setTimeout(function () { toast.remove(); }, 3000);
+      }
+
+      function setErro(titulo, msg, icone) {
+        document.getElementById('err-titulo').innerText = titulo;
+        document.getElementById('err-msg').innerText = msg;
+        var ic = document.getElementById('err-icon');
+        ic.className = 'ph-bold ' + (icone || 'ph-qr-code');
+        ic.style.color = (icone === 'ph-check-circle' ? 'var(--success)' : 'var(--danger)');
+        showView('view-erro');
+      }
+
+      // ── SOCKET ──
+      function conectar() {
+        if (typeof io === 'undefined') { setErro('Sem conexão', 'Não foi possível conectar. Verifique sua internet e tente de novo.'); return; }
+        socket = io({ query: { token: localStorage.getItem('chef_token') || '', restaurante_id: RESTAURANTE_ID } });
+
+        socket.on('split_dados', function (d) { if (d && d.success) receberDados(d); });
+        socket.on('split_erro', function (e) {
+          if (e && e.code && e.code.indexOf('TOKEN') === 0) { setErro('QR inválido', e.msg || 'QR inválido ou expirado.'); return; }
+          var sp = document.getElementById('box-spinner');
+          if (sp) sp.style.display = 'none';
+          document.getElementById('btn-confirmar-pagamento').disabled = false;
+          mostrarErro((e && e.msg) || 'Não foi possível registrar o pagamento.');
+        });
+        socket.on('split_pagamento_sucesso', onSucesso);
+        socket.on('pedidos_atualizados', carregarDados);
+        socket.on('itens_mesa_recebidos', function (d) { if (d && d.mesaName === mesaNome) carregarDados(); });
+        socket.on('connect', carregarDados);
+      }
+
+      function carregarDados() {
+        if (!socket || !TOKEN) return;
+        socket.emit('split_data_mesa', { token: TOKEN });
+      }
+
+      function receberDados(d) {
+        mesaNome = d.mesa;
+        configs = d.configs || {};
+        itens = d.itens || [];
+        pagoPorItem = (d.pagoPorItem || {});
+        Object.keys(claims).forEach(function (k) {
+          var it = itens.find(function (i) { return String(i.id) === k; });
+          if (!it) { delete claims[k]; return; }
+          claims[k] = Math.min(claims[k], disponivel(it));
+        });
+        renderTudo();
+        showView('view-main');
+        document.getElementById('hdr-titulo').innerText = 'Separar Conta';
+        document.getElementById('hdr-sub').innerText = 'Mesa ' + mesaNome;
+      }
+
+      function disponivel(item) {
+        return Math.max(0, num(item.quantity) - num((pagoPorItem[item.id] || {}).qtd));
+      }
+
+      function abrirModal() {
+        document.getElementById('input-nome-cliente').value = nomeCliente();
+      }
+
+      function nomeCliente() {
+        var v = document.getElementById('input-nome-cliente').value.trim();
+        return v || 'Cliente';
+      }
+
+      // ── RENDER ──
+      function renderTudo() {
+        renderItens();
+        atualizarResumos();
+      }
+
+      function renderItens() {
+        var el = document.getElementById('lista-itens');
+        var grupos = {};
+        itens.forEach(function (item) {
+          var chave = item.mesa_comanda || '';
+          if (!grupos[chave]) grupos[chave] = [];
+          grupos[chave].push(item);
+        });
+
+        var html = '';
+        Object.keys(grupos).sort(function (a, b) {
+          if (a === '') return -1;
+          if (b === '') return 1;
+          return String(a).localeCompare(String(b));
+        }).forEach(function (chave) {
+          var grupo = grupos[chave];
+          var rotulo = chave ? ('Comanda ' + chave) : 'Itens compartilhados';
+          html += '<div class="grupo-comanda">';
+          html += '<div class="grupo-titulo"><i class="ph ph-receipt"></i> ' + esc(rotulo);
+          if (chave) html += ' <span class="badge-comanda">' + esc(chave) + '</span>';
+          html += '</div>';
+          grupo.forEach(function (item) { html += renderItem(item); });
+          html += '</div>';
+        });
+
+        if (!html) html = '<div class="empty-state"><i class="ph-bold ph-coffee"></i><p>Nenhum item nesta mesa ainda.</p></div>';
+        el.innerHTML = html;
+      }
+
+      function qtdPega(itemId) { return num(claims[itemId]); }
+
+      function valorItem(item) { return Math.round(qtdPega(item.id) * num(item.unitTotal) * 100) / 100; }
+
+      function totalPegado() {
+        var t = 0;
+        itens.forEach(function (i) { t += valorItem(i); });
+        return Math.round(t * 100) / 100;
+      }
+
+      function renderItem(item) {
+        var q = qtdPega(item.id);
+        var disp = disponivel(item);
+        var pagoOutros = num((pagoPorItem[item.id] || {}).qtd);
+        var val = valorItem(item);
+        var fracAtiva = (q > 0 && q !== Math.round(q));
+        var podeFrac = disp >= 0.5;
+        var botaoFrac;
+        if (podeFrac) {
+          botaoFrac = '<button class="frac-btn ' + (fracAtiva ? 'active' : '') + '" onclick="window.tglFrac(' + item.id + ')">½</button>';
+        } else {
+          botaoFrac = '<button class="frac-btn" disabled>½</button>';
+        }
+        return `
+          <div class="item-row">
+            <div class="item-main">
+              <div class="item-emoji">${item.productEmoji ? esc(item.productEmoji) : '🍽️'}</div>
+              <div class="item-info">
+                <div class="nome">${esc(item.productName)}</div>
+                <div class="meta">${item.quantity + 'x'}&nbsp;·&nbsp;${brl(num(item.unitTotal))} cada${item.sector ? ' · ' + esc(item.sector) : ''}</div>
+                ${pagoOutros > 0 ? '<span class="ja-pago">' + (pagoOutros % 1 === 0 ? pagoOutros : pagoOutros.toFixed(2).replace('.', ',')) + ' já pego por outro cliente</span>' : ''}
+              </div>
+              <div class="item-valor ${val === 0 ? 'zero' : ''}">${brl(val)}</div>
+            </div>
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-top:10px;">
+              <div class="item-qty-stepper">
+                <button class="stepper-btn minus" onclick="window.decItem(${item.id})" ${q <= 0 ? 'disabled' : ''}>−</button>
+                <div class="qty-val">${q % 1 === 0 ? q : q.toFixed(2).replace('.', ',')}</div>
+                <button class="stepper-btn plus" onclick="window.incItem(${item.id})" ${q >= disp ? 'disabled' : ''}>+</button>
+                ${botaoFrac}
+              </div>
+            </div>
+          </div>`;
+      }
+
+      function atualizarResumos() {
+        var tp = totalPegado();
+        var qItens = itens.filter(function (i) { return qtdPega(i.id) > 0; }).length;
+        document.getElementById('total-selecionado').innerText = brl(tp);
+        document.getElementById('res-pegou').innerText = brl(tp);
+        document.getElementById('res-itens-cont').innerText = qItens + ' item(s)';
+        var bruto = 0;
+        itens.forEach(function (i) { bruto += num(i.total); });
+        var pagoTotal = 0;
+        Object.keys(pagoPorItem).forEach(function (k) { pagoTotal += num(pagoPorItem[k].valor); });
+        var restante = Math.max(0, bruto - pagoTotal - tp);
+        document.getElementById('res-restante').innerText = brl(restante);
+        var btn = document.getElementById('btn-pagar');
+        var tb = document.getElementById('bottom-toolbar');
+        tb.style.display = tp > 0 ? 'flex' : 'none';
+        btn.disabled = !(tp > 0);
+      }
+
+      function limparClaims() { claims = {}; }
+
+      window.incItem = function (id) {
+        var item = itens.find(function (i) { return String(i.id) === String(id); });
+        if (!item) return;
+        var disp = disponivel(item);
+        var q = qtdPega(id);
+        if (q >= disp) return;
+        var add = Math.min(1, disp - q);
+        claims[String(id)] = Math.round((q + add) * 100) / 100;
+        renderTudo();
+      };
+      window.tglFrac = function (id) {
+        var item = itens.find(function (i) { return String(i.id) === String(id); });
+        if (!item) return;
+        var q = qtdPega(id);
+        if (q > 0 && q !== Math.round(q)) { claims[String(id)] = 0; renderTudo(); return; }
+        var disp = disponivel(item);
+        if (disp >= 0.5) {
+          claims[String(id)] = Math.round(Math.min(disp, q + 0.5) * 100) / 100;
+          renderTudo();
+        }
+      };
+      window.decItem = function (id) {
+        var q = qtdPega(id);
+        if (q <= 0) return;
+        var novo = (q % 1 === 0) ? q - 1 : q - 0.5;
+        claims[String(id)] = Math.max(0, Math.round(novo * 100) / 100);
+        renderTudo();
+      };
+
+      // ── PAGAMENTO ──
+      window.openPagamento = function () {
+        renderMetodos();
+        var tp = totalPegado();
+        document.getElementById('input-valor-pagar').value = tp.toFixed(2);
+        document.getElementById('ps-valor').innerText = tp.toFixed(2).replace('.', ',');
+        document.getElementById('ps-itens').innerText = itens.filter(function (i) { return qtdPega(i.id) > 0; }).length + ' itens';
+        hidPix(false);
+        atualizarExcedente();
+        document.getElementById('sheet-pagamento').classList.add('active');
+      };
+      window.fecharPagamento = function () {
+        document.getElementById('sheet-pagamento').classList.remove('active');
+      };
+      window.continuarSeparando = function () {
+        limparClaims();
+        carregarDados();
+        showView('view-main');
+      };
+
+      function valorAPagar() { return Math.max(0.01, num(document.getElementById('input-valor-pagar').value)); }
+
+      function excedente() {
+        var tp = totalPegado();
+        return Math.round((valorAPagar() - tp) * 100) / 100;
+      }
+
+      function atualizarExcedente() {
+        var exc = excedente();
+        var box = document.getElementById('excedente-box');
+        var cfg = String(configs.split_excedente || 'perguntar');
+        if (exc > 0.005) {
+          box.style.display = 'block';
+          document.getElementById('exc-valor').innerText = exc.toFixed(2).replace('.', ',');
+          var opts = document.getElementById('exc-opts');
+          if (cfg === 'gorjeta') {
+            document.getElementById('exc-desc').innerText = 'Conforme definido pelo restaurante, o excedente será lançado como GORJETA (não abate na conta).';
+            opts.innerHTML = optRender('gorjeta');
+          } else if (cfg === 'abater') {
+            document.getElementById('exc-desc').innerText = 'Conforme definido pelo restaurante, o excedente será lançado como ABATE nos itens compartilhados da mesa.';
+            opts.innerHTML = optRender('abater');
+          } else {
+            document.getElementById('exc-desc').innerText = 'Escolha o que fazer com o valor extra:';
+            opts.innerHTML = optRender('abater') + optRender('gorjeta');
+            if (!window.excSel) { window.excSel = 'abater'; }
+            marcarOpt(window.excSel);
+          }
+        } else {
+          box.style.display = 'none';
+        }
+      }
+      function optRender(tipo) {
+        var ativo = (window.excSel === tipo || !window.excSel);
+        return '<div class="opt-chip ' + (ativo ? 'active' : '') + '" data-tipo="' + tipo + '" onclick="window.selExc(\'' + tipo + '\')">' +
+          (tipo === 'abater' ? '<i class="ph-bold ph-arrows-down-up"></i> Abater' : '<i class="ph-bold ph-heart"></i> Gorjeta') +
+          '<small>' + (tipo === 'abater' ? 'Reduz a conta pros outros' : 'Vai pro caixa como gorjeta') + '</small></div>';
+      }
+      function marcarOpt(tipo) {
+        document.querySelectorAll('#exc-opts .opt-chip').forEach(function (c) {
+          c.className = 'opt-chip' + (c.dataset.tipo === tipo ? ' active' : '');
+        });
+      }
+      window.selExc = function (tipo) { window.excSel = tipo; marcarOpt(tipo); };
+
+      function renderMetodos() {
+        var html = METODOS.map(function (m) { return '<div class="metodo-chip ' + (metodoSel === m.nome ? 'active' : '') + '" data-metodo="' + m.nome + '" style="' + (metodoSel === m.nome ? 'border-color:' + m.cor + '; color:' + m.cor + ';' : '') + '"><i class="' + m.icone + '" style="color:' + m.cor + ';"></i>' + m.nome + '</div>'; }).join('');
+        document.getElementById('metodos-grid').innerHTML = html;
+        document.querySelectorAll('#metodos-grid .metodo-chip').forEach(function (ch) {
+          ch.onclick = function () {
+            metodoSel = ch.dataset.metodo;
+            renderMetodos();
+            if (metodoSel === 'PIX') { hidPix(true); prepararPix(); } else { hidPix(false); }
+          };
+        });
+      }
+
+      function hidPix(show) {
+        document.getElementById('box-pix').style.display = show ? 'block' : 'none';
+        document.getElementById('box-confirmar').style.display = 'none';
+        if (!show) {
+          document.getElementById('btn-confirmar-pix').style.display = 'none';
+          document.getElementById('box-confirmar').style.display = 'block';
+        }
+      }
+
+      function prepararPix() {
+        var valor = valorAPagar();
+        var key = configs.qr_pix_key || 'chefcozinha@pix.com.br';
+        var nome = configs.qr_pix_name || 'Estabelecimento Chef Cozinha';
+        var copy = '00020101021226840014BR.GOV.BCB.PIX0114' + key + '5204000053039865405' + valor.toFixed(2) + '5802BR5915'
+          + String(nome || 'CHEFCOZINHA').substring(0, 24).toUpperCase() + 'BENE6008BRASILIA62070503***6304';
+        document.getElementById('pix-beneficiario').innerText = nome;
+        document.getElementById('pix-valor').innerText = brl(valor);
+        document.getElementById('pix-copia').innerText = copy;
+        var img = document.getElementById('pix-qr-img');
+        if (typeof window.qrImg === 'function') {
+          window.qrImg(img, copy, 210);
+        } else {
+          img.src = (window.location.origin || '') + '/api/qr?size=210&data=' + encodeURIComponent(copy);
+        }
+      }
+
+      window.copiarPix = function () {
+        var copy = document.getElementById('pix-copia').innerText;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(copy).then(function () { alert('Pix copiado!'); });
+        } else {
+          prompt('Copie o código Pix:', copy);
+        }
+      };
+      window.confirmarPix = function () {
+        pixGerado = true;
+        document.getElementById('btn-confirmar-pix').style.display = 'none';
+        confirmarPagamento();
+      };
+
+      window.confirmarPagamento = function () {
+        var tp = totalPegado();
+        var vp = valorAPagar();
+        var exc = excedente();
+        var cfg = String(configs.split_excedente || 'perguntar');
+        var tipoExc = null;
+        if (exc > 0.005) {
+          if (cfg === 'gorjeta') tipoExc = 'gorjeta';
+          else if (cfg === 'abater') tipoExc = 'abater';
+          else tipoExc = window.excSel || 'abater';
+        }
+        if (metodoSel === 'PIX' && !pixGerado) {
+          prepararPix();
+          document.getElementById('btn-confirmar-pix').style.display = 'block';
+          document.getElementById('box-confirmar').style.display = 'none';
+          return;
+        }
+
+        var comanda = null;
+        itens.forEach(function (i) { if (qtdPega(i.id) > 0 && i.mesa_comanda) comanda = i.mesa_comanda; });
+
+        var payload = { token: TOKEN, clienteNome: nomeCliente(), comanda: comanda, metodo: metodoSel, valorPago: vp, excedenteTipo: tipoExc };
+        payload.itens = itens.filter(function (i) { return qtdPega(i.id) > 0; }).map(function (i) {
+          return { itemId: i.id, qtd: qtdPega(i.id) };
+        });
+
+        var boxP = document.getElementById('box-pix');
+        var boxC = document.getElementById('box-confirmar');
+        if (boxP) boxP.style.display = 'none';
+        if (boxC) boxC.style.display = 'none';
+        var sp = document.getElementById('box-spinner');
+        sp.style.display = 'block';
+        document.getElementById('btn-confirmar-pagamento').disabled = true;
+        socket.emit('registrar_split_pagamento', payload);
+      };
+
+      function onSucesso(d) {
+        if (!d || !d.success) return;
+        var sp = document.getElementById('box-spinner');
+        if (sp) sp.style.display = 'none';
+        window.fecharPagamento();
+        document.getElementById('ok-valor').innerText = brl(d.valorPago);
+        var desc = 'Você separou ' + brl(d.valorItens) + ' em itens';
+        if (d.excedenteTipo === 'gorjeta') desc += '. Excedente de ' + brl(d.excesso) + ' virou GORJETA para o caixa.';
+        else if (d.excedenteTipo === 'abater') desc += '. Excedente de ' + brl(d.excesso) + ' abateu nos itens compartilhados da mesa.';
+        else desc += '. Nenhum valor extra.';
+        document.getElementById('ok-desc').innerText = desc;
+        showView('view-sucesso');
+        limparClaims();
+      }
+
+      document.addEventListener('DOMContentLoaded', function () {
+        if (!TOKEN) { setErro('Link incompleto', 'Este link está sem o token da conta. Peça ao garçom um novo QR.', 'ph-qr-code'); return; }
+        document.getElementById('input-nome-cliente').addEventListener('input', function () { });
+        document.getElementById('input-valor-pagar').addEventListener('input', function () { atualizarExcedente(); pixGerado = false; });
+        conectar();
+      });
+    })();
+  </script>
+</body>
+
+</html>

@@ -323,19 +323,72 @@
 
 
   // ─── MOTOR DE CONTROLE DE 3 MODOS DAS BARRAS LATERAIS ───
-  window.setSidebarMode = function (side, mode) {
-    const panelId = side === 'left' ? 'left-panel' : 'right-panel';
-    const panel = document.getElementById(panelId);
+  // Unificado (aplicado também em chef-resizable-sidebars.js):
+  // classes mode-* E sidebar-* + larguras inline + botão flutuante de restauração.
+  window.chefApplySidebarMode = function (side, mode) {
+    const right = side === 'right';
+    const panel = document.getElementById(side === 'left' ? 'left-panel' : 'right-panel');
     const floatRestore = document.getElementById('float-restore-' + side);
     if (!panel) return;
 
-    panel.classList.remove('mode-expanded', 'mode-mini', 'mode-hidden');
-    panel.classList.add('mode-' + mode);
+    panel.classList.remove('mode-expanded', 'mode-mini', 'mode-hidden', 'sidebar-expanded', 'sidebar-mini', 'sidebar-hidden');
+    panel.classList.add('mode-' + mode, 'sidebar-' + mode);
 
+    const desktop = window.innerWidth >= 768;
+    if (desktop) {
+      if (mode === 'hidden') {
+        panel.style.setProperty('display', 'none', 'important');
+      } else if (mode === 'mini') {
+        const w = right ? '190px' : '68px';
+        panel.style.display = '';
+        panel.style.width = w;
+        panel.style.minWidth = w;
+        panel.style.maxWidth = w;
+      } else {
+        panel.style.display = '';
+        const stored = localStorage.getItem('chef_sidebar_' + side + '_width');
+        const w = stored ? stored + 'px' : (right ? '320px' : '220px');
+        panel.style.width = w;
+        panel.style.minWidth = w;
+        panel.style.maxWidth = w;
+      }
+    } else {
+      panel.style.display = (mode === 'hidden') ? 'none' : '';
+      if (mode !== 'hidden') {
+        panel.style.width = '';
+        panel.style.minWidth = '';
+        panel.style.maxWidth = '';
+      }
+    }
+
+    if (floatRestore) floatRestore.style.display = (desktop && mode === 'hidden') ? 'flex' : 'none';
     try { localStorage.setItem('chef_sidebar_' + side + '_mode', mode); } catch(e){}
+    window.dispatchEvent(new CustomEvent('chef_sidebar_mode_changed', { detail: { side: side, mode: mode } }));
+  };
 
-    if (floatRestore) {
-      floatRestore.style.display = mode === 'hidden' ? 'flex' : 'none';
+  window.toggleSidebarMode = function (side, target) {
+    const panel = document.getElementById(side === 'left' ? 'left-panel' : 'right-panel');
+    let cur = 'expanded';
+    if (panel) {
+      if (panel.classList.contains('mode-hidden') || panel.classList.contains('sidebar-hidden')) cur = 'hidden';
+      else if (panel.classList.contains('mode-mini') || panel.classList.contains('sidebar-mini')) cur = 'mini';
+    }
+    let next = target;
+    if (cur === target) next = 'expanded';
+    if (typeof window.chefApplySidebarMode === 'function') window.chefApplySidebarMode(side, next);
+    else if (typeof window.setSidebarMode === 'function') window.setSidebarMode(side, next);
+  };
+
+  window.setSidebarMode = function (side, mode) {
+    if (typeof window.chefApplySidebarMode === 'function') {
+      window.chefApplySidebarMode(side, mode);
+    } else {
+      const panelId = side === 'left' ? 'left-panel' : 'right-panel';
+      const panel = document.getElementById(panelId);
+      if (!panel) return;
+      panel.classList.remove('mode-expanded', 'mode-mini', 'mode-hidden');
+      panel.classList.add('mode-' + mode);
+      try { localStorage.setItem('chef_sidebar_' + side + '_mode', mode); } catch(e){}
     }
 
     // Atualizar botões de modo

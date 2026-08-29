@@ -997,9 +997,44 @@ function showActionPopup(actions, x, y) {
 // Segurar 1s sem soltar = modo arraste (mesa→mesa ou item→mesa)
 // ── BLOQUEIO GLOBAL DO MENU DE CONTEXTO NATIVO DO NAVEGADOR ──
 
+// ─── STATUS DE PREPARO DOS ITENS (EM ESPERA / PENDENTE / EM PREPARO / PRONTO) ───
+window.mudarStatusItemPedido = function(id, status) {
+  try {
+    if (typeof socket !== 'undefined' && socket) socket.emit('atualizar_status', { id: id, status: status });
+    if (typeof showToast === 'function') showToast('Pedido #' + id + ' → ' + status, 'success');
+    else if (typeof window.showToast === 'function') window.showToast('Pedido #' + id + ' → ' + status, 'success');
+  } catch (err) { }
+};
+
+window.montarMenuItemPedido = function(itemRow) {
+  const idAttr = itemRow.getAttribute('data-item-id');
+  const id = idAttr ? parseInt(idAttr, 10) : null;
+  if (!id) return null;
+  const STATUSES = ['Pendente', 'Em espera', 'Em preparo', 'Pronto'];
+  const statusAtual = itemRow.getAttribute('data-item-status') || 'Pendente';
+  const actions = [];
+  actions.push({ id: 'st-info', icon: 'ph-chef-hat', label: 'Status: ' + statusAtual, cls: 'info' });
+  STATUSES.filter(s => s !== statusAtual).forEach(s => {
+    const cls = s === 'Pronto' ? 'success' : s === 'Em preparo' ? 'primary' : '';
+    const icon = s === 'Pronto' ? 'ph-check-circle' : s === 'Em preparo' ? 'ph-fire' : 'ph-clock';
+    actions.push({ id: 'st-' + s, icon: icon, label: 'Marcar como ' + s, cls: cls, fn: () => window.mudarStatusItemPedido(id, s) });
+  });
+  actions.push({ id: 'sep-item-1', sep: true });
+  actions.push({ id: 'comanda', icon: 'ph-user-switch', label: 'Mover Comanda', cls: 'primary', fn: () => { if (typeof window.alterarComandaItemDirect === 'function') window.alterarComandaItemDirect(id, ''); } });
+  actions.push({ id: 'mover-item', icon: 'ph-arrows-out-cardinal', label: 'Mover para outra mesa…', cls: '', fn: () => { if (typeof window.armaModoArraste === 'function') window.armaModoArraste(); } });
+  actions.push({ id: 'excluir-item', icon: 'ph-trash', label: 'Excluir Item', cls: 'danger', fn: () => { if (typeof window.removerItemPedido === 'function') window.removerItemPedido(id); } });
+  return actions;
+};
+
 // ─── DELEGAÇÃO GLOBAL DE MENU DE CONTEXTO & LONG-PRESS PARA MESAS ───
 document.addEventListener('contextmenu', (e) => {
   e.preventDefault();
+  const itemRow = e.target.closest('.product-item-row');
+  if (itemRow) {
+    const actions = window.montarMenuItemPedido(itemRow);
+    if (actions) showActionPopup(actions, e.clientX || 150, e.clientY || 150);
+    return;
+  }
   const card = e.target.closest('.mesa-item');
   if (card) {
     const nomeMesa = card.getAttribute('data-mesa') || card.getAttribute('data-nome') || (card.querySelector('.mesa-id') ? card.querySelector('.mesa-id').innerText.trim() : 'Mesa');
@@ -1008,7 +1043,8 @@ document.addEventListener('contextmenu', (e) => {
     card.classList.add('selected');
 
     const actions = [
-      { id: 'qr', icon: 'ph-qr-code', label: 'Exibir QR Code', cls: 'info', fn: () => { window.mostrarQrCodeMesa(nomeMesa); } },
+{ id: 'qr', icon: 'ph-qr-code', label: 'Exibir QR Code', cls: 'info', fn: () => { window.mostrarQrCodeMesa(nomeMesa); } },
+      { id: 'splitqr', icon: 'ph-equalizer', label: 'QR Separar Conta', cls: 'info', fn: () => { window.mostrarQrSepararContaMesa(nomeMesa); } },
       { id: 'lancar', icon: 'ph-plus-circle', label: 'Lançar Itens', cls: 'primary', fn: () => { card.click(); setTimeout(() => { const b = document.getElementById('btn-adicionar-produtos'); if (b) b.click(); }, 150); } },
       { id: 'parcial', icon: 'ph-currency-dollar', label: 'Pagamento Parcial', cls: 'success', fn: () => { if (typeof window.abrirModalPagamentoParcialDesagrupado === 'function') { window.abrirModalPagamentoParcialDesagrupado(nomeMesa); } else { card.click(); } } },
       { id: 'fechar', icon: 'ph-check-circle', label: 'Fechar Conta', cls: '', fn: () => { card.click(); setTimeout(() => { const b = document.getElementById('btn-movimento-concluir'); if (b) b.click(); }, 150); } },
@@ -1222,8 +1258,67 @@ document.addEventListener('contextmenu', (e) => {
       </div>
     `;
 
-    modal.style.display = 'flex';
-  };
+modal.style.display = 'flex';
+};
+
+window.mostrarQrSepararContaMesa = function(nomeMesa) {
+  if (!nomeMesa) return;
+  let modal = document.getElementById('modal-qr-separar-conta-caixa');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'modal-qr-separar-conta-caixa';
+    modal.style.cssText = 'display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.65); backdrop-filter:blur(4px); z-index:999999; justify-content:center; align-items:center;';
+    modal.onclick = (e) => { if (e.target === modal) modal.style.display = 'none'; };
+    document.body.appendChild(modal);
+  }
+
+  modal.innerHTML = `
+    <div style="background:white; border-radius:24px; padding:24px 20px; max-width:360px; width:100%; text-align:center; box-shadow:0 20px 50px rgba(0,0,0,0.3); border:1px solid #e2e8f0; position:relative; margin:16px;">
+      <button onclick="document.getElementById('modal-qr-separar-conta-caixa').style.display='none'" style="position:absolute; top:14px; right:14px; background:#f1f5f9; border:none; width:32px; height:32px; border-radius:50%; font-size:18px; color:#64748b; cursor:pointer;">&times;</button>
+      <div style="display:flex; align-items:center; gap:8px; justify-content:center; margin-bottom:8px;">
+        <i class="ph-bold ph-qr-code" style="color:#8b5cf6; font-size:24px;"></i>
+        <h3 style="margin:0; font-size:18px; color:#0f172a;">Clientes separam a conta</h3>
+      </div>
+      <p style="font-size:12.5px; color:#64748b; margin:0 0 6px;">Mesa ${nomeMesa}</p>
+      <p style="font-size:12.5px; color:#64748b; margin:0 0 12px;">Cada cliente lê o QR, escolhe os itens dele e faz o pagamento parcial.</p>
+      <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:18px; padding:16px; margin:12px 0; display:flex; justify-content:center; align-items:center; min-height:230px;">
+        <img id="split-qr-img-caixa" src="" alt="QR Separar Conta" style="width:220px; height:220px; border-radius:8px; display:block;">
+      </div>
+      <p id="split-qr-status-caixa" style="font-size:12.5px; color:#64748b; margin:6px 0 14px 0;">Gerando QR Code...</p>
+      <div style="display:flex; gap:8px;">
+        <button onclick="navigator.clipboard.writeText(window._splitUrlCaixa||'').then(()=>alert('Link copiado!'));" id="btn-split-copiar-caixa" style="flex:1; padding:11px; border-radius:12px; background:#f1f5f9; border:1px solid #cbd5e1; font-weight:700; font-size:13px; cursor:pointer;" disabled>Copiar Link</button>
+        <button onclick="window.open(window._splitUrlCaixa||'', '_blank');" id="btn-split-abrir-caixa" style="flex:1; padding:11px; border-radius:12px; background:#fc4b15; border:none; color:white; font-weight:800; font-size:13px; cursor:pointer;" disabled>Abrir</button>
+      </div>
+    </div>
+  `;
+  modal.style.display = 'flex';
+
+  window._splitUrlCaixa = null;
+  if (!window._splitTokenCallback) {
+    window._splitTokenCallback = (d) => {
+      const mesaAtual = window._splitMesaAtual;
+      if (!d || !d.success || !mesaAtual) return;
+      const rid = encodeURIComponent(localStorage.getItem('restaurante_id') || '1');
+      const url = `${location.protocol}//${location.host}/separar-conta.html?restaurante_id=${rid}&token=${encodeURIComponent(d.token)}`;
+      window._splitUrlCaixa = url;
+      const status = document.getElementById('split-qr-status-caixa');
+      const qrImg = document.getElementById('split-qr-img-caixa');
+      if (status) status.innerText = 'Pronto! Cada cliente pode escanear e separar os itens.';
+      if (typeof window.qrImg === 'function') {
+        window.qrImg(qrImg, url, 240);
+      } else {
+        qrImg.src = (window.location.origin || '') + '/api/qr?size=240&data=' + encodeURIComponent(url);
+      }
+      const b1 = document.getElementById('btn-split-copiar-caixa');
+      const b2 = document.getElementById('btn-split-abrir-caixa');
+      if (b1) b1.disabled = false;
+      if (b2) b2.disabled = false;
+    };
+    if (socket) socket.on('split_token_criado', window._splitTokenCallback);
+  }
+  window._splitMesaAtual = nomeMesa;
+  if (socket) socket.emit('criar_split_mesa', { mesa: nomeMesa });
+};
 
   window.executarTransferenciaMesa = function(origem, destino) {
     const modal = document.getElementById('modal-transferir-mesa-pro');
@@ -1295,15 +1390,9 @@ document.addEventListener('contextmenu', (e) => {
     if (card) {
       actions = montarMenuMesa(card);
     } else {
-      const idAttr = itemRow.getAttribute('data-item-id');
-      if (!idAttr) return;
-      const id = parseInt(idAttr);
-      actions = [
-        { id: 'comanda', icon: 'ph-user-switch', label: 'Mover Comanda', cls: 'primary', fn: () => { window.alterarComandaItemDirect && window.alterarComandaItemDirect(id, ''); } },
-        { id: 'excluir', icon: 'ph-trash', label: 'Excluir Item', cls: 'danger', fn: () => { window.removerItemPedido && window.removerItemPedido(id); } },
-        { id: 'sep-c', sep: true },
-        { id: 'mover-item', icon: 'ph-arrows-out-cardinal', label: 'Mover para outra mesa…', cls: '', fn: () => { window.armaModoArraste(); } }
-      ];
+      const itemActions = window.montarMenuItemPedido ? window.montarMenuItemPedido(itemRow) : null;
+      if (!itemActions) return;
+      actions = itemActions;
     }
     showActionPopup(actions, rect.left + rect.width / 2, rect.top + rect.height / 2);
   }
@@ -1567,29 +1656,44 @@ socket.on('erro_pagamento', (msg) => {
 
 document.addEventListener('DOMContentLoaded', updateQrCode);
 
-/* ─── TEMA DA TELA DO CAIXA (clássico / modular v1.1) ──
+/* ─── TEMA DA TELA DO CAIXA (Pro UX / Clássico / Modular v1.1) ──
    Se o restaurante escolheu o painel v1.1 nas configurações,
-   a tela clássica redireciona automaticamente para /caixa-v11.html */
+   a tela clássica redireciona automaticamente para /caixa-v11.html.
+   Os demais temas respeitam o valor exato escolhido (pro_ux ou classico). */
 (function () {
   try {
     const ehTelaCaixa = window.location.pathname === '/' || /\/index\.html$/i.test(window.location.pathname);
     if (!ehTelaCaixa) return;
-    if (localStorage.getItem('chef_caixa_tema') === 'classico') return; // otimização
     fetch('/api/config', { headers: authHeaders() })
       .then(r => r.json())
       .then(c => {
         const tema = c && c.caixa_tema;
-        try { localStorage.setItem('chef_caixa_tema', tema === 'v11' ? 'v11' : 'classico'); } catch (e) { }
-        if (tema === 'v11') window.location.replace('/caixa-v11.html');
+        let valorLocal = 'pro_ux'; // padrão: Caixa Moderno UX Pro
+        if (tema === 'v11') {
+          valorLocal = 'v11';
+          try { localStorage.setItem('chef_caixa_tema', 'v11'); } catch (e) { }
+          window.location.replace('/caixa-v11.html');
+          return;
+        }
+        if (tema === 'classico') valorLocal = 'classico';
+        else if (tema === 'pro_ux') valorLocal = 'pro_ux';
+        try { localStorage.setItem('chef_caixa_tema', valorLocal); } catch (e) { }
       })
-      .catch(() => { });
+      .catch(() => {
+        try {
+          const lo = localStorage.getItem('chef_caixa_tema');
+          if (lo !== 'v11' && lo !== 'classico') localStorage.setItem('chef_caixa_tema', 'pro_ux');
+        } catch (e) { }
+      });
   } catch (e) { }
 })();
 
 let ordersData = [];
+window.ordersData = ordersData;
 
 window.onDropMesa = async (e, targetMesa) => {
   e.preventDefault();
+  e.stopPropagation();
 
   const type = e.dataTransfer.getData('type');
   if (!type) return;
@@ -2206,7 +2310,8 @@ function renderOrders() {
         return;
       }
       showActionPopup([
-        { id: 'qr', icon: 'ph-qr-code', label: 'Exibir QR Code', cls: 'info', fn: () => { window.mostrarQrCodeMesa(nomeMesa); } },
+{ id: 'qr', icon: 'ph-qr-code', label: 'Exibir QR Code', cls: 'info', fn: () => { window.mostrarQrCodeMesa(nomeMesa); } },
+      { id: 'splitqr', icon: 'ph-equalizer', label: 'QR Separar Conta', cls: 'info', fn: () => { window.mostrarQrSepararContaMesa(nomeMesa); } },
         { id: 'lancar', icon: 'ph-plus-circle', label: 'Lançar Itens', cls: 'primary', fn: () => { card.click(); setTimeout(() => { const b = document.getElementById('btn-adicionar-produtos'); if (b) b.click(); }, 150); } },
         { id: 'parcial', icon: 'ph-currency-dollar', label: 'Pagamento Parcial', cls: 'success', fn: () => { if (typeof window.abrirModalPagamentoParcialDesagrupado === 'function') { window.abrirModalPagamentoParcialDesagrupado(nomeMesa); } else { card.click(); } } },
         { id: 'fechar', icon: 'ph-check-circle', label: 'Fechar Conta', cls: '', fn: () => { card.click(); setTimeout(() => { const b = document.getElementById('btn-movimento-concluir'); if (b) b.click(); }, 150); } },
@@ -2405,6 +2510,7 @@ function renderOrders() {
                ${order.productEmoji || ''} ${order.productName || 'Produto'}
                ${mesaOrigemBadge}
                ${comandaTag}
+               ${!isPaid && order.status ? `<span class="item-status-badge item-status-${order.status.toLowerCase().replace(/[^a-z0-9]+/g, '-')}" title="Clique com o botão direito para alterar o status de preparo">${order.status}</span>` : ''}
                ${isPaid ? '<strong style="color: #3ab55b; margin-left: 8px;">(PAGO)</strong>' : ''}
              </td>
              <td>R$ ${(totalVal / (order.quantity || 1)).toFixed(2).replace('.', ',')}</td>
@@ -2955,6 +3061,7 @@ function updateSummaryValue(id, value) {
       if (!data || !data.pedidos) return;
       if (!ordersData || ordersData.length === 0) {
         ordersData = data.pedidos;
+        window.ordersData = ordersData;
         if (typeof renderOrders === 'function') renderOrders();
       }
     })
@@ -2965,24 +3072,28 @@ function updateSummaryValue(id, value) {
 // Server emits 'initial_data' on connect
 socket.on('initial_data', (data) => {
   ordersData = Array.isArray(data) ? data : [];
+  window.ordersData = ordersData;
   renderOrders();
 });
 
 // Alias legacy name just in case
 socket.on('initial_data_caixa', (data) => {
   ordersData = Array.isArray(data) ? data : [];
+  window.ordersData = ordersData;
   renderOrders();
 });
 
 // Feed de atualização de pedidos (nome real do evento no servidor)
 socket.on('pedidos_atualizados', (pedidos) => {
   ordersData = Array.isArray(pedidos) ? pedidos : [];
+  window.ordersData = ordersData;
   renderOrders();
 });
 
 // Alias legacy
 socket.on('pedidos_caixa_atualizados', (pedidos) => {
   ordersData = Array.isArray(pedidos) ? pedidos : [];
+  window.ordersData = ordersData;
   renderOrders();
 });
 
@@ -2990,6 +3101,7 @@ socket.on('pedido_adicionado', (novoPedido) => {
   const exists = ordersData.some(o => o.id === novoPedido.id);
   if (!exists) {
     ordersData.push(novoPedido);
+    window.ordersData = ordersData;
     renderOrders();
   }
 });
@@ -2998,13 +3110,111 @@ socket.on('status_atualizado', (pedidoAtualizado) => {
   const index = ordersData.findIndex(o => o.id === pedidoAtualizado.id);
   if (index !== -1) {
     ordersData[index] = pedidoAtualizado;
+    window.ordersData = ordersData;
     renderOrders();
+  }
+});
+
+// ── PAGAMENTO PARCIAL EM TEMPO REAL (caixa ↔ garçom) ──
+window.tocarSomPagamento = function () {
+  try {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return;
+    const ctx = new AudioContext();
+    const play = (freq, t, dur) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, ctx.currentTime + t);
+      gain.gain.setValueAtTime(0, ctx.currentTime + t);
+      gain.gain.linearRampToValueAtTime(0.35, ctx.currentTime + t + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + t + dur);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(ctx.currentTime + t);
+      osc.stop(ctx.currentTime + t + dur + 0.05);
+    };
+    play(988, 0, 0.25); // B5
+    play(1319, 0.18, 0.3); // E6
+  } catch (e) { }
+};
+
+window.notificarPagamentoParcial = function (data) {
+  const valor = (typeof data.valor === 'number' ? data.valor : parseFloat(String(data.valor).replace(',', '.'))) || 0;
+  const mesaNome = data.mesaName || '';
+  const metodo = data.metodo || 'dinheiro';
+  const operador = data.userName || 'Garçom';
+  const origemSplit = data.origem === 'split';
+  const msg = origemSplit
+    ? `✨ ${operador} separou a conta e pagou R$ ${valor.toFixed(2).replace('.', ',')} (${metodo}) na ${mesaNome}${data.excedenteTipo === 'gorjeta' ? ' + gorjeta' : ''}`
+    : `💰 Pgto Parcial de R$ ${valor.toFixed(2).replace('.', ',')} (${metodo}) na ${mesaNome} — ${operador}`;
+
+  try {
+    if (typeof showToastIA === 'function') showToastIA(msg, '#10b981');
+    else if (typeof window.showToast === 'function') window.showToast(msg, 'success');
+  } catch (e) { }
+  try { window.tocarSomPagamento(); } catch (e) { }
+  if ('Notification' in window && Notification.permission === 'granted') {
+    try {
+      new Notification(`${origemSplit ? '✨ Separar Conta' : '💰 Pagamento Parcial'} — ${mesaNome}`, {
+        body: `R$ ${valor.toFixed(2).replace('.', ',')} (${metodo}) por ${operador}`,
+        icon: '/icons/icon.ico'
+      });
+    } catch (e) { }
+  }
+};
+
+// Recalcula os pagamentos parciais avulsos da mesa direto de ordersData (fonte única)
+window.recalcularPagamentosParciais = function (nomeMesa) {
+  if (!Array.isArray(ordersData) || !nomeMesa) return;
+  const pgtos = ordersData.filter(o =>
+    (o.localName === nomeMesa || o.mesa_grupo === nomeMesa) &&
+    o.productName && (o.productName.includes('Pagamento') || o.productName.includes('Pgto Parcial')) &&
+    o.status !== 'Finalizado' && o.status !== 'Cancelado'
+  ).map(o => {
+    let metodo = 'Dinheiro';
+    if (o.productName.includes('(')) {
+      metodo = o.productName.split('(')[1].replace(')', '');
+    }
+    return {
+      valor: Math.abs(parseFloat(String(o.total).replace(',', '.')) || 0),
+      metodo: metodo,
+      id: o.id,
+      comanda: o.productName.includes('Comanda')
+    };
+  });
+  window.pagamentosParciais = pgtos;
+  if (window.mesaAtual && (window.mesaAtual.nome || window.mesaAtual.mesaName) === nomeMesa) {
+    window.mesaAtual.pagamentosParciais = pgtos;
+  }
+};
+
+socket.on('pagamento_parcial_registrado', (data) => {
+  if (!data || !data.mesaName) return;
+  const isSelf = !!(data.originSocket && socket.id && data.originSocket === socket.id);
+
+  // Grid, painel e dados já atualizam via pedidos_atualizados (broadcast). Aqui:
+  // 1) notifica quem está com o caixa aberto quando OUTRO operador recebe o pagamento;
+  if (!isSelf) window.notificarPagamentoParcial(data);
+
+  // 2) atualiza na hora o modal de Pagamento Parcial/Divisão aberto desta mesa;
+  if (window._mesaPagamentoParcial && window._mesaPagamentoParcial === data.mesaName &&
+    typeof window.atualizarModalPagamentoParcialDesagrupado === 'function') {
+    window.atualizarModalPagamentoParcialDesagrupado();
+  }
+
+  // 3) recalcula o checkout modal aberto desta mesa (total pago / falta a pagar).
+  const nomeMesaAtual = window.mesaAtual && (window.mesaAtual.nome || window.mesaAtual.mesaName);
+  if (nomeMesaAtual === data.mesaName) {
+    window.recalcularPagamentosParciais(data.mesaName);
+    if (typeof window.calcRestante === 'function') window.calcRestante();
   }
 });
 
 socket.on('mesa_finalizada', ({ mesaName }) => {
   // Remove items that were closed
   ordersData = ordersData.filter(o => o.localName !== mesaName && o.mesa_grupo !== mesaName);
+  window.ordersData = ordersData;
   renderOrders();
 
   // Close the new checkout modal if it's currently open for this table
@@ -6729,28 +6939,7 @@ window.abrirCheckoutModal = () => {
   const nomeMesaAtual = window.mesaAtual.nome || window.mesaAtual.mesaName;
 
   // Sincroniza pagamentos parciais diretamente de ordersData para garantir integridade com o banco
-  if (Array.isArray(ordersData)) {
-    const pgtos = ordersData.filter(o =>
-      (o.localName === nomeMesaAtual || o.mesa_grupo === nomeMesaAtual) &&
-      o.productName && (o.productName.includes('Pagamento') || o.productName.includes('Pgto Parcial')) &&
-      o.status !== 'Finalizado' && o.status !== 'Cancelado'
-    ).map(o => {
-      let metodo = 'Dinheiro';
-      if (o.productName.includes('(')) {
-        metodo = o.productName.split('(')[1].replace(')', '');
-      }
-      return {
-        valor: Math.abs(parseFloat(String(o.total).replace(',', '.')) || 0),
-        metodo: metodo,
-        id: o.id,
-        comanda: o.productName.includes('Comanda')
-      };
-    });
-    window.pagamentosParciais = pgtos;
-    if (window.mesaAtual) {
-      window.mesaAtual.pagamentosParciais = pgtos;
-    }
-  }
+  window.recalcularPagamentosParciais(nomeMesaAtual);
 
   // RESET CUSTOM NFCE
   window.customNfceConfig = null;
@@ -10733,6 +10922,26 @@ window.setMesasOrientation = function(orient) {
   });
 };
 
+// ─── AGRUPAR MESAS POR STATUS (RECOLHÍVEL / EXPANSÍVEL) ───
+window.chefMesasAgrupado = (() => {
+  try { return (localStorage.getItem('chef_mesas_agrupado') || '1') === '1'; } catch(e) { return true; }
+})();
+
+window.toggleMesasAgrupado = function() {
+  window.chefMesasAgrupado = !window.chefMesasAgrupado;
+  try { localStorage.setItem('chef_mesas_agrupado', window.chefMesasAgrupado ? '1' : '0'); } catch(e) {}
+  if (typeof renderOrders === 'function') renderOrders();
+  window.syncMesasAgrupadoBtn();
+};
+
+window.syncMesasAgrupadoBtn = function() {
+  const btn = document.getElementById('btn-toggle-mesas-agrupado');
+  if (!btn) return;
+  btn.style.background = window.chefMesasAgrupado ? 'var(--bg-card)' : 'transparent';
+  btn.style.color = window.chefMesasAgrupado ? 'var(--text-main)' : 'var(--text-muted)';
+  btn.style.fontWeight = window.chefMesasAgrupado ? '800' : '700';
+};
+
 // ─── RECOLHER / EXPANDIR CATEGORIAS DE MESAS ───
 window.chefMesaCollapsedCategories = (() => {
   try { return JSON.parse(localStorage.getItem('chef_mesa_collapsed') || '{}'); } catch(e) { return {}; }
@@ -10753,6 +10962,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (savedCols) window.setMesaGridCols(savedCols);
     // Restaurar orientação salva
     window.setMesasOrientation(window.chefMesasOrientation);
+    window.syncMesasAgrupadoBtn();
   } catch(e){}
 });
 

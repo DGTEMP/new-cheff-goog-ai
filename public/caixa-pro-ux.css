@@ -54,9 +54,9 @@
     display: flex !important;
     visibility: visible !important;
     opacity: 1 !important;
-    width: 230px !important;
-    min-width: 230px !important;
-    max-width: 230px !important;
+    width: 230px;
+    min-width: 230px;
+    max-width: 230px;
     background: #0f172a !important;
     color: #f8fafc !important;
     border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
@@ -105,9 +105,9 @@
     display: flex !important;
     visibility: visible !important;
     opacity: 1 !important;
-    width: 310px !important;
-    min-width: 310px !important;
-    max-width: 310px !important;
+    width: 310px;
+    min-width: 310px;
+    max-width: 310px;
     background: #ffffff !important;
     border-left: 1px solid #e2e8f0 !important;
     flex-direction: column !important;
@@ -485,9 +485,9 @@ footer,
   /* BARRA ESQUERDA COMPACTA LADO A LADO */
   .left-actions, #left-panel {
     display: flex !important;
-    width: 170px !important;
-    min-width: 170px !important;
-    max-width: 170px !important;
+    width: 170px;
+    min-width: 170px;
+    max-width: 170px;
     background: #0f172a !important;
     padding: 8px !important;
     overflow-y: auto !important;
@@ -540,9 +540,9 @@ footer,
   /* BARRA DIREITA DE RESUMO COMPACTA LADO A LADO */
   .right-info, #right-panel {
     display: flex !important;
-    width: 220px !important;
-    min-width: 220px !important;
-    max-width: 220px !important;
+    width: 220px;
+    min-width: 220px;
+    max-width: 220px;
     padding: 10px !important;
     border-left: 1px solid #e2e8f0 !important;
     overflow-y: auto !important;
@@ -598,9 +598,9 @@ footer,
 .left-actions,
 aside.left-actions,
 #left-panel {
-  width: 220px !important;
-  min-width: 180px !important;
-  max-width: 240px !important;
+  width: 220px;
+  min-width: 180px;
+  max-width: 240px;
   background: #0f172a !important;
   color: #f8fafc !important;
   border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
@@ -627,9 +627,9 @@ aside.left-actions,
 .right-info,
 aside.right-info,
 #right-panel {
-  width: 280px !important;
-  min-width: 240px !important;
-  max-width: 320px !important;
+  width: 280px;
+  min-width: 240px;
+  max-width: 320px;
   background: #ffffff !important;
   border-left: 1px solid #e2e8f0 !important;
   display: flex !important;
@@ -652,13 +652,13 @@ aside.right-info,
     display: none !important;
   }
   .left-actions {
-    width: 170px !important;
-    min-width: 170px !important;
+    width: 170px;
+    min-width: 170px;
     padding: 6px !important;
   }
   .right-info {
-    width: 230px !important;
-    min-width: 230px !important;
+    width: 230px;
+    min-width: 230px;
     padding: 8px !important;
   }
 }
@@ -668,11 +668,18 @@ aside.right-info,
    OCULTAÇÃO TOTAL DE BARRAS RETRÔ E FABS FLUTUANTES NO MOBILE
    ══════════════════════════════════════════════════════════════════ */
 .menu-bar,
-.top-toolbar,
 .old-toolbar,
 #old-app-header-menu,
 .menubar-container,
 .topbar > div[style*="Arquivo"] {
+  display: none !important;
+}
+
+/* A barra de ações original SÓ é ocultada na experiência nova (pro-ux).
+   No modo CLÁSSICO ela continua visível: é onde ficam os botões de tema
+   (claro/escuro), visualização (Auto/Mobile/Desktop), pedidos QR, NFC-e,
+   PDV mobile, dashboard, financeiro e admin. */
+body:not(.modo-classico-ativo) .top-toolbar {
   display: none !important;
 }
 
@@ -722,6 +729,7 @@ body.mostrar-abas-ativas .mobile-tabs-grip {
   position: relative !important;
   z-index: 100 !important;
   flex-shrink: 0 !important;
+  touch-action: none;
 }
 
 .chef-sidebar-splitter::after {
@@ -995,4 +1003,196 @@ body.dark-mode .mesa-item {
   gap: 8px !important;
   overflow-y: auto !important;
   flex: 1 !important;
+}
+
+/* ── AGRUPAR POR STATUS: BLOCOS RECOLHÍVEIS OCUPANDO A LINHA INTEIRA ── */
+#orders-grid:not(.orientation-vertical) .mesa-category,
+#orders-grid:not(.orientation-vertical) .mesa-category-plain {
+  grid-column: 1 / -1 !important;
+  min-width: 0 !important;
+}
+
+#orders-grid:not(.orientation-vertical) .mesa-category-plain {
+  margin-bottom: 12px !important;
+}
+
+#orders-grid:not(.orientation-vertical) .mesa-category {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 14px !important;
+  padding: 10px 12px !important;
+}
+
+#orders-grid:not(.orientation-vertical) .mesa-category.collapsed {
+  padding-bottom: 0 !important;
+}
+
+[data-theme="dark"] #orders-grid:not(.orientation-vertical) .mesa-category {
+  background: rgba(30, 41, 59, 0.6) !important;
+  border-color: rgba(148, 163, 184, 0.22) !important;
+}
+
+/* ── MODOS DAS BARRAS LATERAIS (EXPANDIDO / MINI / OCULTO) ──
+   Comandados por window.setSidebarMode (caixa-pro-ux.js / chef-resizable-sidebars.js).
+   Regras só em desktop para não conflitar com as abas mobile. */
+@media (min-width: 768px) {
+  .left-actions.mode-hidden,
+  aside.left-actions.mode-hidden,
+  #left-panel.mode-hidden,
+  .workspace.active-tab-mesas .left-actions.mode-hidden,
+  .workspace.active-tab-acoes .left-actions.mode-hidden,
+  .workspace.active-tab-resumo .left-actions.mode-hidden,
+  .right-info.mode-hidden,
+  aside.right-info.mode-hidden,
+  #right-panel.mode-hidden,
+  .workspace.active-tab-mesas .right-info.mode-hidden,
+  .workspace.active-tab-acoes .right-info.mode-hidden,
+  .workspace.active-tab-resumo .right-info.mode-hidden {
+    display: none !important;
+    width: 0 !important;
+    min-width: 0 !important;
+    max-width: 0 !important;
+  }
+
+  .left-actions.mode-mini,
+  aside.left-actions.mode-mini,
+  #left-panel.mode-mini {
+    display: flex !important;
+    width: 68px !important;
+    min-width: 68px !important;
+    max-width: 68px !important;
+    padding: 12px 6px !important;
+  }
+
+  .right-info.mode-mini,
+  aside.right-info.mode-mini,
+  #right-panel.mode-mini {
+    display: flex !important;
+    width: 190px !important;
+    min-width: 190px !important;
+    max-width: 190px !important;
+  }
+
+  /* ── TRILHO DE ÍCONES DO MODO MINI (barra esquerda) ── */
+  .left-actions.mode-mini .panel-content-inner,
+  .left-actions.sidebar-mini .panel-content-inner {
+    padding: 4px 2px !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    margin: 0 !important;
+  }
+  .left-actions.mode-mini .mobile-acoes-summary,
+  .left-actions.sidebar-mini .mobile-acoes-summary,
+  .left-actions.mode-mini .group-title,
+  .left-actions.sidebar-mini .group-title,
+  .left-actions.mode-mini .sidebar-header-controls > div > span,
+  .left-actions.sidebar-mini .sidebar-header-controls > div > span,
+  .left-actions.mode-mini .btn-action span,
+  .left-actions.sidebar-mini .btn-action span {
+    display: none !important;
+  }
+  .left-actions.mode-mini .sidebar-header-controls > div,
+  .left-actions.sidebar-mini .sidebar-header-controls > div {
+    flex-direction: column !important;
+    justify-content: center !important;
+    gap: 3px !important;
+    border-bottom: none !important;
+    padding: 2px 0 6px !important;
+    margin-bottom: 4px !important;
+  }
+  .left-actions.mode-mini .sidebar-ctrl-btn,
+  .left-actions.sidebar-mini .sidebar-ctrl-btn {
+    font-size: 15px !important;
+    padding: 3px !important;
+  }
+  .left-actions.mode-mini .action-group,
+  .left-actions.sidebar-mini .action-group {
+    margin: 4px 0 !important;
+    padding: 0 !important;
+    text-align: center !important;
+  }
+  .left-actions.mode-mini .btn-grid-2,
+  .left-actions.sidebar-mini .btn-grid-2 {
+    display: block !important;
+  }
+  .left-actions.mode-mini .btn-action,
+  .left-actions.sidebar-mini .btn-action {
+    width: 46px !important;
+    height: 46px !important;
+    padding: 0 !important;
+    margin: 4px auto !important;
+    justify-content: center !important;
+    align-items: center !important;
+    gap: 0 !important;
+    font-size: 0 !important;
+    overflow: hidden !important;
+    appearance: none;
+  }
+  .left-actions.mode-mini .btn-grid-2 > .btn-action,
+  .left-actions.sidebar-mini .btn-grid-2 > .btn-action {
+    flex: none !important;
+    min-width: 46px !important;
+  }
+  .left-actions.mode-mini .btn-action i,
+  .left-actions.sidebar-mini .btn-action i {
+    font-size: 21px !important;
+    margin: 0 !important;
+    line-height: 1 !important;
+  }
+  .left-actions.mode-mini .btn-action:hover,
+  .left-actions.sidebar-mini .btn-action:hover {
+    transform: translateY(-1px) !important;
+  }
+
+  .left-actions.mode-expanded,
+  aside.left-actions.mode-expanded,
+  #left-panel.mode-expanded {
+    display: flex !important;
+  }
+
+  .right-info.mode-expanded,
+  aside.right-info.mode-expanded,
+  #right-panel.mode-expanded {
+    display: flex !important;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   ESTADO DE PREPARO DO ITEM + ARRASTE DE MESAS
+   ══════════════════════════════════════════════════════════════════ */
+.item-status-badge {
+  display: inline-block !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  padding: 1px 7px !important;
+  border-radius: 999px !important;
+  margin-left: 6px !important;
+  border: 1px solid transparent !important;
+  vertical-align: middle !important;
+  white-space: nowrap !important;
+}
+
+.item-status-pendente { background: #fef3c7 !important; color: #b45309 !important; border-color: #fcd34d !important; }
+.item-status-em-espera { background: #f3e8ff !important; color: #7e22ce !important; border-color: #d8b4fe !important; }
+.item-status-em-preparo { background: #ffedd5 !important; color: #c2410c !important; border-color: #fdba74 !important; }
+.item-status-pronto { background: #dcfce7 !important; color: #15803d !important; border-color: #86efac !important; }
+
+[data-theme="dark"] .item-status-badge { opacity: 0.92 !important; }
+
+#orders-grid .mesa-item {
+  cursor: grab !important;
+}
+
+#orders-grid .mesa-item.drag-over,
+#orders-grid .mesa-item.dragging-chef {
+  cursor: grabbing !important;
+}
+
+#panel-items-tbody tr.product-item-row {
+  cursor: context-menu !important;
+}
+
+#panel-items-tbody tr.product-item-row.dragging-chef,
+#panel-items-tbody tr.product-item-row.dragging-item-row {
+  opacity: 0.55 !important;
 }

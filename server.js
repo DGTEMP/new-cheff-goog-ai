@@ -2502,6 +2502,7 @@ db.serialize(() => {
   db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('qr_order_flow', 'caixa')`);
   db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('qr_pix_key', '')`);
   db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('qr_pix_name', '')`);
+  db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('split_excedente', 'perguntar')`);
   db.run(`INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('hub_delivery_config', '{"enabled":false,"canais":[{"nome":"iFood","ativo":true},{"nome":"Rappi","ativo":true},{"nome":"Uber Eats","ativo":true},{"nome":"Mucho","ativo":true},{"nome":"Próprio","ativo":true}],"taxa":"0.00","tempo":45}')`);
 
   // Feature toggles do restaurante
@@ -4262,6 +4263,11 @@ io.on('connection', (socket) => {
     verificarPinOuSenha,
     verificarSenhaFuncionario,
     getLocalTimestamp
+  });
+  require('./controllers/split-conta')(socket, io, db, {
+    checkCaixa,
+    broadcastPedidos,
+    broadcastMesaClientes
   });
   require('./controllers/socket-fila')(socket, io, db, {});
 
@@ -10641,6 +10647,20 @@ function verificarToken(req, res, next) {
       next();
     });
   });
+}
+
+// ─── App Store de Temas (catálogo global, curadoria e aplicação por restaurante) ───
+try {
+  require('./plugins/theme-curator')({
+    app,
+    db: masterDb,
+    masterDb,
+    io,
+    options: { JWT_SECRET, superAdminAuth, verificarToken },
+    log: (m) => console.log(`[theme-curator] ${m}`)
+  });
+} catch (e) {
+  console.error('[theme-curator] Falha ao inicializar:', e);
 }
 
 // Health check (sem auth, para load balancer / monitor) ────────────

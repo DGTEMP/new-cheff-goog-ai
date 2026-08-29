@@ -140,34 +140,188 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // ─── TEMA DA TELA DO CAIXA (clássico v1 / modular v1.1) ──
+  // ─── TEMA DA TELA DO CAIXA (Pro UX / Clássico / Modular v1.1 + Loja de Temas) ──
   const temaSelect = document.getElementById('select-caixa-tema');
   if (temaSelect) {
-    fetch('/api/config', { headers: authHeaders() })
-      .then(r => r.json())
-      .then(c => {
-        const tema = (c && c.caixa_tema) || localStorage.getItem('chef_caixa_tema') || 'classico';
-        temaSelect.value = tema === 'v11' ? 'v11' : 'classico';
-      })
-      .catch(() => {
-        temaSelect.value = localStorage.getItem('chef_caixa_tema') === 'v11' ? 'v11' : 'classico';
-      });
+    let _lojaTemas = [];
+    let _temaAtivoLayout = 'pro_ux';
+    let _storeAtivoId = null;
+    let _storeAtivoNome = '';
 
-    temaSelect.addEventListener('change', (e) => {
-      const novo = e.target.value === 'v11' ? 'v11' : 'classico';
+    const tokenTemas = () => {
+      const t = localStorage.getItem('chef_token') || localStorage.getItem('token');
+      return t ? ('Bearer ' + t) : '';
+    };
+
+    function montarOptionsCaixa() {
+      let html =
+        `<option value="pro_ux">✨ Caixa Moderno UX Pro (Novo - Otimizado)</option>
+         <option value="classico">🏛️ Caixa Clássico Tradicional (Versão Anterior)</option>
+         <option value="v11">🧩 Caixa Modular v1.1 (Painel com Widgets)</option>`;
+      if (_lojaTemas.length) {
+        html += `<optgroup label="🎨 Loja de Temas (App Store)">`;
+        _lojaTemas.forEach(t => {
+          const badge = t.badge === 'destaque' ? ' 🔥 Destaque' : t.badge === 'lancamento' ? ' 🆕 Lançamento' : (t.desconto > 0 ? ' 🏷️ -' + t.desconto + '%' : '');
+          html += `<option value="store:${t.id}">${t.emoji_nicho || '🎨'} ${t.nome}${badge}</option>`;
+        });
+        html += `</optgroup>`;
+      }
+      return html;
+    }
+
+    async function carregarEstadoTemaCaixa() {
+      try {
+        const [cfgRes, lojaRes, ativoRes] = await Promise.all([
+          fetch('/api/config', { headers: authHeaders() }).then(r => r.json()).catch(() => null),
+          fetch('/api/modulo/temas/loja').then(r => r.json()).catch(() => null),
+          fetch('/api/modulo/temas/ativo', { headers: { 'Authorization': tokenTemas() } }).then(r => r.json()).catch(() => null)
+        ]);
+
+        _lojaTemas = (lojaRes && lojaRes.ok && lojaRes.temas) || [];
+        _temaAtivoLayout = (cfgRes && cfgRes.caixa_tema === 'v11') ? 'v11' : ((cfgRes && cfgRes.caixa_tema === 'classico') ? 'classico' : 'pro_ux');
+        _storeAtivoId = (ativoRes && ativoRes.ok && ativoRes.tema && ativoRes.tema.tema_id) || null;
+        _storeAtivoNome = (ativoRes && ativoRes.ok && ativoRes.tema && ativoRes.tema.nome) || '';
+
+        let html = montarOptionsCaixa();
+        let temaSelecionado = null;
+
+        if (_storeAtivoId) {
+          const noLista = _lojaTemas.find(t => t.id === _storeAtivoId);
+          if (!noLista) {
+            html += `<option value="store:${_storeAtivoId}">🎨 ${_storeAtivoNome} (em uso)</option>`;
+          }
+          temaSelecionado = 'store:' + _storeAtivoId;
+        } else {
+          temaSelecionado = _temaAtivoLayout;
+        }
+
+        temaSelect.innerHTML = html;
+        temaSelect.value = temaSelecionado;
+
+        const hint = document.getElementById('tema-caixa-ativo-hint');
+        if (hint) {
+          hint.innerHTML = _storeAtivoId
+            ? `<i class="ph-bold ph-check-circle" style="color:#16a34a;"></i> Tema da Loja ativo: <b>${_storeAtivoNome}</b> — aplicado em todas as telas.`
+            : `<i class="ph-bold ph-check-circle" style="color:#16a34a;"></i> Tema ativo: estrutura <b>${_temaAtivoLayout === 'v11' ? 'Modular v1.1' : _temaAtivoLayout === 'classico' ? 'Clássico' : 'Moderno Pro UX'}</b>. Escolha um tema da Loja abaixo para personalizar as cores do salão.`;
+        }
+      } catch (e) {
+        temaSelect.innerHTML = montarOptionsCaixa();
+        const lo = localStorage.getItem('chef_caixa_tema');
+        temaSelect.value = (lo === 'v11' || lo === 'classico') ? lo : 'pro_ux';
+      }
+    }
+
+    function salvarLayoutCaixa(novo) {
       try { localStorage.setItem('chef_caixa_tema', novo); } catch (err) { }
-      socket.emit('save_restaurante_config', { caixa_tema: novo });
+      try { socket.emit('save_restaurante_config', { caixa_tema: novo }); } catch (err) { }
       fetch('/api/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(typeof authHeaders === 'function' ? authHeaders() : {}) },
         body: JSON.stringify({ caixa_tema: novo })
       }).catch(() => { });
+    }
+
+    async function limparTemaLoja() {
+      try {
+        await fetch('/api/modulo/temas/aplicar', { method: 'DELETE', headers: { 'Authorization': tokenTemas() } });
+      } catch (e) { }
+    }
+
+    temaSelect.addEventListener('change', async (e) => {
+      const val = e.target.value || 'pro_ux';
+
+      if (val.startsWith('store:')) {
+        const id = val.slice(6);
+        const t = _lojaTemas.find(x => x.id === id);
+        try {
+          const res = await fetch('/api/modulo/temas/aplicar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': tokenTemas() },
+            body: JSON.stringify({ tema_id: id, tema_json: t || { id: id, nome: _storeAtivoNome } })
+          });
+          const data = await res.json().catch(() => ({}));
+          if (data && data.ok === false) throw new Error(data.erro || 'erro');
+          window.showToast(`🎨 Tema "${t ? t.nome : id}" aplicado em todas as telas!`, 'success');
+        } catch (err) {
+          window.showToast('Erro ao aplicar o tema da loja.', 'error');
+        }
+        carregarEstadoTemaCaixa();
+        return;
+      }
+
+      const novo = (val === 'v11') ? 'v11' : (val === 'classico' ? 'classico' : 'pro_ux');
+      salvarLayoutCaixa(novo);
+      await limparTemaLoja();
       window.showToast(
         novo === 'v11'
           ? 'Tema v1.1 ativado! A tela do caixa abrirá o painel modular.'
-          : 'Tema clássico restaurado para a tela do caixa.',
+          : novo === 'classico'
+            ? 'Tema clássico restaurado para a tela do caixa.'
+            : 'Caixa Moderno UX Pro ativado!',
         'success');
+      carregarEstadoTemaCaixa();
     });
+
+    try {
+      if (window.socket && window.socket.on) {
+        window.socket.on('tema_aplicado', () => carregarEstadoTemaCaixa());
+        window.socket.on('tema_global_atualizado', () => carregarEstadoTemaCaixa());
+      } else if (socket && socket.on) {
+        socket.on('tema_aplicado', () => carregarEstadoTemaCaixa());
+        socket.on('tema_global_atualizado', () => carregarEstadoTemaCaixa());
+      }
+    } catch (e) { }
+
+    carregarEstadoTemaCaixa();
+  }
+});
+
+function chefTokenRest() {
+  const t = localStorage.getItem('chef_token') || localStorage.getItem('token');
+  return t ? ('Bearer ' + t) : '';
+}
+
+window.abrirModalLojaTemas = function () {
+  const m = document.getElementById('modal-loja-temas');
+  if (!m) return;
+  m.style.display = 'flex';
+  const f = document.getElementById('iframe-loja-temas');
+  if (f) f.src = '/theme-store.html?from=config&mode=restaurante&t=' + Date.now();
+};
+
+window.fecharModalLojaTemas = function () {
+  const m = document.getElementById('modal-loja-temas');
+  if (!m) return;
+  m.style.display = 'none';
+  const f = document.getElementById('iframe-loja-temas');
+  if (f) f.src = 'about:blank';
+};
+
+window.abrirSolicitarTemaLoja = async function () {
+  const temaRef = prompt('Qual tema ou estilo você gostaria no seu salão?', 'Quero um tema novo para o meu negócio');
+  if (temaRef === null) return;
+  const detalhe = prompt('Descreva cores, estilo e demonstrações que combinam com sua marca:', 'Cores do meu logo, clima acolhedor...');
+  if (detalhe === null) return;
+  try {
+    const res = await fetch('/api/modulo/temas/solicitar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': chefTokenRest() },
+      body: JSON.stringify({ tema_referencia: temaRef, mensagem: detalhe })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (data && data.ok !== false) {
+      window.showToast('✅ ' + (data.mensagem || 'Solicitação enviada à Equipe de Criação & Suporte!'), 'success');
+    } else {
+      window.showToast('Erro ao enviar a solicitação.', 'error');
+    }
+  } catch (e) {
+    window.showToast('Erro ao enviar a solicitação.', 'error');
+  }
+};
+
+window.addEventListener('message', (ev) => {
+  if (ev && ev.data === 'fechar_theme_studio' && typeof window.fecharModalLojaTemas === 'function') {
+    window.fecharModalLojaTemas();
   }
 });
 
@@ -647,6 +801,7 @@ let configs = {
   qr_pix_name: "",
   qr_protocol: "",
   qr_port: "",
+  split_excedente: "perguntar",
   ponto_saida_fechar_caixa: false,
   feature_venda_sem_estoque: false,
   feature_toggle_produto_rapido: true,
@@ -1733,6 +1888,16 @@ function initGeraisTab() {
     inputQrPixName.value = configs.qr_pix_name || '';
     inputQrPixName.onchange = () => {
       configs.qr_pix_name = inputQrPixName.value;
+      salvarConfiguracoes();
+    };
+  }
+
+  // ── SEPARAÇÃO DE CONTA PELO CLIENTE (QR) ──
+  const selectSplitExc = document.getElementById('select-split-excedente');
+  if (selectSplitExc) {
+    selectSplitExc.value = configs.split_excedente || 'perguntar';
+    selectSplitExc.onchange = () => {
+      configs.split_excedente = selectSplitExc.value;
       salvarConfiguracoes();
     };
   }

@@ -956,12 +956,40 @@
       if (window.parent && window.parent !== window) {
         window.parent.postMessage('fechar_theme_studio', '*');
       } else {
-        window.location.href = '/suporte.html';
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('from') === 'config') {
+          window.location.href = '/configuracoes.html';
+        } else {
+          window.location.href = '/suporte.html';
+        }
       }
+    }
+
+    // Stubs de segurança: funções do Estúdio que ainda não têm corpo não podem
+    // travar a Loja de Temas aberta pelo restaurante.
+    ['aplicarEstilosPreview', 'initDragAndDrop', 'salvarSnapshotHistorico', 'aplicarTemaNoRestauranteAtivo',
+      'exportarPacoteTemaJson', 'importarPacoteTemaJson', 'publicarTemaCompletoDoStudio'
+    ].forEach(function (fn) {
+      if (typeof window[fn] !== 'function') {
+        window[fn] = function () { };
+      }
+    });
+
+    function chefTokenAuth() {
+      const t = localStorage.getItem('chef_token') || localStorage.getItem('token');
+      return t ? ('Bearer ' + t) : '';
     }
 
     const urlParams = new URLSearchParams(window.location.search);
     const isThemeCustomMode = urlParams.get('mode') === 'themecustom';
+    const isRestauranteMode = urlParams.get('mode') === 'restaurante';
+
+    if (isRestauranteMode) {
+      document.addEventListener('DOMContentLoaded', function () {
+        const btnStudio = document.getElementById('main-tab-studio');
+        if (btnStudio) btnStudio.style.display = 'none';
+      });
+    }
 
     // ── PILHAS DE HISTÓRICO UNDO / REDO ───────────────────────────
     const historyStack = [];
@@ -1087,6 +1115,17 @@ historyStack.push(proximoEstado);
     let _filtroAtivo = '';
     let _bannerInterval = null;
     let _bannerAtual = 0;
+    let _temaAtivoId = null;
+
+    async function carregarTemaAtivo() {
+      try {
+        const res = await fetch('/api/modulo/temas/ativo', { headers: { 'Authorization': chefTokenAuth() } });
+        const data = await res.json();
+        _temaAtivoId = (data && data.ok && data.tema && data.tema.tema_id) ? data.tema.tema_id : null;
+      } catch (e) { _temaAtivoId = null; }
+      if (_temasCache.length) renderizarTemasLoja(_temasCache);
+      renderFeaturedBanner(_temasCache);
+    }
 
     function renderEstrelas(val, votos) {
       const stars = [];
@@ -1113,8 +1152,10 @@ historyStack.push(proximoEstado);
       const border = c.borderColor || '#334155';
       const primary = c.primary || '#fc4b15';
       const textMain = c.textMain || '#fff';
+      const emUso = _temaAtivoId === t.id;
       return `
-        <div class="theme-store-card" style="border-color:${border};" onclick="abrirPreviewTema(${JSON.stringify(t).replace(/"/g,'&quot;')})">
+        <div class="theme-store-card${emUso ? ' theme-card-ativo' : ''}" style="border-color:${emUso ? '#22c55e' : border};" onclick="abrirPreviewTema(${JSON.stringify(t).replace(/"/g,'&quot;')})">
+          ${emUso ? '<div class="tema-em-uso-tag">✓ Em uso no seu restaurante</div>' : ''}
           <div class="theme-preview-box" style="background:${bg};border-bottom:1px solid ${border};">
             ${renderBadges(t)}
             <div class="theme-palette-dots">
@@ -1135,8 +1176,8 @@ historyStack.push(proximoEstado);
             <div class="theme-card-desc">${t.descricao||''}</div>
             ${renderEstrelas(t.estrelas, t.votos)}
             <div class="theme-card-actions">
-              <button class="btn-apply-theme" onclick="event.stopPropagation();aplicarTemaLoja(JSON.parse(this.dataset.tema))" data-tema="${JSON.stringify(t).replace(/"/g,'&quot;')}">
-                ✓ Aplicar Tema
+              <button class="btn-apply-theme" onclick="event.stopPropagation();aplicarTemaLoja(JSON.parse(this.dataset.tema))" data-tema="${JSON.stringify(t).replace(/"/g,'&quot;')}"${emUso ? ' style="background:#16a34a;"' : ''}>
+                ${emUso ? '✓ Em uso' : '✓ Aplicar Tema'}
               </button>
               <button class="btn-request-changes" onclick="event.stopPropagation();solicitarAjustesSuporte('${t.nome.replace(/'/g,"\\'")}')">💬</button>
             </div>
@@ -1161,12 +1202,13 @@ historyStack.push(proximoEstado);
       const slides = destaques.map((t, i) => {
         const pal = PALETTES[i % PALETTES.length];
         const c = t.cores || {};
+        const emUso = _temaAtivoId === t.id;
         return `<div class="featured-slide${i===0?' active':''}" id="slide-${i}" style="background:${pal.grad};">
           <div class="featured-content">
-            <div class="featured-eyebrow" style="color:${c.primary||'#fff'};">✨ ${t.badge==='lancamento'?'Novo Lançamento':'Tema em Destaque'}</div>
+            <div class="featured-eyebrow" style="color:${c.primary||'#fff'};">${emUso ? '✓ Tema ativo no seu restaurante' : (t.badge==='lancamento'?'🆕 Novo Lançamento':'✨ Tema em Destaque')}</div>
             <div class="featured-title" style="color:#fff;">${t.nome}</div>
             <div class="featured-desc" style="color:rgba(255,255,255,0.75);">${t.descricao||''}</div>
-            <button class="btn-featured-apply" onclick="aplicarTemaLoja(JSON.parse(this.dataset.tema))" data-tema="${JSON.stringify(t).replace(/"/g,'&quot;')}">✓ Aplicar Agora${t.desconto>0?` — -${t.desconto}%`:''}</button>
+            <button class="btn-featured-apply" style="${emUso?'background:#16a34a;':''}" onclick="aplicarTemaLoja(JSON.parse(this.dataset.tema))" data-tema="${JSON.stringify(t).replace(/"/g,'&quot;')}">${emUso?'✓ Em uso':`✓ Aplicar Agora${t.desconto>0?` — -${t.desconto}%`:''}`}</button>
           </div>
           <div class="featured-orbs">
             <div class="featured-orb" style="width:200px;height:200px;background:${pal.orb1};top:10%;right:10%;"></div>
@@ -1220,6 +1262,7 @@ historyStack.push(proximoEstado);
 
       _temasCache = temas;
       renderizarTemasLoja(temas);
+      carregarTemaAtivo();
     }
 
     function renderizarTemasLoja(temas) {
@@ -1273,24 +1316,41 @@ historyStack.push(proximoEstado);
 
     function solicitarAjustesSuporte(nomeTema) {
       const pedido = prompt(`Qual personalização você gostaria para o tema "${nomeTema}"?`, 'Gostaria de ajustar as cores para combinar com meu logo.');
-      if (pedido) alert('✅ Solicitação enviada à Equipe de Criação & Suporte! Entraremos em contato em breve.');
+      if (pedido === null || !pedido.trim()) return;
+      fetch('/api/modulo/temas/solicitar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': chefTokenAuth() },
+        body: JSON.stringify({ tema_referencia: nomeTema, mensagem: pedido })
+      }).then(r => r.json()).then(data => {
+        if (data && data.ok !== false) {
+          notificarToast('✅ Solicitação enviada à Equipe de Criação & Suporte!', 'ok');
+        } else {
+          notificarToast('Não foi possível enviar a solicitação.', 'erro');
+        }
+      }).catch(() => notificarToast('Não foi possível enviar a solicitação.', 'erro'));
+    }
+
+    function notificarToast(msg, tipo) {
+      var toast = document.createElement('div');
+      toast.style.cssText = 'position:fixed;bottom:24px;right:24px;color:#fff;padding:14px 22px;border-radius:12px;font-weight:800;font-size:14px;z-index:99999;box-shadow:0 8px 24px rgba(0,0,0,0.4);' + (tipo === 'erro' ? 'background:#dc2626;' : 'background:#10b981;');
+      toast.textContent = msg;
+      document.body.appendChild(toast);
+      setTimeout(function () { toast.remove(); }, 3500);
     }
 
     async function aplicarTemaLoja(tema) {
-      try { localStorage.setItem('chef_custom_theme_active', JSON.stringify(tema)); } catch(e) {}
-      socket.emit('tema_global_aplicar', tema);
+      try { localStorage.setItem('chef_custom_theme_active', JSON.stringify(tema)); } catch (e) {}
+      try { socket.emit('tema_global_aplicar', tema); } catch (e) {}
       try {
         await fetch('/api/modulo/temas/aplicar', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (localStorage.getItem('token') || '') },
+          headers: { 'Content-Type': 'application/json', 'Authorization': chefTokenAuth() },
           body: JSON.stringify({ tema_id: tema.id, tema_json: tema })
         });
-      } catch(e) {}
-      const toast = document.createElement('div');
-      toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#10b981;color:#fff;padding:14px 22px;border-radius:12px;font-weight:800;font-size:14px;z-index:99999;box-shadow:0 8px 24px rgba(0,0,0,0.4);';
-      toast.textContent = `✅ Tema "${tema.nome}" aplicado em todas as telas!`;
-      document.body.appendChild(toast);
-      setTimeout(() => toast.remove(), 3500);
+      } catch (e) {}
+      notificarToast(`✅ Tema "${tema.nome}" aplicado em todas as telas!`, 'ok');
+      // Reflete "Em uso" na loja e avisa o seletor das configurações
+      carregarTemaAtivo();
     }
 
     // ── LAYOUT PRESETS ────────────────────────────────────────────
@@ -1458,17 +1518,6 @@ historyStack.push(proximoEstado);
         customCss: document.getElementById('txt-custom-css').value,
         customJs: isThemeCustomMode ? '' : document.getElementById('txt-custom-js').value
       };
-
-      const res = await fetch('/api/modulo/temas/publicar', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const data = await res.json();
-      if (data.ok) {
-        alert('🚀 Tema publicado na Loja com sucesso!');
-        setMainRoleView('store');
-      }
     }
 
     document.addEventListener('DOMContentLoaded', () => {

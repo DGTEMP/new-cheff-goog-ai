@@ -106,6 +106,29 @@ function initSocket() {
     renderComanda();
   });
 
+  // Notificação em tempo real quando o caixa registra pagamento parcial (vice-versa)
+  socket.on('pagamento_parcial_registrado', (data) => {
+    if (!data || !data.mesaName) return;
+    const isSelf = !!(data.originSocket && socket.id && data.originSocket === socket.id);
+    if (isSelf) return;
+    const valor = (typeof data.valor === 'number' ? data.valor : parseFloat(String(data.valor).replace(',', '.'))) || 0;
+    const origemSplit = data.origem === 'split';
+    const msg = origemSplit
+      ? `✨ ${data.userName || 'Cliente'} separou a conta e pagou R$ ${valor.toFixed(2).replace('.', ',')} (${data.metodo || ''}) na ${data.mesaName}${data.excedenteTipo === 'gorjeta' ? ' + gorjeta' : ''}`
+      : `💰 Pgto Parcial de R$ ${valor.toFixed(2).replace('.', ',')} (${data.metodo || ''}) na ${data.mesaName}`;
+    showToast(msg, '#22c55e');
+    if ('Notification' in window && Notification.permission === 'granted') {
+      try {
+        new Notification(`${origemSplit ? '✨ Separar Conta' : '💰 Pagamento Parcial'} — ${data.mesaName}`, { body: `${msg}`, icon: '/icons/icon.ico' });
+      } catch (e) { }
+    }
+  });
+
+  socket.on('split_token_criado', (d) => {
+    if (window._splitQrCallback) { const cb = window._splitQrCallback; window._splitQrCallback = null; cb(d); }
+  });
+  socket.on('split_erro', (e) => showToast((e && e.msg) || 'Erro ao gerar o QR de separação.', 'error'));
+
   socket.on('formas_pagamento_atualizadas', (formas) => {
     if (Array.isArray(formas)) {
       listaFormasPagamento = formas.filter(f => f.ativo === 1 || f.ativo === true);
@@ -1193,7 +1216,10 @@ window.abrirZoomQrPontoMobile = function () {
           `}
         </div>
 
-        <div style="padding:16px 20px; background:#f8fafc; border-top:1px solid #e2e8f0;">
+<div style="padding:16px 20px; background:#f8fafc; border-top:1px solid #e2e8f0;">
+          <button onclick="window.abrirModalQrSepararConta('${nomeMesa}')" style="width:100%; padding:11px; margin-bottom:8px; background:#f3e8ff; color:#6d28d9; border:1px dashed #c4b5fd; border-radius:12px; font-weight:800; font-size:12.5px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:7px;">
+            <i class="ph-bold ph-qr-code" style="font-size:16px;"></i> QR: Clientes separam a conta
+          </button>
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
             <span style="font-size:14px; font-weight:700; color:#64748b;">Total com Taxa:</span>
             <strong style="font-size:20px; font-weight:900; color:#10b981;">R$ ${total.toFixed(2).replace('.', ',')}</strong>
@@ -1220,7 +1246,76 @@ window.abrirZoomQrPontoMobile = function () {
     if (navCardapio) navCardapio.click();
   };
 
-  // ─── CONTEXT MENU & LONG PRESS (PDV MOBILE) ───
+// ── SEPARAR CONTA (CLIENTES PAGAM PELO QR) ──
+  window.abrirModalQrSepararConta = function (nomeMesa) {
+    if (!nomeMesa) return showToast('Selecione uma mesa primeiro.', 'error');
+
+    let modal = document.getElementById('modal-qr-separar-conta-pdv-mobile');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'modal-qr-separar-conta-pdv-mobile';
+      modal.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,0.7); backdrop-filter:blur(6px); z-index:999999; display:flex; align-items:center; justify-content:center; animation:fadeIn 0.2s ease;';
+      modal.onclick = (e) => { if (e.target === modal) modal.style.display = 'none'; };
+      document.body.appendChild(modal);
+    }
+
+    modal.innerHTML = `
+      <div style="position:relative; background:#ffffff; border-radius:24px; padding:24px 20px; max-width:360px; width:90%; text-align:center; box-shadow:0 20px 50px rgba(0,0,0,0.3); border:1px solid #e2e8f0; color:#0f172a;">
+        <button type="button" onclick="document.getElementById('modal-qr-separar-conta-pdv-mobile').style.display='none'" style="position:absolute; top:10px; right:10px; background:#f1f5f9; border:none; width:32px; height:32px; border-radius:50%; font-size:18px; color:#64748b; cursor:pointer;">&times;</button>
+        <div style="display:flex; align-items:center; gap:8px; justify-content:center; margin-bottom:8px;">
+          <i class="ph-bold ph-qr-code" style="color:#fc4b15; font-size:24px;"></i>
+          <h3 style="margin:0; font-size:18px; font-weight:800; color:#0f172a;">Separar Conta</h3>
+        </div>
+        <p style="font-size:13px; color:#64748b; margin:0 0 6px;">Mesa <b style="color:#0f172a;">${nomeMesa}</b></p>
+        <p style="font-size:12.5px; color:#64748b; margin:0 0 14px;">Cada cliente aponta a câmera, escolhe seus itens e faz o pagamento parcial sozinho.</p>
+        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:18px; padding:16px; margin:12px 0; display:flex; justify-content:center; align-items:center; min-height:230px;">
+          <img id="split-qr-img" src="" alt="QR Separar Conta" style="width:220px; height:220px; border-radius:8px; display:block;">
+        </div>
+        <p id="split-qr-status" style="font-size:12.5px; color:#64748b; margin:6px 0 14px 0;">Gerando QR Code...</p>
+        <div style="display:flex; gap:8px;">
+          <button onclick="window.copiarLinkSplitConta()" id="btn-split-copiar" style="flex:1; padding:12px; border-radius:12px; background:#f1f5f9; border:1px solid #cbd5e1; font-weight:700; font-size:13px; cursor:pointer; color:#0f172a;" disabled>Copiar Link</button>
+          <button onclick="window.abrirLinkSplitConta()" id="btn-split-abrir" style="flex:1; padding:12px; border-radius:12px; background:#fc4b15; border:none; color:white; font-weight:800; font-size:13px; cursor:pointer;" disabled>Abrir</button>
+        </div>
+      </div>
+    `;
+    modal.style.display = 'flex';
+
+    window._splitUrlAtual = null;
+    window._splitQrCallback = (d) => {
+      if (!d || !d.success) return;
+      const rid = encodeURIComponent(localStorage.getItem('restaurante_id') || '1');
+      const url = `${window.location.protocol}//${window.location.host}/separar-conta.html?restaurante_id=${rid}&token=${encodeURIComponent(d.token)}`;
+      window._splitUrlAtual = url;
+      const status = document.getElementById('split-qr-status');
+      const qrImg = document.getElementById('split-qr-img');
+      if (status) status.innerText = 'Mantenha o QR na tela. Cada cliente lê e separa os itens dele.';
+      if (typeof window.qrImg === 'function') {
+        window.qrImg(qrImg, url, 240);
+      } else {
+        qrImg.src = (window.location.origin || '') + '/api/qr?size=240&data=' + encodeURIComponent(url);
+      }
+      const bt = document.getElementById('btn-split-copiar');
+      const ba = document.getElementById('btn-split-abrir');
+      if (bt) { bt.disabled = false; bt.onclick = () => window.copiarLinkSplitConta(); }
+      if (ba) { ba.disabled = false; ba.onclick = () => window.abrirLinkSplitConta(); }
+    };
+
+    if (socket) socket.emit('criar_split_mesa', { mesa: nomeMesa });
+  };
+
+  window.copiarLinkSplitConta = function () {
+    const url = window._splitUrlAtual;
+    if (!url) return;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(() => showToast('Link copiado!', 'success')).catch(() => prompt('Link de separação:', url));
+    } else {
+      prompt('Link de separação:', url);
+    }
+  };
+  window.abrirLinkSplitConta = function () {
+    if (window._splitUrlAtual) window.open(window._splitUrlAtual, '_blank');
+  };
+
   window.abrirContextMenuPdvMobile = function (e, nomeMesa) {
     if (e && e.preventDefault) e.preventDefault();
     const x = e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : 150);
@@ -1242,8 +1337,11 @@ window.abrirZoomQrPontoMobile = function () {
       <button onclick="window.abrirCardapioComMesa('${nomeMesa}')" style="display:flex; align-items:center; gap:8px; padding:10px 12px; border:none; background:transparent; font-size:13px; font-weight:700; color:#0f172a; cursor:pointer; border-radius:8px; text-align:left;">
         <i class="ph-bold ph-plus-circle" style="color:#6366f1; font-size:16px;"></i> Lançar Itens
       </button>
-      <button onclick="window.abrirModalPagamentoParcial('${nomeMesa}')" style="display:flex; align-items:center; gap:8px; padding:10px 12px; border:none; background:transparent; font-size:13px; font-weight:700; color:#0f172a; cursor:pointer; border-radius:8px; text-align:left;">
+<button onclick="window.abrirModalPagamentoParcial('${nomeMesa}')" style="display:flex; align-items:center; gap:8px; padding:10px 12px; border:none; background:transparent; font-size:13px; font-weight:700; color:#0f172a; cursor:pointer; border-radius:8px; text-align:left;">
         <i class="ph-bold ph-currency-dollar" style="color:#10b981; font-size:16px;"></i> Pagamento Parcial
+      </button>
+      <button onclick="window.abrirModalQrSepararConta('${nomeMesa}')" style="display:flex; align-items:center; gap:8px; padding:10px 12px; border:none; background:transparent; font-size:13px; font-weight:700; color:#0f172a; cursor:pointer; border-radius:8px; text-align:left;">
+        <i class="ph-bold ph-qr-code" style="color:#8b5cf6; font-size:16px;"></i> Clientes separam a conta (QR)
       </button>
       <button onclick="window.abrirCheckoutMesa('${nomeMesa}')" style="display:flex; align-items:center; gap:8px; padding:10px 12px; border:none; background:transparent; font-size:13px; font-weight:700; color:#0f172a; cursor:pointer; border-radius:8px; text-align:left;">
         <i class="ph-bold ph-check-circle" style="color:#10b981; font-size:16px;"></i> Fechar Conta

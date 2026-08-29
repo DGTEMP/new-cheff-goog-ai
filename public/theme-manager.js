@@ -147,6 +147,16 @@
 
   var _lastCfg = null;
 
+  function clearCustomTheme() {
+    _lastCfg = null;
+    try { localStorage.removeItem(CUSTOM_THEME_KEY); } catch (e) { }
+    var styleEl = document.getElementById('chef-custom-theme-vars');
+    if (styleEl && styleEl.parentNode) styleEl.parentNode.removeChild(styleEl);
+    var cssEl = document.getElementById('chef-custom-theme-css');
+    if (cssEl && cssEl.parentNode) cssEl.parentNode.removeChild(cssEl);
+    window.dispatchEvent(new CustomEvent('chef_custom_theme_cleared'));
+  }
+
   function applyCustomTheme(cfg) {
     if (!cfg || typeof cfg !== 'object') return;
     _lastCfg = cfg;
@@ -207,14 +217,36 @@
     if (cfg.textPrimary) themeVars.push('--text-primary: ' + cfg.textPrimary + '; --text-main: ' + cfg.textPrimary + ';');
     if (cfg.textSecondary) themeVars.push('--text-secondary: ' + cfg.textSecondary + '; --text-muted: ' + cfg.textSecondary + ';');
     if (cfg.borderColor) themeVars.push('--border-color: ' + cfg.borderColor + ';');
+    // Chaves amigáveis usadas pela Loja de Temas (catálogo / App Store)
+    if (cfg.bgPage) themeVars.push('--bg-page: ' + cfg.bgPage + ';');
+    if (cfg.textMain && !cfg.textPrimary) themeVars.push('--text-main: ' + cfg.textMain + '; --text-primary: ' + cfg.textMain + ';');
+    if (cfg.statusOcupada) themeVars.push('--status-ocupada: ' + cfg.statusOcupada + ';');
+    if (cfg.statusLivre) themeVars.push('--status-livre: ' + cfg.statusLivre + ';');
 
     if (themeVars.length) {
-      var isDarkBg = !isLightColor(cfg.bgColor);
-      if (isDarkBg) {
+      var isDarkBg = !isLightColor(cfg.bgColor || cfg.bgPage);
+      if (cfg.storeTema) {
+        // Tema escolhido na Loja: aplica com força em claro E escuro (branding do restaurante)
+        rules.push(':root, [data-theme="light"], [data-theme="dark"] {\n  ' + themeVars.join('\n  ') + '\n}');
+      } else if (isDarkBg) {
         rules.push('[data-theme="dark"], body.theme-dark, body.dark-mode {\n  ' + themeVars.join('\n  ') + '\n}');
       } else {
         rules.push('[data-theme="light"], body.theme-light, :root:not([data-theme="dark"]) {\n  ' + themeVars.join('\n  ') + '\n}');
       }
+    }
+
+    // 3. CSS customizado (continuação do tema vindo da curadoria / estúdio)
+    if (cfg.css_custom && String(cfg.css_custom).trim()) {
+      var cssEl = document.getElementById('chef-custom-theme-css');
+      if (!cssEl) {
+        cssEl = document.createElement('style');
+        cssEl.id = 'chef-custom-theme-css';
+        document.head.appendChild(cssEl);
+      }
+      cssEl.textContent = String(cfg.css_custom);
+    } else {
+      var oldCssEl = document.getElementById('chef-custom-theme-css');
+      if (oldCssEl && oldCssEl.parentNode) oldCssEl.parentNode.removeChild(oldCssEl);
     }
 
     styleEl.innerHTML = rules.join('\n\n');
@@ -326,6 +358,8 @@
       .then(function (data) {
         if (data && data.ok && data.theme) {
           applyCustomTheme(data.theme);
+        } else if (data && data.ok) {
+          clearCustomTheme();
         }
       })
       .catch(function () { });
@@ -383,16 +417,20 @@
   });
 
   /* ═══ 6. INICIALIZAÇÃO ═══ */
+  // Aplica o tema completo já no parse do <head>: injeta dark-mode.css e, quando
+  // o body existir, as classes theme-dark/dark-mode — evita página escura quebrada no refresh.
   var initialTheme = getSavedTheme();
   document.documentElement.setAttribute('data-theme', initialTheme);
+  applyTheme(initialTheme);
 
   var initialViewMode = getViewMode();
   if (initialViewMode === 'mobile') document.documentElement.classList.add('force-mobile');
   else if (initialViewMode === 'desktop') document.documentElement.classList.add('force-desktop');
 
   document.addEventListener('DOMContentLoaded', function () {
-    var saved = getSavedTheme();
-    updateThemeUI(saved);
+    // Re-aplica quando o body existe (classes body.dark-mode/theme-dark, dark-mode.css,
+    // custom theme e coringa) — idempotente, mesmo estado do toggle de tema.
+    applyTheme(getSavedTheme());
     applyViewMode(getViewMode());
 
     if (_lastCfg) {
@@ -410,6 +448,7 @@
       return next;
     },
     applyCustom: applyCustomTheme,
+    clearCustom: clearCustomTheme,
     reloadGlobal: fetchAndApplyGlobalTheme
   };
 
@@ -432,7 +471,11 @@
     }
     try {
       sock.on('tema_global_atualizado', function (theme) {
-        applyCustomTheme(theme);
+        if (theme && typeof theme === 'object') {
+          applyCustomTheme(theme);
+        } else {
+          clearCustomTheme();
+        }
       });
     } catch (e) { }
   }

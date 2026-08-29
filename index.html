@@ -17,7 +17,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <!-- Dynamic GTAG & Meta Pixel Tracking -->
   <script src="/tracking-loader.js"></script>
-  <script src="/theme-manager.js"></script>
+  <script src="/theme-manager.js?v=20260829t1"></script>
   <link rel="stylesheet" href="/style.css">
   <link rel="stylesheet" href="/responsive-native.css">
   <link rel="stylesheet" href="/vendor/phosphor/src/regular/style.css">
@@ -46,13 +46,13 @@
   <script src="/plugin-client.js"></script>
   <script src="/chef-tz.js"></script>
   <script src="/pwa-telemetry.js"></script>
-  <script src="main.js?v=1787948800000"></script>
+  <script src="main.js?v=20260828fix5"></script>
   <script src="/anti-tamper.js" defer></script>
   <link rel="stylesheet" href="/apple-transitions.css?v=1787948800000">
   <script src="/apple-transitions.js?v=1787948800000" defer></script>
-  <link rel="stylesheet" href="/caixa-pro-ux.css?v=1787948800000">
-  <script src="/caixa-pro-ux.js" defer></script>
-  <script src="/pagamento-parcial-modal.js" defer></script>
+  <link rel="stylesheet" href="/caixa-pro-ux.css?v=20260828fix4">
+  <script src="/caixa-pro-ux.js?v=20260828fix3" defer></script>
+  <script src="/pagamento-parcial-modal.js?v=20260828fix5" defer></script>
   <script src="/chef-telemetry-clicks.js" defer></script>
   <script src="/chef-layout-customizer.js" defer></script>
 </head>
@@ -794,6 +794,10 @@
                 </button>
                 <button type="button" onclick="window.setMesasOrientation('vertical')" id="btn-orient-vertical" title="Disposição Vertical" style="padding: 4px 7px; border-radius: 6px; border: none; font-size: 11px; cursor: pointer; background: transparent; color: var(--text-muted); font-weight: 700; display: inline-flex; align-items: center; gap: 3px;">
                   <i class="ph-bold ph-columns"></i> Vertical
+                </button>
+                <span style="width:1px;height:14px;background:rgba(0,0,0,0.12);"></span>
+                <button type="button" onclick="window.toggleMesasAgrupado()" id="btn-toggle-mesas-agrupado" title="Agrupar por status (blocos recolhíveis)" style="padding: 4px 7px; border-radius: 6px; border: none; font-size: 11px; cursor: pointer; background: var(--bg-card); color: var(--text-main); font-weight: 800; display: inline-flex; align-items: center; gap: 3px;">
+                  <i class="ph-bold ph-funnel-simple"></i> Agrupar
                 </button>
               </div>
             </div>
@@ -3009,7 +3013,7 @@
     
     
 
-  <script src="/chef-resizable-sidebars.js?v=1787936330722"></script>
+  <script src="/chef-resizable-sidebars.js?v=20260828fix3"></script>
   <script src="/chef-colaborador-dock.js"></script>
   <script src="/chef-layout-injetor.js"></script>
 </body>

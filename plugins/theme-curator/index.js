@@ -78,6 +78,24 @@ module.exports = function ({ app, db, masterDb, io, options, log }) {
     catch (e) { console.error('[theme-curator]', e.message); res.status(500).json({ ok: false, erro: e.message }); }
   };
 
+  // Converte um tema da loja (cores da paleta) na configuração consumida pelo
+  // theme-manager.js (applyCustomTheme) — usado para aplicar de verdade no salão.
+  function themeToCfg(tema) {
+    const c = (tema && tema.cores) || (tema && typeof tema.cores === 'string' ? JSON.parse(tema.cores || '{}') : {}) || {};
+    return {
+      storeTema: true,
+      primary: c.primary || '#fc4b15',
+      bgColor: c.bgPage || '#0b0f19',
+      bgCard: c.bgCard || '#111827',
+      borderColor: c.borderColor || '#1f2937',
+      textPrimary: c.textMain || '#f3f4f6',
+      statusOcupada: c.statusOcupada || '#ef4444',
+      statusLivre: c.statusLivre || '#10b981',
+      css_custom: (tema && tema.css_custom) || '',
+      tema_nome: (tema && tema.nome) || ''
+    };
+  }
+
   function dbRun(sql, params = []) {
     return new Promise((resolve, reject) => db.run(sql, params, function (err) {
       if (err) reject(err); else resolve(this);
@@ -247,6 +265,17 @@ module.exports = function ({ app, db, masterDb, io, options, log }) {
       aplicado_em DATETIME DEFAULT (datetime('now','localtime'))
     )`);
 
+    db.run(`CREATE TABLE IF NOT EXISTS temas_solicitacoes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      restaurante_id INTEGER,
+      restaurante_nome TEXT DEFAULT '',
+      tema_referencia TEXT DEFAULT '',
+      mensagem TEXT DEFAULT '',
+      contato TEXT DEFAULT '',
+      status TEXT DEFAULT 'aguardando',
+      criado_em DATETIME DEFAULT (datetime('now','localtime'))
+    )`);
+
     // Tabela para Módulos Dinâmicos do Site de Vendas
     db.run(`CREATE TABLE IF NOT EXISTS site_vendas_modulos (
       id TEXT PRIMARY KEY,
@@ -366,7 +395,18 @@ module.exports = function ({ app, db, masterDb, io, options, log }) {
     sql += ` ORDER BY ${ordenarMap[ordenar] || 'ordem ASC'}`;
 
     const temas = await dbAll(sql, params);
-    res.json({ ok: true, temas: temas.map(t => ({ ...t, cores: JSON.parse(t.cores || '{}') })) });
+    let temaAtivoId = null;
+    const authHeader = req.headers['authorization'] || req.headers['x-token'] || req.query.token;
+    if (authHeader) {
+      const token = String(authHeader).replace(/^Bearer\s+/i, '').trim();
+      try {
+        const usr = jwt.verify(token, mainSecret);
+        const rid = usr.restaurante_id || usr.id;
+        const aplicado = await dbGet(`SELECT tema_id FROM temas_aplicados WHERE restaurante_id = ?`, [rid]);
+        if (aplicado) temaAtivoId = aplicado.tema_id;
+      } catch (e) { }
+    }
+    res.json({ ok: true, temas: temas.map(t => ({ ...t, ativo: temaAtivoId ? t.id === temaAtivoId : false, cores: JSON.parse(t.cores || '{}') })) });
   }));
 
   // POST /api/modulo/temas/avaliar — Restaurante avalia um tema
@@ -389,18 +429,87 @@ module.exports = function ({ app, db, masterDb, io, options, log }) {
     res.json({ ok: true, nova_media: media.m, votos: media.n });
   }));
 
-  // POST /api/modulo/temas/aplicar — Registrar tema aplicado no restaurante
+  // POST /api/modulo/temas/aplicar — Aplicar tema no restaurante (persiste no salão em tempo real)
   app.post('/api/modulo/temas/aplicar', authRestaurante, safe(async (req, res) => {
     const { tema_id, tema_json } = req.body || {};
     const rid = req.restaurante_id || (req.user && req.user.restaurante_id);
     if (!tema_id) return res.json({ ok: false, erro: 'tema_id obrigatório.' });
+
     await dbRun(`INSERT INTO temas_aplicados (restaurante_id, tema_id, tema_json) VALUES (?,?,?)
       ON CONFLICT(restaurante_id) DO UPDATE SET tema_id=excluded.tema_id, tema_json=excluded.tema_json,
       aplicado_em=datetime('now','localtime')`,
       [rid, tema_id, tema_json ? JSON.stringify(tema_json) : null]);
-    // Emitir via socket para atualizar em tempo real
-    if (io && rid) io.to(`rest_${rid}`).emit('tema_aplicado', { tema_id });
+
+    // Constrói a configuração visual real e persiste por tenant (tenant_temas).
+    // /api/public/theme passa a devolvê-la, então o tema sobrevive a reloads.
+    const catalogado = await dbGet(`SELECT * FROM temas_catalogo WHERE id = ?`, [tema_id]).catch(() => null);
+    const fonte = (catalogado && catalogado.cores) ? catalogado : tema_json;
+    let cfg = null;
+    if (fonte) {
+      cfg = themeToCfg(Object.assign({}, fonte, { css_custom: (fonte.css_custom || (catalogado && catalogado.css_custom) || '') }));
+      if (masterDb) {
+        await new Promise((resolve, reject) => masterDb.run(
+          `INSERT INTO tenant_temas (restaurante_id, tema_json) VALUES (?,?)
+           ON CONFLICT(restaurante_id) DO UPDATE SET tema_json=excluded.tema_json, atualizado_em=datetime('now','localtime')`,
+          [rid, JSON.stringify(cfg)], (err) => err ? reject(err) : resolve()));
+      }
+    }
+
+    // Propaga em tempo real para todas as telas do restaurante
+    if (io && rid) {
+      const room = `restaurante_${rid}`;
+      io.to(room).emit('tema_global_atualizado', cfg);
+      io.to(room).emit('tema_aplicado', { tema_id });
+    }
+    res.json({ ok: true, cfg, tema_id });
+  }));
+
+  // DELETE /api/modulo/temas/aplicar — Remover tema aplicado (volta ao tema padrão/global)
+  app.delete('/api/modulo/temas/aplicar', authRestaurante, safe(async (req, res) => {
+    const rid = req.restaurante_id || (req.user && req.user.restaurante_id);
+    await dbRun(`DELETE FROM temas_aplicados WHERE restaurante_id = ?`, [rid]);
+    if (masterDb) {
+      await new Promise((resolve) => masterDb.run(`DELETE FROM tenant_temas WHERE restaurante_id = ?`, [rid], () => resolve()));
+    }
+    if (io && rid) {
+      const room = `restaurante_${rid}`;
+      io.to(room).emit('tema_global_atualizado', null);
+      io.to(room).emit('tema_aplicado', { tema_id: '' });
+    }
     res.json({ ok: true });
+  }));
+
+  // GET /api/modulo/temas/ativo — Tema atualmente aplicado no restaurante
+  app.get('/api/modulo/temas/ativo', authRestaurante, safe(async (req, res) => {
+    const rid = req.restaurante_id || (req.user && req.user.restaurante_id);
+    const row = await dbGet(`SELECT ta.tema_id, ta.tema_json, t.nome, t.nicho, t.emoji_nicho, t.descricao, t.badge
+      FROM temas_aplicados ta LEFT JOIN temas_catalogo t ON ta.tema_id = t.id
+      WHERE ta.restaurante_id = ?`, [rid]);
+    if (!row) return res.json({ ok: true, tema: null });
+    res.json({
+      ok: true,
+      tema: {
+        tema_id: row.tema_id,
+        nome: row.nome || (row.tema_json ? (JSON.parse(row.tema_json || '{}').nome || row.tema_id) : row.tema_id),
+        nicho: row.nicho,
+        emoji_nicho: row.emoji_nicho,
+        descricao: row.descricao,
+        badge: row.badge,
+        cores: row.tema_json ? ((JSON.parse(row.tema_json).cores) || {}) : {}
+      }
+    });
+  }));
+
+  // POST /api/modulo/temas/solicitar — Restaurante solicita tema/ajustes à curadoria
+  app.post('/api/modulo/temas/solicitar', authRestaurante, safe(async (req, res) => {
+    const { tema_referencia, mensagem, contato } = req.body || {};
+    if (!mensagem || !String(mensagem).trim()) return res.json({ ok: false, erro: 'Descreva o que você gostaria.' });
+    const rid = req.restaurante_id || (req.user && req.user.restaurante_id) || null;
+    const restNome = (req.user && req.user.nome) || (req.user && req.user.restaurante_nome) || '';
+    await dbRun(`INSERT INTO temas_solicitacoes (restaurante_id, restaurante_nome, tema_referencia, mensagem, contato)
+      VALUES (?,?,?,?,?)`,
+      [rid, restNome, String(tema_referencia || ''), String(mensagem).trim(), String(contato || '')]);
+    res.json({ ok: true, mensagem: 'Solicitação enviada à Equipe de Criação & Suporte!' });
   }));
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -492,6 +601,23 @@ module.exports = function ({ app, db, masterDb, io, options, log }) {
       LEFT JOIN temas_catalogo t ON ta.tema_id = t.id
       GROUP BY ta.tema_id ORDER BY qtd DESC`);
     res.json({ ok: true, uso: rows });
+  }));
+
+  // GET /api/super/temas/solicitacoes — Solicitações de temas dos restaurantes (curadoria)
+  app.get('/api/super/temas/solicitacoes', authCuradoria, safe(async (req, res) => {
+    const rows = await dbAll(`SELECT s.*, t.nome AS tema_nome
+      FROM temas_solicitacoes s
+      LEFT JOIN temas_catalogo t ON s.tema_referencia = t.id
+      ORDER BY s.criado_em DESC LIMIT 200`);
+    res.json({ ok: true, solicitacoes: rows });
+  }));
+
+  // POST /api/super/temas/solicitacoes/:id — Atualizar status de uma solicitação
+  app.put('/api/super/temas/solicitacoes/:id', authCuradoria, safe(async (req, res) => {
+    const { status } = req.body || {};
+    if (!status) return res.json({ ok: false, erro: 'status obrigatório.' });
+    await dbRun(`UPDATE temas_solicitacoes SET status = ? WHERE id = ?`, [status, req.params.id]);
+    res.json({ ok: true });
   }));
 
   // ══════════════════════════════════════════════════════════════════════════

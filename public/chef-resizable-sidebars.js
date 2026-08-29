@@ -49,8 +49,101 @@
     document.head.appendChild(st);
   }
 
+  function ensureFloatRestoreStyles() {
+    if (document.getElementById('chef-float-restore-styles')) return;
+    const st = document.createElement('style');
+    st.id = 'chef-float-restore-styles';
+    st.textContent = `
+      .chef-float-restore {
+        width: 42px;
+        height: 42px;
+        border-radius: 12px;
+        border: 1px solid var(--border-color, rgba(0,0,0,0.1));
+        background: var(--bg-card, #ffffff);
+        color: var(--text-primary, #0f172a);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.22);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 19px;
+        opacity: 0.95;
+        transition: transform 0.15s ease, background 0.15s ease;
+      }
+      .chef-float-restore:hover {
+        transform: scale(1.1);
+        background: var(--primary, #fc4b15);
+        color: #ffffff;
+      }
+      [data-theme="dark"] .chef-float-restore {
+        background: var(--bg-card, #1e293b);
+        color: var(--text-primary, #f8fafc);
+      }
+    `;
+    document.head.appendChild(st);
+  }
+
+  function injectFloatRestoreButtons() {
+    ensureFloatRestoreStyles();
+    let leftBtn = document.getElementById('float-restore-left');
+    let rightBtn = document.getElementById('float-restore-right');
+
+    const mk = (side, label, edge) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.id = 'float-restore-' + side;
+      b.className = 'chef-float-restore';
+      b.title = 'Restaurar barra ' + label;
+      b.setAttribute('aria-label', b.title);
+      b.innerHTML = '<i class="ph ph-sidebar-simple"></i>';
+      b.style.position = 'fixed';
+      b.style[edge] = '6px';
+      b.style.top = '40%';
+      b.style.zIndex = '9999';
+      b.style.display = 'none';
+      b.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (typeof window.setSidebarMode === 'function') {
+          window.setSidebarMode(side, 'expanded');
+        }
+        const panel = document.getElementById(side === 'left' ? 'left-panel' : 'right-panel');
+        if (panel) {
+          panel.classList.remove('mode-hidden', 'mode-mini', 'sidebar-hidden', 'sidebar-mini');
+          panel.classList.add('mode-expanded', 'sidebar-expanded');
+          panel.style.display = '';
+        }
+        try { localStorage.setItem('chef_sidebar_' + side + '_mode', 'expanded'); } catch(e){}
+        syncFloatRestoreVisibility();
+      });
+      document.body.appendChild(b);
+      return b;
+    };
+
+    if (!leftBtn) leftBtn = mk('left', 'lateral esquerda', 'left');
+    if (!rightBtn) rightBtn = mk('right', 'lateral direita', 'right');
+  }
+
+  function syncFloatRestoreVisibility() {
+    ['left', 'right'].forEach(function (side) {
+      const panel = document.getElementById(side === 'left' ? 'left-panel' : 'right-panel');
+      const btn = document.getElementById('float-restore-' + side);
+      if (!panel || !btn) return;
+      const desktopOk = window.innerWidth >= 768 && !document.body.classList.contains('force-mobile');
+      let hidden = false;
+      if (panel.classList.contains('mode-hidden') || panel.classList.contains('sidebar-hidden')) {
+        hidden = true;
+      } else {
+        const cs = window.getComputedStyle(panel);
+        hidden = panel.style.display === 'none' || cs.display === 'none' || cs.visibility === 'hidden';
+      }
+      btn.style.display = (desktopOk && hidden) ? 'flex' : 'none';
+    });
+  }
+
   function initResizableSidebars() {
     injectSplitterStyles();
+    injectFloatRestoreButtons();
 
     const leftPanel = document.querySelector('.left-actions, #left-panel');
     const rightPanel = document.querySelector('.right-info, #right-panel');
@@ -73,10 +166,13 @@
         <div style="display:flex; align-items:center; justify-content:space-between; width:100%; padding:4px 2px 8px; border-bottom:1px solid var(--border-subtle, rgba(0,0,0,0.08)); margin-bottom:8px;">
           <span style="font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; opacity:0.8;">Ações Rápidas</span>
           <div style="display:flex; gap:4px;">
-            <button type="button" class="sidebar-ctrl-btn" onclick="window.setSidebarMode('left', 'mini')" title="Modo Mini (Ícones)" style="background:none; border:none; cursor:pointer; padding:3px 6px; border-radius:6px; font-size:13px; color:inherit;">
+            <button type="button" class="sidebar-ctrl-btn" onclick="window.toggleSidebarMode('left','expanded')" title="Expandir Barra" style="background:none; border:none; cursor:pointer; padding:3px 6px; border-radius:6px; font-size:14px; color:inherit;">
               <i class="ph ph-sidebar-simple"></i>
             </button>
-            <button type="button" class="sidebar-ctrl-btn" onclick="window.setSidebarMode('left', 'hidden')" title="Ocultar Barra" style="background:none; border:none; cursor:pointer; padding:3px 6px; border-radius:6px; font-size:13px; color:inherit;">
+            <button type="button" class="sidebar-ctrl-btn" onclick="window.toggleSidebarMode('left','mini')" title="Modo Mini / Icones" style="background:none; border:none; cursor:pointer; padding:3px 6px; border-radius:6px; font-size:14px; color:inherit;">
+              <i class="ph ph-arrows-in-line-horizontal"></i>
+            </button>
+            <button type="button" class="sidebar-ctrl-btn" onclick="window.toggleSidebarMode('left','hidden')" title="Ocultar Barra" style="background:none; border:none; cursor:pointer; padding:3px 6px; border-radius:6px; font-size:14px; color:inherit;">
               <i class="ph ph-x"></i>
             </button>
           </div>
@@ -93,10 +189,13 @@
         <div style="display:flex; align-items:center; justify-content:space-between; width:100%; padding:4px 2px 8px; border-bottom:1px solid var(--border-subtle, rgba(0,0,0,0.08)); margin-bottom:8px;">
           <span style="font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; opacity:0.8;">Resumo da Conta</span>
           <div style="display:flex; gap:4px;">
-            <button type="button" class="sidebar-ctrl-btn" onclick="window.setSidebarMode('right', 'mini')" title="Modo Compacto" style="background:none; border:none; cursor:pointer; padding:3px 6px; border-radius:6px; font-size:13px; color:inherit;">
+            <button type="button" class="sidebar-ctrl-btn" onclick="window.toggleSidebarMode('right','expanded')" title="Expandir Barra" style="background:none; border:none; cursor:pointer; padding:3px 6px; border-radius:6px; font-size:14px; color:inherit;">
+              <i class="ph ph-sidebar-simple"></i>
+            </button>
+            <button type="button" class="sidebar-ctrl-btn" onclick="window.toggleSidebarMode('right','mini')" title="Modo Compacto" style="background:none; border:none; cursor:pointer; padding:3px 6px; border-radius:6px; font-size:14px; color:inherit;">
               <i class="ph ph-arrows-in-line-horizontal"></i>
             </button>
-            <button type="button" class="sidebar-ctrl-btn" onclick="window.setSidebarMode('right', 'hidden')" title="Ocultar Resumo" style="background:none; border:none; cursor:pointer; padding:3px 6px; border-radius:6px; font-size:13px; color:inherit;">
+            <button type="button" class="sidebar-ctrl-btn" onclick="window.toggleSidebarMode('right','hidden')" title="Ocultar Resumo" style="background:none; border:none; cursor:pointer; padding:3px 6px; border-radius:6px; font-size:14px; color:inherit;">
               <i class="ph ph-x"></i>
             </button>
           </div>
@@ -189,40 +288,83 @@
     // Aplicar estados salvos
     window.setSidebarMode('left', savedLeftMode, false);
     window.setSidebarMode('right', savedRightMode, false);
+
+    // Manter os botões flutuantes de restauração sincronizados
+    syncFloatRestoreVisibility();
+    window.addEventListener('resize', syncFloatRestoreVisibility);
+    new MutationObserver(syncFloatRestoreVisibility)
+      .observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    setInterval(syncFloatRestoreVisibility, 1200);
   }
 
-  // Função Global para Alternar Modos
-  window.setSidebarMode = function(side, mode, persist = true) {
+  // Função Global para Alternar Modos — unificada com caixa-pro-ux.js.
+  // Se caixa-pro-ux.js carregar depois, sobrescreve setSidebarMode com a mesma lógica.
+  window.chefApplySidebarMode = function (side, mode) {
+    const right = side === 'right';
     const panel = (side === 'left') ? document.querySelector('.left-actions, #left-panel') : document.querySelector('.right-info, #right-panel');
-    const splitter = (side === 'left') ? (document.getElementById('chef-left-splitter') || document.getElementById('resizer-left')) : (document.getElementById('chef-right-splitter') || document.getElementById('resizer-right'));
+    const floatRestore = document.getElementById('float-restore-' + side);
     if (!panel) return;
 
-    panel.classList.remove('sidebar-expanded', 'sidebar-mini', 'sidebar-hidden');
-    if (mode === 'hidden') {
-      panel.classList.add('sidebar-hidden');
-      panel.style.display = 'none';
-      if (splitter) splitter.style.display = 'none';
-    } else if (mode === 'mini') {
-      panel.classList.add('sidebar-mini');
-      panel.style.display = 'flex';
-      const miniW = (side === 'left') ? '68px' : '190px';
-      panel.style.width = miniW;
-      panel.style.minWidth = miniW;
-      panel.style.maxWidth = miniW;
-      if (splitter) splitter.style.display = 'block';
+    panel.classList.remove('mode-expanded', 'mode-mini', 'mode-hidden', 'sidebar-expanded', 'sidebar-mini', 'sidebar-hidden');
+    panel.classList.add('mode-' + mode, 'sidebar-' + mode);
+
+    const desktop = window.innerWidth >= 768;
+    if (desktop) {
+      if (mode === 'hidden') {
+        panel.style.setProperty('display', 'none', 'important');
+      } else if (mode === 'mini') {
+        const w = right ? '190px' : '68px';
+        panel.style.display = '';
+        panel.style.width = w;
+        panel.style.minWidth = w;
+        panel.style.maxWidth = w;
+      } else {
+        panel.style.display = '';
+        const stored = localStorage.getItem('chef_sidebar_' + side + '_width');
+        const w = stored ? stored + 'px' : (right ? '320px' : '220px');
+        panel.style.width = w;
+        panel.style.minWidth = w;
+        panel.style.maxWidth = w;
+      }
     } else {
-      panel.classList.add('sidebar-expanded');
-      panel.style.display = 'flex';
-      const defaultW = (side === 'left') ? (localStorage.getItem(STORAGE_LEFT_WIDTH) || '220') : (localStorage.getItem(STORAGE_RIGHT_WIDTH) || '280');
-      panel.style.width = defaultW + 'px';
-      panel.style.minWidth = defaultW + 'px';
-      panel.style.maxWidth = defaultW + 'px';
-      if (splitter) splitter.style.display = 'block';
+      panel.style.display = (mode === 'hidden') ? 'none' : '';
+      if (mode !== 'hidden') {
+        panel.style.width = '';
+        panel.style.minWidth = '';
+        panel.style.maxWidth = '';
+      }
     }
 
-    if (persist) {
-      localStorage.setItem(side === 'left' ? STORAGE_LEFT_MODE : STORAGE_RIGHT_MODE, mode);
+    if (floatRestore) floatRestore.style.display = (desktop && mode === 'hidden') ? 'flex' : 'none';
+    try { localStorage.setItem(side === 'left' ? STORAGE_LEFT_MODE : STORAGE_RIGHT_MODE, mode); } catch(e){}
+    window.dispatchEvent(new CustomEvent('chef_sidebar_mode_changed', { detail: { side: side, mode: mode } }));
+  };
+
+  window.toggleSidebarMode = function (side, target) {
+    const panel = (side === 'left') ? document.querySelector('.left-actions, #left-panel') : document.querySelector('.right-info, #right-panel');
+    let cur = 'expanded';
+    if (panel) {
+      if (panel.classList.contains('mode-hidden') || panel.classList.contains('sidebar-hidden')) cur = 'hidden';
+      else if (panel.classList.contains('mode-mini') || panel.classList.contains('sidebar-mini')) cur = 'mini';
     }
+    let next = target;
+    if (cur === target) next = 'expanded';
+    if (typeof window.chefApplySidebarMode === 'function') window.chefApplySidebarMode(side, next);
+    else if (typeof window.setSidebarMode === 'function') window.setSidebarMode(side, next);
+  };
+
+  window.setSidebarMode = function (side, mode) {
+    if (typeof window.chefApplySidebarMode === 'function') {
+      window.chefApplySidebarMode(side, mode);
+    } else {
+      // Fallback mínimo caso chefApplySidebarMode não exista
+      const panel = (side === 'left') ? document.querySelector('.left-actions, #left-panel') : document.querySelector('.right-info, #right-panel');
+      if (!panel) return;
+      panel.classList.remove('mode-expanded', 'mode-mini', 'mode-hidden', 'sidebar-expanded', 'sidebar-mini', 'sidebar-hidden');
+      panel.classList.add('mode-' + mode, 'sidebar-' + mode);
+      try { localStorage.setItem(side === 'left' ? STORAGE_LEFT_MODE : STORAGE_RIGHT_MODE, mode); } catch(e){}
+    }
+    syncFloatRestoreVisibility();
   };
 
   if (document.readyState === 'loading') {

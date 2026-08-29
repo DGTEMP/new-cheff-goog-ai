@@ -2683,10 +2683,6 @@ body {
     display: grid !important;
   }
 
-  #pdv-delivery-fields {
-    display: none !important;
-  }
-
   #pdv-overlay label {
     font-size: 11px !important;
     margin-bottom: 2px !important;

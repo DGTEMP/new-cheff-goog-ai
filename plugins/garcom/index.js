@@ -243,6 +243,12 @@ module.exports.registerGarcomSockets = function(socket, ctx) {
               io.emit('itens_mesa_recebidos', { mesaName: mesaName || item.localName, items: r || [] });
             });
           }
+          // Notificação em tempo real (caixa ↔ garçom)
+          io.emit('pagamento_parcial_registrado', {
+            mesaName: mesaName || item.localName, valor: valorNum, metodo,
+            itemName: item.productName, userName: operador || 'Garçom',
+            comandaName: comandaName || item.mesa_comanda || null, originSocket: socket.id
+          });
           socket.emit('pagamento_fracao_sucesso', { itemId, valor: valorNum, metodo });
         });
       });
