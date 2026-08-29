@@ -100,6 +100,7 @@ window.setTipoPerfil = function(tipo) {
     if (formColab) formColab.style.display = 'block';
     if (title) title.innerText = 'Acesso do Colaborador';
     if (subtitle) subtitle.innerText = 'Digite seu PIN ou usuário para abrir suas rotas operacionais.';
+    ensureLoginSocket();
   }
 };
 
@@ -199,6 +200,120 @@ window.attemptOwnerLogin = async function() {
     errorMsg.style.display = 'block';
     btnSubmit.innerText = 'Validar e Entrar';
     btnSubmit.disabled = false;
+  }
+};
+
+let loginSocket = null;
+
+function ensureLoginSocket() {
+  if (!loginSocket && typeof io !== 'undefined') {
+    loginSocket = io();
+    
+    loginSocket.on('login_success', (res) => {
+      const cargo = (res.cargo || '').toLowerCase();
+      let estacoes = [];
+      if (cargo === 'garçom' || cargo === 'garcom' || cargo === 'atendente') {
+        estacoes = ['garcom'];
+      } else if (['cozinha', 'copa', 'bar', 'kds'].includes(cargo)) {
+        estacoes = ['cozinha'];
+      } else if (cargo === 'caixa') {
+        estacoes = ['caixa', 'garcom'];
+      } else if (['admin', 'administrador', 'gerente', 'supervisor'].includes(cargo)) {
+        estacoes = ['caixa', 'garcom', 'cozinha', 'configuracoes', 'delivery'];
+      } else {
+        estacoes = ['garcom', 'cozinha'];
+      }
+
+      const tempToken = localStorage.getItem('temp_login_token') || '';
+      localStorage.setItem('chef_token', tempToken);
+      localStorage.setItem('restaurante_id', String(res.restaurante_id || 1));
+      localStorage.setItem('usuario_role', res.cargo || 'garcom');
+      localStorage.setItem('colaborador_cargo', res.cargo || 'garcom');
+      localStorage.setItem('usuario_logado', res.nome || 'Colaborador');
+      localStorage.setItem('chef_is_dono', 'false');
+      
+      const payload = {
+        id: res.id || null,
+        nome: res.nome || 'Colaborador',
+        cargo: res.cargo || 'Garçom',
+        is_dono: false,
+        estacoes: estacoes,
+        token: tempToken
+      };
+      
+      localStorage.setItem('chef_credentials', JSON.stringify(payload));
+      localStorage.setItem('chef_session', JSON.stringify({
+        token: tempToken,
+        usuario: res.usuario || '',
+        cargo: res.cargo || '',
+        nome: res.nome || '',
+        id: res.id || ''
+      }));
+      
+      const btnSubmit = document.getElementById('btn-submit-colaborador');
+      if (btnSubmit) {
+        btnSubmit.innerText = 'Validar e Entrar';
+        btnSubmit.disabled = false;
+      }
+      
+      if (estacoes.length === 1) {
+        const estacoesConfig = {
+          garcom: '/garcom.html',
+          cozinha: '/fila-pedidos.html',
+          caixa: '/index.html',
+          configuracoes: '/configuracoes.html',
+          delivery: '/hub-delivery.html'
+        };
+        const targetUrl = estacoesConfig[estacoes[0]] || '/painel-funcionario.html';
+        window.selecionarEstacaoTrabalho(targetUrl, estacoes[0]);
+      } else {
+        abrirModalEscolhaEstacao(payload);
+      }
+    });
+
+    loginSocket.on('login_token', (token) => {
+      localStorage.setItem('temp_login_token', token);
+    });
+
+    loginSocket.on('login_error', (msg) => {
+      const errorMsg = document.getElementById('error-msg-colaborador');
+      if (errorMsg) {
+        errorMsg.innerText = msg;
+        errorMsg.style.display = 'block';
+      }
+      const btnSubmit = document.getElementById('btn-submit-colaborador');
+      if (btnSubmit) {
+        btnSubmit.innerText = 'Validar e Entrar';
+        btnSubmit.disabled = false;
+      }
+    });
+  }
+}
+
+window.attemptColaboradorLogin = function() {
+  ensureLoginSocket();
+  const errorMsg = document.getElementById('error-msg-colaborador');
+  if (errorMsg) errorMsg.style.display = 'none';
+  
+  const btnSubmit = document.getElementById('btn-submit-colaborador');
+  
+  if (_modoColaborador === 'pin') {
+    const pin = document.getElementById('colab-pin-input').value.trim();
+    if (!pin) {
+      if (errorMsg) { errorMsg.innerText = 'Digite seu PIN!'; errorMsg.style.display = 'block'; }
+      return;
+    }
+    if (btnSubmit) { btnSubmit.innerText = 'Validando...'; btnSubmit.disabled = true; }
+    loginSocket.emit('login_por_pin', { pin });
+  } else {
+    const usuario = document.getElementById('colab-user-input').value.trim();
+    const senha = document.getElementById('colab-pass-input').value.trim();
+    if (!usuario || !senha) {
+      if (errorMsg) { errorMsg.innerText = 'Preencha usuário e senha!'; errorMsg.style.display = 'block'; }
+      return;
+    }
+    if (btnSubmit) { btnSubmit.innerText = 'Validando...'; btnSubmit.disabled = true; }
+    loginSocket.emit('login_funcionario', { usuario, senha });
   }
 };
 

@@ -54,6 +54,23 @@ const socket = io({ query: { token: obterTokenAtual(), restaurante_id: localStor
 window.socket = socket;
 if (typeof initChefTz === 'function') initChefTz(socket);
 
+// Reidratação automática da sessão de colaboradores
+const savedSession = localStorage.getItem('chef_session');
+if (savedSession) {
+  try {
+    const sess = JSON.parse(savedSession);
+    if (sess.token) {
+      socket.emit('login_funcionario_token', sess.token);
+    }
+  } catch(e){}
+}
+
+socket.on('login_error', (msg) => {
+  localStorage.removeItem('chef_credentials');
+  localStorage.removeItem('chef_session');
+  redirecionarSemSessao();
+});
+
 socket.on('tenant_atualizado', (data) => {
   if (data && data.restaurante_id) localStorage.setItem('restaurante_id', data.restaurante_id);
   if (data && data.token) localStorage.setItem('chef_token', data.token);

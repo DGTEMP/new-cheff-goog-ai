@@ -18,11 +18,42 @@ const express = require('express');
 const sqlite3 = require('sqlite3').verbose();
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
+const os = require('os');
 
 const ROOT = __dirname;
 const PORT = parseInt(process.env.SUPER_ADMIN_PORT, 10) || 3457;
 const MAIN_URL = process.env.MAIN_SERVER_URL || 'http://127.0.0.1:' + (parseInt(process.env.PORT, 10) || 3000);
-const JWT_SECRET = process.env.JWT_SECRET || 'chef-cozinha-sec-' + require('crypto').createHash('sha256').update(String(process.env.HOSTNAME || process.env.USERPROFILE || 'local')).digest('hex').slice(0, 24);
+
+function getDataDir() {
+  if (process.env.CHEF_DATA_DIR) return process.env.CHEF_DATA_DIR;
+  if (process.platform === 'win32') {
+    return path.join(process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming'), 'ChefCozinha');
+  }
+  if (process.platform === 'linux' || process.platform === 'darwin') {
+    const xdg = process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share');
+    return path.join(xdg, 'ChefCozinha');
+  }
+  return path.join(os.homedir(), '.chefcozinha');
+}
+
+function loadOrCreateSecret(name) {
+  const dir = getDataDir();
+  const file = path.join(dir, `.secret-${name}`);
+  try {
+    if (fs.existsSync(file)) {
+      const val = fs.readFileSync(file, 'utf8').trim();
+      if (val) return val;
+    }
+    fs.mkdirSync(dir, { recursive: true });
+    const val = require('crypto').randomBytes(32).toString('hex');
+    fs.writeFileSync(file, val, { mode: 0o600, encoding: 'utf8' });
+    return val;
+  } catch (e) {
+    return require('crypto').randomBytes(32).toString('hex');
+  }
+}
+
+const JWT_SECRET = process.env.JWT_SECRET || loadOrCreateSecret('jwt');
 const INTERNAL_TOKEN = process.env.SUPER_ADMIN_INTERNAL_TOKEN ||
   require('crypto').createHash('sha256').update('internal::' + JWT_SECRET).digest('hex');
 
@@ -109,8 +140,8 @@ app.post('/api/super/login-local', async (req, res) => {
   const ok = await verificarSenhaAdmin(req.body && req.body.senha);
   if (!ok) { registrarFalhaLogin(ip); return res.json({ ok: false, erro: 'Senha de administrador inválida.' }); }
   loginAttempts.delete(ip);
-  const token = jwt.sign({ role: 'super_admin_local', restaurante_id: 1 }, JWT_SECRET, { expiresIn: '12h' });
-  res.setHeader('Set-Cookie', `super_admin_token=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${12 * 60 * 60}`);
+  const token = jwt.sign({ role: 'super_admin_local', restaurante_id: 1 }, JWT_SECRET, { expiresIn: '90d' });
+  res.setHeader('Set-Cookie', `super_admin_token=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${90 * 24 * 60 * 60}`);
   res.json({ ok: true, token });
 });
 

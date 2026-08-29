@@ -419,10 +419,62 @@ if (serverHttp) io.attach(serverHttp);
 const PROTOCOL = isHttps ? 'https' : 'http';
 
 // ---------- DATABASE ----------
-let db = new sqlite3.Database(DB_PATH, (err) => {
-  if (err) console.error('Erro ao abrir BD:', err);
-  else console.log('BD SQLite conectado:', DB_PATH);
-});
+function getTenantDbPath(tenantId) {
+  return path.join(APP_DATA_DIR, 'estabelecimentos', String(tenantId), 'database.sqlite');
+}
+
+const tenantDbs = new Map();
+
+// (Segurança) Garante que o banco do tenant 1 (padrão) existe
+const DB1_PATH = getTenantDbPath(1);
+if (!fs.existsSync(path.dirname(DB1_PATH))) {
+  fs.mkdirSync(path.dirname(DB1_PATH), { recursive: true });
+}
+if (!fs.existsSync(DB1_PATH) && fs.existsSync(DB_PATH)) {
+  fs.copyFileSync(DB_PATH, DB1_PATH);
+}
+
+function getTenantDb() {
+  const tenantId = tenantContext.getStore() || 1;
+  if (!tenantDbs.has(tenantId)) {
+    const dbPath = getTenantDbPath(tenantId);
+    
+    if (!fs.existsSync(dbPath)) {
+      const parentDir = path.dirname(dbPath);
+      if (!fs.existsSync(parentDir)) {
+        fs.mkdirSync(parentDir, { recursive: true });
+      }
+      const db1Path = getTenantDbPath(1);
+      if (fs.existsSync(db1Path)) {
+        fs.copyFileSync(db1Path, dbPath);
+      }
+    }
+    
+    const newDb = new sqlite3.Database(dbPath, (err) => {
+      if (err) console.error(`Erro ao abrir banco do tenant ${tenantId}:`, err);
+    });
+    
+    newDb.run('PRAGMA journal_mode = WAL;');
+    tenantDbs.set(tenantId, newDb);
+  }
+  return tenantDbs.get(tenantId);
+}
+
+const db = {
+  run: function(...args) { return getTenantDb().run(...args); },
+  all: function(...args) { return getTenantDb().all(...args); },
+  get: function(...args) { return getTenantDb().get(...args); },
+  serialize: function(cb) { return getTenantDb().serialize(cb); },
+  close: function(cb) {
+    const tenantId = tenantContext.getStore() || 1;
+    const currentDb = tenantDbs.get(tenantId);
+    if (currentDb) {
+      tenantDbs.delete(tenantId);
+      return currentDb.close(cb);
+    }
+    if (cb) cb();
+  }
+};
 
 // ── NOTIFICAÇÕES PUSH (Web Push API) ──
 const webpush = require('web-push');
@@ -615,7 +667,7 @@ function parseNfceHtml(html) {
 
 const ifoodApi = require('./ifood-integration');
 
-function getTenantDb() { return db; }
+
 
 // (Segurança) Chaves JWT: nunca fixas no código-fonte. Usam env vars quando
 // definidas; caso contrário, uma chave aleatória é gerada e persistida uma única
@@ -833,7 +885,7 @@ app.post('/api/super/login-local', async (req, res) => {
     return res.json({ ok: false, erro: 'Senha de administrador inválida.' });
   }
   loginAttempts.delete(rawIp);
-  const token = jwt.sign({ role: 'super_admin_local', restaurante_id: 1 }, JWT_SECRET, { expiresIn: '12h' });
+  const token = jwt.sign({ role: 'super_admin_local', restaurante_id: 1 }, JWT_SECRET, { expiresIn: '90d' });
   res.json({ ok: true, token });
 });
 
@@ -939,9 +991,7 @@ app.delete('/api/super/certs/:file', superAdminAuth, (req, res) => {
 
 const TELEMETRIA_VERSION = '1.0.0';
 
-function getTenantDbPath(tenantId) {
-  return path.join(APP_DATA_DIR, 'estabelecimentos', String(tenantId), 'database.sqlite');
-}
+
 
 // ════════════ TELEMETRIA ════════════
 function registrarTelemetria(t) {
@@ -1220,17 +1270,17 @@ const tenantFeatures = new Map();
 const tenantSocketCounts = new Map();
 const TENANT_FEATURES_REFRESH_MS = 30000;
 
-function getTenantDbPath(tenantId) {
-  return path.join(__dirname, `database_${tenantId}.sqlite`);
-}
-
 function listarBancosTenant() {
   try {
-    return fsSync.readdirSync(__dirname)
-      .filter(f => /^database_(\d+)\.sqlite$/.test(f))
-      .map(f => path.join(__dirname, f))
+    const estDir = path.join(APP_DATA_DIR, 'estabelecimentos');
+    if (!fsSync.existsSync(estDir)) return [];
+    return fsSync.readdirSync(estDir)
+      .filter(f => /^\\d+$/.test(f))
+      .map(f => path.join(estDir, f, 'database.sqlite'))
       .filter(p => fsSync.existsSync(p));
-  } catch (e) { return []; }
+  } catch (e) {
+    return [];
+  }
 }
 
 function safeInt(v, min = 0, max = 2147483647) { const n = parseInt(v, 10); return isNaN(n) ? min : Math.max(min, Math.min(max, n)); }
@@ -5107,7 +5157,7 @@ io.on('connection', (socket) => {
             socket.emit('login_success', payload);
             socket.funcionarioId = row.id;
             socket.funcionarioCargo = row.cargo;
-            const sessToken = jwt.sign({ tipo: 'funcionario', id: row.id, nome: row.nome, usuario: row.usuario, cargo: row.cargo, restaurante_id: tid }, JWT_SECRET, { expiresIn: '12h' });
+            const sessToken = jwt.sign({ tipo: 'funcionario', id: row.id, nome: row.nome, usuario: row.usuario, cargo: row.cargo, restaurante_id: tid }, JWT_SECRET, { expiresIn: '90d' });
             socket.emit('login_token', sessToken);
             socket.emit('tenant_atualizado', { restaurante_id: tid, token: sessToken });
             db.run("INSERT INTO historico_logins (funcionario_id, funcionario_nome) VALUES (?, ?)", [row.id, row.nome]);
@@ -5153,7 +5203,7 @@ io.on('connection', (socket) => {
         socket.emit('login_success', payload);
         socket.funcionarioId = row.id;
         socket.funcionarioCargo = row.cargo;
-        const sessToken = jwt.sign({ tipo: 'funcionario', id: row.id, nome: row.nome, usuario: row.usuario, cargo: row.cargo, restaurante_id: tid }, JWT_SECRET, { expiresIn: '12h' });
+        const sessToken = jwt.sign({ tipo: 'funcionario', id: row.id, nome: row.nome, usuario: row.usuario, cargo: row.cargo, restaurante_id: tid }, JWT_SECRET, { expiresIn: '90d' });
         socket.emit('login_token', sessToken);
         socket.emit('tenant_atualizado', { restaurante_id: tid, token: sessToken });
         db.run("INSERT INTO historico_logins (funcionario_id, funcionario_nome) VALUES (?, ?)", [row.id, row.nome]);
@@ -7273,7 +7323,7 @@ io.on('connection', (socket) => {
             socket.emit('login_success', payload);
             socket.funcionarioId = f.id;
             socket.funcionarioCargo = payload.cargo;
-            const sessToken = jwt.sign({ tipo: 'funcionario', id: f.id, nome: f.nome, usuario: f.usuario, cargo: payload.cargo, restaurante_id: payload.restaurante_id, pin: true }, JWT_SECRET, { expiresIn: '12h' });
+            const sessToken = jwt.sign({ tipo: 'funcionario', id: f.id, nome: f.nome, usuario: f.usuario, cargo: payload.cargo, restaurante_id: payload.restaurante_id, pin: true }, JWT_SECRET, { expiresIn: '90d' });
             socket.emit('login_token', sessToken);
             socket.emit('tenant_atualizado', { restaurante_id: payload.restaurante_id, token: sessToken });
             return;
@@ -7307,7 +7357,7 @@ io.on('connection', (socket) => {
         socket.emit('login_success', payload);
         socket.funcionarioId = row.id;
         socket.funcionarioCargo = payload.cargo;
-        const sessToken = jwt.sign({ tipo: 'funcionario', id: row.id, nome: row.nome_colaborador, usuario: 'pin_' + row.pin, cargo: payload.cargo, restaurante_id: payload.restaurante_id, pin: true }, JWT_SECRET, { expiresIn: '12h' });
+        const sessToken = jwt.sign({ tipo: 'funcionario', id: row.id, nome: row.nome_colaborador, usuario: 'pin_' + row.pin, cargo: payload.cargo, restaurante_id: payload.restaurante_id, pin: true }, JWT_SECRET, { expiresIn: '90d' });
         socket.emit('login_token', sessToken);
         socket.emit('tenant_atualizado', { restaurante_id: payload.restaurante_id, token: sessToken });
       });
@@ -8543,7 +8593,8 @@ app.post('/api/maquininha/testar', (req, res) => {
 
 // --- BACKUP & RESTORE API ---
 app.get('/api/backup', verificarToken, (req, res) => {
-  res.download(dbPath, 'backup.sqlite', (err) => {
+  const tenantDbPath = getTenantDbPath(req.restaurante_id);
+  res.download(tenantDbPath, 'backup.sqlite', (err) => {
     if (err) {
       console.error("Erro no download do backup:", err);
       if (!res.headersSent) {
@@ -8558,6 +8609,7 @@ app.post('/api/restore', verificarToken, upload.single('backup'), (req, res) => 
     return res.status(400).json({ success: false, error: 'Nenhum arquivo enviado.' });
   }
 
+  const tenantDbPath = getTenantDbPath(req.restaurante_id);
   const tempFilePath = req.file.path;
   const testDb = new sqlite3.Database(tempFilePath, sqlite3.OPEN_READONLY, (testErr) => {
     if (testErr) {
@@ -8579,24 +8631,21 @@ app.post('/api/restore', verificarToken, upload.single('backup'), (req, res) => 
       db.close((closeErr) => {
         if (closeErr) {
           console.error("Erro ao fechar o banco de dados para restore:", closeErr);
-          // Tentar reabrir o banco original
-          db = new sqlite3.Database(dbPath, (err) => {
-            if (err) console.error("Erro ao reabrir banco após falha de fechamento:", err);
-          });
           try { fs.unlinkSync(tempFilePath); } catch (e) { }
           return res.json({ success: false, error: 'Erro ao fechar banco de dados atual.' });
         }
 
         try {
-          fs.copyFileSync(tempFilePath, dbPath);
+          fs.copyFileSync(tempFilePath, tenantDbPath);
           try { fs.unlinkSync(tempFilePath); } catch (e) { }
 
-          // Reabrir conexão com o banco restaurado
-          db = new sqlite3.Database(dbPath, (openErr) => {
+          // Reabrir conexão com o banco restaurado apenas para testes
+          const checkDb = new sqlite3.Database(tenantDbPath, (openErr) => {
             if (openErr) {
-              console.error("Erro ao reabrir banco restaurado:", openErr);
+              console.error("Erro ao abrir banco restaurado:", openErr);
               return res.json({ success: false, error: 'Erro ao conectar ao banco restaurado.' });
             }
+            checkDb.close();
 
             console.log("Banco de dados restaurado com sucesso!");
 
@@ -8613,8 +8662,6 @@ app.post('/api/restore', verificarToken, upload.single('backup'), (req, res) => 
           });
         } catch (copyErr) {
           console.error("Erro ao copiar arquivo restaurado:", copyErr);
-          // Tentar reabrir o banco original
-          db = new sqlite3.Database(dbPath);
           try { fs.unlinkSync(tempFilePath); } catch (e) { }
           res.json({ success: false, error: 'Erro de E/S ao substituir o banco de dados.' });
         }
@@ -8622,7 +8669,6 @@ app.post('/api/restore', verificarToken, upload.single('backup'), (req, res) => 
     });
   });
 });
-
 let PORT = parseInt(process.env.PORT, 10) || 3000;
 try {
   const portFilePath = path.join(__dirname, 'port.txt');
@@ -9930,7 +9976,7 @@ app.post('/api/auth/registro', async (req, res) => {
         // Se a senha bater com o cadastro prévio, permite continuar o onboarding com o restaurante existente
         const passMatch = await bcrypt.compare(senha, existingUser.password_hash || '');
         if (passMatch) {
-          const token = jwt.sign({ id: existingUser.id, restaurante_id: existingUser.restaurante_id, role: existingUser.role || 'admin' }, JWT_SECRET, { expiresIn: '12h' });
+          const token = jwt.sign({ id: existingUser.id, restaurante_id: existingUser.restaurante_id, role: existingUser.role || 'admin' }, JWT_SECRET, { expiresIn: '90d' });
           return res.json({ success: true, token, restaurante_id: existingUser.restaurante_id, ja_existia: true });
         } else {
           return res.status(400).json({ success: false, error: 'Este e-mail já possui uma conta. Digite a senha correta ou use outro e-mail.' });
@@ -9999,7 +10045,7 @@ app.post('/api/auth/registro', async (req, res) => {
               }
 
               // Gerar JWT inicial
-              const token = jwt.sign({ id: userId, restaurante_id: restauranteId, role: 'admin' }, JWT_SECRET, { expiresIn: '12h' });
+              const token = jwt.sign({ id: userId, restaurante_id: restauranteId, role: 'admin' }, JWT_SECRET, { expiresIn: '90d' });
               res.json({ success: true, token, restaurante_id: restauranteId });
             }
           );
@@ -10169,7 +10215,7 @@ app.post('/api/auth/registro', async (req, res) => {
             }
 
             // Gerar JWT inicial
-            const token = jwt.sign({ id: this.lastID, restaurante_id: restauranteId, role: 'admin' }, JWT_SECRET, { expiresIn: '12h' });
+            const token = jwt.sign({ id: this.lastID, restaurante_id: restauranteId, role: 'admin' }, JWT_SECRET, { expiresIn: '90d' });
             res.json({ success: true, token, restaurante_id: restauranteId });
           }
         );
@@ -10383,7 +10429,7 @@ app.post('/api/auth/login', async (req, res) => {
     const match = await bcrypt.compare(senha, user.password_hash);
     if (!match) return res.status(401).json({ success: false, error: 'Senha incorreta.' });
 
-    const token = jwt.sign({ id: user.id, restaurante_id: user.restaurante_id, role: user.role }, JWT_SECRET, { expiresIn: '12h' });
+    const token = jwt.sign({ id: user.id, restaurante_id: user.restaurante_id, role: user.role }, JWT_SECRET, { expiresIn: '90d' });
     res.json({ success: true, token, restaurante_id: user.restaurante_id, role: user.role });
   });
 });
@@ -11081,4 +11127,34 @@ app.post('/api/super/deploy-commit', superAdminAuth, (req, res) => {
   });
 });
 
+// --- CONTROLLER DO SUPER ADMIN INTEGRADO ---
+if (!process.env.SUPER_ADMIN_ISOLADO) {
+  try {
+    const metricSocketCount = (tid) => {
+      let count = 0;
+      activeSockets.forEach(conn => {
+        if (conn.restaurante_id === tid) count++;
+      });
+      return count;
+    };
 
+    require('./controllers/super-admin')(app, masterDb, sqlite3, {
+      JWT_SECRET,
+      superAdminAuth,
+      io,
+      featurePlans: require('./feature-plans'),
+      loadAllTenantFeatures: async () => {},
+      getTenantFeaturesSync: (tid) => require('./feature-plans').getPlanDefaults('ativo'),
+      isTenantFeatureEnabled: (tid, f) => true,
+      metricSocketCount,
+      ifoodApi: null,
+      baseDomain: process.env.BASE_DOMAIN || 'localhost',
+      reloadDomainMaps: async () => {},
+      createFreshTenantDb: null,
+      ifoodDeps: null
+    });
+    console.log('👑 Controller do Super Admin carregado com sucesso no servidor principal.');
+  } catch (e) {
+    console.error('Erro ao carregar o Controller do Super Admin:', e);
+  }
+}
