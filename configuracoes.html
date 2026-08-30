@@ -2426,7 +2426,10 @@
       </button>
       </div>
       <div class="action-group">
-        <div class="group-title" style="color:#10b981;">Integrações</div>
+        <div class="group-title" style="color:#10b981;">Integrações & Pagamentos</div>
+        <button class="admin-tab-btn" data-tab="pix-integracao" style="color: #00b0ff; font-weight: bold;">
+          <i class="ph ph-qr-code"></i> Chave Pix & QR Dinâmico
+        </button>
         <button class="admin-tab-btn" data-tab="maquininhas">
           <i class="ph ph-credit-card"></i> Maquininhas de Cartão
         </button>
@@ -5665,6 +5668,21 @@
           </button>
         </div>
 
+        <div style="background: linear-gradient(135deg, rgba(0, 176, 255, 0.08) 0%, rgba(16, 185, 129, 0.08) 100%); border: 1px solid rgba(0, 176, 255, 0.3); border-radius: 12px; padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
+          <div style="display: flex; align-items: center; gap: 14px;">
+            <div style="width: 44px; height: 44px; border-radius: 10px; background: #00b0ff; color: white; display: flex; align-items: center; justify-content: center; font-size: 24px; box-shadow: 0 4px 12px rgba(0,176,255,0.3);">
+              <i class="ph ph-qr-code"></i>
+            </div>
+            <div>
+              <strong style="font-size: 15px; color: var(--cfg-text); display: block;">Integração Pix & QR Code Dinâmico Automático</strong>
+              <span style="font-size: 12.5px; color: var(--cfg-text-muted);">Gere QR Codes individuais com o valor exato de cada venda e comanda para pagamento instantâneo.</span>
+            </div>
+          </div>
+          <button type="button" onclick="activateTab('pix-integracao')" style="padding: 9px 18px; background: #00b0ff; color: white; border: none; border-radius: 8px; font-weight: 700; font-size: 13.5px; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 3px 10px rgba(0,176,255,0.25);">
+            <i class="ph ph-gear-six"></i> Configurar Chave Pix
+          </button>
+        </div>
+
         <div style="background:var(--cfg-card-bg); border: 1px solid var(--cfg-border); border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
           <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 14px;">
             <thead>
@@ -5682,6 +5700,259 @@
             </tbody>
           </table>
         </div>
+      </div>
+
+      <!-- ABA INTEGRAÇÃO PIX & QR CODE DINÂMICO -->
+      <div class="admin-tab-content" id="admin-tab-pix-integracao"
+        style="display:none; flex-direction:column; gap:20px; overflow-y:auto; padding-right: 8px;">
+        
+        <!-- Cabeçalho da Aba -->
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; border-bottom:1px solid var(--cfg-border); padding-bottom:14px;">
+          <div>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <h2 class="aba-titulo" style="margin:0;"><i class="ph ph-qr-code" style="color: #00b0ff;"></i> Integração Chave Pix & QR Code Dinâmico</h2>
+              <span id="pix-status-badge" style="padding:4px 10px; border-radius:20px; font-size:11.5px; font-weight:700; background:rgba(16,185,129,0.15); color:#10b981; border:1px solid rgba(16,185,129,0.3); display:inline-flex; align-items:center; gap:5px;">
+                <i class="ph ph-check-circle"></i> Ativo
+              </span>
+            </div>
+            <p style="color: var(--cfg-text-muted); font-size: 13.5px; margin: 6px 0 0 0;">
+              Vincule sua chave Pix para gerar automaticamente QR Codes dinâmicos com o valor exato no fechamento de cada venda, comanda e mesa (Padrão BACEN BR Code EMV).
+            </p>
+          </div>
+          
+          <div style="display:flex; gap:10px;">
+            <button type="button" onclick="window.salvarConfiguracaoPixIntegracao()" id="btn-salvar-pix-topo"
+              style="padding: 10px 22px; background: #00b0ff; color: white; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(0, 176, 255, 0.3); transition: all 0.2s;">
+              <i class="ph ph-floppy-disk"></i> Salvar Configurações
+            </button>
+          </div>
+        </div>
+
+        <!-- Grid de Configurações e Simulador -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 20px;">
+          
+          <!-- Card 1: Dados da Chave Pix -->
+          <div style="background:var(--cfg-card-bg); border:1px solid var(--cfg-border); border-radius:14px; padding:22px; display:flex; flex-direction:column; gap:16px; box-shadow:0 2px 8px rgba(0,0,0,0.03);">
+            <div style="display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--cfg-border); padding-bottom:12px;">
+              <h3 style="margin:0; font-size:16px; color:var(--cfg-text); display:flex; align-items:center; gap:8px;">
+                <i class="ph ph-key" style="color:#00b0ff;"></i> Dados da Chave Pix
+              </h3>
+              <span style="font-size:11.5px; color:var(--cfg-text-muted); background:var(--cfg-subtle-bg); padding:3px 8px; border-radius:6px;">Obrigatório</span>
+            </div>
+
+            <!-- Tipo de Chave -->
+            <div>
+              <label style="display:block; font-size:12px; font-weight:700; color:var(--cfg-text-muted); margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px;">
+                Tipo de Chave Pix
+              </label>
+              <select id="cfg-pix-tipo-chave" onchange="window.onPixTipoChaveChange()"
+                style="width:100%; padding:11px 14px; border:1px solid var(--cfg-border); border-radius:8px; background:var(--cfg-card-bg); color:var(--cfg-text); font-size:14px; outline:none; font-weight:600;">
+                <option value="cpf">CPF (apenas números ou formatado)</option>
+                <option value="cnpj">CNPJ (apenas números ou formatado)</option>
+                <option value="telefone">Celular / Telefone (+55 DDD 9XXXX-XXXX)</option>
+                <option value="email">E-mail</option>
+                <option value="aleatoria">Chave Aleatória (EVP - UUID)</option>
+              </select>
+            </div>
+
+            <!-- Campo Chave Pix -->
+            <div>
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                <label style="font-size:12px; font-weight:700; color:var(--cfg-text-muted); text-transform:uppercase; letter-spacing:0.5px;">
+                  Chave Pix <span style="color:#ef4444;">*</span>
+                </label>
+                <span id="pix-chave-hint" style="font-size:11px; color:#00b0ff; font-weight:600;">Ex: 123.456.789-00</span>
+              </div>
+              <div style="position:relative;">
+                <input type="text" id="cfg-pix-chave" placeholder="Digite sua chave Pix..." oninput="window.onPixChaveInput()"
+                  style="width:100%; padding:11px 40px 11px 14px; border:1px solid var(--cfg-border); border-radius:8px; background:var(--cfg-card-bg); color:var(--cfg-text); font-size:14px; outline:none; font-family:monospace; box-sizing:border-box;">
+                <button type="button" onclick="window.colarChavePixClipboard()" title="Colar da Área de Transferência"
+                  style="position:absolute; right:8px; top:50%; transform:translateY(-50%); background:transparent; border:none; color:var(--cfg-text-muted); cursor:pointer; font-size:16px; padding:4px;">
+                  <i class="ph ph-clipboard-text"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- Nome do Beneficiário -->
+            <div>
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                <label style="font-size:12px; font-weight:700; color:var(--cfg-text-muted); text-transform:uppercase; letter-spacing:0.5px;">
+                  Nome do Titular / Beneficiário <span style="color:#ef4444;">*</span>
+                </label>
+                <span id="pix-nome-counter" style="font-size:11px; color:var(--cfg-text-muted);">0/25</span>
+              </div>
+              <input type="text" id="cfg-pix-nome-recebedor" maxlength="25" placeholder="Nome que aparece na conta bancária" oninput="window.onPixNomeInput()"
+                style="width:100%; padding:11px 14px; border:1px solid var(--cfg-border); border-radius:8px; background:var(--cfg-card-bg); color:var(--cfg-text); font-size:14px; outline:none; box-sizing:border-box;">
+              <small style="display:block; font-size:11px; color:var(--cfg-text-muted); margin-top:4px;">Nome exibido ao pagador no app do banco (máx. 25 caracteres ASCII sem acentos).</small>
+            </div>
+
+            <!-- Cidade e Prefixo TXID -->
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+              <div>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                  <label style="font-size:12px; font-weight:700; color:var(--cfg-text-muted); text-transform:uppercase; letter-spacing:0.5px;">
+                    Cidade <span style="color:#ef4444;">*</span>
+                  </label>
+                  <span id="pix-cidade-counter" style="font-size:11px; color:var(--cfg-text-muted);">0/15</span>
+                </div>
+                <input type="text" id="cfg-pix-cidade" maxlength="15" placeholder="Ex: SAO PAULO" oninput="window.onPixCidadeInput()"
+                  style="width:100%; padding:11px 14px; border:1px solid var(--cfg-border); border-radius:8px; background:var(--cfg-card-bg); color:var(--cfg-text); font-size:14px; outline:none; box-sizing:border-box;">
+              </div>
+              <div>
+                <label style="display:block; font-size:12px; font-weight:700; color:var(--cfg-text-muted); margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px;">
+                  Prefixo TXID
+                </label>
+                <input type="text" id="cfg-pix-txid-prefix" maxlength="6" placeholder="VD" value="VD"
+                  style="width:100%; padding:11px 14px; border:1px solid var(--cfg-border); border-radius:8px; background:var(--cfg-card-bg); color:var(--cfg-text); font-size:14px; outline:none; font-family:monospace; box-sizing:border-box;">
+              </div>
+            </div>
+
+            <!-- Opções de Automação -->
+            <div style="border-top:1px solid var(--cfg-border); padding-top:14px; display:flex; flex-direction:column; gap:12px;">
+              <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer;">
+                <input type="checkbox" id="cfg-pix-auto-qr-venda" checked style="width:18px; height:18px; accent-color:#00b0ff; margin-top:2px;">
+                <div>
+                  <strong style="font-size:13.5px; color:var(--cfg-text); display:block;">Gerar QR Code dinâmico automaticamente nas vendas</strong>
+                  <span style="font-size:12px; color:var(--cfg-text-muted);">Ao selecionar 'Pix' no Caixa, Mesas ou Balcão, o sistema carrega o QR Code com o valor exato a pagar.</span>
+                </div>
+              </label>
+              
+              <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer;">
+                <input type="checkbox" id="cfg-pix-ativo" checked style="width:18px; height:18px; accent-color:#10b981; margin-top:2px;">
+                <div>
+                  <strong style="font-size:13.5px; color:var(--cfg-text); display:block;">Método Pix Habilitado no PDV</strong>
+                  <span style="font-size:12px; color:var(--cfg-text-muted);">Disponibiliza a forma de pagamento Pix em todos os pontos de venda e comandas.</span>
+                </div>
+              </label>
+            </div>
+
+            <button type="button" onclick="window.salvarConfiguracaoPixIntegracao()" id="btn-salvar-pix-form"
+              style="margin-top:6px; padding:12px; background:#00b0ff; color:white; border:none; border-radius:8px; font-weight:700; font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; box-shadow:0 4px 12px rgba(0,176,255,0.25);">
+              <i class="ph ph-floppy-disk"></i> Salvar Chave Pix
+            </button>
+          </div>
+
+          <!-- Card 2: Simulador e Testador de QR Code Dinâmico -->
+          <div style="background:var(--cfg-card-bg); border:1px solid var(--cfg-border); border-radius:14px; padding:22px; display:flex; flex-direction:column; gap:16px; box-shadow:0 2px 8px rgba(0,0,0,0.03);">
+            <div style="display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--cfg-border); padding-bottom:12px;">
+              <h3 style="margin:0; font-size:16px; color:var(--cfg-text); display:flex; align-items:center; gap:8px;">
+                <i class="ph ph-lightning" style="color:#f59e0b;"></i> Simulador de QR Code Dinâmico
+              </h3>
+              <span style="font-size:11.5px; color:#10b981; font-weight:700; background:rgba(16,185,129,0.12); padding:3px 8px; border-radius:6px;">Em Tempo Real</span>
+            </div>
+
+            <p style="font-size:12.5px; color:var(--cfg-text-muted); margin:0;">
+              Digite um valor de venda para simular instantaneamente o QR Code dinâmico que seus clientes escanearão no app do banco.
+            </p>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+              <div>
+                <label style="display:block; font-size:12px; font-weight:700; color:var(--cfg-text-muted); margin-bottom:6px; text-transform:uppercase;">
+                  Valor de Teste (R$)
+                </label>
+                <input type="number" id="simulador-pix-valor" step="0.01" value="49.90" placeholder="49.90"
+                  style="width:100%; padding:10px 12px; border:1px solid var(--cfg-border); border-radius:8px; background:var(--cfg-card-bg); color:var(--cfg-text); font-size:14px; outline:none; font-weight:700; box-sizing:border-box;">
+              </div>
+              <div>
+                <label style="display:block; font-size:12px; font-weight:700; color:var(--cfg-text-muted); margin-bottom:6px; text-transform:uppercase;">
+                  Mesa / Comanda
+                </label>
+                <input type="text" id="simulador-pix-ref" value="Mesa 05" placeholder="Ex: Mesa 05"
+                  style="width:100%; padding:10px 12px; border:1px solid var(--cfg-border); border-radius:8px; background:var(--cfg-card-bg); color:var(--cfg-text); font-size:14px; outline:none; box-sizing:border-box;">
+              </div>
+            </div>
+
+            <button type="button" onclick="window.testarPixDinamicoSimulador()"
+              style="padding:10px 16px; background:rgba(0,176,255,0.12); color:#00b0ff; border:1px solid rgba(0,176,255,0.3); border-radius:8px; font-weight:700; font-size:13.5px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; transition:all 0.2s;">
+              <i class="ph ph-arrows-clockwise"></i> Gerar QR Code de Teste
+            </button>
+
+            <!-- Painel do QR Code Gerado -->
+            <div id="simulador-pix-resultado" style="background:var(--cfg-subtle-bg); border:1px dashed var(--cfg-border); border-radius:12px; padding:16px; display:flex; flex-direction:column; align-items:center; text-align:center; gap:10px;">
+              <div style="position:relative; padding:10px; background:white; border-radius:10px; box-shadow:0 4px 12px rgba(0,0,0,0.06); display:inline-block;">
+                <img id="simulador-pix-qr-img" src="" alt="QR Code Pix" style="width:180px; height:180px; display:block; border-radius:4px; object-fit:contain;">
+              </div>
+
+              <div id="simulador-pix-valor-display" style="font-size:20px; font-weight:900; color:#10b981; letter-spacing:-0.5px;">
+                R$ 49,90
+              </div>
+
+              <div style="width:100%; text-align:left;">
+                <label style="font-size:11px; font-weight:700; color:var(--cfg-text-muted); text-transform:uppercase;">Código Pix Copia e Cola (EMV BR Code):</label>
+                <textarea id="simulador-pix-copiacola" readonly
+                  style="width:100%; height:48px; margin-top:4px; font-size:10.5px; font-family:monospace; border:1px solid var(--cfg-border); border-radius:6px; padding:6px; resize:none; background:var(--cfg-card-bg); color:var(--cfg-text-muted); box-sizing:border-box;"></textarea>
+              </div>
+
+              <div style="display:flex; gap:8px; width:100%;">
+                <button type="button" onclick="window.copiarPixSimulador()"
+                  style="flex:1; padding:9px 12px; background:#10b981; color:white; border:none; border-radius:6px; font-weight:700; font-size:12.5px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:5px;">
+                  <i class="ph ph-copy"></i> Copiar Código
+                </button>
+                <button type="button" onclick="window.baixarPixSimuladorQr()"
+                  style="padding:9px 14px; background:var(--cfg-card-bg); color:var(--cfg-text); border:1px solid var(--cfg-border); border-radius:6px; font-weight:600; font-size:12.5px; cursor:pointer; display:flex; align-items:center; gap:5px;">
+                  <i class="ph ph-download-simple"></i> Baixar
+                </button>
+              </div>
+
+              <!-- Detalhes Técnicos Validados -->
+              <div style="width:100%; background:var(--cfg-card-bg); border-radius:8px; padding:10px; font-size:11px; color:var(--cfg-text-muted); text-align:left; display:flex; flex-direction:column; gap:4px; border:1px solid var(--cfg-border);">
+                <div><strong>Iniciação:</strong> <span id="simulador-detalhe-tipo" style="color:#00b0ff;">Dinâmico (Tag 01 = 12)</span></div>
+                <div><strong>Beneficiário:</strong> <span id="simulador-detalhe-beneficiario">-</span></div>
+                <div><strong>Cidade:</strong> <span id="simulador-detalhe-cidade">-</span></div>
+                <div><strong>TXID / Identificador:</strong> <span id="simulador-detalhe-txid" style="font-family:monospace;">-</span></div>
+                <div><strong>Checksum CRC16:</strong> <span style="color:#10b981; font-weight:bold;">Conforme Padrão BACEN</span></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Card 3: Bancos Suportados & Benefícios -->
+        <div style="background:var(--cfg-card-bg); border:1px solid var(--cfg-border); border-radius:14px; padding:20px; box-shadow:0 2px 8px rgba(0,0,0,0.03);">
+          <h4 style="margin:0 0 12px 0; font-size:15px; color:var(--cfg-text); display:flex; align-items:center; gap:8px;">
+            <i class="ph ph-shield-check" style="color:#10b981;"></i> Compatibilidade Total com Apps Bancários
+          </h4>
+          <p style="font-size:13px; color:var(--cfg-text-muted); margin:0 0 14px 0; line-height:1.5;">
+            Os QR Codes gerados pelo Chef Cozinha utilizam a especificação oficial <strong>BR Code EMV do Banco Central do Brasil</strong>. Quando o cliente abre a câmera ou o app de qualquer banco e escaneia o código, o valor da venda é carregado instantaneamente e sem necessidade de digitação.
+          </p>
+
+          <div style="display:flex; flex-wrap:wrap; gap:8px;">
+            <span style="padding:6px 12px; background:rgba(130,10,209,0.1); color:#820ad1; border:1px solid rgba(130,10,209,0.25); border-radius:8px; font-size:12px; font-weight:700; display:inline-flex; align-items:center; gap:6px;">
+              🟣 Nubank
+            </span>
+            <span style="padding:6px 12px; background:rgba(236,112,0,0.1); color:#ec7000; border:1px solid rgba(236,112,0,0.25); border-radius:8px; font-size:12px; font-weight:700; display:inline-flex; align-items:center; gap:6px;">
+              🟠 Itaú
+            </span>
+            <span style="padding:6px 12px; background:rgba(204,9,47,0.1); color:#cc092f; border:1px solid rgba(204,9,47,0.25); border-radius:8px; font-size:12px; font-weight:700; display:inline-flex; align-items:center; gap:6px;">
+              🔴 Bradesco
+            </span>
+            <span style="padding:6px 12px; background:rgba(235,0,0,0.1); color:#ea1d2c; border:1px solid rgba(235,0,0,0.25); border-radius:8px; font-size:12px; font-weight:700; display:inline-flex; align-items:center; gap:6px;">
+              🔴 Santander
+            </span>
+            <span style="padding:6px 12px; background:rgba(255,230,0,0.15); color:#003882; border:1px solid rgba(0,56,130,0.25); border-radius:8px; font-size:12px; font-weight:700; display:inline-flex; align-items:center; gap:6px;">
+              🟡 Banco do Brasil
+            </span>
+            <span style="padding:6px 12px; background:rgba(0,158,227,0.1); color:#009ee3; border:1px solid rgba(0,158,227,0.25); border-radius:8px; font-size:12px; font-weight:700; display:inline-flex; align-items:center; gap:6px;">
+              🔵 Mercado Pago
+            </span>
+            <span style="padding:6px 12px; background:rgba(255,122,0,0.1); color:#ff7a00; border:1px solid rgba(255,122,0,0.25); border-radius:8px; font-size:12px; font-weight:700; display:inline-flex; align-items:center; gap:6px;">
+              🟠 Inter
+            </span>
+            <span style="padding:6px 12px; background:rgba(30,58,138,0.1); color:#1e3a8a; border:1px solid rgba(30,58,138,0.25); border-radius:8px; font-size:12px; font-weight:700; display:inline-flex; align-items:center; gap:6px;">
+              🔵 Caixa Econômica
+            </span>
+            <span style="padding:6px 12px; background:rgba(40,40,40,0.08); color:var(--cfg-text); border:1px solid var(--cfg-border); border-radius:8px; font-size:12px; font-weight:700; display:inline-flex; align-items:center; gap:6px;">
+              ⚫ C6 Bank
+            </span>
+            <span style="padding:6px 12px; background:rgba(0,177,121,0.1); color:#00b179; border:1px solid rgba(0,177,121,0.25); border-radius:8px; font-size:12px; font-weight:700; display:inline-flex; align-items:center; gap:6px;">
+              🟢 PagBank / PagSeguro
+            </span>
+            <span style="padding:6px 12px; background:rgba(33,191,115,0.1); color:#21bf73; border:1px solid rgba(33,191,115,0.25); border-radius:8px; font-size:12px; font-weight:700; display:inline-flex; align-items:center; gap:6px;">
+              🟢 PicPay &amp; Cooperativas (Sicredi / Sicoob)
+            </span>
+          </div>
+        </div>
+
       </div>
 
 <!-- ABA CONFIGURAÇÕES FISCAIS NFC-E -->

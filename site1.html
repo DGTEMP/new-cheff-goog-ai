@@ -1,0 +1,1800 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="no-js">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title id="page-title">Chef Cozinha Pro — Sistema de Gestão Gastronômica, PDV &amp; KDS</title>
+  <meta id="meta-description" name="description" content="Chef Cozinha: O sistema gastronômico mais rápido do Brasil. PDV Offline-First que nunca para, KDS Inteligente, Comanda Mobile ilimitada, Trava Antifraude e Ponto Digital. Teste 14 dias grátis!">
+  <meta id="meta-keywords" name="keywords" content="sistema restaurante, pdv offline, kds cozinha, comanda mobile, garcom app, trava antifraude, sistema para bares, gestao pizzaria">
+  <meta id="meta-robots" name="robots" content="index, follow">
+  <meta id="meta-author" name="author" content="Chef Cozinha">
+  <meta name="theme-color" content="#fc4b15">
+  <link rel="canonical" href="https://appchef.up.railway.app/site1.html">
+
+  <!-- Favicon & PWA Icons -->
+  <link rel="icon" href="/icons/icon.ico" type="image/x-icon">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://appchef.up.railway.app/site1.html">
+  <meta id="og-title" property="og:title" content="Chef Cozinha Pro — O Sistema Mais Rápido para Restaurantes e Bares">
+  <meta id="og-description" property="og:description" content="PDV ultra-rápido Offline-First, KDS Cozinha, Comanda Mobile ilimitada e Trava Antifraude. Teste 14 dias grátis!">
+  <meta id="og-image" property="og:image" content="https://appchef.up.railway.app/icons/icon-512.png">
+  <meta property="og:site_name" content="Chef Cozinha">
+
+  <!-- Structured Data JSON-LD -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Chef Cozinha",
+    "operatingSystem": "All (Web, Android, iOS, Windows, macOS, Linux)",
+    "applicationCategory": "BusinessApplication",
+    "offers": {
+      "@type": "Offer",
+      "price": "0.00",
+      "priceCurrency": "BRL"
+    },
+    "description": "Sistema de gestão gastronômica completo com PDV Offline-First, KDS, comanda mobile, financeiro e ponto digital.",
+    "aggregateRating": {
+      "@type": "AggregateRating",
+      "ratingValue": "4.9",
+      "ratingCount": "180"
+    }
+  }
+  </script>
+
+  <!-- Typography & Phosphor Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="/vendor/phosphor/src/regular/style.css" onerror="this.onerror=null;this.href='https://unpkg.com/@phosphor-icons/web@2.0.3/src/regular/style.css';">
+  <link rel="stylesheet" href="/vendor/phosphor/src/bold/style.css" onerror="this.onerror=null;this.href='https://unpkg.com/@phosphor-icons/web@2.0.3/src/bold/style.css';">
+  <link rel="stylesheet" href="/vendor/phosphor/src/fill/style.css" onerror="this.onerror=null;this.href='https://unpkg.com/@phosphor-icons/web@2.0.3/src/fill/style.css';">
+
+  <style>
+    :root {
+      --primary: #fc4b15;
+      --primary-hover: #e03e0b;
+      --primary-glow: rgba(252, 75, 21, 0.35);
+      --secondary: #10b981;
+      --secondary-glow: rgba(16, 185, 129, 0.3);
+      --dark-bg: #070b14;
+      --dark-bg-2: #0d1322;
+      --dark-bg-3: #131b2e;
+      --card-bg: rgba(19, 27, 46, 0.7);
+      --card-bg-hover: rgba(26, 38, 65, 0.85);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --card-border-glow: rgba(252, 75, 21, 0.4);
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --accent-blue: #3b82f6;
+      --accent-purple: #8b5cf6;
+      --accent-cyan: #06b6d4;
+      --accent-amber: #f59e0b;
+      --radius-sm: 8px;
+      --radius: 14px;
+      --radius-lg: 20px;
+      --radius-full: 9999px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, sans-serif;
+      background-color: var(--dark-bg);
+      color: var(--text-main);
+      line-height: 1.6;
+      overflow-x: clip;
+      -webkit-font-smoothing: antialiased;
+    }
+    h1, h2, h3, h4, h5, h6 { font-family: 'Outfit', sans-serif; letter-spacing: -0.02em; }
+
+    /* Scroll Animation */
+    .animate-on-scroll {
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1), transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .animate-on-scroll.visible { opacity: 1; transform: translateY(0); }
+
+    /* Top Emergency / Promo Bar */
+    .top-promo-bar {
+      background: linear-gradient(90deg, #fc4b15 0%, #ff6b3d 50%, #fc4b15 100%);
+      color: #ffffff;
+      padding: 9px 16px;
+      font-size: 13px;
+      font-weight: 700;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 12px;
+      position: relative;
+      z-index: 1001;
+      text-align: center;
+    }
+    .badge-live {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 2px 8px;
+      border-radius: var(--radius-full);
+      font-size: 11px;
+      text-transform: uppercase;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .badge-live::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 8px #10b981;
+    }
+    .top-promo-bar a {
+      color: #fff;
+      text-decoration: underline;
+      cursor: pointer;
+    }
+
+    /* Header Nav */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      background: rgba(7, 11, 20, 0.88);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--card-border);
+      padding: 14px 6%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .logo-container {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: #fff;
+      font-size: 20px;
+      font-weight: 800;
+      font-family: 'Outfit';
+    }
+    .logo-icon {
+      width: 38px;
+      height: 38px;
+      background: linear-gradient(135deg, var(--primary), #ff7e5f);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 14px var(--primary-glow);
+    }
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 28px;
+      list-style: none;
+    }
+    .nav-links a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover { color: #fff; }
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .btn-login {
+      padding: 8px 16px;
+      color: var(--text-main);
+      text-decoration: none;
+      font-size: 13.5px;
+      font-weight: 600;
+      border-radius: var(--radius-sm);
+      transition: background 0.2s;
+    }
+    .btn-login:hover { background: rgba(255, 255, 255, 0.06); }
+    .btn-header {
+      padding: 9px 18px;
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-weight: 700;
+      font-size: 13.5px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 4px 14px var(--primary-glow);
+      transition: all 0.2s;
+    }
+    .btn-header:hover { background: var(--primary-hover); transform: translateY(-1px); }
+    .mobile-menu-btn {
+      display: none;
+      background: none;
+      border: none;
+      color: #fff;
+      font-size: 24px;
+      cursor: pointer;
+    }
+
+    /* Hero Section 2.0 (Structured 2-Column Split) */
+    .hero-split {
+      position: relative;
+      padding: 60px 6% 80px;
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 50px;
+      align-items: center;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    .hero-glow-bg {
+      position: absolute;
+      top: -100px;
+      left: 30%;
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, rgba(252, 75, 21, 0.15) 0%, rgba(7, 11, 20, 0) 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .hero-content {
+      position: relative;
+      z-index: 1;
+    }
+    .hero-badge-modern {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(252, 75, 21, 0.1);
+      border: 1px solid rgba(252, 75, 21, 0.3);
+      color: #ff8c66;
+      padding: 6px 14px;
+      border-radius: var(--radius-full);
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 20px;
+    }
+    .hero-title {
+      font-size: 46px;
+      line-height: 1.15;
+      font-weight: 900;
+      color: #fff;
+      margin-bottom: 18px;
+    }
+    .hero-title span {
+      background: linear-gradient(135deg, #fc4b15, #ff9f7a);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .hero-subtext {
+      font-size: 16px;
+      color: var(--text-muted);
+      line-height: 1.6;
+      margin-bottom: 28px;
+      max-width: 580px;
+    }
+    .hero-ctas {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-bottom: 28px;
+    }
+    .btn-cta-main {
+      padding: 14px 28px;
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius);
+      font-size: 15px;
+      font-weight: 800;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 6px 20px var(--primary-glow);
+      transition: all 0.2s;
+    }
+    .btn-cta-main:hover { background: var(--primary-hover); transform: translateY(-2px); }
+    .btn-cta-sub {
+      padding: 14px 24px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--card-border);
+      color: #fff;
+      border-radius: var(--radius);
+      font-size: 14.5px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s;
+    }
+    .btn-cta-sub:hover { background: rgba(255, 255, 255, 0.1); }
+    .hero-guarantees {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      font-size: 12.5px;
+      color: var(--text-dim);
+    }
+    .hero-guarantees span {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .hero-guarantees i { color: var(--secondary); font-size: 15px; }
+
+    /* Hero Live Deck (Interactive Simulator Widget) */
+    .hero-deck {
+      position: relative;
+      z-index: 1;
+      background: var(--dark-bg-2);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-lg);
+      padding: 18px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.5), 0 0 30px rgba(252,75,21,0.15);
+    }
+    .deck-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--card-border);
+      padding-bottom: 12px;
+      margin-bottom: 14px;
+    }
+    .deck-dots {
+      display: flex;
+      gap: 6px;
+    }
+    .deck-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+    .deck-nav-pills {
+      display: flex;
+      gap: 6px;
+      background: var(--dark-bg);
+      padding: 4px;
+      border-radius: var(--radius-sm);
+    }
+    .deck-pill {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 11.5px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .deck-pill.active {
+      background: var(--primary);
+      color: #fff;
+    }
+    .deck-screen {
+      background: var(--dark-bg-3);
+      border-radius: var(--radius-sm);
+      padding: 14px;
+      min-height: 250px;
+      display: none;
+      animation: fadeIn 0.3s ease;
+    }
+    .deck-screen.active { display: block; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    /* Stats Strip */
+    .stats-strip {
+      background: var(--dark-bg-2);
+      border-top: 1px solid var(--card-border);
+      border-bottom: 1px solid var(--card-border);
+      padding: 30px 6%;
+    }
+    .stats-grid {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 24px;
+      text-align: center;
+    }
+    .stat-box .num {
+      font-size: 34px;
+      font-weight: 900;
+      font-family: 'Outfit';
+      margin-bottom: 4px;
+    }
+    .stat-box .lbl {
+      font-size: 13px;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    /* Section Standard Structure */
+    .section-wrap {
+      padding: 80px 6%;
+      max-width: 1300px;
+      margin: 0 auto;
+    }
+    .sec-header {
+      text-align: center;
+      max-width: 680px;
+      margin: 0 auto 50px;
+    }
+    .sec-tag {
+      display: inline-block;
+      font-size: 11.5px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--primary);
+      background: rgba(252, 75, 21, 0.1);
+      padding: 4px 12px;
+      border-radius: var(--radius-full);
+      margin-bottom: 10px;
+    }
+    .sec-title {
+      font-size: 34px;
+      font-weight: 900;
+      color: #fff;
+      margin-bottom: 12px;
+    }
+    .sec-subtitle {
+      font-size: 15px;
+      color: var(--text-muted);
+    }
+
+    /* Bento Grid: Segmentos */
+    .bento-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 20px;
+    }
+    .bento-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: 24px;
+      transition: all 0.25s;
+    }
+    .bento-card:hover {
+      border-color: var(--card-border-glow);
+      transform: translateY(-3px);
+    }
+    .bento-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.05);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      color: var(--primary);
+      margin-bottom: 16px;
+    }
+    .bento-card h3 {
+      font-size: 18px;
+      font-weight: 800;
+      color: #fff;
+      margin-bottom: 8px;
+    }
+    .bento-card p {
+      font-size: 13.5px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    /* Showcase 2.0 Tabs */
+    .showcase-tab-bar {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 36px;
+    }
+    .showcase-btn {
+      padding: 10px 20px;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      color: var(--text-muted);
+      border-radius: var(--radius-full);
+      font-size: 13.5px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s;
+    }
+    .showcase-btn.active {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #fff;
+      box-shadow: 0 4px 14px var(--primary-glow);
+    }
+    .showcase-display {
+      background: var(--dark-bg-2);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-lg);
+      padding: 36px;
+      display: grid;
+      grid-template-columns: 1fr 1.1fr;
+      gap: 36px;
+      align-items: center;
+    }
+    .showcase-info h3 {
+      font-size: 26px;
+      font-weight: 900;
+      color: #fff;
+      margin-bottom: 12px;
+    }
+    .showcase-info p {
+      font-size: 14.5px;
+      color: var(--text-muted);
+      margin-bottom: 20px;
+    }
+    .showcase-bullets {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .showcase-bullets li {
+      font-size: 13.5px;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .showcase-bullets i {
+      color: var(--secondary);
+      font-size: 17px;
+    }
+
+    /* Comparison Table */
+    .table-container {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-lg);
+      overflow-x: auto;
+    }
+    .comp-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 14px;
+    }
+    .comp-table th, .comp-table td {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--card-border);
+    }
+    .comp-table th {
+      background: rgba(255, 255, 255, 0.02);
+      color: var(--text-muted);
+      font-weight: 700;
+    }
+    .comp-table .chef-col {
+      background: rgba(252, 75, 21, 0.06);
+      color: #fff;
+      font-weight: 700;
+    }
+    .comp-table .icon-check { color: var(--secondary); font-size: 18px; vertical-align: middle; }
+    .comp-table .icon-cross { color: #ef4444; font-size: 18px; vertical-align: middle; }
+
+    /* ROI Calculator */
+    .calc-card {
+      background: var(--dark-bg-2);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-lg);
+      padding: 36px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 40px;
+      align-items: center;
+    }
+    .calc-slider-wrap {
+      margin-bottom: 24px;
+    }
+    .calc-slider-wrap label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13.5px;
+      font-weight: 700;
+      color: var(--text-main);
+      margin-bottom: 8px;
+    }
+    .calc-slider {
+      width: 100%;
+      accent-color: var(--primary);
+      height: 6px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .calc-box-result {
+      background: rgba(16, 185, 129, 0.06);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      border-radius: var(--radius);
+      padding: 28px;
+      text-align: center;
+    }
+    .calc-box-result .money {
+      font-size: 38px;
+      font-weight: 900;
+      color: var(--secondary);
+      font-family: 'Outfit';
+      margin: 10px 0;
+    }
+
+    /* Pricing Section */
+    .billing-switch {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 40px;
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .switch-pill {
+      width: 48px;
+      height: 26px;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: var(--radius-full);
+      position: relative;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .switch-pill::after {
+      content: '';
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #fff;
+      transition: transform 0.2s;
+    }
+    .switch-pill.active { background: var(--primary); }
+    .switch-pill.active::after { transform: translateX(22px); }
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 24px;
+    }
+    .pricing-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-lg);
+      padding: 32px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+      transition: all 0.25s;
+    }
+    .pricing-card.popular {
+      border-color: var(--primary);
+      box-shadow: 0 8px 30px rgba(252, 75, 21, 0.2);
+    }
+    .popular-badge {
+      position: absolute;
+      top: -12px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--primary);
+      color: #fff;
+      padding: 4px 12px;
+      border-radius: var(--radius-full);
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+    .pricing-card h3 { font-size: 20px; font-weight: 800; color: #fff; margin-bottom: 6px; }
+    .pricing-card .p-desc { font-size: 13px; color: var(--text-muted); min-height: 38px; }
+    .pricing-card .price { font-size: 36px; font-weight: 900; color: #fff; font-family: 'Outfit'; margin: 18px 0; }
+    .pricing-card .price span { font-size: 13px; color: var(--text-dim); font-weight: 500; }
+    .pricing-features {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 28px;
+    }
+    .pricing-features li {
+      font-size: 13px;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .pricing-features i { color: var(--secondary); }
+
+    /* FAQ Accordion */
+    .faq-list {
+      max-width: 800px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .faq-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .faq-q {
+      padding: 18px 22px;
+      font-size: 15px;
+      font-weight: 700;
+      color: #fff;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .faq-a {
+      padding: 0 22px 18px;
+      font-size: 14px;
+      color: var(--text-muted);
+      display: none;
+      line-height: 1.6;
+    }
+    .faq-card.open .faq-a { display: block; }
+    .faq-card.open .faq-q i { transform: rotate(180deg); }
+
+    /* Final CTA */
+    .cta-banner {
+      background: linear-gradient(135deg, rgba(252, 75, 21, 0.2) 0%, rgba(13, 19, 34, 0.9) 100%);
+      border: 1px solid rgba(252, 75, 21, 0.3);
+      border-radius: var(--radius-lg);
+      padding: 50px 30px;
+      text-align: center;
+      max-width: 1000px;
+      margin: 0 auto 60px;
+    }
+    .cta-banner h2 { font-size: 34px; font-weight: 900; color: #fff; margin-bottom: 12px; }
+    .cta-banner p { font-size: 15px; color: var(--text-muted); margin-bottom: 24px; max-width: 600px; margin-left: auto; margin-right: auto; }
+
+    /* Footer */
+    footer {
+      background: var(--dark-bg-2);
+      border-top: 1px solid var(--card-border);
+      padding: 60px 6% 30px;
+    }
+    .footer-grid {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr 1fr;
+      gap: 40px;
+      margin-bottom: 40px;
+    }
+    .footer-brand p { font-size: 13.5px; color: var(--text-muted); margin-top: 12px; max-width: 280px; }
+    .footer-col h4 { font-size: 14px; font-weight: 800; color: #fff; margin-bottom: 16px; }
+    .footer-col ul { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+    .footer-col a { color: var(--text-muted); text-decoration: none; font-size: 13.5px; transition: color 0.2s; }
+    .footer-col a:hover { color: #fff; }
+    .footer-bottom {
+      border-top: 1px solid var(--card-border);
+      padding-top: 20px;
+      text-align: center;
+      font-size: 12.5px;
+      color: var(--text-dim);
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    /* WhatsApp Float */
+    .whatsapp-btn-float {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      width: 54px;
+      height: 54px;
+      border-radius: 50%;
+      background: #25d366;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      box-shadow: 0 6px 20px rgba(37, 211, 102, 0.4);
+      z-index: 999;
+      cursor: pointer;
+      text-decoration: none;
+      transition: transform 0.2s;
+    }
+    .whatsapp-btn-float:hover { transform: scale(1.08); }
+
+    /* Setup Modal */
+    .setup-modal-overlay {
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(10px);
+      z-index: 2000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .setup-modal-overlay.active { display: flex; }
+    .setup-modal-box {
+      background: var(--dark-bg-2);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-lg);
+      width: 100%;
+      max-width: 580px;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.7);
+    }
+    .setup-header {
+      padding: 18px 24px;
+      border-bottom: 1px solid var(--card-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .setup-steps-strip {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      border-bottom: 1px solid var(--card-border);
+      background: rgba(0,0,0,0.2);
+    }
+    .setup-step-tag {
+      padding: 10px;
+      text-align: center;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-dim);
+      border-bottom: 2px solid transparent;
+    }
+    .setup-step-tag.active {
+      color: var(--primary);
+      border-bottom-color: var(--primary);
+    }
+    .setup-body { padding: 24px; }
+    .setup-pane { display: none; }
+    .setup-pane.active { display: block; }
+    .setup-form-row { margin-bottom: 16px; }
+    .setup-form-row label { display: block; font-size: 12.5px; font-weight: 700; color: var(--text-muted); margin-bottom: 6px; }
+    .setup-form-row input {
+      width: 100%;
+      padding: 11px 14px;
+      background: var(--dark-bg-3);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-sm);
+      color: #fff;
+      font-size: 14px;
+      outline: none;
+    }
+    .setup-footer {
+      padding: 16px 24px;
+      border-top: 1px solid var(--card-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(0,0,0,0.15);
+    }
+
+    @media (max-width: 992px) {
+      .hero-split { grid-template-columns: 1fr; }
+      .showcase-display { grid-template-columns: 1fr; }
+      .calc-card { grid-template-columns: 1fr; }
+      .footer-grid { grid-template-columns: 1fr 1fr; }
+      .nav-links { display: none; }
+      .mobile-menu-btn { display: block; }
+    }
+  </style>
+</head>
+<body>
+  <script>document.documentElement.classList.remove('no-js');</script>
+
+  <!-- ═══ TOP PROMO BANNER ═══ -->
+  <div class="top-promo-bar" id="top-banner">
+    <span class="badge-live">Servidores 100% Online</span>
+    <span id="banner-text">🔥 14 Dias Grátis &amp; Implantação Guiada sem Cartão de Crédito!</span>
+    <a id="banner-link" onclick="abrirSetupModal()">Garantir Minha Vaga Grátis →</a>
+  </div>
+
+  <!-- ═══ HEADER / NAVEGAÇÃO ═══ -->
+  <header id="site-header">
+    <a href="#" class="logo-container">
+      <div class="logo-icon"><img src="/icons/icon-192.png" alt="Chef Cozinha" style="width:26px;height:26px;border-radius:6px;"></div>
+      <span>Chef Cozinha <small style="font-size: 11px; background: var(--primary); padding: 2px 6px; border-radius: 4px; vertical-align: middle;">PRO</small></span>
+    </a>
+    
+    <ul class="nav-links">
+      <li><a href="#demonstracao">Demonstração</a></li>
+      <li><a href="#segmentos">Segmentos</a></li>
+      <li><a href="#funcionalidades">Módulos</a></li>
+      <li><a href="#comparativo">Comparativo</a></li>
+      <li><a href="#sec-calculadora">Simulador ROI</a></li>
+      <li><a href="#planos">Planos</a></li>
+      <li><a href="#faq">Dúvidas</a></li>
+    </ul>
+
+    <div class="header-actions">
+      <a href="/login.html" class="btn-login">Entrar</a>
+      <button class="btn-header" onclick="falarConsultor()">
+        <i class="ph ph-whatsapp-logo"></i>
+        <span>Consultor</span>
+      </button>
+      <button class="mobile-menu-btn" onclick="toggleMobileMenu()" aria-label="Abrir Menu">
+        <i class="ph ph-list"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- ═══ MASTER HERO SECTION (STRUCTURED 2-COLUMN) ═══ -->
+  <section class="hero-split" id="sec-hero">
+    <div class="hero-glow-bg"></div>
+
+    <div class="hero-content animate-on-scroll">
+      <div class="hero-badge-modern" id="hero-badge">
+        <i class="ph ph-lightning"></i>
+        <span id="hero-badge-text">Arquitetura Offline-First &amp; Comanda Mobile Ilimitada</span>
+      </div>
+
+      <h1 class="hero-title" id="hero-titulo">
+        O Sistema Mais Rápido para Restaurantes <span id="hero-destaque">Que Nunca Fica Fora do Ar</span>
+      </h1>
+
+      <p class="hero-subtext" id="hero-subtitulo">
+        Elimine filas no caixa, atrasos na cozinha e erros de fechamento. PDV veloz que funciona mesmo sem internet, KDS com alerta de tempo, comanda no celular dos garçons e trava antifraude com auditoria total.
+      </p>
+
+      <div class="hero-ctas">
+        <button class="btn-cta-main" onclick="abrirSetupModal()" id="btn-cta-principal">
+          <i class="ph ph-rocket-launch"></i>
+          <span>Começar Teste de 14 Dias Grátis</span>
+        </button>
+        <button class="btn-cta-sub" onclick="verDemo()" id="btn-cta-secundario">
+          <i class="ph ph-play-circle" style="color:var(--primary); font-size:20px;"></i>
+          <span>Ver Demonstração ao Vivo</span>
+        </button>
+      </div>
+
+      <div class="hero-guarantees">
+        <span><i class="ph ph-check-circle"></i> Sem cartão de crédito</span>
+        <span><i class="ph ph-check-circle"></i> Setup em 10 minutos</span>
+        <span><i class="ph ph-check-circle"></i> Suporte humanizado VIP</span>
+      </div>
+    </div>
+
+    <!-- Live Deck Simulator -->
+    <div class="hero-deck animate-on-scroll">
+      <div class="deck-header">
+        <div class="deck-dots">
+          <div class="deck-dot" style="background:#ef4444;"></div>
+          <div class="deck-dot" style="background:#f59e0b;"></div>
+          <div class="deck-dot" style="background:#10b981;"></div>
+        </div>
+        <div class="deck-nav-pills">
+          <button class="deck-pill active" onclick="switchDeck('pdv', this)">PDV Caixa</button>
+          <button class="deck-pill" onclick="switchDeck('kds', this)">KDS Cozinha</button>
+          <button class="deck-pill" onclick="switchDeck('garcom', this)">Garçom App</button>
+        </div>
+      </div>
+
+      <!-- Screen PDV -->
+      <div class="deck-screen active" id="deck-pdv">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <span style="font-size:12px; color:var(--text-muted);"><i class="ph ph-desktop"></i> Caixa 01 · Modo Offline Ativo</span>
+          <span style="font-size:11px; background:rgba(16,185,129,0.15); color:#10b981; padding:2px 8px; border-radius:4px; font-weight:700;">🟢 Sincronizado</span>
+        </div>
+        <div style="background:rgba(0,0,0,0.3); border-radius:6px; padding:10px; margin-bottom:10px; font-size:12.5px;">
+          <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+            <span>1x Burger Artesanal Duplo</span><strong>R$ 38,90</strong>
+          </div>
+          <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+            <span>1x Batata Rústica c/ Alecrim</span><strong>R$ 18,00</strong>
+          </div>
+          <div style="display:flex; justify-content:space-between; color:var(--primary); font-weight:800; border-top:1px dashed rgba(255,255,255,0.1); padding-top:6px; margin-top:6px;">
+            <span>Total da Venda (F10)</span><span>R$ 56,90</span>
+          </div>
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:6px;">
+          <button style="padding:6px; font-size:11px; font-weight:700; background:rgba(255,255,255,0.06); border:1px solid var(--card-border); color:#fff; border-radius:4px;">[F1] Pix QR</button>
+          <button style="padding:6px; font-size:11px; font-weight:700; background:rgba(255,255,255,0.06); border:1px solid var(--card-border); color:#fff; border-radius:4px;">[F2] Cartão</button>
+          <button style="padding:6px; font-size:11px; font-weight:700; background:var(--primary); border:none; color:#fff; border-radius:4px;">[F3] Dinheiro</button>
+        </div>
+      </div>
+
+      <!-- Screen KDS -->
+      <div class="deck-screen" id="deck-kds">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+          <span style="font-size:12px; color:var(--text-muted);"><i class="ph ph-cooking-pot"></i> Fila de Produção Cozinha</span>
+          <span style="font-size:11px; color:#f59e0b; font-weight:700;"><i class="ph ph-clock"></i> 06:42 min</span>
+        </div>
+        <div style="background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.3); border-radius:6px; padding:10px; margin-bottom:8px; font-size:12px;">
+          <strong style="color:#f59e0b;">Mesa 04 — Pedido #108</strong>
+          <p style="color:#fff; margin-top:4px;">• 2x Pizza Margherita (Massa Fina)<br>• 1x Coca-Cola Zero Lata</p>
+        </div>
+        <button style="width:100%; padding:8px; background:#10b981; color:#fff; border:none; border-radius:6px; font-weight:700; font-size:12px; cursor:pointer;">
+          <i class="ph ph-check"></i> Despachar Pedido para o Garçom
+        </button>
+      </div>
+
+      <!-- Screen Garçom -->
+      <div class="deck-screen" id="deck-garcom">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+          <span style="font-size:12px; color:var(--text-muted);"><i class="ph ph-device-mobile"></i> Garçom Mobile (Sem Limite de Aparelhos)</span>
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:6px; font-size:12px; text-align:center;">
+          <div style="background:rgba(16,185,129,0.2); border:1px solid #10b981; border-radius:6px; padding:8px;"><strong>Mesa 01</strong><br><small>Livre</small></div>
+          <div style="background:rgba(252,75,21,0.2); border:1px solid var(--primary); border-radius:6px; padding:8px;"><strong>Mesa 02</strong><br><small>R$ 142,00</small></div>
+          <div style="background:rgba(252,75,21,0.2); border:1px solid var(--primary); border-radius:6px; padding:8px;"><strong>Mesa 03</strong><br><small>R$ 88,50</small></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ METRICS STRIP ═══ -->
+  <section class="stats-strip">
+    <div class="stats-grid">
+      <div class="stat-box">
+        <div class="num" style="color:var(--primary);">+40%</div>
+        <div class="lbl">Giro de Mesas &amp; Produtividade</div>
+      </div>
+      <div class="stat-box">
+        <div class="num" style="color:var(--secondary);">Zero</div>
+        <div class="lbl">Furos no Caixa com Trava Antifraude</div>
+      </div>
+      <div class="stat-box">
+        <div class="num" style="color:var(--accent-blue);">100%</div>
+        <div class="lbl">Offline-First (Não Para sem Internet)</div>
+      </div>
+      <div class="stat-box">
+        <div class="num" style="color:var(--accent-amber);">&lt; 2s</div>
+        <div class="lbl">Tempo Médio para Fechar Venda</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ SEGMENTOS ATENDIDOS (BENTO GRID) ═══ -->
+  <section class="section-wrap" id="segmentos">
+    <div class="sec-header animate-on-scroll">
+      <span class="sec-tag">Segmentos Gastronômicos</span>
+      <h2 class="sec-title">Construído Sob Medida Para o Seu Negócio</h2>
+      <p class="sec-subtitle">Fluxos inteligentes adaptados às particularidades de cada tipo de operação.</p>
+    </div>
+
+    <div class="bento-grid">
+      <div class="bento-card animate-on-scroll">
+        <div class="bento-icon"><i class="ph ph-fork-knife"></i></div>
+        <h3>Restaurantes &amp; Rodízios</h3>
+        <p>Controle de mesas simultâneas, racha de conta por pessoa, impressão setorizada (cozinha/bar) e taxa de serviço configurável.</p>
+      </div>
+      <div class="bento-card animate-on-scroll">
+        <div class="bento-icon"><i class="ph ph-beer-bottle"></i></div>
+        <h3>Bares, Pubs &amp; Casas Noturnas</h3>
+        <p>Comanda individual com pulseira ou cartão, fechamento expresso em múltiplos caixas e auditoria de doses no estoque.</p>
+      </div>
+      <div class="bento-card animate-on-scroll">
+        <div class="bento-icon"><i class="ph ph-pizza"></i></div>
+        <h3>Pizzarias &amp; Fornerias</h3>
+        <p>Lançamento de sabores meio a meio, até 4 frações, bordas recheadas e ordem sequencial de forno no KDS inteligente.</p>
+      </div>
+      <div class="bento-card animate-on-scroll">
+        <div class="bento-icon"><i class="ph ph-hamburger"></i></div>
+        <h3>Hamburguerias &amp; Fast-Food</h3>
+        <p>PDV veloz com atalhos no teclado, modificadores de ponto da carne, combos e painel de senha para retirada.</p>
+      </div>
+      <div class="bento-card animate-on-scroll">
+        <div class="bento-icon"><i class="ph ph-coffee"></i></div>
+        <h3>Cafés, Padarias &amp; Docerias</h3>
+        <p>Venda rápida no balcão, integração com balanças de peso, impressão de etiquetas e fidelidade de clientes.</p>
+      </div>
+      <div class="bento-card animate-on-scroll">
+        <div class="bento-icon"><i class="ph ph-moped"></i></div>
+        <h3>Dark Kitchens &amp; Delivery</h3>
+        <p>Centralização de pedidos de canais próprios e iFood na mesma tela da cozinha com despacho direto para entregadores.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ SHOWCASE INTERATIVO (OS 6 PILARES) ═══ -->
+  <section class="section-wrap" id="demonstracao">
+    <div class="sec-header animate-on-scroll">
+      <span class="sec-tag">Tecnologia de Ponta</span>
+      <h2 class="sec-title">Os 6 Pilares do Chef Cozinha</h2>
+      <p class="sec-subtitle">Conheça as ferramentas que transformam a rotina do seu salão, caixa e cozinha.</p>
+    </div>
+
+    <div class="showcase-tab-bar animate-on-scroll">
+      <button class="showcase-btn active" onclick="setModuleTab('pdv', this)"><i class="ph ph-desktop"></i> PDV Caixa</button>
+      <button class="showcase-btn" onclick="setModuleTab('comanda', this)"><i class="ph ph-device-mobile"></i> Garçom Mobile</button>
+      <button class="showcase-btn" onclick="setModuleTab('kds', this)"><i class="ph ph-cooking-pot"></i> KDS Cozinha</button>
+      <button class="showcase-btn" onclick="setModuleTab('antifraude', this)"><i class="ph ph-shield-check"></i> Trava Antifraude</button>
+      <button class="showcase-btn" onclick="setModuleTab('financeiro', this)"><i class="ph ph-chart-line-up"></i> DRE &amp; CMV</button>
+      <button class="showcase-btn" onclick="setModuleTab('ponto', this)"><i class="ph ph-qr-code"></i> Ponto Digital</button>
+    </div>
+
+    <div class="showcase-display animate-on-scroll">
+      <div class="showcase-info" id="module-info">
+        <h3 id="module-title">Frente de Caixa (PDV) Ultra-Veloz</h3>
+        <p id="module-desc">Desenvolvido com foco em alta rotatividade. Suporta teclado com teclas de atalho (F1 a F12), código de barras e touch. Se a internet cair, continua emitindo comprovantes e registrando pagamentos silenciosamente.</p>
+        <ul class="showcase-bullets" id="module-bullets">
+          <li><i class="ph ph-check-circle"></i> Modo 100% Offline com sincronização automática</li>
+          <li><i class="ph ph-check-circle"></i> Atalhos F1 a F12 totalmente personalizáveis</li>
+          <li><i class="ph ph-check-circle"></i> Divisão de contas em múltiplos cartões/Pix em segundos</li>
+        </ul>
+      </div>
+
+      <div style="background:var(--dark-bg-3); border-radius:var(--radius); padding:24px; border:1px solid var(--card-border); text-align:center;">
+        <img id="module-img" src="/icons/icon-512.png" alt="Módulo" style="max-width:140px; margin-bottom:16px; border-radius:16px; box-shadow:0 8px 24px rgba(0,0,0,0.5);">
+        <div style="font-size:13px; color:var(--text-muted);" id="module-footer-note">
+          Compatível com qualquer impressora térmica USB, Rede ou Bluetooth (58mm e 80mm).
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ COMPARATIVO DIRETO ═══ -->
+  <section class="section-wrap" id="comparativo">
+    <div class="sec-header animate-on-scroll">
+      <span class="sec-tag">Comparativo Real</span>
+      <h2 class="sec-title">Por Que o Chef Cozinha É Superior?</h2>
+      <p class="sec-subtitle">Veja o que você ganha ao migrar de sistemas legados e lentos.</p>
+    </div>
+
+    <div class="table-container animate-on-scroll">
+      <table class="comp-table">
+        <thead>
+          <tr>
+            <th>Recursos &amp; Diferenciais</th>
+            <th class="chef-col" style="color:var(--primary); font-size:15px;">Chef Cozinha PRO</th>
+            <th>Softwares Tradicionais</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Operação Offline (Sem Internet)</strong></td>
+            <td class="chef-col"><i class="ph ph-check-circle icon-check"></i> Continua vendendo e imprimindo</td>
+            <td><i class="ph ph-x-circle icon-cross"></i> Trava e paralisa o restaurante</td>
+          </tr>
+          <tr>
+            <td><strong>Garçom Mobile &amp; Comanda</strong></td>
+            <td class="chef-col"><i class="ph ph-check-circle icon-check"></i> Ilimitado em qualquer celular</td>
+            <td><i class="ph ph-x-circle icon-cross"></i> Cobra taxa por aparelho</td>
+          </tr>
+          <tr>
+            <td><strong>Monitor KDS de Cozinha</strong></td>
+            <td class="chef-col"><i class="ph ph-check-circle icon-check"></i> Incluso com alertas sonoros</td>
+            <td><i class="ph ph-x-circle icon-cross"></i> Módulo caro vendido à parte</td>
+          </tr>
+          <tr>
+            <td><strong>Trava Antifraude &amp; Auditoria</strong></td>
+            <td class="chef-col"><i class="ph ph-check-circle icon-check"></i> Bloqueio matemático no caixa</td>
+            <td><i class="ph ph-x-circle icon-cross"></i> Furos e desvios frequentes</td>
+          </tr>
+          <tr>
+            <td><strong>Ponto Digital dos Funcionários</strong></td>
+            <td class="chef-col"><i class="ph ph-check-circle icon-check"></i> Integrado via QR Code</td>
+            <td><i class="ph ph-x-circle icon-cross"></i> Exige relógio de ponto físico</td>
+          </tr>
+          <tr>
+            <td><strong>Contrato &amp; Fidelidade</strong></td>
+            <td class="chef-col"><i class="ph ph-check-circle icon-check"></i> Cancele quando quiser, sem multa</td>
+            <td><i class="ph ph-x-circle icon-cross"></i> Contratos de 12 meses com multa</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ═══ CALCULADORA ROI ═══ -->
+  <section class="section-wrap" id="sec-calculadora">
+    <div class="sec-header animate-on-scroll">
+      <span class="sec-tag">Simulador Financeiro</span>
+      <h2 class="sec-title">Quanto Dinheiro Você Recuperará Por Mês?</h2>
+      <p class="sec-subtitle">Calcule a economia com redução de erros de caixa e o ganho real de agilidade.</p>
+    </div>
+
+    <div class="calc-card animate-on-scroll">
+      <div>
+        <div class="calc-slider-wrap">
+          <label>
+            <span>Pedidos / Atendimentos por Dia:</span>
+            <strong id="lbl-pedidos" style="color:var(--primary);">80 pedidos</strong>
+          </label>
+          <input type="range" id="rng-pedidos" class="calc-slider" min="20" max="500" value="80" oninput="calcRoi()">
+        </div>
+
+        <div class="calc-slider-wrap">
+          <label>
+            <span>Ticket Médio por Mesa / Pedido:</span>
+            <strong id="lbl-ticket" style="color:var(--primary);">R$ 70,00</strong>
+          </label>
+          <input type="range" id="rng-ticket" class="calc-slider" min="20" max="300" value="70" oninput="calcRoi()">
+        </div>
+
+        <p style="font-size:12.5px; color:var(--text-dim);">
+          * Simulação fundamentada na eliminação de perdas operacionais de 2.2% e aumento de 15% na velocidade do atendimento.
+        </p>
+      </div>
+
+      <div class="calc-box-result">
+        <div style="font-size:13px; text-transform:uppercase; font-weight:700; color:var(--secondary);">Lucro Mensal Recuperado</div>
+        <div class="money" id="res-roi">R$ 3.696,00</div>
+        <p style="font-size:13px; color:var(--text-muted);">
+          Valores que voltam diretamente para o seu caixa todos os meses.
+        </p>
+        <button class="btn-cta-main" onclick="abrirSetupModal()" style="width:100%; margin-top:20px; justify-content:center;">
+          <i class="ph ph-rocket-launch"></i> Começar a Economizar Agora
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ PLANOS & PREÇOS ═══ -->
+  <section class="section-wrap" id="planos">
+    <div class="sec-header animate-on-scroll">
+      <span class="sec-tag">Planos Transparentes</span>
+      <h2 class="sec-title">Escolha o Plano Ideal para o Seu Restaurante</h2>
+      <p class="sec-subtitle">Sem cobrança surpresa e sem limites artificiais de aparelhos conectados.</p>
+    </div>
+
+    <div class="billing-switch animate-on-scroll">
+      <span>Mensal</span>
+      <div class="switch-pill" id="switchBilling" onclick="toggleBilling1()"></div>
+      <span>Anual <span style="background:var(--secondary); color:#fff; font-size:11px; padding:2px 6px; border-radius:4px;">20% OFF</span></span>
+    </div>
+
+    <div class="pricing-grid" id="pricing-grid-1">
+      <!-- Starter -->
+      <div class="pricing-card animate-on-scroll">
+        <div>
+          <h3>Starter / Balcão</h3>
+          <p class="p-desc">Ideal para lanchonetes, cafés e quiosques focados em atendimento rápido.</p>
+          <div class="price" id="p-starter">R$ 89 <span>/mês</span></div>
+          <ul class="pricing-features">
+            <li><i class="ph ph-check-circle"></i> 1 Ponto de Caixa PDV Offline</li>
+            <li><i class="ph ph-check-circle"></i> Módulo Balcão e Retirada</li>
+            <li><i class="ph ph-check-circle"></i> Trava Antifraude Básica</li>
+            <li><i class="ph ph-check-circle"></i> Suporte WhatsApp Comercial</li>
+          </ul>
+        </div>
+        <button class="btn-cta-sub" style="width:100%; justify-content:center;" onclick="abrirSetupModal('starter')">
+          Testar Grátis 14 Dias
+        </button>
+      </div>
+
+      <!-- Profissional (Popular) -->
+      <div class="pricing-card popular animate-on-scroll">
+        <div class="popular-badge">Mais Escolhido</div>
+        <div>
+          <h3>Profissional</h3>
+          <p class="p-desc">Para restaurantes, bares e pizzarias que atendem mesas e comandas.</p>
+          <div class="price" id="p-pro" style="color:var(--primary);">R$ 149 <span>/mês</span></div>
+          <ul class="pricing-features">
+            <li><i class="ph ph-check-circle"></i> Tudo do Starter</li>
+            <li><i class="ph ph-check-circle"></i> <strong>Garçom Mobile Ilimitado</strong></li>
+            <li><i class="ph ph-check-circle"></i> <strong>KDS Monitor da Cozinha</strong></li>
+            <li><i class="ph ph-check-circle"></i> Ponto Digital QR dos Funcionários</li>
+            <li><i class="ph ph-check-circle"></i> Dashboard DRE &amp; CMV no Celular</li>
+            <li><i class="ph ph-check-circle"></i> Suporte Prioritário VIP</li>
+          </ul>
+        </div>
+        <button class="btn-cta-main" style="width:100%; justify-content:center;" onclick="abrirSetupModal('profissional')">
+          <i class="ph ph-rocket-launch"></i> Começar 14 Dias Grátis
+        </button>
+      </div>
+
+      <!-- Enterprise -->
+      <div class="pricing-card animate-on-scroll">
+        <div>
+          <h3>Enterprise / Redes</h3>
+          <p class="p-desc">Para grandes operações, franquias e casas noturnas de alto fluxo.</p>
+          <div class="price" id="p-ent">R$ 299 <span>/mês</span></div>
+          <ul class="pricing-features">
+            <li><i class="ph ph-check-circle"></i> Tudo do Profissional</li>
+            <li><i class="ph ph-check-circle"></i> Multi-Lojas no mesmo painel</li>
+            <li><i class="ph ph-check-circle"></i> Ficha Técnica &amp; Estoque Avançado</li>
+            <li><i class="ph ph-check-circle"></i> API Aberta para Integrações</li>
+            <li><i class="ph ph-check-circle"></i> Gerente de Contas Dedicado</li>
+          </ul>
+        </div>
+        <button class="btn-cta-sub" style="width:100%; justify-content:center;" onclick="abrirSetupModal('enterprise')">
+          Falar com Especialista
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ FAQ ACCORDION ═══ -->
+  <section class="section-wrap" id="faq">
+    <div class="sec-header animate-on-scroll">
+      <span class="sec-tag">Perguntas Frequentes</span>
+      <h2 class="sec-title">Tire Suas Dúvidas Antes de Começar</h2>
+      <p class="sec-subtitle">Tudo explicado de forma simples, transparente e sem rodeios.</p>
+    </div>
+
+    <div class="faq-list">
+      <div class="faq-card animate-on-scroll open">
+        <div class="faq-q" onclick="toggleFaq1(this)">
+          <span>O sistema funciona de verdade quando a internet cai?</span>
+          <i class="ph ph-caret-down"></i>
+        </div>
+        <div class="faq-a">
+          Sim! O Chef Cozinha foi projetado com engenharia Offline-First. O PDV continua vendendo, calculando trocos e imprimindo tickets sem internet. Assim que a rede volta, os dados sincronizam com a nuvem sem você precisar fazer nada.
+        </div>
+      </div>
+
+      <div class="faq-card animate-on-scroll">
+        <div class="faq-q" onclick="toggleFaq1(this)">
+          <span>Preciso pagar a mais por cada garçom ou celular conectado?</span>
+          <i class="ph ph-caret-down"></i>
+        </div>
+        <div class="faq-a">
+          Não! Nos planos Profissional e Enterprise você pode conectar quantos smartphones quiser na comanda dos garçons sem nenhuma taxa extra por dispositivo.
+        </div>
+      </div>
+
+      <div class="faq-card animate-on-scroll">
+        <div class="faq-q" onclick="toggleFaq1(this)">
+          <span>Como funciona o período de teste de 14 dias grátis?</span>
+          <i class="ph ph-caret-down"></i>
+        </div>
+        <div class="faq-a">
+          Você cria sua conta em menos de 2 minutos sem precisar informar número de cartão de crédito. Todas as ferramentas ficam 100% liberadas para você e sua equipe usarem durante a operação.
+        </div>
+      </div>
+
+      <div class="faq-card animate-on-scroll">
+        <div class="faq-q" onclick="toggleFaq1(this)">
+          <span>O que é e como funciona a Trava Antifraude?</span>
+          <i class="ph ph-caret-down"></i>
+        </div>
+        <div class="faq-a">
+          É um mecanismo de integridade financeira que impede fechamentos divergentes, valida trocos em dinheiro e registra em log qualquer desconto ou cancelamento de item com o nome do operador e gerente responsável.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ CTA FINAL ═══ -->
+  <div class="section-wrap">
+    <div class="cta-banner animate-on-scroll">
+      <h2>Pronto Para Acelerar o Seu Restaurante?</h2>
+      <p>Junte-se a centenas de proprietários que eliminaram lentidão e furos no caixa. Teste 14 dias sem compromisso.</p>
+      <button class="btn-cta-main" onclick="abrirSetupModal()" style="margin:0 auto;">
+        <i class="ph ph-rocket-launch"></i> Começar Teste Grátis Agora
+      </button>
+    </div>
+  </div>
+
+  <!-- ═══ RODAPÉ / FOOTER ═══ -->
+  <footer>
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <a href="#" class="logo-container">
+          <div class="logo-icon"><img src="/icons/icon-192.png" alt="Chef Cozinha" style="width:24px;height:24px;border-radius:6px;"></div>
+          <span>Chef Cozinha PRO</span>
+        </a>
+        <p>Sistema completo de gestão gastronômica, PDV Offline-First, KDS inteligente e Comanda Mobile.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Navegação</h4>
+        <ul>
+          <li><a href="#demonstracao">Demonstração</a></li>
+          <li><a href="#segmentos">Segmentos</a></li>
+          <li><a href="#comparativo">Comparativo</a></li>
+          <li><a href="#planos">Planos &amp; Preços</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Tecnologia</h4>
+        <ul>
+          <li><a href="#demonstracao">PDV Offline-First</a></li>
+          <li><a href="#demonstracao">KDS Cozinha</a></li>
+          <li><a href="#demonstracao">Trava Antifraude</a></li>
+          <li><a href="#demonstracao">Ponto Digital QR</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Atendimento</h4>
+        <ul>
+          <li><a onclick="falarConsultor()" style="cursor:pointer;"><i class="ph ph-whatsapp-logo"></i> Falar no WhatsApp</a></li>
+          <li><a href="/login.html">Área do Cliente</a></li>
+          <li><a onclick="abrirSetupModal()" style="cursor:pointer;">Criar Conta Grátis</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      &copy; 2026 Chef Cozinha PRO. Todos os direitos reservados.
+    </div>
+  </footer>
+
+  <!-- WhatsApp Float Button -->
+  <a class="whatsapp-btn-float" onclick="falarConsultor()" title="Falar com Consultor no WhatsApp">
+    <i class="ph ph-whatsapp-logo"></i>
+  </a>
+
+  <!-- ═══ MODAL SETUP ONBOARDING (4 PASSOS COMPLETO) ═══ -->
+  <div class="setup-modal-overlay" id="setupModalOverlay">
+    <div class="setup-modal-box">
+      <div class="setup-header">
+        <h3 style="font-size:16px; font-weight:800; color:#fff; display:flex; align-items:center; gap:8px;">
+          <i class="ph ph-rocket-launch" style="color:var(--primary);"></i> Iniciar Teste de 14 Dias Grátis
+        </h3>
+        <button onclick="fecharSetupModal()" style="background:none; border:none; color:var(--text-muted); font-size:20px; cursor:pointer;">
+          <i class="ph ph-x"></i>
+        </button>
+      </div>
+
+      <div class="setup-steps-strip">
+        <div class="setup-step-tag active" data-s="1">1. Cupom</div>
+        <div class="setup-step-tag" data-s="2">2. Conta</div>
+        <div class="setup-step-tag" data-s="3">3. Link</div>
+        <div class="setup-step-tag" data-s="4">4. Equipe</div>
+      </div>
+
+      <div class="setup-body">
+        <div id="setup-err" style="display:none; background:rgba(239,68,68,0.15); border:1px solid #ef4444; color:#ef4444; padding:10px; border-radius:6px; font-size:13px; margin-bottom:14px;"></div>
+
+        <!-- Passo 1 -->
+        <div class="setup-pane active" data-pane="1">
+          <h4 style="font-size:15px; color:#fff; margin-bottom:6px;">Possui Chave de Consultor ou Cupom?</h4>
+          <p style="font-size:13px; color:var(--text-muted); margin-bottom:16px;">Se recebeu um código de consultor, insira abaixo. Caso não possua, clique em Continuar para iniciar seu teste gratuito.</p>
+          <div class="setup-form-row">
+            <input type="text" id="m-chave" placeholder="CHEF-XXXX-YYYY (Opcional)" style="text-transform:uppercase; text-align:center; letter-spacing:1px; font-weight:700;">
+          </div>
+        </div>
+
+        <!-- Passo 2 -->
+        <div class="setup-pane" data-pane="2">
+          <h4 style="font-size:15px; color:#fff; margin-bottom:12px;">Dados do Estabelecimento</h4>
+          <div class="setup-form-row">
+            <label>Nome do Restaurante / Bar</label>
+            <input type="text" id="m-rest" placeholder="Ex: Dom Grill Hamburgueria">
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+            <div class="setup-form-row">
+              <label>Seu Nome</label>
+              <input type="text" id="m-nome" placeholder="João Silva">
+            </div>
+            <div class="setup-form-row">
+              <label>WhatsApp</label>
+              <input type="text" id="m-tel" placeholder="(11) 99999-9999">
+            </div>
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+            <div class="setup-form-row">
+              <label>E-mail</label>
+              <input type="email" id="m-email" placeholder="joao@email.com">
+            </div>
+            <div class="setup-form-row">
+              <label>Senha</label>
+              <input type="password" id="m-pass" placeholder="••••••••">
+            </div>
+          </div>
+        </div>
+
+        <!-- Passo 3 -->
+        <div class="setup-pane" data-pane="3">
+          <h4 style="font-size:15px; color:#fff; margin-bottom:6px;">Escolha o Link Exclusivo do Restaurante</h4>
+          <p style="font-size:13px; color:var(--text-muted); margin-bottom:14px;">Endereço para seus garçons e clientes acessarem o cardápio e comandas:</p>
+          <div class="setup-form-row">
+            <input type="text" id="m-slug" placeholder="meurestaurante">
+          </div>
+          <div id="slug-info" style="font-size:12.5px; color:var(--primary); font-weight:700; margin-top:6px;"></div>
+        </div>
+
+        <!-- Passo 4 -->
+        <div class="setup-pane" data-pane="4">
+          <h4 style="font-size:15px; color:#fff; margin-bottom:6px;">Configuração da Equipe (Opcional)</h4>
+          <p style="font-size:13px; color:var(--text-muted); margin-bottom:14px;">Usuário Administrador já está pronto. Se quiser, cadastre um Gerente agora:</p>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+            <div class="setup-form-row">
+              <label>Nome do Gerente</label>
+              <input type="text" id="m-ger-nome" placeholder="Gerente">
+            </div>
+            <div class="setup-form-row">
+              <label>Senha de Acesso</label>
+              <input type="password" id="m-ger-pass" placeholder="••••••••">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="setup-footer">
+        <button id="btn-m-back" onclick="setupStepBack()" style="background:none; border:1px solid var(--card-border); color:var(--text-muted); padding:8px 16px; border-radius:6px; cursor:pointer; visibility:hidden;">Voltar</button>
+        <button id="btn-m-next" onclick="setupStepNext()" style="background:var(--primary); border:none; color:#fff; font-weight:700; padding:9px 20px; border-radius:6px; cursor:pointer;">Continuar <i class="ph ph-arrow-right"></i></button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let stepNum = 1;
+    let selectedPlan = 'profissional';
+    let isAnnual = false;
+    let savedRestId = 0;
+    let consultorWa = '5511999999999';
+    let consultorMsg = 'Olá! Gostaria de conhecer o Chef Cozinha e iniciar o teste grátis.';
+
+    // Deck Switcher
+    function switchDeck(deckId, btn) {
+      document.querySelectorAll('.deck-pill').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.deck-screen').forEach(s => s.classList.remove('active'));
+      btn.classList.add('active');
+      const target = document.getElementById('deck-' + deckId);
+      if (target) target.classList.add('active');
+    }
+
+    // Module Showcase Switcher
+    const modulesData = {
+      pdv: {
+        title: 'Frente de Caixa (PDV) Ultra-Veloz',
+        desc: 'Desenvolvido com foco em velocidade máxima de atendimento. Atalhos F1 a F12 personalizáveis, leitor de código de barras e emissão fiscal sem travar se a internet cair.',
+        bullets: ['Modo 100% Offline com sincronização automática', 'Atalhos F1 a F12 configuráveis ao seu gosto', 'Divisão de contas em múltiplos cartões/Pix'],
+        footer: 'Compatível com qualquer impressora térmica USB, Rede ou Bluetooth (58mm e 80mm).'
+      },
+      comanda: {
+        title: 'Comanda Mobile dos Garçons',
+        desc: 'Lançamento de pedidos instantâneo pelo próprio celular do garçom direto na mesa. Sem limite de aparelhos e com envio direto para a cozinha e bar.',
+        bullets: ['Ilimitado em smartphones Android ou iPhone', 'Racha de conta por pessoa ou por comanda', 'Observações e adicionais personalizados'],
+        footer: 'Funciona na rede Wi-Fi local mesmo sem sinal de internet externa.'
+      },
+      kds: {
+        title: 'KDS — Monitor da Cozinha Inteligente',
+        desc: 'Fila visual de pedidos organizada por tempo de espera com mudança automática de cores (Verde, Amarelo, Vermelho). Alertas sonoros para nenhum prato atrasar.',
+        bullets: ['Cores dinâmicas por tempo de preparo', 'Agrupamento automático de itens iguais', 'Despacho com 1 toque na tela touch ou mouse'],
+        footer: 'Funciona em Smart TVs, tablets ou monitores comuns na cozinha.'
+      },
+      antifraude: {
+        title: 'Trava Antifraude & Auditoria no Caixa',
+        desc: 'Bloqueio matemático contra lançamentos divergentes em Pix e Cartão. Trocos estritamente controlados e histórico seguro de cancelamentos e descontos.',
+        bullets: ['Bloqueio de troco em formas eletrônicas', 'Log detalhado com data, hora e operador', 'Exigência de senha de gerente para estornos'],
+        footer: 'Acabe de vez com as diferenças no fechamento do caixa no fim do expediente.'
+      },
+      financeiro: {
+        title: 'Dashboard Financeiro, DRE & CMV',
+        desc: 'Acompanhe o faturamento em tempo real, curva de lucratividade por prato, custo de mercadoria vendida (CMV) e fluxo de caixa de onde você estiver.',
+        bullets: ['Controle de CMV automático por receita', 'Relatório DRE simplificado e gerencial', 'Acesso seguro do celular do proprietário'],
+        footer: 'Tome decisões estratégicas com base em números exatos do seu negócio.'
+      },
+      ponto: {
+        title: 'Ponto Digital dos Funcionários via QR Code',
+        desc: 'Registro eletrônico de entrada, saída e intervalos dos colaboradores via smartphone com geolocalização e cálculo automático de horas trabalhadas.',
+        bullets: ['Registro seguro via QR Code dinâmico', 'Cálculo de horas extras e jornada CLT', 'Relatório mensal pronto para a contabilidade'],
+        footer: 'Economize dispensando a compra de relógios de ponto biométricos caros.'
+      }
+    };
+
+    function setModuleTab(key, btn) {
+      document.querySelectorAll('.showcase-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const data = modulesData[key];
+      if (data) {
+        document.getElementById('module-title').innerText = data.title;
+        document.getElementById('module-desc').innerText = data.desc;
+        document.getElementById('module-bullets').innerHTML = data.bullets.map(b => `<li><i class="ph ph-check-circle"></i> ${b}</li>`).join('');
+        document.getElementById('module-footer-note').innerText = data.footer;
+      }
+    }
+
+    // ROI Calculator
+    function calcRoi() {
+      const p = parseInt(document.getElementById('rng-pedidos').value);
+      const t = parseInt(document.getElementById('rng-ticket').value);
+      document.getElementById('lbl-pedidos').innerText = p + ' pedidos';
+      document.getElementById('lbl-ticket').innerText = 'R$ ' + t + ',00';
+      const valor = Math.round(p * t * 30 * 0.022);
+      document.getElementById('res-roi').innerText = 'R$ ' + valor.toLocaleString('pt-BR') + ',00';
+    }
+
+    // Billing Switch
+    function toggleBilling1() {
+      isAnnual = !isAnnual;
+      document.getElementById('switchBilling').classList.toggle('active', isAnnual);
+      document.getElementById('p-starter').innerHTML = isAnnual ? 'R$ 71 <span>/mês no anual</span>' : 'R$ 89 <span>/mês</span>';
+      document.getElementById('p-pro').innerHTML = isAnnual ? 'R$ 119 <span>/mês no anual</span>' : 'R$ 149 <span>/mês</span>';
+      document.getElementById('p-ent').innerHTML = isAnnual ? 'R$ 239 <span>/mês no anual</span>' : 'R$ 299 <span>/mês</span>';
+    }
+
+    // FAQ Toggle
+    function toggleFaq1(el) {
+      const card = el.parentElement;
+      const wasOpen = card.classList.contains('open');
+      document.querySelectorAll('.faq-card').forEach(c => c.classList.remove('open'));
+      if (!wasOpen) card.classList.add('open');
+    }
+
+    // Navigation & Actions
+    function verDemo() {
+      window.location.href = '/index.html?demo=1';
+    }
+
+    function falarConsultor() {
+      let num = consultorWa.replace(/\D/g, '');
+      if (num.length <= 11) num = '55' + num;
+      window.open('https://wa.me/' + num + '?text=' + encodeURIComponent(consultorMsg), '_blank');
+    }
+
+    function toggleMobileMenu() {
+      const nav = document.querySelector('.nav-links');
+      if (nav.style.display === 'flex') nav.style.display = 'none';
+      else {
+        nav.style.display = 'flex';
+        nav.style.flexDirection = 'column';
+        nav.style.position = 'absolute';
+        nav.style.top = '100%';
+        nav.style.left = '0';
+        nav.style.width = '100%';
+        nav.style.background = 'rgba(7,11,20,0.98)';
+        nav.style.padding = '20px';
+      }
+    }
+
+    // Setup Modal
+    function abrirSetupModal(plano = 'profissional') {
+      selectedPlan = plano;
+      document.getElementById('setupModalOverlay').classList.add('active');
+      updateSetupModalUI();
+    }
+
+    function fecharSetupModal() {
+      document.getElementById('setupModalOverlay').classList.remove('active');
+    }
+
+    function updateSetupModalUI() {
+      document.querySelectorAll('.setup-pane').forEach(p => p.classList.remove('active'));
+      const activePane = document.querySelector(`.setup-pane[data-pane="${stepNum}"]`);
+      if (activePane) activePane.classList.add('active');
+
+      document.querySelectorAll('.setup-step-tag').forEach(t => t.classList.remove('active'));
+      const activeTag = document.querySelector(`.setup-step-tag[data-s="${stepNum}"]`);
+      if (activeTag) activeTag.classList.add('active');
+
+      document.getElementById('btn-m-back').style.visibility = (stepNum > 1) ? 'visible' : 'hidden';
+      const btnNext = document.getElementById('btn-m-next');
+      if (stepNum === 4) btnNext.innerHTML = '<i class="ph ph-check"></i> Concluir &amp; Acessar PDV';
+      else btnNext.innerHTML = 'Continuar <i class="ph ph-arrow-right"></i>';
+
+      document.getElementById('setup-err').style.display = 'none';
+    }
+
+    function setupStepBack() {
+      if (stepNum > 1) {
+        stepNum--;
+        updateSetupModalUI();
+      }
+    }
+
+    async function setupStepNext() {
+      const errBox = document.getElementById('setup-err');
+      errBox.style.display = 'none';
+      const btn = document.getElementById('btn-m-next');
+
+      if (stepNum === 1) {
+        stepNum++;
+        updateSetupModalUI();
+      } else if (stepNum === 2) {
+        const restauranteNome = document.getElementById('m-rest').value.trim();
+        const nome = document.getElementById('m-nome').value.trim();
+        const telefone = document.getElementById('m-tel').value.trim();
+        const email = document.getElementById('m-email').value.trim();
+        const senha = document.getElementById('m-pass').value;
+
+        if (!restauranteNome || !nome || !email || !senha) {
+          errBox.innerText = 'Preencha todos os campos obrigatórios.';
+          errBox.style.display = 'block';
+          return;
+        }
+
+        btn.innerHTML = '<i class="ph ph-spinner ph-spin"></i> Criando ambiente...';
+        btn.disabled = true;
+
+        try {
+          const chaveRef = document.getElementById('m-chave').value.trim();
+          const res = await fetch('/api/auth/registro', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ restauranteNome, nome, email, telefone, senha, chaveRef, plano: selectedPlan })
+          });
+          const data = await res.json();
+          if (data.success) {
+            localStorage.setItem('chef_token', data.token);
+            localStorage.setItem('restaurante_id', data.restaurante_id);
+            savedRestId = data.restaurante_id;
+            if (!document.getElementById('m-slug').value) {
+              document.getElementById('m-slug').value = restauranteNome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+            }
+            stepNum++;
+            updateSetupModalUI();
+          } else {
+            errBox.innerText = data.error || 'Erro ao cadastrar restaurante.';
+            errBox.style.display = 'block';
+          }
+        } catch (e) {
+          errBox.innerText = 'Erro de comunicação com o servidor.';
+          errBox.style.display = 'block';
+        } finally {
+          btn.disabled = false;
+        }
+      } else if (stepNum === 3) {
+        const slug = document.getElementById('m-slug').value.trim();
+        if (!slug || slug.length < 2) {
+          errBox.innerText = 'Informe um endereço válido com pelo menos 2 caracteres.';
+          errBox.style.display = 'block';
+          return;
+        }
+        stepNum++;
+        updateSetupModalUI();
+      } else if (stepNum === 4) {
+        btn.innerHTML = '<i class="ph ph-spinner ph-spin"></i> Finalizando...';
+        btn.disabled = true;
+        const slug = document.getElementById('m-slug').value.trim();
+        const gNome = document.getElementById('m-ger-nome').value.trim();
+        const gPass = document.getElementById('m-ger-pass').value.trim();
+        const equipe = [];
+        if (gNome && gPass) {
+          equipe.push({ nome: gNome, usuario: gNome.toLowerCase().replace(/\s/g,''), senha: gPass, cargo: 'Gerente', status: 'Ativo' });
+        }
+        const token = localStorage.getItem('chef_token');
+
+        try {
+          await fetch('/api/auth/equipe-onboarding', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: JSON.stringify({ restaurante_id: savedRestId, equipe, slug })
+          });
+          btn.innerHTML = '<i class="ph ph-check"></i> Redirecionando...';
+          setTimeout(() => { window.location.href = '/index.html'; }, 500);
+        } catch(e) {
+          window.location.href = '/index.html';
+        }
+      }
+    }
+
+    // Scroll Animations
+    function initScrollAnim() {
+      const obs = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          if (e.isIntersecting) {
+            e.target.classList.add('visible');
+            obs.unobserve(e.target);
+          }
+        });
+      }, { threshold: 0.1 });
+      document.querySelectorAll('.animate-on-scroll').forEach(el => obs.observe(el));
+    }
+
+    // Load Super Admin Configs
+    fetch('/api/public/site-config')
+      .then(r => r.json())
+      .then(d => {
+        if (d && d.ok && d.configs) {
+          const c = d.configs;
+          if (c.site_consultor_whatsapp) consultorWa = c.site_consultor_whatsapp;
+          if (c.site_consultor_mensagem) consultorMsg = c.site_consultor_mensagem;
+        }
+      })
+      .catch(() => {});
+
+    document.addEventListener('DOMContentLoaded', () => {
+      calcRoi();
+      initScrollAnim();
+    });
+  </script>
+</body>
+</html>

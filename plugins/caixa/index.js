@@ -5,7 +5,8 @@
 const fs = require('fs');
 const fsSync = require('fs');
 const path = require('path');
-const sqlite3 = require('sqlite3').verbose();
+let sqlite3;
+try { sqlite3 = require('sqlite3').verbose(); } catch (e) { sqlite3 = require('../../sqlite3-adapter').verbose(); }
 
 module.exports = function({ app, db, io, options }) {
   const { verificarToken, withTenant, upload, getTenantDbPath, tenantDbs, isTenantFeatureEnabled, tenantContext } = options;

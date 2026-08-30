@@ -6,7 +6,8 @@
 
 const fsSync = require('fs');
 const path = require('path');
-const bcrypt = require('bcrypt');
+let bcrypt;
+try { bcrypt = require('bcryptjs'); } catch (e) { bcrypt = require('bcrypt'); }
 const jwt = require('jsonwebtoken');
 const { exec } = require('child_process');
 const { createLoadControl } = require('../load-control');
@@ -355,7 +356,6 @@ module.exports = function (app, masterDb, sqlite3, options) {
         try {
           const tenantDb = await new Promise((resolve, reject) => {
             const dbPath = path.join(__dirname, '..', `database_${newId}.sqlite`);
-            const sqlite3 = require('sqlite3').verbose();
             const db = new sqlite3.Database(dbPath, (err) => err ? reject(err) : resolve(db));
           });
           await new Promise((resolve) => {

@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#fc4b15">
+<meta name="apple-mobile-web-app-title" content="Chef Cozinha">
+<link rel="icon" href="/icons/icon.ico" type="image/x-icon">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<title>Caixa PDV Lite | Chef Cozinha</title>
+<style>
+/* ─── RESET ULTRA-COMPATÍVEL (iOS 9.3.5 / Android 5.1 / ES3-ES5) ─── */
+* { margin: 0; padding: 0; -webkit-box-sizing: border-box; -moz-box-sizing: border-box; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background: #111318; color: #f0f0f0; min-height: 100vh; line-height: 1.4;
+  -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%;
+}
+body.light { background: #f4f5f8; color: #1a1a1a; }
+
+/* ─── HEADER ─── */
+.hdr {
+  background: #1a1d24; border-bottom: 2px solid #2a2d35;
+  padding: 8px 12px; position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  height: 48px;
+}
+body.light .hdr { background: #ffffff; border-bottom-color: #e2e8f0; }
+.hdr-inner {
+  display: -webkit-box; display: -webkit-flex; display: -ms-flexbox; display: flex;
+  -webkit-box-align: center; -webkit-align-items: center; -ms-flex-align: center; align-items: center;
+  -webkit-box-pack: justify; -webkit-justify-content: space-between; -ms-flex-pack: justify; justify-content: space-between;
+  height: 100%;
+}
+.hdr-title {
+  font-size: 15px; font-weight: 700; color: #fc4b15;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.hdr-right { display: -webkit-box; display: -webkit-flex; display: -ms-flexbox; display: flex; gap: 6px; }
+.btn-hdr {
+  background: #2a2d35; border: 1px solid #3a3d45; color: #e2e8f0;
+  font-size: 11px; font-weight: 700; padding: 5px 9px; border-radius: 6px;
+  cursor: pointer; height: 32px; line-height: 20px;
+}
+body.light .btn-hdr { background: #edf2f7; border-color: #cbd5e0; color: #2d3748; }
+
+/* ─── STATUS BAR ─── */
+.status-bar {
+  background: #1e293b; color: #94a3b8; font-size: 11px; font-weight: 600;
+  padding: 4px 12px; text-align: center; border-bottom: 1px solid #334155;
+  margin-top: 48px;
+}
+.status-bar.online { background: #064e3b; color: #6ee7b7; }
+.status-bar.offline { background: #7f1d1d; color: #fca5a5; }
+
+/* ─── CONTAINER & CARDS ─── */
+.container { padding: 10px 12px 65px 12px; max-width: 720px; margin: 0 auto; }
+.view { display: none; }
+.view.active { display: block; }
+
+.box-card {
+  background: #1a1d24; border: 1px solid #2a2d35; border-radius: 10px;
+  padding: 14px; margin-bottom: 12px;
+}
+body.light .box-card { background: #ffffff; border-color: #e2e8f0; }
+
+.box-title { font-size: 15px; font-weight: 700; color: #fc4b15; margin-bottom: 8px; }
+
+/* ─── DASHBOARD METRICS ─── */
+.metrics-grid {
+  display: -webkit-box; display: -webkit-flex; display: -ms-flexbox; display: flex;
+  -webkit-flex-wrap: wrap; -ms-flex-wrap: wrap; flex-wrap: wrap;
+  gap: 8px; margin-bottom: 12px;
+}
+.metric-item {
+  -webkit-box-flex: 1; -webkit-flex: 1 1 calc(50% - 8px); -ms-flex: 1 1 calc(50% - 8px); flex: 1 1 calc(50% - 8px);
+  background: #111318; border: 1px solid #2a2d35; border-radius: 8px; padding: 10px; text-align: center;
+}
+body.light .metric-item { background: #f8fafc; border-color: #e2e8f0; }
+.metric-val { font-size: 18px; font-weight: 700; color: #22c55e; margin-top: 2px; }
+.metric-val.neg { color: #ef4444; }
+.metric-lbl { font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; }
+
+/* ─── BUTTONS ─── */
+.btn-primary {
+  display: block; width: 100%; padding: 12px; font-size: 14px; font-weight: 700;
+  border: none; border-radius: 8px; background: #fc4b15; color: #ffffff;
+  cursor: pointer; text-align: center; min-height: 44px; margin-top: 8px;
+}
+.btn-primary:active { background: #e03e0d; }
+.btn-success { background: #16a34a; color: #fff; }
+.btn-danger { background: #dc2626; color: #fff; }
+.btn-secondary {
+  display: block; width: 100%; padding: 10px; font-size: 13px; font-weight: 600;
+  border: 1px solid #3a3d45; border-radius: 8px; background: #2a2d35; color: #cbd5e0;
+  cursor: pointer; text-align: center; min-height: 40px; margin-top: 6px;
+}
+body.light .btn-secondary { background: #edf2f7; border-color: #cbd5e0; color: #2d3748; }
+
+.btn-row {
+  display: -webkit-box; display: -webkit-flex; display: -ms-flexbox; display: flex;
+  gap: 8px; margin-top: 8px;
+}
+.btn-row button {
+  -webkit-box-flex: 1; -webkit-flex: 1; -ms-flex: 1; flex: 1;
+  padding: 10px; font-size: 12px; font-weight: 700; border-radius: 6px; border: none; cursor: pointer;
+}
+
+/* ─── INPUTS ─── */
+.form-group { margin-bottom: 10px; }
+.form-group label { display: block; font-size: 12px; font-weight: 700; color: #94a3b8; margin-bottom: 4px; }
+.form-group input, .form-group select {
+  width: 100%; padding: 10px 12px; font-size: 14px; border-radius: 8px;
+  background: #111318; border: 1px solid #2a2d35; color: #fff;
+}
+body.light .form-group input, body.light .form-group select {
+  background: #fff; border-color: #cbd5e0; color: #111;
+}
+
+/* ─── MOVIMENTAÇÕES LIST ─── */
+.mov-item {
+  background: #111318; border: 1px solid #2a2d35; border-radius: 8px;
+  padding: 8px 10px; margin-bottom: 6px; display: -webkit-box; display: -webkit-flex; display: -ms-flexbox; display: flex;
+  -webkit-box-pack: justify; -webkit-justify-content: space-between; -ms-flex-pack: justify; justify-content: space-between;
+  -webkit-box-align: center; -webkit-align-items: center; -ms-flex-align: center; align-items: center;
+}
+body.light .mov-item { background: #f8fafc; border-color: #e2e8f0; }
+.mov-desc { font-size: 13px; font-weight: 600; }
+.mov-meta { font-size: 11px; color: #94a3b8; margin-top: 2px; }
+.mov-val { font-size: 14px; font-weight: 700; }
+.mov-val.in { color: #22c55e; }
+.mov-val.out { color: #ef4444; }
+
+/* ─── MESAS ABERTA PDV ─── */
+.mesa-pdv-row {
+  background: #111318; border: 1px solid #2a2d35; border-radius: 8px;
+  padding: 10px; margin-bottom: 6px; cursor: pointer; display: -webkit-box; display: -webkit-flex; display: -ms-flexbox; display: flex;
+  -webkit-box-pack: justify; -webkit-justify-content: space-between; -ms-flex-pack: justify; justify-content: space-between;
+  -webkit-box-align: center; -webkit-align-items: center; -ms-flex-align: center; align-items: center;
+}
+body.light .mesa-pdv-row { background: #f8fafc; border-color: #e2e8f0; }
+
+/* ─── BOTTOM NAVIGATION ─── */
+.bottom-nav {
+  position: fixed; bottom: 0; left: 0; right: 0; height: 50px;
+  background: #1a1d24; border-top: 2px solid #2a2d35; z-index: 100;
+  display: -webkit-box; display: -webkit-flex; display: -ms-flexbox; display: flex;
+}
+body.light .bottom-nav { background: #ffffff; border-top-color: #e2e8f0; }
+.nav-item {
+  -webkit-box-flex: 1; -webkit-flex: 1; -ms-flex: 1; flex: 1;
+  border: none; background: transparent; color: #94a3b8; font-size: 11px; font-weight: 700;
+  cursor: pointer; display: -webkit-box; display: -webkit-flex; display: -ms-flexbox; display: flex;
+  -webkit-box-orient: vertical; -webkit-box-direction: normal; -webkit-flex-direction: column; -ms-flex-direction: column; flex-direction: column;
+  -webkit-box-align: center; -webkit-align-items: center; -ms-flex-align: center; align-items: center;
+  -webkit-box-pack: center; -webkit-justify-content: center; -ms-flex-pack: center; justify-content: center;
+}
+.nav-item.active { color: #fc4b15; }
+
+/* ─── TOAST NOTIFICATION ─── */
+.toast {
+  position: fixed; bottom: 58px; left: 50%; -webkit-transform: translateX(-50%); -ms-transform: translateX(-50%); transform: translateX(-50%);
+  background: #1e293b; color: #ffffff; padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600;
+  border: 1px solid #475569; z-index: 999; display: none; text-align: center; max-width: 90%;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="hdr">
+  <div class="hdr-inner">
+    <div class="hdr-title" id="hdr-title" style="display:-webkit-box;display:-webkit-flex;display:-ms-flexbox;display:flex;-webkit-box-align:center;-webkit-align-items:center;-ms-flex-align:center;align-items:center;gap:6px;">
+      <img src="/icons/icon-192.png" alt="Logo" style="width:24px;height:24px;border-radius:6px;object-fit:cover;">
+      <span>Caixa PDV Lite</span>
+    </div>
+    <div class="hdr-right">
+      <button class="btn-hdr" id="btn-theme" onclick="toggleTema()">🌙</button>
+      <button class="btn-hdr" onclick="carregarCaixa(true)">🔄</button>
+    </div>
+  </div>
+</div>
+
+<!-- STATUS BAR -->
+<div class="status-bar online" id="status-bar">Conectado (Tempo Real)</div>
+
+<div class="container">
+
+  <!-- VIEW: RESUMO DO CAIXA -->
+  <div class="view active" id="view-dashboard">
+    <div id="caixa-status-card"></div>
+
+    <div class="box-card" id="caixa-acoes-card" style="display:none;">
+      <div class="box-title">Operações Rápidas</div>
+      <div class="btn-row">
+        <button style="background:#16a34a;color:#fff;" onclick="abrirModalMov('Entrada')">➕ Suprimento</button>
+        <button style="background:#dc2626;color:#fff;" onclick="abrirModalMov('Saída')">➖ Sangria</button>
+      </div>
+      <button class="btn-secondary" onclick="confirmarFecharCaixa()" style="margin-top:8px;color:#ef4444;border-color:#7f1d1d;">🔒 Fechar Turno de Caixa</button>
+    </div>
+
+    <div class="box-card" id="caixa-movs-card" style="display:none;">
+      <div class="box-title">Últimas Movimentações</div>
+      <div id="movs-list"></div>
+    </div>
+  </div>
+
+  <!-- VIEW: MESAS & COBRANÇA PDV -->
+  <div class="view" id="view-mesas">
+    <div class="box-card">
+      <div class="box-title">Mesas com Consumo Pendente</div>
+      <div id="mesas-pdv-list"></div>
+    </div>
+  </div>
+
+  <!-- VIEW: MODAL SUPRIMENTO / SANGRIA -->
+  <div class="view" id="view-movimentacao">
+    <div class="box-card">
+      <div class="box-title" id="mov-modal-title">Lançar Movimentação</div>
+      <div class="form-group">
+        <label>Valor (R$):</label>
+        <input type="number" id="mov-valor" step="0.01" placeholder="0,00" inputmode="decimal">
+      </div>
+      <div class="form-group">
+        <label>Forma de Pagamento:</label>
+        <select id="mov-forma">
+          <option value="Dinheiro">Dinheiro</option>
+          <option value="PIX">PIX</option>
+          <option value="Cartão de Crédito">Cartão de Crédito</option>
+          <option value="Cartão de Débito">Cartão de Débito</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Motivo / Descrição:</label>
+        <input type="text" id="mov-desc" placeholder="Ex: Pagamento de Fornecedor, Troco inicial...">
+      </div>
+      <button class="btn-primary" onclick="confirmarMovimentacao()">Salvar Movimentação</button>
+      <button class="btn-secondary" onclick="voltarDashboard()">Cancelar</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- BOTTOM NAVIGATION -->
+<div class="bottom-nav">
+  <button class="nav-item active" id="nav-dash" onclick="switchNav('dashboard')">
+    <span style="font-size:16px;">📊</span>
+    <span>Turno / Totais</span>
+  </button>
+  <button class="nav-item" id="nav-mesas" onclick="switchNav('mesas')">
+    <span style="font-size:16px;">🪑</span>
+    <span>Cobrar Mesas</span>
+  </button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="/socket.io.min.js"></script>
+<script>
+/* ═══════════════════════════════════════════════════════════════════════
+   CAIXA PDV LITE — ES3/ES5 RUNTIME ENGINE (iOS 9.3.5 / Android 5.1)
+   ═══════════════════════════════════════════════════════════════════════ */
+(function() {
+  var CAIXA_DATA = null;
+  var MESAS = [];
+  var PEDIDOS = [];
+  var TIPO_MOV_ATUAL = 'Entrada';
+  var socket = null;
+  var pollTimer = null;
+
+  function $(id) { return document.getElementById(id); }
+
+  function safeHtml(str) {
+    if (!str && str !== 0) return '';
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  function formatMoney(num) {
+    var n = parseFloat(num) || 0;
+    return 'R$ ' + n.toFixed(2).replace('.', ',');
+  }
+
+  // ── THEME ──
+  window.toggleTema = function() {
+    var isLight = document.body.className === 'light';
+    document.body.className = isLight ? '' : 'light';
+    var bt = $('btn-theme');
+    if (bt) bt.innerHTML = isLight ? '🌙' : '☀️';
+  };
+
+  var toastTimeout = null;
+  function showToast(msg) {
+    var t = $('toast');
+    if (!t) return;
+    t.innerHTML = msg;
+    t.style.display = 'block';
+    if (toastTimeout) clearTimeout(toastTimeout);
+    toastTimeout = setTimeout(function() { t.style.display = 'none'; }, 2500);
+  }
+
+  // ── HTTP XHR HELPER ──
+  function makeXHR(method, url, data, cb) {
+    var x = new XMLHttpRequest();
+    var tenantId = '1';
+    try { tenantId = localStorage.getItem('restaurante_id') || '1'; } catch(e) {}
+    var sep = url.indexOf('?') === -1 ? '?' : '&';
+    url = url + sep + 'restaurante_id=' + encodeURIComponent(tenantId);
+
+    x.open(method, url, true);
+    x.setRequestHeader('Content-Type', 'application/json');
+
+    x.onreadystatechange = function() {
+      if (x.readyState !== 4) return;
+      if (x.status >= 200 && x.status < 300) {
+        try {
+          var parsed = JSON.parse(x.responseText);
+          cb(null, parsed);
+        } catch(e) {
+          cb(null, { ok: true });
+        }
+      } else {
+        var errObj = null;
+        try { errObj = JSON.parse(x.responseText); } catch(e) {}
+        cb(new Error((errObj && errObj.error) ? errObj.error : ('HTTP ' + x.status)), null);
+      }
+    };
+    x.onerror = function() { cb(new Error('Falha de conexão'), null); };
+
+    if (data) x.send(JSON.stringify(data));
+    else x.send(null);
+  }
+
+  // ── CARREGAMENTO DE DADOS ──
+  window.carregarCaixa = function(manual) {
+    if (manual) showToast('Atualizando caixa...');
+    makeXHR('GET', '/api/retro/caixa', null, function(err, data) {
+      if (!err && data) {
+        CAIXA_DATA = data;
+        renderDashboard();
+      }
+    });
+
+    makeXHR('GET', '/api/retro/mesas', null, function(err, data) {
+      if (!err && data) {
+        MESAS = data.mesas || [];
+        PEDIDOS = data.pedidos || [];
+        renderMesasPDV();
+      }
+    });
+  };
+
+  // ── DASHBOARD RENDER ──
+  function renderDashboard() {
+    var statCard = $('caixa-status-card');
+    var actCard = $('caixa-acoes-card');
+    var movsCard = $('caixa-movs-card');
+    if (!statCard) return;
+
+    if (!CAIXA_DATA || !CAIXA_DATA.aberto) {
+      statCard.innerHTML = '<div class="box-card" style="text-align:center;">' +
+        '<div style="font-size:32px;">🔒</div>' +
+        '<div style="font-size:18px;font-weight:700;color:#ef4444;margin-top:6px;">Caixa Fechado</div>' +
+        '<p style="font-size:12px;color:#94a3b8;margin:6px 0 12px 0;">Abra o turno para receber pagamentos e emitir comandas.</p>' +
+        '<div class="form-group" style="max-width:240px;margin:0 auto 10px auto;text-align:left;">' +
+        '<label>Fundo de Troco Inicial (R$):</label>' +
+        '<input type="number" id="abrir-fundo" value="0.00" step="10" placeholder="0,00">' +
+        '</div>' +
+        '<button class="btn-primary btn-success" style="max-width:240px;margin:0 auto;" onclick="abrirTurnoCaixa()">Abrir Caixa Agora</button>' +
+        '</div>';
+      if (actCard) actCard.style.display = 'none';
+      if (movsCard) movsCard.style.display = 'none';
+      return;
+    }
+
+    if (actCard) actCard.style.display = 'block';
+    if (movsCard) movsCard.style.display = 'block';
+
+    var tot = CAIXA_DATA.totais || {};
+    var sh = '<div class="box-card">';
+    sh += '<div style="display:-webkit-box;display:-webkit-flex;display:-ms-flexbox;display:flex;-webkit-box-pack:justify;-webkit-justify-content:space-between;-ms-flex-pack:justify;justify-content:space-between;-webkit-box-align:center;-webkit-align-items:center;-ms-flex-align:center;align-items:center;">';
+    sh += '<span style="font-size:16px;font-weight:700;color:#22c55e;">🟢 Turno #' + (CAIXA_DATA.turno ? CAIXA_DATA.turno.id : '') + ' Aberto</span>';
+    sh += '<span style="font-size:11px;color:#94a3b8;">' + (CAIXA_DATA.turno ? CAIXA_DATA.turno.data_abertura : '') + '</span>';
+    sh += '</div>';
+
+    sh += '<div class="metrics-grid" style="margin-top:12px;">';
+    sh += '<div class="metric-item"><div class="metric-lbl">Total em Caixa (Dinheiro)</div><div class="metric-val">' + formatMoney(tot.saldo_dinheiro) + '</div></div>';
+    sh += '<div class="metric-item"><div class="metric-lbl">Faturamento Geral</div><div class="metric-val">' + formatMoney(tot.saldo_geral) + '</div></div>';
+    sh += '<div class="metric-item"><div class="metric-lbl">Total Entradas</div><div class="metric-val">' + formatMoney(tot.entradas) + '</div></div>';
+    sh += '<div class="metric-item"><div class="metric-lbl">Total Saídas / Sangria</div><div class="metric-val neg">' + formatMoney(tot.saidas) + '</div></div>';
+    sh += '</div>';
+
+    // Formas de Pagamento
+    if (tot.por_forma) {
+      sh += '<div style="font-size:12px;font-weight:700;color:#94a3b8;margin-bottom:6px;">Entradas por Forma de Pagamento:</div>';
+      for (var f in tot.por_forma) {
+        if (tot.por_forma.hasOwnProperty(f)) {
+          sh += '<div style="display:-webkit-box;display:-webkit-flex;display:-ms-flexbox;display:flex;-webkit-box-pack:justify;-webkit-justify-content:space-between;-ms-flex-pack:justify;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px dotted #2a2d35;">';
+          sh += '<span>' + safeHtml(f) + '</span>';
+          sh += '<span style="font-weight:700;">' + formatMoney(tot.por_forma[f]) + '</span>';
+          sh += '</div>';
+        }
+      }
+    }
+    sh += '</div>';
+
+    statCard.innerHTML = sh;
+
+    // Lista de Movimentações
+    var mList = $('movs-list');
+    if (mList) {
+      var movs = CAIXA_DATA.movimentacoes || [];
+      if (!movs.length) {
+        mList.innerHTML = '<div style="text-align:center;padding:12px;color:#94a3b8;font-size:12px;">Nenhuma movimentação registrada neste turno.</div>';
+      } else {
+        var mh = '';
+        for (var i = 0; i < movs.length; i++) {
+          var m = movs[i];
+          var isOut = (m.tipo || '').toLowerCase() === 'saída' || (m.tipo || '').toLowerCase() === 'sangria';
+          mh += '<div class="mov-item">';
+          mh += '<div>';
+          mh += '<div class="mov-desc">' + (isOut ? '🔻 ' : '🔺 ') + safeHtml(m.descricao || m.tipo) + '</div>';
+          mh += '<div class="mov-meta">' + safeHtml(m.forma_pagamento) + ' • ' + safeHtml(m.data) + '</div>';
+          mh += '</div>';
+          mh += '<div class="mov-val ' + (isOut ? 'out' : 'in') + '">' + (isOut ? '- ' : '+ ') + formatMoney(m.valor) + '</div>';
+          mh += '</div>';
+        }
+        mList.innerHTML = mh;
+      }
+    }
+  }
+
+  // ── OPERAÇÕES DE TURNO ──
+  window.abrirTurnoCaixa = function() {
+    var fundoEl = $('abrir-fundo');
+    var val = fundoEl ? fundoEl.value : '0';
+    showToast('Abrindo caixa...');
+    makeXHR('POST', '/api/retro/caixa/abrir', { fundo_troco: val, operador: 'Caixa Lite' }, function(err, res) {
+      if (err) { showToast(err.message); return; }
+      showToast('Caixa aberto com sucesso!');
+      carregarCaixa();
+    });
+  };
+
+  window.confirmarFecharCaixa = function() {
+    if (!confirm('Deseja realmente fechar o turno atual de caixa?')) return;
+    showToast('Fechando caixa...');
+    makeXHR('POST', '/api/retro/caixa/fechar', {}, function(err, res) {
+      if (err) { showToast(err.message); return; }
+      showToast('Caixa fechado com sucesso!');
+      carregarCaixa();
+    });
+  };
+
+  // ── MODAL SUPRIMENTO / SANGRIA ──
+  window.abrirModalMov = function(tipo) {
+    TIPO_MOV_ATUAL = tipo;
+    $('mov-modal-title').innerHTML = (tipo === 'Saída') ? '➖ Lançar Sangria (Retirada)' : '➕ Lançar Suprimento (Entrada)';
+    $('mov-valor').value = '';
+    $('mov-desc').value = '';
+    
+    $('view-dashboard').className = 'view';
+    $('view-mesas').className = 'view';
+    $('view-movimentacao').className = 'view active';
+  };
+
+  window.voltarDashboard = function() {
+    $('view-movimentacao').className = 'view';
+    $('view-dashboard').className = 'view active';
+    switchNavButtons('dashboard');
+  };
+
+  window.confirmarMovimentacao = function() {
+    var vEl = $('mov-valor');
+    var fEl = $('mov-forma');
+    var dEl = $('mov-desc');
+    var val = vEl ? vEl.value : '0';
+    var forma = fEl ? fEl.value : 'Dinheiro';
+    var desc = dEl ? dEl.value : '';
+
+    if (parseFloat(val) <= 0 || isNaN(parseFloat(val))) {
+      showToast('Informe um valor válido');
+      return;
+    }
+
+    showToast('Registrando...');
+    makeXHR('POST', '/api/retro/caixa/movimentacao', {
+      tipo: TIPO_MOV_ATUAL,
+      valor: val,
+      forma_pagamento: forma,
+      descricao: desc || (TIPO_MOV_ATUAL === 'Saída' ? 'Sangria' : 'Suprimento')
+    }, function(err, res) {
+      if (err) { showToast(err.message); return; }
+      showToast('Registrado com sucesso!');
+      voltarDashboard();
+      carregarCaixa();
+    });
+  };
+
+  // ── MESAS PDV ──
+  function renderMesasPDV() {
+    var list = $('mesas-pdv-list');
+    if (!list) return;
+
+    var mesasComConsumo = [];
+    for (var i = 0; i < MESAS.length; i++) {
+      var m = MESAS[i];
+      var totalM = 0;
+      var countItens = 0;
+      for (var j = 0; j < PEDIDOS.length; j++) {
+        var p = PEDIDOS[j];
+        if (p.localName === m.nome || p.mesa_comanda === m.nome || p.mesa_grupo === m.nome) {
+          totalM += Number(p.total) || 0;
+          countItens++;
+        }
+      }
+      if (countItens > 0) {
+        mesasComConsumo.push({ mesa: m, total: totalM, itensCount: countItens });
+      }
+    }
+
+    if (!mesasComConsumo.length) {
+      list.innerHTML = '<div style="text-align:center;padding:24px;color:#94a3b8;font-size:13px;">Nenhuma mesa com consumo aberto no salão.</div>';
+      return;
+    }
+
+    var h = '';
+    for (var k = 0; k < mesasComConsumo.length; k++) {
+      var mc = mesasComConsumo[k];
+      h += '<div class="mesa-pdv-row" onclick="irParaGarcomMesa(\'' + mc.mesa.nome.replace(/'/g, "\\'") + '\')">';
+      h += '<div>';
+      h += '<div style="font-weight:700;font-size:14px;color:#fc4b15;">' + safeHtml(mc.mesa.nome) + '</div>';
+      h += '<div style="font-size:11px;color:#94a3b8;">' + mc.itensCount + ' item(ns) na comanda</div>';
+      h += '</div>';
+      h += '<div style="text-align:right;">';
+      h += '<div style="font-weight:700;font-size:15px;color:#22c55e;">' + formatMoney(mc.total) + '</div>';
+      h += '<span style="font-size:10px;background:#2a2d35;padding:2px 6px;border-radius:4px;color:#cbd5e0;">Cobrar &rarr;</span>';
+      h += '</div>';
+      h += '</div>';
+    }
+
+    list.innerHTML = h;
+  }
+
+  window.irParaGarcomMesa = function(nome) {
+    window.location.href = '/garcom-lite.html';
+  };
+
+  // ── NAVIGATION ──
+  window.switchNav = function(tab) {
+    switchNavButtons(tab);
+    var vDash = $('view-dashboard');
+    var vMesas = $('view-mesas');
+    var vMov = $('view-movimentacao');
+
+    if (vDash) vDash.className = tab === 'dashboard' ? 'view active' : 'view';
+    if (vMesas) vMesas.className = tab === 'mesas' ? 'view active' : 'view';
+    if (vMov) vMov.className = 'view';
+  };
+
+  function switchNavButtons(tab) {
+    var b1 = $('nav-dash');
+    var b2 = $('nav-mesas');
+    if (b1) b1.className = tab === 'dashboard' ? 'nav-item active' : 'nav-item';
+    if (b2) b2.className = tab === 'mesas' ? 'nav-item active' : 'nav-item';
+  }
+
+  // ── REALTIME SOCKET ENGINE ──
+  function setupSocket() {
+    try {
+      if (typeof io === 'function') {
+        var tid = '1';
+        try { tid = localStorage.getItem('restaurante_id') || '1'; } catch(e) {}
+        socket = io({ query: { restaurante_id: tid }, timeout: 6000 });
+        
+        socket.on('connect', function() {
+          $('status-bar').className = 'status-bar online';
+          $('status-bar').innerHTML = '🟢 Conectado em Tempo Real';
+        });
+        socket.on('disconnect', function() {
+          $('status-bar').className = 'status-bar offline';
+          $('status-bar').innerHTML = '🟡 Modo Polling Ativado (Offline)';
+        });
+        socket.on('atualizacao_caixa', function() { carregarCaixa(); });
+        socket.on('mesas_atualizadas', function() { carregarCaixa(); });
+        socket.on('novo_pedido_sync', function() { carregarCaixa(); });
+      }
+    } catch(e) { socket = null; }
+  }
+
+  // Iniciar
+  carregarCaixa();
+  setupSocket();
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(function() { carregarCaixa(false); }, 5000);
+
+})();
+</script>
+</body>
+</html>

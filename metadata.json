@@ -1,0 +1,6 @@
+{
+  "name": "Chef Cozinha",
+  "description": "Sistema de gestão e automação para restaurantes, comandas e delivery",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

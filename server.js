@@ -113,7 +113,12 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const os = require('os');
-const sqlite3 = require('sqlite3').verbose();
+let sqlite3;
+try {
+  sqlite3 = require('sqlite3').verbose();
+} catch (e) {
+  sqlite3 = require('./sqlite3-adapter').verbose();
+}
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
@@ -532,45 +537,47 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 let bcrypt;
 try {
-  bcrypt = require('bcrypt');
+  bcrypt = require('bcryptjs');
 } catch (e) {
-  // pkg: o prebuild do bcrypt não fica no snapshot; carregar bcrypt.node que
-  // é copiado para junto do .exe (build-installer.ps1 + setup.iss).
-  const bcryptNativePath = path.join(BASE_DIR, 'bcrypt.node');
-  if (!fs.existsSync(bcryptNativePath)) throw e;
-  const bindings = require(bcryptNativePath);
-  bcrypt = {
-    genSaltSync(rounds, minor) {
-      if (!rounds) rounds = 10;
-      return bindings.gen_salt_sync(minor || 'b', rounds, crypto.randomBytes(16));
-    },
-    genSalt(rounds, minor, cb) {
-      if (typeof rounds === 'function') { cb = rounds; rounds = 10; minor = 'b'; }
-      else if (typeof minor === 'function') { cb = minor; minor = 'b'; }
-      if (!cb) return Promise.resolve(bcrypt.genSaltSync(rounds || 10));
-      process.nextTick(() => { try { cb(null, bcrypt.genSaltSync(rounds || 10)); } catch (err) { cb(err); } });
-    },
-    hashSync(data, salt) {
-      if (data == null || salt == null) throw new Error('data and salt arguments required');
-      if (typeof salt === 'number') salt = bcrypt.genSaltSync(salt);
-      return bindings.encrypt_sync(String(data), salt);
-    },
-    hash(data, salt, cb) {
-      if (typeof salt === 'function') { cb = salt; salt = 10; }
-      if (!cb) return Promise.resolve(bcrypt.hashSync(data, salt));
-      process.nextTick(() => { try { cb(null, bcrypt.hashSync(data, salt)); } catch (err) { cb(err); } });
-    },
-    compareSync(data, hash) {
-      if (data == null || hash == null) throw new Error('data and hash arguments required');
-      return !!bindings.compare_sync(String(data), hash);
-    },
-    compare(data, hash, cb) {
-      if (typeof hash === 'function') { cb = hash; hash = undefined; }
-      if (!cb) return Promise.resolve(bcrypt.compareSync(data, hash));
-      process.nextTick(() => { try { cb(null, bcrypt.compareSync(data, hash)); } catch (err) { cb(err); } });
-    },
-    getRounds(hash) { return bindings.get_rounds(hash); }
-  };
+  try {
+    bcrypt = require('bcrypt');
+  } catch (e2) {
+    const bcryptNativePath = path.join(BASE_DIR, 'bcrypt.node');
+    if (!fs.existsSync(bcryptNativePath)) throw e2;
+    const bindings = require(bcryptNativePath);
+    bcrypt = {
+      genSaltSync(rounds, minor) {
+        if (!rounds) rounds = 10;
+        return bindings.gen_salt_sync(minor || 'b', rounds, crypto.randomBytes(16));
+      },
+      genSalt(rounds, minor, cb) {
+        if (typeof rounds === 'function') { cb = rounds; rounds = 10; minor = 'b'; }
+        else if (typeof minor === 'function') { cb = minor; minor = 'b'; }
+        if (!cb) return Promise.resolve(bcrypt.genSaltSync(rounds || 10));
+        process.nextTick(() => { try { cb(null, bcrypt.genSaltSync(rounds || 10)); } catch (err) { cb(err); } });
+      },
+      hashSync(data, salt) {
+        if (data == null || salt == null) throw new Error('data and salt arguments required');
+        if (typeof salt === 'number') salt = bcrypt.genSaltSync(salt);
+        return bindings.encrypt_sync(String(data), salt);
+      },
+      hash(data, salt, cb) {
+        if (typeof salt === 'function') { cb = salt; salt = 10; }
+        if (!cb) return Promise.resolve(bcrypt.hashSync(data, salt));
+        process.nextTick(() => { try { cb(null, bcrypt.hashSync(data, salt)); } catch (err) { cb(err); } });
+      },
+      compareSync(data, hash) {
+        if (data == null || hash == null) throw new Error('data and hash arguments required');
+        return !!bindings.compare_sync(String(data), hash);
+      },
+      compare(data, hash, cb) {
+        if (typeof hash === 'function') { cb = hash; hash = undefined; }
+        if (!cb) return Promise.resolve(bcrypt.compareSync(data, hash));
+        process.nextTick(() => { try { cb(null, bcrypt.compareSync(data, hash)); } catch (err) { cb(err); } });
+      },
+      getRounds(hash) { return bindings.get_rounds(hash); }
+    };
+  }
 }
 const tenantContext = new (require('async_hooks').AsyncLocalStorage)();
 const fsSync = fs;
@@ -7798,6 +7805,92 @@ app.post('/api/retro/pedido', (req, res) => {
 
 // --- RETRO/LITE REST API (restaurado do backup) ---
 
+// POST /api/retro/pedidos/batch — enviar múltiplos itens de uma vez
+app.post('/api/retro/pedidos/batch', (req, res) => {
+  if (licenseManager.isRestricted()) {
+    return res.status(403).json({ error: 'Sistema em modo restrito. Ative a licença.' });
+  }
+  const body = req.body || {};
+  const itens = Array.isArray(body.itens) ? body.itens : (Array.isArray(body) ? body : []);
+  if (!itens.length) return res.status(400).json({ error: 'Nenhum item informado.' });
+  
+  const tid = resolveTenantId(req);
+  const roomId = (Number.isFinite(tid) && tid > 0) ? `restaurante_${tid}` : null;
+  const mesaNome = body.mesaNome || itens[0].mesa_comanda || itens[0].localName;
+
+  withTenant(req, () => {
+    if (mesaNome) {
+      db.get(`SELECT status FROM mesas WHERE nome = ?`, [mesaNome], (err, rowMesa) => {
+        if (rowMesa && rowMesa.status !== 'Fechando') {
+          db.run(`UPDATE mesas SET status = 'Ocupada' WHERE nome = ? AND status = 'Disponível'`, [mesaNome]);
+        }
+      });
+    }
+
+    const insertedItems = [];
+    let pending = itens.length;
+    let hasError = false;
+
+    itens.forEach((item) => {
+      const status = item.status_inicial || 'Em preparo';
+      const query = `
+        INSERT INTO pedidos (
+          userName, localName, productName, quantity, options, observations, composicoes,
+          status, mesa_comanda, mesa_grupo, isCommand,
+          printer, sector, total,
+          cliente_id, is_delivery
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `;
+      const params = [
+        item.userName || body.userName || 'Garçom Lite',
+        item.localName || mesaNome,
+        item.productName,
+        item.quantity || 1,
+        item.options || '[]',
+        item.observations || '',
+        JSON.stringify(item.composicoes || []),
+        status,
+        mesaNome,
+        mesaNome,
+        item.isCommand || 0,
+        item.printer || '',
+        item.sector || '',
+        item.total || 0,
+        item.cliente_id || null,
+        item.is_delivery || 0
+      ];
+
+      db.run(query, params, function(err) {
+        pending--;
+        if (err) {
+          console.error('Erro /api/retro/pedidos/batch:', err);
+          hasError = true;
+        } else {
+          insertedItems.push({ id: this.lastID, ...item, status, createdAt: new Date().toISOString() });
+        }
+
+        if (pending === 0) {
+          if (insertedItems.length > 0) {
+            if (roomId) io.to(roomId).emit('novo_pedido_sync', insertedItems);
+            else io.emit('novo_pedido_sync', insertedItems);
+
+            db.all("SELECT * FROM mesas", (e, m) => {
+              if (!e) {
+                if (roomId) io.to(roomId).emit('mesas_atualizadas', m || []);
+                else io.emit('mesas_atualizadas', m || []);
+              }
+            });
+          }
+          if (hasError && insertedItems.length === 0) {
+            return res.status(500).json({ error: 'Erro ao inserir pedidos.' });
+          }
+          return res.json({ success: true, count: insertedItems.length, items: insertedItems });
+        }
+      });
+    });
+  });
+});
+
 // POST /api/retro/login — login do garçom (retorno com dados do funcionário)
 app.post('/api/retro/login', (req, res) => {
   const { usuario, senha } = req.body;
@@ -7845,9 +7938,9 @@ app.put('/api/retro/pedido/:id/status', (req, res) => {
   });
 });
 
-// POST /api/retro/cobranca — registrar pagamento e finalizar mesa
+// POST /api/retro/cobranca — registrar pagamento e finalizar mesa ou registrar pagamento parcial
 app.post('/api/retro/cobranca', (req, res) => {
-  const { mesaNome, metodo, valor, gorjeta, garcom } = req.body;
+  const { mesaNome, metodo, valor, gorjeta, garcom, parcial, is_parcial } = req.body;
   if (!mesaNome || !metodo || valor === undefined) {
     return res.status(400).json({ error: 'mesaNome, metodo e valor são obrigatórios.' });
   }
@@ -7858,11 +7951,12 @@ app.post('/api/retro/cobranca', (req, res) => {
 
   const tid = resolveTenantId(req);
   const roomId = (Number.isFinite(tid) && tid > 0) ? `restaurante_${tid}` : null;
+  const ehParcial = Boolean(parcial || is_parcial || req.body.tipo === 'parcial');
 
   withTenant(req, () => {
     db.get(`SELECT * FROM turnos_caixa WHERE status = 'Aberto' ORDER BY id DESC LIMIT 1`, [], (errTurno, turno) => {
       if (errTurno || !turno) {
-        return res.status(400).json({ error: 'O caixa está fechado! Abra o caixa antes de receber pagamentos.' });
+        return res.status(400).json({ error: 'O caixa está fechado! Abra o caixa no PDV antes de receber pagamentos.' });
       }
 
       db.all(`SELECT * FROM pedidos WHERE (localName = ? OR mesa_grupo = ? OR mesa_comanda = ?) AND status != 'Finalizado'`, [mesaNome, mesaNome, mesaNome], (errItems, rows) => {
@@ -7884,6 +7978,51 @@ app.post('/api/retro/cobranca', (req, res) => {
           const taxaPct = (errTaxa || !taxaRow) ? 10 : (parseFloat(taxaRow.valor) || 10);
           const totalComTaxa = Math.max(0, consumoBruto * (1 + taxaPct / 100) - jaPago);
 
+          // Se for pagamento parcial
+          if (ehParcial) {
+            const queryParcial = `
+              INSERT INTO pedidos (
+                userName, localName, productName, quantity, options, observations, composicoes,
+                status, mesa_comanda, mesa_grupo, isCommand,
+                printer, sector, total, paymentMethod, turno_id, finalizadoEm
+              ) VALUES (?, ?, ?, 1, '[]', ?, '[]', 'Finalizado', ?, ?, 0, '', '', ?, ?, ?, datetime('now'))
+            `;
+            const paramsParcial = [
+              garcom || 'Garçom Lite',
+              mesaNome,
+              `Pgto Parcial (${metodo})`,
+              `Pagamento parcial realizado pelo garçom ${garcom || ''}`,
+              mesaNome,
+              mesaNome,
+              -valorNumerico,
+              metodo,
+              turno.id
+            ];
+
+            db.run(queryParcial, paramsParcial, function(errP) {
+              if (errP) return res.status(500).json({ error: 'Erro ao registrar pagamento parcial.' });
+
+              db.run(
+                `INSERT INTO movimentacoes (turno_id, tipo, valor, forma_pagamento, descricao, data) VALUES (?, 'Entrada', ?, ?, ?, datetime('now', 'localtime'))`,
+                [turno.id, valorNumerico, metodo, `Pgto Parcial Mesa: ${mesaNome}${garcom ? ' (Garçom: ' + garcom + ')' : ''}`]
+              );
+
+              if (roomId) io.to(roomId).emit('mesas_atualizadas');
+              else io.emit('mesas_atualizadas');
+              setTimeout(() => io.emit('atualizacao_caixa'), 300);
+
+              const restante = Math.max(0, totalComTaxa - valorNumerico);
+              return res.json({
+                success: true,
+                parcial: true,
+                restante: restante,
+                message: `Pagamento parcial de R$ ${valorNumerico.toFixed(2)} registrado! Restante: R$ ${restante.toFixed(2)}`
+              });
+            });
+            return;
+          }
+
+          // Pagamento Total
           if (valorNumerico < totalComTaxa - 0.05 && totalComTaxa > 0.01) {
             return res.status(400).json({ error: `Valor insuficiente. Total a pagar: R$ ${totalComTaxa.toFixed(2)}` });
           }
@@ -7934,6 +8073,172 @@ app.get('/api/retro/taxa-servico', (req, res) => {
   };
   lerTaxa((taxa) => {
     res.json({ taxa_servico: taxa });
+  });
+});
+
+// GET /api/retro/config — configurações completas para garçom lite
+app.get('/api/retro/config', (req, res) => {
+  withTenant(req, () => {
+    masterDb.get("SELECT valor FROM configuracoes_global WHERE chave = 'taxa_servico'", [], (err1, rowTaxa) => {
+      masterDb.get("SELECT valor FROM configuracoes_global WHERE chave = 'chave_pix'", [], (err2, rowPix) => {
+        db.all("SELECT id, nome, tipo, ativo FROM formas_pagamento WHERE ativo = 1", [], (err3, formas) => {
+          const taxa = rowTaxa && !isNaN(parseFloat(rowTaxa.valor)) ? parseFloat(rowTaxa.valor) : 10;
+          const chavePix = (rowPix && rowPix.valor) || '';
+          res.json({
+            taxa_servico: taxa,
+            chave_pix: chavePix,
+            formas_pagamento: (formas && formas.length) ? formas : [
+              { id: 1, nome: 'Dinheiro', tipo: 'dinheiro' },
+              { id: 2, nome: 'Cartão de Débito', tipo: 'debito' },
+              { id: 3, nome: 'Cartão de Crédito', tipo: 'credito' },
+              { id: 4, nome: 'PIX', tipo: 'pix' },
+              { id: 5, nome: 'Vale Refeição', tipo: 'vale' },
+              { id: 6, nome: 'Fiado', tipo: 'fiado' }
+            ]
+          });
+        });
+      });
+    });
+  });
+});
+
+// GET /api/retro/caixa — estado atual do caixa e resumo do turno
+app.get('/api/retro/caixa', (req, res) => {
+  withTenant(req, () => {
+    db.get(`SELECT * FROM turnos_caixa WHERE status = 'Aberto' ORDER BY id DESC LIMIT 1`, [], (errTurno, turno) => {
+      if (errTurno) return res.status(500).json({ error: 'Erro ao consultar turno.' });
+      if (!turno) {
+        return res.json({ aberto: false, turno: null, movimentacoes: [], totais: {} });
+      }
+
+      db.all(`SELECT * FROM movimentacoes WHERE turno_id = ? ORDER BY id DESC`, [turno.id], (errMov, movs) => {
+        if (errMov) return res.status(500).json({ error: 'Erro ao consultar movimentações.' });
+
+        const lista = movs || [];
+        let totalEntradas = 0;
+        let totalSaidas = 0;
+        let totalDinheiro = Number(turno.fundo_troco) || 0;
+        const porForma = {};
+
+        lista.forEach(m => {
+          const val = Number(m.valor) || 0;
+          const tipo = (m.tipo || '').toLowerCase();
+          const forma = m.forma_pagamento || 'Outro';
+
+          if (tipo === 'entrada' || tipo === 'reforco' || tipo === 'suprimento') {
+            totalEntradas += val;
+            porForma[forma] = (porForma[forma] || 0) + val;
+            if (forma.toLowerCase().includes('dinheiro')) {
+              totalDinheiro += val;
+            }
+          } else if (tipo === 'saida' || tipo === 'sangria') {
+            totalSaidas += val;
+            if (forma.toLowerCase().includes('dinheiro')) {
+              totalDinheiro -= val;
+            }
+          }
+        });
+
+        res.json({
+          aberto: true,
+          turno: {
+            id: turno.id,
+            status: turno.status,
+            fundo_troco: Number(turno.fundo_troco) || 0,
+            data_abertura: turno.data_abertura
+          },
+          movimentacoes: lista.slice(0, 50),
+          totais: {
+            fundo_troco: Number(turno.fundo_troco) || 0,
+            entradas: totalEntradas,
+            saidas: totalSaidas,
+            saldo_dinheiro: totalDinheiro,
+            saldo_geral: (Number(turno.fundo_troco) || 0) + totalEntradas - totalSaidas,
+            por_forma: porForma
+          }
+        });
+      });
+    });
+  });
+});
+
+// POST /api/retro/caixa/abrir — abrir turno de caixa
+app.post('/api/retro/caixa/abrir', (req, res) => {
+  const { fundo_troco, operador } = req.body;
+  const fundo = parseFloat(String(fundo_troco || '0').replace(',', '.')) || 0;
+  const tid = resolveTenantId(req);
+  const roomId = (Number.isFinite(tid) && tid > 0) ? `restaurante_${tid}` : null;
+
+  withTenant(req, () => {
+    db.get(`SELECT id FROM turnos_caixa WHERE status = 'Aberto' ORDER BY id DESC LIMIT 1`, [], (err, aberto) => {
+      if (aberto) return res.status(400).json({ error: 'Já existe um caixa aberto.' });
+
+      db.run(`INSERT INTO turnos_caixa (status, fundo_troco, data_abertura) VALUES ('Aberto', ?, datetime('now', 'localtime'))`, [fundo], function(errIns) {
+        if (errIns) return res.status(500).json({ error: 'Erro ao abrir caixa.' });
+        const novoTurnoId = this.lastID;
+
+        if (fundo > 0) {
+          db.run(`INSERT INTO movimentacoes (turno_id, tipo, valor, forma_pagamento, descricao, data) VALUES (?, 'Entrada', ?, 'Dinheiro', ?, datetime('now', 'localtime'))`,
+            [novoTurnoId, fundo, `Fundo de Troco Inicial (${operador || 'Caixa Lite'})`]
+          );
+        }
+
+        if (roomId) io.to(roomId).emit('atualizacao_caixa');
+        else io.emit('atualizacao_caixa');
+
+        res.json({ success: true, turnoId: novoTurnoId, message: 'Caixa aberto com sucesso!' });
+      });
+    });
+  });
+});
+
+// POST /api/retro/caixa/fechar — fechar turno de caixa
+app.post('/api/retro/caixa/fechar', (req, res) => {
+  const tid = resolveTenantId(req);
+  const roomId = (Number.isFinite(tid) && tid > 0) ? `restaurante_${tid}` : null;
+
+  withTenant(req, () => {
+    db.get(`SELECT * FROM turnos_caixa WHERE status = 'Aberto' ORDER BY id DESC LIMIT 1`, [], (err, turno) => {
+      if (!turno) return res.status(400).json({ error: 'Nenhum caixa aberto para fechar.' });
+
+      db.run(`UPDATE turnos_caixa SET status = 'Fechado', data_fechamento = datetime('now', 'localtime') WHERE id = ?`, [turno.id], function(errUp) {
+        if (errUp) return res.status(500).json({ error: 'Erro ao fechar caixa.' });
+
+        if (roomId) io.to(roomId).emit('atualizacao_caixa');
+        else io.emit('atualizacao_caixa');
+
+        res.json({ success: true, message: 'Caixa fechado com sucesso!' });
+      });
+    });
+  });
+});
+
+// POST /api/retro/caixa/movimentacao — sangria ou reforço/suprimento
+app.post('/api/retro/caixa/movimentacao', (req, res) => {
+  const { tipo, valor, forma_pagamento, descricao } = req.body;
+  const valNum = parseFloat(String(valor || '0').replace(',', '.')) || 0;
+  if (valNum <= 0) return res.status(400).json({ error: 'Valor inválido.' });
+
+  const tipoNormalizado = (tipo === 'Sangria' || tipo === 'saida') ? 'Saída' : 'Entrada';
+  const tid = resolveTenantId(req);
+  const roomId = (Number.isFinite(tid) && tid > 0) ? `restaurante_${tid}` : null;
+
+  withTenant(req, () => {
+    db.get(`SELECT id FROM turnos_caixa WHERE status = 'Aberto' ORDER BY id DESC LIMIT 1`, [], (err, turno) => {
+      if (!turno) return res.status(400).json({ error: 'O caixa está fechado.' });
+
+      db.run(`INSERT INTO movimentacoes (turno_id, tipo, valor, forma_pagamento, descricao, data) VALUES (?, ?, ?, ?, ?, datetime('now', 'localtime'))`,
+        [turno.id, tipoNormalizado, valNum, forma_pagamento || 'Dinheiro', descricao || (tipoNormalizado === 'Saída' ? 'Sangria' : 'Suprimento')],
+        function(errIns) {
+          if (errIns) return res.status(500).json({ error: 'Erro ao registrar movimentação.' });
+
+          if (roomId) io.to(roomId).emit('atualizacao_caixa');
+          else io.emit('atualizacao_caixa');
+
+          res.json({ success: true, message: 'Movimentação registrada com sucesso!' });
+        }
+      );
+    });
   });
 });
 
@@ -11044,6 +11349,14 @@ function verificarToken(req, res, next) {
       next();
     });
   });
+}
+
+// ─── Plugin Pix & QR Code Dinâmico ───
+try {
+  require('./plugins/pix')({ app, db, io });
+  console.log('[Pix] Plugin Pix e QR Code Dinâmico inicializado.');
+} catch (e) {
+  console.error('[Pix] Falha ao inicializar plugin Pix:', e);
 }
 
 // ─── App Store de Temas (catálogo global, curadoria e aplicação por restaurante) ───

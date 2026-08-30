@@ -14,7 +14,8 @@
 
 const fs = require('fs');
 const path = require('path');
-const sqlite3 = require('sqlite3').verbose();
+let sqlite3;
+try { sqlite3 = require('sqlite3').verbose(); } catch (e) { sqlite3 = require('./sqlite3-adapter').verbose(); }
 
 const args = process.argv.slice(2);
 if (args.length < 2) {

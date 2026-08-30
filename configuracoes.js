@@ -1151,6 +1151,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       if (tabId === 'metricas' && typeof window.carregarMetricasGarcons === 'function') window.carregarMetricasGarcons();
       if (tabId === 'formas-pagamento' && typeof window.carregarFormasPagamento === 'function') window.carregarFormasPagamento();
+      if (tabId === 'pix-integracao' && typeof window.carregarConfiguracaoPixIntegracao === 'function') window.carregarConfiguracaoPixIntegracao();
       if (tabId === 'pins' && socket && typeof socket.emit === 'function') socket.emit('listar_pins_temporarios');
       if (tabId === 'promocoes') {
         if (socket && typeof socket.emit === 'function') socket.emit('get_cupons_list');
@@ -10018,4 +10019,323 @@ window.salvarMarcaSuporteUI = function() {
 
   document.addEventListener('DOMContentLoaded', () => {
     window.renderizarConfiguracaoModulosHome();
+    if (typeof window.carregarConfiguracaoPixIntegracao === 'function') {
+      window.carregarConfiguracaoPixIntegracao();
+    }
   });
+
+  /* ─────────────────────────────────────────────────────────────
+     MÓDULO: INTEGRAÇÃO CHAVE PIX & GERADOR DE QR CODE DINÂMICO
+  ───────────────────────────────────────────────────────────── */
+  (function() {
+    let _pixConfigCache = null;
+
+    function sanitizeTexto(t, maxLen) {
+      if (!t) return '';
+      return String(t)
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^A-Za-z0-9 ]/g, '')
+        .toUpperCase()
+        .trim()
+        .slice(0, maxLen);
+    }
+
+    window.onPixTipoChaveChange = function() {
+      const tipo = document.getElementById('cfg-pix-tipo-chave')?.value || 'cpf';
+      const hint = document.getElementById('pix-chave-hint');
+      const input = document.getElementById('cfg-pix-chave');
+      if (!input) return;
+
+      if (tipo === 'cpf') {
+        input.placeholder = '000.000.000-00 ou 00000000000';
+        if (hint) hint.innerText = 'Ex: 123.456.789-00';
+      } else if (tipo === 'cnpj') {
+        input.placeholder = '00.000.000/0000-00 ou 00000000000000';
+        if (hint) hint.innerText = 'Ex: 12.345.678/0001-90';
+      } else if (tipo === 'telefone') {
+        input.placeholder = '+55 11 99999-9999 ou 11999999999';
+        if (hint) hint.innerText = 'Ex: +55 (11) 98765-4321';
+      } else if (tipo === 'email') {
+        input.placeholder = 'financeiro@seurestaurante.com.br';
+        if (hint) hint.innerText = 'Ex: pix@empresa.com';
+      } else if (tipo === 'aleatoria') {
+        input.placeholder = '123e4567-e89b-12d3-a456-426614174000';
+        if (hint) hint.innerText = 'Chave EVP / UUID do Banco Central';
+      }
+    };
+
+    window.onPixChaveInput = function() {
+      const chave = document.getElementById('cfg-pix-chave')?.value || '';
+      window.atualizarBadgeStatusPix(chave);
+    };
+
+    window.onPixNomeInput = function() {
+      const el = document.getElementById('cfg-pix-nome-recebedor');
+      const counter = document.getElementById('pix-nome-counter');
+      if (!el) return;
+      if (counter) counter.innerText = `${el.value.length}/25`;
+    };
+
+    window.onPixCidadeInput = function() {
+      const el = document.getElementById('cfg-pix-cidade');
+      const counter = document.getElementById('pix-cidade-counter');
+      if (!el) return;
+      if (counter) counter.innerText = `${el.value.length}/15`;
+    };
+
+    window.atualizarBadgeStatusPix = function(chave) {
+      const badge = document.getElementById('pix-status-badge');
+      if (!badge) return;
+      const temChave = Boolean(chave && String(chave).trim().length > 3);
+      if (temChave) {
+        badge.style.background = 'rgba(16, 185, 129, 0.15)';
+        badge.style.color = '#10b981';
+        badge.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+        badge.innerHTML = '<i class="ph ph-check-circle"></i> Configurado & Ativo';
+      } else {
+        badge.style.background = 'rgba(245, 158, 11, 0.15)';
+        badge.style.color = '#f59e0b';
+        badge.style.borderColor = 'rgba(245, 158, 11, 0.3)';
+        badge.innerHTML = '<i class="ph ph-warning"></i> Chave Pix Pendente';
+      }
+    };
+
+    window.colarChavePixClipboard = async function() {
+      try {
+        if (navigator.clipboard && navigator.clipboard.readText) {
+          const texto = await navigator.clipboard.readText();
+          const input = document.getElementById('cfg-pix-chave');
+          if (input && texto) {
+            input.value = texto.trim();
+            window.onPixChaveInput();
+            if (typeof showToast === 'function') showToast('Chave Pix colada!', 'info');
+          }
+        }
+      } catch (err) {
+        console.warn('Clipboard read error:', err);
+      }
+    };
+
+    window.carregarConfiguracaoPixIntegracao = function() {
+      fetch('/api/pix/config')
+        .then(r => r.json())
+        .then(res => {
+          if (res && res.ok && res.config) {
+            const c = res.config;
+            _pixConfigCache = c;
+
+            const elTipo = document.getElementById('cfg-pix-tipo-chave');
+            const elChave = document.getElementById('cfg-pix-chave');
+            const elNome = document.getElementById('cfg-pix-nome-recebedor');
+            const elCidade = document.getElementById('cfg-pix-cidade');
+            const elTxid = document.getElementById('cfg-pix-txid-prefix');
+            const elAuto = document.getElementById('cfg-pix-auto-qr-venda');
+            const elAtivo = document.getElementById('cfg-pix-ativo');
+
+            if (elTipo && c.pix_tipo_chave) elTipo.value = c.pix_tipo_chave;
+            if (elChave && c.pix_chave !== undefined) elChave.value = c.pix_chave;
+            if (elNome && c.pix_nome_recebedor !== undefined) elNome.value = c.pix_nome_recebedor;
+            if (elCidade && c.pix_cidade !== undefined) elCidade.value = c.pix_cidade;
+            if (elTxid && c.pix_txid_prefix !== undefined) elTxid.value = c.pix_txid_prefix;
+            if (elAuto) elAuto.checked = (c.pix_auto_qr_venda !== 'false');
+            if (elAtivo) elAtivo.checked = (c.pix_ativo !== 'false');
+
+            window.onPixTipoChaveChange();
+            window.onPixNomeInput();
+            window.onPixCidadeInput();
+            window.atualizarBadgeStatusPix(c.pix_chave);
+
+            // Dispara simulador de teste
+            setTimeout(() => {
+              if (typeof window.testarPixDinamicoSimulador === 'function') {
+                window.testarPixDinamicoSimulador();
+              }
+            }, 250);
+          }
+        })
+        .catch(err => {
+          console.warn('[Pix Config Load Error]', err);
+        });
+    };
+
+    window.salvarConfiguracaoPixIntegracao = function() {
+      const elTipo = document.getElementById('cfg-pix-tipo-chave');
+      const elChave = document.getElementById('cfg-pix-chave');
+      const elNome = document.getElementById('cfg-pix-nome-recebedor');
+      const elCidade = document.getElementById('cfg-pix-cidade');
+      const elTxid = document.getElementById('cfg-pix-txid-prefix');
+      const elAuto = document.getElementById('cfg-pix-auto-qr-venda');
+      const elAtivo = document.getElementById('cfg-pix-ativo');
+
+      const chave = (elChave?.value || '').trim();
+      const nome = sanitizeTexto(elNome?.value || 'CHEF COZINHA', 25);
+      const cidade = sanitizeTexto(elCidade?.value || 'BRASIL', 15);
+      const tipo = elTipo?.value || 'cpf';
+      const txidPrefix = (elTxid?.value || 'VD').replace(/[^A-Za-z0-9]/g, '').slice(0, 5) || 'VD';
+      const autoQr = elAuto?.checked ? 'true' : 'false';
+      const ativo = elAtivo?.checked ? 'true' : 'false';
+
+      if (!chave && elAtivo?.checked) {
+        if (typeof showToast === 'function') showToast('Por favor, informe a Chave Pix do estabelecimento.', 'warning');
+        else alert('Por favor, informe a Chave Pix do estabelecimento.');
+        if (elChave) elChave.focus();
+        return;
+      }
+
+      const payload = {
+        pix_tipo_chave: tipo,
+        pix_chave: chave,
+        pix_nome_recebedor: nome,
+        pix_cidade: cidade,
+        pix_txid_prefix: txidPrefix,
+        pix_auto_qr_venda: autoQr,
+        pix_ativo: ativo
+      };
+
+      const btn1 = document.getElementById('btn-salvar-pix-topo');
+      const btn2 = document.getElementById('btn-salvar-pix-form');
+      if (btn1) btn1.disabled = true;
+      if (btn2) btn2.disabled = true;
+
+      fetch('/api/pix/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+        .then(r => r.json())
+        .then(res => {
+          if (btn1) btn1.disabled = false;
+          if (btn2) btn2.disabled = false;
+
+          if (res && res.ok) {
+            _pixConfigCache = res.config || payload;
+            window.atualizarBadgeStatusPix(chave);
+            if (typeof showToast === 'function') {
+              showToast('Configurações Pix e QR Code Dinâmico salvas com sucesso!', 'success');
+            } else {
+              alert('Configurações Pix e QR Code Dinâmico salvas com sucesso!');
+            }
+            // Atualiza simulador
+            window.testarPixDinamicoSimulador();
+          } else {
+            const erroMsg = res?.erro || 'Erro ao salvar configurações Pix.';
+            if (typeof showToast === 'function') showToast(erroMsg, 'error');
+            else alert(erroMsg);
+          }
+        })
+        .catch(err => {
+          if (btn1) btn1.disabled = false;
+          if (btn2) btn2.disabled = false;
+          console.error('[Salvar Pix Error]', err);
+          if (typeof showToast === 'function') showToast('Erro de conexão ao salvar Pix.', 'error');
+          else alert('Erro de conexão ao salvar Pix.');
+        });
+    };
+
+    window.testarPixDinamicoSimulador = function() {
+      const valorInput = document.getElementById('simulador-pix-valor');
+      const refInput = document.getElementById('simulador-pix-ref');
+      const chaveInput = document.getElementById('cfg-pix-chave');
+      const nomeInput = document.getElementById('cfg-pix-nome-recebedor');
+      const cidadeInput = document.getElementById('cfg-pix-cidade');
+
+      const valor = parseFloat(valorInput?.value || '49.90');
+      const ref = (refInput?.value || 'Mesa 05').trim();
+      const chave = (chaveInput?.value || _pixConfigCache?.pix_chave || '').trim();
+      const nome = (nomeInput?.value || _pixConfigCache?.pix_nome_recebedor || '').trim();
+      const cidade = (cidadeInput?.value || _pixConfigCache?.pix_cidade || '').trim();
+
+      const img = document.getElementById('simulador-pix-qr-img');
+      const txt = document.getElementById('simulador-pix-copiacola');
+      const valDisplay = document.getElementById('simulador-pix-valor-display');
+      const detBeneficiario = document.getElementById('simulador-detalhe-beneficiario');
+      const detCidade = document.getElementById('simulador-detalhe-cidade');
+      const detTxid = document.getElementById('simulador-detalhe-txid');
+
+      if (valDisplay) {
+        valDisplay.innerText = Number.isFinite(valor) && valor > 0
+          ? `R$ ${valor.toFixed(2).replace('.', ',')}`
+          : 'Valor Aberto';
+      }
+
+      fetch('/api/pix/gerar-dinamico', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          valor: valor > 0 ? valor : 0,
+          ref,
+          chave_custom: chave || undefined,
+          nome_custom: nome || undefined,
+          cidade_custom: cidade || undefined
+        })
+      })
+        .then(r => r.json())
+        .then(d => {
+          if (d && d.ok) {
+            if (img) {
+              if (d.qrCodeDataUrl) {
+                img.src = d.qrCodeDataUrl;
+                img.style.display = 'block';
+              } else if (typeof window.gerarQrDataUrl === 'function') {
+                window.gerarQrDataUrl(d.payload, 200, url => {
+                  img.src = url;
+                  img.style.display = 'block';
+                });
+              }
+            }
+            if (txt) txt.value = d.payload;
+            if (detBeneficiario) detBeneficiario.innerText = d.nome || '-';
+            if (detCidade) detCidade.innerText = d.cidade || '-';
+            if (detTxid) detTxid.innerText = d.txid || '-';
+          } else {
+            if (txt) txt.value = d?.erro || 'Preencha sua Chave Pix acima para gerar o QR Code.';
+          }
+        })
+        .catch(err => {
+          console.warn('[Simulador Pix Error]', err);
+        });
+    };
+
+    window.copiarPixSimulador = function() {
+      const txt = document.getElementById('simulador-pix-copiacola');
+      if (!txt || !txt.value) return;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(txt.value).then(() => {
+          if (typeof showToast === 'function') showToast('Código Pix EMV copiado com sucesso!', 'success');
+          else alert('Código Pix copiado!');
+        });
+      } else {
+        txt.select();
+        document.execCommand('copy');
+        if (typeof showToast === 'function') showToast('Código Pix copiado!', 'success');
+        else alert('Código Pix copiado!');
+      }
+    };
+
+    window.baixarPixSimuladorQr = function() {
+      const img = document.getElementById('simulador-pix-qr-img');
+      if (!img || !img.src) {
+        if (typeof showToast === 'function') showToast('Gere o QR Code primeiro.', 'warning');
+        return;
+      }
+      const a = document.createElement('a');
+      a.href = img.src;
+      a.download = `pix-qrcode-dinamico-${Date.now()}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      if (typeof showToast === 'function') showToast('Download do QR Code iniciado!', 'info');
+    };
+
+    // Atualiza automaticamente quando receber evento via socket
+    if (window.socket && typeof window.socket.on === 'function') {
+      window.socket.on('pix_config_atualizada', (cfg) => {
+        if (cfg) {
+          _pixConfigCache = cfg;
+          window.atualizarBadgeStatusPix(cfg.pix_chave);
+        }
+      });
+    }
+  })();
+
