@@ -1233,6 +1233,28 @@
   </div>
 
 
+  <!-- MONTE O SEU (ITENS MONTÁVEIS) MODAL -->
+  <div id="modal-montavel-pdv"
+    style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.75); z-index: 100001; justify-content: center; align-items: center;">
+    <div style="background: var(--bg-card); padding: 24px; border-radius: 14px; width: 460px; max-width: 92vw; max-height: 90vh; overflow-y: auto;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <h2 style="margin: 0; font-size: 18px;"><i class="ph ph-puzzle-piece" style="color:#8b5cf6;"></i>
+          <span id="montavel-pdv-titulo">Monte o Seu</span>
+        </h2>
+        <button onclick="window.fecharMontavelPdv()"
+          style="background: none; border: none; cursor: pointer; font-size: 24px;">×</button>
+      </div>
+      <div id="montavel-pdv-cats" style="max-height: 50vh; overflow-y: auto; border:1px solid var(--border-color); border-radius:10px; padding:12px; background: rgba(0,0,0,0.02);"></div>
+      <div id="montavel-pdv-preco" style="margin-top: 12px; font-weight: 800; font-size: 17px; color:#8b5cf6; text-align:center; background: rgba(139,92,246,0.08); border:1px dashed #8b5cf6; border-radius:10px; padding:10px;"></div>
+      <div style="display: flex; gap: 10px; margin-top: 16px;">
+        <button onclick="window.fecharMontavelPdv()"
+          style="flex: 1; padding: 12px; background: #eee; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">Cancelar</button>
+        <button id="btn-confirmar-montavel-pdv" onclick="window.confirmarMontavelPdv()"
+          style="flex: 1; padding: 12px; background: #8b5cf6; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">Adicionar ao pedido</button>
+      </div>
+    </div>
+  </div>
+
   <!-- RELATORIOS OVERLAY -->
   <div id="relatorios-overlay"
     style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.8); z-index: 9999; justify-content: center; align-items: center;">

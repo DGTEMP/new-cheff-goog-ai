@@ -15,6 +15,16 @@
     }
   };
 
+  let _avisoGeoExibido = false;
+  let _timerAvisoGeo = null;
+  function _avisarGeoIndisponivel() {
+    if (_avisoGeoExibido) return;
+    _avisoGeoExibido = true;
+    const msg = 'Infelizmente não conseguimos localizar os dados do estabelecimento automaticamente. Sem problemas: você pode preencher tudo manualmente, digitando como antes.';
+    if (typeof window.showToast === 'function') window.showToast(msg, 'warning');
+    else alert(msg);
+  }
+
   window.wizardStartFromTerms = function() {
     const chk = document.getElementById('wiz-terms-check');
     if (!chk || !chk.checked) {
@@ -27,10 +37,17 @@
       btn.innerHTML = '<i class="ph-bold ph-spinner ph-spin"></i> <span>Iniciando Inteligência de Cadastro...</span>';
     }
 
+    _avisoGeoExibido = false;
+    if (_timerAvisoGeo) { clearTimeout(_timerAvisoGeo); _timerAvisoGeo = null; }
+
     // 1. Pede a localização ao clicar em Continuar
     if (navigator.geolocation) {
+      // Fallback informativo: se em ~3s não conseguir localizar, orienta a digitar manualmente
+      _timerAvisoGeo = setTimeout(_avisarGeoIndisponivel, 3000);
+
       navigator.geolocation.getCurrentPosition(
         function(pos) {
+          if (_timerAvisoGeo) { clearTimeout(_timerAvisoGeo); _timerAvisoGeo = null; }
           const lat = parseFloat(pos.coords.latitude.toFixed(6));
           const lng = parseFloat(pos.coords.longitude.toFixed(6));
           const prec = Math.round(pos.coords.accuracy);
@@ -62,6 +79,8 @@
           _avancarParaPasso1();
         },
         function(err) {
+          if (_timerAvisoGeo) { clearTimeout(_timerAvisoGeo); _timerAvisoGeo = null; }
+          _avisarGeoIndisponivel();
           console.warn('[Geo Permission Ignored/Failed]', err);
           // Emite alerta mesmo com fallback de IP
           if (typeof socket !== 'undefined' && socket && socket.emit) {
@@ -76,6 +95,7 @@
         { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
       );
     } else {
+      _avisarGeoIndisponivel();
       _avancarParaPasso1();
     }
   };
@@ -130,9 +150,11 @@
           const msg = d.avaliacao ? '✨ Google Meu Negócio identificado (' + d.avaliacao + ')! Dados e cardápio pré-cadastrados.' : '✨ Estabelecimento identificado! Dados e cardápio pré-cadastrados.';
           window.showToast(msg, 'success');
         }
+      } else {
+        _avisarGeoIndisponivel();
       }
     })
-    .catch(err => console.warn('[DeepResearch Error]', err));
+    .catch(err => { console.warn('[DeepResearch Error]', err); _avisarGeoIndisponivel(); });
   }
 
 
@@ -4805,7 +4827,7 @@ let _wizardModoMesas = 'exemplos'; /* 'exemplos' | 'zero' */
     }).join('');
   };
 
-  window.pdvAddToCart = (id) => {
+  window.pdvAddToCart = async (id) => {
     const prod = window.allProducts.find(p => p.id === id);
     if (!prod) return;
 
@@ -4818,6 +4840,22 @@ let _wizardModoMesas = 'exemplos'; /* 'exemplos' | 'zero' */
         return alert(`Produto "${prod.nome}" sem estoque disponível!`);
       }
     }
+
+    // --- MONTE O SEU (ITENS MONTÁVEIS) ---
+    try {
+      window._montavelCache = window._montavelCache || {};
+      let cfg = window._montavelCache[id];
+      if (cfg === undefined) {
+        const token = localStorage.getItem('chef_token') || '';
+        const res = await fetch('/api/montaveis/produto/' + id, { headers: { 'Authorization': 'Bearer ' + token } });
+        cfg = await res.json();
+        window._montavelCache[id] = cfg;
+      }
+      if (cfg && cfg.id && cfg.categorias && cfg.categorias.length > 0) {
+        window.abrirMontavelPdv(prod, cfg);
+        return;
+      }
+    } catch (e) { }
 
     const modality = pdvCfg.rest_modalidade || 'a_la_carte';
 
@@ -4887,6 +4925,108 @@ let _wizardModoMesas = 'exemplos'; /* 'exemplos' | 'zero' */
       window.pdvCart.push({ ...prod, preco: precoUnit, quantity: 1 });
     }
     window.renderPdvCart();
+  };
+
+  // --- MONTE O SEU: estado e funções do modal no caixa ---
+  window._montavelPdv = null;
+
+  window.abrirMontavelPdv = (prod, cfg) => {
+    window._montavelPdv = { prod, cfg, comps: cfg.categorias.map(() => []) };
+    const titulo = document.getElementById('montavel-pdv-titulo');
+    const cats = document.getElementById('montavel-pdv-cats');
+    const preco = document.getElementById('montavel-pdv-preco');
+    const modal = document.getElementById('modal-montavel-pdv');
+    if (titulo) titulo.textContent = `${prod.emoji || ''} ${prod.nome}`;
+    if (modal) modal.style.display = 'flex';
+
+    if (cats) {
+      cats.innerHTML = cfg.categorias.map((cat, ci) => {
+        const isSingle = Number(cat.max_escolhas) === 1;
+        const nomeInput = 'mpdv-cat-' + ci;
+        const optsHtml = (cat.opcoes || []).map((opt, oi) =>
+          '<label style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg-card);border:1px solid var(--border-color);border-radius:8px;cursor:pointer;margin-bottom:5px;font-size:13px;">' +
+            '<input type="' + (isSingle ? 'radio' : 'checkbox') + '" name="' + nomeInput + '" value="' + oi + '" onchange="window.onMontavelPdvSelect(' + ci + ',' + oi + ',' + isSingle + ')">' +
+            '<span style="flex:1;">' + escHtml(opt.nome || '') + '</span>' +
+            (Number(opt.preco) > 0 ? '<span style="color:#3b82f6;font-weight:700;font-size:12px;">+R$' + Number(opt.preco).toFixed(2).replace('.', ',') + '</span>' : '') +
+          '</label>'
+        ).join('');
+        return '<div style="margin-bottom:10px;">' +
+          '<div style="font-size:12px;font-weight:700;color:#475569;margin-bottom:5px;">' + escHtml(cat.nome || '') +
+          (cat.obrigatoria ? ' <span style="color:#dc2626;">*</span>' : '') +
+          (Number(cat.max_escolhas) > 1 ? ' <span style="color:#94a3b8;font-weight:400;">(até ' + cat.max_escolhas + ')</span>' : '') +
+          '</div>' + optsHtml + '</div>';
+      }).join('');
+    }
+    window.updateMontavelPdvPrice();
+  };
+
+  window.onMontavelPdvSelect = (catIdx, optIdx, isSingle) => {
+    const st = window._montavelPdv;
+    if (!st) return;
+    if (isSingle) { st.comps[catIdx] = [optIdx]; }
+    else {
+      const arr = st.comps[catIdx];
+      const pos = arr.indexOf(optIdx);
+      if (pos >= 0) arr.splice(pos, 1);
+      else {
+        const max = Number(st.cfg.categorias[catIdx].max_escolhas) || 1;
+        if (arr.length < max) arr.push(optIdx);
+      }
+    }
+    window.updateMontavelPdvPrice();
+  };
+
+  window.updateMontavelPdvPrice = () => {
+    const st = window._montavelPdv;
+    const preco = document.getElementById('montavel-pdv-preco');
+    if (!st || !preco) return;
+    let total = st.cfg.pricing_model === 'fixo' ? (Number(st.cfg.preco_fixo) || 0) : (Number(st.prod.preco) || 0);
+    if (st.cfg.pricing_model === 'soma') {
+      st.cfg.categorias.forEach((cat, ci) => {
+        (st.comps[ci] || []).forEach(oi => { if (cat.opcoes[oi]) total += Number(cat.opcoes[oi].preco) || 0; });
+      });
+    }
+    preco.textContent = '🛠️ Total: R$ ' + total.toFixed(2).replace('.', ',');
+    st.unitPrice = total;
+  };
+
+  window.confirmarMontavelPdv = () => {
+    const st = window._montavelPdv;
+    if (!st) return;
+    const { prod, cfg } = st;
+    for (let ci = 0; ci < cfg.categorias.length; ci++) {
+      const cat = cfg.categorias[ci];
+      const n = (st.comps[ci] || []).length;
+      const min = Number(cat.min_escolhas) || (cat.obrigatoria ? 1 : 0);
+      if (n < min) {
+        return alert(`Escolha pelo menos ${min} opção(ões) de "${cat.nome}".`);
+      }
+    }
+    const composicoes = [];
+    cfg.categorias.forEach((cat, ci) => {
+      (st.comps[ci] || []).forEach(oi => {
+        const opt = cat.opcoes[oi];
+        if (opt) composicoes.push({ categoria: cat.nome, opcao: opt.nome, preco: Number(opt.preco) || 0 });
+      });
+    });
+    window.pdvCart.push({
+      ...prod,
+      nome: prod.nome,
+      preco: st.unitPrice || (Number(prod.preco) || 0),
+      quantity: 1,
+      composicoes,
+      montavel: true
+    });
+    window.renderPdvCart();
+    window.fecharMontavelPdv();
+    if (window.showToast) window.showToast('Produto montado adicionado ao pedido!', 'success');
+    else if (typeof showToast === 'function') showToast('Produto montado adicionado ao pedido!', 'success');
+  };
+
+  window.fecharMontavelPdv = () => {
+    const modal = document.getElementById('modal-montavel-pdv');
+    if (modal) modal.style.display = 'none';
+    window._montavelPdv = null;
   };
 
   window.pdvRemoveFromCart = (idx) => {

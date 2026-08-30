@@ -1175,7 +1175,6 @@ document.addEventListener('DOMContentLoaded', () => {
       if (tabId === 'auditoria' && typeof window.carregarLogsAuditoria === 'function') window.carregarLogsAuditoria();
       if (tabId === 'backup' && typeof window.carregarHistoricoBackups === 'function') window.carregarHistoricoBackups();
       if (tabId === 'funcoes' && typeof carregarFuncoesSistema === 'function') carregarFuncoesSistema();
-      if (tabId === 'appscript' && socket && typeof socket.emit === 'function') socket.emit('get_license_config');
     } catch (errLazy) {
       console.warn('[config tab lazy-load error]', tabId, errLazy);
     }
@@ -2759,36 +2758,72 @@ window.printCupomDetalhe = () => {
 
 
 
-socket.on('cupom_criado_sucesso', (data) => {
+function _exibirCupomQrGerado(data) {
   const resDiv = document.getElementById('cupom-qr-result');
-  if (resDiv) {
-    resDiv.style.display = 'flex';
-    document.getElementById('cupom-qr-title').innerText = data.titulo || 'CUPOM PROMOCIONAL';
-    document.getElementById('cupom-qr-code-text').innerText = data.codigo;
+  if (!resDiv) return;
+  resDiv.style.display = 'flex';
+  const titleEl = document.getElementById('cupom-qr-title');
+  if (titleEl) titleEl.innerText = data.titulo || 'CUPOM PROMOCIONAL';
+  const codeEl = document.getElementById('cupom-qr-code-text');
+  if (codeEl) codeEl.innerText = data.codigo;
 
-    const imgCupom = document.getElementById('cupom-qr-image');
-    if (imgCupom) {
-      imgCupom.style.display = 'none';
-      if (typeof window.qrImg === 'function') {
-        try {
-          window.qrImg(imgCupom, data.codigo, 200);
-          setTimeout(() => { imgCupom.style.display = 'block'; }, 150);
-        } catch (e) {
-          console.error('[Cupom QR] Erro ao gerar QR:', e);
-          imgCupom.style.display = 'block';
-        }
-      } else {
-        imgCupom.src = (window.location.origin || '') + '/api/qr?size=200&data=' + encodeURIComponent(data.codigo);
+  const imgCupom = document.getElementById('cupom-qr-image');
+  if (imgCupom) {
+    imgCupom.style.display = 'none';
+    if (typeof window.qrImg === 'function') {
+      try {
+        window.qrImg(imgCupom, data.codigo, 200);
+        setTimeout(() => { imgCupom.style.display = 'block'; }, 150);
+      } catch (e) {
+        console.error('[Cupom QR] Erro ao gerar QR:', e);
         imgCupom.style.display = 'block';
       }
+    } else {
+      imgCupom.src = (window.location.origin || '') + '/api/qr?size=200&data=' + encodeURIComponent(data.codigo);
+      imgCupom.style.display = 'block';
     }
-
-    /* Scroll to QR result */
-    setTimeout(() => {
-      resDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }, 200);
   }
+
+  /* Scroll to QR result */
+  setTimeout(() => {
+    resDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 200);
+}
+
+socket.on('cupom_criado_sucesso', (data) => {
+  _exibirCupomQrGerado(data);
 });
+
+// Gera cupom promocional (QR) em 1 clique a partir de uma sugestão de combo da IA
+window.gerarCupomPromocaoIA = async function(encodedPromo) {
+  try {
+    const p = JSON.parse(decodeURIComponent(encodedPromo));
+    const res = await fetch('/api/ia/cupom-rapido', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        titulo: p.titulo,
+        codigo: String((p.titulo || 'PROMO').split(' ').slice(0, 3).join('-')).toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 12),
+        preco_original: p.preco_original,
+        preco_promocional: p.preco_promocional,
+        desconto_percentual: p.desconto_percentual,
+        produtos_envolvidos: p.produtos_envolvidos,
+        validade_dias: 7
+      })
+    });
+    const data = await res.json();
+    if (!data || !data.ok) {
+      if (typeof window.showToast === 'function') window.showToast(data.erro || 'Erro ao criar cupom.', 'error');
+      else alert(data.erro || 'Erro ao criar cupom.');
+      return;
+    }
+    if (typeof window.showToast === 'function') window.showToast(data.mensagem || ('Cupom ' + data.codigo + ' criado!'), 'success');
+    _exibirCupomQrGerado({ titulo: data.titulo, codigo: data.codigo });
+  } catch (err) {
+    if (typeof window.showToast === 'function') window.showToast('Erro ao gerar cupom: ' + err.message, 'error');
+    else alert('Erro ao gerar cupom: ' + err.message);
+  }
+};
 
 socket.on('cupom_criado_error', (msg) => {
   window.showToast('Erro ao criar cupom: ' + msg, 'error');
@@ -5522,28 +5557,6 @@ socket.on('license_status', (data) => {
   renderLicenseStatus(data);
 });
 
-socket.on('license_config_loaded', (cfg) => {
-  if (cfg.scriptUrl) document.getElementById('cfg-script-url').value = cfg.scriptUrl;
-  if (cfg.sheetId) document.getElementById('cfg-sheet-id').value = cfg.sheetId;
-  if (cfg.trialDias) document.getElementById('cfg-trial-dias').value = cfg.trialDias;
-  if (cfg.hubUrl) document.getElementById('cfg-hub-url').value = cfg.hubUrl;
-  const chk = document.getElementById('cfg-modo-offline');
-  if (chk) chk.checked = !!cfg.modoOffline;
-});
-
-socket.on('license_config_saved', (res) => {
-  showCfgMsg(res.ok ? 'success' : 'error',
-    res.ok ? '✓ Configurações salvas com sucesso!' : '✗ Erro ao salvar: ' + res.error);
-});
-
-socket.on('license_test_result', (res) => {
-  if (res.ok) {
-    showCfgMsg('success', `✓ Conexão OK! Resposta: ${JSON.stringify(res.data)}`);
-  } else {
-    showCfgMsg('error', `✗ Falha na conexão: ${res.error}`);
-  }
-});
-
 socket.on('license_activated', (result) => {
   const btn = document.getElementById('lic-btn-ativar');
   if (btn) { btn.disabled = false; btn.textContent = 'Ativar'; }
@@ -5649,43 +5662,9 @@ function ativarLicenca() {
   socket.emit('activate_license', { chave });
 }
 
-// Salvar configuração do Apps Script
-function salvarConfigLicenca() {
-  solicitarAutorizacaoAdmin('Configuração de Licença', (senha) => {
-    const scriptUrl = document.getElementById('cfg-script-url')?.value.trim();
-    const sheetId = document.getElementById('cfg-sheet-id')?.value.trim();
-    const trialDias = parseInt(document.getElementById('cfg-trial-dias')?.value) || 14;
-    const modoOffline = document.getElementById('cfg-modo-offline')?.checked || false;
-    const hubUrl = document.getElementById('cfg-hub-url')?.value.trim();
-    socket.emit('save_license_config', { scriptUrl, sheetId, trialDias, modoOffline, hubUrl, senha });
-  });
-}
-
-// Testar conexão com o Apps Script
-function testarConexaoScript() {
-  const btn = document.querySelector('button[onclick="testarConexaoScript()"]');
-  if (btn) { btn.disabled = true; btn.textContent = 'Testando...'; }
-  socket.emit('test_license_connection');
-  setTimeout(() => { if (btn) { btn.disabled = false; btn.textContent = 'Testar Conexão'; } }, 5000);
-}
-
-function showCfgMsg(type, text) {
-  const el = document.getElementById('cfg-msg');
-  if (!el) return;
-  el.style.display = 'block';
-  el.style.padding = '12px 16px';
-  el.style.borderRadius = '8px';
-  el.style.color = type === 'success' ? '#166534' : '#991b1b';
-  el.style.background = type === 'success' ? '#f0fdf4' : '#fef2f2';
-  el.style.border = `1px solid ${type === 'success' ? '#bbf7d0' : '#fecaca'}`;
-  el.textContent = text;
-  setTimeout(() => { el.style.display = 'none'; }, 6000);
-}
-
-// Ao abrir a aba de licença, pedir status e config salva
+// Ao abrir a aba de licença, pedir status salvo
 document.addEventListener('DOMContentLoaded', () => {
   socket.emit('get_license_status');
-  socket.emit('get_license_config');
 
   // Bind Launch Vale button click
   const addValeBtn = document.getElementById('btn-admin-add-vale');
@@ -6751,6 +6730,9 @@ window.initSoundTab = function () {
   
   const alarmRepeat = document.getElementById('delay-alarm-repeat');
   if (alarmRepeat) alarmRepeat.value = localStorage.getItem('delay-alarm-repeat') || 5;
+
+  const filaMod = document.getElementById('config-fila-modo');
+  if (filaMod) filaMod.value = configs.fila_modo === 'classica' ? 'classica' : 'nova';
 };
 
 window.testSoundConfig = function (key) {
@@ -6769,6 +6751,9 @@ window.saveSoundConfigsUI = function () {
   });
   configs.fila_secoes = obterSecoesFila();
   try { localStorage.setItem('fila_secoes', JSON.stringify(configs.fila_secoes)); } catch (e) {}
+  
+  const filaMod = document.getElementById('config-fila-modo');
+  if (filaMod) configs.fila_modo = filaMod.value;
   
   const alarmTime = document.getElementById('delay-alarm-time');
   if (alarmTime) localStorage.setItem('delay-alarm-time', alarmTime.value);
@@ -9750,11 +9735,16 @@ window.salvarMarcaSuporteUI = function() {
                 </div>
               </div>
 
-              <!-- Ações da Promoção -->
+<!-- Ações da Promoção -->
               <div style="padding: 14px 18px; background: rgba(0,0,0,0.02); border-top: 1px solid var(--cfg-border); display: flex; flex-direction: column; gap: 8px;">
-                <button type="button" onclick="window.aplicarPromocaoIADireto('${promoEncoded}')" style="width: 100%; padding: 10px; background: #10b981; color: white; border: none; border-radius: 10px; font-weight: 800; font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 4px 10px rgba(16,185,129,0.2);">
-                  <i class="ph-bold ph-plus-circle"></i> Adicionar ao Cardápio com 1 Clique
-                </button>
+                <div style="display: flex; gap: 6px;">
+                  <button type="button" onclick="window.aplicarPromocaoIADireto('${promoEncoded}')" style="flex: 1; padding: 10px; background: #10b981; color: white; border: none; border-radius: 10px; font-weight: 800; font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 4px 10px rgba(16,185,129,0.2);">
+                    <i class="ph-bold ph-plus-circle"></i> Adicionar ao Cardápio
+                  </button>
+                  <button type="button" onclick="window.gerarCupomPromocaoIA('${promoEncoded}')" style="flex: 1; padding: 10px; background: #f59e0b; color: white; border: none; border-radius: 10px; font-weight: 800; font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 4px 10px rgba(245,158,11,0.2);">
+                    <i class="ph-bold ph-qr-code"></i> Gerar Cupom QR
+                  </button>
+                </div>
                 <div style="display: flex; gap: 6px;">
                   <button type="button" onclick="window.copiarTextoGenerico('${encodeURIComponent(p.copy_whatsapp || '')}', 'Copiado para WhatsApp!')" style="flex: 1; padding: 7px; background: #25D366; color: white; border: none; border-radius: 8px; font-size: 11px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;">
                     <i class="ph-bold ph-whatsapp-logo"></i> WhatsApp

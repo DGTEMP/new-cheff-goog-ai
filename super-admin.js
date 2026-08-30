@@ -3421,6 +3421,70 @@ document.addEventListener('DOMContentLoaded', function() {
       '<div style="font-size:0.75rem;color:var(--text-muted);margin-top:4px;">' + label + '</div></div>';
   }
 
+  /* ═══ APPS SCRIPT & SHEETS — Configuração do servidor de licenças (super admin apenas) ═══ */
+  window.salvarConfigSuperLicenca = function() {
+    var g = function(id) { return document.getElementById(id); };
+    var scriptUrl = (g('super-cfg-script-url') ? g('super-cfg-script-url').value : '').trim();
+    var sheetId = (g('super-cfg-sheet-id') ? g('super-cfg-sheet-id').value : '').trim();
+    var trialDias = parseInt(g('super-cfg-trial-dias') ? g('super-cfg-trial-dias').value : 14, 10) || 14;
+    var modoOffline = g('super-cfg-modo-offline') ? g('super-cfg-modo-offline').checked : false;
+    if (_superAdminSocket) {
+      _superAdminSocket.emit('save_license_config', { scriptUrl: scriptUrl, sheetId: sheetId, trialDias: trialDias, modoOffline: modoOffline });
+    } else {
+      showToast('Socket não disponível. Recarregue o painel.', 'warning');
+    }
+  };
+
+  window.testarConexaoSuperScript = function() {
+    if (_superAdminSocket) _superAdminSocket.emit('test_license_connection');
+    else showToast('Socket não disponível. Recarregue o painel.', 'warning');
+  };
+
+  function _superCfgMsg(tipo, texto) {
+    var el = document.getElementById('super-cfg-msg');
+    if (!el) return;
+    el.style.display = 'block';
+    el.style.padding = '12px 16px';
+    el.style.borderRadius = '8px';
+    el.style.fontWeight = '600';
+    el.style.color = tipo === 'success' ? '#34d399' : '#f87171';
+    el.style.background = tipo === 'success' ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)';
+    el.style.border = '1px solid ' + (tipo === 'success' ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)');
+    el.textContent = texto;
+    setTimeout(function() { el.style.display = 'none'; }, 7000);
+  }
+
+  if (_superAdminSocket) {
+    _superAdminSocket.on('license_config_loaded', function(cfg) {
+      if (!cfg || !document.getElementById('super-cfg-script-url')) return;
+      if (cfg.scriptUrl) document.getElementById('super-cfg-script-url').value = cfg.scriptUrl;
+      if (cfg.sheetId) document.getElementById('super-cfg-sheet-id').value = cfg.sheetId;
+      if (cfg.trialDias) document.getElementById('super-cfg-trial-dias').value = cfg.trialDias;
+      var chk = document.getElementById('super-cfg-modo-offline');
+      if (chk) chk.checked = !!cfg.modoOffline;
+    });
+    _superAdminSocket.on('license_config_saved', function(res) {
+      _superCfgMsg(res && res.ok ? 'success' : 'error', res && res.ok ? '✓ Configurações salvas com sucesso!' : '✗ Erro ao salvar: ' + (res ? res.error : 'Sem resposta'));
+    });
+    _superAdminSocket.on('license_test_result', function(res) {
+      if (res && res.ok) _superCfgMsg('success', '✓ Conexão OK! Resposta: ' + JSON.stringify(res.data));
+      else _superCfgMsg('error', '✗ Falha na conexão: ' + (res ? res.error : 'Sem resposta'));
+    });
+
+    // Ao abrir a seção Licenças, carrega a configuração salva do Apps Script
+    document.body.addEventListener('click', function(e) {
+      var t = e && e.target;
+      while (t && t !== document.body) {
+        if (t.classList && t.classList.contains('menu-item') && t.getAttribute('data-target') === 'sec-licencas') {
+          _superAdminSocket.emit('get_license_config');
+          setTimeout(function() { _superAdminSocket.emit('get_license_config'); }, 1500);
+          break;
+        }
+        t = t.parentNode;
+      }
+    });
+  }
+
   /* ═══ RENDER FUNÇÕES ═══ */
   var _featuresDef = [];
   var _featurePlans = {};

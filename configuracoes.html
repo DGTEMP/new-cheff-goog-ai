@@ -2453,9 +2453,6 @@
         <button class="admin-tab-btn" data-tab="funcoes" style="color:#22d3ee;">
           <i class="ph ph-puzzle-piece"></i> Funções do Sistema
         </button>
-        <button class="admin-tab-btn" data-tab="appscript">
-          <i class="ph ph-google-logo"></i> Apps Script & Sheets
-        </button>
       </div>
     </aside>
 
@@ -2964,6 +2961,18 @@
             Configure o tom sonoro para cada evento em cada seção (Cozinha, Bar, etc.) e por etapa do fluxo de preparo.
             Use "Nova Seção" para criar, renomear ou excluir seções.
           </p>
+
+          <div style="display:flex; flex-wrap:wrap; gap:12px; align-items:center; background:var(--cfg-card-bg); padding:14px 16px; border-radius:10px; border:1px solid var(--cfg-border); box-shadow:0 2px 6px rgba(0,0,0,0.03); margin-bottom:16px;">
+            <i class="ph ph-monitor-play" style="font-size:20px; color:#fc4b15;"></i>
+            <div style="display:flex; flex-direction:column; gap:2px; flex:1; min-width:200px;">
+              <span style="font-size:13px; font-weight:700; color:var(--cfg-text);">Versão da Fila de Pedidos</span>
+              <span style="font-size:12px; color:#64748b;">Escolha qual visual a <b>Fila de Pedidos</b> usa no restaurante: a Nova (grade KDS) ou a Clássica. A preferência vale por restaurante.</span>
+            </div>
+            <select id="config-fila-modo" style="padding:9px 12px; border:1px solid #ccc; border-radius:6px; font-size:13px; font-weight:600; background:white; min-width:160px;">
+              <option value="nova">Nova (Grade KDS)</option>
+              <option value="classica">Clássica (anterior)</option>
+            </select>
+          </div>
 
           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
 
@@ -5337,119 +5346,7 @@
         </div>
       </div>
 
-      <!-- TAB APPS SCRIPT -->
-
-<div id="admin-tab-appscript" class="admin-tab-content"
-        style="display:none; overflow-y:auto; padding-right: 8px;">
-        <div style="max-width: 640px;">
-
-          <div
-            style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px; padding:16px; margin-bottom:24px; font-size:13px; color:#166534;">
-            <strong>🔧 Configuração única:</strong> Preencha os campos abaixo com os dados do seu Google Apps Script.
-            Estas configurações ficam salvas no servidor e são usadas para validar licenças de todos os clientes.
-          </div>
-
-          <!-- URL do Apps Script -->
-          <div style="background:var(--cfg-subtle-bg); border:1px solid var(--cfg-border); border-radius:12px; padding:22px; margin-bottom:16px;">
-            <label
-              style="display:block; font-size:12px; font-weight:600; color:var(--cfg-text-muted); text-transform:uppercase; letter-spacing:.05em; margin-bottom:8px;">
-              <i class="ph ph-link"></i> URL do Apps Script (Web App)
-            </label>
-            <input type="text" id="cfg-script-url" placeholder="https://script.google.com/macros/s/.../exec"
-              style="width:100%; padding:11px 14px; border:1.5px solid #ddd; border-radius:8px; font-size:13px; box-sizing:border-box; outline:none; font-family:monospace;" />
-            <p style="font-size:12px; color:#999; margin:6px 0 0;">Encontre em: Apps Script → Implantar → Gerenciar
-              implantações → URL do aplicativo web</p>
-          </div>
-
-          <!-- Sheet ID -->
-          <div style="background:var(--cfg-subtle-bg); border:1px solid var(--cfg-border); border-radius:12px; padding:22px; margin-bottom:16px;">
-            <label
-              style="display:block; font-size:12px; font-weight:600; color:var(--cfg-text-muted); text-transform:uppercase; letter-spacing:.05em; margin-bottom:8px;">
-              <i class="ph ph-table"></i> ID da Planilha Google Sheets
-            </label>
-            <input type="text" id="cfg-sheet-id" placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms"
-              style="width:100%; padding:11px 14px; border:1.5px solid #ddd; border-radius:8px; font-size:13px; box-sizing:border-box; outline:none; font-family:monospace;" />
-            <p style="font-size:12px; color:#999; margin:6px 0 0;">Encontre na URL da planilha:
-              <code>docs.google.com/spreadsheets/d/<strong>[ID AQUI]</strong>/edit</code></p>
-          </div>
-
-          <!-- Dias de trial padrão -->
-          <div style="background:var(--cfg-subtle-bg); border:1px solid var(--cfg-border); border-radius:12px; padding:22px; margin-bottom:20px;">
-            <label
-              style="display:block; font-size:12px; font-weight:600; color:var(--cfg-text-muted); text-transform:uppercase; letter-spacing:.05em; margin-bottom:8px;">
-              <i class="ph ph-clock"></i> Dias de Trial Padrão (para novos registros)
-            </label>
-            <input type="number" id="cfg-trial-dias" min="1" max="365" value="14"
-              style="width:120px; padding:11px 14px; border:1.5px solid #ddd; border-radius:8px; font-size:15px; font-weight:600; outline:none; text-align:center;" />
-            <p style="font-size:12px; color:#999; margin:6px 0 0;">Este valor é o padrão no Apps Script. Você pode
-              sobrescrever por cliente na coluna F da planilha.</p>
-          </div>
-
-          <!-- URL do Servidor Central (Hub) -->
-          <div style="background:#eef4ff; border:1px solid #bfdbfe; border-radius:12px; padding:22px; margin-bottom:20px;">
-            <label
-              style="display:block; font-size:12px; font-weight:600; color:#1e40af; text-transform:uppercase; letter-spacing:.05em; margin-bottom:8px;">
-              <i class="ph ph-server"></i> URL do Servidor Central (Hub de Chaves)
-            </label>
-            <input type="text" id="cfg-hub-url" placeholder="https://meuhub.chefcozinha.com ou http://192.168.1.100:3000"
-              style="width:100%; padding:11px 14px; border:1.5px solid #bfdbfe; border-radius:8px; font-size:13px; box-sizing:border-box; outline:none; font-family:monospace;" />
-            <p style="font-size:12px; color:#64748b; margin:6px 0 0;">Preencha se esta instalação deve validar chaves e
-              enviar telemetria para um servidor central (onde o super admin gera as chaves). Vazio = validação pelo
-              Apps Script.</p>
-          </div>
-
-          <!-- Modo 100% Offline -->
-          <div
-            style="background:var(--cfg-subtle-bg); border:1px solid var(--cfg-border); border-radius:12px; padding:22px; margin-bottom:20px; display:flex; align-items:center; gap:12px;">
-            <input type="checkbox" id="cfg-modo-offline" style="width:20px; height:20px; cursor:pointer;" />
-            <div>
-              <label for="cfg-modo-offline" style="font-weight:600; color:#333; cursor:pointer; font-size:14px;">Iniciar
-                em Modo 100% Offline (Sem Internet)</label>
-              <p style="font-size:12px; color:#999; margin:4px 0 0;">Ative se o servidor estiver rodando em uma rede
-                local fechada e sem conexão externa. Isso desativa a exigência de validação online periódica.</p>
-            </div>
-          </div>
-
-          <!-- Botões -->
-          <div style="display:flex; gap:12px; flex-wrap:wrap;">
-            <button onclick="salvarConfigLicenca()"
-              style="padding:12px 24px; background:#7c3aed; color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:8px;">
-              <i class="ph ph-floppy-disk"></i> Salvar Configurações
-            </button>
-            <button onclick="testarConexaoScript()"
-              style="padding:12px 24px; background:transparent; color:#7c3aed; border:2px solid #7c3aed; border-radius:8px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:8px;">
-              <i class="ph ph-plugs-connected"></i> Testar Conexão
-            </button>
-            <a href="https://script.google.com" target="_blank"
-              style="padding:12px 20px; background:var(--cfg-subtle-bg); color:#444; border:1px solid #ddd; border-radius:8px; font-weight:500; text-decoration:none; display:flex; align-items:center; gap:8px; font-size:14px;">
-              <i class="ph ph-google-logo"></i> Abrir Apps Script
-            </a>
-          </div>
-          <div id="cfg-msg" style="margin-top:14px; font-size:13px; display:none;"></div>
-
-          <!-- Guia passo a passo -->
-          <details
-            style="margin-top:28px; background:var(--cfg-subtle-bg); border:1px solid var(--cfg-border); border-radius:10px; padding:16px;">
-            <summary style="font-weight:600; cursor:pointer; color:#333; font-size:14px;">📖 Passo a passo de
-              configuração</summary>
-            <ol style="margin:14px 0 0; padding-left:20px; font-size:13px; color:#555; line-height:2;">
-              <li>Crie uma conta Google exclusiva para o Chef Cozinha</li>
-              <li>Acesse <a href="https://sheets.google.com" target="_blank">sheets.google.com</a> e crie uma nova
-                planilha</li>
-              <li>Copie o ID da planilha da URL e cole acima</li>
-              <li>Na planilha: <strong>Extensões → Apps Script</strong></li>
-              <li>Delete o código padrão e cole o conteúdo do arquivo
-                <code>installer/apps-script/LicenseServer.gs</code></li>
-              <li>Substitua <code>SHEET_ID</code> pelo ID da planilha</li>
-              <li>Clique em <strong>Implantar → Novo implante → Aplicativo Web</strong></li>
-              <li>Configure: <em>Execute como: Eu mesmo</em> | <em>Acesso: Qualquer pessoa</em></li>
-              <li>Copie a URL gerada e cole no campo acima</li>
-              <li>Clique em <strong>Salvar Configurações</strong> e depois <strong>Testar Conexão</strong></li>
-            </ol>
-          </details>
-
-        </div>
-      </div>
+<!-- TAB APPS SCRIPT -->
 
       <!-- TAB AUDITORIA & ANTI-FRAUDE -->
       

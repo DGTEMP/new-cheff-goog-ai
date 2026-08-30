@@ -106,9 +106,10 @@ async function testarApiKey(apiKey, model = DEFAULT_MODEL) {
 /**
  * Gera sugestões inteligentes de promoções e combos com base no cardápio real e vendas
  */
-async function gerarPromocoesIA({ apiKey, model, contextoRestaurante, cardapio, historicoVendas, objetivo }) {
+async function gerarPromocoesIA({ apiKey, model, contextoRestaurante, cardapio, historicoVendas, comprasRecentes, objetivo }) {
   const systemInstruction = `Você é o Diretor Comercial e Estrategista de Vendas com IA de elite do sistema Chef Cozinha.
 Seu objetivo é criar promoções e combos inteligentes para o restaurante lucrar mais, aumentar o ticket médio e fidelizar clientes.
+Use dados reais de estoque, margem de lucro, validade e variação de compras para recomendar produtos certos para promoção (ex.: queimar estoque alto, priorizar alta margem, rotacionar itens perto do vencimento, proteger itens com margem baixa).
 Você deve responder EXCLUSIVAMENTE em formato JSON compatível com o schema solicitado, sem markdown ao redor do json.`;
 
   const resumoCardapio = (cardapio || []).map(p => ({
@@ -116,23 +117,48 @@ Você deve responder EXCLUSIVAMENTE em formato JSON compatível com o schema sol
     nome: p.nome,
     categoria: p.categoria,
     preco: p.preco,
-    categoria_fiscal: p.categoria_fiscal || 'Alimentacao'
+    categoria_fiscal: p.categoria_fiscal || 'Alimentacao',
+    preco_custo: p.preco_custo,
+    margem_percentual: p.margem_percentual,
+    estoque: p.estoque,
+    status_estoque: p.status_estoque,
+    validade: p.validade || null,
+    ultimo_preco_compra: p.ultimo_preco_compra,
+    variacao_preco_compra_90d: p.variacao_preco_compra_90d
+  })).filter(p => p.nome);
+
+  const resumoCompras = (comprasRecentes || []).slice(0, 60).map(c => ({
+    produto_id: c.produto_id,
+    nome: c.nome,
+    valor_unitario: c.valor_unitario,
+    data_nota: c.data_nota
   }));
 
-  const prompt = `Analise o cardápio e os dados deste restaurante e crie 3 a 5 sugestões de PROMOÇÕES / COMBOS DE ALTO IMPACTO.
+  const prompt = `Analise o cardápio, o estoque, as margens e as vendas deste restaurante e crie 3 a 5 sugestões de PROMOÇÕES / COMBOS DE ALTO IMPACTO.
 
 DADOS DO RESTAURANTE:
 - Identidade / Contexto: ${contextoRestaurante || 'Restaurante / Bar / Lanchonete padrão'}
 - Foco atual: ${objetivo || 'Aumentar faturamento e ticket médio'}
 - Total de produtos no cardápio: ${resumoCardapio.length}
-- Produtos cadastrados: ${JSON.stringify(resumoCardapio.slice(0, 50))}
+- Produtos cadastrados (com estoque, margem, validade e variação de compra): ${JSON.stringify(resumoCardapio.slice(0, 50))}
 
 HISTÓRICO RECENTE DE VENDAS (se houver):
 ${JSON.stringify(historicoVendas || {})}
 
+COMPRAS DOS ÚLTIMOS 90 DIAS (custo reais das notas, se houver):
+${JSON.stringify(resumoCompras)}
+
+Regras de inteligência:
+1. Se o estoque de um produto está alto/'ok' e tem boa margem: ótimo candidato para combo/estímulo.
+2. Se um produto está 'esgotado' ou sem estoque garantido: NUNCA promova como item principal, ou avise para reabastecer antes.
+3. Se a validade/vencimento está próxima (e o produto já vence): sugira promoção de giro rápido para não perder produto.
+4. Use margem_percentual para garantir que a promoção ainda dê lucro (não sugira preço abaixo do preco_custo).
+5. Se ultimo_preco_compra subiu ('variacao_preco_compra_90d' positivo): atenção à margem no preço promocional.
+6. Dê preferência a produtos que vendem bem (historicoVendas.mais_vendidos) e têm margem saudável.
+
 Retorne um JSON com a seguinte estrutura:
 {
-  "analise_estrategica": "Breve diagnóstico do cardápio e potencial de vendas (máx 2 parágrafos)",
+  "analise_estrategica": "Breve diagnóstico do cardápio, estoque e potencial de vendas (máx 2 parágrafos)",
   "promocoes": [
     {
       "titulo": "Nome criativo e chamativo da promoção / combo",
@@ -143,7 +169,7 @@ Retorne um JSON com a seguinte estrutura:
       "preco_original": 50.00,
       "preco_promocional": 42.90,
       "desconto_percentual": 14,
-      "motivo_estrategico": "Por que esta promoção aumenta o lucro e giro deste restaurante?",
+      "motivo_estrategico": "Por que esta promoção aumenta o lucro e giro deste restaurante, citando estoque/margem/validade quando aplicável",
       "dias_recomendados": ["Terça", "Quarta", "Domingo"],
       "copy_whatsapp": "Texto curto pronto para disparar no WhatsApp com emojis chamando para pedir",
       "copy_instagram": "Legenda com hashtags para post no feed ou stories do Instagram"

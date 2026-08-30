@@ -118,6 +118,7 @@ const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 const nfceService = require('./nfce-service');
+const iaService = require('./ia-service');
 
 // Carrega variáveis do arquivo .env (sem dependência externa)
 try {
@@ -818,6 +819,14 @@ masterDb.serialize(() => {
     proxima_tentativa DATETIME DEFAULT (datetime('now', 'localtime')),
     criado_em DATETIME DEFAULT (datetime('now', 'localtime')),
     sincronizado_em DATETIME
+  )`);
+  masterDb.run(`CREATE TABLE IF NOT EXISTS metrica_picos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    restaurante_id INTEGER,
+    dia TEXT,
+    hora INTEGER,
+    sockets INTEGER DEFAULT 0,
+    UNIQUE(restaurante_id, dia, hora)
   )`);
 });
 
@@ -1720,8 +1729,10 @@ db.serialize(() => {
     nome TEXT,
     preco REAL DEFAULT 0,
     ativo INTEGER DEFAULT 1,
-    ordem INTEGER DEFAULT 0
+    ordem INTEGER DEFAULT 0,
+    produto_id INTEGER
   )`, (err) => { });
+  db.run(`ALTER TABLE montavel_opcoes ADD COLUMN produto_id INTEGER`, (err) => { });
 
   // Inscrições de notificações push (Web Push) por dispositivo
   db.run(`
@@ -8366,7 +8377,8 @@ app.post('/api/pedidos/chamar-garcom', verificarToken, (req, res) => {
 // (Segurança) Chaves de configuração sensíveis: NUNCA retornadas via GET /api/config.
 const CONFIG_SECRET_KEYS = [
   'mp_access_token', 'pagbank_token', 'stone_stonecode', 'sitef_ip',
-  'cert_senha', 'csc', 'token_api_fiscal', 'ponto_token', 'jwt_secret'
+  'cert_senha', 'csc', 'token_api_fiscal', 'ponto_token', 'jwt_secret',
+  'ia_api_key'
 ];
 
 app.get('/api/config', (req, res) => {
@@ -8407,6 +8419,307 @@ app.post('/api/config', verificarToken, (req, res) => {
     broadcastProdutos(); // Força envio atualizado com Destaques
     res.json({ success: true });
   }, 500);
+});
+
+// ─── INTELIGÊNCIA DE VENDAS & PROMOÇÕES (Gemini) ───
+// Config + validação de chave de API, geração de promoções e combos,
+// copy para WhatsApp/Instagram e consultoria estratégica.
+function lerConfigIa(rows) {
+  const keys = {};
+  (rows || []).forEach(r => { keys[r.chave] = r.valor; });
+  return {
+    has_key: !!(keys.ia_api_key && String(keys.ia_api_key).trim()),
+    api_key: keys.ia_api_key || '',
+    ia_model: keys.ia_model || iaService.DEFAULT_MODEL,
+    ia_tom_voz: keys.ia_tom_voz || '',
+    ia_ativa: String(keys.ia_ativa || 'true') !== 'false'
+  };
+}
+
+function enriquecerCardapio(produtos, compras) {
+  const compraPorProduto = {};
+  (compras || []).forEach(c => {
+    if (!c.produto_id) return;
+    const v = parseFloat(c.valor_unitario) || 0;
+    if (v <= 0) return;
+    const lista = compraPorProduto[c.produto_id] || (compraPorProduto[c.produto_id] = []);
+    lista.push(v);
+  });
+  return (produtos || []).map(p => {
+    const preco = parseFloat(p.preco) || 0;
+    const custo = parseFloat(p.preco_custo) || 0;
+    const estoque = (p.estoque !== null && p.estoque !== undefined) ? (parseFloat(p.estoque) || 0) : null;
+    const precosCompra = compraPorProduto[p.id] || [];
+    const ultimaCompra = precosCompra.length ? precosCompra[precosCompra.length - 1] : null;
+    let variacaoCompra = null;
+    if (precosCompra.length >= 2) {
+      const primeira = precosCompra[0];
+      const ultima = precosCompra[precosCompra.length - 1];
+      if (primeira > 0) variacaoCompra = Math.round(((ultima - primeira) / primeira) * 100);
+    }
+    return {
+      id: p.id,
+      nome: p.nome,
+      categoria: p.categoria,
+      preco,
+      categoria_fiscal: p.categoria_fiscal || 'Alimentacao',
+      preco_custo: Math.round(custo * 100) / 100,
+      margem_percentual: preco > 0 ? Math.round(((preco - custo) / preco) * 100) : null,
+      estoque,
+      status_estoque: estoque === null ? 'sem_controle' : (estoque <= 0 ? 'esgotado' : (estoque < 10 ? 'baixo' : 'ok')),
+      validade: p.validade || null,
+      ultimo_preco_compra: ultimaCompra,
+      variacao_preco_compra_90d: variacaoCompra
+    };
+  });
+}
+
+function montarHistoricoVendas(pedidos) {
+  const vendas = pedidos || [];
+  const mapa = {};
+  let receita = 0;
+  vendas.forEach(p => {
+    const nome = p.productName || '';
+    if (!nome || nome.indexOf('Pgto Parcial') !== -1 || nome.indexOf('Pagamento') !== -1 || nome.indexOf('Pgto QR') !== -1) return;
+    const qty = parseInt(p.quantity) || 1;
+    mapa[nome] = (mapa[nome] || 0) + qty;
+    const v = Math.abs(parseFloat(String(p.total || '0').replace(/[R$\s]/g, '').replace(',', '.')) || 0);
+    receita += v;
+  });
+  const maisVendidos = Object.keys(mapa).map(n => ({ produto: n, quantidade: mapa[n] })).sort((a, b) => b.quantidade - a.quantidade).slice(0, 8);
+  return {
+    total_pedidos: vendas.length,
+    receita_total_30d: Math.round(receita * 100) / 100,
+    mais_vendidos: maisVendidos
+  };
+}
+
+app.get('/api/ia/config', (req, res) => {
+  withTenant(req, () => {
+    db.all(`SELECT chave, valor FROM configuracoes WHERE chave IN ('ia_api_key','ia_model','ia_tom_voz','ia_ativa')`, [], (err, rows) => {
+      if (err) return res.status(500).json({ ok: false, erro: err.message });
+      const cfg = lerConfigIa(rows);
+      const k = cfg.api_key || '';
+      res.json({ ok: true, config: { has_key: cfg.has_key, masked_key: cfg.has_key ? '••••' + k.slice(-4) : '', ia_model: cfg.ia_model, ia_tom_voz: cfg.ia_tom_voz, ia_ativa: cfg.ia_ativa } });
+    });
+  });
+});
+
+app.post('/api/ia/config', (req, res) => {
+  const payload = req.body || {};
+  withTenant(req, () => {
+    const valores = {};
+    if (payload.ia_model) valores.ia_model = String(payload.ia_model);
+    if (payload.ia_tom_voz !== undefined) valores.ia_tom_voz = String(payload.ia_tom_voz);
+    if (payload.ia_ativa !== undefined) valores.ia_ativa = payload.ia_ativa ? 'true' : 'false';
+    const novaChave = (payload.ia_api_key || '').trim();
+    if (novaChave && novaChave.indexOf('••••') === -1) valores.ia_api_key = novaChave;
+    if (!Object.keys(valores).length) return res.json({ ok: false, erro: 'Nenhuma configuração para salvar.' });
+    db.serialize(() => {
+      db.run("BEGIN TRANSACTION;");
+      Object.keys(valores).forEach(chave => {
+        db.run(`INSERT INTO configuracoes (chave, valor) VALUES (?, ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor`, [chave, valores[chave]]);
+      });
+      db.run("COMMIT;", (err) => {
+        if (err) return res.status(500).json({ ok: false, erro: err.message });
+        res.json({ ok: true, mensagem: 'Configuração de IA salva com sucesso!' });
+      });
+    });
+  });
+});
+
+app.post('/api/ia/test-key', (req, res) => {
+  const body = req.body || {};
+  withTenant(req, () => {
+    db.all(`SELECT chave, valor FROM configuracoes WHERE chave IN ('ia_api_key','ia_model')`, [], (err, rows) => {
+      if (err) return res.status(500).json({ ok: false, erro: err.message });
+      const cfg = lerConfigIa(rows);
+      const apiKey = (body.apiKey && String(body.apiKey).trim() && String(body.apiKey).indexOf('••••') === -1) ? String(body.apiKey).trim() : cfg.api_key;
+      if (!apiKey) return res.json({ ok: false, erro: 'Informe a chave de API do Gemini para testar.' });
+      const model = (body.model && String(body.model).trim()) || cfg.ia_model;
+      iaService.testarApiKey(apiKey, model).then(resultado => {
+        res.json(resultado.ok ? { ok: true, modelo: resultado.modelo } : { ok: false, erro: resultado.erro });
+      });
+    });
+  });
+});
+
+app.post('/api/ia/gerar-promocoes', (req, res) => {
+  const objetivo = (req.body && req.body.objetivo) || 'Aumentar faturamento e ticket médio';
+  withTenant(req, () => {
+    db.all(`SELECT chave, valor FROM configuracoes`, [], (eCfg, rows) => {
+      if (eCfg) return res.status(500).json({ ok: false, erro: eCfg.message });
+      const cfg = lerConfigIa(rows);
+      if (!cfg.has_key) {
+        return res.json({ ok: false, erro: 'Chave de API do Gemini não configurada. Salve sua chave na aba "Inteligência de Vendas" e depois teste a conexão.' });
+      }
+      const keys = {};
+      (rows || []).forEach(r => { keys[r.chave] = r.valor; });
+      const contexto = String(keys.nome_restaurante || '').trim() || 'Restaurante / Bar / Lanchonete padrão';
+      db.all(`SELECT id, nome, categoria, preco, categoria_fiscal, estoque, preco_custo, validade FROM produtos WHERE status != 'inativo'`, [], (eP, produtos) => {
+        if (eP) return res.status(500).json({ ok: false, erro: eP.message });
+        db.all(`SELECT productName, quantity, total FROM pedidos WHERE createdAt >= datetime('now','-30 days')`, [], (eH, pedidos) => {
+          if (eH) return res.status(500).json({ ok: false, erro: eH.message });
+          db.all(`SELECT ni.produto_id, ni.nome, ni.valor_unitario, nc.data_nota
+                  FROM nota_itens ni LEFT JOIN notas_compra nc ON ni.nota_id = nc.id
+                  WHERE nc.data_nota >= date('now','-90 days')`, [], (eN, compras) => {
+            if (eN) return res.status(500).json({ ok: false, erro: eN.message });
+            const cardapioEnriquecido = enriquecerCardapio((produtos || []), (compras || []));
+            const historico = montarHistoricoVendas(pedidos || []);
+            iaService.gerarPromocoesIA({ apiKey: cfg.api_key, model: cfg.ia_model, contextoRestaurante: contexto, cardapio: cardapioEnriquecido, historicoVendas: historico, comprasRecentes: compras || [], objetivo })
+              .then(resultado => res.json({ ok: true, resultado }))
+              .catch(err => res.json({ ok: false, erro: err.message }));
+          });
+        });
+      });
+    });
+  });
+});
+
+app.post('/api/ia/aplicar-promocao', (req, res) => {
+  const p = req.body || {};
+  const titulo = String(p.titulo || '').trim();
+  if (!titulo) return res.json({ ok: false, erro: 'Título da promoção obrigatório.' });
+  const desconto = Math.round(Math.abs(parseFloat(p.desconto_percentual)) || 0);
+  const precoPromo = Math.abs(parseFloat(p.preco)) || 0;
+  const envolvidos = Array.isArray(p.produtos_envolvidos) ? p.produtos_envolvidos.filter(Boolean) : [];
+  withTenant(req, () => {
+    db.all(`SELECT nome FROM produtos WHERE status != 'inativo'`, [], (eP, prods) => {
+      const nomes = (prods || []).map(x => x.nome);
+      const alvo = envolvidos.find(n => nomes.indexOf(n) !== -1) || (nomes.indexOf(titulo) !== -1 ? titulo : null);
+      const regra = alvo ? 'preco_promocional' : 'combo';
+      const config = JSON.stringify({
+        tipo_promocao: regra,
+        titulo,
+        produto_alvo_nome: alvo,
+        produtos_envolvidos: envolvidos,
+        preco_promocional: precoPromo,
+        desconto_percentual: desconto
+      });
+      db.run(`INSERT INTO promocoes (nome, regra, desconto, ativo, config) VALUES (?, ?, ?, 1, ?)`, [titulo, regra, desconto, config], (errIns) => {
+        if (errIns) return res.status(500).json({ ok: false, erro: errIns.message });
+        db.all(`SELECT * FROM promocoes`, [], (eR, rows) => {
+          io.emit('promocoes_atualizadas', rows || []);
+          io.emit('configuracoes_atualizadas');
+          res.json({ ok: true, mensagem: 'Promoção "' + titulo + '" cadastrada no cardápio!' });
+        });
+      });
+    });
+  });
+});
+
+app.post('/api/ia/gerar-copy', (req, res) => {
+  const body = req.body || {};
+  const canal = String(body.canal || 'whatsapp');
+  const promocao = String(body.promocao || 'Nossos pratos especiais');
+  withTenant(req, () => {
+    db.all(`SELECT chave, valor FROM configuracoes WHERE chave IN ('ia_api_key','ia_model','nome_restaurante')`, [], (eCfg, rows) => {
+      if (eCfg) return res.status(500).json({ ok: false, erro: eCfg.message });
+      const cfg = lerConfigIa(rows);
+      if (!cfg.has_key) return res.json({ ok: false, erro: 'Chave de API do Gemini não configurada.' });
+      const keys = {};
+      (rows || []).forEach(r => { keys[r.chave] = r.valor; });
+      db.all(`SELECT id, nome, categoria, preco FROM produtos WHERE status != 'inativo'`, [], (eP, produtos) => {
+        if (eP) return res.status(500).json({ ok: false, erro: eP.message });
+        iaService.gerarCopyMarketing({ apiKey: cfg.api_key, model: cfg.ia_model, contextoRestaurante: keys.nome_restaurante || '', produtos: (produtos || []).slice(0, 12), promocao, canal })
+          .then(resultado => res.json({ ok: true, resultado }))
+          .catch(err => res.json({ ok: false, erro: err.message }));
+      });
+    });
+  });
+});
+
+app.post('/api/ia/consultor', (req, res) => {
+  const body = req.body || {};
+  const pergunta = String(body.pergunta || '').trim();
+  if (!pergunta) return res.json({ ok: false, erro: 'Digite uma pergunta.' });
+  const historico = Array.isArray(body.historico) ? body.historico : [];
+  withTenant(req, () => {
+    db.all(`SELECT chave, valor FROM configuracoes WHERE chave IN ('ia_api_key','ia_model','nome_restaurante')`, [], (eCfg, rows) => {
+      if (eCfg) return res.status(500).json({ ok: false, erro: eCfg.message });
+      const cfg = lerConfigIa(rows);
+      if (!cfg.has_key) return res.json({ ok: false, erro: 'Chave de API do Gemini não configurada.' });
+      const keys = {};
+      (rows || []).forEach(r => { keys[r.chave] = r.valor; });
+      db.all(`SELECT id, nome, categoria, preco, categoria_fiscal FROM produtos WHERE status != 'inativo'`, [], (eP, produtos) => {
+        if (eP) return res.status(500).json({ ok: false, erro: eP.message });
+        db.all(`SELECT productName, quantity, total FROM pedidos WHERE createdAt >= datetime('now','-30 days')`, [], (eH, pedidos) => {
+          if (eH) return res.status(500).json({ ok: false, erro: eH.message });
+          const historicoVendas = montarHistoricoVendas(pedidos || []);
+          iaService.consultarAssistenteVendas({ apiKey: cfg.api_key, model: cfg.ia_model, contextoRestaurante: keys.nome_restaurante || '', cardapio: produtos || [], historicoVendas, historicoMensagens: historico, pergunta })
+            .then(resultado => res.json({ ok: true, resposta: resultado.resposta }))
+            .catch(err => res.json({ ok: false, erro: err.message }));
+        });
+      });
+    });
+  });
+});
+
+// Pesquisa inteligente do estabelecimento por GPS (set up inicial / deep research)
+app.post('/api/ia/pesquisar-estabelecimento-geo', (req, res) => {
+  const body = req.body || {};
+  const lat = parseFloat(body.lat);
+  const lng = parseFloat(body.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return res.status(400).json({ ok: false, erro: 'Coordenadas inválidas (lat/lng obrigatórios).' });
+  }
+  withTenant(req, () => {
+    db.all(`SELECT chave, valor FROM configuracoes WHERE chave IN ('ia_api_key','ia_model')`, [], (eCfg, rows) => {
+      if (eCfg) return res.status(500).json({ ok: false, erro: eCfg.message });
+      const cfg = lerConfigIa(rows || []);
+      let apiKey = cfg.api_key;
+      let model = cfg.ia_model;
+      if (!apiKey) {
+        masterDb.get(`SELECT valor FROM configuracoes_global WHERE chave = 'ia_api_key'`, [], (eG, rowG) => {
+          useMasterKey(rowG && rowG.valor);
+        });
+      } else {
+        useMasterKey(apiKey);
+      }
+      function useMasterKey(globalKey) {
+        if (!apiKey && globalKey) apiKey = globalKey;
+        if (!model) {
+          masterDb.get(`SELECT valor FROM configuracoes_global WHERE chave = 'ia_model'`, [], (eMg, rowMg) => {
+            iaService.pesquisarEstabelecimentoGeo({ lat, lng, apiKey, model: model || (rowMg && rowMg.valor) })
+              .then(resultado => res.json({ ok: resultado.ok, tem_ia: !!apiKey, dados: resultado.dados, erro: resultado.erro }));
+          });
+        } else {
+          iaService.pesquisarEstabelecimentoGeo({ lat, lng, apiKey, model })
+            .then(resultado => res.json({ ok: resultado.ok, tem_ia: !!apiKey, dados: resultado.dados, erro: resultado.erro }));
+        }
+      }
+    });
+  });
+});
+
+// Gera um cupom (QR) promocional de 1 clique a partir de uma sugestão de combo da IA
+app.post('/api/ia/cupom-rapido', (req, res) => {
+  const p = req.body || {};
+  const titulo = String(p.titulo || 'Promo IA').trim().slice(0, 90);
+  const precoOrig = Math.abs(parseFloat(p.preco_original) || 0);
+  const precoPromo = Math.abs(parseFloat(p.preco_promocional) || 0);
+  const valoresDesconto = precoOrig > 0 && precoPromo < precoOrig ? precoOrig - precoPromo : 0;
+  const descontoPct = Math.round(Math.abs(parseFloat(p.desconto_percentual) || 0));
+  const valorCupom = valoresDesconto > 0 ? Math.round(valoresDesconto * 100) / 100 : (precoPromo || descontoPct);
+  const valorTipo = valoresDesconto > 0 ? 'desconto_fixo' : (precoPromo > 0 ? 'preco_fixo' : 'percentual');
+  const validadeDias = Math.max(parseInt(p.validade_dias, 10) || 7, 1);
+  const produtos = Array.isArray(p.produtos_envolvidos) ? p.produtos_envolvidos.filter(Boolean).slice(0, 12) : [];
+  const codigo = ('PROMO-' + String(p.codigo || '').toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 12) || ('PROMO-' + Math.random().toString(36).substring(2, 8).toUpperCase()));
+  withTenant(req, () => {
+    const validade = new Date(Date.now() + validadeDias * 86400000).toISOString().slice(0, 10);
+    const itens = produtos.map(nome => ({ nome, emoji: '🎁', sector: 'IA', quantity: 1 }));
+    db.run(
+      `INSERT INTO cupons (codigo, titulo, valor_tipo, valor, validade, limite_usos, itens_json, dias_horarios_json, data_criacao)
+       VALUES (?, ?, ?, ?, ?, 1, ?, '{}', datetime('now', 'localtime'))
+       ON CONFLICT(codigo) DO NOTHING`,
+      [codigo, titulo, valorTipo, valorCupom, validade, JSON.stringify(itens)],
+      function (errIns) {
+        if (errIns) return res.status(500).json({ ok: false, erro: errIns.message });
+        if (this.changes === 0) return res.json({ ok: false, erro: 'Já existe um cupom com o código ' + codigo + '.' });
+        io.emit('cupons_atualizados');
+        res.json({ ok: true, mensagem: 'Cupom ' + codigo + ' criado com QR Code!', codigo, titulo, valor_tipo: valorTipo, valor: valorCupom });
+      });
+  });
 });
 
 // --- ITENS MONTÁVEIS CRUD ---
@@ -8493,6 +8806,28 @@ app.delete('/api/montaveis/:id', verificarToken, (req, res) => {
   });
 });
 
+function resolverOpcoesVinculadas(opts, done) {
+  const lista = opts || [];
+  const comVinculo = lista.filter(o => o.produto_id);
+  if (!comVinculo.length) return done(lista);
+  db.all(`SELECT id, nome, preco, emoji, visibilidade FROM produtos`, [], (eP, prods) => {
+    if (eP) return done(lista);
+    const mapa = {};
+    (prods || []).forEach(p => { mapa[p.id] = p; });
+    lista.forEach(o => {
+      if (o.produto_id && mapa[o.produto_id]) {
+        o.nome = mapa[o.produto_id].nome;
+        o.preco = Number(mapa[o.produto_id].preco) || 0;
+        o.emoji_vinculado = mapa[o.produto_id].emoji || null;
+        o.vinculado = true;
+      } else if (o.produto_id) {
+        o.vinculo_quebrado = true;
+      }
+    });
+    done(lista);
+  });
+}
+
 function insertCategorias(montavelId, cats, done) {
   if (!cats.length) return done();
   let pending = cats.length;
@@ -8503,8 +8838,8 @@ function insertCategorias(montavelId, cats, done) {
         const catId = this.lastID;
         let optPending = cat.opcoes.length;
         cat.opcoes.forEach((opt, oi) => {
-          db.run(`INSERT INTO montavel_opcoes (categoria_id, nome, preco, ativo, ordem) VALUES (?, ?, ?, ?, ?)`,
-            [catId, opt.nome || '', opt.preco || 0, opt.ativo !== undefined ? (opt.ativo ? 1 : 0) : 1, oi], () => {
+          db.run(`INSERT INTO montavel_opcoes (categoria_id, nome, preco, ativo, ordem, produto_id) VALUES (?, ?, ?, ?, ?, ?)`,
+            [catId, opt.nome || '', Number(opt.preco) || 0, opt.ativo !== undefined ? (opt.ativo ? 1 : 0) : 1, oi, opt.produto_id || null], () => {
               if (--optPending === 0 && --pending === 0) done();
             });
         });
@@ -8526,8 +8861,12 @@ app.get('/api/montaveis/produto/:produtoId', verificarToken, (req, res) => {
         const catIds = catList.map(c => c.id);
         const ph = catIds.map(() => '?').join(',');
         db.all(`SELECT * FROM montavel_opcoes WHERE categoria_id IN (${ph}) AND ativo = 1 ORDER BY ordem, id`, catIds, (eO, opts) => {
-          catList.forEach(cat => { cat.opcoes = (opts || []).filter(o => o.categoria_id === cat.id); });
-          res.json({ ...mRow, categorias: catList });
+          resolverOpcoesVinculadas(opts || [], (allOpts) => {
+            catList.forEach(cat => {
+              cat.opcoes = allOpts.filter(o => o.categoria_id === cat.id);
+            });
+            res.json({ ...mRow, categorias: catList });
+          });
         });
       });
     });
@@ -10569,8 +10908,11 @@ app.get('/api/funcoes', (req, res) => {
 });
 
 app.get('/api/config/produtos', (req, res) => {
-  db.all('SELECT id, nome as name, preco as price, categoria as category, emoji FROM produtos ORDER BY id DESC', [], (err, rows) => {
-    res.json(rows || []);
+  withTenant(req, () => {
+    db.all('SELECT id, nome, preco, emoji, categoria, visibilidade, status FROM produtos WHERE status != \'inativo\' ORDER BY nome', [], (err, rows) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json(rows || []);
+    });
   });
 });
 
